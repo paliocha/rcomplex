@@ -220,7 +220,7 @@ if (!file.exists(comparison_RData)) {
     
     ortho_neigh <- species2_net[ortho$Species2[i],]
     ortho_neigh <- names(ortho_neigh[ortho_neigh >= species2_thr])
-    ortho_neigh <- ortho$Species1[ortho$Species2 %in% ortho_neigh]
+    ortho_neigh <- unique(ortho$Species1[ortho$Species2 %in% ortho_neigh])
     
     N <- nrow(species1_expr)
     m <- length(neigh)
@@ -244,7 +244,7 @@ if (!file.exists(comparison_RData)) {
     
     ortho_neigh <- species1_net[ortho$Species1[i],]
     ortho_neigh <- names(ortho_neigh[ortho_neigh >= species1_thr])
-    ortho_neigh <- ortho$Species2[ortho$Species1 %in% ortho_neigh]
+    ortho_neigh <- unique(ortho$Species2[ortho$Species1 %in% ortho_neigh])
     
     N <- nrow(species2_expr)
     m <- length(neigh)
