@@ -115,11 +115,11 @@ cat ("After filtering on expressed genes with ortholog:\n",
 
 ### Compute co-expression networks
 
-Several parameters:
+There are several parameters that need to be set:
 
-- Correlation: Pearson or Spearman
+- Correlation: Pearson, Spearman, ...
 - Normalization: CLR or MR
-- Network density threshold -> Co-expression threshold
+- Network density threshold. This determines the co-expression threshold
 
 ```{r coexpression}
 cor_method <- "pearson" # pearson spearman
@@ -127,6 +127,11 @@ cor_sign <- "" # abs
 norm_method <- "MR" # CLR MR
 density_thr <- 0.03
 randomize <- "" # rand
+
+cat ("Parameters", "\n", 
+     "  cor_method  = ", cor_method, "\n",
+     "  norm_method = ", norm_method, "\n",
+     "  density_thr = ", density_thr, "\n", sep = "")
 
 comparison_RData <- paste0("RData/comparison-", species1_name, "-", species2_name, "-", 
                            cor_sign, cor_method, norm_method, density_thr, randomize, ".RData")
@@ -182,8 +187,8 @@ if (!file.exists(comparison_RData)) {
   load(file = comparison_RData)
 }
 
-cat(species1_name, "co-expr threshold", format(species1_thr, digits = 3) , "\n")
-cat(species2_name, "co-expr threshold", format(species2_thr, digits = 3) , "\n")
+cat(species1_name, ": co-expr threshold = ", format(species1_thr, digits = 3) , "\n",
+    species2_name, ": co-expr threshold = ", format(species2_thr, digits = 3) , "\n", sep = "")
 
 ```
 
@@ -201,16 +206,18 @@ if (!file.exists(comparison_RData)) {
   comparison$Species1.ortho.neigh <- c(NA)
   comparison$Species1.neigh.overlap <- c(NA)
   comparison$Species1.p.val <- c(NA)
+  comparison$Species1.effect.size <- c(NA)
   
   comparison$Species2.neigh <- c(NA)
   comparison$Species2.ortho.neigh <- c(NA)
   comparison$Species2.neigh.overlap <- c(NA)
   comparison$Species2.p.val <- c(NA)
+  comparison$Species2.effect.size <- c(NA)
   
   for (i in 1:nrow(ortho)) {
     
-    if (i %% 100 == 0) {
-      cat(i, "\n")
+    if (i %% 1000 == 0) {
+      cat(i, "/", nrow(ortho), "\n")
     }
     
     # Species 1 -> Species 2
@@ -228,14 +235,17 @@ if (!file.exists(comparison_RData)) {
     k <- length(ortho_neigh)
     x <- length(intersect(neigh, ortho_neigh))
     p_val <- 1
+    effect_size <- 1
     if (x > 1) {
       p_val <- phyper(x-1, m, n, k, lower.tail = FALSE)
+      effect_size <- (x/k) / (m/N)
     }
     
     comparison$Species1.neigh[i] <- m
     comparison$Species1.ortho.neigh[i] <- k
     comparison$Species1.neigh.overlap[i] <- x
     comparison$Species1.p.val[i] <- p_val
+    comparison$Species1.effect.size[i] <- effect_size
     
     # Species 2 -> Species 1
     
@@ -252,14 +262,17 @@ if (!file.exists(comparison_RData)) {
     k <- length(ortho_neigh)
     x <- length(intersect(neigh, ortho_neigh))
     p_val <- 1
+    effect_size <- 1
     if (x > 1) {
       p_val <- phyper(x-1, m, n, k, lower.tail = FALSE)
+      effect_size <- (x/k) / (m/N)
     }
     
     comparison$Species2.neigh[i] <- m
     comparison$Species2.ortho.neigh[i] <- k
     comparison$Species2.neigh.overlap[i] <- x
     comparison$Species2.p.val[i] <- p_val
+    comparison$Species2.effect.size[i] <- effect_size
   }
   
   save(comparison, species1_thr, species2_thr, file = comparison_RData)
@@ -279,7 +292,7 @@ cat ("After filtering on gene pairs in the networks:\n",
      "  ", length(unique(comparison$Species2)), " ", species2_name, " genes\n",
      sep = "")
 
-# Comparsion of p-values of orthologs: species 1 -> species 2 vs species 2 -> species 1
+# Comparison of p-values of orthologs: species 1 -> species 2 vs species 2 -> species 1
 R <- cor.test(-log10(comparison$Species1.p.val), -log10(comparison$Species2.p.val))
 
 data.frame(s1 = -log10(comparison$Species1.p.val),
@@ -290,6 +303,18 @@ data.frame(s1 = -log10(comparison$Species1.p.val),
   geom_point() + 
   geom_smooth(method=lm, formula = y ~ x, fill = "gainsboro") +
   ggtitle(paste0("Correlation = ", format(R$estimate, digits = 3)))
+
+# Comparison of p-values and effect sizes
+comparison %>%
+  rowwise() %>%
+  mutate(Max.p.val = max(Species1.p.val, Species2.p.val)) %>%
+  mutate(Min.effect.size = min(Species1.effect.size, Species2.effect.size)) %>%
+  mutate(NeighborhoodSize = mean(c(Species1.neigh,Species2.neigh))) %>% 
+  filter(Max.p.val < 0.05) %>% 
+  ggplot(aes(x = -log10(Max.p.val), y = Min.effect.size, col = NeighborhoodSize)) +
+  xlab("P-value") +
+  ylab("Effect size") +
+  geom_point()
 
 # Print some summary statistics
 # =============================
@@ -377,7 +402,7 @@ Table of all comparisons.
 
 ```{r, genepairs, warning=FALSE, error=FALSE, message=FALSE}
 
-potri_annot <- read.delim("data/Ptrichocarpa_210_v3.0.annotation_info.txt", header = F, sep = "\t")
+potri_annot <- read.delim("data/Ptrichocarpa_210_v3.0.annotation_info.txt.gz", header = F, sep = "\t")
 potri_annot <- potri_annot[, c("V2", "V12", "V13")]
 colnames(potri_annot) <- c("Species1", "Symbol", "Description")
 potri_annot <- potri_annot %>%
@@ -387,13 +412,17 @@ potri_annot <- potri_annot %>%
 comparison_table <- comparison %>%
   rowwise() %>%
   mutate(Max.p.val = max(Species1.p.val, Species2.p.val)) %>%
+  mutate(Min.effect.size = min(Species1.effect.size, Species2.effect.size)) %>%
   left_join(potri_annot, by = "Species1") %>%
   select(-c("Species1.neigh", "Species1.ortho.neigh", "Species2.neigh", "Species2.ortho.neigh")) %>%
   arrange(Max.p.val)
   
 comparison_table$Species1.p.val <- format(comparison_table$Species1.p.val, digits = 3, scientific = TRUE)
+comparison_table$Species1.effect.size <- format(comparison_table$Species1.effect.size, digits = 1, scientific = FALSE)
 comparison_table$Species2.p.val <- format(comparison_table$Species2.p.val, digits = 3, scientific = TRUE)
+comparison_table$Species2.effect.size <- format(comparison_table$Species2.effect.size, digits = 1, scientific = FALSE)
 comparison_table$Max.p.val <- format(comparison_table$Max.p.val, digits = 3, scientific = TRUE)
+comparison_table$Min.effect.size <- format(comparison_table$Min.effect.size, digits = 1, scientific = FALSE)
 
 datatable(comparison_table, rownames = FALSE, filter = "top",
           options = list(
