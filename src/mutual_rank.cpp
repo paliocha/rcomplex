@@ -2,9 +2,9 @@
 // Mutual rank transformation for co-expression network normalization
 //
 // Supports two modes:
-// - log_transform=true (default): Obayashi & Kinoshita (2009) formula
+// - log_transform=true: Obayashi & Kinoshita (2009) formula
 //   S = 1 - log(sqrt(R_ij * R_ji)) / log(n), descending ranks, values in [0,1]
-// - log_transform=false: Raw mutual rank (as in original RComPlEx Rmd)
+// - log_transform=false (default): Raw mutual rank (as in original RComPlEx Rmd)
 //   MR = sqrt(R_ij * R_ji), ascending ranks, unbounded
 //
 // Adapted from coexpr package by Martin Paliocha
@@ -21,7 +21,42 @@
 #endif
 
 using namespace Rcpp;
-using namespace arma;
+
+// Shared implementation for average-rank computation.
+// ascending=true  -> lowest value gets rank 1
+// ascending=false -> highest value gets rank 1
+static arma::vec compute_ranks_impl(const arma::vec& x, bool ascending) {
+    const arma::uword n = x.n_elem;
+    arma::vec ranks(n);
+
+    std::vector<arma::uword> indices(n);
+    for (arma::uword i = 0; i < n; ++i) {
+        indices[i] = i;
+    }
+
+    if (ascending) {
+        std::sort(indices.begin(), indices.end(),
+                  [&x](arma::uword a, arma::uword b) { return x(a) < x(b); });
+    } else {
+        std::sort(indices.begin(), indices.end(),
+                  [&x](arma::uword a, arma::uword b) { return x(a) > x(b); });
+    }
+
+    arma::uword i = 0;
+    while (i < n) {
+        arma::uword j = i;
+        while (j < n - 1 && x(indices[j]) == x(indices[j + 1])) {
+            ++j;
+        }
+        double avg_rank = (static_cast<double>(i + 1) + static_cast<double>(j + 1)) / 2.0;
+        for (arma::uword k = i; k <= j; ++k) {
+            ranks(indices[k]) = avg_rank;
+        }
+        i = j + 1;
+    }
+
+    return ranks;
+}
 
 //' Compute average ranks for a vector (descending order)
 //'
@@ -30,31 +65,7 @@ using namespace arma;
 //' @keywords internal
 // [[Rcpp::export]]
 arma::vec compute_ranks_desc_cpp(const arma::vec& x) {
-    const uword n = x.n_elem;
-    arma::vec ranks(n);
-
-    std::vector<uword> indices(n);
-    for (uword i = 0; i < n; ++i) {
-        indices[i] = i;
-    }
-
-    std::sort(indices.begin(), indices.end(),
-              [&x](uword a, uword b) { return x(a) > x(b); });
-
-    uword i = 0;
-    while (i < n) {
-        uword j = i;
-        while (j < n - 1 && x(indices[j]) == x(indices[j + 1])) {
-            ++j;
-        }
-        double avg_rank = (static_cast<double>(i + 1) + static_cast<double>(j + 1)) / 2.0;
-        for (uword k = i; k <= j; ++k) {
-            ranks(indices[k]) = avg_rank;
-        }
-        i = j + 1;
-    }
-
-    return ranks;
+    return compute_ranks_impl(x, false);
 }
 
 
@@ -65,31 +76,7 @@ arma::vec compute_ranks_desc_cpp(const arma::vec& x) {
 //' @keywords internal
 // [[Rcpp::export]]
 arma::vec compute_ranks_asc_cpp(const arma::vec& x) {
-    const uword n = x.n_elem;
-    arma::vec ranks(n);
-
-    std::vector<uword> indices(n);
-    for (uword i = 0; i < n; ++i) {
-        indices[i] = i;
-    }
-
-    std::sort(indices.begin(), indices.end(),
-              [&x](uword a, uword b) { return x(a) < x(b); });
-
-    uword i = 0;
-    while (i < n) {
-        uword j = i;
-        while (j < n - 1 && x(indices[j]) == x(indices[j + 1])) {
-            ++j;
-        }
-        double avg_rank = (static_cast<double>(i + 1) + static_cast<double>(j + 1)) / 2.0;
-        for (uword k = i; k <= j; ++k) {
-            ranks(indices[k]) = avg_rank;
-        }
-        i = j + 1;
-    }
-
-    return ranks;
+    return compute_ranks_impl(x, true);
 }
 
 
@@ -119,7 +106,7 @@ arma::vec compute_ranks_asc_cpp(const arma::vec& x) {
 arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
                                            bool log_transform = false,
                                            int n_cores = 1) {
-    const uword n = sim.n_rows;
+    const arma::uword n = sim.n_rows;
 
     if (n != sim.n_cols) {
         stop("sim must be a square matrix");
@@ -129,6 +116,7 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
     }
 
     const double log_n = std::log(static_cast<double>(n));
+    const bool ascending = !log_transform;
 
     arma::mat row_ranks(n, n);
     arma::mat result(n, n, arma::fill::zeros);
@@ -143,41 +131,35 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
 #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
-    for (uword i = 0; i < n; ++i) {
+    for (arma::uword i = 0; i < n; ++i) {
         arma::vec row_i = sim.row(i).t();
-        if (log_transform) {
-            row_ranks.row(i) = compute_ranks_desc_cpp(row_i).t();
-        } else {
-            row_ranks.row(i) = compute_ranks_asc_cpp(row_i).t();
-        }
+        row_ranks.row(i) = compute_ranks_impl(row_i, ascending).t();
     }
 
-    // Step 2: Compute mutual rank
+    // Step 2: Compute mutual rank (upper triangle, then mirror)
 #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
-    for (uword i = 0; i < n; ++i) {
-        for (uword j = i; j < n; ++j) {
-            if (i == j) {
-                result(i, j) = log_transform ? 1.0 : 0.0;
+    for (arma::uword i = 0; i < n; ++i) {
+        for (arma::uword j = i + 1; j < n; ++j) {
+            double R_ij = row_ranks(i, j);
+            double R_ji = row_ranks(j, i);
+            double mutual_rank = std::sqrt(R_ij * R_ji);
+
+            double val;
+            if (log_transform) {
+                val = 1.0 - std::log(mutual_rank) / log_n;
+                if (val < 0.0) val = 0.0;
+                if (val > 1.0) val = 1.0;
             } else {
-                double R_ij = row_ranks(i, j);
-                double R_ji = row_ranks(j, i);
-                double mutual_rank = std::sqrt(R_ij * R_ji);
-
-                double val;
-                if (log_transform) {
-                    val = 1.0 - std::log(mutual_rank) / log_n;
-                    if (val < 0.0) val = 0.0;
-                    if (val > 1.0) val = 1.0;
-                } else {
-                    val = mutual_rank;
-                }
-
-                result(i, j) = val;
-                result(j, i) = val;
+                val = mutual_rank;
             }
+
+            result(i, j) = val;
+            result(j, i) = val;
         }
+        // Diagonal
+        result(i, i) = log_transform ? 1.0 : 0.0;
     }
 
     return result;

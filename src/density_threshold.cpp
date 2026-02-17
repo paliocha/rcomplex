@@ -10,7 +10,6 @@
 #include <algorithm>
 
 using namespace Rcpp;
-using namespace arma;
 
 //' Compute density threshold from a symmetric matrix
 //'
@@ -25,7 +24,7 @@ using namespace arma;
 //' @keywords internal
 // [[Rcpp::export]]
 double density_threshold_cpp(const arma::mat& mat, double density) {
-    const uword n = mat.n_rows;
+    const arma::uword n = mat.n_rows;
 
     if (n != mat.n_cols) {
         stop("mat must be a square matrix");
@@ -35,25 +34,25 @@ double density_threshold_cpp(const arma::mat& mat, double density) {
     }
 
     // Extract upper triangle values
-    uword tri_size = n * (n - 1) / 2;
+    arma::uword tri_size = n * (n - 1) / 2;
     std::vector<double> values(tri_size);
 
-    uword idx = 0;
-    for (uword j = 1; j < n; ++j) {
-        for (uword i = 0; i < j; ++i) {
+    arma::uword idx = 0;
+    for (arma::uword j = 1; j < n; ++j) {
+        for (arma::uword i = 0; i < j; ++i) {
             values[idx++] = mat(i, j);
         }
     }
 
     // Find the threshold at the density percentile
     // We want the top `density` fraction, so the index from the top
-    uword k = static_cast<uword>(std::round(density * tri_size));
+    arma::uword k = static_cast<arma::uword>(std::round(density * tri_size));
     if (k == 0) k = 1;
     if (k >= tri_size) k = tri_size - 1;
 
     // nth_element partitions so that element at k is what would be there in sorted order
     // We want the k-th largest, so we use (tri_size - k) position in ascending order
-    uword pos = tri_size - k;
+    arma::uword pos = tri_size - k;
     std::nth_element(values.begin(), values.begin() + pos, values.end());
 
     return values[pos];

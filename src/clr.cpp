@@ -15,7 +15,6 @@
 #endif
 
 using namespace Rcpp;
-using namespace arma;
 
 //' Apply CLR transformation to a correlation matrix
 //'
@@ -42,20 +41,17 @@ using namespace arma;
 //' @keywords internal
 // [[Rcpp::export]]
 arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
-    const uword n = cor_matrix.n_rows;
+    const arma::uword n = cor_matrix.n_rows;
 
     if (n != cor_matrix.n_cols) {
         stop("cor_matrix must be a square matrix");
     }
 
-    // Compute row means and standard deviations
+    // Compute row means and standard deviations (vectorized)
     arma::vec row_means = arma::mean(cor_matrix, 1);
-    arma::vec row_sds(n);
-
-    for (uword i = 0; i < n; ++i) {
-        row_sds(i) = arma::stddev(cor_matrix.row(i));
-        if (row_sds(i) < 1e-10) row_sds(i) = 1.0;
-    }
+    arma::vec row_sds = arma::stddev(cor_matrix, 0, 1);
+    row_sds.replace(0.0, 1.0);
+    row_sds.elem(arma::find(row_sds < 1e-10)).fill(1.0);
 
     arma::mat clr_matrix(n, n, arma::fill::zeros);
 
@@ -68,8 +64,8 @@ arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
 #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
-    for (uword i = 0; i < n; ++i) {
-        for (uword j = i; j < n; ++j) {
+    for (arma::uword i = 0; i < n; ++i) {
+        for (arma::uword j = i + 1; j < n; ++j) {
             double z_row = (cor_matrix(i, j) - row_means(i)) / row_sds(i);
             double z_col = (cor_matrix(i, j) - row_means(j)) / row_sds(j);
 
