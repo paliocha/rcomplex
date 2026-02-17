@@ -10,12 +10,14 @@
 #' - [compute_network()]: Build co-expression network from expression matrix
 #' - [compare_neighborhoods()]: Test conservation of network neighborhoods
 #' - [summarize_comparison()]: FDR correction and summary statistics
+#' - [permutation_hog_test()]: Permutation-based HOG-level conservation test
 #'
 #' @section Typical workflow:
 #' 1. Parse ortholog groups with [parse_orthologs()]
 #' 2. Build networks for each species with [compute_network()]
 #' 3. Compare neighborhoods with [compare_neighborhoods()]
-#' 4. Summarize results with [summarize_comparison()]
+#' 4. Summarize results with [summarize_comparison()] or test HOG-level
+#'    conservation with [permutation_hog_test()]
 #'
 #' @docType package
 #' @name rcomplex-package

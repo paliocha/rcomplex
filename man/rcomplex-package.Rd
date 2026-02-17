@@ -18,6 +18,7 @@ hypergeometric tests with FDR correction and effect sizes.
 \item \code{\link[=compute_network]{compute_network()}}: Build co-expression network from expression matrix
 \item \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}: Test conservation of network neighborhoods
 \item \code{\link[=summarize_comparison]{summarize_comparison()}}: FDR correction and summary statistics
+\item \code{\link[=permutation_hog_test]{permutation_hog_test()}}: Permutation-based HOG-level conservation test
 }
 }
 
@@ -27,7 +28,8 @@ hypergeometric tests with FDR correction and effect sizes.
 \item Parse ortholog groups with \code{\link[=parse_orthologs]{parse_orthologs()}}
 \item Build networks for each species with \code{\link[=compute_network]{compute_network()}}
 \item Compare neighborhoods with \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}
-\item Summarize results with \code{\link[=summarize_comparison]{summarize_comparison()}}
+\item Summarize results with \code{\link[=summarize_comparison]{summarize_comparison()}} or test HOG-level
+conservation with \code{\link[=permutation_hog_test]{permutation_hog_test()}}
 }
 }
 
