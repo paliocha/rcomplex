@@ -45,7 +45,7 @@ static DirectionResult compute_direction(
     const std::vector<int>& other_neigh,
     const std::vector<std::vector<int>>& mapping,
     int N,
-    std::vector<bool>& anchor_flags
+    std::vector<char>& anchor_flags
 ) {
     DirectionResult r;
     r.neigh = static_cast<int>(anchor_neigh.size());
@@ -57,8 +57,8 @@ static DirectionResult compute_direction(
     r.ortho_neigh = 0;
     for (int nb : other_neigh) {
         for (int idx : mapping[nb]) {
-            if (!anchor_flags[idx]) {
-                anchor_flags[idx] = true;
+            if (anchor_flags[idx] == 0) {
+                anchor_flags[idx] = 1;
                 ++r.ortho_neigh;
             }
         }
@@ -67,12 +67,12 @@ static DirectionResult compute_direction(
     // Count intersection
     r.overlap = 0;
     for (int nb : anchor_neigh) {
-        if (anchor_flags[nb]) ++r.overlap;
+        if (anchor_flags[nb] != 0) ++r.overlap;
     }
 
     // Clear flags for reuse
     for (int nb : other_neigh) {
-        for (int idx : mapping[nb]) anchor_flags[idx] = false;
+        for (int idx : mapping[nb]) anchor_flags[idx] = 0;
     }
 
     int m = r.neigh, k = r.ortho_neigh, x = r.overlap;
@@ -194,8 +194,8 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         }
 
         // Scratch flag vectors (one per network size, reused across directions)
-        std::vector<bool> flags1(n1, false);
-        std::vector<bool> flags2(n2, false);
+        std::vector<char> flags1(n1, 0);
+        std::vector<char> flags2(n2, 0);
 
         // Direction 1: Species 1 -> Species 2
         DirectionResult d1 = compute_direction(
