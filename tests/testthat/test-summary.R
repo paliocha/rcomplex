@@ -6,14 +6,20 @@ test_that("summarize_comparison returns correct structure", {
     Species1.neigh = rep(10, 10),
     Species1.ortho.neigh = rep(5, 10),
     Species1.neigh.overlap = c(3, 0, 2, 4, 1, 3, 2, 0, 1, 5),
-    Species1.p.val.con = c(0.001, 1, 0.01, 0.0001, 0.5, 0.005, 0.05, 1, 0.3, 0.0001),
-    Species1.p.val.div = c(0.99, 0.01, 0.9, 0.999, 0.5, 0.99, 0.9, 0.01, 0.7, 0.999),
+    Species1.p.val.con = c(
+      0.001, 1, 0.01, 0.0001, 0.5, 0.005, 0.05, 1, 0.3, 0.0001
+    ),
+    Species1.p.val.div = c(
+      0.99, 0.01, 0.9, 0.999, 0.5, 0.99, 0.9, 0.01, 0.7, 0.999
+    ),
     Species1.effect.size = c(5, 1, 3, 8, 1, 4, 2, 1, 1.5, 10),
     Species2.neigh = rep(8, 10),
     Species2.ortho.neigh = rep(4, 10),
     Species2.neigh.overlap = c(2, 0, 1, 3, 0, 2, 1, 0, 1, 4),
     Species2.p.val.con = c(0.01, 1, 0.1, 0.001, 1, 0.01, 0.1, 1, 0.5, 0.0001),
-    Species2.p.val.div = c(0.9, 0.01, 0.8, 0.99, 0.01, 0.9, 0.8, 0.01, 0.5, 0.999),
+    Species2.p.val.div = c(
+      0.9, 0.01, 0.8, 0.99, 0.01, 0.9, 0.8, 0.01, 0.5, 0.999
+    ),
     Species2.effect.size = c(4, 1, 2, 6, 1, 3, 1.5, 1, 1, 8),
     stringsAsFactors = FALSE
   )
@@ -77,8 +83,12 @@ test_that("FDR correction is applied", {
   result <- summarize_comparison(comparison)
 
   # FDR-adjusted p-values should be >= raw p-values
-  expect_true(all(result$results$Species1.p.val.con >= c(0.001, 0.01, 0.02, 0.03, 0.04)))
-  expect_true(all(result$results$Species2.p.val.con >= c(0.002, 0.02, 0.03, 0.04, 0.05)))
+  expect_true(all(result$results$Species1.p.val.con >= c(
+    0.001, 0.01, 0.02, 0.03, 0.04
+  )))
+  expect_true(all(result$results$Species2.p.val.con >= c(
+    0.002, 0.02, 0.03, 0.04, 0.05
+  )))
 })
 
 test_that("summary counts are correct", {

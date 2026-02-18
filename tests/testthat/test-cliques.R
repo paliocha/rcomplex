@@ -59,12 +59,13 @@ test_that("multi-paralog HOG returns correct subset of cliques", {
 
   result <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
 
-  # Only A1-B1-C1 clique should be found (A2's edge to C1 is "n.s.", filtered out)
+
+  # Only A1-B1-C1 clique found (A2's edge to C1 is "n.s.")
   expect_equal(nrow(result), 1)
   expect_equal(result$SP_A, "A1")
 })
 
-test_that("multi-paralog HOG: both paralogs form cliques when fully connected", {
+test_that("multi-paralog HOG: both paralogs form cliques", {
   edges <- data.frame(
     gene1 = c("A1", "A1", "B1", "A2", "A2"),
     gene2 = c("B1", "C1", "C1", "B1", "C1"),
@@ -112,7 +113,7 @@ test_that("empty input returns empty result with correct columns", {
 
   expect_equal(nrow(result), 0)
   expect_true(all(c("hog", "SP_A", "SP_B", "min_effect_size",
-                     "mean_effect_size") %in% names(result)))
+                    "mean_effect_size") %in% names(result)))
 })
 
 test_that("edge order independence: gene1/gene2 swap does not affect result", {

@@ -37,21 +37,33 @@ summarize_comparison <- function(comparison,
   if (!all(c("Species1", "Species2", "OrthoGroup",
              "Species1.p.val.con", "Species2.p.val.con",
              "Species1.p.val.div", "Species2.p.val.div",
-             "Species1.neigh.overlap", "Species2.neigh.overlap") %in%
-           names(comparison))) {
+             "Species1.neigh.overlap",
+             "Species2.neigh.overlap") %in%
+             names(comparison))) {
     stop("comparison must be output from compare_neighborhoods()")
   }
 
   # Select p-value columns based on alternative
-  sp1_col <- if (alternative == "greater") "Species1.p.val.con" else "Species1.p.val.div"
-  sp2_col <- if (alternative == "greater") "Species2.p.val.con" else "Species2.p.val.div"
+  sp1_col <- if (alternative == "greater") {
+    "Species1.p.val.con"
+  } else {
+    "Species1.p.val.div"
+  }
+  sp2_col <- if (alternative == "greater") {
+    "Species2.p.val.con"
+  } else {
+    "Species2.p.val.div"
+  }
 
   res <- comparison
 
   # Filter zero-overlap rows
   if (filter_zero) {
-    res <- res[res$Species1.neigh.overlap > 0 & res$Species2.neigh.overlap > 0, ,
-               drop = FALSE]
+    res <- res[
+      res$Species1.neigh.overlap > 0 &
+        res$Species2.neigh.overlap > 0, ,
+      drop = FALSE
+    ]
   }
 
   if (nrow(res) == 0) {
@@ -59,7 +71,10 @@ summarize_comparison <- function(comparison,
       results = res,
       summary = list(
         gene_pairs = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
-        genes = list(sp1 = 0L, sp2 = 0L, reciprocal_sp1 = 0L, reciprocal_sp2 = 0L),
+        genes = list(
+          sp1 = 0L, sp2 = 0L,
+          reciprocal_sp1 = 0L, reciprocal_sp2 = 0L
+        ),
         orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L)
       )
     ))
@@ -143,7 +158,8 @@ summarize_comparison <- function(comparison,
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
 #' @param comparison Data frame from [compare_neighborhoods()] --- raw p-values,
-#'   **not** FDR-corrected. Used to define HOG structure and extract effect sizes.
+#'   **not** FDR-corrected. Used to define HOG structure and extract
+#'   effect sizes.
 #' @param alternative Which tail to test: `"greater"` (default) for conservation
 #'   or `"less"` for divergence.
 #' @param min_exceedances Besag & Clifford stopping parameter: stop permuting
@@ -175,11 +191,11 @@ summarize_comparison <- function(comparison,
 #'
 #' @export
 permutation_hog_test <- function(net1, net2, comparison,
-                                  alternative = c("greater", "less"),
-                                  min_exceedances = 50L,
-                                  max_permutations = 10000L,
-                                  n_cores = 1L,
-                                  fdr_method = "fdr") {
+                                 alternative = c("greater", "less"),
+                                 min_exceedances = 50L,
+                                 max_permutations = 10000L,
+                                 n_cores = 1L,
+                                 fdr_method = "fdr") {
   alternative <- match.arg(alternative)
   min_exceedances <- as.integer(min_exceedances)
   max_permutations <- as.integer(max_permutations)
@@ -192,8 +208,9 @@ permutation_hog_test <- function(net1, net2, comparison,
     stop("net2 must be a network object from compute_network()")
   }
   if (!all(c("Species1", "Species2", "OrthoGroup",
-             "Species1.effect.size", "Species2.effect.size") %in%
-           names(comparison))) {
+             "Species1.effect.size",
+             "Species2.effect.size") %in%
+             names(comparison))) {
     stop("comparison must be output from compare_neighborhoods()")
   }
   if (nrow(comparison) == 0) {

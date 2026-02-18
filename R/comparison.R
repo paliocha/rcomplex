@@ -31,7 +31,8 @@
 #'     \item{Species2}{Gene identifier for species 2}
 #'     \item{OrthoGroup}{Ortholog group identifier}
 #'     \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
-#'     \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors from net2}
+#'     \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
+#'       from net2}
 #'     \item{Species1.neigh.overlap}{Intersection size}
 #'     \item{Species1.p.val.con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 1)}
@@ -40,7 +41,8 @@
 #'     \item{Species1.effect.size}{Fold enrichment (direction 1). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
 #'     \item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
-#'     \item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors from net1}
+#'     \item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
+#'       from net1}
 #'     \item{Species2.neigh.overlap}{Intersection size}
 #'     \item{Species2.p.val.con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 2)}
@@ -75,7 +77,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
   # Filter orthologs to genes present in both networks and deduplicate
   orthologs <- orthologs[orthologs$Species1 %in% net1_genes &
-                         orthologs$Species2 %in% net2_genes, , drop = FALSE]
+                           orthologs$Species2 %in% net2_genes, ,
+                         drop = FALSE]
   orthologs <- unique(orthologs[, c("Species1", "Species2", "OrthoGroup"),
                                 drop = FALSE])
 

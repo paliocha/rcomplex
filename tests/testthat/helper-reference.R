@@ -4,8 +4,8 @@
 #' Reference MR normalization (ascending ranks, raw mutual rank)
 #' Matches RComPlEx.Rmd lines 167-172
 reference_mr_raw <- function(net) {
-  R <- t(apply(net, 1, rank))
-  mr <- sqrt(R * t(R))
+  row_ranks <- t(apply(net, 1, rank))
+  mr <- sqrt(row_ranks * t(row_ranks))
   diag(mr) <- 0
   mr
 }
@@ -37,7 +37,7 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
   ortho_neigh <- names(ortho_neigh[ortho_neigh >= thr2])
   ortho_neigh <- unique(ortho$Species1[ortho$Species2 %in% ortho_neigh])
 
-  N <- nrow(net1)
+  n_genes <- nrow(net1)
   m <- length(neigh)
   k <- length(ortho_neigh)
   x <- length(intersect(neigh, ortho_neigh))
@@ -45,11 +45,11 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
   p_val_div1 <- 1
   effect1 <- 1
   if (x > 1) {
-    p_val_con1 <- phyper(x - 1, m, N - m, k, lower.tail = FALSE)
+    p_val_con1 <- phyper(x - 1, m, n_genes - m, k, lower.tail = FALSE)
   }
   if (k > 0 && m > 0) {
-    effect1 <- (x / k) / (m / N)
-    p_val_div1 <- phyper(x, m, N - m, k, lower.tail = TRUE)
+    effect1 <- (x / k) / (m / n_genes)
+    p_val_div1 <- phyper(x, m, n_genes - m, k, lower.tail = TRUE)
   }
 
   # Direction 2: sp2 -> sp1
@@ -60,7 +60,7 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
   ortho_neigh2 <- names(ortho_neigh2[ortho_neigh2 >= thr1])
   ortho_neigh2 <- unique(ortho$Species2[ortho$Species1 %in% ortho_neigh2])
 
-  N2 <- nrow(net2)
+  n_genes2 <- nrow(net2)
   m2 <- length(neigh2)
   k2 <- length(ortho_neigh2)
   x2 <- length(intersect(neigh2, ortho_neigh2))
@@ -68,11 +68,11 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
   p_val_div2 <- 1
   effect2 <- 1
   if (x2 > 1) {
-    p_val_con2 <- phyper(x2 - 1, m2, N2 - m2, k2, lower.tail = FALSE)
+    p_val_con2 <- phyper(x2 - 1, m2, n_genes2 - m2, k2, lower.tail = FALSE)
   }
   if (k2 > 0 && m2 > 0) {
-    effect2 <- (x2 / k2) / (m2 / N2)
-    p_val_div2 <- phyper(x2, m2, N2 - m2, k2, lower.tail = TRUE)
+    effect2 <- (x2 / k2) / (m2 / n_genes2)
+    p_val_div2 <- phyper(x2, m2, n_genes2 - m2, k2, lower.tail = TRUE)
   }
 
   data.frame(

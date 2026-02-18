@@ -25,7 +25,8 @@
 #'   \describe{
 #'     \item{hog}{Ortholog group identifier}
 #'     \item{<species>}{One column per target species with the gene ID}
-#'     \item{min_effect_size}{Minimum effect size across all edges in the clique}
+#'     \item{min_effect_size}{Minimum effect size across all edges
+#'       in the clique}
 #'     \item{mean_effect_size}{Mean effect size across all edges in the clique}
 #'   }
 #'   Returns a zero-row data frame with correct columns if no cliques are found.
@@ -90,7 +91,9 @@ find_coexpression_cliques <- function(edges, target_species,
       # Extract gene IDs and effect sizes per clique
       valid |>
         lapply(\(cl) {
-          genes <- stats::setNames(igraph::V(g)$name[cl], igraph::V(g)$species[cl])
+          vnames <- igraph::V(g)$name[cl]
+          vspp <- igraph::V(g)$species[cl]
+          genes <- stats::setNames(vnames, vspp)
           effs <- igraph::E(g)[cl %--% cl]$effect_size
           c(list(hog = hog_df$hog[1]),
             as.list(genes[target_species]),
