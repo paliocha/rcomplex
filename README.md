@@ -113,6 +113,37 @@ This provides:
   ~1/sqrt(min_exceedances), so with 50 exceedances the coefficient of variation
   is ~14%, sufficient for FDR correction.
 
+### Why permutation over Fisher's method?
+
+Fisher's method combines pair-level p-values by assuming independence:
+`X² = -2 Σ log(p_i)`. Within a HOG, however, pairs share co-expression
+neighbors and ortholog mappings, so the p-values are positively correlated.
+This inflates Fisher's statistic and produces false positives — the severity
+scales with HOG size (a 5x5 HOG has 25 correlated tests).
+
+The permutation approach sidesteps this entirely. By permuting gene identities
+and recomputing the test statistic from scratch, the correlation structure
+between pairs is present in both the observed and null distributions. No
+independence assumption is needed; the test is exact by construction.
+
+`summarize_hog_comparison()` (Fisher's method) is retained for backward
+compatibility but `permutation_hog_test()` is recommended for all new analyses.
+
+### Performance: column-major memory access
+
+The C++ backend (Armadillo, column-major storage) is optimized for sequential
+memory access. Since correlation and network matrices are symmetric, column
+access (`sim.col(i)`, `net.colptr(i)`) returns the same values as row access
+but with sequential rather than strided reads. This applies to:
+
+- **MR normalization** (`mutual_rank_transform_cached_cpp`): ranks are computed
+  from `sim.col(i)` and stored by column, avoiding O(n) cache misses per gene.
+- **Neighbor list extraction** (`hog_permutation_test_cpp`): `net.colptr(i)`
+  gives a sequential scan of gene i's co-expression values.
+
+On a 22K-gene network pair, this gives a ~3x speedup over naive row access
+(380s to 126s per species comparison with 8 OpenMP threads).
+
 ## References
 
 - Netotea, S. *et al.* (2014). ComPlEx: conservation and divergence of
