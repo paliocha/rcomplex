@@ -57,7 +57,7 @@ R CMD check .
 |------|--------|
 | `tests/testthat/test-network.R` | Network construction, MR/CLR, density threshold |
 | `tests/testthat/test-comparison.R` | Neighborhood comparison, effect sizes |
-| `tests/testthat/test-summary.R` | FDR correction, HOG summaries (Fisher) |
+| `tests/testthat/test-summary.R` | Pair-level FDR correction |
 | `tests/testthat/test-permutation.R` | Permutation HOG test (correctness, adaptive stopping, p-value formula) |
 | `tests/testthat/test-cliques.R` | Conserved clique detection |
 | `tests/testthat/helper-reference.R` | Pure-R reference implementations for cross-checking C++ |
