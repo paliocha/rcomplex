@@ -58,28 +58,6 @@ static arma::vec compute_ranks_impl(const arma::vec& x, bool ascending) {
     return ranks;
 }
 
-//' Compute average ranks for a vector (descending order)
-//'
-//' @param x Input vector
-//' @return Vector of ranks (1-based, average method for ties)
-//' @keywords internal
-// [[Rcpp::export]]
-arma::vec compute_ranks_desc_cpp(const arma::vec& x) {
-    return compute_ranks_impl(x, false);
-}
-
-
-//' Compute average ranks for a vector (ascending order)
-//'
-//' @param x Input vector
-//' @return Vector of ranks (1-based, average method for ties)
-//' @keywords internal
-// [[Rcpp::export]]
-arma::vec compute_ranks_asc_cpp(const arma::vec& x) {
-    return compute_ranks_impl(x, true);
-}
-
-
 //' Cached mutual rank transformation
 //'
 //' Transforms a correlation matrix using mutual rank normalization.
@@ -170,29 +148,3 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
 }
 
 
-//' Check if OpenMP is available
-//'
-//' @return TRUE if OpenMP support is compiled in, FALSE otherwise
-//' @keywords internal
-// [[Rcpp::export]]
-bool has_openmp() {
-#ifdef _OPENMP
-    return true;
-#else
-    return false;
-#endif
-}
-
-
-//' Get maximum number of OpenMP threads
-//'
-//' @return Maximum number of threads available, or 1 if OpenMP not available
-//' @keywords internal
-// [[Rcpp::export]]
-int get_max_threads() {
-#ifdef _OPENMP
-    return omp_get_max_threads();
-#else
-    return 1;
-#endif
-}

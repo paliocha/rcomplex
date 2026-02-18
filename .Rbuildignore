@@ -1,9 +1,5 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^RComPlEx\.Rmd$
-^RComPlEx\.html$
-^Data$
-^RData$
 ^README\.md$
 ^CLAUDE\.md$
 ^\.claude$
