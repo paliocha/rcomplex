@@ -258,6 +258,9 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     }
 
     // ---- Phase 2: Compute neighbor lists ----
+    // Use colptr() for cache-friendly access. Since the network matrices are
+    // symmetric, column i has the same values as row i. Column access is
+    // sequential in Armadillo's column-major layout.
     std::vector<std::vector<int>> neighbors1(n1);
     std::vector<std::vector<int>> neighbors2(n2);
 
@@ -266,8 +269,9 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (int i = 0; i < n1; ++i) {
+        const double* col_i = net1.colptr(i);
         for (int j = 0; j < n1; ++j) {
-            if (i != j && net1(i, j) >= thr1) {
+            if (i != j && col_i[j] >= thr1) {
                 neighbors1[i].push_back(j);
             }
         }
@@ -277,8 +281,9 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (int i = 0; i < n2; ++i) {
+        const double* col_i = net2.colptr(i);
         for (int j = 0; j < n2; ++j) {
-            if (i != j && net2(i, j) >= thr2) {
+            if (i != j && col_i[j] >= thr2) {
                 neighbors2[i].push_back(j);
             }
         }
