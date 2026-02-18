@@ -57,8 +57,8 @@ test_that("permutation_hog_test returns correct structure", {
 
   expect_s3_class(result, "data.frame")
   expect_named(result, c("OrthoGroup", "n_pairs", "n_sp1", "n_sp2",
-                          "T_obs", "n_perm", "n_exceed", "mean_eff",
-                          "p.value", "q.value"))
+                         "T_obs", "n_perm", "n_exceed", "mean_eff",
+                         "p.value", "q.value"))
   n_hogs <- length(unique(td$comparison$OrthoGroup))
   expect_equal(nrow(result), n_hogs)
 })
@@ -159,15 +159,15 @@ test_that("empty comparison handled gracefully", {
   result <- permutation_hog_test(td$net1, td$net2, empty)
   expect_equal(nrow(result), 0)
   expect_named(result, c("OrthoGroup", "n_pairs", "n_sp1", "n_sp2",
-                          "T_obs", "n_perm", "n_exceed", "mean_eff",
-                          "p.value", "q.value"))
+                         "T_obs", "n_perm", "n_exceed", "mean_eff",
+                         "p.value", "q.value"))
 })
 
 
 test_that("single-pair HOG works", {
   td <- make_test_nets()
   single <- td$comparison[td$comparison$OrthoGroup %in%
-                             paste0("HOG", 2:6), ]
+                            paste0("HOG", 2:6), ]
 
   set.seed(42)
   result <- permutation_hog_test(
@@ -242,7 +242,7 @@ test_that("effect sizes are computed correctly", {
   hog1_rows <- td$comparison$OrthoGroup == "HOG1"
   expected_eff <- mean(sqrt(
     td$comparison$Species1.effect.size[hog1_rows] *
-    td$comparison$Species2.effect.size[hog1_rows]
+      td$comparison$Species2.effect.size[hog1_rows]
   ))
   hog1 <- result[result$OrthoGroup == "HOG1", ]
   expect_equal(hog1$mean_eff, expected_eff, tolerance = 1e-10)

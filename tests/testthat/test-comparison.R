@@ -48,10 +48,18 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
 
   result <- compare_neighborhoods(net1, net2, ortho)
 
-  expect_true(all(result$Species1.p.val.con >= 0 & result$Species1.p.val.con <= 1))
-  expect_true(all(result$Species2.p.val.con >= 0 & result$Species2.p.val.con <= 1))
-  expect_true(all(result$Species1.p.val.div >= 0 & result$Species1.p.val.div <= 1))
-  expect_true(all(result$Species2.p.val.div >= 0 & result$Species2.p.val.div <= 1))
+  expect_true(all(
+    result$Species1.p.val.con >= 0 & result$Species1.p.val.con <= 1
+  ))
+  expect_true(all(
+    result$Species2.p.val.con >= 0 & result$Species2.p.val.con <= 1
+  ))
+  expect_true(all(
+    result$Species1.p.val.div >= 0 & result$Species1.p.val.div <= 1
+  ))
+  expect_true(all(
+    result$Species2.p.val.div >= 0 & result$Species2.p.val.div <= 1
+  ))
   expect_true(all(result$Species1.effect.size >= 0))
   expect_true(all(result$Species2.effect.size >= 0))
 })
@@ -85,16 +93,46 @@ test_that("C++ comparison matches R reference", {
     )
     expect_equal(cpp_result$Species1.neigh[i], ref$Species1.neigh)
     expect_equal(cpp_result$Species1.ortho.neigh[i], ref$Species1.ortho.neigh)
-    expect_equal(cpp_result$Species1.neigh.overlap[i], ref$Species1.neigh.overlap)
-    expect_equal(cpp_result$Species1.p.val.con[i], ref$Species1.p.val.con, tolerance = 1e-12)
-    expect_equal(cpp_result$Species1.p.val.div[i], ref$Species1.p.val.div, tolerance = 1e-12)
-    expect_equal(cpp_result$Species1.effect.size[i], ref$Species1.effect.size, tolerance = 1e-12)
-    expect_equal(cpp_result$Species2.neigh[i], ref$Species2.neigh)
-    expect_equal(cpp_result$Species2.ortho.neigh[i], ref$Species2.ortho.neigh)
-    expect_equal(cpp_result$Species2.neigh.overlap[i], ref$Species2.neigh.overlap)
-    expect_equal(cpp_result$Species2.p.val.con[i], ref$Species2.p.val.con, tolerance = 1e-12)
-    expect_equal(cpp_result$Species2.p.val.div[i], ref$Species2.p.val.div, tolerance = 1e-12)
-    expect_equal(cpp_result$Species2.effect.size[i], ref$Species2.effect.size, tolerance = 1e-12)
+    expect_equal(
+      cpp_result$Species1.neigh.overlap[i],
+      ref$Species1.neigh.overlap
+    )
+    expect_equal(
+      cpp_result$Species1.p.val.con[i],
+      ref$Species1.p.val.con, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species1.p.val.div[i],
+      ref$Species1.p.val.div, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species1.effect.size[i],
+      ref$Species1.effect.size, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species2.neigh[i],
+      ref$Species2.neigh
+    )
+    expect_equal(
+      cpp_result$Species2.ortho.neigh[i],
+      ref$Species2.ortho.neigh
+    )
+    expect_equal(
+      cpp_result$Species2.neigh.overlap[i],
+      ref$Species2.neigh.overlap
+    )
+    expect_equal(
+      cpp_result$Species2.p.val.con[i],
+      ref$Species2.p.val.con, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species2.p.val.div[i],
+      ref$Species2.p.val.div, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species2.effect.size[i],
+      ref$Species2.effect.size, tolerance = 1e-12
+    )
   }
 })
 
@@ -160,16 +198,28 @@ test_that("divergence p-values detect disjoint neighborhoods", {
   net1_mat <- matrix(0, n, n)
   rownames(net1_mat) <- colnames(net1_mat) <- paste0("A_", sprintf("%03d", 1:n))
   # Gene 1 neighbors: 2-21 (20 neighbors)
-  for (j in 2:21) { net1_mat[1, j] <- 10; net1_mat[j, 1] <- 10 }
+  for (j in 2:21) {
+    net1_mat[1, j] <- 10
+    net1_mat[j, 1] <- 10
+  }
   # Gene 51 neighbors: 52-71 (completely disjoint from gene 1's neighbors)
-  for (j in 52:71) { net1_mat[51, j] <- 10; net1_mat[j, 51] <- 10 }
+  for (j in 52:71) {
+    net1_mat[51, j] <- 10
+    net1_mat[j, 51] <- 10
+  }
 
   net2_mat <- matrix(0, n, n)
   rownames(net2_mat) <- colnames(net2_mat) <- paste0("B_", sprintf("%03d", 1:n))
   # Gene 1 neighbors in net2: 2-21 (same as net1 = conserved with A_001)
-  for (j in 2:21) { net2_mat[1, j] <- 10; net2_mat[j, 1] <- 10 }
+  for (j in 2:21) {
+    net2_mat[1, j] <- 10
+    net2_mat[j, 1] <- 10
+  }
   # Gene 51 neighbors in net2: 2-21 (same as gene 1, disjoint from A_051's)
-  for (j in 2:21) { net2_mat[51, j] <- 10; net2_mat[j, 51] <- 10 }
+  for (j in 2:21) {
+    net2_mat[51, j] <- 10
+    net2_mat[j, 51] <- 10
+  }
 
   net1 <- list(network = net1_mat, threshold = 5)
   net2 <- list(network = net2_mat, threshold = 5)
@@ -199,7 +249,10 @@ test_that("identical neighborhoods give high divergence p-value", {
   # Both networks have gene 1 connected to genes 2-6
   net_mat <- matrix(0, n, n)
   rownames(net_mat) <- colnames(net_mat) <- paste0("G_", sprintf("%03d", 1:n))
-  for (j in 2:6) { net_mat[1, j] <- 10; net_mat[j, 1] <- 10 }
+  for (j in 2:6) {
+    net_mat[1, j] <- 10
+    net_mat[j, 1] <- 10
+  }
 
   net1 <- list(network = net_mat, threshold = 5)
   # Use same structure for net2 with different names
@@ -228,12 +281,18 @@ test_that("effect size < 1 when overlap is less than expected", {
   net1_mat <- matrix(0, n, n)
   rownames(net1_mat) <- colnames(net1_mat) <- paste0("A_", sprintf("%03d", 1:n))
   # Gene 1 connected to 2-11 (10 neighbors)
-  for (j in 2:11) { net1_mat[1, j] <- 10; net1_mat[j, 1] <- 10 }
+  for (j in 2:11) {
+    net1_mat[1, j] <- 10
+    net1_mat[j, 1] <- 10
+  }
 
   net2_mat <- matrix(0, n, n)
   rownames(net2_mat) <- colnames(net2_mat) <- paste0("B_", sprintf("%03d", 1:n))
   # Gene 1 connected to 21-30 (10 neighbors, completely disjoint from net1's)
-  for (j in 21:30) { net2_mat[1, j] <- 10; net2_mat[j, 1] <- 10 }
+  for (j in 21:30) {
+    net2_mat[1, j] <- 10
+    net2_mat[j, 1] <- 10
+  }
 
   net1 <- list(network = net1_mat, threshold = 5)
   net2 <- list(network = net2_mat, threshold = 5)

@@ -6,7 +6,9 @@ test_that("compute_network returns correct structure", {
   result <- compute_network(expr, density = 0.1)
 
   expect_type(result, "list")
-  expect_named(result, c("network", "threshold", "n_genes", "n_removed", "params"))
+  expect_named(result, c(
+    "network", "threshold", "n_genes", "n_removed", "params"
+  ))
   expect_equal(result$n_genes, 10)
   expect_true(is.matrix(result$network))
   expect_equal(nrow(result$network), 10)
