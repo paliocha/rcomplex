@@ -39,7 +39,7 @@ R CMD check .
 | `R/orthologs.R` | `parse_orthologs()` — parse PLAZA ortholog group files |
 | `R/network.R` | `compute_network()` — correlation + MR/CLR normalization + density threshold |
 | `R/comparison.R` | `compare_neighborhoods()` — pair-level hypergeometric tests |
-| `R/summary.R` | `summarize_comparison()`, `summarize_hog_comparison()` (Fisher's method, deprecated), `permutation_hog_test()` |
+| `R/summary.R` | `summarize_comparison()` (pair-level FDR), `permutation_hog_test()` (HOG-level permutation) |
 | `R/cliques.R` | `find_conserved_cliques()` — conserved clique detection via igraph |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
 
@@ -70,8 +70,8 @@ Armadillo stores matrices column-major. Correlation and network matrices are sym
 ### Integer indices in C++, string mapping in R
 Homebrew clang 21 has ABI issues with `std::unordered_map<std::string, ...>` (causes `__hash_memory` symbol not found at dlopen). All C++ functions use integer indices; the R wrappers handle string-to-int mapping via `match()`.
 
-### Fisher's method vs permutation test
-`summarize_hog_comparison()` (Fisher's method) is retained for backward compatibility but is anti-conservative for multi-copy HOGs due to correlated pair-level tests. `permutation_hog_test()` is recommended — it permutes gene identities, automatically accounting for the correlation structure.
+### HOG-level testing uses permutation, not Fisher's method
+Fisher's method for combining pair-level p-values within HOGs is anti-conservative because pair-level tests are correlated (shared neighborhoods and ortholog mappings). `permutation_hog_test()` avoids this by permuting gene identities — the correlation structure is present in both observed and null distributions, so no independence assumption is needed.
 
 ### Build system
 - `Makevars`: Uses `$(SHLIB_OPENMP_CXXFLAGS)` for portable OpenMP (not `-fopenmp`)
