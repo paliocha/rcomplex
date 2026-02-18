@@ -27,6 +27,11 @@ LinkingTo:
     Rcpp,
     RcppArmadillo
 SystemRequirements: GNU make, C++17
+URL: https://paliocha.github.io/rcomplex/,
+    https://github.com/paliocha/rcomplex
+BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    lintr,
+    pkgdown
 Config/testthat/edition: 3
