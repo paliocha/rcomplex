@@ -1,0 +1,21 @@
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>/404.html</loc></url>
+<url><loc>/CLAUDE.html</loc></url>
+<url><loc>/LICENSE-text.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/reference/apply_clr_to_cor_cpp.html</loc></url>
+<url><loc>/reference/compare_neighborhoods.html</loc></url>
+<url><loc>/reference/compare_neighborhoods_cpp.html</loc></url>
+<url><loc>/reference/compute_network.html</loc></url>
+<url><loc>/reference/density_threshold_cpp.html</loc></url>
+<url><loc>/reference/find_coexpression_cliques.html</loc></url>
+<url><loc>/reference/hog_permutation_test_cpp.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/mutual_rank_transform_cached_cpp.html</loc></url>
+<url><loc>/reference/parse_orthologs.html</loc></url>
+<url><loc>/reference/permutation_hog_test.html</loc></url>
+<url><loc>/reference/rcomplex-package.html</loc></url>
+<url><loc>/reference/summarize_comparison.html</loc></url>
+</urlset>
+
