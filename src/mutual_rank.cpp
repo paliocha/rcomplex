@@ -127,23 +127,27 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
     }
 #endif
 
-    // Step 1: Precompute all row ranks
+    // Step 1: Precompute all row ranks using cache-friendly column access.
+    // Since sim is symmetric, sim.col(i) == sim.row(i) in value.
+    // Armadillo column-major storage makes col() sequential, row() strided.
+    // Store ranks by column: row_ranks(j, i) = rank of gene j for gene i.
 #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
-        arma::vec row_i = sim.row(i).t();
-        row_ranks.row(i) = compute_ranks_impl(row_i, ascending).t();
+        row_ranks.col(i) = compute_ranks_impl(sim.col(i), ascending);
     }
 
     // Step 2: Compute mutual rank (upper triangle, then mirror)
+    // With column-stored ranks: R_ij = row_ranks(j, i), R_ji = row_ranks(i, j).
+    // Since sqrt is commutative, result is identical to row-stored version.
 #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         for (arma::uword j = i + 1; j < n; ++j) {
-            double R_ij = row_ranks(i, j);
-            double R_ji = row_ranks(j, i);
+            double R_ij = row_ranks(j, i);
+            double R_ji = row_ranks(i, j);
             double mutual_rank = std::sqrt(R_ij * R_ji);
 
             double val;
