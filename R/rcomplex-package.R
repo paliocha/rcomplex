@@ -30,7 +30,7 @@
 #' @importFrom Rcpp sourceCpp
 #' @importFrom igraph %--%
 #' @importFrom rlang .data .env
-#' @importFrom stats phyper p.adjust pchisq setNames
+#' @importFrom stats phyper p.adjust setNames
 #' @importFrom utils read.delim
 ## usethis namespace: end
 NULL

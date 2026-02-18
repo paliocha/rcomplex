@@ -43,9 +43,9 @@ hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
 
 ### The problem with Fisher's method
 
-The package includes `summarize_hog_comparison()` which combines pair-level
-p-values within each Hierarchical Ortholog Group (HOG) using Fisher's method.
-However, Fisher's method assumes independent tests. Within a HOG, pair-level
+A naive approach to HOG-level testing would combine pair-level p-values using
+Fisher's method. However, Fisher's method assumes independent tests. Within a
+HOG, pair-level
 hypergeometric tests are correlated because:
 
 - **Shared neighborhoods**: Genes in the same HOG often share co-expression
@@ -126,8 +126,8 @@ and recomputing the test statistic from scratch, the correlation structure
 between pairs is present in both the observed and null distributions. No
 independence assumption is needed; the test is exact by construction.
 
-`summarize_hog_comparison()` (Fisher's method) is retained for backward
-compatibility but `permutation_hog_test()` is recommended for all new analyses.
+`permutation_hog_test()` avoids the independence assumption entirely, making it
+valid for all HOG sizes.
 
 ### Performance: column-major memory access
 
