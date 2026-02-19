@@ -23,7 +23,8 @@ A data frame with columns:
 \item{Species2}{Gene identifier for species 2}
 \item{OrthoGroup}{Ortholog group identifier}
 \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
-\item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors from net2}
+\item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
+from net2}
 \item{Species1.neigh.overlap}{Intersection size}
 \item{Species1.p.val.con}{Upper-tail hypergeometric p-value for
 conservation (direction 1)}
@@ -32,7 +33,8 @@ divergence (direction 1)}
 \item{Species1.effect.size}{Fold enrichment (direction 1). Values > 1
 indicate conservation, < 1 indicate divergence.}
 \item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
-\item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors from net1}
+\item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
+from net1}
 \item{Species2.neigh.overlap}{Intersection size}
 \item{Species2.p.val.con}{Upper-tail hypergeometric p-value for
 conservation (direction 2)}

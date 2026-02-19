@@ -9,7 +9,7 @@
 Compares gene co-expression networks across plant species by mapping
 orthologous genes, building co-expression networks independently per species,
 then testing whether network neighborhoods are significantly preserved using
-hypergeometric tests with FDR correction and effect sizes.
+hypergeometric tests with q-value correction and effect sizes.
 }
 \section{Main functions}{
 
@@ -17,7 +17,7 @@ hypergeometric tests with FDR correction and effect sizes.
 \item \code{\link[=parse_orthologs]{parse_orthologs()}}: Parse PLAZA ortholog group files
 \item \code{\link[=compute_network]{compute_network()}}: Build co-expression network from expression matrix
 \item \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}: Test conservation of network neighborhoods
-\item \code{\link[=summarize_comparison]{summarize_comparison()}}: FDR correction and summary statistics
+\item \code{\link[=summarize_comparison]{summarize_comparison()}}: Q-value correction and summary statistics
 \item \code{\link[=permutation_hog_test]{permutation_hog_test()}}: Permutation-based HOG-level conservation test
 }
 }
@@ -33,6 +33,15 @@ conservation with \code{\link[=permutation_hog_test]{permutation_hog_test()}}
 }
 }
 
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://paliocha.github.io/rcomplex/}
+  \item \url{https://github.com/paliocha/rcomplex}
+  \item Report bugs at \url{https://github.com/paliocha/rcomplex/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Martin Paliocha \email{martin.paliocha@nmbu.no}
 

@@ -31,7 +31,8 @@ A data frame with one row per clique, containing columns:
 \describe{
 \item{hog}{Ortholog group identifier}
 \item{\if{html}{\out{<species>}}}{One column per target species with the gene ID}
-\item{min_effect_size}{Minimum effect size across all edges in the clique}
+\item{min_effect_size}{Minimum effect size across all edges
+in the clique}
 \item{mean_effect_size}{Mean effect size across all edges in the clique}
 }
 Returns a zero-row data frame with correct columns if no cliques are found.

@@ -11,8 +11,7 @@ permutation_hog_test(
   alternative = c("greater", "less"),
   min_exceedances = 50L,
   max_permutations = 10000L,
-  n_cores = 1L,
-  fdr_method = "fdr"
+  n_cores = 1L
 )
 }
 \arguments{
@@ -21,7 +20,8 @@ permutation_hog_test(
 \item{net2}{Network object for species 2 (output of \code{\link[=compute_network]{compute_network()}}).}
 
 \item{comparison}{Data frame from \code{\link[=compare_neighborhoods]{compare_neighborhoods()}} --- raw p-values,
-\strong{not} FDR-corrected. Used to define HOG structure and extract effect sizes.}
+\strong{not} FDR-corrected. Used to define HOG structure and extract
+effect sizes.}
 
 \item{alternative}{Which tail to test: \code{"greater"} (default) for conservation
 or \code{"less"} for divergence.}
@@ -33,9 +33,6 @@ Higher values give more precise p-values but take longer (default 50).}
 \item{max_permutations}{Maximum permutations per HOG (default 10000).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
-
-\item{fdr_method}{P-value adjustment method passed to \code{\link[=p.adjust]{p.adjust()}}
-(default \code{"fdr"}).}
 }
 \value{
 A data frame with one row per HOG, ordered by p-value, with columns:
@@ -50,7 +47,7 @@ due to adaptive stopping)}
 \item{n_exceed}{Number of permutation statistics exceeding T_obs}
 \item{mean_eff}{Mean geometric-mean effect size across pairs}
 \item{p.value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
-\item{q.value}{FDR-adjusted p-value}
+\item{q.value}{Discrete q-value (Liang, 2016) accounting for Besag-Clifford support}
 }
 }
 \description{
@@ -94,7 +91,25 @@ with popcount is used for maximum throughput. For larger networks, a
 flag-vector approach (sparse set/count/clear) avoids excessive memory use.
 }
 
+\section{Multiple testing correction}{
+
+Q-values are computed using the Liang (2016) discrete q-value method via
+\code{\link[DiscreteQvalue:DQ]{DiscreteQvalue::DQ()}}, which accounts for the discrete support of
+Besag & Clifford p-values. The standard Storey & Tibshirani (2003)
+pi0-adaptive method cannot be used here because the adaptive stopping
+rule produces p-values that are valid (super-uniform under the null) but
+\strong{not} uniformly distributed: the negative binomial stopping concentrates
+null p-values in the 0.1--0.5 range and depletes the right tail
+(p > 0.9), causing Storey's pi0 estimator to severely underestimate pi0.
+The Liang method estimates pi0 using the discrete support structure and
+is correctly calibrated (pi0 = 1 on null simulations).
+}
+
 \references{
 Besag, J. & Clifford, P. (1991). Sequential Monte Carlo p-values.
 \emph{Biometrika}, 78(2), 301--304. \doi{10.1093/biomet/78.2.301}
+
+Liang, K. (2016). False discovery rate estimation for large-scale
+homogeneous discrete p-values. \emph{Biometrics}, 72(2), 639--648.
+\doi{10.1111/biom.12429}
 }

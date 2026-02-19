@@ -7,7 +7,6 @@
 summarize_comparison(
   comparison,
   alternative = c("greater", "less"),
-  fdr_method = "fdr",
   alpha = 0.05,
   filter_zero = NULL
 )
@@ -19,10 +18,7 @@ summarize_comparison(
 conservation (upper-tail, uses \code{.p.val.con} columns) or \code{"less"} for
 divergence (lower-tail, uses \code{.p.val.div} columns).}
 
-\item{fdr_method}{P-value adjustment method passed to \code{\link[=p.adjust]{p.adjust()}}
-(default \code{"fdr"}).}
-
-\item{alpha}{Significance threshold (default 0.05).}
+\item{alpha}{Significance threshold applied to q-values (default 0.05).}
 
 \item{filter_zero}{If \code{TRUE} (default for \code{"greater"}), remove rows where
 both overlap values are zero. Defaults to \code{FALSE} for \code{"less"}.}
@@ -30,14 +26,19 @@ both overlap values are zero. Defaults to \code{FALSE} for \code{"less"}.}
 \value{
 A list with components:
 \describe{
-\item{results}{Data frame with FDR-corrected p-values and filtered rows.
-FDR correction is applied to the p-value columns selected by
-\code{alternative}.}
+\item{results}{Data frame with the original p-values preserved and new
+q-value columns (\code{.q.val.con} or \code{.q.val.div}) added.
+Rows are filtered according to \code{filter_zero}.}
 \item{summary}{List of summary statistics at gene-pair, gene, and
-ortholog-group levels.}
+ortholog-group levels, thresholded on q-values.}
 }
 }
 \description{
-Applies FDR correction, filters results, and computes summary statistics
-at gene-pair, gene, and ortholog-group levels.
+Computes q-values (Storey & Tibshirani, 2003), filters results, and computes summary
+statistics at gene-pair, gene, and ortholog-group levels.
+}
+\references{
+Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
+genomewide studies. \emph{Proceedings of the National Academy of Sciences},
+100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
 }

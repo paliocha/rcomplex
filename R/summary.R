@@ -1,31 +1,50 @@
+#' Compute q-values from a vector of p-values
+#'
+#' Wrapper around [qvalue::qvalue()] that handles edge cases (fewer than
+#' 2 p-values).
+#'
+#' @param pvals Numeric vector of p-values.
+#' @return Numeric vector of q-values, same length as `pvals`.
+#' @noRd
+compute_qvalues <- function(pvals) {
+  if (length(pvals) < 2L) return(pvals)
+  tryCatch(
+    qvalue::qvalue(pvals)$qvalues,
+    error = function(e) qvalue::qvalue(pvals, pi0 = 1)$qvalues
+  )
+}
+
+
 #' Summarize neighborhood comparison results
 #'
-#' Applies FDR correction, filters results, and computes summary statistics
-#' at gene-pair, gene, and ortholog-group levels.
+#' Computes q-values (Storey & Tibshirani, 2003), filters results, and computes summary
+#' statistics at gene-pair, gene, and ortholog-group levels.
 #'
 #' @param comparison Data frame from [compare_neighborhoods()].
 #' @param alternative Which tail to test: `"greater"` (default) for
 #'   conservation (upper-tail, uses `.p.val.con` columns) or `"less"` for
 #'   divergence (lower-tail, uses `.p.val.div` columns).
-#' @param fdr_method P-value adjustment method passed to [p.adjust()]
-#'   (default `"fdr"`).
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold applied to q-values (default 0.05).
 #' @param filter_zero If `TRUE` (default for `"greater"`), remove rows where
 #'   both overlap values are zero. Defaults to `FALSE` for `"less"`.
 #'
 #' @return A list with components:
 #'   \describe{
-#'     \item{results}{Data frame with FDR-corrected p-values and filtered rows.
-#'       FDR correction is applied to the p-value columns selected by
-#'       `alternative`.}
+#'     \item{results}{Data frame with the original p-values preserved and new
+#'       q-value columns (`.q.val.con` or `.q.val.div`) added.
+#'       Rows are filtered according to `filter_zero`.}
 #'     \item{summary}{List of summary statistics at gene-pair, gene, and
-#'       ortholog-group levels.}
+#'       ortholog-group levels, thresholded on q-values.}
 #'   }
+#'
+#' @references
+#' Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
+#' genomewide studies. \emph{Proceedings of the National Academy of Sciences},
+#' 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
 #'
 #' @export
 summarize_comparison <- function(comparison,
                                  alternative = c("greater", "less"),
-                                 fdr_method = "fdr",
                                  alpha = 0.05,
                                  filter_zero = NULL) {
   alternative <- match.arg(alternative)
@@ -80,38 +99,40 @@ summarize_comparison <- function(comparison,
     ))
   }
 
-  # FDR correction on selected p-value columns
-  res[[sp1_col]] <- stats::p.adjust(res[[sp1_col]], method = fdr_method)
-  res[[sp2_col]] <- stats::p.adjust(res[[sp2_col]], method = fdr_method)
+  # Compute q-values on selected p-value columns
+  q1_col <- sub("p\\.val", "q.val", sp1_col)
+  q2_col <- sub("p\\.val", "q.val", sp2_col)
+  res[[q1_col]] <- compute_qvalues(res[[sp1_col]])
+  res[[q2_col]] <- compute_qvalues(res[[sp2_col]])
 
-  # Helper: count groups where the best (min) p-value is significant
-  count_sig <- function(pvals, groups) {
-    sum(tapply(pvals, groups, min) < alpha)
+  # Helper: count groups where the best (min) q-value is significant
+  count_sig <- function(qvals, groups) {
+    sum(tapply(qvals, groups, min) < alpha)
   }
 
-  p1 <- res[[sp1_col]]
-  p2 <- res[[sp2_col]]
-  max_p <- pmax(p1, p2)
+  q1 <- res[[q1_col]]
+  q2 <- res[[q2_col]]
+  max_q <- pmax(q1, q2)
 
   list(
     results = res,
     summary = list(
       gene_pairs = list(
-        sp1 = sum(p1 < alpha),
-        sp2 = sum(p2 < alpha),
-        reciprocal = sum(p1 < alpha & p2 < alpha),
+        sp1 = sum(q1 < alpha),
+        sp2 = sum(q2 < alpha),
+        reciprocal = sum(q1 < alpha & q2 < alpha),
         total = nrow(res)
       ),
       genes = list(
-        sp1 = count_sig(p1, res$Species1),
-        sp2 = count_sig(p2, res$Species2),
-        reciprocal_sp1 = count_sig(max_p, res$Species1),
-        reciprocal_sp2 = count_sig(max_p, res$Species2)
+        sp1 = count_sig(q1, res$Species1),
+        sp2 = count_sig(q2, res$Species2),
+        reciprocal_sp1 = count_sig(max_q, res$Species1),
+        reciprocal_sp2 = count_sig(max_q, res$Species2)
       ),
       orthogroups = list(
-        sp1 = count_sig(p1, res$OrthoGroup),
-        sp2 = count_sig(p2, res$OrthoGroup),
-        reciprocal = count_sig(max_p, res$OrthoGroup),
+        sp1 = count_sig(q1, res$OrthoGroup),
+        sp2 = count_sig(q2, res$OrthoGroup),
+        reciprocal = count_sig(max_q, res$OrthoGroup),
         total = length(unique(res$OrthoGroup))
       )
     )
@@ -155,6 +176,18 @@ summarize_comparison <- function(comparison,
 #' with popcount is used for maximum throughput. For larger networks, a
 #' flag-vector approach (sparse set/count/clear) avoids excessive memory use.
 #'
+#' @section Multiple testing correction:
+#' Q-values are computed using the Liang (2016) discrete q-value method via
+#' [DiscreteQvalue::DQ()], which accounts for the discrete support of
+#' Besag & Clifford p-values. The standard Storey & Tibshirani (2003)
+#' pi0-adaptive method cannot be used here because the adaptive stopping
+#' rule produces p-values that are valid (super-uniform under the null) but
+#' **not** uniformly distributed: the negative binomial stopping concentrates
+#' null p-values in the 0.1--0.5 range and depletes the right tail
+#' (p > 0.9), causing Storey's pi0 estimator to severely underestimate pi0.
+#' The Liang method estimates pi0 using the discrete support structure and
+#' is correctly calibrated (pi0 = 1 on null simulations).
+#'
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
 #' @param comparison Data frame from [compare_neighborhoods()] --- raw p-values,
@@ -167,8 +200,6 @@ summarize_comparison <- function(comparison,
 #'   Higher values give more precise p-values but take longer (default 50).
 #' @param max_permutations Maximum permutations per HOG (default 10000).
 #' @param n_cores Number of threads for parallel computation (default 1).
-#' @param fdr_method P-value adjustment method passed to [p.adjust()]
-#'   (default `"fdr"`).
 #'
 #' @return A data frame with one row per HOG, ordered by p-value, with columns:
 #'   \describe{
@@ -182,20 +213,23 @@ summarize_comparison <- function(comparison,
 #'     \item{n_exceed}{Number of permutation statistics exceeding T_obs}
 #'     \item{mean_eff}{Mean geometric-mean effect size across pairs}
 #'     \item{p.value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
-#'     \item{q.value}{FDR-adjusted p-value}
+#'     \item{q.value}{Discrete q-value (Liang, 2016) accounting for Besag-Clifford support}
 #'   }
 #'
 #' @references
 #' Besag, J. & Clifford, P. (1991). Sequential Monte Carlo p-values.
 #' \emph{Biometrika}, 78(2), 301--304. \doi{10.1093/biomet/78.2.301}
 #'
+#' Liang, K. (2016). False discovery rate estimation for large-scale
+#' homogeneous discrete p-values. \emph{Biometrics}, 72(2), 639--648.
+#' \doi{10.1111/biom.12429}
+#'
 #' @export
 permutation_hog_test <- function(net1, net2, comparison,
                                  alternative = c("greater", "less"),
                                  min_exceedances = 50L,
                                  max_permutations = 10000L,
-                                 n_cores = 1L,
-                                 fdr_method = "fdr") {
+                                 n_cores = 1L) {
   alternative <- match.arg(alternative)
   min_exceedances <- as.integer(min_exceedances)
   max_permutations <- as.integer(max_permutations)
@@ -277,6 +311,21 @@ permutation_hog_test <- function(net1, net2, comparison,
     p.value    = perm_result$p_value,
     stringsAsFactors = FALSE
   )
-  result$q.value <- stats::p.adjust(result$p.value, method = fdr_method)
+  # Construct Besag-Clifford p-value support for discrete q-values (Liang 2016)
+  # Early-stopped HOGs: p = (min_exceedances+1)/(n+1), n = min_exceedances..max_permutations
+  early_support <- (min_exceedances + 1) /
+    (seq.int(min_exceedances, max_permutations) + 1)
+  # Max-perm HOGs: p = (j+1)/(max_permutations+1), j = 0..(min_exceedances-1)
+  maxp_support <- seq_len(min_exceedances) / (max_permutations + 1)
+  bc_support <- sort(unique(c(early_support, maxp_support)))
+  bc_support <- bc_support[bc_support <= 0.5]
+
+  if (nrow(result) < 2L) {
+    result$q.value <- result$p.value
+  } else {
+    result$q.value <- DiscreteQvalue::DQ(
+      result$p.value, ss = bc_support, method = "Liang"
+    )$q.values
+  }
   result[order(result$p.value), ]
 }

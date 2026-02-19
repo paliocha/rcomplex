@@ -60,7 +60,7 @@ test_that("zero-overlap rows are filtered by default", {
   expect_equal(nrow(result_no_filter$results), 5)
 })
 
-test_that("FDR correction is applied", {
+test_that("q-values are computed", {
   comparison <- data.frame(
     Species1 = paste0("A_", 1:5),
     Species2 = paste0("B_", 1:5),
@@ -82,13 +82,21 @@ test_that("FDR correction is applied", {
 
   result <- summarize_comparison(comparison)
 
-  # FDR-adjusted p-values should be >= raw p-values
-  expect_true(all(result$results$Species1.p.val.con >= c(
-    0.001, 0.01, 0.02, 0.03, 0.04
-  )))
-  expect_true(all(result$results$Species2.p.val.con >= c(
-    0.002, 0.02, 0.03, 0.04, 0.05
-  )))
+  # q-value columns should exist
+  expect_true("Species1.q.val.con" %in% names(result$results))
+  expect_true("Species2.q.val.con" %in% names(result$results))
+
+  # q-values should be >= raw p-values
+  expect_true(all(result$results$Species1.q.val.con >=
+    result$results$Species1.p.val.con))
+  expect_true(all(result$results$Species2.q.val.con >=
+    result$results$Species2.p.val.con))
+
+  # Raw p-values should be unchanged
+  expect_equal(result$results$Species1.p.val.con,
+    c(0.001, 0.01, 0.02, 0.03, 0.04))
+  expect_equal(result$results$Species2.p.val.con,
+    c(0.002, 0.02, 0.03, 0.04, 0.05))
 })
 
 test_that("summary counts are correct", {
@@ -168,11 +176,15 @@ test_that("alternative='less' uses divergence p-values", {
   # filter_zero defaults to FALSE for "less"
   expect_equal(nrow(result$results), 5)
 
-  # FDR-adjusted divergence p-values for first three rows should be significant
-  expect_true(result$results$Species1.p.val.div[1] < 0.05)
-  expect_true(result$results$Species1.p.val.div[2] < 0.05)
+  # q-value columns for divergence should exist
+  expect_true("Species1.q.val.div" %in% names(result$results))
+  expect_true("Species2.q.val.div" %in% names(result$results))
+
+  # Divergence q-values for first three rows should be significant
+  expect_true(result$results$Species1.q.val.div[1] < 0.05)
+  expect_true(result$results$Species1.q.val.div[2] < 0.05)
   # Rows 4 and 5 have high div p-values, should not be significant
-  expect_true(result$results$Species1.p.val.div[4] > 0.05)
+  expect_true(result$results$Species1.q.val.div[4] > 0.05)
 })
 
 test_that("alternative='less' disables zero-overlap filtering by default", {
