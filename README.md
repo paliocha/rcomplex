@@ -5,8 +5,8 @@ Comparative co-expression network analysis across species.
 Compares gene co-expression networks across plant species by mapping
 orthologous genes (via PLAZA ortholog groups), building co-expression networks
 independently per species, then testing whether network neighborhoods are
-significantly preserved using hypergeometric tests with FDR correction and
-effect sizes.
+significantly preserved using hypergeometric tests with q-value correction
+and effect sizes.
 
 Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106).
 
@@ -32,10 +32,11 @@ net2 <- compute_network(expr2, norm_method = "MR", density = 0.03)
 # 3. Compare neighborhoods (pair-level hypergeometric tests)
 comparison <- compare_neighborhoods(net1, net2, orthologs)
 
-# 4a. Pair-level summary with FDR
+# 4a. Pair-level summary with q-values (Storey & Tibshirani, 2003)
 summary <- summarize_comparison(comparison)
 
 # 4b. HOG-level permutation test (recommended for multi-copy gene families)
+#     Uses discrete q-values (Liang, 2016) for multiple testing correction
 hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
 ```
 
@@ -111,23 +112,41 @@ This provides:
   relatively quickly. Only borderline HOGs use the full permutation budget.
 - **Precision where it matters**: The p-value estimate has relative precision
   ~1/sqrt(min_exceedances), so with 50 exceedances the coefficient of variation
-  is ~14%, sufficient for FDR correction.
+  is ~14%, sufficient for multiple testing correction.
 
-### Why permutation over Fisher's method?
+### Multiple testing correction: discrete q-values (Liang, 2016)
 
-Fisher's method combines pair-level p-values by assuming independence:
-`X² = -2 Σ log(p_i)`. Within a HOG, however, pairs share co-expression
-neighbors and ortholog mappings, so the p-values are positively correlated.
-This inflates Fisher's statistic and produces false positives — the severity
-scales with HOG size (a 5x5 HOG has 25 correlated tests).
+Besag-Clifford adaptive stopping produces p-values that are valid
+(super-uniform under the null) but **not** uniformly distributed. The negative
+binomial stopping rule concentrates null p-values in the 0.1--0.5 range and
+depletes the right tail (p > 0.9). This creates problems for standard
+correction methods:
 
-The permutation approach sidesteps this entirely. By permuting gene identities
-and recomputing the test statistic from scratch, the correlation structure
-between pairs is present in both the observed and null distributions. No
-independence assumption is needed; the test is exact by construction.
+- **BH (Benjamini & Hochberg, 1995)**: Valid but conservative. BH assumes
+  nothing about the null distribution beyond super-uniformity, so it correctly
+  controls FDR. However, it implicitly assumes pi0 = 1 (all nulls), forfeiting
+  the power gain from estimating the true null proportion.
+- **Storey q-values (Storey & Tibshirani, 2003)**: Invalid. The pi0 estimator
+  relies on null p-values being uniformly distributed in (0, 1) so that the
+  right tail (e.g. p > 0.9) is flat. With BC p-values, the depleted right tail
+  causes pi0 to be severely underestimated (e.g. median pi0 ~ 0.18 instead of
+  ~ 0.4), inflating the number of discoveries by 5--6x.
 
-`permutation_hog_test()` avoids the independence assumption entirely, making it
-valid for all HOG sizes.
+`permutation_hog_test()` uses the discrete q-value method of Liang (2016) via
+`DiscreteQvalue::DQ()`. This method estimates pi0 using the known discrete
+support structure of the p-values rather than relying on the right-tail
+density. On simulated pure-null BC p-values, Liang correctly returns
+pi0 = 1.000 across all seeds, while Storey's estimator fails entirely
+(spline returns NA or pi0 ~ 0.2).
+
+The BC p-value support is constructed from the stopping parameters:
+
+- **Early-stopped HOGs** (n_exceed = k): p = (k+1)/(n+1) for
+  n = k, k+1, ..., M
+- **Max-permutation HOGs** (n_perm = M): p = (j+1)/(M+1) for
+  j = 0, 1, ..., k-1
+
+where k = `min_exceedances` and M = `max_permutations`.
 
 ### Performance: column-major memory access
 
@@ -151,6 +170,12 @@ On a 22K-gene network pair, this gives a ~3x speedup over naive row access
   *BMC Genomics*, 15, 106. [doi:10.1186/1471-2164-15-106](https://doi.org/10.1186/1471-2164-15-106)
 - Besag, J. & Clifford, P. (1991). Sequential Monte Carlo p-values.
   *Biometrika*, 78(2), 301--304. [doi:10.1093/biomet/78.2.301](https://doi.org/10.1093/biomet/78.2.301)
+- Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
+  genomewide studies. *PNAS*, 100(16), 9440--9445.
+  [doi:10.1073/pnas.1530509100](https://doi.org/10.1073/pnas.1530509100)
+- Liang, K. (2016). False discovery rate estimation for large-scale
+  homogeneous discrete p-values. *Biometrics*, 72(2), 639--648.
+  [doi:10.1111/biom.12429](https://doi.org/10.1111/biom.12429)
 
 ## License
 

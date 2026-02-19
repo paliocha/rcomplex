@@ -3,13 +3,13 @@
 #' Compares gene co-expression networks across plant species by mapping
 #' orthologous genes, building co-expression networks independently per species,
 #' then testing whether network neighborhoods are significantly preserved using
-#' hypergeometric tests with FDR correction and effect sizes.
+#' hypergeometric tests with q-value correction and effect sizes.
 #'
 #' @section Main functions:
 #' - [parse_orthologs()]: Parse PLAZA ortholog group files
 #' - [compute_network()]: Build co-expression network from expression matrix
 #' - [compare_neighborhoods()]: Test conservation of network neighborhoods
-#' - [summarize_comparison()]: FDR correction and summary statistics
+#' - [summarize_comparison()]: Q-value correction and summary statistics
 #' - [permutation_hog_test()]: Permutation-based HOG-level conservation test
 #'
 #' @section Typical workflow:
@@ -30,7 +30,7 @@
 #' @importFrom Rcpp sourceCpp
 #' @importFrom igraph %--%
 #' @importFrom rlang .data .env
-#' @importFrom stats phyper p.adjust setNames
+#' @importFrom stats phyper setNames
 #' @importFrom utils read.delim
 ## usethis namespace: end
 NULL

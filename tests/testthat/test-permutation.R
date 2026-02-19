@@ -117,7 +117,7 @@ test_that("p-value formula is (n_exceed + 1) / (n_perm + 1)", {
 })
 
 
-test_that("FDR correction is applied", {
+test_that("q-values are computed", {
   td <- make_test_nets()
   set.seed(42)
   result <- permutation_hog_test(
@@ -125,7 +125,7 @@ test_that("FDR correction is applied", {
     max_permutations = 200L, min_exceedances = 10L
   )
 
-  expect_true(all(result$q.value >= result$p.value))
+  expect_true(all(result$q.value >= 0 & result$q.value <= 1))
 })
 
 
