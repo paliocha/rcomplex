@@ -3,10 +3,10 @@
 Comparative co-expression network analysis across species.
 
 Compares gene co-expression networks across plant species by mapping
-orthologous genes (via PLAZA ortholog groups), building co-expression networks
-independently per species, then testing whether network neighborhoods are
-significantly preserved using hypergeometric tests with q-value correction
-and effect sizes.
+orthologous genes via OrthoFinder's hierarchical ortholog groups (HOGs),
+building co-expression networks independently per species, then testing
+whether network neighborhoods are significantly preserved using hypergeometric
+tests with q-value correction and effect sizes.
 
 Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106).
 
@@ -44,10 +44,9 @@ hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
 
 ### The problem with Fisher's method
 
-A naive approach to HOG-level testing would combine pair-level p-values using
+A naïve approach to HOG-level testing would combine pair-level p-values using
 Fisher's method. However, Fisher's method assumes independent tests. Within a
-HOG, pair-level
-hypergeometric tests are correlated because:
+HOG, pair-level hypergeometric tests are correlated because:
 
 - **Shared neighborhoods**: Genes in the same HOG often share co-expression
   neighbors (especially after whole-genome duplication), so their neighborhood
