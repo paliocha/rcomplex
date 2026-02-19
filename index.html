@@ -66,7 +66,7 @@
 <div class="page-header"><h1 id="rcomplex">rcomplex<a class="anchor" aria-label="anchor" href="#rcomplex"></a>
 </h1></div>
 <p>Comparative co-expression network analysis across species.</p>
-<p>Compares gene co-expression networks across plant species by mapping orthologous genes (via PLAZA ortholog groups), building co-expression networks independently per species, then testing whether network neighborhoods are significantly preserved using hypergeometric tests with q-value correction and effect sizes.</p>
+<p>Compares gene co-expression networks across plant species by mapping orthologous genes via OrthoFinder’s hierarchical ortholog groups (HOGs), building co-expression networks independently per species, then testing whether network neighborhoods are significantly preserved using hypergeometric tests with q-value correction and effect sizes.</p>
 <p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -104,7 +104,7 @@
 <div class="section level3">
 <h3 id="the-problem-with-fishers-method">The problem with Fisher’s method<a class="anchor" aria-label="anchor" href="#the-problem-with-fishers-method"></a>
 </h3>
-<p>A naive approach to HOG-level testing would combine pair-level p-values using Fisher’s method. However, Fisher’s method assumes independent tests. Within a HOG, pair-level hypergeometric tests are correlated because:</p>
+<p>A naïve approach to HOG-level testing would combine pair-level p-values using Fisher’s method. However, Fisher’s method assumes independent tests. Within a HOG, pair-level hypergeometric tests are correlated because:</p>
 <ul>
 <li>
 <strong>Shared neighborhoods</strong>: Genes in the same HOG often share co-expression neighbors (especially after whole-genome duplication), so their neighborhood overlap tests draw from overlapping gene sets.</li>
