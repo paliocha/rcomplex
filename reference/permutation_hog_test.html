@@ -43,7 +43,7 @@
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>Permutation-based HOG-level conservation/divergence test</h1>
-    <small class="dont-index">Source: <a href="https://github.com/paliocha/rcomplex/blob/v0.1.0-beta1/R/summary.R" class="external-link"><code>R/summary.R</code></a></small>
+    <small class="dont-index">Source: <a href="https://github.com/paliocha/rcomplex/blob/main/R/summary.R" class="external-link"><code>R/summary.R</code></a></small>
     <div class="hidden name"><code>permutation_hog_test.Rd</code></div>
     </div>
 
@@ -61,8 +61,7 @@
 <span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
 <span>  min_exceedances <span class="op">=</span> <span class="fl">50L</span>,</span>
 <span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  fdr_method <span class="op">=</span> <span class="st">"fdr"</span></span>
+<span>  n_cores <span class="op">=</span> <span class="fl">1L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -80,7 +79,8 @@
 
 <dt id="arg-comparison">comparison<a class="anchor" aria-label="anchor" href="#arg-comparison"></a></dt>
 <dd><p>Data frame from <code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code> — raw p-values,
-<strong>not</strong> FDR-corrected. Used to define HOG structure and extract effect sizes.</p></dd>
+<strong>not</strong> FDR-corrected. Used to define HOG structure and extract
+effect sizes.</p></dd>
 
 
 <dt id="arg-alternative">alternative<a class="anchor" aria-label="anchor" href="#arg-alternative"></a></dt>
@@ -100,11 +100,6 @@ Higher values give more precise p-values but take longer (default 50).</p></dd>
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
 <dd><p>Number of threads for parallel computation (default 1).</p></dd>
-
-
-<dt id="arg-fdr-method">fdr_method<a class="anchor" aria-label="anchor" href="#arg-fdr-method"></a></dt>
-<dd><p>P-value adjustment method passed to <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust()</a></code>
-(default <code>"fdr"</code>).</p></dd>
 
 </dl></div>
     <div id="value">
@@ -138,7 +133,7 @@ due to adaptive stopping)</p></dd>
 <dd><p>Permutation p-value: (n_exceed + 1) / (n_perm + 1)</p></dd>
 
 <dt>q.value</dt>
-<dd><p>FDR-adjusted p-value</p></dd>
+<dd><p>Discrete q-value (Liang, 2016) accounting for Besag-Clifford support</p></dd>
 
 
 </dl></div>
@@ -179,10 +174,28 @@ regardless of the dependency structure.</p>
 with popcount is used for maximum throughput. For larger networks, a
 flag-vector approach (sparse set/count/clear) avoids excessive memory use.</p>
     </div>
+    <div id="multiple-testing-correction">
+    <h2>Multiple testing correction</h2>
+
+
+<p>Q-values are computed using the Liang (2016) discrete q-value method via
+<code><a href="https://rdrr.io/pkg/DiscreteQvalue/man/DQ.html" class="external-link">DiscreteQvalue::DQ()</a></code>, which accounts for the discrete support of
+Besag &amp; Clifford p-values. The standard Storey &amp; Tibshirani (2003)
+pi0-adaptive method cannot be used here because the adaptive stopping
+rule produces p-values that are valid (super-uniform under the null) but
+<strong>not</strong> uniformly distributed: the negative binomial stopping concentrates
+null p-values in the 0.1–0.5 range and depletes the right tail
+(p &gt; 0.9), causing Storey's pi0 estimator to severely underestimate pi0.
+The Liang method estimates pi0 using the discrete support structure and
+is correctly calibrated (pi0 = 1 on null simulations).</p>
+    </div>
     <div id="references">
     <h2>References</h2>
     <p>Besag, J. &amp; Clifford, P. (1991). Sequential Monte Carlo p-values.
 <em>Biometrika</em>, 78(2), 301–304. <a href="https://doi.org/10.1093/biomet/78.2.301" class="external-link">doi:10.1093/biomet/78.2.301</a></p>
+<p>Liang, K. (2016). False discovery rate estimation for large-scale
+homogeneous discrete p-values. <em>Biometrics</em>, 72(2), 639–648.
+<a href="https://doi.org/10.1111/biom.12429" class="external-link">doi:10.1111/biom.12429</a></p>
     </div>
 
   </div>

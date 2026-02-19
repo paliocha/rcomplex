@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous">
 <!-- clipboard.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><!-- headroom.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script><!-- pkgdown --><link href="pkgdown.css" rel="stylesheet">
 <script src="pkgdown.js"></script><meta property="og:title" content="Comparative Co-Expression Network Analysis Across Species">
-<meta property="og:description" content="Compares gene co-expression networks across plant species by mapping orthologous genes (via PLAZA ortholog groups), building co-expression networks independently per species, then testing whether network neighborhoods are significantly preserved using hypergeometric tests with FDR correction and effect sizes. Based on Netotea et al. (2014) &lt;doi:10.1186/1471-2164-15-106&gt;.">
+<meta property="og:description" content="Compares gene co-expression networks across plant species by mapping orthologous genes (via PLAZA ortholog groups), building co-expression networks independently per species, then testing whether network neighborhoods are significantly preserved using hypergeometric tests with q-value correction (Storey, 2003) and effect sizes. Based on Netotea et al. (2014) &lt;doi:10.1186/1471-2164-15-106&gt;.">
 <!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
 <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
 <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
@@ -66,7 +66,7 @@
 <div class="page-header"><h1 id="rcomplex">rcomplex<a class="anchor" aria-label="anchor" href="#rcomplex"></a>
 </h1></div>
 <p>Comparative co-expression network analysis across species.</p>
-<p>Compares gene co-expression networks across plant species by mapping orthologous genes (via PLAZA ortholog groups), building co-expression networks independently per species, then testing whether network neighborhoods are significantly preserved using hypergeometric tests with FDR correction and effect sizes.</p>
+<p>Compares gene co-expression networks across plant species by mapping orthologous genes (via PLAZA ortholog groups), building co-expression networks independently per species, then testing whether network neighborhoods are significantly preserved using hypergeometric tests with q-value correction and effect sizes.</p>
 <p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -91,10 +91,11 @@
 <span><span class="co"># 3. Compare neighborhoods (pair-level hypergeometric tests)</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">orthologs</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 4a. Pair-level summary with FDR</span></span>
+<span><span class="co"># 4a. Pair-level summary with q-values (Storey &amp; Tibshirani, 2003)</span></span>
 <span><span class="va">summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/summarize_comparison.html">summarize_comparison</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 4b. HOG-level permutation test (recommended for multi-copy gene families)</span></span>
+<span><span class="co">#     Uses discrete q-values (Liang, 2016) for multiple testing correction</span></span>
 <span><span class="va">hog_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/permutation_hog_test.html">permutation_hog_test</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">comparison</span>, n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -128,14 +129,27 @@
 </h3>
 <p>Rather than running a fixed number of permutations for every HOG, the implementation uses the sequential Monte Carlo stopping rule of Besag &amp; Clifford (1991). Permutations continue until <code>min_exceedances</code> (default: 50) permutation statistics exceed (or fall below, for divergence) the observed statistic, then:</p>
 <pre><code><span><span class="va">p</span> <span class="op">=</span> <span class="op">(</span><span class="va">n_exceed</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="va">n_perm</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span></span></code></pre>
-<p>This provides: - <strong>Efficiency</strong>: Clearly non-significant HOGs stop after ~50 permutations (exceedances accumulate immediately). Clearly significant HOGs also stop relatively quickly. Only borderline HOGs use the full permutation budget. - <strong>Precision where it matters</strong>: The p-value estimate has relative precision ~1/sqrt(min_exceedances), so with 50 exceedances the coefficient of variation is ~14%, sufficient for FDR correction.</p>
+<p>This provides: - <strong>Efficiency</strong>: Clearly non-significant HOGs stop after ~50 permutations (exceedances accumulate immediately). Clearly significant HOGs also stop relatively quickly. Only borderline HOGs use the full permutation budget. - <strong>Precision where it matters</strong>: The p-value estimate has relative precision ~1/sqrt(min_exceedances), so with 50 exceedances the coefficient of variation is ~14%, sufficient for multiple testing correction.</p>
 </div>
 <div class="section level3">
-<h3 id="why-permutation-over-fishers-method">Why permutation over Fisher’s method?<a class="anchor" aria-label="anchor" href="#why-permutation-over-fishers-method"></a>
+<h3 id="multiple-testing-correction-discrete-q-values-liang-2016">Multiple testing correction: discrete q-values (Liang, 2016)<a class="anchor" aria-label="anchor" href="#multiple-testing-correction-discrete-q-values-liang-2016"></a>
 </h3>
-<p>Fisher’s method combines pair-level p-values by assuming independence: <code>X² = -2 Σ log(p_i)</code>. Within a HOG, however, pairs share co-expression neighbors and ortholog mappings, so the p-values are positively correlated. This inflates Fisher’s statistic and produces false positives — the severity scales with HOG size (a 5x5 HOG has 25 correlated tests).</p>
-<p>The permutation approach sidesteps this entirely. By permuting gene identities and recomputing the test statistic from scratch, the correlation structure between pairs is present in both the observed and null distributions. No independence assumption is needed; the test is exact by construction.</p>
-<p><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> avoids the independence assumption entirely, making it valid for all HOG sizes.</p>
+<p>Besag-Clifford adaptive stopping produces p-values that are valid (super-uniform under the null) but <strong>not</strong> uniformly distributed. The negative binomial stopping rule concentrates null p-values in the 0.1–0.5 range and depletes the right tail (p &gt; 0.9). This creates problems for standard correction methods:</p>
+<ul>
+<li>
+<strong>BH (Benjamini &amp; Hochberg, 1995)</strong>: Valid but conservative. BH assumes nothing about the null distribution beyond super-uniformity, so it correctly controls FDR. However, it implicitly assumes pi0 = 1 (all nulls), forfeiting the power gain from estimating the true null proportion.</li>
+<li>
+<strong>Storey q-values (Storey &amp; Tibshirani, 2003)</strong>: Invalid. The pi0 estimator relies on null p-values being uniformly distributed in (0, 1) so that the right tail (e.g. p &gt; 0.9) is flat. With BC p-values, the depleted right tail causes pi0 to be severely underestimated (e.g. median pi0 ~ 0.18 instead of ~ 0.4), inflating the number of discoveries by 5–6x.</li>
+</ul>
+<p><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> uses the discrete q-value method of Liang (2016) via <code><a href="https://rdrr.io/pkg/DiscreteQvalue/man/DQ.html" class="external-link">DiscreteQvalue::DQ()</a></code>. This method estimates pi0 using the known discrete support structure of the p-values rather than relying on the right-tail density. On simulated pure-null BC p-values, Liang correctly returns pi0 = 1.000 across all seeds, while Storey’s estimator fails entirely (spline returns NA or pi0 ~ 0.2).</p>
+<p>The BC p-value support is constructed from the stopping parameters:</p>
+<ul>
+<li>
+<strong>Early-stopped HOGs</strong> (n_exceed = k): p = (k+1)/(n+1) for n = k, k+1, …, M</li>
+<li>
+<strong>Max-permutation HOGs</strong> (n_perm = M): p = (j+1)/(M+1) for j = 0, 1, …, k-1</li>
+</ul>
+<p>where k = <code>min_exceedances</code> and M = <code>max_permutations</code>.</p>
 </div>
 <div class="section level3">
 <h3 id="performance-column-major-memory-access">Performance: column-major memory access<a class="anchor" aria-label="anchor" href="#performance-column-major-memory-access"></a>
@@ -157,6 +171,10 @@
 <li>Netotea, S. <em>et al.</em> (2014). ComPlEx: conservation and divergence of co-expression networks in <em>A. thaliana</em>, <em>Populus</em> and <em>O. sativa</em>. <em>BMC Genomics</em>, 15, 106. <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">doi:10.1186/1471-2164-15-106</a>
 </li>
 <li>Besag, J. &amp; Clifford, P. (1991). Sequential Monte Carlo p-values. <em>Biometrika</em>, 78(2), 301–304. <a href="https://doi.org/10.1093/biomet/78.2.301" class="external-link">doi:10.1093/biomet/78.2.301</a>
+</li>
+<li>Storey, J. D. &amp; Tibshirani, R. (2003). Statistical significance for genomewide studies. <em>PNAS</em>, 100(16), 9440–9445. <a href="https://doi.org/10.1073/pnas.1530509100" class="external-link">doi:10.1073/pnas.1530509100</a>
+</li>
+<li>Liang, K. (2016). False discovery rate estimation for large-scale homogeneous discrete p-values. <em>Biometrics</em>, 72(2), 639–648. <a href="https://doi.org/10.1111/biom.12429" class="external-link">doi:10.1111/biom.12429</a>
 </li>
 </ul>
 </div>
