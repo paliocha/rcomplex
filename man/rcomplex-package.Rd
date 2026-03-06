@@ -19,6 +19,9 @@ hypergeometric tests with q-value correction and effect sizes.
 \item \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}: Test conservation of network neighborhoods
 \item \code{\link[=summarize_comparison]{summarize_comparison()}}: Q-value correction and summary statistics
 \item \code{\link[=permutation_hog_test]{permutation_hog_test()}}: Permutation-based HOG-level conservation test
+\item \code{\link[=detect_modules]{detect_modules()}}: Community detection in co-expression networks
+\item \code{\link[=compare_modules]{compare_modules()}}: Cross-species module comparison
+\item \code{\link[=classify_modules]{classify_modules()}}: Classify modules as conserved/species-specific
 }
 }
 
@@ -30,6 +33,8 @@ hypergeometric tests with q-value correction and effect sizes.
 \item Compare neighborhoods with \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}
 \item Summarize results with \code{\link[=summarize_comparison]{summarize_comparison()}} or test HOG-level
 conservation with \code{\link[=permutation_hog_test]{permutation_hog_test()}}
+\item Optionally detect modules with \code{\link[=detect_modules]{detect_modules()}} and compare across
+species with \code{\link[=compare_modules]{compare_modules()}} and \code{\link[=classify_modules]{classify_modules()}}
 }
 }
 

@@ -11,6 +11,9 @@
 #' - [compare_neighborhoods()]: Test conservation of network neighborhoods
 #' - [summarize_comparison()]: Q-value correction and summary statistics
 #' - [permutation_hog_test()]: Permutation-based HOG-level conservation test
+#' - [detect_modules()]: Community detection in co-expression networks
+#' - [compare_modules()]: Cross-species module comparison
+#' - [classify_modules()]: Classify modules as conserved/species-specific
 #'
 #' @section Typical workflow:
 #' 1. Parse ortholog groups with [parse_orthologs()]
@@ -18,6 +21,8 @@
 #' 3. Compare neighborhoods with [compare_neighborhoods()]
 #' 4. Summarize results with [summarize_comparison()] or test HOG-level
 #'    conservation with [permutation_hog_test()]
+#' 5. Optionally detect modules with [detect_modules()] and compare across
+#'    species with [compare_modules()] and [classify_modules()]
 #'
 #' @docType package
 #' @name rcomplex-package
