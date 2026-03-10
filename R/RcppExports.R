@@ -67,10 +67,11 @@ hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, orth
     .Call(`_rcomplex_hog_permutation_test_cpp`, net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores)
 }
 
-#' Permutation-based Jaccard test for module comparison
+#' Permutation-based Jaccard test for module comparison (batched)
 #'
 #' Tests each module pair for significant Jaccard overlap using ortholog-mapping
-#' permutation with Besag-Clifford adaptive stopping.
+#' permutation with Besag-Clifford adaptive stopping.  Uses batched permutation:
+#' one shuffle per iteration shared across all active pairs.
 #'
 #' @param ortho_sp1_gene 0-based index of each ortholog's sp1 unique gene
 #' @param ortho_sp2_gene 0-based sp2 gene index for each ortholog row

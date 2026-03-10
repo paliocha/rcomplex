@@ -15,6 +15,24 @@ compute_qvalues <- function(pvals) {
 }
 
 
+#' Compute Besag-Clifford p-value support for discrete q-values
+#'
+#' Constructs the discrete support set for p-values produced by Besag-Clifford
+#' adaptive stopping, used by [DiscreteQvalue::DQ()].
+#'
+#' @param min_exceedances BC stopping parameter.
+#' @param max_permutations Maximum permutations.
+#' @return Sorted numeric vector of possible p-values (capped at 0.5).
+#' @noRd
+bc_pvalue_support <- function(min_exceedances, max_permutations) {
+  early <- (min_exceedances + 1) /
+    (seq.int(min_exceedances, max_permutations) + 1)
+  maxp <- seq_len(min_exceedances) / (max_permutations + 1)
+  support <- sort(unique(c(early, maxp)))
+  support[support <= 0.5]
+}
+
+
 #' Summarize neighborhood comparison results
 #'
 #' Computes q-values (Storey & Tibshirani, 2003), filters results, and computes summary
@@ -311,14 +329,7 @@ permutation_hog_test <- function(net1, net2, comparison,
     p.value    = perm_result$p_value,
     stringsAsFactors = FALSE
   )
-  # Construct Besag-Clifford p-value support for discrete q-values (Liang 2016)
-  # Early-stopped HOGs: p = (min_exceedances+1)/(n+1), n = min_exceedances..max_permutations
-  early_support <- (min_exceedances + 1) /
-    (seq.int(min_exceedances, max_permutations) + 1)
-  # Max-perm HOGs: p = (j+1)/(max_permutations+1), j = 0..(min_exceedances-1)
-  maxp_support <- seq_len(min_exceedances) / (max_permutations + 1)
-  bc_support <- sort(unique(c(early_support, maxp_support)))
-  bc_support <- bc_support[bc_support <= 0.5]
+  bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
 
   if (nrow(result) < 2L) {
     result$q.value <- result$p.value

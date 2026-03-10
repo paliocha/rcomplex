@@ -43,20 +43,15 @@ detect_modules <- function(net,
   thr <- net$threshold
   genes <- rownames(mat)
 
-  # Extract edges above threshold (upper triangle only, vectorized)
-  edges <- which(upper.tri(mat) & mat >= thr, arr.ind = TRUE)
-
-  if (nrow(edges) == 0L) {
+  # Build graph directly from adjacency matrix (uses igraph's C backend)
+  adj <- mat
+  adj[adj < thr] <- 0
+  g <- igraph::graph_from_adjacency_matrix(
+    adj, mode = "upper", weighted = TRUE, diag = FALSE
+  )
+  if (igraph::ecount(g) == 0L) {
     stop("No edges above threshold; cannot detect modules")
   }
-
-  g <- igraph::graph_from_data_frame(
-    data.frame(from = genes[edges[, 1L]], to = genes[edges[, 2L]],
-               stringsAsFactors = FALSE),
-    directed = FALSE,
-    vertices = data.frame(name = genes)
-  )
-  igraph::E(g)$weight <- mat[edges]
 
   if (!is.null(seed)) set.seed(seed)
 
@@ -190,53 +185,60 @@ compare_modules <- function(modules1, modules2, orthologs,
 compare_modules_hypergeometric <- function(mg1, mg2, sp1_to_sp2, sp2_mappable) {
   mod_names1 <- names(mg1)
   mod_names2 <- names(mg2)
+  n1 <- length(mod_names1)
+  n2 <- length(mod_names2)
   N <- length(sp2_mappable)
-  n_pairs <- length(mod_names1) * length(mod_names2)
 
-  # Pre-allocate output vectors
-  out_mod1 <- character(n_pairs)
-  out_mod2 <- character(n_pairs)
-  out_size1 <- integer(n_pairs)
-  out_size2 <- integer(n_pairs)
-  out_overlap <- integer(n_pairs)
-  out_jaccard <- numeric(n_pairs)
-  out_pval <- numeric(n_pairs)
-  idx <- 0L
+  # Binary membership matrices: rows = sp2_mappable genes, cols = modules
+  # M1: sp1 modules mapped to sp2 space; M2: sp2 modules in mappable space
+  sp2_idx <- stats::setNames(seq_along(sp2_mappable), sp2_mappable)
+  M1 <- matrix(0L, nrow = N, ncol = n1)
+  M2 <- matrix(0L, nrow = N, ncol = n2)
 
-  for (i in seq_along(mod_names1)) {
-    genes_i <- mg1[[i]]
-    mapped_i <- unique(unlist(sp1_to_sp2[genes_i], use.names = FALSE))
-    if (is.null(mapped_i)) mapped_i <- character(0)
-    k <- length(mapped_i)
-
-    for (j in seq_along(mod_names2)) {
-      idx <- idx + 1L
-      genes_j_mappable <- intersect(mg2[[j]], sp2_mappable)
-      m <- length(genes_j_mappable)
-      ol <- length(intersect(mapped_i, genes_j_mappable))
-      un <- k + m - ol
-
-      out_mod1[idx] <- mod_names1[i]
-      out_mod2[idx] <- mod_names2[j]
-      out_size1[idx] <- length(genes_i)
-      out_size2[idx] <- length(mg2[[j]])
-      out_overlap[idx] <- ol
-      out_jaccard[idx] <- if (un > 0L) ol / un else 0
-      out_pval[idx] <- if (ol > 0L && k > 0L && m > 0L) {
-        stats::phyper(ol - 1L, m, N - m, k, lower.tail = FALSE)
-      } else {
-        1
-      }
+  k_vec <- integer(n1)  # mapped set size per sp1 module
+  for (i in seq_len(n1)) {
+    mapped <- unique(unlist(sp1_to_sp2[mg1[[i]]], use.names = FALSE))
+    if (!is.null(mapped)) {
+      hits <- sp2_idx[mapped]
+      hits <- hits[!is.na(hits)]
+      M1[hits, i] <- 1L
+      k_vec[i] <- length(hits)
     }
   }
 
+  m_vec <- integer(n2)  # mappable set size per sp2 module
+  for (j in seq_len(n2)) {
+    hits <- sp2_idx[mg2[[j]]]
+    hits <- hits[!is.na(hits)]
+    M2[hits, j] <- 1L
+    m_vec[j] <- length(hits)
+  }
+
+  # All overlaps at once via BLAS (n1 x n2 matrix)
+  overlap_mat <- crossprod(M1, M2)
+
+  # Expand to pair vectors (column-major: i varies fastest)
+  idx_i <- rep(seq_len(n1), n2)
+  idx_j <- rep(seq_len(n2), each = n1)
+  ol <- as.integer(overlap_mat)
+  k <- k_vec[idx_i]
+  m <- m_vec[idx_j]
+  un <- k + m - ol
+
   pairs <- data.frame(
-    module_sp1 = out_mod1, module_sp2 = out_mod2,
-    size_sp1 = out_size1, size_sp2 = out_size2,
-    overlap = out_overlap, jaccard = out_jaccard,
-    p.value = out_pval, stringsAsFactors = FALSE
+    module_sp1 = mod_names1[idx_i],
+    module_sp2 = mod_names2[idx_j],
+    size_sp1 = vapply(mg1, length, integer(1))[idx_i],
+    size_sp2 = vapply(mg2, length, integer(1))[idx_j],
+    overlap = ol,
+    jaccard = ifelse(un > 0L, ol / un, 0),
+    p.value = ifelse(ol > 0L & k > 0L & m > 0L,
+                     stats::phyper(ol - 1L, m, N - m, k, lower.tail = FALSE),
+                     1),
+    stringsAsFactors = FALSE
   )
 
+  n_pairs <- nrow(pairs)
   pairs$q.value <- if (n_pairs < 2L) pairs$p.value else {
     compute_qvalues(pairs$p.value)
   }
@@ -270,43 +272,53 @@ compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
     as.integer(sp2_idx_map[intersect(genes, sp2_mappable)])
   })
 
-  # Per sp1 module: mapped sp2 indices (for observed Jaccard)
-  mod_sp1_mapped <- lapply(mg1, function(genes) {
-    mapped <- unique(unlist(sp1_to_sp2[genes], use.names = FALSE))
-    if (is.null(mapped)) return(integer(0))
-    as.integer(sp2_idx_map[mapped])
-  })
-
   # Per sp1 module: unique sp1 gene indices (for C++ permutation)
   mod1_sp1_genes <- lapply(mg1, function(genes) {
     as.integer(sp1_idx_map[intersect(genes, sp1_unique)])
   })
 
-  # Compute observed Jaccard for all pairs
-  n_pairs <- length(mod_names1) * length(mod_names2)
-  mod_i_idx <- integer(n_pairs)
-  mod_j_idx <- integer(n_pairs)
-  obs_jaccard <- numeric(n_pairs)
-  obs_overlap <- integer(n_pairs)
-  size_sp1 <- integer(n_pairs)
-  size_sp2 <- integer(n_pairs)
+  # Compute observed Jaccard for all pairs via crossprod
+  n1 <- length(mod_names1)
+  n2 <- length(mod_names2)
+  n_pairs <- n1 * n2
 
-  idx <- 0L
-  for (i in seq_along(mod_names1)) {
-    a_set <- mod_sp1_mapped[[i]]
-    for (j in seq_along(mod_names2)) {
-      idx <- idx + 1L
-      mod_i_idx[idx] <- i
-      mod_j_idx[idx] <- j
-      b_set <- mod_sp2_sets[[j]]
-      ol <- length(intersect(a_set, b_set))
-      un <- length(a_set) + length(b_set) - ol
-      obs_overlap[idx] <- ol
-      obs_jaccard[idx] <- if (un > 0L) ol / un else 0
-      size_sp1[idx] <- length(mg1[[i]])
-      size_sp2[idx] <- length(mg2[[j]])
+  # Binary membership matrices (0-based sp2 indices -> 1-based rows)
+  M1 <- matrix(0L, nrow = n_sp2, ncol = n1)
+  k_vec <- integer(n1)
+  for (i in seq_len(n1)) {
+    mapped <- unique(unlist(sp1_to_sp2[mg1[[i]]], use.names = FALSE))
+    if (!is.null(mapped)) {
+      hits <- sp2_idx_map[mapped]
+      hits <- hits[!is.na(hits)] + 1L  # 0-based -> 1-based row index
+      M1[hits, i] <- 1L
+      k_vec[i] <- length(hits)
     }
   }
+
+  M2 <- matrix(0L, nrow = n_sp2, ncol = n2)
+  m_vec <- integer(n2)
+  for (j in seq_len(n2)) {
+    idx_j <- mod_sp2_sets[[j]]
+    if (length(idx_j) > 0L) {
+      M2[idx_j + 1L, j] <- 1L  # 0-based -> 1-based row index
+      m_vec[j] <- length(idx_j)
+    }
+  }
+
+  overlap_mat <- crossprod(M1, M2)  # n1 x n2
+
+  # Expand to pair vectors (column-major: i varies fastest)
+  idx_i <- rep(seq_len(n1), n2)
+  idx_j <- rep(seq_len(n2), each = n1)
+  mod_i_idx <- idx_i
+  mod_j_idx <- idx_j
+  obs_overlap <- as.integer(overlap_mat)
+  k <- k_vec[idx_i]
+  m <- m_vec[idx_j]
+  un <- k + m - obs_overlap
+  obs_jaccard <- ifelse(un > 0L, obs_overlap / un, 0)
+  size_sp1 <- vapply(mg1, length, integer(1))[idx_i]
+  size_sp2 <- vapply(mg2, length, integer(1))[idx_j]
 
   perm_result <- module_jaccard_permutation_cpp(
     ortho_sp1_gene = ortho_sp1_int,
@@ -333,11 +345,7 @@ compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
   )
 
   # Discrete q-values (Liang 2016) for Besag-Clifford p-values
-  early_support <- (min_exceedances + 1) /
-    (seq.int(min_exceedances, max_permutations) + 1)
-  maxp_support <- seq_len(min_exceedances) / (max_permutations + 1)
-  bc_support <- sort(unique(c(early_support, maxp_support)))
-  bc_support <- bc_support[bc_support <= 0.5]
+  bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
 
   pairs$q.value <- if (n_pairs < 2L) pairs$p.value else {
     DiscreteQvalue::DQ(

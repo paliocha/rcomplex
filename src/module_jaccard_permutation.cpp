@@ -5,13 +5,17 @@
 // genes than expected by chance, using a null that permutes the ortholog
 // mapping (which sp1 genes map to which sp2 genes).
 //
-// Adaptive stopping: Besag & Clifford (1991) sequential Monte Carlo p-values.
+// Batched permutation: one Fisher-Yates shuffle per iteration, shared across
+// all active pairs.  Each pair has its own Besag-Clifford exceedance counter,
+// so pairs with clearly null Jaccard accumulate exceedances quickly and stop
+// early while significant pairs keep running.
+//
 // p-value = (n_exceed + 1) / (n_perm + 1)
 //
 // Design constraints (matching hog_permutation.cpp):
 // - Integer indices only (no strings — Homebrew clang ABI issue)
-// - OpenMP parallelization over module pairs
-// - Per-thread std::mt19937 seeded from R::runif before parallel region
+// - OpenMP parallelization over module pairs within each iteration
+// - Single std::mt19937 seeded from R::runif for sequential shuffle
 
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::plugins(openmp)]]
@@ -38,10 +42,11 @@ static void fisher_yates_shuffle(std::vector<int>& vec, std::mt19937& rng) {
 }
 
 
-//' Permutation-based Jaccard test for module comparison
+//' Permutation-based Jaccard test for module comparison (batched)
 //'
 //' Tests each module pair for significant Jaccard overlap using ortholog-mapping
-//' permutation with Besag-Clifford adaptive stopping.
+//' permutation with Besag-Clifford adaptive stopping.  Uses batched permutation:
+//' one shuffle per iteration shared across all active pairs.
 //'
 //' @param ortho_sp1_gene 0-based index of each ortholog's sp1 unique gene
 //' @param ortho_sp2_gene 0-based sp2 gene index for each ortholog row
@@ -101,9 +106,9 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
     }
 
     // ---- Base sp2 mapping for shuffling ----
-    std::vector<int> base_sp2(n_ortho);
+    std::vector<int> perm_sp2(n_ortho);
     for (int r = 0; r < n_ortho; ++r) {
-        base_sp2[r] = ortho_sp2_gene[r];
+        perm_sp2[r] = ortho_sp2_gene[r];
     }
 
     // ---- Module j membership flags for fast intersection ----
@@ -117,110 +122,140 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
         }
     }
 
-    // ---- Per-thread resources ----
-    int max_threads = 1;
-#ifdef _OPENMP
-    if (n_cores > 1) max_threads = n_cores;
-#endif
+    // ---- Pre-compute unique sp1 module indices (deduplicated) ----
+    // Multiple pairs may share the same sp1 module; cache unique ones
+    std::vector<int> unique_mod_i;
+    {
+        std::vector<char> mod_i_seen(n_mod1, 0);
+        for (int p = 0; p < n_pairs; ++p) {
+            int mi = mod_i_idx[p];
+            if (!mod_i_seen[mi]) {
+                mod_i_seen[mi] = 1;
+                unique_mod_i.push_back(mi);
+            }
+        }
+    }
+    int n_unique_mod_i = static_cast<int>(unique_mod_i.size());
 
-    std::vector<uint32_t> seeds(max_threads);
-    for (int t = 0; t < max_threads; ++t) {
-        seeds[t] = static_cast<uint32_t>(R::runif(0.0, 4294967296.0));
+    // Map from mod1 index -> position in unique_mod_i
+    std::vector<int> mod_i_to_unique(n_mod1, -1);
+    for (int u = 0; u < n_unique_mod_i; ++u) {
+        mod_i_to_unique[unique_mod_i[u]] = u;
     }
 
-    std::vector<std::mt19937> thread_rng(max_threads);
-    for (int t = 0; t < max_threads; ++t) thread_rng[t].seed(seeds[t]);
+    // ---- Single RNG for sequential shuffle ----
+    uint32_t seed = static_cast<uint32_t>(R::runif(0.0, 4294967296.0));
+    std::mt19937 rng(seed);
 
-    std::vector<std::vector<int>> thread_sp2(max_threads);
-    for (int t = 0; t < max_threads; ++t) {
-        thread_sp2[t] = base_sp2;
+    // ---- Per-pair output and state ----
+    std::vector<int> out_n_perm(n_pairs, 0);
+    std::vector<int> out_n_exceed(n_pairs, 0);
+    std::vector<char> pair_active(n_pairs, 1);
+
+    // Mark zero-Jaccard pairs as done immediately
+    int n_active = 0;
+    for (int p = 0; p < n_pairs; ++p) {
+        if (obs_jaccard[p] <= 0.0) {
+            pair_active[p] = 0;
+        } else {
+            ++n_active;
+        }
     }
 
-    std::vector<std::vector<char>> thread_seen(max_threads);
-    for (int t = 0; t < max_threads; ++t) {
-        thread_seen[t].assign(n_sp2_universe, 0);
-    }
-
-    std::vector<std::vector<int>> thread_mapped(max_threads);
-
-    // ---- Output vectors ----
-    Rcpp::IntegerVector out_n_perm(n_pairs);
-    Rcpp::IntegerVector out_n_exceed(n_pairs);
-    Rcpp::NumericVector out_p_value(n_pairs);
-
-    // ---- Permutation loop ----
+    // ---- Resources ----
 #ifdef _OPENMP
     if (n_cores > 1) omp_set_num_threads(n_cores);
-    #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
-    for (int p = 0; p < n_pairs; ++p) {
-        int tid = 0;
-#ifdef _OPENMP
-        tid = omp_get_thread_num();
-#endif
-        auto& rng = thread_rng[tid];
-        auto& perm_sp2 = thread_sp2[tid];
-        auto& seen = thread_seen[tid];
-        auto& perm_mapped = thread_mapped[tid];
 
-        int mi = mod_i_idx[p];
-        int mj = mod_j_idx[p];
-        double obs_j = obs_jaccard[p];
+    // Seen buffer for sequential remap (only main thread uses this)
+    std::vector<char> seen(n_sp2_universe, 0);
 
-        if (obs_j <= 0.0) {
-            out_n_perm[p] = 0;
-            out_n_exceed[p] = 0;
-            out_p_value[p] = 1.0;
-            continue;
-        }
+    // Per-iteration: remapped sp2 gene sets for each unique sp1 module
+    // Computed sequentially after shuffle, reused across pairs
+    std::vector<std::vector<int>> mod_i_remapped(n_unique_mod_i);
 
-        const auto& sp1_genes = cpp_mod1_sp1[mi];
-        int mod2_size = static_cast<int>(cpp_mod2[mj].size());
-        const auto& m2flags = mod2_flags[mj];
+    // ---- Batched permutation loop ----
+    for (int iter = 0; iter < max_permutations && n_active > 0; ++iter) {
+        if (iter % 128 == 0) Rcpp::checkUserInterrupt();
 
-        int n_exceed = 0;
-        int n_perm = 0;
+        // Sequential: shuffle ortholog mapping
+        fisher_yates_shuffle(perm_sp2, rng);
 
-        while (n_perm < max_permutations && n_exceed < min_exceedances) {
-            fisher_yates_shuffle(perm_sp2, rng);
+        // Sequential: remap each unique sp1 module through shuffled orthologs
+        for (int u = 0; u < n_unique_mod_i; ++u) {
+            auto& remapped = mod_i_remapped[u];
+            remapped.clear();
 
-            // Remap sp1 module genes through shuffled orthologs
-            perm_mapped.clear();
-            for (int sp1_g : sp1_genes) {
+            for (int sp1_g : cpp_mod1_sp1[unique_mod_i[u]]) {
                 for (int row : sp1_gene_to_ortho_rows[sp1_g]) {
                     int new_sp2 = perm_sp2[row];
                     if (new_sp2 >= 0 && new_sp2 < n_sp2_universe &&
                         !seen[new_sp2]) {
                         seen[new_sp2] = 1;
-                        perm_mapped.push_back(new_sp2);
+                        remapped.push_back(new_sp2);
                     }
                 }
             }
+            for (int g : remapped) seen[g] = 0;
+        }
 
-            // Compute Jaccard with module j
+        // Parallel: compute Jaccard for all active pairs
+#ifdef _OPENMP
+        #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
+#endif
+        for (int p = 0; p < n_pairs; ++p) {
+            if (!pair_active[p]) continue;
+
+            int mi = mod_i_idx[p];
+            int mj = mod_j_idx[p];
+            int u = mod_i_to_unique[mi];
+
+            const auto& remapped = mod_i_remapped[u];
+            const auto& m2flags = mod2_flags[mj];
+            int mod2_size = static_cast<int>(cpp_mod2[mj].size());
+
             int perm_overlap = 0;
-            for (int g : perm_mapped) {
+            for (int g : remapped) {
                 if (m2flags[g]) ++perm_overlap;
             }
-            int perm_union = static_cast<int>(perm_mapped.size()) +
+            int perm_union = static_cast<int>(remapped.size()) +
                              mod2_size - perm_overlap;
             double perm_jaccard = (perm_union > 0) ?
                 static_cast<double>(perm_overlap) / perm_union : 0.0;
 
-            for (int g : perm_mapped) seen[g] = 0;
-
-            if (perm_jaccard >= obs_j) ++n_exceed;
-            ++n_perm;
+            if (perm_jaccard >= obs_jaccard[p]) ++out_n_exceed[p];
+            ++out_n_perm[p];
         }
 
-        out_n_perm[p] = n_perm;
-        out_n_exceed[p] = n_exceed;
-        out_p_value[p] = static_cast<double>(n_exceed + 1) / (n_perm + 1);
+        // Sequential: check stopping and update active count
+        n_active = 0;
+        for (int p = 0; p < n_pairs; ++p) {
+            if (pair_active[p]) {
+                if (out_n_exceed[p] >= min_exceedances) {
+                    pair_active[p] = 0;
+                } else {
+                    ++n_active;
+                }
+            }
+        }
+    }
+
+    // ---- Compute p-values ----
+    Rcpp::IntegerVector r_n_perm(n_pairs);
+    Rcpp::IntegerVector r_n_exceed(n_pairs);
+    Rcpp::NumericVector r_p_value(n_pairs);
+
+    for (int p = 0; p < n_pairs; ++p) {
+        r_n_perm[p] = out_n_perm[p];
+        r_n_exceed[p] = out_n_exceed[p];
+        r_p_value[p] = (out_n_perm[p] > 0) ?
+            static_cast<double>(out_n_exceed[p] + 1) / (out_n_perm[p] + 1) :
+            1.0;
     }
 
     return Rcpp::DataFrame::create(
-        Rcpp::Named("n_perm") = out_n_perm,
-        Rcpp::Named("n_exceed") = out_n_exceed,
-        Rcpp::Named("p_value") = out_p_value
+        Rcpp::Named("n_perm") = r_n_perm,
+        Rcpp::Named("n_exceed") = r_n_exceed,
+        Rcpp::Named("p_value") = r_p_value
     );
 }

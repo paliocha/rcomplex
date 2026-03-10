@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{module_jaccard_permutation_cpp}
 \alias{module_jaccard_permutation_cpp}
-\title{Permutation-based Jaccard test for module comparison}
+\title{Permutation-based Jaccard test for module comparison (batched)}
 \usage{
 module_jaccard_permutation_cpp(
   ortho_sp1_gene,
@@ -49,6 +49,7 @@ DataFrame with n_perm, n_exceed, p_value per pair
 }
 \description{
 Tests each module pair for significant Jaccard overlap using ortholog-mapping
-permutation with Besag-Clifford adaptive stopping.
+permutation with Besag-Clifford adaptive stopping.  Uses batched permutation:
+one shuffle per iteration shared across all active pairs.
 }
 \keyword{internal}
