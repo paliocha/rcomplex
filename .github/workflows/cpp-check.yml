@@ -5,12 +5,10 @@ on:
     branches: [main]
     paths:
       - 'src/**'
-      - 'src/Makevars'
   pull_request:
     branches: [main]
     paths:
       - 'src/**'
-      - 'src/Makevars'
 
 permissions:
   contents: read
@@ -34,11 +32,11 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck, any::testthat
+          extra-packages: any::rcmdcheck
           needs: check
 
       - name: Compile C++ via R CMD INSTALL
         run: R CMD INSTALL --preclean .
 
       - name: Run tests
-        run: Rscript -e 'devtools::test()'
+        run: Rscript -e 'testthat::test_local()'

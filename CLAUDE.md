@@ -83,4 +83,4 @@ Fisher's method for combining pair-level p-values within HOGs is anti-conservati
 **Imports**: Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, rlang, stats, utils
 **Suggests**: sbm (optional, for SBM community detection)
 **LinkingTo**: Rcpp, RcppArmadillo
-**System**: GNU make, C++17, OpenMP (optional)
+**System**: GNU make, C++23, OpenMP (optional)
