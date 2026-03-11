@@ -65,103 +65,253 @@
 <div class="section level1">
 <div class="page-header"><h1 id="rcomplex">rcomplex<a class="anchor" aria-label="anchor" href="#rcomplex"></a>
 </h1></div>
+<!-- badges: start -->
+
 <p>Comparative co-expression network analysis across species.</p>
-<p>Compares gene co-expression networks across plant species by mapping orthologous genes via OrthoFinder’s hierarchical ortholog groups (HOGs), building co-expression networks independently per species, then testing whether network neighborhoods are significantly preserved using hypergeometric tests with q-value correction and effect sizes.</p>
-<p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
+<p><strong>rcomplex</strong> maps orthologous genes between two species, builds co-expression networks independently, then tests conservation at two complementary levels:</p>
+<ul>
+<li>
+<strong>Gene / HOG level</strong> – Are individual genes’ co-expression neighborhoods preserved across species?</li>
+<li>
+<strong>Module level</strong> – Are higher-order communities (modules) of co-expressed genes conserved, partially conserved, or species-specific?</li>
+</ul>
+<p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em> (2014)</a>, extended with permutation-based HOG-level testing, module detection via Leiden / label propagation, and cross-species module comparison with Jaccard permutation or hypergeometric tests.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Install from GitHub</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"paliocha/rcomplex"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"paliocha/rcomplex"</span><span class="op">)</span></span></code></pre></div>
+<p><strong>System requirements:</strong> C++17 compiler, GNU make. OpenMP is optional but recommended for parallel permutation tests.</p>
 </div>
 <div class="section level2">
-<h2 id="workflow">Workflow<a class="anchor" aria-label="anchor" href="#workflow"></a>
+<h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://paliocha.github.io/rcomplex/" class="external-link">rcomplex</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 1. Parse ortholog groups</span></span>
-<span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/parse_orthologs.html">parse_orthologs</a></span><span class="op">(</span><span class="st">"orthogroups.txt"</span>, <span class="st">"Species1"</span>, <span class="st">"Species2"</span><span class="op">)</span></span>
+<span><span class="co"># 1. Parse ortholog groups (PLAZA format)</span></span>
+<span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/parse_orthologs.html">parse_orthologs</a></span><span class="op">(</span><span class="st">"orthogroups.txt"</span>, <span class="st">"species1"</span>, <span class="st">"species2"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 2. Build co-expression networks</span></span>
 <span><span class="va">net1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">expr1</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span>
 <span><span class="va">net2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">expr2</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 3. Compare neighborhoods (pair-level hypergeometric tests)</span></span>
-<span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">orthologs</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># 4a. Pair-level summary with q-values (Storey &amp; Tibshirani, 2003)</span></span>
+<span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">orthologs</span><span class="op">)</span></span></code></pre></div>
+<p>From here, two analysis paths are available.</p>
+<div class="section level3">
+<h3 id="gene--hog-level-analysis">Gene / HOG-level analysis<a class="anchor" aria-label="anchor" href="#gene--hog-level-analysis"></a>
+</h3>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Pair-level FDR with Storey q-values</span></span>
 <span><span class="va">summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/summarize_comparison.html">summarize_comparison</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 4b. HOG-level permutation test (recommended for multi-copy gene families)</span></span>
-<span><span class="co">#     Uses discrete q-values (Liang, 2016) for multiple testing correction</span></span>
+<span><span class="co"># HOG-level permutation test (recommended for multi-copy gene families)</span></span>
 <span><span class="va">hog_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/permutation_hog_test.html">permutation_hog_test</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">comparison</span>, n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="module-level-analysis">Module-level analysis<a class="anchor" aria-label="anchor" href="#module-level-analysis"></a>
+</h3>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Detect modules in each network</span></span>
+<span><span class="va">mod1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">net1</span>, method <span class="op">=</span> <span class="st">"leiden"</span><span class="op">)</span></span>
+<span><span class="va">mod2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">net2</span>, method <span class="op">=</span> <span class="st">"leiden"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Compare modules across species (hypergeometric or Jaccard permutation)</span></span>
+<span><span class="va">comp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_modules.html">compare_modules</a></span><span class="op">(</span><span class="va">mod1</span>, <span class="va">mod2</span>, <span class="va">orthologs</span>, method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Classify: conserved, partially conserved, or species-specific</span></span>
+<span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
 <div class="section level2">
-<h2 id="hog-level-permutation-test">HOG-level permutation test<a class="anchor" aria-label="anchor" href="#hog-level-permutation-test"></a>
+<h2 id="main-functions">Main functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
+</h2>
+<table class="table">
+<colgroup>
+<col width="52%">
+<col width="47%">
+</colgroup>
+<thead><tr class="header">
+<th>Function</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code></td>
+<td>Parse PLAZA ortholog group files</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/compute_network.html">compute_network()</a></code></td>
+<td>Correlation + MR/CLR normalization + density threshold</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code></td>
+<td>Pair-level hypergeometric neighborhood tests</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code></td>
+<td>Storey q-values and summary statistics</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code></td>
+<td>Permutation-based HOG-level conservation test</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/detect_modules.html">detect_modules()</a></code></td>
+<td>Community detection (Leiden / label propagation)</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/compare_modules.html">compare_modules()</a></code></td>
+<td>Cross-species module overlap (hypergeometric or Jaccard permutation)</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/classify_modules.html">classify_modules()</a></code></td>
+<td>Three-tier module conservation classification</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/find_coexpression_cliques.html">find_coexpression_cliques()</a></code></td>
+<td>Conserved clique detection across species</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level2">
+<h2 id="statistical-methods">Statistical methods<a class="anchor" aria-label="anchor" href="#statistical-methods"></a>
 </h2>
 <div class="section level3">
-<h3 id="the-problem-with-fishers-method">The problem with Fisher’s method<a class="anchor" aria-label="anchor" href="#the-problem-with-fishers-method"></a>
+<h3 id="neighborhood-comparison">Neighborhood comparison<a class="anchor" aria-label="anchor" href="#neighborhood-comparison"></a>
 </h3>
-<p>A naïve approach to HOG-level testing would combine pair-level p-values using Fisher’s method. However, Fisher’s method assumes independent tests. Within a HOG, pair-level hypergeometric tests are correlated because:</p>
-<ul>
-<li>
-<strong>Shared neighborhoods</strong>: Genes in the same HOG often share co-expression neighbors (especially after whole-genome duplication), so their neighborhood overlap tests draw from overlapping gene sets.</li>
-<li>
-<strong>Shared ortholog mapping</strong>: The same ortholog table mediates the neighborhood comparison for all pairs in a HOG. Two pairs sharing an sp2 gene use identical ortholog-mapped neighbor sets for one direction.</li>
-</ul>
-<p>This non-independence inflates Fisher’s statistic and produces anti-conservative (overly optimistic) p-values. The severity depends on HOG size: 1:1 HOGs have no issue, but multi-copy HOGs (e.g., 5x5 = 25 pairs) can be strongly affected.</p>
+<p>For each ortholog pair, the co-expression neighborhood in species 1 is mapped to species 2 through the ortholog table and tested for significant overlap with the species-2 neighborhood using <code><a href="https://rdrr.io/r/stats/Hypergeometric.html" class="external-link">phyper()</a></code>. The test is performed in both directions. Effect sizes are fold-enrichments over the hypergeometric expectation.</p>
 </div>
 <div class="section level3">
-<h3 id="the-permutation-approach">The permutation approach<a class="anchor" aria-label="anchor" href="#the-permutation-approach"></a>
+<h3 id="hog-level-permutation-test">HOG-level permutation test<a class="anchor" aria-label="anchor" href="#hog-level-permutation-test"></a>
 </h3>
-<p><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> replaces Fisher’s method with an exact permutation test that is valid regardless of the dependency structure.</p>
-<p><strong>Null hypothesis (gene-identity permutation)</strong>: The specific gene identities in a HOG carry no information about co-expression conservation. Replacing the HOG’s M species-1 genes and N species-2 genes with randomly chosen genes from the same networks would yield equally large neighborhood overlap.</p>
-<p><strong>Test statistic</strong>: Sum of fold-enrichments across all M x N pair x direction combinations:</p>
-<pre><code>T = sum_{i,j} [ x1_ij / E1_ij + x2_ij / E2_ij ]</code></pre>
-<p>where <code>x</code> is the observed overlap and <code>E = m * k / N_total</code> is the hypergeometric expectation. This avoids expensive <code><a href="https://rdrr.io/r/stats/Hypergeometric.html" class="external-link">phyper()</a></code> calls during permutations while remaining monotonically related to the conservation signal.</p>
-<p><strong>Precomputed reachable sets</strong>: For each gene in each network, the set of cross-species genes reachable through network neighbors and the ortholog mapping is precomputed once. This reduces each permutation to set intersections rather than full neighborhood recomputations.</p>
-<p><strong>Intersection modes</strong>: - <strong>Bit-vector</strong> (when max(n1, n2) &lt;= 100,000): Each neighbor/reachable set is stored as a bit-vector. Intersection is computed via bitwise AND + popcount, achieving ~0.15 us per intersection on modern CPUs. - <strong>Flag-vector</strong> (when max(n1, n2) &gt; 100,000): Sparse set representation with a flag array for intersection counting. Avoids the O(n^2/8) memory cost of bit-vectors for very large networks.</p>
+<p>Fisher’s method for combining pair-level p-values is invalid within HOGs because pairs share network neighborhoods and the ortholog mapping, violating the independence assumption.</p>
+<p><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> instead uses a gene-identity permutation null: for each HOG, M random species-1 genes and N random species-2 genes are drawn (matching the HOG’s gene counts) and the sum-of-fold-enrichments statistic is recomputed. The permutation p-value is exact regardless of the dependency structure.</p>
+<p>Besag &amp; Clifford (1991) adaptive stopping terminates early once enough exceedances are observed, and Liang (2016) discrete q-values handle the non-uniform null distribution that adaptive stopping produces.</p>
 </div>
 <div class="section level3">
-<h3 id="adaptive-stopping-besag--clifford-1991">Adaptive stopping (Besag &amp; Clifford, 1991)<a class="anchor" aria-label="anchor" href="#adaptive-stopping-besag--clifford-1991"></a>
+<h3 id="module-comparison">Module comparison<a class="anchor" aria-label="anchor" href="#module-comparison"></a>
 </h3>
-<p>Rather than running a fixed number of permutations for every HOG, the implementation uses the sequential Monte Carlo stopping rule of Besag &amp; Clifford (1991). Permutations continue until <code>min_exceedances</code> (default: 50) permutation statistics exceed (or fall below, for divergence) the observed statistic, then:</p>
-<pre><code><span><span class="va">p</span> <span class="op">=</span> <span class="op">(</span><span class="va">n_exceed</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="va">n_perm</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span></span></code></pre>
-<p>This provides: - <strong>Efficiency</strong>: Clearly non-significant HOGs stop after ~50 permutations (exceedances accumulate immediately). Clearly significant HOGs also stop relatively quickly. Only borderline HOGs use the full permutation budget. - <strong>Precision where it matters</strong>: The p-value estimate has relative precision ~1/sqrt(min_exceedances), so with 50 exceedances the coefficient of variation is ~14%, sufficient for multiple testing correction.</p>
+<p><code><a href="reference/compare_modules.html">compare_modules()</a></code> supports two methods:</p>
+<ul>
+<li>
+<strong>Hypergeometric</strong>: Maps module genes through the ortholog table and tests overlap with <code><a href="https://rdrr.io/r/stats/Hypergeometric.html" class="external-link">phyper()</a></code>. Q-values via Storey (2003).</li>
+<li>
+<strong>Jaccard + permutation</strong>: Computes observed Jaccard index on ortholog-mappable genes. The null permutes the ortholog mapping (Fisher-Yates shuffle), preserving module and network structure. Batched permutation shares one shuffle per iteration across all active pairs. Q-values via Liang (2016) discrete method.</li>
+</ul>
+<p><code><a href="reference/classify_modules.html">classify_modules()</a></code> assigns each module to one of three categories:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Classification</th>
+<th>Criteria</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Conserved</td>
+<td>Best-match q &lt; alpha AND Jaccard &gt;= threshold</td>
+</tr>
+<tr class="even">
+<td>Partially conserved</td>
+<td>Best-match q &lt; alpha AND Jaccard &lt; threshold</td>
+</tr>
+<tr class="odd">
+<td>Species-specific</td>
+<td>No significant match in the other species</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section level2">
+<h2 id="architecture">Architecture<a class="anchor" aria-label="anchor" href="#architecture"></a>
+</h2>
+<div class="section level3">
+<h3 id="r-layer">R layer<a class="anchor" aria-label="anchor" href="#r-layer"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="40%">
+<col width="60%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>R/orthologs.R</code></td>
+<td><code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code></td>
+</tr>
+<tr class="even">
+<td><code>R/network.R</code></td>
+<td>
+<code><a href="reference/compute_network.html">compute_network()</a></code> – correlation, MR/CLR, density threshold</td>
+</tr>
+<tr class="odd">
+<td><code>R/comparison.R</code></td>
+<td>
+<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> – pair-level hypergeometric</td>
+</tr>
+<tr class="even">
+<td><code>R/summary.R</code></td>
+<td>
+<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, shared q-value helpers</td>
+</tr>
+<tr class="odd">
+<td><code>R/modules.R</code></td>
+<td>
+<code><a href="reference/detect_modules.html">detect_modules()</a></code>, <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td><code>R/cliques.R</code></td>
+<td><code><a href="reference/find_coexpression_cliques.html">find_coexpression_cliques()</a></code></td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="section level3">
-<h3 id="multiple-testing-correction-discrete-q-values-liang-2016">Multiple testing correction: discrete q-values (Liang, 2016)<a class="anchor" aria-label="anchor" href="#multiple-testing-correction-discrete-q-values-liang-2016"></a>
+<h3 id="c-layer-rcpparmadillo--openmp">C++ layer (RcppArmadillo + OpenMP)<a class="anchor" aria-label="anchor" href="#c-layer-rcpparmadillo--openmp"></a>
 </h3>
-<p>Besag-Clifford adaptive stopping produces p-values that are valid (super-uniform under the null) but <strong>not</strong> uniformly distributed. The negative binomial stopping rule concentrates null p-values in the 0.1–0.5 range and depletes the right tail (p &gt; 0.9). This creates problems for standard correction methods:</p>
-<ul>
-<li>
-<strong>BH (Benjamini &amp; Hochberg, 1995)</strong>: Valid but conservative. BH assumes nothing about the null distribution beyond super-uniformity, so it correctly controls FDR. However, it implicitly assumes pi0 = 1 (all nulls), forfeiting the power gain from estimating the true null proportion.</li>
-<li>
-<strong>Storey q-values (Storey &amp; Tibshirani, 2003)</strong>: Invalid. The pi0 estimator relies on null p-values being uniformly distributed in (0, 1) so that the right tail (e.g. p &gt; 0.9) is flat. With BC p-values, the depleted right tail causes pi0 to be severely underestimated (e.g. median pi0 ~ 0.18 instead of ~ 0.4), inflating the number of discoveries by 5–6x.</li>
-</ul>
-<p><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> uses the discrete q-value method of Liang (2016) via <code><a href="https://rdrr.io/pkg/DiscreteQvalue/man/DQ.html" class="external-link">DiscreteQvalue::DQ()</a></code>. This method estimates pi0 using the known discrete support structure of the p-values rather than relying on the right-tail density. On simulated pure-null BC p-values, Liang correctly returns pi0 = 1.000 across all seeds, while Storey’s estimator fails entirely (spline returns NA or pi0 ~ 0.2).</p>
-<p>The BC p-value support is constructed from the stopping parameters:</p>
-<ul>
-<li>
-<strong>Early-stopped HOGs</strong> (n_exceed = k): p = (k+1)/(n+1) for n = k, k+1, …, M</li>
-<li>
-<strong>Max-permutation HOGs</strong> (n_perm = M): p = (j+1)/(M+1) for j = 0, 1, …, k-1</li>
-</ul>
-<p>where k = <code>min_exceedances</code> and M = <code>max_permutations</code>.</p>
-</div>
-<div class="section level3">
-<h3 id="performance-column-major-memory-access">Performance: column-major memory access<a class="anchor" aria-label="anchor" href="#performance-column-major-memory-access"></a>
-</h3>
-<p>The C++ backend (Armadillo, column-major storage) is optimized for sequential memory access. Since correlation and network matrices are symmetric, column access (<code>sim.col(i)</code>, <code>net.colptr(i)</code>) returns the same values as row access but with sequential rather than strided reads. This applies to:</p>
-<ul>
-<li>
-<strong>MR normalization</strong> (<code>mutual_rank_transform_cached_cpp</code>): ranks are computed from <code>sim.col(i)</code> and stored by column, avoiding O(n) cache misses per gene.</li>
-<li>
-<strong>Neighbor list extraction</strong> (<code>hog_permutation_test_cpp</code>): <code>net.colptr(i)</code> gives a sequential scan of gene i’s co-expression values.</li>
-</ul>
-<p>On a 22K-gene network pair, this gives a ~3x speedup over naive row access (380s to 126s per species comparison with 8 OpenMP threads).</p>
+<table class="table">
+<colgroup>
+<col width="40%">
+<col width="60%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>src/mutual_rank.cpp</code></td>
+<td>MR normalization with column-major access</td>
+</tr>
+<tr class="even">
+<td><code>src/clr.cpp</code></td>
+<td>CLR normalization</td>
+</tr>
+<tr class="odd">
+<td><code>src/density_threshold.cpp</code></td>
+<td>Quantile-based density thresholding</td>
+</tr>
+<tr class="even">
+<td><code>src/neighborhood_comparison.cpp</code></td>
+<td>Pairwise neighborhood overlap</td>
+</tr>
+<tr class="odd">
+<td><code>src/hog_permutation.cpp</code></td>
+<td>HOG permutation engine (bit-vector / flag-vector intersections)</td>
+</tr>
+<tr class="even">
+<td><code>src/module_jaccard_permutation.cpp</code></td>
+<td>Batched Jaccard permutation engine</td>
+</tr>
+</tbody>
+</table>
+<p>All C++ functions use integer indices only (string mapping is done in R) due to Homebrew clang ABI constraints. Network matrices are accessed column-major for cache-friendly reads on symmetric Armadillo matrices.</p>
 </div>
 </div>
 <div class="section level2">
@@ -219,7 +369,12 @@
 </ul>
 </div>
 
-
+<div class="dev-status">
+<h2 data-toc-skip>Dev status</h2>
+<ul class="list-unstyled">
+<li><a href="https://github.com/paliocha/rcomplex/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/paliocha/rcomplex/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
+</ul>
+</div>
 
   </div>
 </div>
