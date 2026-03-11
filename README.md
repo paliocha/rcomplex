@@ -1,7 +1,7 @@
 # rcomplex
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/paliocha/rcomplex/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/paliocha/rcomplex/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/paliocha/rcomplex/actions/workflows/r.yml/badge.svg)](https://github.com/paliocha/rcomplex/actions/workflows/r.yml)
 <!-- badges: end -->
 
 Comparative co-expression network analysis across species.
@@ -175,6 +175,14 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Liang, K. (2016). False discovery rate estimation for large-scale
   homogeneous discrete p-values. *Biometrics*, 72(2), 639--648.
   [doi:10.1111/biom.12429](https://doi.org/10.1111/biom.12429)
+- Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to
+  Leiden: guaranteeing well-connected communities. *Scientific Reports*,
+  9, 5233.
+  [doi:10.1038/s41598-019-41695-z](https://doi.org/10.1038/s41598-019-41695-z)
+- Raghavan, U. N., Albert, R. & Kumara, S. (2007). Near linear time
+  algorithm to detect community structures in large-scale networks.
+  *Physical Review E*, 76(3), 036106.
+  [doi:10.1103/PhysRevE.76.036106](https://doi.org/10.1103/PhysRevE.76.036106)
 
 ## License
 
