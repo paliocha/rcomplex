@@ -14,6 +14,8 @@
 
 #include <RcppArmadillo.h>
 #include <algorithm>
+#include <numeric>
+#include <ranges>
 #include <vector>
 
 #ifdef _OPENMP
@@ -22,24 +24,21 @@
 
 using namespace Rcpp;
 
-// Shared implementation for average-rank computation.
+// Average-rank computation with projection-based sort.
 // ascending=true  -> lowest value gets rank 1
 // ascending=false -> highest value gets rank 1
 static arma::vec compute_ranks_impl(const arma::vec& x, bool ascending) {
-    const arma::uword n = x.n_elem;
+    const auto n = x.n_elem;
     arma::vec ranks(n);
 
     std::vector<arma::uword> indices(n);
-    for (arma::uword i = 0; i < n; ++i) {
-        indices[i] = i;
-    }
+    std::iota(indices.begin(), indices.end(), arma::uword{0});
 
+    auto proj = [&x](arma::uword i) { return x(i); };
     if (ascending) {
-        std::sort(indices.begin(), indices.end(),
-                  [&x](arma::uword a, arma::uword b) { return x(a) < x(b); });
+        std::ranges::sort(indices, std::ranges::less{}, proj);
     } else {
-        std::sort(indices.begin(), indices.end(),
-                  [&x](arma::uword a, arma::uword b) { return x(a) > x(b); });
+        std::ranges::sort(indices, std::ranges::greater{}, proj);
     }
 
     arma::uword i = 0;
@@ -48,7 +47,7 @@ static arma::vec compute_ranks_impl(const arma::vec& x, bool ascending) {
         while (j < n - 1 && x(indices[j]) == x(indices[j + 1])) {
             ++j;
         }
-        double avg_rank = (static_cast<double>(i + 1) + static_cast<double>(j + 1)) / 2.0;
+        double avg_rank = static_cast<double>(i + j + 2) / 2.0;
         for (arma::uword k = i; k <= j; ++k) {
             ranks(indices[k]) = avg_rank;
         }
@@ -84,7 +83,7 @@ static arma::vec compute_ranks_impl(const arma::vec& x, bool ascending) {
 arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
                                            bool log_transform = false,
                                            int n_cores = 1) {
-    const arma::uword n = sim.n_rows;
+    const auto n = sim.n_rows;
 
     if (n != sim.n_cols) {
         stop("sim must be a square matrix");
@@ -103,36 +102,22 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
     if (n_cores > 1) {
         omp_set_num_threads(n_cores);
     }
-#endif
-
-    // Step 1: Precompute all row ranks using cache-friendly column access.
-    // Since sim is symmetric, sim.col(i) == sim.row(i) in value.
-    // Armadillo column-major storage makes col() sequential, row() strided.
-    // Store ranks by column: row_ranks(j, i) = rank of gene j for gene i.
-#ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         row_ranks.col(i) = compute_ranks_impl(sim.col(i), ascending);
     }
 
-    // Step 2: Compute mutual rank (upper triangle, then mirror)
-    // With column-stored ranks: R_ij = row_ranks(j, i), R_ji = row_ranks(i, j).
-    // Since sqrt is commutative, result is identical to row-stored version.
 #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         for (arma::uword j = i + 1; j < n; ++j) {
-            double R_ij = row_ranks(j, i);
-            double R_ji = row_ranks(i, j);
-            double mutual_rank = std::sqrt(R_ij * R_ji);
+            double mutual_rank = std::sqrt(row_ranks(j, i) * row_ranks(i, j));
 
             double val;
             if (log_transform) {
-                val = 1.0 - std::log(mutual_rank) / log_n;
-                if (val < 0.0) val = 0.0;
-                if (val > 1.0) val = 1.0;
+                val = std::clamp(1.0 - std::log(mutual_rank) / log_n, 0.0, 1.0);
             } else {
                 val = mutual_rank;
             }
@@ -140,11 +125,8 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
             result(i, j) = val;
             result(j, i) = val;
         }
-        // Diagonal
         result(i, i) = log_transform ? 1.0 : 0.0;
     }
 
     return result;
 }
-
-

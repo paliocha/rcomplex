@@ -8,6 +8,7 @@
 // [[Rcpp::plugins(openmp)]]
 
 #include <RcppArmadillo.h>
+#include <algorithm>
 #include <cmath>
 
 #ifdef _OPENMP
@@ -41,13 +42,12 @@ using namespace Rcpp;
 //' @keywords internal
 // [[Rcpp::export]]
 arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
-    const arma::uword n = cor_matrix.n_rows;
+    const auto n = cor_matrix.n_rows;
 
     if (n != cor_matrix.n_cols) {
         stop("cor_matrix must be a square matrix");
     }
 
-    // Compute row means and standard deviations (vectorized)
     arma::vec row_means = arma::mean(cor_matrix, 1);
     arma::vec row_sds = arma::stddev(cor_matrix, 0, 1);
     row_sds.elem(arma::find(row_sds < 1e-10)).fill(1.0);
@@ -58,20 +58,16 @@ arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
     if (n_cores > 1) {
         omp_set_num_threads(n_cores);
     }
-#endif
-
-#ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         for (arma::uword j = i + 1; j < n; ++j) {
-            double z_row = (cor_matrix(i, j) - row_means(i)) / row_sds(i);
-            double z_col = (cor_matrix(i, j) - row_means(j)) / row_sds(j);
+            double z_row = std::max(0.0,
+                (cor_matrix(i, j) - row_means(i)) / row_sds(i));
+            double z_col = std::max(0.0,
+                (cor_matrix(i, j) - row_means(j)) / row_sds(j));
 
-            double z_row_pos = (z_row > 0.0) ? z_row : 0.0;
-            double z_col_pos = (z_col > 0.0) ? z_col : 0.0;
-
-            double val = std::sqrt(z_row_pos * z_row_pos + z_col_pos * z_col_pos);
+            double val = std::hypot(z_row, z_col);
 
             clr_matrix(i, j) = val;
             clr_matrix(j, i) = val;

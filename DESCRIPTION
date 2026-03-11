@@ -29,7 +29,7 @@ Imports:
 LinkingTo:
     Rcpp,
     RcppArmadillo
-SystemRequirements: GNU make, C++17
+SystemRequirements: GNU make, C++23
 URL: https://paliocha.github.io/rcomplex/,
     https://github.com/paliocha/rcomplex
 BugReports: https://github.com/paliocha/rcomplex/issues

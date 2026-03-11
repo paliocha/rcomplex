@@ -26,12 +26,12 @@ using namespace Rcpp;
 
 // Per-direction hypergeometric test result
 struct DirectionResult {
-    int neigh;
-    int ortho_neigh;
-    int overlap;
-    double pval_con;
-    double pval_div;
-    double effect_size;
+    int neigh = 0;
+    int ortho_neigh = 0;
+    int overlap = 0;
+    double pval_con = 1.0;
+    double pval_div = 1.0;
+    double effect_size = 1.0;
 };
 
 // Compute one direction of the neighborhood comparison.
@@ -47,14 +47,9 @@ static DirectionResult compute_direction(
     int N,
     std::vector<char>& anchor_flags
 ) {
-    DirectionResult r;
-    r.neigh = static_cast<int>(anchor_neigh.size());
-    r.pval_con = 1.0;
-    r.pval_div = 1.0;
-    r.effect_size = 1.0;
+    DirectionResult r{.neigh = static_cast<int>(anchor_neigh.size())};
 
     // Map other-network neighbors back to anchor-network via orthologs
-    r.ortho_neigh = 0;
     for (int nb : other_neigh) {
         for (int idx : mapping[nb]) {
             if (anchor_flags[idx] == 0) {
@@ -65,7 +60,6 @@ static DirectionResult compute_direction(
     }
 
     // Count intersection
-    r.overlap = 0;
     for (int nb : anchor_neigh) {
         if (anchor_flags[nb] != 0) ++r.overlap;
     }

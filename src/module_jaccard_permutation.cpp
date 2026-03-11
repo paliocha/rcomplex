@@ -21,9 +21,9 @@
 // [[Rcpp::plugins(openmp)]]
 
 #include <RcppArmadillo.h>
-#include <vector>
 #include <random>
 #include <utility>
+#include <vector>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -34,9 +34,8 @@ using namespace Rcpp;
 
 // Fisher-Yates shuffle of a vector
 static void fisher_yates_shuffle(std::vector<int>& vec, std::mt19937& rng) {
-    int n = static_cast<int>(vec.size());
-    for (int i = n - 1; i > 0; --i) {
-        std::uniform_int_distribution<int> dist(0, i);
+    for (auto i = std::ssize(vec) - 1; i > 0; --i) {
+        std::uniform_int_distribution<int> dist(0, static_cast<int>(i));
         std::swap(vec[i], vec[dist(rng)]);
     }
 }
@@ -106,10 +105,7 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
     }
 
     // ---- Base sp2 mapping for shuffling ----
-    std::vector<int> perm_sp2(n_ortho);
-    for (int r = 0; r < n_ortho; ++r) {
-        perm_sp2[r] = ortho_sp2_gene[r];
-    }
+    std::vector<int> perm_sp2(ortho_sp2_gene.begin(), ortho_sp2_gene.end());
 
     // ---- Module j membership flags for fast intersection ----
     std::vector<std::vector<char>> mod2_flags(n_mod2);
@@ -123,7 +119,6 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
     }
 
     // ---- Pre-compute unique sp1 module indices (deduplicated) ----
-    // Multiple pairs may share the same sp1 module; cache unique ones
     std::vector<int> unique_mod_i;
     {
         std::vector<char> mod_i_seen(n_mod1, 0);
@@ -135,24 +130,22 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
             }
         }
     }
-    int n_unique_mod_i = static_cast<int>(unique_mod_i.size());
+    auto n_unique_mod_i = static_cast<int>(unique_mod_i.size());
 
-    // Map from mod1 index -> position in unique_mod_i
     std::vector<int> mod_i_to_unique(n_mod1, -1);
     for (int u = 0; u < n_unique_mod_i; ++u) {
         mod_i_to_unique[unique_mod_i[u]] = u;
     }
 
     // ---- Single RNG for sequential shuffle ----
-    uint32_t seed = static_cast<uint32_t>(R::runif(0.0, 4294967296.0));
-    std::mt19937 rng(seed);
+    std::mt19937 rng(
+        static_cast<uint32_t>(R::runif(0.0, 4294967296.0)));
 
     // ---- Per-pair output and state ----
     std::vector<int> out_n_perm(n_pairs, 0);
     std::vector<int> out_n_exceed(n_pairs, 0);
     std::vector<char> pair_active(n_pairs, 1);
 
-    // Mark zero-Jaccard pairs as done immediately
     int n_active = 0;
     for (int p = 0; p < n_pairs; ++p) {
         if (obs_jaccard[p] <= 0.0) {
@@ -162,26 +155,22 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
         }
     }
 
-    // ---- Resources ----
 #ifdef _OPENMP
     if (n_cores > 1) omp_set_num_threads(n_cores);
 #endif
 
-    // Seen buffer for sequential remap (only main thread uses this)
+    // Seen buffer for sequential remap (main thread only)
     std::vector<char> seen(n_sp2_universe, 0);
-
-    // Per-iteration: remapped sp2 gene sets for each unique sp1 module
-    // Computed sequentially after shuffle, reused across pairs
+    // Per-iteration remapped sp2 sets, computed sequentially after shuffle
     std::vector<std::vector<int>> mod_i_remapped(n_unique_mod_i);
 
     // ---- Batched permutation loop ----
     for (int iter = 0; iter < max_permutations && n_active > 0; ++iter) {
         if (iter % 128 == 0) Rcpp::checkUserInterrupt();
 
-        // Sequential: shuffle ortholog mapping
         fisher_yates_shuffle(perm_sp2, rng);
 
-        // Sequential: remap each unique sp1 module through shuffled orthologs
+        // Remap each unique sp1 module through shuffled orthologs
         for (int u = 0; u < n_unique_mod_i; ++u) {
             auto& remapped = mod_i_remapped[u];
             remapped.clear();
@@ -199,27 +188,24 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
             for (int g : remapped) seen[g] = 0;
         }
 
-        // Parallel: compute Jaccard for all active pairs
 #ifdef _OPENMP
         #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
         for (int p = 0; p < n_pairs; ++p) {
             if (!pair_active[p]) continue;
 
-            int mi = mod_i_idx[p];
+            int u = mod_i_to_unique[mod_i_idx[p]];
             int mj = mod_j_idx[p];
-            int u = mod_i_to_unique[mi];
 
             const auto& remapped = mod_i_remapped[u];
             const auto& m2flags = mod2_flags[mj];
-            int mod2_size = static_cast<int>(cpp_mod2[mj].size());
 
             int perm_overlap = 0;
             for (int g : remapped) {
                 if (m2flags[g]) ++perm_overlap;
             }
             int perm_union = static_cast<int>(remapped.size()) +
-                             mod2_size - perm_overlap;
+                             static_cast<int>(cpp_mod2[mj].size()) - perm_overlap;
             double perm_jaccard = (perm_union > 0) ?
                 static_cast<double>(perm_overlap) / perm_union : 0.0;
 
@@ -227,7 +213,6 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
             ++out_n_perm[p];
         }
 
-        // Sequential: check stopping and update active count
         n_active = 0;
         for (int p = 0; p < n_pairs; ++p) {
             if (pair_active[p]) {

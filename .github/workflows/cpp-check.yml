@@ -1,0 +1,44 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'src/Makevars'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'src/Makevars'
+
+permissions:
+  contents: read
+
+jobs:
+  compile-and-test:
+    name: Compile C++ (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck, any::testthat
+          needs: check
+
+      - name: Compile C++ via R CMD INSTALL
+        run: R CMD INSTALL --preclean .
+
+      - name: Run tests
+        run: Rscript -e 'devtools::test()'

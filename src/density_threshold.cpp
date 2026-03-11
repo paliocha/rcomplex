@@ -1,13 +1,15 @@
 // density_threshold.cpp
 // Efficient density-based threshold computation using partial sort
 //
-// Uses std::nth_element for O(n) partial sort instead of full O(n log n) sort.
+// Uses std::ranges::nth_element for O(n) partial sort instead of full
+// O(n log n) sort.
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
 #include <RcppArmadillo.h>
+#include <cmath>
+#include <ranges>
 #include <vector>
-#include <algorithm>
 
 using namespace Rcpp;
 
@@ -24,7 +26,7 @@ using namespace Rcpp;
 //' @keywords internal
 // [[Rcpp::export]]
 double density_threshold_cpp(const arma::mat& mat, double density) {
-    const arma::uword n = mat.n_rows;
+    const auto n = mat.n_rows;
 
     if (n != mat.n_cols) {
         stop("mat must be a square matrix");
@@ -33,27 +35,23 @@ double density_threshold_cpp(const arma::mat& mat, double density) {
         stop("density must be between 0 and 1 (exclusive)");
     }
 
-    // Extract upper triangle values
-    arma::uword tri_size = n * (n - 1) / 2;
+    auto tri_size = n * (n - 1) / 2;
     std::vector<double> values(tri_size);
 
-    arma::uword idx = 0;
+    size_t idx = 0;
     for (arma::uword j = 1; j < n; ++j) {
         for (arma::uword i = 0; i < j; ++i) {
             values[idx++] = mat(i, j);
         }
     }
 
-    // Find the threshold at the density percentile
-    // We want the top `density` fraction, so the index from the top
-    arma::uword k = static_cast<arma::uword>(std::round(density * tri_size));
+    auto k = static_cast<decltype(tri_size)>(
+        std::round(density * static_cast<double>(tri_size)));
     if (k == 0) k = 1;
     if (k >= tri_size) k = tri_size - 1;
 
-    // nth_element partitions so that element at k is what would be there in sorted order
-    // We want the k-th largest, so we use (tri_size - k) position in ascending order
-    arma::uword pos = tri_size - k;
-    std::nth_element(values.begin(), values.begin() + pos, values.end());
+    auto pos = tri_size - k;
+    std::ranges::nth_element(values, values.begin() + static_cast<ptrdiff_t>(pos));
 
     return values[pos];
 }

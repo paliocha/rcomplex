@@ -28,9 +28,11 @@
 // [[Rcpp::plugins(openmp)]]
 
 #include <RcppArmadillo.h>
-#include <vector>
-#include <random>
+#include <bit>
 #include <cstdint>
+#include <random>
+#include <span>
+#include <vector>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -39,31 +41,29 @@
 using namespace Rcpp;
 
 
-// ---- Portable popcount ----
+// ---- Bit-vector helpers ----
 
-#ifdef _MSC_VER
-#include <intrin.h>
-static inline int popcnt64(uint64_t x) {
-    return static_cast<int>(__popcnt64(x));
+// Row view into a flat bit-vector array: row i of width nw words.
+static std::span<const uint64_t> bv_row(const std::vector<uint64_t>& bv,
+                                        int i, int nw) {
+    return {&bv[static_cast<size_t>(i) * nw], static_cast<size_t>(nw)};
 }
-#else
-static inline int popcnt64(uint64_t x) {
-    return __builtin_popcountll(x);
+
+static std::span<uint64_t> bv_row_mut(std::vector<uint64_t>& bv,
+                                      int i, int nw) {
+    return {&bv[static_cast<size_t>(i) * nw], static_cast<size_t>(nw)};
 }
-#endif
 
-
-// ---- Bit-vector operations ----
-
-static int bv_and_popcount(const uint64_t* a, const uint64_t* b, int n_words) {
+static int bv_and_popcount(std::span<const uint64_t> a,
+                           std::span<const uint64_t> b) {
     int count = 0;
-    for (int w = 0; w < n_words; ++w) {
-        count += popcnt64(a[w] & b[w]);
+    for (size_t w = 0; w < a.size(); ++w) {
+        count += std::popcount(a[w] & b[w]);
     }
     return count;
 }
 
-static inline void bv_set(uint64_t* vec, int bit) {
+static inline void bv_set(std::span<uint64_t> vec, int bit) {
     vec[bit >> 6] |= (1ULL << (bit & 63));
 }
 
@@ -107,31 +107,29 @@ static double compute_T_bitvec(
 ) {
     double T = 0.0;
 
-    // Direction 1: anchor = net1. For each sp2 gene, set reachable once.
+    // Direction 1: anchor = net1
     for (int b : sp2_genes) {
         int k1 = reach1_sz[b];
         if (k1 == 0) continue;
-        const uint64_t* r1 = &reach1_bv[static_cast<size_t>(b) * n1w];
+        auto r1 = bv_row(reach1_bv, b, n1w);
         for (int a : sp1_genes) {
             int m1 = neigh1_sz[a];
             if (m1 == 0) continue;
-            const uint64_t* nb1 = &neigh1_bv[static_cast<size_t>(a) * n1w];
-            int x1 = bv_and_popcount(nb1, r1, n1w);
+            int x1 = bv_and_popcount(bv_row(neigh1_bv, a, n1w), r1);
             double E1 = static_cast<double>(m1) * k1 / n1;
             T += x1 / E1;
         }
     }
 
-    // Direction 2: anchor = net2. For each sp1 gene, set reachable once.
+    // Direction 2: anchor = net2
     for (int a : sp1_genes) {
         int k2 = reach2_sz[a];
         if (k2 == 0) continue;
-        const uint64_t* r2 = &reach2_bv[static_cast<size_t>(a) * n2w];
+        auto r2 = bv_row(reach2_bv, a, n2w);
         for (int b : sp2_genes) {
             int m2 = neigh2_sz[b];
             if (m2 == 0) continue;
-            const uint64_t* nb2 = &neigh2_bv[static_cast<size_t>(b) * n2w];
-            int x2 = bv_and_popcount(nb2, r2, n2w);
+            int x2 = bv_and_popcount(bv_row(neigh2_bv, b, n2w), r2);
             double E2 = static_cast<double>(m2) * k2 / n2;
             T += x2 / E2;
         }
@@ -156,7 +154,7 @@ static double compute_T_flags(
 ) {
     double T = 0.0;
 
-    // Direction 1: for each sp2 gene, set reachable flags once, test all sp1
+    // Direction 1: anchor = net1
     for (int b : sp2_genes) {
         const auto& r1 = reachable1[b];
         int k1 = static_cast<int>(r1.size());
@@ -178,7 +176,7 @@ static double compute_T_flags(
         for (int x : r1) flags1[x] = 0;
     }
 
-    // Direction 2: for each sp1 gene, set reachable flags once, test all sp2
+    // Direction 2: anchor = net2
     for (int a : sp1_genes) {
         const auto& r2 = reachable2[a];
         int k2 = static_cast<int>(r2.size());
@@ -244,7 +242,7 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     const int n_ortho = ortho_sp1_idx.size();
     const int n_hogs = hog_sp1_list.size();
 
-    // ---- Phase 1: Build ortholog mappings ----
+    // ---- Build ortholog mappings ----
     std::vector<std::vector<int>> sp2_to_sp1(n2);
     std::vector<std::vector<int>> sp1_to_sp2(n1);
 
@@ -257,10 +255,9 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         }
     }
 
-    // ---- Phase 2: Compute neighbor lists ----
-    // Use colptr() for cache-friendly access. Since the network matrices are
-    // symmetric, column i has the same values as row i. Column access is
-    // sequential in Armadillo's column-major layout.
+    // ---- Compute neighbor lists ----
+    // Column access is sequential in Armadillo's column-major layout;
+    // since the matrices are symmetric, col(i) == row(i) in value.
     std::vector<std::vector<int>> neighbors1(n1);
     std::vector<std::vector<int>> neighbors2(n2);
 
@@ -289,7 +286,7 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         }
     }
 
-    // ---- Phase 3: Compute reachable sets ----
+    // ---- Compute reachable sets ----
     // reachable1[b] = sp1 genes reachable from sp2 gene b's net2 neighbors
     // reachable2[a] = sp2 genes reachable from sp1 gene a's net1 neighbors
     std::vector<std::vector<int>> reachable1(n2);
@@ -321,7 +318,7 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         }
     }
 
-    // ---- Phase 4: Precompute sizes ----
+    // ---- Precompute sizes ----
     std::vector<int> neigh1_sz(n1), neigh2_sz(n2);
     std::vector<int> reach1_sz(n2), reach2_sz(n1);
     for (int i = 0; i < n1; ++i) neigh1_sz[i] = static_cast<int>(neighbors1[i].size());
@@ -329,7 +326,7 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     for (int b = 0; b < n2; ++b) reach1_sz[b] = static_cast<int>(reachable1[b].size());
     for (int a = 0; a < n1; ++a) reach2_sz[a] = static_cast<int>(reachable2[a].size());
 
-    // ---- Phase 5: Choose intersection mode and build bit-vectors ----
+    // ---- Choose intersection mode and build bit-vectors ----
     bool use_bitvec = (std::max(n1, n2) <= 100000);
     int n1w = (n1 + 63) / 64;
     int n2w = (n2 + 63) / 64;
@@ -343,34 +340,32 @@ Rcpp::DataFrame hog_permutation_test_cpp(
 
         for (int i = 0; i < n1; ++i)
             for (int j : neighbors1[i])
-                bv_set(&neigh1_bv[static_cast<size_t>(i) * n1w], j);
+                bv_set(bv_row_mut(neigh1_bv, i, n1w), j);
 
         for (int b = 0; b < n2; ++b)
             for (int a : reachable1[b])
-                bv_set(&reach1_bv[static_cast<size_t>(b) * n1w], a);
+                bv_set(bv_row_mut(reach1_bv, b, n1w), a);
 
         for (int j = 0; j < n2; ++j)
             for (int k : neighbors2[j])
-                bv_set(&neigh2_bv[static_cast<size_t>(j) * n2w], k);
+                bv_set(bv_row_mut(neigh2_bv, j, n2w), k);
 
         for (int a = 0; a < n1; ++a)
             for (int b : reachable2[a])
-                bv_set(&reach2_bv[static_cast<size_t>(a) * n2w], b);
+                bv_set(bv_row_mut(reach2_bv, a, n2w), b);
     }
 
-    // ---- Phase 6: Prepare per-thread resources ----
+    // ---- Prepare per-thread resources ----
     int max_threads = 1;
 #ifdef _OPENMP
     if (n_cores > 1) max_threads = n_cores;
 #endif
 
-    std::vector<uint32_t> seeds(max_threads);
-    for (int t = 0; t < max_threads; ++t) {
-        seeds[t] = static_cast<uint32_t>(R::runif(0.0, 4294967296.0));
-    }
-
     std::vector<std::mt19937> thread_rng(max_threads);
-    for (int t = 0; t < max_threads; ++t) thread_rng[t].seed(seeds[t]);
+    for (int t = 0; t < max_threads; ++t) {
+        thread_rng[t].seed(
+            static_cast<uint32_t>(R::runif(0.0, 4294967296.0)));
+    }
 
     std::vector<std::vector<int>> thread_perm1(max_threads);
     std::vector<std::vector<int>> thread_perm2(max_threads);
@@ -393,7 +388,7 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         hog_sp2[h].assign(v2.begin(), v2.end());
     }
 
-    // ---- Phase 7: HOG-level permutation tests ----
+    // ---- HOG-level permutation tests ----
     Rcpp::NumericVector out_T_obs(n_hogs);
     Rcpp::IntegerVector out_n_perm(n_hogs);
     Rcpp::IntegerVector out_n_exceed(n_hogs);
@@ -422,7 +417,6 @@ Rcpp::DataFrame hog_permutation_test_cpp(
             continue;
         }
 
-        // Compute observed statistic
         double T_obs;
         if (use_bitvec) {
             T_obs = compute_T_bitvec(
@@ -437,7 +431,7 @@ Rcpp::DataFrame hog_permutation_test_cpp(
                 n1, n2, thread_f1[tid], thread_f2[tid]);
         }
 
-        // Besag & Clifford (1991) adaptive stopping permutation loop
+        // Besag & Clifford adaptive stopping
         int n_exceed = 0;
         int n_perm = 0;
 
