@@ -34,6 +34,7 @@ URL: https://paliocha.github.io/rcomplex/,
     https://github.com/paliocha/rcomplex
 BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
+    sbm,
     testthat (>= 3.0.0),
     lintr,
     pkgdown

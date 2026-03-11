@@ -90,13 +90,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
   idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
 
-  # Map ortholog pair genes to indices
-  pair_sp1_idx <- idx1[orthologs$Species1]
-  pair_sp2_idx <- idx2[orthologs$Species2]
-
-  # Map full ortholog table to indices
-  ortho_sp1_idx <- idx1[orthologs$Species1]
-  ortho_sp2_idx <- idx2[orthologs$Species2]
+  sp1_idx <- as.integer(idx1[orthologs$Species1])
+  sp2_idx <- as.integer(idx2[orthologs$Species2])
 
   # Call C++
   result <- compare_neighborhoods_cpp(
@@ -104,10 +99,10 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     net2 = net2_mat,
     thr1 = thr1,
     thr2 = thr2,
-    pair_sp1_idx = as.integer(pair_sp1_idx),
-    pair_sp2_idx = as.integer(pair_sp2_idx),
-    ortho_sp1_idx = as.integer(ortho_sp1_idx),
-    ortho_sp2_idx = as.integer(ortho_sp2_idx),
+    pair_sp1_idx = sp1_idx,
+    pair_sp2_idx = sp2_idx,
+    ortho_sp1_idx = sp1_idx,
+    ortho_sp2_idx = sp2_idx,
     n_cores = n_cores
   )
 

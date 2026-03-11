@@ -50,7 +50,6 @@ arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
     // Compute row means and standard deviations (vectorized)
     arma::vec row_means = arma::mean(cor_matrix, 1);
     arma::vec row_sds = arma::stddev(cor_matrix, 0, 1);
-    row_sds.replace(0.0, 1.0);
     row_sds.elem(arma::find(row_sds < 1e-10)).fill(1.0);
 
     arma::mat clr_matrix(n, n, arma::fill::zeros);

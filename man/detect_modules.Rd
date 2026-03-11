@@ -6,26 +6,31 @@
 \usage{
 detect_modules(
   net,
-  method = c("leiden", "label_prop"),
+  method = c("leiden", "infomap", "sbm"),
   resolution = 1,
   objective_function = c("CPM", "modularity"),
   n_iterations = 2L,
+  nb_trials = 10L,
   seed = NULL
 )
 }
 \arguments{
 \item{net}{Network object from \code{\link[=compute_network]{compute_network()}}.}
 
-\item{method}{Community detection method: \code{"leiden"} (default) or
-\code{"label_prop"}.}
+\item{method}{Community detection method: \code{"leiden"} (default), \code{"infomap"},
+or \code{"sbm"}.}
 
 \item{resolution}{Resolution parameter for Leiden algorithm (default 1.0).
-Higher values produce more, smaller modules.}
+Higher values produce more, smaller modules. Ignored for other methods.}
 
 \item{objective_function}{Leiden objective: \code{"CPM"} (default) or
-\code{"modularity"}.}
+\code{"modularity"}. Ignored for other methods.}
 
-\item{n_iterations}{Number of Leiden iterations (default 2).}
+\item{n_iterations}{Number of Leiden iterations (default 2). Ignored for
+other methods.}
+
+\item{nb_trials}{Number of Infomap attempts; best result is kept
+(default 10). Ignored for other methods.}
 
 \item{seed}{Random seed for reproducibility (default \code{NULL}).}
 }
@@ -43,5 +48,30 @@ A list with components:
 }
 \description{
 Applies community detection to a thresholded co-expression network using
-either the Leiden algorithm or label propagation.
+the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).
+}
+\section{Methods}{
+
+\describe{
+\item{leiden}{Modularity or CPM optimization with guaranteed well-connected
+communities (Traag \emph{et al.}, 2019). Resolution parameter controls module
+granularity.}
+\item{infomap}{Flow-based method that compresses the description of random
+walks on the network (Rosvall & Bergstrom, 2008). No resolution parameter;
+naturally handles weighted networks.}
+\item{sbm}{Gaussian Stochastic Block Model fit by variational EM
+(requires the \pkg{sbm} package). Number of blocks is selected
+automatically via the Integrated Classification Likelihood (ICL).
+Can detect both assortative and non-assortative structure.}
+}
+}
+
+\references{
+Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to Leiden:
+guaranteeing well-connected communities. \emph{Scientific Reports}, 9, 5233.
+\doi{10.1038/s41598-019-41695-z}
+
+Rosvall, M. & Bergstrom, C. T. (2008). Maps of random walks on complex
+networks reveal community structure. \emph{PNAS}, 105(4), 1118--1123.
+\doi{10.1073/pnas.0706851105}
 }

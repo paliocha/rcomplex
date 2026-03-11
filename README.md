@@ -18,8 +18,8 @@ complementary levels:
 Based on [Netotea *et al.*
 (2014)](https://doi.org/10.1186/1471-2164-15-106), extended with
 permutation-based HOG-level testing, module detection via Leiden /
-label propagation, and cross-species module comparison with Jaccard
-permutation or hypergeometric tests.
+Infomap / Stochastic Block Model, and cross-species module comparison
+with Jaccard permutation or hypergeometric tests.
 
 ## Installation
 
@@ -81,7 +81,7 @@ classes <- classify_modules(comp)
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
 | `summarize_comparison()` | Storey q-values and summary statistics |
 | `permutation_hog_test()` | Permutation-based HOG-level conservation test |
-| `detect_modules()` | Community detection (Leiden / label propagation) |
+| `detect_modules()` | Community detection (Leiden / Infomap / SBM) |
 | `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
 | `classify_modules()` | Three-tier module conservation classification |
 | `find_coexpression_cliques()` | Conserved clique detection across species |
@@ -179,10 +179,9 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
   Leiden: guaranteeing well-connected communities. *Scientific Reports*,
   9, 5233.
   [doi:10.1038/s41598-019-41695-z](https://doi.org/10.1038/s41598-019-41695-z)
-- Raghavan, U. N., Albert, R. & Kumara, S. (2007). Near linear time
-  algorithm to detect community structures in large-scale networks.
-  *Physical Review E*, 76(3), 036106.
-  [doi:10.1103/PhysRevE.76.036106](https://doi.org/10.1103/PhysRevE.76.036106)
+- Rosvall, M. & Bergstrom, C. T. (2008). Maps of random walks on complex
+  networks reveal community structure. *PNAS*, 105(4), 1118--1123.
+  [doi:10.1073/pnas.0706851105](https://doi.org/10.1073/pnas.0706851105)
 
 ## License
 

@@ -81,16 +81,9 @@ summarize_comparison <- function(comparison,
   }
 
   # Select p-value columns based on alternative
-  sp1_col <- if (alternative == "greater") {
-    "Species1.p.val.con"
-  } else {
-    "Species1.p.val.div"
-  }
-  sp2_col <- if (alternative == "greater") {
-    "Species2.p.val.con"
-  } else {
-    "Species2.p.val.div"
-  }
+  suffix <- if (alternative == "greater") "con" else "div"
+  sp1_col <- paste0("Species1.p.val.", suffix)
+  sp2_col <- paste0("Species2.p.val.", suffix)
 
   res <- comparison
 
@@ -331,10 +324,8 @@ permutation_hog_test <- function(net1, net2, comparison,
   )
   bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
 
-  if (nrow(result) < 2L) {
-    result$q.value <- result$p.value
-  } else {
-    result$q.value <- DiscreteQvalue::DQ(
+  result$q.value <- if (nrow(result) < 2L) result$p.value else {
+    DiscreteQvalue::DQ(
       result$p.value, ss = bc_support, method = "Liang"
     )$q.values
   }

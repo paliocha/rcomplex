@@ -78,8 +78,7 @@ compute_network <- function(expr_matrix,
   if (cor_method == "pearson") {
     net <- Rfast::cora(t(expr_matrix))
   } else {
-    ranked <- t(apply(expr_matrix, 1, rank))
-    net <- Rfast::cora(t(ranked))
+    net <- Rfast::cora(apply(expr_matrix, 1, rank))
   }
 
   # Clip to [-1, 1]

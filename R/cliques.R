@@ -84,8 +84,10 @@ find_coexpression_cliques <- function(edges, target_species,
       g <- igraph::simplify(g, edge.attr.comb = list(effect_size = "first"))
 
       # Find k-cliques, keep those spanning all target species
-      valid <- igraph::cliques(g, min = k, max = k) |>
-        Filter(\(cl) setequal(igraph::V(g)$species[cl], target_species), x = _)
+      valid <- Filter(
+        \(cl) setequal(igraph::V(g)$species[cl], target_species),
+        igraph::cliques(g, min = k, max = k)
+      )
       if (length(valid) == 0) return(NULL)
 
       # Extract gene IDs and effect sizes per clique

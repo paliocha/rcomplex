@@ -1,16 +1,33 @@
 #' Detect co-expression modules in a network
 #'
 #' Applies community detection to a thresholded co-expression network using
-#' either the Leiden algorithm or label propagation.
+#' the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).
+#'
+#' @section Methods:
+#' \describe{
+#'   \item{leiden}{Modularity or CPM optimization with guaranteed well-connected
+#'     communities (Traag *et al.*, 2019). Resolution parameter controls module
+#'     granularity.}
+#'   \item{infomap}{Flow-based method that compresses the description of random
+#'     walks on the network (Rosvall & Bergstrom, 2008). No resolution parameter;
+#'     naturally handles weighted networks.}
+#'   \item{sbm}{Gaussian Stochastic Block Model fit by variational EM
+#'     (requires the \pkg{sbm} package). Number of blocks is selected
+#'     automatically via the Integrated Classification Likelihood (ICL).
+#'     Can detect both assortative and non-assortative structure.}
+#' }
 #'
 #' @param net Network object from [compute_network()].
-#' @param method Community detection method: `"leiden"` (default) or
-#'   `"label_prop"`.
+#' @param method Community detection method: `"leiden"` (default), `"infomap"`,
+#'   or `"sbm"`.
 #' @param resolution Resolution parameter for Leiden algorithm (default 1.0).
-#'   Higher values produce more, smaller modules.
+#'   Higher values produce more, smaller modules. Ignored for other methods.
 #' @param objective_function Leiden objective: `"CPM"` (default) or
-#'   `"modularity"`.
-#' @param n_iterations Number of Leiden iterations (default 2).
+#'   `"modularity"`. Ignored for other methods.
+#' @param n_iterations Number of Leiden iterations (default 2). Ignored for
+#'   other methods.
+#' @param nb_trials Number of Infomap attempts; best result is kept
+#'   (default 10). Ignored for other methods.
 #' @param seed Random seed for reproducibility (default `NULL`).
 #'
 #' @return A list with components:
@@ -24,16 +41,27 @@
 #'     \item{params}{List of parameters used}
 #'   }
 #'
+#' @references
+#' Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to Leiden:
+#' guaranteeing well-connected communities. *Scientific Reports*, 9, 5233.
+#' \doi{10.1038/s41598-019-41695-z}
+#'
+#' Rosvall, M. & Bergstrom, C. T. (2008). Maps of random walks on complex
+#' networks reveal community structure. *PNAS*, 105(4), 1118--1123.
+#' \doi{10.1073/pnas.0706851105}
+#'
 #' @export
 detect_modules <- function(net,
-                           method = c("leiden", "label_prop"),
+                           method = c("leiden", "infomap", "sbm"),
                            resolution = 1.0,
                            objective_function = c("CPM", "modularity"),
                            n_iterations = 2L,
+                           nb_trials = 10L,
                            seed = NULL) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
   n_iterations <- as.integer(n_iterations)
+  nb_trials <- as.integer(nb_trials)
 
   if (!is.list(net) || is.null(net$network)) {
     stop("net must be a network object from compute_network()")
@@ -43,17 +71,49 @@ detect_modules <- function(net,
   thr <- net$threshold
   genes <- rownames(mat)
 
-  # Build graph directly from adjacency matrix (uses igraph's C backend)
+  # Build thresholded adjacency
   adj <- mat
   adj[adj < thr] <- 0
-  g <- igraph::graph_from_adjacency_matrix(
-    adj, mode = "upper", weighted = TRUE, diag = FALSE
-  )
-  if (igraph::ecount(g) == 0L) {
+
+  if (!any(adj[upper.tri(adj)] > 0)) {
     stop("No edges above threshold; cannot detect modules")
   }
 
   if (!is.null(seed)) set.seed(seed)
+
+  if (method == "sbm") {
+    if (!requireNamespace("sbm", quietly = TRUE)) {
+      stop("Package 'sbm' is required for method = \"sbm\". ",
+           "Install it with install.packages(\"sbm\")")
+    }
+
+    fit <- sbm::estimateSimpleSBM(
+      adj, model = "gaussian", directed = FALSE,
+      estimOptions = list(verbosity = 0L, plot = FALSE)
+    )
+
+    membership <- stats::setNames(as.integer(fit$memberships), genes)
+    module_genes <- split(names(membership), membership)
+
+    g <- igraph::graph_from_adjacency_matrix(
+      adj, mode = "upper", weighted = TRUE, diag = FALSE
+    )
+
+    return(list(
+      modules = membership,
+      module_genes = module_genes,
+      n_modules = length(module_genes),
+      modularity = igraph::modularity(g, membership),
+      graph = g,
+      method = method,
+      params = list(n_blocks = fit$nbBlocks, ICL = fit$ICL, seed = seed)
+    ))
+  }
+
+  # Graph-based methods (leiden, infomap)
+  g <- igraph::graph_from_adjacency_matrix(
+    adj, mode = "upper", weighted = TRUE, diag = FALSE
+  )
 
   if (method == "leiden") {
     comm <- igraph::cluster_leiden(
@@ -62,8 +122,17 @@ detect_modules <- function(net,
       objective_function = objective_function,
       n_iterations = n_iterations
     )
+    params <- list(
+      resolution = resolution,
+      objective_function = objective_function,
+      n_iterations = n_iterations,
+      seed = seed
+    )
   } else {
-    comm <- igraph::cluster_label_prop(g, weights = igraph::E(g)$weight)
+    comm <- igraph::cluster_infomap(
+      g, e.weights = igraph::E(g)$weight, nb.trials = nb_trials
+    )
+    params <- list(nb_trials = nb_trials, seed = seed)
   }
 
   membership <- igraph::membership(comm)
@@ -77,12 +146,7 @@ detect_modules <- function(net,
     modularity = igraph::modularity(g, membership),
     graph = g,
     method = method,
-    params = list(
-      resolution = resolution,
-      objective_function = objective_function,
-      n_iterations = n_iterations,
-      seed = seed
-    )
+    params = params
   )
 }
 
@@ -298,10 +362,10 @@ compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
   M2 <- matrix(0L, nrow = n_sp2, ncol = n2)
   m_vec <- integer(n2)
   for (j in seq_len(n2)) {
-    idx_j <- mod_sp2_sets[[j]]
-    if (length(idx_j) > 0L) {
-      M2[idx_j + 1L, j] <- 1L  # 0-based -> 1-based row index
-      m_vec[j] <- length(idx_j)
+    genes_j <- mod_sp2_sets[[j]]
+    if (length(genes_j) > 0L) {
+      M2[genes_j + 1L, j] <- 1L  # 0-based -> 1-based row index
+      m_vec[j] <- length(genes_j)
     }
   }
 
@@ -310,15 +374,11 @@ compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
   # Expand to pair vectors (column-major: i varies fastest)
   idx_i <- rep(seq_len(n1), n2)
   idx_j <- rep(seq_len(n2), each = n1)
-  mod_i_idx <- idx_i
-  mod_j_idx <- idx_j
   obs_overlap <- as.integer(overlap_mat)
   k <- k_vec[idx_i]
   m <- m_vec[idx_j]
   un <- k + m - obs_overlap
   obs_jaccard <- ifelse(un > 0L, obs_overlap / un, 0)
-  size_sp1 <- vapply(mg1, length, integer(1))[idx_i]
-  size_sp2 <- vapply(mg2, length, integer(1))[idx_j]
 
   perm_result <- module_jaccard_permutation_cpp(
     ortho_sp1_gene = ortho_sp1_int,
@@ -327,8 +387,8 @@ compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
     n_sp2_universe = n_sp2,
     mod1_sp1_genes = mod1_sp1_genes,
     mod_sp2_sets = mod_sp2_sets,
-    mod_i_idx = mod_i_idx - 1L,
-    mod_j_idx = mod_j_idx - 1L,
+    mod_i_idx = idx_i - 1L,
+    mod_j_idx = idx_j - 1L,
     obs_jaccard = obs_jaccard,
     min_exceedances = min_exceedances,
     max_permutations = max_permutations,
@@ -336,9 +396,10 @@ compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
   )
 
   pairs <- data.frame(
-    module_sp1 = mod_names1[mod_i_idx],
-    module_sp2 = mod_names2[mod_j_idx],
-    size_sp1 = size_sp1, size_sp2 = size_sp2,
+    module_sp1 = mod_names1[idx_i],
+    module_sp2 = mod_names2[idx_j],
+    size_sp1 = vapply(mg1, length, integer(1))[idx_i],
+    size_sp2 = vapply(mg2, length, integer(1))[idx_j],
     overlap = obs_overlap, jaccard = obs_jaccard,
     p.value = perm_result$p_value,
     stringsAsFactors = FALSE

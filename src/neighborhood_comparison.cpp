@@ -143,7 +143,8 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
     }
 #endif
 
-    // Precompute neighbor lists for each gene in each network
+    // Precompute neighbor lists using column-major access (cache-friendly on
+    // symmetric Armadillo matrices: col(i) == row(i) in value)
     std::vector<std::vector<int>> neighbors1(n1);
     std::vector<std::vector<int>> neighbors2(n2);
 
@@ -151,8 +152,9 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (int i = 0; i < n1; ++i) {
+        const double* col_i = net1.colptr(i);
         for (int j = 0; j < n1; ++j) {
-            if (i != j && net1(i, j) >= thr1) {
+            if (i != j && col_i[j] >= thr1) {
                 neighbors1[i].push_back(j);
             }
         }
@@ -162,8 +164,9 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
     #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
 #endif
     for (int i = 0; i < n2; ++i) {
+        const double* col_i = net2.colptr(i);
         for (int j = 0; j < n2; ++j) {
-            if (i != j && net2(i, j) >= thr2) {
+            if (i != j && col_i[j] >= thr2) {
                 neighbors2[i].push_back(j);
             }
         }
@@ -176,6 +179,14 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
     Rcpp::NumericVector sp1_pval(n_pairs),   sp2_pval(n_pairs);
     Rcpp::NumericVector sp1_pval_div(n_pairs), sp2_pval_div(n_pairs);
     Rcpp::NumericVector sp1_effect(n_pairs), sp2_effect(n_pairs);
+
+    // Pre-allocate per-thread scratch flags (cleared by compute_direction)
+    int max_threads = 1;
+#ifdef _OPENMP
+    if (n_cores > 1) max_threads = n_cores;
+#endif
+    std::vector<std::vector<char>> thread_flags1(max_threads, std::vector<char>(n1, 0));
+    std::vector<std::vector<char>> thread_flags2(max_threads, std::vector<char>(n2, 0));
 
     // Parallel comparison loop
 #ifdef _OPENMP
@@ -193,20 +204,23 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
             continue;
         }
 
-        // Scratch flag vectors (one per network size, reused across directions)
-        std::vector<char> flags1(n1, 0);
-        std::vector<char> flags2(n2, 0);
+        int tid = 0;
+#ifdef _OPENMP
+        tid = omp_get_thread_num();
+#endif
 
         // Direction 1: Species 1 -> Species 2
         DirectionResult d1 = compute_direction(
-            neighbors1[g1_idx], neighbors2[g2_idx], sp2_to_sp1, n1, flags1);
+            neighbors1[g1_idx], neighbors2[g2_idx], sp2_to_sp1, n1,
+            thread_flags1[tid]);
         sp1_neigh[p] = d1.neigh;   sp1_ortho_neigh[p] = d1.ortho_neigh;
         sp1_overlap[p] = d1.overlap; sp1_pval[p] = d1.pval_con;
         sp1_pval_div[p] = d1.pval_div; sp1_effect[p] = d1.effect_size;
 
         // Direction 2: Species 2 -> Species 1
         DirectionResult d2 = compute_direction(
-            neighbors2[g2_idx], neighbors1[g1_idx], sp1_to_sp2, n2, flags2);
+            neighbors2[g2_idx], neighbors1[g1_idx], sp1_to_sp2, n2,
+            thread_flags2[tid]);
         sp2_neigh[p] = d2.neigh;   sp2_ortho_neigh[p] = d2.ortho_neigh;
         sp2_overlap[p] = d2.overlap; sp2_pval[p] = d2.pval_con;
         sp2_pval_div[p] = d2.pval_div; sp2_effect[p] = d2.effect_size;

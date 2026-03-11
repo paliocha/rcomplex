@@ -106,12 +106,64 @@ test_that("detect_modules finds expected modules", {
 })
 
 
-test_that("detect_modules works with label_prop", {
+test_that("detect_modules works with infomap", {
   td <- make_module_test_data()
-  result <- detect_modules(td$net1, method = "label_prop")
+  result <- detect_modules(td$net1, method = "infomap", seed = 42)
 
-  expect_equal(result$method, "label_prop")
+  expect_equal(result$method, "infomap")
   expect_true(result$n_modules >= 2)
+  expect_equal(length(result$modules), nrow(td$net1$network))
+})
+
+
+test_that("detect_modules infomap finds expected modules", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "infomap", seed = 42)
+
+  mods_1_10 <- result$modules[paste0("A", 1:10)]
+  expect_equal(length(unique(mods_1_10)), 1)
+
+  mods_11_20 <- result$modules[paste0("A", 11:20)]
+  expect_equal(length(unique(mods_11_20)), 1)
+
+  expect_true(unique(mods_1_10) != unique(mods_11_20))
+})
+
+
+test_that("detect_modules works with sbm", {
+  skip_if_not_installed("sbm")
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "sbm", seed = 42)
+
+  expect_equal(result$method, "sbm")
+  expect_true(result$n_modules >= 2)
+  expect_equal(length(result$modules), nrow(td$net1$network))
+  expect_true(igraph::is_igraph(result$graph))
+  expect_true(!is.null(result$params$ICL))
+})
+
+
+test_that("detect_modules sbm finds expected modules", {
+  skip_if_not_installed("sbm")
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "sbm", seed = 42)
+
+  mods_1_10 <- result$modules[paste0("A", 1:10)]
+  expect_equal(length(unique(mods_1_10)), 1)
+
+  mods_11_20 <- result$modules[paste0("A", 11:20)]
+  expect_equal(length(unique(mods_11_20)), 1)
+
+  expect_true(unique(mods_1_10) != unique(mods_11_20))
+})
+
+
+test_that("detect_modules sbm requires sbm package", {
+  skip_if(requireNamespace("sbm", quietly = TRUE),
+          "sbm is installed; cannot test missing-package error")
+  td <- make_module_test_data()
+  expect_error(detect_modules(td$net1, method = "sbm"),
+               "Package 'sbm' is required")
 })
 
 
