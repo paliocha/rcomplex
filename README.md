@@ -27,7 +27,7 @@ with Jaccard permutation or hypergeometric tests.
 devtools::install_github("paliocha/rcomplex")
 ```
 
-**System requirements:** C++17 compiler, GNU make. OpenMP is optional
+**System requirements:** C++23 compiler, GNU make. OpenMP is optional
 but recommended for parallel permutation tests.
 
 ## Quick start
