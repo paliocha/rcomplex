@@ -60,7 +60,8 @@ and determines a density-based co-expression threshold.</p>
 <span>  abs_cor <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mr_log_transform <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  min_var <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="fl">1L</span></span>
+<span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -107,6 +108,18 @@ Set to <code>NULL</code> to disable filtering entirely.</p></dd>
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
 <dd><p>Number of threads for parallel computation (default 1).</p></dd>
+
+
+<dt id="arg-use-torch">use_torch<a class="anchor" aria-label="anchor" href="#arg-use-torch"></a></dt>
+<dd><p>If <code>TRUE</code>, use torch for GPU-accelerated correlation
+(CUDA, MPS, or CPU fallback). Requires the
+<a href="https://torch.mlverse.org/" class="external-link">torch</a> package. Default <code>FALSE</code>.
+On Apple Silicon (MPS), torch uses float32 because Metal does not support
+float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
+normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
+MPS, keep <code>use_torch = FALSE</code> here and use
+<code>\link{permutation_hog_test}(use_torch = TRUE)</code> for the permutation
+speedup instead. On CUDA, float64 is used with no precision tradeoff.</p></dd>
 
 </dl></div>
     <div id="value">
