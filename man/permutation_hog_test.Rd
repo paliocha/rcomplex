@@ -11,7 +11,8 @@ permutation_hog_test(
   alternative = c("greater", "less"),
   min_exceedances = 50L,
   max_permutations = 10000L,
-  n_cores = 1L
+  n_cores = 1L,
+  use_torch = FALSE
 )
 }
 \arguments{
@@ -33,6 +34,10 @@ Higher values give more precise p-values but take longer (default 50).}
 \item{max_permutations}{Maximum permutations per HOG (default 10000).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
+
+\item{use_torch}{If \code{TRUE}, precompute the fold-enrichment matrix on GPU
+via torch, then run permutations as fast table lookups. Requires the
+\href{https://torch.mlverse.org/}{torch} package. Default \code{FALSE}.}
 }
 \value{
 A data frame with one row per HOG, ordered by p-value, with columns:
@@ -84,11 +89,22 @@ and produces anti-conservative p-values. The permutation approach is exact
 regardless of the dependency structure.
 }
 
-\section{Intersection modes}{
+\section{GPU acceleration}{
 
-For networks with max(n1, n2) <= 100,000 genes, bit-vector intersection
-with popcount is used for maximum throughput. For larger networks, a
-flag-vector approach (sparse set/count/clear) avoids excessive memory use.
+When \code{use_torch = TRUE}, the fold-enrichment matrix is precomputed on GPU
+via GEMM (CUDA, MPS, or CPU fallback). This converts each permutation from
+O(M\emph{N}n_words) bit-vector intersections to O(M*N) table lookups — typically
+a 100-300x overall speedup. Requires the
+\href{https://torch.mlverse.org/}{torch} package.
+
+On Apple Silicon (MPS), torch uses float32 because Metal does not support
+float64. The fold-enrichment matrix is numerically exact in float32 (all
+intermediate values are small integers), so \code{permutation_hog_test(use_torch = TRUE)} is safe on MPS. However, \code{\link[=compute_network]{compute_network()}} correlation in
+float32 can cause rank-swap artifacts in Spearman + MR normalization. If
+you need exact Spearman + MR correlation on Apple Silicon, use
+\code{compute_network(use_torch = FALSE)} with \code{permutation_hog_test(use_torch = TRUE)} — the 100-300x permutation speedup comes from the FE precomputation
+and table-lookup architecture, not from GPU-accelerated correlation. On
+CUDA, both functions use float64 with no precision tradeoff.
 }
 
 \section{Multiple testing correction}{

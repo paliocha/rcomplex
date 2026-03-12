@@ -30,13 +30,14 @@
 #include <RcppArmadillo.h>
 #include <bit>
 #include <cstdint>
-#include <random>
 #include <span>
 #include <vector>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+
+#include "sample_k_distinct.h"
 
 using namespace Rcpp;
 
@@ -65,28 +66,6 @@ static int bv_and_popcount(std::span<const uint64_t> a,
 
 static inline void bv_set(std::span<uint64_t> vec, int bit) {
     vec[bit >> 6] |= (1ULL << (bit & 63));
-}
-
-
-// ---- Sampling ----
-
-// Sample k distinct integers from [0, n). Efficient when k << n.
-static void sample_k_distinct(int n, int k, std::mt19937& rng,
-                               std::vector<int>& out) {
-    out.resize(k);
-    std::uniform_int_distribution<int> dist(0, n - 1);
-    for (int i = 0; i < k; ++i) {
-        int x;
-        bool dup;
-        do {
-            x = dist(rng);
-            dup = false;
-            for (int j = 0; j < i; ++j) {
-                if (out[j] == x) { dup = true; break; }
-            }
-        } while (dup);
-        out[i] = x;
-    }
 }
 
 

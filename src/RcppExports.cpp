@@ -35,6 +35,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fe_hog_permutation_test_cpp
+Rcpp::DataFrame fe_hog_permutation_test_cpp(const arma::mat& combined, const Rcpp::List& hog_sp1_list, const Rcpp::List& hog_sp2_list, bool test_greater, int min_exceedances, int max_permutations, int n_cores);
+RcppExport SEXP _rcomplex_fe_hog_permutation_test_cpp(SEXP combinedSEXP, SEXP hog_sp1_listSEXP, SEXP hog_sp2_listSEXP, SEXP test_greaterSEXP, SEXP min_exceedancesSEXP, SEXP max_permutationsSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type combined(combinedSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type hog_sp1_list(hog_sp1_listSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type hog_sp2_list(hog_sp2_listSEXP);
+    Rcpp::traits::input_parameter< bool >::type test_greater(test_greaterSEXP);
+    Rcpp::traits::input_parameter< int >::type min_exceedances(min_exceedancesSEXP);
+    Rcpp::traits::input_parameter< int >::type max_permutations(max_permutationsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(fe_hog_permutation_test_cpp(combined, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 // hog_permutation_test_cpp
 Rcpp::DataFrame hog_permutation_test_cpp(const arma::mat& net1, const arma::mat& net2, double thr1, double thr2, const Rcpp::IntegerVector& ortho_sp1_idx, const Rcpp::IntegerVector& ortho_sp2_idx, const Rcpp::List& hog_sp1_list, const Rcpp::List& hog_sp2_list, bool test_greater, int min_exceedances, int max_permutations, int n_cores);
 RcppExport SEXP _rcomplex_hog_permutation_test_cpp(SEXP net1SEXP, SEXP net2SEXP, SEXP thr1SEXP, SEXP thr2SEXP, SEXP ortho_sp1_idxSEXP, SEXP ortho_sp2_idxSEXP, SEXP hog_sp1_listSEXP, SEXP hog_sp2_listSEXP, SEXP test_greaterSEXP, SEXP min_exceedancesSEXP, SEXP max_permutationsSEXP, SEXP n_coresSEXP) {
@@ -115,6 +132,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_apply_clr_to_cor_cpp", (DL_FUNC) &_rcomplex_apply_clr_to_cor_cpp, 2},
     {"_rcomplex_density_threshold_cpp", (DL_FUNC) &_rcomplex_density_threshold_cpp, 2},
+    {"_rcomplex_fe_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_fe_hog_permutation_test_cpp, 7},
     {"_rcomplex_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_cpp, 12},
     {"_rcomplex_module_jaccard_permutation_cpp", (DL_FUNC) &_rcomplex_module_jaccard_permutation_cpp, 12},
     {"_rcomplex_mutual_rank_transform_cached_cpp", (DL_FUNC) &_rcomplex_mutual_rank_transform_cached_cpp, 3},

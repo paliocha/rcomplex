@@ -1,3 +1,64 @@
+# ---- Torch helpers --------------------------------------------------------
+
+#' Select torch device and dtype
+#'
+#' CUDA and CPU support float64; MPS (Apple Silicon) only supports float32.
+#'
+#' @return List with `device` (string) and `dtype` (torch dtype object).
+#' @keywords internal
+torch_device_dtype <- function() {
+  if (torch::cuda_is_available()) {
+    list(device = "cuda", dtype = torch::torch_float64())
+  } else if (torch::backends_mps_is_available()) {
+    list(device = "mps", dtype = torch::torch_float32())
+  } else {
+    list(device = "cpu", dtype = torch::torch_float64())
+  }
+}
+
+
+# ---- Correlation backends ------------------------------------------------
+
+#' Compute gene-gene correlation matrix via torch
+#'
+#' Uses GPU (CUDA/MPS) when available, otherwise torch on CPU.
+#' Pearson: center rows, L2-normalize, GEMM.
+#' Spearman: rank rows first, then Pearson on ranks.
+#'
+#' @param expr_matrix Numeric matrix (genes x samples).
+#' @param method `"pearson"` or `"spearman"`.
+#' @return Correlation matrix (genes x genes) as a base R matrix.
+#' @keywords internal
+cor_torch <- function(expr_matrix, method = "pearson") {
+  dd <- torch_device_dtype()
+
+  if (method == "spearman") {
+    expr_matrix <- t(apply(expr_matrix, 1, rank))
+  }
+
+  x <- torch::torch_tensor(expr_matrix, dtype = dd$dtype, device = dd$device)
+  x <- x - x$mean(dim = 2L, keepdim = TRUE)
+  norms <- x$norm(dim = 2L, keepdim = TRUE)$clamp(min = 1e-30)
+  x <- x / norms
+  cor_mat <- x$mm(x$t())
+
+  as.matrix(cor_mat$cpu()$to(dtype = torch::torch_float64()))
+}
+
+#' Compute gene-gene correlation matrix via Rfast
+#'
+#' @param expr_matrix Numeric matrix (genes x samples).
+#' @param method `"pearson"` or `"spearman"`.
+#' @return Correlation matrix (genes x genes).
+#' @keywords internal
+cor_rfast <- function(expr_matrix, method = "pearson") {
+  if (method == "pearson") {
+    Rfast::cora(t(expr_matrix))
+  } else {
+    Rfast::cora(apply(expr_matrix, 1, rank))
+  }
+}
+
 #' Compute co-expression network from an expression matrix
 #'
 #' Calculates correlation, applies normalization (Mutual Rank or CLR),
@@ -20,6 +81,15 @@
 #'   to also remove near-invariant genes that produce noisy correlations.
 #'   Set to `NULL` to disable filtering entirely.
 #' @param n_cores Number of threads for parallel computation (default 1).
+#' @param use_torch If `TRUE`, use torch for GPU-accelerated correlation
+#'   (CUDA, MPS, or CPU fallback). Requires the
+#'   \href{https://torch.mlverse.org/}{torch} package. Default `FALSE`.
+#'   On Apple Silicon (MPS), torch uses float32 because Metal does not support
+#'   float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
+#'   normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
+#'   MPS, keep `use_torch = FALSE` here and use
+#'   `\link{permutation_hog_test}(use_torch = TRUE)` for the permutation
+#'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -40,7 +110,8 @@ compute_network <- function(expr_matrix,
                             abs_cor = FALSE,
                             mr_log_transform = FALSE,
                             min_var = 0,
-                            n_cores = 1L) {
+                            n_cores = 1L,
+                            use_torch = FALSE) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
   n_cores <- as.integer(n_cores)
@@ -53,6 +124,10 @@ compute_network <- function(expr_matrix,
   }
   if (density <= 0 || density >= 1) {
     stop("density must be between 0 and 1 (exclusive)")
+  }
+  if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
+    stop("use_torch = TRUE requires the torch package ",
+         "(install.packages('torch'); torch::install_torch())")
   }
 
   # Filter low-variance genes
@@ -75,11 +150,8 @@ compute_network <- function(expr_matrix,
   n_genes <- nrow(expr_matrix)
 
   # Correlation
-  if (cor_method == "pearson") {
-    net <- Rfast::cora(t(expr_matrix))
-  } else {
-    net <- Rfast::cora(apply(expr_matrix, 1, rank))
-  }
+  cor_fn <- if (use_torch) cor_torch else cor_rfast
+  net <- cor_fn(expr_matrix, method = cor_method)
 
   # Clip to [-1, 1]
   net[net > 1] <- 1

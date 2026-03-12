@@ -12,7 +12,8 @@ compute_network(
   abs_cor = FALSE,
   mr_log_transform = FALSE,
   min_var = 0,
-  n_cores = 1L
+  n_cores = 1L,
+  use_torch = FALSE
 )
 }
 \arguments{
@@ -40,6 +41,16 @@ to also remove near-invariant genes that produce noisy correlations.
 Set to \code{NULL} to disable filtering entirely.}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
+
+\item{use_torch}{If \code{TRUE}, use torch for GPU-accelerated correlation
+(CUDA, MPS, or CPU fallback). Requires the
+\href{https://torch.mlverse.org/}{torch} package. Default \code{FALSE}.
+On Apple Silicon (MPS), torch uses float32 because Metal does not support
+float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
+normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
+MPS, keep \code{use_torch = FALSE} here and use
+\verb{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
+speedup instead. On CUDA, float64 is used with no precision tradeoff.}
 }
 \value{
 A list with components:

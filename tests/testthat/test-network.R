@@ -200,3 +200,49 @@ test_that("min_var is stored in params", {
   result <- compute_network(expr, density = 0.1, min_var = 0.5)
   expect_equal(result$params$min_var, 0.5)
 })
+
+test_that("use_torch errors when torch not installed", {
+  skip_if(requireNamespace("torch", quietly = TRUE),
+          "torch is installed — cannot test missing-package error")
+  expr <- matrix(rnorm(100), nrow = 10, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:10)
+  expect_error(compute_network(expr, density = 0.1, use_torch = TRUE),
+               "requires the torch package")
+})
+
+test_that("torch backend matches Rfast (Pearson)", {
+  skip_if_not_installed("torch")
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  rfast_result <- compute_network(expr, cor_method = "pearson",
+                                  density = 0.05, use_torch = FALSE)
+  torch_result <- compute_network(expr, cor_method = "pearson",
+                                  density = 0.05, use_torch = TRUE)
+
+  expect_equal(torch_result$network, rfast_result$network, tolerance = 1e-10)
+  expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = 1e-10)
+})
+
+test_that("torch backend matches Rfast (Spearman)", {
+  skip_if_not_installed("torch")
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  rfast_result <- compute_network(expr, cor_method = "spearman",
+                                  density = 0.05, use_torch = FALSE)
+  torch_result <- compute_network(expr, cor_method = "spearman",
+                                  density = 0.05, use_torch = TRUE)
+
+  # MPS (Apple Silicon) uses float32. Spearman correlations have ~1e-7
+  # per-element error, but MR normalization is rank-based: swapping two
+  # similarly-valued correlations changes their mutual ranks by ~1,
+  # producing MR differences of O(1). This is inherent to float32 + MR
+  # and doesn't affect downstream results (density threshold on the same
+  # network is self-consistent). On CUDA/CPU (float64) tolerance < 1e-10.
+  tol <- if (torch::backends_mps_is_available()) 1.0 else 1e-10
+  expect_equal(torch_result$network, rfast_result$network, tolerance = tol)
+  expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = tol)
+})

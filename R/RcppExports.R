@@ -43,6 +43,23 @@ density_threshold_cpp <- function(mat, density) {
     .Call(`_rcomplex_density_threshold_cpp`, mat, density)
 }
 
+#' Permutation test using precomputed fold-enrichment matrix
+#'
+#' @param combined Precomputed combined FE matrix (n1 x n2), where
+#'   combined\[a, b\] = FE1(b->a) + FE2(a->b).
+#' @param hog_sp1_list List of 0-based sp1 gene indices per HOG
+#' @param hog_sp2_list List of 0-based sp2 gene indices per HOG
+#' @param test_greater If TRUE, test conservation (T >= T_obs)
+#' @param min_exceedances Besag-Clifford stopping parameter
+#' @param max_permutations Maximum permutations per HOG
+#' @param n_cores Number of OpenMP threads
+#' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+#'
+#' @keywords internal
+fe_hog_permutation_test_cpp <- function(combined, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores) {
+    .Call(`_rcomplex_fe_hog_permutation_test_cpp`, combined, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores)
+}
+
 #' Permutation-based HOG-level conservation test
 #'
 #' Tests each HOG for co-expression conservation using a gene-identity

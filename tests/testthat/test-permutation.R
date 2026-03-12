@@ -247,3 +247,79 @@ test_that("effect sizes are computed correctly", {
   hog1 <- result[result$OrthoGroup == "HOG1", ]
   expect_equal(hog1$mean_eff, expected_eff, tolerance = 1e-10)
 })
+
+
+# ---- torch backend tests ----
+
+test_that("use_torch errors when torch not installed", {
+  skip_if(requireNamespace("torch", quietly = TRUE),
+          "torch is installed — cannot test missing-package error")
+  td <- make_test_nets()
+  expect_error(
+    permutation_hog_test(td$net1, td$net2, td$comparison,
+                         use_torch = TRUE),
+    "requires the torch package"
+  )
+})
+
+
+test_that("torch backend T_obs matches bit-vector backend", {
+  skip_if_not_installed("torch")
+  td <- make_test_nets()
+
+  set.seed(42)
+  result_bv <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 100L, min_exceedances = 10L
+  )
+  set.seed(42)
+  result_fe <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 100L, min_exceedances = 10L,
+    use_torch = TRUE
+  )
+
+  # T_obs should match closely — MPS uses float32, so ~1e-6 differences
+  bv_order <- order(result_bv$OrthoGroup)
+  fe_order <- order(result_fe$OrthoGroup)
+  expect_equal(result_fe$T_obs[fe_order], result_bv$T_obs[bv_order],
+               tolerance = 1e-5)
+})
+
+
+test_that("torch backend conserved vs non-conserved HOGs", {
+  skip_if_not_installed("torch")
+  td <- make_test_nets()
+
+  set.seed(42)
+  result <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 2000L, min_exceedances = 50L,
+    use_torch = TRUE
+  )
+
+  hog1 <- result[result$OrthoGroup == "HOG1", ]
+  hog_nc <- result[result$OrthoGroup == "HOG_NC", ]
+
+  expect_true(hog1$p.value < hog_nc$p.value)
+  expect_true(hog1$T_obs > hog_nc$T_obs)
+  expect_equal(hog_nc$T_obs, 0)
+})
+
+
+test_that("torch backend p-value formula is correct", {
+  skip_if_not_installed("torch")
+  td <- make_test_nets()
+
+  set.seed(42)
+  result <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 100L, min_exceedances = 50L,
+    use_torch = TRUE
+  )
+
+  for (i in seq_len(nrow(result))) {
+    expected_p <- (result$n_exceed[i] + 1) / (result$n_perm[i] + 1)
+    expect_equal(result$p.value[i], expected_p, tolerance = 1e-10)
+  }
+})
