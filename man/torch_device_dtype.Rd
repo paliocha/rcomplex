@@ -10,6 +10,10 @@ torch_device_dtype()
 List with \code{device} (string) and \code{dtype} (torch dtype object).
 }
 \description{
-CUDA and CPU support float64; MPS (Apple Silicon) only supports float32.
+Probes GPU capability with a small matmul smoke test. CUDA prefers float64
+but falls back to float32 if float64 kernels are missing (e.g. Blackwell
+sm_100+ with torch R 0.16.3). MPS only supports float32. The FE matrix
+computation is numerically exact in float32 (binary/integer arithmetic,
+values < 2^24).
 }
 \keyword{internal}

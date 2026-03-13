@@ -169,6 +169,35 @@ summarize_comparison <- function(comparison,
 #' @param ortho_sp1_idx,ortho_sp2_idx 0-based ortholog gene indices.
 #' @return Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
 #' @keywords internal
+#' Build binary adjacency matrix on GPU from sparse edge list
+#'
+#' Avoids transferring the full dense n×n co-expression matrix to GPU.
+#' At 3% density, transfers ~125 MB of edge indices instead of ~4 GB dense.
+#'
+#' @param net_mat Co-expression matrix (n x n).
+#' @param thr Co-expression threshold.
+#' @param dtype Torch dtype for the result.
+#' @param device Torch device string.
+#' @return Binary adjacency tensor (n x n) on `device`, diagonal = 0.
+#' @keywords internal
+adj_to_gpu <- function(net_mat, thr, dtype, device) {
+  n <- nrow(net_mat)
+  # Find edges in R (sparse) — diagonal excluded
+  edges <- which(net_mat >= thr & row(net_mat) != col(net_mat), arr.ind = TRUE)
+
+  adj <- torch::torch_zeros(n, n, dtype = dtype, device = device)
+  if (nrow(edges) > 0L) {
+    rows_t <- torch::torch_tensor(edges[, 1L], dtype = torch::torch_long(),
+                                  device = device)
+    cols_t <- torch::torch_tensor(edges[, 2L], dtype = torch::torch_long(),
+                                  device = device)
+    ones_t <- torch::torch_ones(nrow(edges), dtype = dtype, device = device)
+    adj$index_put_(list(rows_t, cols_t), ones_t)
+    rm(rows_t, cols_t, ones_t)
+  }
+  adj
+}
+
 build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
                                     ortho_sp1_idx, ortho_sp2_idx) {
   n1 <- nrow(net1_mat)
@@ -178,17 +207,16 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
   device <- dd$device
   dtype <- dd$dtype
 
+  # Build adjacency on GPU from sparse edge list — avoids large dense R→GPU
+  # copy that crashes on some CUDA architectures (Blackwell + torch 0.16.3).
+  adj1 <- adj_to_gpu(net1_mat, thr1, dtype, device)
+  rm(net1_mat)
+  adj2 <- adj_to_gpu(net2_mat, thr2, dtype, device)
+  rm(net2_mat)
+  gc()
+
   combined <- torch::with_no_grad({
-    # Adjacency matrices — threshold on GPU to avoid R-side n×n copy
-    adj1 <- (torch::torch_tensor(net1_mat, dtype = dtype, device = device) >= thr1)$
-      to(dtype = dtype)
-    adj1$fill_diagonal_(0)
-
-    adj2 <- (torch::torch_tensor(net2_mat, dtype = dtype, device = device) >= thr2)$
-      to(dtype = dtype)
-    adj2$fill_diagonal_(0)
-
-    # Ortholog indicator (n2 x n1) — build on GPU, avoid dense R matrix
+    # Ortholog indicator (n2 x n1) — build on GPU via index_put_
     ortho <- torch::torch_zeros(n2, n1, dtype = dtype, device = device)
     rows_t <- torch::torch_tensor(
       ortho_sp2_idx + 1L, dtype = torch::torch_long(), device = device
