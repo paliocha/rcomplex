@@ -416,6 +416,19 @@ permutation_hog_test <- function(net1, net2, comparison,
   idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
   idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
 
+  # Filter comparison to genes present in both networks — gene names may
+
+  # not match after upstream merging/reduction of multi-copy orthologs.
+  # NA indices from missing genes would cause index_put_ failures in torch
+  # and undefined behavior in C++.
+  in_net <- comparison$Species1 %in% net1_genes &
+            comparison$Species2 %in% net2_genes
+  if (!all(in_net)) {
+    n_dropped <- sum(!in_net)
+    message("Dropped ", n_dropped, " ortholog pairs with genes not in networks")
+    comparison <- comparison[in_net, , drop = FALSE]
+  }
+
   # Deduplicated ortholog mapping for reachable-set construction
   ortho_pairs <- unique(comparison[, c("Species1", "Species2")])
   ortho_sp1_idx <- as.integer(idx1[ortho_pairs$Species1])
