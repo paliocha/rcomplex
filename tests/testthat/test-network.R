@@ -212,6 +212,8 @@ test_that("use_torch errors when torch not installed", {
 
 test_that("torch backend matches Rfast (Pearson)", {
   skip_if_not_installed("torch")
+  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
+              "torch backend (Lantern) not available")
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
@@ -227,6 +229,8 @@ test_that("torch backend matches Rfast (Pearson)", {
 
 test_that("torch backend matches Rfast (Spearman)", {
   skip_if_not_installed("torch")
+  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
+              "torch backend (Lantern) not available")
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)

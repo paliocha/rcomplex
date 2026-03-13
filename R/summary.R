@@ -173,7 +173,6 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
                                     ortho_sp1_idx, ortho_sp2_idx) {
   n1 <- nrow(net1_mat)
   n2 <- nrow(net2_mat)
-  n_ortho <- length(ortho_sp1_idx)
 
   dd <- torch_device_dtype()
   device <- dd$device
@@ -189,39 +188,54 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
       to(dtype = dtype)
     adj2$fill_diagonal_(0)
 
-    # Ortholog indicator (n2 x n1) — vectorized construction
-    ortho_r <- matrix(0, nrow = n2, ncol = n1)
-    ortho_r[cbind(ortho_sp2_idx + 1L, ortho_sp1_idx + 1L)] <- 1
-    ortho <- torch::torch_tensor(ortho_r, dtype = dtype, device = device)
-    rm(ortho_r)
+    # Ortholog indicator (n2 x n1) — build on GPU, avoid dense R matrix
+    ortho <- torch::torch_zeros(n2, n1, dtype = dtype, device = device)
+    rows_t <- torch::torch_tensor(
+      ortho_sp2_idx + 1L, dtype = torch::torch_long(), device = device
+    )
+    cols_t <- torch::torch_tensor(
+      ortho_sp1_idx + 1L, dtype = torch::torch_long(), device = device
+    )
+    ones_t <- torch::torch_ones(length(ortho_sp1_idx), dtype = dtype,
+                                device = device)
+    ortho$index_put_(list(rows_t, cols_t), ones_t)
+    rm(rows_t, cols_t, ones_t)
 
-    # Reachable sets: reach1[b, a] = any neighbor of b in net2 maps to a
+    # --- Direction 1: FE1[b, a] = |R1(b) ∩ N1(a)| / E1(b, a) ---
     reach1 <- (adj2$mm(ortho) > 0)$to(dtype = dtype)   # (n2, n1)
-    reach2 <- (adj1$mm(ortho$t()) > 0)$to(dtype = dtype) # (n1, n2)
+    neigh1_sz <- adj1$sum(dim = 2L)                     # (n1,)
+    reach1_sz <- reach1$sum(dim = 2L)                   # (n2,)
+    overlap1 <- reach1$mm(adj1)                         # (n2, n1)
+    rm(reach1)
 
-    # Neighbor and reachable set sizes
-    neigh1_sz <- adj1$sum(dim = 2L)   # (n1,)
-    neigh2_sz <- adj2$sum(dim = 2L)   # (n2,)
-    reach1_sz <- reach1$sum(dim = 2L) # (n2,)
-    reach2_sz <- reach2$sum(dim = 2L) # (n1,)
-
-    # Overlap via GEMM: overlap[b, a] = |R1(b) ∩ N1(a)|
-    overlap1 <- reach1$mm(adj1)  # (n2, n1)
-    overlap2 <- reach2$mm(adj2)  # (n1, n2)
-
-    # Expected: E1[b, a] = reach1_sz[b] * neigh1_sz[a] / n1
     E1 <- reach1_sz$unsqueeze(2L) * neigh1_sz$unsqueeze(1L) / n1
-    E2 <- reach2_sz$unsqueeze(2L) * neigh2_sz$unsqueeze(1L) / n2
-
-    # Fold enrichment: when E = 0, overlap is also 0, so 0/clamp = 0
     FE1 <- overlap1 / E1$clamp(min = 1e-30)
+    rm(overlap1, E1, reach1_sz, neigh1_sz)
+
+    # --- Direction 2: FE2[a, b] = |R2(a) ∩ N2(b)| / E2(a, b) ---
+    reach2 <- (adj1$mm(ortho$t()) > 0)$to(dtype = dtype) # (n1, n2)
+    rm(adj1, ortho)
+    neigh2_sz <- adj2$sum(dim = 2L)                       # (n2,)
+    overlap2 <- reach2$mm(adj2)                           # (n1, n2)
+    rm(adj2)
+    reach2_sz <- reach2$sum(dim = 2L)                     # (n1,)
+    rm(reach2)
+
+    E2 <- reach2_sz$unsqueeze(2L) * neigh2_sz$unsqueeze(1L) / n2
     FE2 <- overlap2 / E2$clamp(min = 1e-30)
+    rm(overlap2, E2, reach2_sz, neigh2_sz)
+    gc()
 
     # Combined: combined[a, b] = FE1[b, a] + FE2[a, b]
-    FE1$t() + FE2  # (n1, n2)
+    result <- FE1$t() + FE2
+    rm(FE1, FE2)
+    result  # (n1, n2)
   })
 
-  as.matrix(combined$cpu()$to(dtype = torch::torch_float64()))
+  result_r <- as.matrix(combined$cpu()$to(dtype = torch::torch_float64()))
+  rm(combined)
+  gc()
+  result_r
 }
 
 
@@ -395,6 +409,8 @@ permutation_hog_test <- function(net1, net2, comparison,
       net1_mat, net2_mat, thr1, thr2,
       ortho_sp1_idx, ortho_sp2_idx
     )
+    rm(net1_mat, net2_mat)
+    gc()
     perm_result <- fe_hog_permutation_test_cpp(
       combined = combined,
       hog_sp1_list = hog_sp1_list,
@@ -404,6 +420,8 @@ permutation_hog_test <- function(net1, net2, comparison,
       max_permutations = max_permutations,
       n_cores = n_cores
     )
+    rm(combined)
+    gc()
   } else {
     perm_result <- hog_permutation_test_cpp(
       net1 = net1_mat, net2 = net2_mat,

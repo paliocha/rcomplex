@@ -265,6 +265,8 @@ test_that("use_torch errors when torch not installed", {
 
 test_that("torch backend T_obs matches bit-vector backend", {
   skip_if_not_installed("torch")
+  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
+              "torch backend (Lantern) not available")
   td <- make_test_nets()
 
   set.seed(42)
@@ -289,6 +291,8 @@ test_that("torch backend T_obs matches bit-vector backend", {
 
 test_that("torch backend conserved vs non-conserved HOGs", {
   skip_if_not_installed("torch")
+  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
+              "torch backend (Lantern) not available")
   td <- make_test_nets()
 
   set.seed(42)
@@ -309,6 +313,8 @@ test_that("torch backend conserved vs non-conserved HOGs", {
 
 test_that("torch backend p-value formula is correct", {
   skip_if_not_installed("torch")
+  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
+              "torch backend (Lantern) not available")
   td <- make_test_nets()
 
   set.seed(42)
