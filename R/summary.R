@@ -153,26 +153,10 @@ summarize_comparison <- function(comparison,
 
 # ---- GPU-accelerated fold-enrichment precomputation -------------------------
 
-#' Build combined fold-enrichment matrix on GPU via torch
-#'
-#' Precomputes `combined[a, b] = FE1(b->a) + FE2(a->b)` where:
-#' - FE1(b, a) = |N1(a) \eqn{\cap} R1(b)| / E1(a, b), anchor = net1
-#' - FE2(a, b) = |N2(b) \eqn{\cap} R2(a)| / E2(a, b), anchor = net2
-#'
-#' Overlaps are computed via matrix multiply (GEMM) on GPU — O(n^3) but runs
-#' in milliseconds on CUDA/MPS vs seconds on CPU. The resulting matrix converts
-#' each permutation from O(M*N*n_words) bit-vector popcount operations to
-#' O(M*N) table lookups.
-#'
-#' @param net1_mat,net2_mat Co-expression matrices (n1 x n1, n2 x n2).
-#' @param thr1,thr2 Co-expression thresholds.
-#' @param ortho_sp1_idx,ortho_sp2_idx 0-based ortholog gene indices.
-#' @return Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
-#' @keywords internal
 #' Build binary adjacency matrix on GPU from sparse edge list
 #'
-#' Avoids transferring the full dense n×n co-expression matrix to GPU.
-#' At 3% density, transfers ~125 MB of edge indices instead of ~4 GB dense.
+#' Avoids transferring the full dense n x n co-expression matrix to GPU.
+#' At 3 percent density, transfers ~125 MB of edge indices instead of ~4 GB.
 #'
 #' @param net_mat Co-expression matrix (n x n).
 #' @param thr Co-expression threshold.
@@ -198,6 +182,13 @@ adj_to_gpu <- function(net_mat, thr, dtype, device) {
   adj
 }
 
+#' Build combined fold-enrichment matrix on GPU via torch
+#'
+#' @param net1_mat,net2_mat Co-expression matrices (n1 x n1, n2 x n2).
+#' @param thr1,thr2 Co-expression thresholds.
+#' @param ortho_sp1_idx,ortho_sp2_idx 0-based ortholog gene indices.
+#' @return Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
+#' @keywords internal
 build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
                                     ortho_sp1_idx, ortho_sp2_idx) {
   n1 <- nrow(net1_mat)

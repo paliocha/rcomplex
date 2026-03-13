@@ -2,7 +2,7 @@
 % Please edit documentation in R/summary.R
 \name{adj_to_gpu}
 \alias{adj_to_gpu}
-\title{Build combined fold-enrichment matrix on GPU via torch}
+\title{Build binary adjacency matrix on GPU from sparse edge list}
 \usage{
 adj_to_gpu(net_mat, thr, dtype, device)
 }
@@ -14,60 +14,12 @@ adj_to_gpu(net_mat, thr, dtype, device)
 \item{dtype}{Torch dtype for the result.}
 
 \item{device}{Torch device string.}
-
-\item{net1_mat, net2_mat}{Co-expression matrices (n1 x n1, n2 x n2).}
-
-\item{thr1, thr2}{Co-expression thresholds.}
-
-\item{ortho_sp1_idx, ortho_sp2_idx}{0-based ortholog gene indices.}
 }
 \value{
-Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
-
 Binary adjacency tensor (n x n) on \code{device}, diagonal = 0.
 }
 \description{
-Precomputes \code{combined[a, b] = FE1(b->a) + FE2(a->b)} where:
-\itemize{
-\item FE1(b, a) = |N1(a) \eqn{\cap} R1(b)| / E1(a, b), anchor = net1
-\item FE2(a, b) = |N2(b) \eqn{\cap} R2(a)| / E2(a, b), anchor = net2
+Avoids transferring the full dense n x n co-expression matrix to GPU.
+At 3 percent density, transfers ~125 MB of edge indices instead of ~4 GB.
 }
-}
-\details{
-Overlaps are computed via matrix multiply (GEMM) on GPU — O(n^3) but runs
-in milliseconds on CUDA/MPS vs seconds on CPU. The resulting matrix converts
-each permutation from O(M\emph{N}n_words) bit-vector popcount operations to
-O(M*N) table lookups.
-}
-\keyword{3%}
-\keyword{At}
-\keyword{Avoids}
-\keyword{Build}
-\keyword{GB}
-\keyword{GPU}
-\keyword{GPU.}
-\keyword{MB}
-\keyword{adjacency}
-\keyword{binary}
-\keyword{co-expression}
-\keyword{dense}
-\keyword{dense.}
-\keyword{density,}
-\keyword{edge}
-\keyword{from}
-\keyword{full}
-\keyword{indices}
-\keyword{instead}
 \keyword{internal}
-\keyword{list}
-\keyword{matrix}
-\keyword{n×n}
-\keyword{of}
-\keyword{on}
-\keyword{sparse}
-\keyword{the}
-\keyword{to}
-\keyword{transferring}
-\keyword{transfers}
-\keyword{~125}
-\keyword{~4}
