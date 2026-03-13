@@ -2,29 +2,35 @@
 
 #' Select torch device and dtype
 #'
-#' CUDA and CPU support float64; MPS (Apple Silicon) only supports float32.
+#' Probes GPU capability with a small matmul smoke test. CUDA prefers float64
+#' but falls back to float32 if float64 kernels are missing (e.g. Blackwell
+#' sm_100+ with torch R 0.16.3). MPS only supports float32. The FE matrix
+#' computation is numerically exact in float32 (binary/integer arithmetic,
+#' values < 2^24).
 #'
 #' @return List with `device` (string) and `dtype` (torch dtype object).
 #' @keywords internal
 torch_device_dtype <- function() {
   if (torch::cuda_is_available()) {
-    # Smoke-test with float64 matmul — torch may report CUDA available but
-    # lack kernels for the actual GPU architecture (e.g. Blackwell sm_100+
-    # with torch R 0.16.3). Float32 ops may work while float64 fails.
-    cuda_ok <- tryCatch({
-      # Test float64 creation from R data, device transfer, and matmul
-      m <- matrix(1.0, 64L, 64L)
-      t <- torch::torch_tensor(m, dtype = torch::torch_float64(),
-                                device = "cuda")
-      r <- t$mm(t)
-      result <- as.matrix(r$cpu())
-      (abs(result[1, 1] - 64) < 1e-6)
-    }, error = function(e) FALSE)
-    if (cuda_ok) {
-      return(list(device = "cuda", dtype = torch::torch_float64()))
+    # Try float64 first (full precision), then float32 (still exact for FE).
+    # Older torch builds may lack float64 kernels for newer GPU architectures
+    # (e.g. Blackwell sm_100+ with torch R 0.16.3).
+    for (dt in list(torch::torch_float64(), torch::torch_float32())) {
+      ok <- tryCatch({
+        m <- matrix(1.0, 64L, 64L)
+        t <- torch::torch_tensor(m, dtype = dt, device = "cuda")
+        r <- t$mm(t)
+        result <- as.matrix(r$cpu())
+        (abs(result[1, 1] - 64) < 0.01)
+      }, error = function(e) FALSE)
+      if (ok) {
+        if (as.character(dt) == "Float") {
+          message("CUDA float64 unavailable; using CUDA float32")
+        }
+        return(list(device = "cuda", dtype = dt))
+      }
     }
-    message("CUDA reported available but float64 smoke test failed; ",
-            "falling back to CPU torch")
+    message("CUDA smoke tests failed; falling back to CPU torch")
   }
   if (torch::backends_mps_is_available()) {
     list(device = "mps", dtype = torch::torch_float32())
