@@ -8,8 +8,18 @@
 #' @keywords internal
 torch_device_dtype <- function() {
   if (torch::cuda_is_available()) {
-    list(device = "cuda", dtype = torch::torch_float64())
-  } else if (torch::backends_mps_is_available()) {
+    # Smoke-test: torch may report CUDA available but fail on unsupported
+    # GPU architectures (e.g. Blackwell sm_100+ with older torch builds).
+    cuda_ok <- tryCatch({
+      t <- torch::torch_ones(1, device = "cuda")
+      (t$item() == 1)
+    }, error = function(e) FALSE)
+    if (cuda_ok) {
+      return(list(device = "cuda", dtype = torch::torch_float64()))
+    }
+    message("CUDA reported available but failed smoke test; falling back to CPU torch")
+  }
+  if (torch::backends_mps_is_available()) {
     list(device = "mps", dtype = torch::torch_float32())
   } else {
     list(device = "cpu", dtype = torch::torch_float64())
