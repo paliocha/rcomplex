@@ -12,10 +12,13 @@ torch_device_dtype <- function() {
     # lack kernels for the actual GPU architecture (e.g. Blackwell sm_100+
     # with torch R 0.16.3). Float32 ops may work while float64 fails.
     cuda_ok <- tryCatch({
-      t <- torch::torch_ones(c(2L, 2L), dtype = torch::torch_float64(),
-                             device = "cuda")
+      # Test float64 creation from R data, device transfer, and matmul
+      m <- matrix(1.0, 64L, 64L)
+      t <- torch::torch_tensor(m, dtype = torch::torch_float64(),
+                                device = "cuda")
       r <- t$mm(t)
-      (abs(r[1, 1]$item() - 2) < 1e-6)
+      result <- as.matrix(r$cpu())
+      (abs(result[1, 1] - 64) < 1e-6)
     }, error = function(e) FALSE)
     if (cuda_ok) {
       return(list(device = "cuda", dtype = torch::torch_float64()))
