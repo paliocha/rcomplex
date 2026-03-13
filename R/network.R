@@ -8,16 +8,20 @@
 #' @keywords internal
 torch_device_dtype <- function() {
   if (torch::cuda_is_available()) {
-    # Smoke-test: torch may report CUDA available but fail on unsupported
-    # GPU architectures (e.g. Blackwell sm_100+ with older torch builds).
+    # Smoke-test with float64 matmul — torch may report CUDA available but
+    # lack kernels for the actual GPU architecture (e.g. Blackwell sm_100+
+    # with torch R 0.16.3). Float32 ops may work while float64 fails.
     cuda_ok <- tryCatch({
-      t <- torch::torch_ones(1, device = "cuda")
-      (t$item() == 1)
+      t <- torch::torch_ones(c(2L, 2L), dtype = torch::torch_float64(),
+                             device = "cuda")
+      r <- t$mm(t)
+      (abs(r[1, 1]$item() - 2) < 1e-6)
     }, error = function(e) FALSE)
     if (cuda_ok) {
       return(list(device = "cuda", dtype = torch::torch_float64()))
     }
-    message("CUDA reported available but failed smoke test; falling back to CPU torch")
+    message("CUDA reported available but float64 smoke test failed; ",
+            "falling back to CPU torch")
   }
   if (torch::backends_mps_is_available()) {
     list(device = "mps", dtype = torch::torch_float32())
