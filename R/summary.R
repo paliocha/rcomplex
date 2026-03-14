@@ -155,8 +155,9 @@ summarize_comparison <- function(comparison,
 
 #' Build binary adjacency matrix on GPU from sparse edge list
 #'
-#' Avoids transferring the full dense n x n co-expression matrix to GPU.
-#' At 3 percent density, transfers ~125 MB of edge indices instead of ~4 GB.
+#' Thresholds a co-expression matrix in R and transfers only the edge indices
+#' to GPU, avoiding a full dense n x n copy. At 3 percent density this is
+#' ~125 MB of int64 indices vs ~4 GB dense float32.
 #'
 #' @param net_mat Co-expression matrix (n x n).
 #' @param thr Co-expression threshold.
@@ -166,95 +167,119 @@ summarize_comparison <- function(comparison,
 #' @keywords internal
 adj_to_gpu <- function(net_mat, thr, dtype, device) {
   n <- nrow(net_mat)
-  # Find edges in R (sparse) — diagonal excluded
   edges <- which(net_mat >= thr & row(net_mat) != col(net_mat), arr.ind = TRUE)
-
   adj <- torch::torch_zeros(n, n, dtype = dtype, device = device)
   if (nrow(edges) > 0L) {
     rows_t <- torch::torch_tensor(edges[, 1L], dtype = torch::torch_long(),
                                   device = device)
     cols_t <- torch::torch_tensor(edges[, 2L], dtype = torch::torch_long(),
                                   device = device)
-    ones_t <- torch::torch_ones(nrow(edges), dtype = dtype, device = device)
-    adj$index_put_(list(rows_t, cols_t), ones_t)
-    rm(rows_t, cols_t, ones_t)
+    adj$index_put_(list(rows_t, cols_t),
+                   torch::torch_ones(nrow(edges), dtype = dtype, device = device))
+    rm(rows_t, cols_t)
   }
   adj
 }
 
 #' Build combined fold-enrichment matrix on GPU via torch
 #'
+#' Precomputes `combined[a, b] = FE1(b->a) + FE2(a->b)` using tiled GEMM
+#' to bound GPU memory. Each direction is processed in row-strips of
+#' `tile_size`, keeping at most one tile of intermediates in VRAM at a time.
+#'
 #' @param net1_mat,net2_mat Co-expression matrices (n1 x n1, n2 x n2).
 #' @param thr1,thr2 Co-expression thresholds.
 #' @param ortho_sp1_idx,ortho_sp2_idx 0-based ortholog gene indices.
+#' @param tile_size Number of rows per tile (default 4096). Smaller values
+#'   reduce peak VRAM at the cost of more kernel launches.
 #' @return Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
 #' @keywords internal
 build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
-                                    ortho_sp1_idx, ortho_sp2_idx) {
+                                    ortho_sp1_idx, ortho_sp2_idx,
+                                    tile_size = 4096L) {
   n1 <- nrow(net1_mat)
   n2 <- nrow(net2_mat)
-
   dd <- torch_device_dtype()
   device <- dd$device
   dtype <- dd$dtype
 
-  # Build adjacency on GPU from sparse edge list — avoids large dense R→GPU
-  # copy that crashes on some CUDA architectures (Blackwell + torch 0.16.3).
   adj1 <- adj_to_gpu(net1_mat, thr1, dtype, device)
   rm(net1_mat)
   adj2 <- adj_to_gpu(net2_mat, thr2, dtype, device)
   rm(net2_mat)
-  gc()
+  .gpu_gc()
 
-  combined <- torch::with_no_grad({
-    # Ortholog indicator (n2 x n1) — build on GPU via index_put_
-    ortho <- torch::torch_zeros(n2, n1, dtype = dtype, device = device)
-    rows_t <- torch::torch_tensor(
-      ortho_sp2_idx + 1L, dtype = torch::torch_long(), device = device
-    )
-    cols_t <- torch::torch_tensor(
-      ortho_sp1_idx + 1L, dtype = torch::torch_long(), device = device
-    )
-    ones_t <- torch::torch_ones(length(ortho_sp1_idx), dtype = dtype,
+  # Ortholog indicator (n2 x n1)
+  ortho <- torch::torch_zeros(n2, n1, dtype = dtype, device = device)
+  rows_t <- torch::torch_tensor(ortho_sp2_idx + 1L, dtype = torch::torch_long(),
                                 device = device)
-    ortho$index_put_(list(rows_t, cols_t), ones_t)
-    rm(rows_t, cols_t, ones_t)
+  cols_t <- torch::torch_tensor(ortho_sp1_idx + 1L, dtype = torch::torch_long(),
+                                device = device)
+  ortho$index_put_(list(rows_t, cols_t),
+                   torch::torch_ones(length(ortho_sp1_idx), dtype = dtype,
+                                     device = device))
+  rm(rows_t, cols_t)
 
-    # --- Direction 1: FE1[b, a] = |R1(b) ∩ N1(a)| / E1(b, a) ---
-    reach1 <- (adj2$mm(ortho) > 0)$to(dtype = dtype)   # (n2, n1)
-    neigh1_sz <- adj1$sum(dim = 2L)                     # (n1,)
-    reach1_sz <- reach1$sum(dim = 2L)                   # (n2,)
-    overlap1 <- reach1$mm(adj1)                         # (n2, n1)
-    rm(reach1)
+  # Precompute neighborhood sizes (1-D vectors, negligible memory)
+  neigh1_sz <- adj1$sum(dim = 2L)
+  neigh2_sz <- adj2$sum(dim = 2L)
 
-    E1 <- reach1_sz$unsqueeze(2L) * neigh1_sz$unsqueeze(1L) / n1
-    FE1 <- overlap1 / E1$clamp(min = 1e-30)
-    rm(overlap1, E1, reach1_sz, neigh1_sz)
+  result <- matrix(0, nrow = n1, ncol = n2)
 
-    # --- Direction 2: FE2[a, b] = |R2(a) ∩ N2(b)| / E2(a, b) ---
-    reach2 <- (adj1$mm(ortho$t()) > 0)$to(dtype = dtype) # (n1, n2)
-    rm(adj1, ortho)
-    neigh2_sz <- adj2$sum(dim = 2L)                       # (n2,)
-    overlap2 <- reach2$mm(adj2)                           # (n1, n2)
-    rm(adj2)
-    reach2_sz <- reach2$sum(dim = 2L)                     # (n1,)
-    rm(reach2)
+  torch::with_no_grad({
+    # --- Direction 1: FE1[b, a] tiled over rows of adj2 ---
+    # reach1[b, :] = (adj2[b, :] @ ortho > 0),  overlap1[b, :] = reach1[b, :] @ adj1
+    for (b_start in seq(1L, n2, by = tile_size)) {
+      b_end <- min(b_start + tile_size - 1L, n2)
+      adj2_tile <- adj2[b_start:b_end, ]
+      reach <- (adj2_tile$mm(ortho) > 0)$to(dtype = dtype)
+      rm(adj2_tile)
+      overlap <- reach$mm(adj1)
+      reach_sz <- reach$sum(dim = 2L)
+      rm(reach)
 
-    E2 <- reach2_sz$unsqueeze(2L) * neigh2_sz$unsqueeze(1L) / n2
-    FE2 <- overlap2 / E2$clamp(min = 1e-30)
-    rm(overlap2, E2, reach2_sz, neigh2_sz)
-    gc()
+      E <- reach_sz$unsqueeze(2L) * neigh1_sz$unsqueeze(1L) / n1
+      FE_tile <- overlap / E$clamp(min = 1e-30)
+      rm(overlap, E, reach_sz)
 
-    # Combined: combined[a, b] = FE1[b, a] + FE2[a, b]
-    result <- FE1$t() + FE2
-    rm(FE1, FE2)
-    result  # (n1, n2)
+      # FE1 is (n2 x n1); combined needs FE1^T, i.e. columns b_start:b_end
+      result[, b_start:b_end] <- as.matrix(
+        FE_tile$t()$cpu()$to(dtype = torch::torch_float64())
+      )
+      rm(FE_tile)
+    }
+
+    # Free ortho, compute transpose for direction 2
+    ortho_t <- ortho$t()$contiguous()
+    rm(ortho)
+    .gpu_gc()
+
+    # --- Direction 2: FE2[a, b] tiled over rows of adj1 ---
+    # reach2[a, :] = (adj1[a, :] @ ortho^T > 0),  overlap2[a, :] = reach2[a, :] @ adj2
+    for (a_start in seq(1L, n1, by = tile_size)) {
+      a_end <- min(a_start + tile_size - 1L, n1)
+      adj1_tile <- adj1[a_start:a_end, ]
+      reach <- (adj1_tile$mm(ortho_t) > 0)$to(dtype = dtype)
+      rm(adj1_tile)
+      overlap <- reach$mm(adj2)
+      reach_sz <- reach$sum(dim = 2L)
+      rm(reach)
+
+      E <- reach_sz$unsqueeze(2L) * neigh2_sz$unsqueeze(1L) / n2
+      FE_tile <- overlap / E$clamp(min = 1e-30)
+      rm(overlap, E, reach_sz)
+
+      # FE2 is (n1 x n2); accumulate directly
+      result[a_start:a_end, ] <- result[a_start:a_end, ] + as.matrix(
+        FE_tile$cpu()$to(dtype = torch::torch_float64())
+      )
+      rm(FE_tile)
+    }
   })
 
-  result_r <- as.matrix(combined$cpu()$to(dtype = torch::torch_float64()))
-  rm(combined)
-  gc()
-  result_r
+  rm(adj1, adj2, ortho_t, neigh1_sz, neigh2_sz)
+  .gpu_gc()
+  result
 }
 
 
@@ -437,12 +462,13 @@ permutation_hog_test <- function(net1, net2, comparison,
   })
 
   if (use_torch) {
+    .gpu_gc()
     combined <- build_combined_fe_torch(
       net1_mat, net2_mat, thr1, thr2,
       ortho_sp1_idx, ortho_sp2_idx
     )
     rm(net1_mat, net2_mat)
-    gc()
+    .gpu_gc()
     perm_result <- fe_hog_permutation_test_cpp(
       combined = combined,
       hog_sp1_list = hog_sp1_list,

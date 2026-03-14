@@ -10,7 +10,8 @@ build_combined_fe_torch(
   thr1,
   thr2,
   ortho_sp1_idx,
-  ortho_sp2_idx
+  ortho_sp2_idx,
+  tile_size = 4096L
 )
 }
 \arguments{
@@ -19,11 +20,16 @@ build_combined_fe_torch(
 \item{thr1, thr2}{Co-expression thresholds.}
 
 \item{ortho_sp1_idx, ortho_sp2_idx}{0-based ortholog gene indices.}
+
+\item{tile_size}{Number of rows per tile (default 4096). Smaller values
+reduce peak VRAM at the cost of more kernel launches.}
 }
 \value{
 Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
 }
 \description{
-Build combined fold-enrichment matrix on GPU via torch
+Precomputes \code{combined[a, b] = FE1(b->a) + FE2(a->b)} using tiled GEMM
+to bound GPU memory. Each direction is processed in row-strips of
+\code{tile_size}, keeping at most one tile of intermediates in VRAM at a time.
 }
 \keyword{internal}

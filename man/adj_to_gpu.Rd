@@ -19,7 +19,8 @@ adj_to_gpu(net_mat, thr, dtype, device)
 Binary adjacency tensor (n x n) on \code{device}, diagonal = 0.
 }
 \description{
-Avoids transferring the full dense n x n co-expression matrix to GPU.
-At 3 percent density, transfers ~125 MB of edge indices instead of ~4 GB.
+Thresholds a co-expression matrix in R and transfers only the edge indices
+to GPU, avoiding a full dense n x n copy. At 3 percent density this is
+~125 MB of int64 indices vs ~4 GB dense float32.
 }
 \keyword{internal}

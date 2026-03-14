@@ -39,6 +39,18 @@ torch_device_dtype <- function() {
   }
 }
 
+#' Flush stale GPU memory
+#'
+#' Runs R garbage collection to free dead torch external pointers, then
+#' releases the CUDA caching allocator's free blocks. The CUDA empty-cache
+#' call is only made when CUDA is available; no-op on MPS/CPU.
+#'
+#' @keywords internal
+.gpu_gc <- function() {
+  gc()
+  if (torch::cuda_is_available()) torch::cuda_empty_cache()
+}
+
 
 # ---- Correlation backends ------------------------------------------------
 
@@ -175,6 +187,7 @@ compute_network <- function(expr_matrix,
   # Correlation
   cor_fn <- if (use_torch) cor_torch else cor_rfast
   net <- cor_fn(expr_matrix, method = cor_method)
+  if (use_torch) .gpu_gc()
 
   # Clip to [-1, 1]
   net[net > 1] <- 1
