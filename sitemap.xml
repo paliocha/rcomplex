@@ -8,6 +8,7 @@
 <url><loc>/reference/apply_clr_to_cor_cpp.html</loc></url>
 <url><loc>/reference/build_combined_fe_torch.html</loc></url>
 <url><loc>/reference/classify_modules.html</loc></url>
+<url><loc>/reference/clique_stability.html</loc></url>
 <url><loc>/reference/compare_modules.html</loc></url>
 <url><loc>/reference/compare_neighborhoods.html</loc></url>
 <url><loc>/reference/compare_neighborhoods_cpp.html</loc></url>
@@ -18,6 +19,9 @@
 <url><loc>/reference/detect_modules.html</loc></url>
 <url><loc>/reference/dot-gpu_gc.html</loc></url>
 <url><loc>/reference/fe_hog_permutation_test_cpp.html</loc></url>
+<url><loc>/reference/find_cliques.html</loc></url>
+<url><loc>/reference/find_cliques_cpp.html</loc></url>
+<url><loc>/reference/find_cliques_stability_cpp.html</loc></url>
 <url><loc>/reference/find_coexpression_cliques.html</loc></url>
 <url><loc>/reference/hog_permutation_test_cpp.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
