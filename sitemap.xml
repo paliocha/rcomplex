@@ -30,6 +30,8 @@
 <url><loc>/reference/parse_orthologs.html</loc></url>
 <url><loc>/reference/permutation_hog_test.html</loc></url>
 <url><loc>/reference/rcomplex-package.html</loc></url>
+<url><loc>/reference/reduce_orthogroups.html</loc></url>
+<url><loc>/reference/reduce_orthogroups_cpp.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
 <url><loc>/reference/torch_device_dtype.html</loc></url>
 </urlset>

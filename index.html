@@ -161,38 +161,42 @@
 <td>Parse ortholog group files (tab-delimited)</td>
 </tr>
 <tr class="even">
+<td><code><a href="reference/reduce_orthogroups.html">reduce_orthogroups()</a></code></td>
+<td>Merge correlated paralogs within HOGs (Ward.D2 clustering)</td>
+</tr>
+<tr class="odd">
 <td><code><a href="reference/compute_network.html">compute_network()</a></code></td>
 <td>Correlation + MR/CLR normalization + density threshold</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code></td>
 <td>Pair-level hypergeometric neighborhood tests</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code></td>
 <td>Storey q-values and summary statistics</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code></td>
 <td>Permutation-based HOG-level conservation test</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/detect_modules.html">detect_modules()</a></code></td>
 <td>Community detection (Leiden / Infomap / SBM)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/compare_modules.html">compare_modules()</a></code></td>
 <td>Cross-species module overlap (hypergeometric or Jaccard permutation)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/classify_modules.html">classify_modules()</a></code></td>
 <td>Three-tier module conservation classification</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/find_cliques.html">find_cliques()</a></code></td>
 <td>C++ clique detection via Bron-Kerbosch decomposition</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/clique_stability.html">clique_stability()</a></code></td>
 <td>Leave-k-out jackknife stability for trait-exclusive cliques</td>
 </tr>
@@ -229,6 +233,14 @@
 </table>
 <p>Each row defines one ortholog group from the anchor species’ perspective. The <code>gene_content</code> field lists members from other species in the format <code>species_code:gene_id1,gene_id2,...</code>, separated by semicolons.</p>
 <p>This format is produced by PLAZA, OrthoFinder, and FastOMA (with appropriate reformatting). Any tool that can produce a tab-delimited file with these three columns will work.</p>
+<div class="section level3">
+<h3 id="paralog-reduction-optional">Paralog reduction (optional)<a class="anchor" aria-label="anchor" href="#paralog-reduction-optional"></a>
+</h3>
+<p>Multi-copy gene families often contain recent duplicates with nearly identical expression. <code><a href="reference/reduce_orthogroups.html">reduce_orthogroups()</a></code> merges these within each HOG using Ward.D2 hierarchical clustering on Pearson correlation distance (1 - r). Paralogs above <code>cor_threshold</code> (default 0.7) are replaced by their averaged expression. Subfunctionalized copies with distinct expression programs are preserved as separate clusters.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">reduced</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/reduce_orthogroups.html">reduce_orthogroups</a></span><span class="op">(</span><span class="va">expr1</span>, <span class="va">orthologs</span>, cor_threshold <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span></span>
+<span><span class="va">net1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">reduced</span><span class="op">$</span><span class="va">expr_matrix</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span></code></pre></div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="statistical-methods">Statistical methods<a class="anchor" aria-label="anchor" href="#statistical-methods"></a>
@@ -322,7 +334,9 @@
 <tbody>
 <tr class="odd">
 <td><code>R/orthologs.R</code></td>
-<td><code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code></td>
+<td>
+<code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code>, <code><a href="reference/reduce_orthogroups.html">reduce_orthogroups()</a></code>
+</td>
 </tr>
 <tr class="even">
 <td><code>R/network.R</code></td>
@@ -368,38 +382,42 @@
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td><code>src/reduce_orthogroups.cpp</code></td>
+<td>Ward.D2 paralog merging engine</td>
+</tr>
+<tr class="even">
 <td><code>src/mutual_rank.cpp</code></td>
 <td>MR normalization with column-major access</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/clr.cpp</code></td>
 <td>CLR normalization</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/density_threshold.cpp</code></td>
 <td>Quantile-based density thresholding</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/neighborhood_comparison.cpp</code></td>
 <td>Pairwise neighborhood overlap</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/hog_permutation.cpp</code></td>
 <td>HOG permutation engine (bit-vector / flag-vector intersections)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/module_jaccard_permutation.cpp</code></td>
 <td>Batched Jaccard permutation engine</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/find_cliques_common.h</code></td>
 <td>Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/find_cliques.cpp</code></td>
 <td>C++ clique detection wrapper</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/find_cliques_stability.cpp</code></td>
 <td>Leave-k-out stability engine with OpenMP</td>
 </tr>
