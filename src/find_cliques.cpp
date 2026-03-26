@@ -24,7 +24,7 @@ using namespace Rcpp;
 //' @param edge_g2  0-based gene index for gene 2
 //' @param edge_sp1 0-based species index for gene 1
 //' @param edge_sp2 0-based species index for gene 2
-//' @param edge_fdr FDR per edge
+//' @param edge_qval q-value per edge
 //' @param edge_eff Effect size per edge
 //' @param n_target_species Number of target species
 //' @param min_species Minimum species for a valid clique
@@ -32,7 +32,7 @@ using namespace Rcpp;
 //' @param n_genes Total number of distinct genes
 //' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
 //' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-//'   n_species, mean_fdr, max_fdr, mean_effect_size, n_edges
+//'   n_species, mean_q, max_q, mean_effect_size, n_edges
 //' @keywords internal
 // [[Rcpp::export]]
 Rcpp::List find_cliques_cpp(
@@ -41,7 +41,7 @@ Rcpp::List find_cliques_cpp(
     IntegerVector edge_g2,
     IntegerVector edge_sp1,
     IntegerVector edge_sp2,
-    NumericVector edge_fdr,
+    NumericVector edge_qval,
     NumericVector edge_eff,
     int n_target_species,
     int min_species,
@@ -61,7 +61,7 @@ Rcpp::List find_cliques_cpp(
     const int* g2_ptr  = edge_g2.begin();
     const int* sp1_ptr = edge_sp1.begin();
     const int* sp2_ptr = edge_sp2.begin();
-    const double* fdr_ptr = edge_fdr.begin();
+    const double* qval_ptr = edge_qval.begin();
     const double* eff_ptr = edge_eff.begin();
 
     // Group edges by HOG
@@ -80,7 +80,7 @@ Rcpp::List find_cliques_cpp(
     std::vector<int> res_hog;
     std::vector<std::vector<int>> res_genes;
     std::vector<int> res_n_sp;
-    std::vector<double> res_mean_fdr, res_max_fdr, res_mean_eff;
+    std::vector<double> res_mean_q, res_max_q, res_mean_eff;
     std::vector<int> res_n_edges;
 
     for (int h = 0; h < n_hogs; h++) {
@@ -92,7 +92,7 @@ Rcpp::List find_cliques_cpp(
         // Run the full per-HOG clique pipeline
         std::vector<CliqueResult> cliques = find_cliques_for_hog(
             h, hog_edges[h],
-            g1_ptr, g2_ptr, sp1_ptr, sp2_ptr, fdr_ptr, eff_ptr,
+            g1_ptr, g2_ptr, sp1_ptr, sp2_ptr, qval_ptr, eff_ptr,
             full_mask, n_target_species, min_species, max_genes_per_sp,
             seen_genes);
 
@@ -101,8 +101,8 @@ Rcpp::List find_cliques_cpp(
             res_hog.push_back(cr.hog_idx);
             res_genes.push_back(std::move(cr.genes));
             res_n_sp.push_back(cr.n_species);
-            res_mean_fdr.push_back(cr.mean_fdr);
-            res_max_fdr.push_back(cr.max_fdr);
+            res_mean_q.push_back(cr.mean_q);
+            res_max_q.push_back(cr.max_q);
             res_mean_eff.push_back(cr.mean_effect);
             res_n_edges.push_back(cr.n_edges);
         }
@@ -113,7 +113,7 @@ Rcpp::List find_cliques_cpp(
     IntegerVector out_hog(nr);
     IntegerMatrix out_genes(nr, n_target_species);
     IntegerVector out_n_sp(nr);
-    NumericVector out_mean_fdr(nr), out_max_fdr(nr), out_mean_eff(nr);
+    NumericVector out_mean_q(nr), out_max_q(nr), out_mean_eff(nr);
     IntegerVector out_n_edges(nr);
 
     std::fill(out_genes.begin(), out_genes.end(), NA_INTEGER);
@@ -126,8 +126,8 @@ Rcpp::List find_cliques_cpp(
             }
         }
         out_n_sp[i] = res_n_sp[i];
-        out_mean_fdr[i] = res_mean_fdr[i];
-        out_max_fdr[i] = res_max_fdr[i];
+        out_mean_q[i] = res_mean_q[i];
+        out_max_q[i] = res_max_q[i];
         out_mean_eff[i] = res_mean_eff[i];
         out_n_edges[i] = res_n_edges[i];
     }
@@ -136,8 +136,8 @@ Rcpp::List find_cliques_cpp(
         Named("hog_idx") = out_hog,
         Named("genes") = out_genes,
         Named("n_species") = out_n_sp,
-        Named("mean_fdr") = out_mean_fdr,
-        Named("max_fdr") = out_max_fdr,
+        Named("mean_q") = out_mean_q,
+        Named("max_q") = out_max_q,
         Named("mean_effect_size") = out_mean_eff,
         Named("n_edges") = out_n_edges
     );

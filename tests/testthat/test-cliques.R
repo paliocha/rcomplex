@@ -240,7 +240,7 @@ test_that("find_cliques produces same results as find_coexpression_cliques on si
     species2 = c("SP_B", "SP_C", "SP_C"),
     hog = rep("HOG1", 3),
     type = rep("conserved", 3),
-    fdr = c(0.01, 0.02, 0.03),
+    q.value = c(0.01, 0.02, 0.03),
     effect_size = c(2.0, 3.0, 4.0),
     stringsAsFactors = FALSE
   )
@@ -269,7 +269,7 @@ test_that("find_cliques FDR optimization picks best assignment", {
     species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_C"),
     hog = rep("HOG1", 5),
     type = rep("conserved", 5),
-    fdr = c(0.01, 0.01, 0.01, 0.5, 0.5),
+    q.value = c(0.01, 0.01, 0.01, 0.5, 0.5),
     effect_size = c(3.0, 3.0, 3.0, 1.0, 1.0),
     stringsAsFactors = FALSE
   )
@@ -279,7 +279,7 @@ test_that("find_cliques FDR optimization picks best assignment", {
   # C++ picks the single best assignment per species clique: A1 (lower FDR)
   expect_equal(nrow(result), 1)
   expect_equal(result$SP_A, "A1")
-  expect_equal(result$mean_fdr, mean(c(0.01, 0.01, 0.01)), tolerance = 1e-10)
+  expect_equal(result$mean_q, mean(c(0.01, 0.01, 0.01)), tolerance = 1e-10)
 })
 
 
@@ -291,7 +291,7 @@ test_that("find_cliques handles multiple HOGs", {
     species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_C", "SP_C"),
     hog = c(rep("HOG1", 3), rep("HOG2", 3)),
     type = rep("conserved", 6),
-    fdr = c(0.01, 0.02, 0.03, 0.04, 0.05, 0.06),
+    q.value = c(0.01, 0.02, 0.03, 0.04, 0.05, 0.06),
     effect_size = c(2, 3, 4, 5, 6, 7),
     stringsAsFactors = FALSE
   )
@@ -311,15 +311,15 @@ test_that("find_cliques returns correct FDR and effect size summary stats", {
     species2 = c("SP_B", "SP_C", "SP_C"),
     hog = rep("HOG1", 3),
     type = rep("conserved", 3),
-    fdr = c(0.01, 0.04, 0.07),
+    q.value = c(0.01, 0.04, 0.07),
     effect_size = c(2.0, 6.0, 4.0),
     stringsAsFactors = FALSE
   )
 
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
 
-  expect_equal(result$mean_fdr, mean(c(0.01, 0.04, 0.07)), tolerance = 1e-10)
-  expect_equal(result$max_fdr, 0.07)
+  expect_equal(result$mean_q, mean(c(0.01, 0.04, 0.07)), tolerance = 1e-10)
+  expect_equal(result$max_q, 0.07)
   expect_equal(result$mean_effect_size, 4.0)
   expect_equal(result$n_edges, 3L)
 })
@@ -329,7 +329,7 @@ test_that("find_cliques empty input returns correct empty structure", {
   edges <- data.frame(
     gene1 = character(0), gene2 = character(0),
     species1 = character(0), species2 = character(0),
-    hog = character(0), fdr = numeric(0),
+    hog = character(0), q.value = numeric(0),
     effect_size = numeric(0), stringsAsFactors = FALSE
   )
 
@@ -337,7 +337,7 @@ test_that("find_cliques empty input returns correct empty structure", {
 
   expect_equal(nrow(result), 0)
   expect_true(all(c("hog", "SP_A", "SP_B", "n_species",
-                     "mean_fdr") %in% names(result)))
+                     "mean_q") %in% names(result)))
 })
 
 
@@ -356,7 +356,7 @@ test_that("find_cliques edge_type filtering works", {
     species2 = c("SP_B", "SP_C", "SP_C"),
     hog = rep("HOG1", 3),
     type = c("conserved", "conserved", "diverged"),
-    fdr = c(0.01, 0.02, 0.03),
+    q.value = c(0.01, 0.02, 0.03),
     effect_size = c(2.0, 3.0, 0.3),
     stringsAsFactors = FALSE
   )
@@ -381,7 +381,7 @@ test_that("find_cliques min_species allows partial cliques", {
     species2 = "SP_B",
     hog = "HOG1",
     type = "conserved",
-    fdr = 0.01,
+    q.value = 0.01,
     effect_size = 3.0,
     stringsAsFactors = FALSE
   )
@@ -407,7 +407,7 @@ test_that("find_cliques max_genes_per_sp limits combinatorial explosion", {
       gene1 = a, gene2 = "B1",
       species1 = "SP_A", species2 = "SP_B",
       hog = "HOG1", type = "conserved",
-      fdr = 0.01, effect_size = 2.0,
+      q.value = 0.01, effect_size = 2.0,
       stringsAsFactors = FALSE
     )
   })
@@ -424,7 +424,7 @@ test_that("find_cliques fewer than 2 target species raises error", {
     gene1 = "A1", gene2 = "B1",
     species1 = "SP_A", species2 = "SP_B",
     hog = "HOG1", type = "conserved",
-    fdr = 0.01, effect_size = 2.0,
+    q.value = 0.01, effect_size = 2.0,
     stringsAsFactors = FALSE
   )
   expect_error(find_cliques(edges, "SP_A"))

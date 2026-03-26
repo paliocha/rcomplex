@@ -24,7 +24,7 @@ Rscript -e 'devtools::document()'
 # Install the package locally
 R CMD INSTALL .
 
-# Run tests (231 tests)
+# Run tests (455 tests)
 Rscript -e 'devtools::test()'
 
 # Full R CMD check (expect 1 WARNING from R_ext/Boolean.h — unfixable R header issue with Homebrew clang)
@@ -39,8 +39,9 @@ R CMD check .
 | `R/orthologs.R` | `parse_orthologs()` — parse PLAZA ortholog group files |
 | `R/network.R` | `compute_network()` — correlation + MR/CLR normalization + density threshold |
 | `R/comparison.R` | `compare_neighborhoods()` — pair-level hypergeometric tests |
-| `R/summary.R` | `summarize_comparison()` (pair-level FDR), `permutation_hog_test()` (HOG-level permutation) |
-| `R/cliques.R` | `find_conserved_cliques()` — conserved clique detection via igraph |
+| `R/summary.R` | `summarize_comparison()` (pair-level q-values), `permutation_hog_test()` (HOG-level permutation) |
+| `R/cliques.R` | `find_cliques()` (C++ clique engine), `clique_stability()` (leave-k-out jackknife) |
+| `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()` |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
 
 ### C++ layer (src/, Armadillo + OpenMP)
@@ -51,6 +52,10 @@ R CMD check .
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap (hypergeometric) |
 | `src/hog_permutation.cpp` | Permutation engine: bit-vector/flag-vector intersections, Besag & Clifford stopping |
+| `src/module_jaccard_permutation.cpp` | Batched Jaccard permutation engine |
+| `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation) |
+| `src/find_cliques.cpp` | C++ clique detection wrapper |
+| `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
 
 ### Tests
 | File | Covers |
@@ -59,7 +64,9 @@ R CMD check .
 | `tests/testthat/test-comparison.R` | Neighborhood comparison, effect sizes |
 | `tests/testthat/test-summary.R` | Pair-level FDR correction |
 | `tests/testthat/test-permutation.R` | Permutation HOG test (correctness, adaptive stopping, p-value formula) |
-| `tests/testthat/test-cliques.R` | Conserved clique detection |
+| `tests/testthat/test-cliques.R` | Clique detection (igraph + C++ backends) |
+| `tests/testthat/test-stability.R` | Leave-k-out jackknife stability |
+| `tests/testthat/test-modules.R` | Module detection, comparison, classification |
 | `tests/testthat/helper-reference.R` | Pure-R reference implementations for cross-checking C++ |
 
 ## Key Design Decisions

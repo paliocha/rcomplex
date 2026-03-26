@@ -48,8 +48,8 @@ inline double lookup_sorted(const std::vector<std::pair<int64_t, double>>& sorte
 // ---------------------------------------------------------------------------
 struct AssignResult {
     std::vector<int> genes;   // one gene per species in the clique
-    double sum_fdr;
-    double max_fdr;
+    double sum_q;
+    double max_q;
     double sum_effect;
     int n_edges;
     bool found;
@@ -120,11 +120,11 @@ inline void assign_bt(
     int k,
     const std::vector<int>& sp_order,
     const std::vector<std::vector<int>>& sp_genes,
-    const std::vector<std::pair<int64_t, double>>& fdr_sorted,
+    const std::vector<std::pair<int64_t, double>>& qval_sorted,
     const std::vector<std::pair<int64_t, double>>& eff_sorted,
     std::vector<int>& current,
-    double cur_sum_fdr,
-    double cur_max_fdr,
+    double cur_sum_q,
+    double cur_max_q,
     double cur_sum_eff,
     AssignResult& best,
     int& iterations,
@@ -134,12 +134,12 @@ inline void assign_bt(
 
     if (depth == k) {
         int total_edges = k * (k - 1) / 2;
-        double mean_fdr = cur_sum_fdr / total_edges;
-        double best_mean = best.found ? best.sum_fdr / best.n_edges : 1e18;
-        if (!best.found || mean_fdr < best_mean) {
+        double mean_q = cur_sum_q / total_edges;
+        double best_mean = best.found ? best.sum_q / best.n_edges : 1e18;
+        if (!best.found || mean_q < best_mean) {
             best.genes = current;
-            best.sum_fdr = cur_sum_fdr;
-            best.max_fdr = cur_max_fdr;
+            best.sum_q = cur_sum_q;
+            best.max_q = cur_max_q;
             best.sum_effect = cur_sum_eff;
             best.n_edges = total_edges;
             best.found = true;
@@ -150,17 +150,17 @@ inline void assign_bt(
     int sp = sp_order[depth];
     for (int gene : sp_genes[sp]) {
         bool ok = true;
-        double new_sum_fdr = cur_sum_fdr;
-        double new_max_fdr = cur_max_fdr;
+        double new_sum_q = cur_sum_q;
+        double new_max_q = cur_max_q;
         double new_sum_eff = cur_sum_eff;
 
         for (int j = 0; j < depth; j++) {
             int64_t key = edge_key(current[j], gene);
-            bool fdr_found = false;
-            double fdr_val = lookup_sorted(fdr_sorted, key, fdr_found);
-            if (!fdr_found) { ok = false; break; }
-            new_sum_fdr += fdr_val;
-            if (fdr_val > new_max_fdr) new_max_fdr = fdr_val;
+            bool qval_found = false;
+            double qval = lookup_sorted(qval_sorted, key, qval_found);
+            if (!qval_found) { ok = false; break; }
+            new_sum_q += qval;
+            if (qval > new_max_q) new_max_q = qval;
             bool eff_found = false;
             double eff_val = lookup_sorted(eff_sorted, key, eff_found);
             if (eff_found) new_sum_eff += eff_val;
@@ -168,8 +168,8 @@ inline void assign_bt(
         if (!ok) continue;
 
         current[depth] = gene;
-        assign_bt(depth + 1, k, sp_order, sp_genes, fdr_sorted, eff_sorted,
-                  current, new_sum_fdr, new_max_fdr, new_sum_eff,
+        assign_bt(depth + 1, k, sp_order, sp_genes, qval_sorted, eff_sorted,
+                  current, new_sum_q, new_max_q, new_sum_eff,
                   best, iterations, max_iterations);
 
         if (iterations > max_iterations) return;
@@ -183,7 +183,7 @@ struct CliqueResult {
     int hog_idx;
     std::vector<int> genes;   // length n_target_species, -1 = absent
     int n_species;
-    double mean_fdr, max_fdr, mean_effect;
+    double mean_q, max_q, mean_effect;
     int n_edges;
 };
 
@@ -209,7 +209,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     const std::vector<int>& hog_edge_indices,
     const int* edge_g1, const int* edge_g2,
     const int* edge_sp1, const int* edge_sp2,
-    const double* edge_fdr, const double* edge_eff,
+    const double* edge_qval, const double* edge_eff,
     uint16_t species_mask,
     int n_target_species,
     int min_species,
@@ -229,9 +229,9 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     std::vector<std::vector<bool>> sp_adj(
         n_target_species, std::vector<bool>(n_target_species, false));
 
-    // Collect raw (key, fdr, eff) triples from filtered edges.
+    // Collect raw (key, q-value, effect) triples from filtered edges.
     // FDR and effect are paired by index so we can deduplicate correctly.
-    std::vector<std::pair<int64_t, double>> fdr_pairs;
+    std::vector<std::pair<int64_t, double>> qval_pairs;
     std::vector<std::pair<int64_t, double>> eff_pairs;
 
     for (int ei : hog_edge_indices) {
@@ -257,7 +257,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         }
 
         int64_t key = edge_key(g1, g2);
-        fdr_pairs.push_back({key, edge_fdr[ei]});
+        qval_pairs.push_back({key, edge_qval[ei]});
         eff_pairs.push_back({key, edge_eff[ei]});
     }
 
@@ -267,36 +267,36 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     }
 
     // If no edges passed the filter, return empty
-    if (fdr_pairs.empty()) return results;
+    if (qval_pairs.empty()) return results;
 
     // --- Deduplicate edge maps: sort by key, keep min-FDR entry ---
     // We need FDR and effect paired, so sort by permuted index.
-    int n_edges_raw = static_cast<int>(fdr_pairs.size());
+    int n_edges_raw = static_cast<int>(qval_pairs.size());
     std::vector<int> order(n_edges_raw);
     std::iota(order.begin(), order.end(), 0);
     std::sort(order.begin(), order.end(), [&](int a, int b) {
-        return fdr_pairs[a].first < fdr_pairs[b].first;
+        return qval_pairs[a].first < qval_pairs[b].first;
     });
 
     // Build deduplicated sorted vectors: keep min FDR and its associated effect
-    std::vector<std::pair<int64_t, double>> fdr_sorted;
+    std::vector<std::pair<int64_t, double>> qval_sorted;
     std::vector<std::pair<int64_t, double>> eff_sorted;
-    fdr_sorted.reserve(n_edges_raw);
+    qval_sorted.reserve(n_edges_raw);
     eff_sorted.reserve(n_edges_raw);
 
     for (int i = 0; i < n_edges_raw; ++i) {
         int idx = order[i];
-        int64_t key = fdr_pairs[idx].first;
-        double fdr = fdr_pairs[idx].second;
+        int64_t key = qval_pairs[idx].first;
+        double qv =qval_pairs[idx].second;
         double eff = eff_pairs[idx].second;
 
-        if (fdr_sorted.empty() || fdr_sorted.back().first != key) {
-            fdr_sorted.push_back({key, fdr});
+        if (qval_sorted.empty() || qval_sorted.back().first != key) {
+            qval_sorted.push_back({key, qv});
             eff_sorted.push_back({key, eff});
         } else {
-            // Duplicate key: keep the entry with smaller FDR
-            if (fdr < fdr_sorted.back().second) {
-                fdr_sorted.back().second = fdr;
+            // Duplicate key: keep the entry with smaller q-value
+            if (qv <qval_sorted.back().second) {
+                qval_sorted.back().second = qv;
                 eff_sorted.back().second = eff;
             }
         }
@@ -323,11 +323,11 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
             seen_genes[g] = true;
         }
 
-        // Linear scan of fdr_sorted to count edges per gene.
+        // Linear scan of qval_sorted to count edges per gene.
         // genes.size() <= max_genes_per_sp (small), so inner scan is bounded.
         std::vector<int> counts(genes.size(), 0);
 
-        for (const auto& kv : fdr_sorted) {
+        for (const auto& kv : qval_sorted) {
             int ga = static_cast<int>(kv.first >> 32);
             int gb = static_cast<int>(kv.first & 0xFFFFFFFF);
             if (seen_genes[ga]) {
@@ -401,13 +401,13 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         std::vector<int> current(k, -1);
         AssignResult best;
         best.found = false;
-        best.sum_fdr = 0.0;
-        best.max_fdr = 0.0;
+        best.sum_q = 0.0;
+        best.max_q = 0.0;
         best.sum_effect = 0.0;
         best.n_edges = 0;
         int iterations = 0;
 
-        assign_bt(0, k, global_sp, sp_genes, fdr_sorted, eff_sorted,
+        assign_bt(0, k, global_sp, sp_genes, qval_sorted, eff_sorted,
                   current, 0.0, 0.0, 0.0, best, iterations, max_iterations);
 
         if (best.found) {
@@ -419,8 +419,8 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
             }
             cr.n_species = k;
             int total_edges = k * (k - 1) / 2;
-            cr.mean_fdr = best.sum_fdr / total_edges;
-            cr.max_fdr = best.max_fdr;
+            cr.mean_q = best.sum_q / total_edges;
+            cr.max_q = best.max_q;
             cr.mean_effect = best.sum_effect / total_edges;
             cr.n_edges = total_edges;
             results.push_back(std::move(cr));

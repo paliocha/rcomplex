@@ -41,7 +41,7 @@ using namespace Rcpp;
 //' @param edge_g2 0-based gene index for gene 2
 //' @param edge_sp1 0-based species index for gene 1
 //' @param edge_sp2 0-based species index for gene 2
-//' @param edge_fdr FDR per edge
+//' @param edge_qval q-value per edge
 //' @param edge_eff Effect size per edge
 //' @param n_target_species Number of target species
 //' @param min_species Minimum species for valid clique
@@ -59,7 +59,7 @@ using namespace Rcpp;
 Rcpp::List find_cliques_stability_cpp(
     IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2,
     IntegerVector edge_sp1, IntegerVector edge_sp2,
-    NumericVector edge_fdr, NumericVector edge_eff,
+    NumericVector edge_qval, NumericVector edge_eff,
     int n_target_species, int min_species, int n_hogs, int n_genes,
     IntegerVector species_trait,
     Rcpp::List full_cliques,
@@ -85,7 +85,7 @@ Rcpp::List find_cliques_stability_cpp(
     const int* g2_ptr  = edge_g2.begin();
     const int* sp1_ptr = edge_sp1.begin();
     const int* sp2_ptr = edge_sp2.begin();
-    const double* fdr_ptr = edge_fdr.begin();
+    const double* qval_ptr = edge_qval.begin();
     const double* eff_ptr = edge_eff.begin();
     const int* trait_ptr  = species_trait.begin();
 
@@ -278,7 +278,7 @@ Rcpp::List find_cliques_stability_cpp(
                 // Re-run clique finding with species mask filtering
                 auto reduced = find_cliques_for_hog(
                     h, hog_edges[h], g1_ptr, g2_ptr, sp1_ptr, sp2_ptr,
-                    fdr_ptr, eff_ptr, active_mask, n_target_species,
+                    qval_ptr, eff_ptr, active_mask, n_target_species,
                     min_species, max_genes_per_sp, thread_seen[tid]);
 
                 // Track which reduced cliques were matched (for novel counting)

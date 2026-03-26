@@ -117,11 +117,11 @@ find_coexpression_cliques <- function(edges, target_species,
 #' and filters out edges where either species is not in `target_species`.
 #'
 #' @param edges Data frame with columns gene1, gene2, species1, species2,
-#'   hog, fdr, effect_size (already type-filtered).
+#'   hog, q.value, effect_size (already type-filtered).
 #' @param target_species Character vector of species abbreviations.
 #' @return A list with components: sp_map, gene_map, hog_map, all_genes,
 #'   unique_hogs, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2,
-#'   edge_fdr, edge_effect, and a logical `any_valid` flag.
+#'   edge_qval, edge_effect, and a logical `any_valid` flag.
 #' @noRd
 encode_clique_edges <- function(edges, target_species) {
   sp_map <- stats::setNames(seq_along(target_species) - 1L, target_species)
@@ -149,14 +149,14 @@ encode_clique_edges <- function(edges, target_species) {
   edge_g2 <- edge_g2[valid]
   edge_sp1 <- edge_sp1[valid]
   edge_sp2 <- edge_sp2[valid]
-  edge_fdr <- as.numeric(edges$fdr[valid])
+  edge_qval <- as.numeric(edges$q.value[valid])
   edge_effect <- as.numeric(edges$effect_size[valid])
 
   list(sp_map = sp_map, gene_map = gene_map, hog_map = hog_map,
        all_genes = all_genes, unique_hogs = unique_hogs,
        edge_hog = edge_hog, edge_g1 = edge_g1, edge_g2 = edge_g2,
        edge_sp1 = edge_sp1, edge_sp2 = edge_sp2,
-       edge_fdr = edge_fdr, edge_effect = edge_effect,
+       edge_qval = edge_qval, edge_effect = edge_effect,
        any_valid = any_valid)
 }
 
@@ -166,7 +166,7 @@ encode_clique_edges <- function(edges, target_species) {
 #' For each Hierarchical Ortholog Group (HOG), uses Bron-Kerbosch with
 #' pivoting on the species-level adjacency graph to find maximal species
 #' cliques, then backtracking to assign the best gene per species
-#' (minimising mean FDR across all edges).
+#' (minimising mean q-value across all edges).
 #'
 #' @param edges Data frame with columns:
 #'   \describe{
@@ -175,7 +175,7 @@ encode_clique_edges <- function(edges, target_species) {
 #'     \item{species1}{Species for gene1}
 #'     \item{species2}{Species for gene2}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{fdr}{FDR (or q-value) for the edge}
+#'     \item{q.value}{q-value for the edge (from pair-level testing)}
 #'     \item{effect_size}{Numeric effect size}
 #'   }
 #'   Optionally includes a \code{type} column for filtering.
@@ -192,8 +192,8 @@ encode_clique_edges <- function(edges, target_species) {
 #'     \item{hog}{Ortholog group identifier}
 #'     \item{<species>}{One column per target species (gene ID or NA)}
 #'     \item{n_species}{Number of species in the clique}
-#'     \item{mean_fdr}{Mean FDR across clique edges}
-#'     \item{max_fdr}{Maximum FDR across clique edges}
+#'     \item{mean_q}{Mean q-value across clique edges}
+#'     \item{max_q}{Maximum q-value across clique edges}
 #'     \item{mean_effect_size}{Mean effect size across clique edges}
 #'     \item{n_edges}{Number of edges (= C(n_species, 2))}
 #'   }
@@ -205,7 +205,7 @@ find_cliques <- function(edges, target_species,
                          edge_type = "conserved") {
   # Validate inputs
   required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
-                     "fdr", "effect_size")
+                     "q.value", "effect_size")
   missing <- setdiff(required_cols, names(edges))
   if (length(missing) > 0) {
     stop("edges missing required columns: ", paste(missing, collapse = ", "))
@@ -223,7 +223,7 @@ find_cliques <- function(edges, target_species,
   empty_cols <- c(
     list(hog = character(0)),
     stats::setNames(lapply(target_species, \(x) character(0)), target_species),
-    list(n_species = integer(0), mean_fdr = numeric(0), max_fdr = numeric(0),
+    list(n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
          mean_effect_size = numeric(0), n_edges = integer(0))
   )
   empty_result <- as.data.frame(empty_cols, stringsAsFactors = FALSE)
@@ -241,7 +241,7 @@ find_cliques <- function(edges, target_species,
   # Call C++
   result <- find_cliques_cpp(
     enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
-    enc$edge_fdr, enc$edge_effect,
+    enc$edge_qval, enc$edge_effect,
     length(target_species), min_species,
     length(enc$unique_hogs), length(enc$all_genes),
     as.integer(max_genes_per_sp)
@@ -269,8 +269,8 @@ find_cliques <- function(edges, target_species,
   out <- data.frame(hog = hog_names, stringsAsFactors = FALSE)
   out <- cbind(out, gene_df)
   out$n_species <- as.integer(result$n_species)
-  out$mean_fdr <- result$mean_fdr
-  out$max_fdr <- result$max_fdr
+  out$mean_q <- result$mean_q
+  out$max_q <- result$max_q
   out$mean_effect_size <- result$mean_effect_size
   out$n_edges <- as.integer(result$n_edges)
   out
@@ -362,7 +362,7 @@ clique_stability <- function(edges, target_species, species_trait,
                              edge_type = "conserved", n_cores = 1L) {
   # Validate inputs
   required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
-                     "fdr", "effect_size")
+                     "q.value", "effect_size")
   missing <- setdiff(required_cols, names(edges))
   if (length(missing) > 0) {
     stop("edges missing required columns: ", paste(missing, collapse = ", "))
@@ -427,7 +427,7 @@ clique_stability <- function(edges, target_species, species_trait,
   if (is.null(full_cliques)) {
     raw_cliques <- find_cliques_cpp(
       enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
-      enc$edge_fdr, enc$edge_effect,
+      enc$edge_qval, enc$edge_effect,
       length(target_species), as.integer(min_species),
       length(enc$unique_hogs), length(enc$all_genes),
       as.integer(max_genes_per_sp)
@@ -449,8 +449,8 @@ clique_stability <- function(edges, target_species, species_trait,
       hog_idx = fc_hog_idx,
       genes = fc_genes,
       n_species = as.integer(full_cliques$n_species),
-      mean_fdr = full_cliques$mean_fdr,
-      max_fdr = full_cliques$max_fdr,
+      mean_q = full_cliques$mean_q,
+      max_q = full_cliques$max_q,
       mean_effect_size = full_cliques$mean_effect_size,
       n_edges = as.integer(full_cliques$n_edges)
     )
@@ -461,7 +461,7 @@ clique_stability <- function(edges, target_species, species_trait,
   # Call C++ stability function
   cpp_result <- find_cliques_stability_cpp(
     enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
-    enc$edge_fdr, enc$edge_effect,
+    enc$edge_qval, enc$edge_effect,
     length(target_species), as.integer(min_species),
     length(enc$unique_hogs), length(enc$all_genes),
     trait_int, raw_cliques,

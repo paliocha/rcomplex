@@ -7,3 +7,4 @@ src/*.so
 src/*.dll
 *.tar.gz
 *.Rcheck/
+.DS_Store

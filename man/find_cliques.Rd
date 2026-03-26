@@ -20,7 +20,7 @@ find_cliques(
 \item{species1}{Species for gene1}
 \item{species2}{Species for gene2}
 \item{hog}{Ortholog group identifier}
-\item{fdr}{FDR (or q-value) for the edge}
+\item{q.value}{q-value for the edge (from pair-level testing)}
 \item{effect_size}{Numeric effect size}
 }
 Optionally includes a \code{type} column for filtering.}
@@ -42,8 +42,8 @@ A data frame with one row per clique:
 \item{hog}{Ortholog group identifier}
 \item{\if{html}{\out{<species>}}}{One column per target species (gene ID or NA)}
 \item{n_species}{Number of species in the clique}
-\item{mean_fdr}{Mean FDR across clique edges}
-\item{max_fdr}{Maximum FDR across clique edges}
+\item{mean_q}{Mean q-value across clique edges}
+\item{max_q}{Maximum q-value across clique edges}
 \item{mean_effect_size}{Mean effect size across clique edges}
 \item{n_edges}{Number of edges (= C(n_species, 2))}
 }
@@ -52,5 +52,5 @@ A data frame with one row per clique:
 For each Hierarchical Ortholog Group (HOG), uses Bron-Kerbosch with
 pivoting on the species-level adjacency graph to find maximal species
 cliques, then backtracking to assign the best gene per species
-(minimising mean FDR across all edges).
+(minimising mean q-value across all edges).
 }

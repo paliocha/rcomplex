@@ -10,7 +10,7 @@ find_cliques_cpp(
   edge_g2,
   edge_sp1,
   edge_sp2,
-  edge_fdr,
+  edge_qval,
   edge_eff,
   n_target_species,
   min_species,
@@ -30,7 +30,7 @@ find_cliques_cpp(
 
 \item{edge_sp2}{0-based species index for gene 2}
 
-\item{edge_fdr}{FDR per edge}
+\item{edge_qval}{q-value per edge}
 
 \item{edge_eff}{Effect size per edge}
 
@@ -46,7 +46,7 @@ find_cliques_cpp(
 }
 \value{
 List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-n_species, mean_fdr, max_fdr, mean_effect_size, n_edges
+n_species, mean_q, max_q, mean_effect_size, n_edges
 }
 \description{
 Find co-expression cliques using two-level decomposition

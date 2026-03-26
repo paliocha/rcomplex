@@ -6,20 +6,24 @@
 
 Comparative co-expression network analysis across species.
 
-**rcomplex** maps orthologous genes between two species, builds
-co-expression networks independently, then tests conservation at two
-complementary levels:
+**rcomplex** maps orthologous genes between species, builds co-expression
+networks independently, then tests conservation at three complementary
+levels:
 
 - **Gene / HOG level** -- Are individual genes' co-expression
   neighborhoods preserved across species?
 - **Module level** -- Are higher-order communities (modules) of
   co-expressed genes conserved, partially conserved, or species-specific?
+- **Clique level** -- Which fully connected subsets of ortholog groups
+  are conserved, and how robust is their trait exclusivity to species
+  removal?
 
 Based on [Netotea *et al.*
 (2014)](https://doi.org/10.1186/1471-2164-15-106), extended with
 permutation-based HOG-level testing, module detection via Leiden /
-Infomap / Stochastic Block Model, and cross-species module comparison
-with Jaccard permutation or hypergeometric tests.
+Infomap / Stochastic Block Model, C++ clique detection with
+Bron-Kerbosch decomposition, and leave-k-out jackknife stability
+analysis.
 
 ## Installation
 
@@ -28,14 +32,14 @@ devtools::install_github("paliocha/rcomplex")
 ```
 
 **System requirements:** C++23 compiler, GNU make. OpenMP is optional
-but recommended for parallel permutation tests.
+but recommended for parallel permutation and stability tests.
 
 ## Quick start
 
 ```r
 library(rcomplex)
 
-# 1. Parse ortholog groups (PLAZA format)
+# 1. Parse ortholog groups (tab-delimited, see format below)
 orthologs <- parse_orthologs("orthogroups.txt", "species1", "species2")
 
 # 2. Build co-expression networks
@@ -46,12 +50,12 @@ net2 <- compute_network(expr2, norm_method = "MR", density = 0.03)
 comparison <- compare_neighborhoods(net1, net2, orthologs)
 ```
 
-From here, two analysis paths are available.
+From here, three analysis paths are available.
 
 ### Gene / HOG-level analysis
 
 ```r
-# Pair-level FDR with Storey q-values
+# Pair-level q-values (Storey & Tibshirani, 2003)
 summary <- summarize_comparison(comparison)
 
 # HOG-level permutation test (recommended for multi-copy gene families)
@@ -72,11 +76,28 @@ comp <- compare_modules(mod1, mod2, orthologs, method = "jaccard", n_cores = 4L)
 classes <- classify_modules(comp)
 ```
 
+### Clique-level analysis
+
+```r
+# Find conserved cliques (C++ Bron-Kerbosch + backtracking)
+# Edges come from summarize_comparison() with q-values
+cliques <- find_cliques(edges, target_species, min_species = 3L)
+
+# Leave-k-out stability for trait-exclusive cliques
+# species_trait: any discrete trait (life habit, climate zone, ploidy, ...)
+stability <- clique_stability(
+  edges, target_species,
+  species_trait = c(SP_A = "annual", SP_B = "annual",
+                    SP_C = "perennial", SP_D = "perennial"),
+  min_species = 3L, max_k = 3L, n_cores = 4L
+)
+```
+
 ## Main functions
 
 | Function | Purpose |
 |----------|---------|
-| `parse_orthologs()` | Parse PLAZA ortholog group files |
+| `parse_orthologs()` | Parse ortholog group files (tab-delimited) |
 | `compute_network()` | Correlation + MR/CLR normalization + density threshold |
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
 | `summarize_comparison()` | Storey q-values and summary statistics |
@@ -84,7 +105,27 @@ classes <- classify_modules(comp)
 | `detect_modules()` | Community detection (Leiden / Infomap / SBM) |
 | `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
 | `classify_modules()` | Three-tier module conservation classification |
-| `find_coexpression_cliques()` | Conserved clique detection across species |
+| `find_cliques()` | C++ clique detection via Bron-Kerbosch decomposition |
+| `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
+
+## Ortholog file format
+
+`parse_orthologs()` reads a tab-delimited file with at least these
+columns:
+
+| Column | Description |
+|--------|-------------|
+| `species` | Species code for the anchor species |
+| `gene_id` | Gene identifier in the anchor species |
+| `gene_content` | Semicolon-delimited list of `species_code:gene1,gene2,...` entries |
+
+Each row defines one ortholog group from the anchor species' perspective.
+The `gene_content` field lists members from other species in the format
+`species_code:gene_id1,gene_id2,...`, separated by semicolons.
+
+This format is produced by PLAZA, OrthoFinder, and FastOMA (with
+appropriate reformatting). Any tool that can produce a tab-delimited file
+with these three columns will work.
 
 ## Statistical methods
 
@@ -132,6 +173,44 @@ non-uniform null distribution that adaptive stopping produces.
 | Partially conserved | Best-match q < alpha AND Jaccard < threshold |
 | Species-specific | No significant match in the other species |
 
+### Clique detection
+
+`find_cliques()` uses a two-level decomposition to find conserved
+cliques across species within each ortholog group:
+
+1. **Species-level**: Bron-Kerbosch with pivoting (Bron & Kerbosch, 1973;
+   Tomita *et al.*, 2006) on the small species adjacency graph
+   (at most 16 nodes) to find all maximal species cliques.
+2. **Gene-level**: Backtracking search assigns one gene per species,
+   minimising mean q-value across all C(k, 2) edges. Early pruning
+   rejects partial assignments where any required edge is missing.
+
+This avoids the combinatorial explosion of enumerating cliques directly
+on the gene-level graph when HOGs contain many paralogs.
+
+### Clique stability
+
+`clique_stability()` performs leave-k-out jackknife analysis to assess
+phylogenetic robustness of trait-exclusive cliques. A clique is
+*trait-exclusive* if all its species share the same value of a discrete
+trait (e.g., life habit, climate zone, ploidy level).
+
+For k = 1, 2, ..., max_k species removed at a time:
+
+1. All edges involving the removed species are dropped
+2. Full clique detection re-runs on the reduced edge set
+3. Reduced cliques are matched to full-dataset cliques by Jaccard
+   similarity of gene assignments (ignoring removed species)
+4. Trait exclusivity preservation is checked for each match
+
+A clique's *stability score* at level k is the fraction of C(N, k)
+species-removal subsets where its trait exclusivity is preserved. The
+*stability class* is the highest k at which the score equals 1.0.
+
+The analysis is parallelised over subsets with OpenMP (`n_cores`
+parameter) and uses uint16_t bitmask filtering for species membership
+(supports up to 16 species).
+
 ## Architecture
 
 ### R layer
@@ -143,7 +222,7 @@ non-uniform null distribution that adaptive stopping produces.
 | `R/comparison.R` | `compare_neighborhoods()` -- pair-level hypergeometric |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()` |
-| `R/cliques.R` | `find_coexpression_cliques()` |
+| `R/cliques.R` | `find_cliques()`, `clique_stability()` |
 
 ### C++ layer (RcppArmadillo + OpenMP)
 
@@ -155,6 +234,9 @@ non-uniform null distribution that adaptive stopping produces.
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
 | `src/module_jaccard_permutation.cpp` | Batched Jaccard permutation engine |
+| `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation) |
+| `src/find_cliques.cpp` | C++ clique detection wrapper |
+| `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
 
 All C++ functions use integer indices only (string mapping is done in R)
 due to Homebrew clang ABI constraints. Network matrices are accessed
@@ -175,6 +257,13 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Liang, K. (2016). False discovery rate estimation for large-scale
   homogeneous discrete p-values. *Biometrics*, 72(2), 639--648.
   [doi:10.1111/biom.12429](https://doi.org/10.1111/biom.12429)
+- Bron, C. & Kerbosch, J. (1973). Algorithm 457: finding all cliques of
+  an undirected graph. *Communications of the ACM*, 16(9), 575--577.
+  [doi:10.1145/362342.362367](https://doi.org/10.1145/362342.362367)
+- Tomita, E., Tanaka, A. & Takahashi, H. (2006). The worst-case time
+  complexity for generating all maximal cliques and computational
+  experiments. *Theoretical Computer Science*, 363(1), 28--42.
+  [doi:10.1016/j.tcs.2006.06.015](https://doi.org/10.1016/j.tcs.2006.06.015)
 - Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to
   Leiden: guaranteeing well-connected communities. *Scientific Reports*,
   9, 5233.

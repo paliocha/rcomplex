@@ -10,7 +10,7 @@ find_cliques_stability_cpp(
   edge_g2,
   edge_sp1,
   edge_sp2,
-  edge_fdr,
+  edge_qval,
   edge_eff,
   n_target_species,
   min_species,
@@ -35,7 +35,7 @@ find_cliques_stability_cpp(
 
 \item{edge_sp2}{0-based species index for gene 2}
 
-\item{edge_fdr}{FDR per edge}
+\item{edge_qval}{q-value per edge}
 
 \item{edge_eff}{Effect size per edge}
 

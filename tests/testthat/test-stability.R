@@ -32,7 +32,7 @@ make_stability_edges_binary <- function() {
     species2 = c("SP_B", "SP_D",
                  "SP_B", "SP_C", "SP_D", "SP_C", "SP_D", "SP_D"),
     hog = c("HOG1", "HOG2", rep("HOG3", 6)),
-    fdr = c(0.01, 0.02, rep(0.05, 6)),
+    q.value = c(0.01, 0.02, rep(0.05, 6)),
     effect_size = c(3.0, 2.5, rep(1.5, 6)),
     type = rep("conserved", 8),
     stringsAsFactors = FALSE
@@ -58,7 +58,7 @@ make_stability_edges_ternary <- function() {
     species1 = c("SP_B", "SP_D", "SP_A", "SP_A"),
     species2 = c("SP_C", "SP_E", "SP_B", "SP_C"),
     hog = c("HOG5", "HOG6", "HOG7", "HOG7"),
-    fdr = c(0.01, 0.02, 0.04, 0.04),
+    q.value = c(0.01, 0.02, 0.04, 0.04),
     effect_size = c(3.0, 2.5, 1.5, 1.5),
     type = rep("conserved", 4),
     stringsAsFactors = FALSE
@@ -124,7 +124,7 @@ test_that("empty input returns correct empty structure", {
   edges <- data.frame(
     gene1 = character(0), gene2 = character(0),
     species1 = character(0), species2 = character(0),
-    hog = character(0), fdr = numeric(0),
+    hog = character(0), q.value = numeric(0),
     effect_size = numeric(0), type = character(0),
     stringsAsFactors = FALSE
   )
@@ -282,7 +282,7 @@ test_that("min_species edge case: clique at minimum size", {
     species1 = "SP_A",
     species2 = "SP_B",
     hog = "HOG_MIN",
-    fdr = 0.01,
+    q.value = 0.01,
     effect_size = 3.0,
     type = "conserved",
     stringsAsFactors = FALSE
@@ -311,7 +311,7 @@ test_that("all mixed cliques returns empty stability", {
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
     hog = rep("HOG1", 3),
-    fdr = rep(0.01, 3),
+    q.value = rep(0.01, 3),
     effect_size = rep(2.0, 3),
     type = rep("conserved", 3),
     stringsAsFactors = FALSE
@@ -333,7 +333,7 @@ test_that("sole_rep flagging works", {
   edges <- data.frame(
     gene1 = "B1", gene2 = "C1",
     species1 = "SP_B", species2 = "SP_C",
-    hog = "HOG1", fdr = 0.01, effect_size = 2.0,
+    hog = "HOG1", q.value = 0.01, effect_size = 2.0,
     type = "conserved", stringsAsFactors = FALSE
   )
   trait <- c(SP_A = "rare", SP_B = "common", SP_C = "common", SP_D = "common")
@@ -407,7 +407,7 @@ test_that("missing required columns in edges raises error", {
   trait <- c(SP_A = "annual", SP_B = "annual")
   target <- c("SP_A", "SP_B")
 
-  # Missing fdr column
+  # Missing q.value column
   expect_error(clique_stability(edges, target, trait))
 })
 
