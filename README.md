@@ -91,6 +91,12 @@ stability <- clique_stability(
                     SP_C = "perennial", SP_D = "perennial"),
   min_species = 3L, max_k = 3L, n_cores = 4L
 )
+
+# Identify hub genes recurring across many trait-exclusive cliques
+hubs <- clique_hubs(cliques, target_species,
+                    species_trait = c(SP_A = "annual", SP_B = "annual",
+                                     SP_C = "perennial", SP_D = "perennial"),
+                    min_hogs = 3L)
 ```
 
 ## Main functions
