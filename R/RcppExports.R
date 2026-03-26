@@ -60,6 +60,56 @@ fe_hog_permutation_test_cpp <- function(combined, hog_sp1_list, hog_sp2_list, te
     .Call(`_rcomplex_fe_hog_permutation_test_cpp`, combined, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores)
 }
 
+#' Find co-expression cliques using two-level decomposition
+#'
+#' @param edge_hog 0-based HOG index per edge
+#' @param edge_g1  0-based gene index for gene 1
+#' @param edge_g2  0-based gene index for gene 2
+#' @param edge_sp1 0-based species index for gene 1
+#' @param edge_sp2 0-based species index for gene 2
+#' @param edge_fdr FDR per edge
+#' @param edge_eff Effect size per edge
+#' @param n_target_species Number of target species
+#' @param min_species Minimum species for a valid clique
+#' @param n_hogs Total number of distinct HOGs
+#' @param n_genes Total number of distinct genes
+#' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
+#' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
+#'   n_species, mean_fdr, max_fdr, mean_effect_size, n_edges
+#' @keywords internal
+find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_fdr, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp = 10L) {
+    .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_fdr, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp)
+}
+
+#' Leave-k-out jackknife stability for trait-exclusive cliques
+#'
+#' For each combination of k species removed (k = 1..max_k), re-runs clique
+#' finding on remaining species and checks whether each trait-exclusive clique
+#' from the full analysis is preserved with matching gene assignment and trait.
+#'
+#' @param edge_hog 0-based HOG index per edge
+#' @param edge_g1 0-based gene index for gene 1
+#' @param edge_g2 0-based gene index for gene 2
+#' @param edge_sp1 0-based species index for gene 1
+#' @param edge_sp2 0-based species index for gene 2
+#' @param edge_fdr FDR per edge
+#' @param edge_eff Effect size per edge
+#' @param n_target_species Number of target species
+#' @param min_species Minimum species for valid clique
+#' @param n_hogs Total HOGs
+#' @param n_genes Total genes
+#' @param species_trait Trait value per species (0, 1, 2, ... any discrete levels)
+#' @param full_cliques Output of find_cliques_cpp() on the full dataset
+#' @param max_k Maximum species to leave out (default 3)
+#' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
+#' @param jaccard_threshold Threshold for matching cliques (default 0.8)
+#' @param n_cores OpenMP threads (default 1)
+#' @return List with stability, clique_disruption, stability_class, novel_cliques
+#' @keywords internal
+find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_fdr, edge_eff, n_target_species, min_species, n_hogs, n_genes, species_trait, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L) {
+    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_fdr, edge_eff, n_target_species, min_species, n_hogs, n_genes, species_trait, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores)
+}
+
 #' Permutation-based HOG-level conservation test
 #'
 #' Tests each HOG for co-expression conservation using a gene-identity
