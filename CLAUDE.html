@@ -63,7 +63,7 @@
 <span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co"># Install the package locally</span></span>
 <span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="ex">R</span> CMD INSTALL .</span>
 <span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co"># Run tests (231 tests)</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co"># Run tests (455 tests)</span></span>
 <span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span></span>
 <span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a></span>
 <span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co"># Full R CMD check (expect 1 </span><span class="al">WARNING</span><span class="co"> from R_ext/Boolean.h — unfixable R header issue with Homebrew clang)</span></span>
@@ -86,11 +86,15 @@
 <code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> — pair-level hypergeometric tests</td>
 </tr><tr class="even"><td><code>R/summary.R</code></td>
 <td>
-<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code> (pair-level FDR), <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> (HOG-level permutation)</td>
+<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code> (pair-level q-values), <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> (HOG-level permutation)</td>
 </tr><tr class="odd"><td><code>R/cliques.R</code></td>
 <td>
-<code>find_conserved_cliques()</code> — conserved clique detection via igraph</td>
-</tr><tr class="even"><td><code>R/rcomplex-package.R</code></td>
+<code><a href="reference/find_cliques.html">find_cliques()</a></code> (C++ clique engine), <code><a href="reference/clique_stability.html">clique_stability()</a></code> (leave-k-out jackknife)</td>
+</tr><tr class="even"><td><code>R/modules.R</code></td>
+<td>
+<code><a href="reference/detect_modules.html">detect_modules()</a></code>, <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>
+</td>
+</tr><tr class="odd"><td><code>R/rcomplex-package.R</code></td>
 <td>Package-level roxygen, namespace imports</td>
 </tr></tbody></table></div>
 <div class="section level3">
@@ -107,6 +111,14 @@
 <td>Pairwise neighborhood overlap (hypergeometric)</td>
 </tr><tr class="odd"><td><code>src/hog_permutation.cpp</code></td>
 <td>Permutation engine: bit-vector/flag-vector intersections, Besag &amp; Clifford stopping</td>
+</tr><tr class="even"><td><code>src/module_jaccard_permutation.cpp</code></td>
+<td>Batched Jaccard permutation engine</td>
+</tr><tr class="odd"><td><code>src/find_cliques_common.h</code></td>
+<td>Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation)</td>
+</tr><tr class="even"><td><code>src/find_cliques.cpp</code></td>
+<td>C++ clique detection wrapper</td>
+</tr><tr class="odd"><td><code>src/find_cliques_stability.cpp</code></td>
+<td>Leave-k-out stability engine with OpenMP</td>
 </tr></tbody></table></div>
 <div class="section level3">
 <h3 id="tests">Tests<a class="anchor" aria-label="anchor" href="#tests"></a></h3>
@@ -121,7 +133,11 @@
 </tr><tr class="even"><td><code>tests/testthat/test-permutation.R</code></td>
 <td>Permutation HOG test (correctness, adaptive stopping, p-value formula)</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-cliques.R</code></td>
-<td>Conserved clique detection</td>
+<td>Clique detection (igraph + C++ backends)</td>
+</tr><tr class="even"><td><code>tests/testthat/test-stability.R</code></td>
+<td>Leave-k-out jackknife stability</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-modules.R</code></td>
+<td>Module detection, comparison, classification</td>
 </tr><tr class="even"><td><code>tests/testthat/helper-reference.R</code></td>
 <td>Pure-R reference implementations for cross-checking C++</td>
 </tr></tbody></table></div>

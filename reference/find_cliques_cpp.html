@@ -56,7 +56,7 @@
 <span>  <span class="va">edge_g2</span>,</span>
 <span>  <span class="va">edge_sp1</span>,</span>
 <span>  <span class="va">edge_sp2</span>,</span>
-<span>  <span class="va">edge_fdr</span>,</span>
+<span>  <span class="va">edge_qval</span>,</span>
 <span>  <span class="va">edge_eff</span>,</span>
 <span>  <span class="va">n_target_species</span>,</span>
 <span>  <span class="va">min_species</span>,</span>
@@ -90,8 +90,8 @@
 <dd><p>0-based species index for gene 2</p></dd>
 
 
-<dt id="arg-edge-fdr">edge_fdr<a class="anchor" aria-label="anchor" href="#arg-edge-fdr"></a></dt>
-<dd><p>FDR per edge</p></dd>
+<dt id="arg-edge-qval">edge_qval<a class="anchor" aria-label="anchor" href="#arg-edge-qval"></a></dt>
+<dd><p>q-value per edge</p></dd>
 
 
 <dt id="arg-edge-eff">edge_eff<a class="anchor" aria-label="anchor" href="#arg-edge-eff"></a></dt>
@@ -121,7 +121,7 @@
     <div id="value">
     <h2>Value</h2>
     <p>List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-n_species, mean_fdr, max_fdr, mean_effect_size, n_edges</p>
+n_species, mean_q, max_q, mean_effect_size, n_edges</p>
     </div>
 
   </div>

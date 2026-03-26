@@ -68,20 +68,22 @@
 <!-- badges: start -->
 
 <p>Comparative co-expression network analysis across species.</p>
-<p><strong>rcomplex</strong> maps orthologous genes between two species, builds co-expression networks independently, then tests conservation at two complementary levels:</p>
+<p><strong>rcomplex</strong> maps orthologous genes between species, builds co-expression networks independently, then tests conservation at three complementary levels:</p>
 <ul>
 <li>
 <strong>Gene / HOG level</strong> – Are individual genes’ co-expression neighborhoods preserved across species?</li>
 <li>
 <strong>Module level</strong> – Are higher-order communities (modules) of co-expressed genes conserved, partially conserved, or species-specific?</li>
+<li>
+<strong>Clique level</strong> – Which fully connected subsets of ortholog groups are conserved, and how robust is their trait exclusivity to species removal?</li>
 </ul>
-<p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em> (2014)</a>, extended with permutation-based HOG-level testing, module detection via Leiden / Infomap / Stochastic Block Model, and cross-species module comparison with Jaccard permutation or hypergeometric tests.</p>
+<p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em> (2014)</a>, extended with permutation-based HOG-level testing, module detection via Leiden / Infomap / Stochastic Block Model, C++ clique detection with Bron-Kerbosch decomposition, and leave-k-out jackknife stability analysis.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"paliocha/rcomplex"</span><span class="op">)</span></span></code></pre></div>
-<p><strong>System requirements:</strong> C++23 compiler, GNU make. OpenMP is optional but recommended for parallel permutation tests.</p>
+<p><strong>System requirements:</strong> C++23 compiler, GNU make. OpenMP is optional but recommended for parallel permutation and stability tests.</p>
 </div>
 <div class="section level2">
 <h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
@@ -89,7 +91,7 @@
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://paliocha.github.io/rcomplex/" class="external-link">rcomplex</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 1. Parse ortholog groups (PLAZA format)</span></span>
+<span><span class="co"># 1. Parse ortholog groups (tab-delimited, see format below)</span></span>
 <span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/parse_orthologs.html">parse_orthologs</a></span><span class="op">(</span><span class="st">"orthogroups.txt"</span>, <span class="st">"species1"</span>, <span class="st">"species2"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 2. Build co-expression networks</span></span>
@@ -98,12 +100,12 @@
 <span></span>
 <span><span class="co"># 3. Compare neighborhoods (pair-level hypergeometric tests)</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">orthologs</span><span class="op">)</span></span></code></pre></div>
-<p>From here, two analysis paths are available.</p>
+<p>From here, three analysis paths are available.</p>
 <div class="section level3">
 <h3 id="gene--hog-level-analysis">Gene / HOG-level analysis<a class="anchor" aria-label="anchor" href="#gene--hog-level-analysis"></a>
 </h3>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Pair-level FDR with Storey q-values</span></span>
+<code class="sourceCode R"><span><span class="co"># Pair-level q-values (Storey &amp; Tibshirani, 2003)</span></span>
 <span><span class="va">summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/summarize_comparison.html">summarize_comparison</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># HOG-level permutation test (recommended for multi-copy gene families)</span></span>
@@ -123,6 +125,23 @@
 <span><span class="co"># Classify: conserved, partially conserved, or species-specific</span></span>
 <span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="clique-level-analysis">Clique-level analysis<a class="anchor" aria-label="anchor" href="#clique-level-analysis"></a>
+</h3>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Find conserved cliques (C++ Bron-Kerbosch + backtracking)</span></span>
+<span><span class="co"># Edges come from summarize_comparison() with q-values</span></span>
+<span><span class="va">cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/find_cliques.html">find_cliques</a></span><span class="op">(</span><span class="va">edges</span>, <span class="va">target_species</span>, min_species <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Leave-k-out stability for trait-exclusive cliques</span></span>
+<span><span class="co"># species_trait: any discrete trait (life habit, climate zone, ploidy, ...)</span></span>
+<span><span class="va">stability</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/clique_stability.html">clique_stability</a></span><span class="op">(</span></span>
+<span>  <span class="va">edges</span>, <span class="va">target_species</span>,</span>
+<span>  species_trait <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>SP_A <span class="op">=</span> <span class="st">"annual"</span>, SP_B <span class="op">=</span> <span class="st">"annual"</span>,</span>
+<span>                    SP_C <span class="op">=</span> <span class="st">"perennial"</span>, SP_D <span class="op">=</span> <span class="st">"perennial"</span><span class="op">)</span>,</span>
+<span>  min_species <span class="op">=</span> <span class="fl">3L</span>, max_k <span class="op">=</span> <span class="fl">3L</span>, n_cores <span class="op">=</span> <span class="fl">4L</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="main-functions">Main functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
@@ -139,7 +158,7 @@
 <tbody>
 <tr class="odd">
 <td><code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code></td>
-<td>Parse PLAZA ortholog group files</td>
+<td>Parse ortholog group files (tab-delimited)</td>
 </tr>
 <tr class="even">
 <td><code><a href="reference/compute_network.html">compute_network()</a></code></td>
@@ -170,11 +189,46 @@
 <td>Three-tier module conservation classification</td>
 </tr>
 <tr class="odd">
-<td><code><a href="reference/find_coexpression_cliques.html">find_coexpression_cliques()</a></code></td>
-<td>Conserved clique detection across species</td>
+<td><code><a href="reference/find_cliques.html">find_cliques()</a></code></td>
+<td>C++ clique detection via Bron-Kerbosch decomposition</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/clique_stability.html">clique_stability()</a></code></td>
+<td>Leave-k-out jackknife stability for trait-exclusive cliques</td>
 </tr>
 </tbody>
 </table>
+</div>
+<div class="section level2">
+<h2 id="ortholog-file-format">Ortholog file format<a class="anchor" aria-label="anchor" href="#ortholog-file-format"></a>
+</h2>
+<p><code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code> reads a tab-delimited file with at least these columns:</p>
+<table class="table">
+<colgroup>
+<col width="38%">
+<col width="61%">
+</colgroup>
+<thead><tr class="header">
+<th>Column</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>species</code></td>
+<td>Species code for the anchor species</td>
+</tr>
+<tr class="even">
+<td><code>gene_id</code></td>
+<td>Gene identifier in the anchor species</td>
+</tr>
+<tr class="odd">
+<td><code>gene_content</code></td>
+<td>Semicolon-delimited list of <code>species_code:gene1,gene2,...</code> entries</td>
+</tr>
+</tbody>
+</table>
+<p>Each row defines one ortholog group from the anchor species’ perspective. The <code>gene_content</code> field lists members from other species in the format <code>species_code:gene_id1,gene_id2,...</code>, separated by semicolons.</p>
+<p>This format is produced by PLAZA, OrthoFinder, and FastOMA (with appropriate reformatting). Any tool that can produce a tab-delimited file with these three columns will work.</p>
 </div>
 <div class="section level2">
 <h2 id="statistical-methods">Statistical methods<a class="anchor" aria-label="anchor" href="#statistical-methods"></a>
@@ -223,6 +277,32 @@
 </tbody>
 </table>
 </div>
+<div class="section level3">
+<h3 id="clique-detection">Clique detection<a class="anchor" aria-label="anchor" href="#clique-detection"></a>
+</h3>
+<p><code><a href="reference/find_cliques.html">find_cliques()</a></code> uses a two-level decomposition to find conserved cliques across species within each ortholog group:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>Species-level</strong>: Bron-Kerbosch with pivoting (Bron &amp; Kerbosch, 1973; Tomita <em>et al.</em>, 2006) on the small species adjacency graph (at most 16 nodes) to find all maximal species cliques.</li>
+<li>
+<strong>Gene-level</strong>: Backtracking search assigns one gene per species, minimising mean q-value across all C(k, 2) edges. Early pruning rejects partial assignments where any required edge is missing.</li>
+</ol>
+<p>This avoids the combinatorial explosion of enumerating cliques directly on the gene-level graph when HOGs contain many paralogs.</p>
+</div>
+<div class="section level3">
+<h3 id="clique-stability">Clique stability<a class="anchor" aria-label="anchor" href="#clique-stability"></a>
+</h3>
+<p><code><a href="reference/clique_stability.html">clique_stability()</a></code> performs leave-k-out jackknife analysis to assess phylogenetic robustness of trait-exclusive cliques. A clique is <em>trait-exclusive</em> if all its species share the same value of a discrete trait (e.g., life habit, climate zone, ploidy level).</p>
+<p>For k = 1, 2, …, max_k species removed at a time:</p>
+<ol style="list-style-type: decimal">
+<li>All edges involving the removed species are dropped</li>
+<li>Full clique detection re-runs on the reduced edge set</li>
+<li>Reduced cliques are matched to full-dataset cliques by Jaccard similarity of gene assignments (ignoring removed species)</li>
+<li>Trait exclusivity preservation is checked for each match</li>
+</ol>
+<p>A clique’s <em>stability score</em> at level k is the fraction of C(N, k) species-removal subsets where its trait exclusivity is preserved. The <em>stability class</em> is the highest k at which the score equals 1.0.</p>
+<p>The analysis is parallelised over subsets with OpenMP (<code>n_cores</code> parameter) and uses uint16_t bitmask filtering for species membership (supports up to 16 species).</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="architecture">Architecture<a class="anchor" aria-label="anchor" href="#architecture"></a>
@@ -267,7 +347,9 @@
 </tr>
 <tr class="even">
 <td><code>R/cliques.R</code></td>
-<td><code><a href="reference/find_coexpression_cliques.html">find_coexpression_cliques()</a></code></td>
+<td>
+<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>
+</td>
 </tr>
 </tbody>
 </table>
@@ -309,6 +391,18 @@
 <td><code>src/module_jaccard_permutation.cpp</code></td>
 <td>Batched Jaccard permutation engine</td>
 </tr>
+<tr class="odd">
+<td><code>src/find_cliques_common.h</code></td>
+<td>Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation)</td>
+</tr>
+<tr class="even">
+<td><code>src/find_cliques.cpp</code></td>
+<td>C++ clique detection wrapper</td>
+</tr>
+<tr class="odd">
+<td><code>src/find_cliques_stability.cpp</code></td>
+<td>Leave-k-out stability engine with OpenMP</td>
+</tr>
 </tbody>
 </table>
 <p>All C++ functions use integer indices only (string mapping is done in R) due to Homebrew clang ABI constraints. Network matrices are accessed column-major for cache-friendly reads on symmetric Armadillo matrices.</p>
@@ -325,6 +419,10 @@
 <li>Storey, J. D. &amp; Tibshirani, R. (2003). Statistical significance for genomewide studies. <em>PNAS</em>, 100(16), 9440–9445. <a href="https://doi.org/10.1073/pnas.1530509100" class="external-link">doi:10.1073/pnas.1530509100</a>
 </li>
 <li>Liang, K. (2016). False discovery rate estimation for large-scale homogeneous discrete p-values. <em>Biometrics</em>, 72(2), 639–648. <a href="https://doi.org/10.1111/biom.12429" class="external-link">doi:10.1111/biom.12429</a>
+</li>
+<li>Bron, C. &amp; Kerbosch, J. (1973). Algorithm 457: finding all cliques of an undirected graph. <em>Communications of the ACM</em>, 16(9), 575–577. <a href="https://doi.org/10.1145/362342.362367" class="external-link">doi:10.1145/362342.362367</a>
+</li>
+<li>Tomita, E., Tanaka, A. &amp; Takahashi, H. (2006). The worst-case time complexity for generating all maximal cliques and computational experiments. <em>Theoretical Computer Science</em>, 363(1), 28–42. <a href="https://doi.org/10.1016/j.tcs.2006.06.015" class="external-link">doi:10.1016/j.tcs.2006.06.015</a>
 </li>
 <li>Traag, V. A., Waltman, L. &amp; van Eck, N. J. (2019). From Louvain to Leiden: guaranteeing well-connected communities. <em>Scientific Reports</em>, 9, 5233. <a href="https://doi.org/10.1038/s41598-019-41695-z" class="external-link">doi:10.1038/s41598-019-41695-z</a>
 </li>
