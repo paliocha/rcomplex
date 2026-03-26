@@ -301,7 +301,7 @@
 <li>Trait exclusivity preservation is checked for each match</li>
 </ol>
 <p>A clique’s <em>stability score</em> at level k is the fraction of C(N, k) species-removal subsets where its trait exclusivity is preserved. The <em>stability class</em> is the highest k at which the score equals 1.0.</p>
-<p>The analysis is parallelised over subsets with OpenMP (<code>n_cores</code> parameter) and uses uint16_t bitmask filtering for species membership (supports up to 16 species).</p>
+<p>The analysis is parallelised over subsets with OpenMP (<code>n_cores</code> parameter) and uses uint64_t bitmask filtering for species membership (supports up to 64 species).</p>
 </div>
 </div>
 <div class="section level2">
