@@ -49,9 +49,8 @@ Rcpp::List find_cliques_cpp(
     int n_genes,
     int max_genes_per_sp = 10)
 {
-    // species_mask is uint16_t, so we support at most 16 species
-    if (n_target_species > 16)
-        Rcpp::stop("n_target_species must be <= 16");
+    if (n_target_species > 64)
+        Rcpp::stop("n_target_species must be <= 64");
 
     int ne = edge_hog.size();
 
@@ -71,7 +70,7 @@ Rcpp::List find_cliques_cpp(
     }
 
     // Full species mask: all species active
-    uint16_t full_mask = static_cast<uint16_t>((1 << n_target_species) - 1);
+    uint64_t full_mask = (n_target_species == 64) ? ~0ULL : (1ULL << n_target_species) - 1;
 
     // Caller-provided flag vector for gene deduplication (reused across HOGs)
     std::vector<bool> seen_genes(n_genes, false);

@@ -67,8 +67,8 @@ Rcpp::List find_cliques_stability_cpp(
     double jaccard_threshold = 0.8, int n_cores = 1)
 {
     // ---- Validation ----
-    if (n_target_species > 16) {
-        Rcpp::stop("n_target_species must be <= 16 (bitmask limit)");
+    if (n_target_species > 64) {
+        Rcpp::stop("n_target_species must be <= 64 (bitmask limit)");
     }
     if (max_k < 1) {
         Rcpp::stop("max_k must be >= 1");
@@ -100,7 +100,7 @@ Rcpp::List find_cliques_stability_cpp(
     IntegerMatrix fc_genes    = full_cliques["genes"];
     int n_full = fc_hog_idx.size();
 
-    uint16_t full_mask = static_cast<uint16_t>((1 << n_target_species) - 1);
+    uint64_t full_mask = (n_target_species == 64) ? ~0ULL : (1ULL << n_target_species) - 1;
 
     // Convert to C++ vectors for thread-safe access
     std::vector<int> full_hog(n_full);
@@ -193,7 +193,7 @@ Rcpp::List find_cliques_stability_cpp(
     }
 
     // ---- Pre-generate all C(n,k) removal subsets for each k ----
-    std::vector<std::vector<uint16_t>> all_subsets(max_k + 1);
+    std::vector<std::vector<uint64_t>> all_subsets(max_k + 1);
     for (int k = 1; k <= max_k; ++k) {
         all_subsets[k] = generate_subsets(n_target_species, k);
     }
@@ -249,9 +249,9 @@ Rcpp::List find_cliques_stability_cpp(
             tid = omp_get_thread_num();
 #endif
 
-            uint16_t removal_mask = all_subsets[k][s];
-            uint16_t active_mask = full_mask & ~removal_mask;
-            int n_active = __builtin_popcount(active_mask);
+            uint64_t removal_mask = all_subsets[k][s];
+            uint64_t active_mask = full_mask & ~removal_mask;
+            int n_active = __builtin_popcountll(active_mask);
 
             // Skip if too few species remain
             if (n_active < min_species) continue;

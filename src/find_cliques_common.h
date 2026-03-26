@@ -202,7 +202,7 @@ struct CliqueResult {
 // entry). Used entries are cleared before return, following the flag-vector
 // pattern from hog_permutation.cpp.
 //
-// species_mask (uint16_t) controls which species are active. Only edges where
+// species_mask (uint64_t bitmask) controls which species are active. Only edges where
 // BOTH endpoint species have their bit set in the mask are considered.
 inline std::vector<CliqueResult> find_cliques_for_hog(
     int hog_idx,
@@ -210,7 +210,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     const int* edge_g1, const int* edge_g2,
     const int* edge_sp1, const int* edge_sp2,
     const double* edge_qval, const double* edge_eff,
-    uint16_t species_mask,
+    uint64_t species_mask,
     int n_target_species,
     int min_species,
     int max_genes_per_sp,
@@ -438,7 +438,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
 inline int annotate_trait(
     const std::vector<int>& genes,
     const int* species_trait,
-    uint16_t active_mask,
+    uint64_t active_mask,
     int n_target_species)
 {
     int first_trait = -1;
@@ -461,7 +461,7 @@ inline int annotate_trait(
 inline double jaccard_remaining(
     const std::vector<int>& full_genes,
     const std::vector<int>& reduced_genes,
-    uint16_t removal_mask,
+    uint64_t removal_mask,
     int n_target_species)
 {
     int intersect = 0, union_size = 0;
@@ -480,29 +480,26 @@ inline double jaccard_remaining(
 // ---------------------------------------------------------------------------
 // Generate all C(n,k) bitmasks with exactly k bits set (Gosper's hack)
 // ---------------------------------------------------------------------------
-// For n <= 16, k <= n.  Returns a vector of uint16_t bitmasks where each
+// For n <= 64, k <= n.  Returns a vector of uint64_t bitmasks where each
 // has exactly k of the lowest n bits set.
-inline std::vector<uint16_t> generate_subsets(int n, int k) {
-    std::vector<uint16_t> result;
+inline std::vector<uint64_t> generate_subsets(int n, int k) {
+    std::vector<uint64_t> result;
     if (k == 0) {
         result.push_back(0);
         return result;
     }
     if (k > n) return result;
 
-    // Use uint32_t for arithmetic to avoid overflow when n=16
-    // (1 << 16 = 65536, which doesn't fit in uint16_t)
-    uint32_t mask = (1u << k) - 1;
-    uint32_t limit = 1u << n;
+    uint64_t mask = (1ULL << k) - 1;
+    uint64_t limit = 1ULL << n;
 
     while (mask < limit) {
-        result.push_back(static_cast<uint16_t>(mask));
+        result.push_back(mask);
 
         // Gosper's hack: next k-subset in lexicographic order
-        uint32_t c = mask & (-mask);          // lowest set bit
-        uint32_t r = mask + c;                // carry into next higher bit
-        // (((r ^ mask) >> 2) / c) | r gives next subset
-        uint32_t diff = ((r ^ mask) >> 2) / c;
+        uint64_t c = mask & (~mask + 1);      // lowest set bit
+        uint64_t r = mask + c;                 // carry into next higher bit
+        uint64_t diff = ((r ^ mask) >> 2) / c;
         mask = diff | r;
     }
 

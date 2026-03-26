@@ -208,8 +208,8 @@ species-removal subsets where its trait exclusivity is preserved. The
 *stability class* is the highest k at which the score equals 1.0.
 
 The analysis is parallelised over subsets with OpenMP (`n_cores`
-parameter) and uses uint16_t bitmask filtering for species membership
-(supports up to 16 species).
+parameter) and uses uint64_t bitmask filtering for species membership
+(supports up to 64 species).
 
 ## Architecture
 
