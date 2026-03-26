@@ -550,12 +550,15 @@ clique_hubs <- function(cliques, target_species,
          paste(missing_sp, collapse = ", "))
   }
 
-  # Unpivot: one row per (clique, gene, species)
+  # Unpivot: one row per (clique row, gene, species)
+  # Use row index (not hog) as join key — a HOG can produce multiple cliques
+  # with different species compositions and therefore different trait annotations.
   long <- do.call(rbind, lapply(target_species, function(sp) {
     genes <- cliques[[sp]]
     keep <- !is.na(genes)
     if (!any(keep)) return(NULL)
-    data.frame(hog = cliques$hog[keep], gene = genes[keep], species = sp,
+    data.frame(row_idx = which(keep), hog = cliques$hog[keep],
+               gene = genes[keep], species = sp,
                stringsAsFactors = FALSE)
   }))
 
@@ -573,17 +576,14 @@ clique_hubs <- function(cliques, target_species,
     trait_char <- as.character(species_trait)
     trait_levels <- unique(trait_char)
 
-    # Per clique (identified by row in original cliques df): determine trait
+    # Per clique row: exclusive trait value or NA (mixed)
     clique_trait <- vapply(seq_len(nrow(cliques)), function(i) {
       spp <- target_species[!is.na(cliques[i, target_species])]
       traits <- trait_char[match(spp, names(species_trait))]
       if (length(unique(traits)) == 1L) traits[1] else NA_character_
     }, character(1))
 
-    # Map to long table via hog (unique per clique row since find_cliques
-    # returns one best assignment per species clique per HOG)
-    clique_lookup <- stats::setNames(clique_trait, cliques$hog)
-    long$trait_value <- clique_lookup[long$hog]
+    long$trait_value <- clique_trait[long$row_idx]
     long$exclusive <- !is.na(long$trait_value)
   }
 

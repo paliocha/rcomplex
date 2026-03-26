@@ -152,6 +152,36 @@ test_that("no trait produces no exclusive columns", {
 })
 
 
+test_that("duplicate HOG with different species compositions annotates correctly", {
+  # HOG1 row1: A1+B1 (annual+annual = annual-exclusive)
+  # HOG1 row2: B1+C1 (annual+perennial = mixed)
+  cliques <- data.frame(
+    hog = c("HOG1", "HOG1"),
+    SP_A = c("A1", NA),
+    SP_B = c("B1", "B1"),
+    SP_C = c(NA, "C1"),
+    n_species = c(2L, 2L),
+    mean_q = rep(0.01, 2),
+    max_q = rep(0.01, 2),
+    mean_effect_size = rep(2.0, 2),
+    n_edges = c(1L, 1L),
+    stringsAsFactors = FALSE
+  )
+  trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "perennial")
+  target <- c("SP_A", "SP_B", "SP_C")
+
+  result <- clique_hubs(cliques, target, species_trait = trait, min_hogs = 1L)
+
+  # A1 only in row1 (annual-excl) -> n_exclusive = 1
+  expect_equal(result$n_exclusive[result$gene == "A1"], 1L)
+  # C1 only in row2 (mixed) -> n_exclusive = 0
+  expect_equal(result$n_exclusive[result$gene == "C1"], 0L)
+  # B1 in both rows: row1 annual-excl, row2 mixed -> n_exclusive = 1, n_hogs = 1
+  expect_equal(result$n_exclusive[result$gene == "B1"], 1L)
+  expect_equal(result$n_hogs[result$gene == "B1"], 1L)
+})
+
+
 test_that("input validation works", {
   expect_error(clique_hubs("not_a_df", c("SP_A")),
                "data frame")
