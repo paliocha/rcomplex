@@ -177,6 +177,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// reduce_orthogroups_cpp
+List reduce_orthogroups_cpp(const arma::mat& expr, const List& hog_members, const IntegerVector& non_hog_idx, double cor_threshold);
+RcppExport SEXP _rcomplex_reduce_orthogroups_cpp(SEXP exprSEXP, SEXP hog_membersSEXP, SEXP non_hog_idxSEXP, SEXP cor_thresholdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type expr(exprSEXP);
+    Rcpp::traits::input_parameter< const List& >::type hog_members(hog_membersSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type non_hog_idx(non_hog_idxSEXP);
+    Rcpp::traits::input_parameter< double >::type cor_threshold(cor_thresholdSEXP);
+    rcpp_result_gen = Rcpp::wrap(reduce_orthogroups_cpp(expr, hog_members, non_hog_idx, cor_threshold));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_apply_clr_to_cor_cpp", (DL_FUNC) &_rcomplex_apply_clr_to_cor_cpp, 2},
@@ -188,6 +202,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_module_jaccard_permutation_cpp", (DL_FUNC) &_rcomplex_module_jaccard_permutation_cpp, 12},
     {"_rcomplex_mutual_rank_transform_cached_cpp", (DL_FUNC) &_rcomplex_mutual_rank_transform_cached_cpp, 3},
     {"_rcomplex_compare_neighborhoods_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_cpp, 9},
+    {"_rcomplex_reduce_orthogroups_cpp", (DL_FUNC) &_rcomplex_reduce_orthogroups_cpp, 4},
     {NULL, NULL, 0}
 };
 

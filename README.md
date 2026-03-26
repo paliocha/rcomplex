@@ -98,6 +98,7 @@ stability <- clique_stability(
 | Function | Purpose |
 |----------|---------|
 | `parse_orthologs()` | Parse ortholog group files (tab-delimited) |
+| `reduce_orthogroups()` | Merge correlated paralogs within HOGs (Ward.D2 clustering) |
 | `compute_network()` | Correlation + MR/CLR normalization + density threshold |
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
 | `summarize_comparison()` | Storey q-values and summary statistics |
@@ -126,6 +127,20 @@ The `gene_content` field lists members from other species in the format
 This format is produced by PLAZA, OrthoFinder, and FastOMA (with
 appropriate reformatting). Any tool that can produce a tab-delimited file
 with these three columns will work.
+
+### Paralog reduction (optional)
+
+Multi-copy gene families often contain recent duplicates with nearly
+identical expression. `reduce_orthogroups()` merges these within each
+HOG using Ward.D2 hierarchical clustering on Pearson correlation
+distance (1 - r). Paralogs above `cor_threshold` (default 0.7) are
+replaced by their averaged expression. Subfunctionalized copies with
+distinct expression programs are preserved as separate clusters.
+
+```r
+reduced <- reduce_orthogroups(expr1, orthologs, cor_threshold = 0.7)
+net1 <- compute_network(reduced$expr_matrix, norm_method = "MR", density = 0.03)
+```
 
 ## Statistical methods
 
@@ -217,7 +232,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 
 | File | Purpose |
 |------|---------|
-| `R/orthologs.R` | `parse_orthologs()` |
+| `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
 | `R/network.R` | `compute_network()` -- correlation, MR/CLR, density threshold |
 | `R/comparison.R` | `compare_neighborhoods()` -- pair-level hypergeometric |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
@@ -228,6 +243,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 
 | File | Purpose |
 |------|---------|
+| `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging engine |
 | `src/mutual_rank.cpp` | MR normalization with column-major access |
 | `src/clr.cpp` | CLR normalization |
 | `src/density_threshold.cpp` | Quantile-based density thresholding |

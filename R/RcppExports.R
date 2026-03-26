@@ -207,3 +207,24 @@ compare_neighborhoods_cpp <- function(net1, net2, thr1, thr2, pair_sp1_idx, pair
     .Call(`_rcomplex_compare_neighborhoods_cpp`, net1, net2, thr1, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores)
 }
 
+#' Reduce orthogroups by merging correlated paralogs
+#'
+#' For each HOG with multiple paralogs, computes pairwise Pearson correlation
+#' on the expression matrix, clusters with Ward.D2, and merges paralogs
+#' whose correlation exceeds \code{cor_threshold} into a single averaged
+#' representative.
+#'
+#' @param expr Numeric matrix (genes x samples). Row order matches gene_ids.
+#' @param hog_members List of integer vectors. Each element contains 1-indexed
+#'   row positions in \code{expr} for genes belonging to one HOG.
+#' @param non_hog_idx Integer vector of 1-indexed row positions for genes
+#'   not assigned to any HOG (kept as-is).
+#' @param cor_threshold Pearson correlation threshold for merging (default 0.7).
+#' @return List with: expr_matrix (reduced matrix), out_row_source (1-indexed
+#'   original row for each output row), map_from / map_to (1-indexed gene
+#'   mapping), n_original, n_reduced, n_merged.
+#' @keywords internal
+reduce_orthogroups_cpp <- function(expr, hog_members, non_hog_idx, cor_threshold) {
+    .Call(`_rcomplex_reduce_orthogroups_cpp`, expr, hog_members, non_hog_idx, cor_threshold)
+}
+
