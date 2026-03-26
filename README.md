@@ -108,6 +108,7 @@ stability <- clique_stability(
 | `classify_modules()` | Three-tier module conservation classification |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch decomposition |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
+| `clique_hubs()` | Rank genes by recurrence across trait-exclusive cliques |
 
 ## Ortholog file format
 
