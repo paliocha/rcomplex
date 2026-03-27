@@ -54,7 +54,7 @@
 <li>
 <strong>Module-level</strong>: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests</li>
 <li>
-<strong>Clique-level</strong>: C++ Bron-Kerbosch clique detection, leave-k-out jackknife stability for trait-exclusive cliques, hub gene identification</li>
+<strong>Clique-level</strong>: C++ Bron-Kerbosch / Tomita clique detection, leave-k-out jackknife stability for trait-exclusive cliques, hub gene identification</li>
 </ul><p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
 </div>
 <div class="section level2">
@@ -116,9 +116,9 @@
 </tr><tr class="even"><td><code>src/reduce_orthogroups.cpp</code></td>
 <td>Ward.D2 paralog merging</td>
 </tr><tr class="odd"><td><code>src/coclassification.cpp</code></td>
-<td>Co-classification matrix for consensus modules</td>
+<td>Co-classification matrix with per-pair null subtraction (Jeub et al. 2018)</td>
 </tr><tr class="even"><td><code>src/find_cliques_common.h</code></td>
-<td>Shared clique primitives (BK, backtracking, trait, Jaccard)</td>
+<td>Shared clique primitives (BK/Tomita, backtracking, trait, Jaccard)</td>
 </tr><tr class="odd"><td><code>src/find_cliques.cpp</code></td>
 <td>C++ clique detection wrapper</td>
 </tr><tr class="even"><td><code>src/find_cliques_stability.cpp</code></td>
@@ -167,8 +167,8 @@
 <p>Fisher’s method is anti-conservative for multi-copy HOGs (correlated tests). <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> permutes gene identities instead.</p>
 </div>
 <div class="section level3">
-<h3 id="adaptive-consensus-module-detection">Adaptive consensus module detection<a class="anchor" aria-label="anchor" href="#adaptive-consensus-module-detection"></a></h3>
-<p>Multi-resolution Leiden sweep + Jeub-inspired adaptive thresholding. Subtracts expected co-classification under random assignment (E_k = sum_m(s_m/N)²), discounting mega-modules at low resolutions.</p>
+<h3 id="iterative-consensus-module-detection">Iterative consensus module detection<a class="anchor" aria-label="anchor" href="#iterative-consensus-module-detection"></a></h3>
+<p>Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-pair null subtraction: E(i,j) = (1/K) sum_k (s_m(i)/N)(s_m(j)/N), not a scalar mean. Iterates co-classification → Leiden sweep on consensus graph until all resolutions converge (ARI &gt; 0.999).</p>
 </div>
 <div class="section level3">
 <h3 id="build-system">Build system<a class="anchor" aria-label="anchor" href="#build-system"></a></h3>

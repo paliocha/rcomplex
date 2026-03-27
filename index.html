@@ -77,7 +77,7 @@
 <li>
 <strong>Clique level</strong> – Which fully connected subsets of ortholog groups are conserved, and how robust is their trait exclusivity to species removal?</li>
 </ul>
-<p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em> (2014)</a>, extended with permutation-based HOG-level testing, module detection via Leiden / Infomap / Stochastic Block Model, C++ clique detection with Bron-Kerbosch decomposition, and leave-k-out jackknife stability analysis.</p>
+<p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em> (2014)</a>, extended with permutation-based HOG-level testing, iterative multi-resolution consensus modules (Jeub <em>et al.</em>, 2018), C++ clique detection with Bron-Kerbosch / Tomita pivoting, and leave-k-out jackknife stability analysis.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -118,9 +118,10 @@
 <code class="sourceCode R"><span><span class="co"># Detect modules (single resolution)</span></span>
 <span><span class="va">mod1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">net1</span>, method <span class="op">=</span> <span class="st">"leiden"</span>, resolution <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Or: multi-resolution consensus (Lancichinetti &amp; Fortunato, 2012)</span></span>
+<span><span class="co"># Or: iterative multi-resolution consensus (Jeub et al., 2018)</span></span>
 <span><span class="va">mod1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">net1</span>, resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span><span class="co"># mod1$resolution_scan shows n_modules, modularity, ARI at each resolution</span></span>
+<span><span class="co"># mod1$params$n_consensus_iterations shows how many iterations until convergence</span></span>
 <span></span>
 <span><span class="va">mod2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">net2</span>, resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span></span>
@@ -134,7 +135,7 @@
 <h3 id="clique-level-analysis">Clique-level analysis<a class="anchor" aria-label="anchor" href="#clique-level-analysis"></a>
 </h3>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Find conserved cliques (C++ Bron-Kerbosch + backtracking)</span></span>
+<code class="sourceCode R"><span><span class="co"># Find conserved cliques (C++ Bron-Kerbosch / Tomita pivoting + backtracking)</span></span>
 <span><span class="co"># Edges come from summarize_comparison() with q-values</span></span>
 <span><span class="va">cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/find_cliques.html">find_cliques</a></span><span class="op">(</span><span class="va">edges</span>, <span class="va">target_species</span>, min_species <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
 <span></span>
@@ -193,7 +194,7 @@
 </tr>
 <tr class="odd">
 <td><code><a href="reference/detect_modules.html">detect_modules()</a></code></td>
-<td>Community detection (Leiden / Infomap / SBM); multi-resolution consensus</td>
+<td>Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus</td>
 </tr>
 <tr class="even">
 <td><code><a href="reference/compare_modules.html">compare_modules()</a></code></td>
@@ -205,7 +206,7 @@
 </tr>
 <tr class="even">
 <td><code><a href="reference/find_cliques.html">find_cliques()</a></code></td>
-<td>C++ clique detection via Bron-Kerbosch decomposition</td>
+<td>C++ clique detection via Bron-Kerbosch with Tomita pivoting</td>
 </tr>
 <tr class="odd">
 <td><code><a href="reference/clique_stability.html">clique_stability()</a></code></td>
@@ -273,6 +274,19 @@
 <p>Besag &amp; Clifford (1991) adaptive stopping terminates early once enough exceedances are observed, and Liang (2016) discrete q-values handle the non-uniform null distribution that adaptive stopping produces.</p>
 </div>
 <div class="section level3">
+<h3 id="multi-resolution-consensus-modules">Multi-resolution consensus modules<a class="anchor" aria-label="anchor" href="#multi-resolution-consensus-modules"></a>
+</h3>
+<p>When <code><a href="reference/detect_modules.html">detect_modules()</a></code> receives a vector of resolutions, it runs iterative multi-resolution consensus clustering (Jeub <em>et al.</em>, 2018):</p>
+<ol style="list-style-type: decimal">
+<li>Run Leiden at each resolution on the original network.</li>
+<li>Build an N x N co-classification matrix C (fraction of resolutions placing each gene pair in the same module).</li>
+<li>Subtract the per-pair expected co-classification under random assignment: E(i,j) = (1/K) sum_k (s_m(i)/N) * (s_m(j)/N), keeping only excess signal above chance.</li>
+<li>Run Leiden at all resolutions on the thresholded consensus graph.</li>
+<li>Repeat from step 2 until all resolutions yield the same partition (ARI &gt; 0.999), or <code>max_consensus_iter</code> is reached.</li>
+</ol>
+<p>The per-pair null subtraction (step 3) replaces the naive scalar threshold that over-retains edges from low-resolution mega-modules. Re-running the full resolution sweep on the consensus graph (step 4) avoids the resolution limit that afflicts single-resolution Leiden on dense graphs (Fortunato &amp; Barthelemy, 2007).</p>
+</div>
+<div class="section level3">
 <h3 id="module-comparison">Module comparison<a class="anchor" aria-label="anchor" href="#module-comparison"></a>
 </h3>
 <p><code><a href="reference/compare_modules.html">compare_modules()</a></code> supports two methods:</p>
@@ -310,7 +324,11 @@
 <p><code><a href="reference/find_cliques.html">find_cliques()</a></code> uses a two-level decomposition to find conserved cliques across species within each ortholog group:</p>
 <ol style="list-style-type: decimal">
 <li>
-<strong>Species-level</strong>: Bron-Kerbosch with pivoting (Bron &amp; Kerbosch, 1973; Tomita <em>et al.</em>, 2006) on the small species adjacency graph (at most 16 nodes) to find all maximal species cliques.</li>
+<strong>Species-level</strong>: Bron-Kerbosch with Tomita pivoting (Tomita <em>et al.</em>,
+<ol start="2006" style="list-style-type: decimal">
+<li>on the species adjacency graph (at most 16 nodes) to enumerate all maximal species cliques. The pivot is chosen as the vertex in P ∪ X maximising |N(u) ∩ P|, giving worst-case O(3^(n/3)) time.</li>
+</ol>
+</li>
 <li>
 <strong>Gene-level</strong>: Backtracking search assigns one gene per species, minimising mean q-value across all C(k, 2) edges. Early pruning rejects partial assignments where any required edge is missing.</li>
 </ol>
@@ -402,7 +420,7 @@
 </tr>
 <tr class="even">
 <td><code>src/coclassification.cpp</code></td>
-<td>Co-classification matrix engine for consensus modules</td>
+<td>Co-classification matrix with per-pair null subtraction</td>
 </tr>
 <tr class="odd">
 <td><code>src/mutual_rank.cpp</code></td>
@@ -434,7 +452,7 @@
 </tr>
 <tr class="even">
 <td><code>src/find_cliques_common.h</code></td>
-<td>Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation)</td>
+<td>Shared clique primitives (Bron-Kerbosch / Tomita, backtracking, Jaccard, trait)</td>
 </tr>
 <tr class="odd">
 <td><code>src/find_cliques.cpp</code></td>
@@ -464,6 +482,8 @@
 <li>Lancichinetti, A. &amp; Fortunato, S. (2012). Consensus clustering in complex networks. <em>Scientific Reports</em>, 2, 336. <a href="https://doi.org/10.1038/srep00336" class="external-link">doi:10.1038/srep00336</a>
 </li>
 <li>Jeub, L. G. S., Sporns, O. &amp; Fortunato, S. (2018). Multiresolution consensus clustering in networks. <em>Scientific Reports</em>, 8, 3259. <a href="https://doi.org/10.1038/s41598-018-21352-7" class="external-link">doi:10.1038/s41598-018-21352-7</a>
+</li>
+<li>Fortunato, S. &amp; Barthelemy, M. (2007). Resolution limit in community detection. <em>PNAS</em>, 104(1), 36–41. <a href="https://doi.org/10.1073/pnas.0605965104" class="external-link">doi:10.1073/pnas.0605965104</a>
 </li>
 <li>Bron, C. &amp; Kerbosch, J. (1973). Algorithm 457: finding all cliques of an undirected graph. <em>Communications of the ACM</em>, 16(9), 575–577. <a href="https://doi.org/10.1145/362342.362367" class="external-link">doi:10.1145/362342.362367</a>
 </li>

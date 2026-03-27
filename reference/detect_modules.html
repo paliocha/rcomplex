@@ -61,7 +61,8 @@ the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).</p>
 <span>  nb_trials <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  consensus_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="fl">1L</span></span>
+<span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  max_consensus_iter <span class="op">=</span> <span class="fl">10L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -106,16 +107,23 @@ other methods.</p></dd>
 
 <dt id="arg-consensus-threshold">consensus_threshold<a class="anchor" aria-label="anchor" href="#arg-consensus-threshold"></a></dt>
 <dd><p>Threshold for consensus mode. <code>NULL</code>
-(default) uses adaptive thresholding: subtracts the expected
-co-classification under random assignment (Jeub et al., 2018),
-keeping only excess signal. A numeric value in (0, 1) applies a fixed
-threshold (pairs co-classified in fewer than this fraction are dropped).</p></dd>
+(default) uses iterative adaptive thresholding per Jeub et al. (2018):
+subtracts the per-pair expected co-classification under random assignment
+and iterates until the partition converges. A numeric value in (0, 1)
+applies a fixed threshold without iteration (single pass).</p></dd>
 
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
 <dd><p>Number of parallel cores for consensus mode (default 1).
 Uses a PSOCK cluster (<code><a href="https://rdrr.io/r/parallel/clusterApply.html" class="external-link">parallel::parLapply()</a></code>) for fork-safe
 parallelism (compatible with prior torch/CUDA initialization).</p></dd>
+
+
+<dt id="arg-max-consensus-iter">max_consensus_iter<a class="anchor" aria-label="anchor" href="#arg-max-consensus-iter"></a></dt>
+<dd><p>Maximum number of consensus iterations for
+adaptive mode (<code>consensus_threshold = NULL</code>). Default 10.
+Typically converges in 2–5 iterations. Ignored when
+<code>consensus_threshold</code> is numeric.</p></dd>
 
 </dl></div>
     <div id="value">
@@ -144,11 +152,14 @@ parallelism (compatible with prior torch/CUDA initialization).</p></dd>
 
 </dl><p>When <code>resolution</code> is a vector, the output also includes:</p><dl><dt>resolution_scan</dt>
 <dd><p>Data frame with columns <code>resolution</code>,
-<code>n_modules</code>, <code>modularity</code>, and <code>ari_next</code> (Adjusted
-Rand Index with the next resolution; NA for the last).</p></dd>
+<code>n_modules</code>, <code>modularity</code>, <code>ari_next</code> (Adjusted
+Rand Index with the next resolution; NA for the last), and
+<code>expected_coclassification</code> (per-resolution expected scalar).</p></dd>
 
 
-</dl></div>
+</dl><p>The <code>params</code> list includes <code>n_consensus_iterations</code>
+(number of iterations until convergence; 0 for fixed threshold).</p>
+    </div>
     <div id="methods">
     <h2>Methods</h2>
 
