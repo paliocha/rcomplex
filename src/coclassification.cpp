@@ -27,7 +27,8 @@ Rcpp::List build_coclassification_cpp(
 {
     int K = memberships.size();
     arma::mat C(n_genes, n_genes, arma::fill::zeros);
-    arma::mat E(n_genes, n_genes, arma::fill::zeros);
+    arma::mat E;
+    if (return_excess) E.zeros(n_genes, n_genes);
     Rcpp::NumericVector expected_vec(K);
 
     double inv_n = 1.0 / n_genes;
@@ -59,10 +60,12 @@ Rcpp::List build_coclassification_cpp(
             if (s < 2) continue;
             for (int bi = 0; bi < s; ++bi) {
                 double* col_c = C.colptr(mod[bi]);
-                double* col_e = E.colptr(mod[bi]);
-                for (int ai = 0; ai < s; ++ai) {
+                for (int ai = 0; ai < s; ++ai)
                     col_c[mod[ai]] += 1.0;
-                    col_e[mod[ai]] += frac_sq;
+                if (return_excess) {
+                    double* col_e = E.colptr(mod[bi]);
+                    for (int ai = 0; ai < s; ++ai)
+                        col_e[mod[ai]] += frac_sq;
                 }
             }
         }
@@ -74,7 +77,7 @@ Rcpp::List build_coclassification_cpp(
 
     if (return_excess) {
         E *= inv_K;
-        // Excess = clamp(C - E, 0, 1) computed in-place, no temporary
+        // Excess = max(C - E, 0) in-place, no temporary
         C -= E;
         E.reset();
         C.transform([](double val) { return val < 0.0 ? 0.0 : val; });
@@ -83,7 +86,6 @@ Rcpp::List build_coclassification_cpp(
             Named("expected") = expected_vec
         );
     } else {
-        E.reset();
         return Rcpp::List::create(
             Named("coclassification") = C,
             Named("expected") = expected_vec
