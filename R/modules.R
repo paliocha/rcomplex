@@ -37,8 +37,8 @@
 #'   keeping only excess signal. A numeric value in (0, 1) applies a fixed
 #'   threshold (pairs co-classified in fewer than this fraction are dropped).
 #' @param n_cores Number of parallel cores for consensus mode (default 1).
-#'   Uses \code{parallel::mclapply()} to run Leiden at multiple resolutions
-#'   concurrently. Effective on Unix/Linux; falls back to serial on Windows.
+#'   Uses a PSOCK cluster (\code{parallel::parLapply()}) for fork-safe
+#'   parallelism (compatible with prior torch/CUDA initialization).
 #'
 #' @return A list with components:
 #'   \describe{
@@ -237,7 +237,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                           n_iterations = n_iterations, seed = seed))
   }
 
-  # Run Leiden at each resolution (parallel on Unix via fork)
+  # Run Leiden at each resolution
   run_one <- function(res) {
     comm <- igraph::cluster_leiden(
       g,
@@ -252,8 +252,19 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
          quality = igraph::modularity(g, mem))
   }
 
-  results <- parallel::mclapply(resolutions, run_one,
-                                mc.cores = n_cores)
+  if (n_cores > 1L) {
+    cl <- parallel::makePSOCKcluster(n_cores)
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    results <- parallel::parLapply(cl, resolutions, run_one)
+  } else {
+    results <- lapply(resolutions, run_one)
+  }
+
+  failed <- vapply(results, is.null, logical(1))
+  if (any(failed)) {
+    stop("Parallel workers returned NULL at resolutions: ",
+         paste(resolutions[failed], collapse = ", "))
+  }
 
   memberships <- lapply(results, `[[`, "mem")
   scan_n_modules <- vapply(results, `[[`, integer(1), "n_mod")

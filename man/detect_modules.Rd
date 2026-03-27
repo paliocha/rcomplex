@@ -45,8 +45,8 @@ keeping only excess signal. A numeric value in (0, 1) applies a fixed
 threshold (pairs co-classified in fewer than this fraction are dropped).}
 
 \item{n_cores}{Number of parallel cores for consensus mode (default 1).
-Uses \code{parallel::mclapply()} to run Leiden at multiple resolutions
-concurrently. Effective on Unix/Linux; falls back to serial on Windows.}
+Uses a PSOCK cluster (\code{parallel::parLapply()}) for fork-safe
+parallelism (compatible with prior torch/CUDA initialization).}
 }
 \value{
 A list with components:
