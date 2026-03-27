@@ -31,10 +31,11 @@
 #' @param nb_trials Number of Infomap attempts; best result is kept
 #'   (default 10). Ignored for other methods.
 #' @param seed Random seed for reproducibility (default `NULL`).
-#' @param consensus_threshold Co-classification threshold for consensus mode
-#'   (default 0.5). Only used when \code{resolution} is a vector. Gene pairs
-#'   co-classified in fewer than this fraction of resolutions are not connected
-#'   in the consensus graph.
+#' @param consensus_threshold Threshold for consensus mode. \code{NULL}
+#'   (default) uses adaptive thresholding: subtracts the expected
+#'   co-classification under random assignment (Jeub et al., 2018),
+#'   keeping only excess signal. A numeric value in (0, 1) applies a fixed
+#'   threshold (pairs co-classified in fewer than this fraction are dropped).
 #' @param n_cores Number of parallel cores for consensus mode (default 1).
 #'   Uses \code{parallel::mclapply()} to run Leiden at multiple resolutions
 #'   concurrently. Effective on Unix/Linux; falls back to serial on Windows.
@@ -68,6 +69,10 @@
 #' Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in complex
 #' networks. *Scientific Reports*, 2, 336. \doi{10.1038/srep00336}
 #'
+#' Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
+#' consensus clustering in networks. *Scientific Reports*, 8, 3259.
+#' \doi{10.1038/s41598-018-21352-7}
+#'
 #' @export
 detect_modules <- function(net,
                            method = c("leiden", "infomap", "sbm"),
@@ -76,7 +81,7 @@ detect_modules <- function(net,
                            n_iterations = 2L,
                            nb_trials = 10L,
                            seed = NULL,
-                           consensus_threshold = 0.5,
+                           consensus_threshold = NULL,
                            n_cores = 1L) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
@@ -192,9 +197,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                                      objective_function, n_iterations, seed,
                                      n_cores = 1L) {
   # Validate threshold
-
-  if (consensus_threshold <= 0 || consensus_threshold >= 1) {
-    stop("consensus_threshold must be in (0, 1)")
+  if (!is.null(consensus_threshold)) {
+    if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
+        consensus_threshold >= 1)
+      stop("consensus_threshold must be NULL (adaptive) or numeric in (0, 1)")
   }
 
   if (!is.list(net) || is.null(net$network)) {
@@ -261,22 +267,29 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     )
   }
 
+  # Build co-classification matrix (C++) and adaptive threshold
+  cc_result <- build_coclassification_cpp(memberships, n_genes)
+  coclassif <- cc_result$coclassification
+  dimnames(coclassif) <- list(genes, genes)
+
   resolution_scan <- data.frame(
     resolution = resolutions,
     n_modules = scan_n_modules,
     modularity = scan_modularity,
     ari_next = scan_ari_next,
+    expected_coclassification = cc_result$expected,
     stringsAsFactors = FALSE
   )
 
-  # Build co-classification matrix: C[i,j] = fraction of resolutions
-  # where genes i and j share a module.
-  coclassif <- build_coclassification(memberships, n_genes)
-  dimnames(coclassif) <- list(genes, genes)
-
-  # Threshold co-classification: zero out pairs below threshold
-  consensus_adj <- coclassif
-  consensus_adj[consensus_adj < consensus_threshold] <- 0
+  # Apply threshold: adaptive (NULL) or fixed (numeric)
+  if (is.null(consensus_threshold)) {
+    # Adaptive: excess co-classification above random expectation
+    consensus_adj <- coclassif - cc_result$adaptive_threshold
+    consensus_adj[consensus_adj < 0] <- 0
+  } else {
+    consensus_adj <- coclassif
+    consensus_adj[consensus_adj < consensus_threshold] <- 0
+  }
   diag(consensus_adj) <- 0
 
   # Build consensus graph and run final Leiden
@@ -315,6 +328,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     params = list(
       resolutions = resolutions,
       consensus_threshold = consensus_threshold,
+      adaptive_threshold = cc_result$adaptive_threshold,
       objective_function = objective_function,
       n_resolutions = n_res,
       seed = seed
@@ -323,24 +337,6 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   )
 }
 
-
-#' Build co-classification matrix from multiple partitions
-#' @param memberships List of integer membership vectors (same length N each)
-#' @param n_genes Number of genes (N)
-#' @return N x N numeric matrix with entries in [0, 1]
-#' @noRd
-build_coclassification <- function(memberships, n_genes) {
-  K <- length(memberships)
-  C <- matrix(0, n_genes, n_genes)
-  for (k in seq_len(K)) {
-    for (mod in split(seq_len(n_genes), memberships[[k]])) {
-      if (length(mod) > 1L)
-        C[mod, mod] <- C[mod, mod] + 1
-    }
-  }
-  diag(C) <- K
-  C / K
-}
 
 
 #' Compare co-expression modules across species

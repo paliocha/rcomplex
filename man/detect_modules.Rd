@@ -12,7 +12,7 @@ detect_modules(
   n_iterations = 2L,
   nb_trials = 10L,
   seed = NULL,
-  consensus_threshold = 0.5,
+  consensus_threshold = NULL,
   n_cores = 1L
 )
 }
@@ -38,10 +38,11 @@ other methods.}
 
 \item{seed}{Random seed for reproducibility (default \code{NULL}).}
 
-\item{consensus_threshold}{Co-classification threshold for consensus mode
-(default 0.5). Only used when \code{resolution} is a vector. Gene pairs
-co-classified in fewer than this fraction of resolutions are not connected
-in the consensus graph.}
+\item{consensus_threshold}{Threshold for consensus mode. \code{NULL}
+(default) uses adaptive thresholding: subtracts the expected
+co-classification under random assignment (Jeub et al., 2018),
+keeping only excess signal. A numeric value in (0, 1) applies a fixed
+threshold (pairs co-classified in fewer than this fraction are dropped).}
 
 \item{n_cores}{Number of parallel cores for consensus mode (default 1).
 Uses \code{parallel::mclapply()} to run Leiden at multiple resolutions
@@ -96,4 +97,8 @@ networks reveal community structure. \emph{PNAS}, 105(4), 1118--1123.
 
 Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in complex
 networks. \emph{Scientific Reports}, 2, 336. \doi{10.1038/srep00336}
+
+Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
+consensus clustering in networks. \emph{Scientific Reports}, 8, 3259.
+\doi{10.1038/s41598-018-21352-7}
 }

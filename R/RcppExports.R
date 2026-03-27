@@ -28,6 +28,25 @@ apply_clr_to_cor_cpp <- function(cor_matrix, n_cores = 1L) {
     .Call(`_rcomplex_apply_clr_to_cor_cpp`, cor_matrix, n_cores)
 }
 
+#' Build co-classification matrix and compute adaptive threshold
+#'
+#' For each of K resolution partitions, counts how often each gene pair
+#' is assigned to the same module. Returns the co-classification frequency
+#' matrix and per-resolution expected co-classification under random
+#' assignment (for adaptive thresholding per Jeub et al. 2018).
+#'
+#' @param memberships List of K IntegerVectors (1-based module IDs from
+#'   igraph, each length N)
+#' @param n_genes Number of genes (N)
+#' @return List with: coclassification (N x N matrix, entries in
+#'   0 to 1 range), expected (length-K numeric vector of per-resolution
+#'   expected co-classification), adaptive_threshold (scalar = mean of
+#'   expected)
+#' @keywords internal
+build_coclassification_cpp <- function(memberships, n_genes) {
+    .Call(`_rcomplex_build_coclassification_cpp`, memberships, n_genes)
+}
+
 #' Compute density threshold from a symmetric matrix
 #'
 #' Extracts the upper triangle (excluding diagonal) and finds the value at

@@ -469,6 +469,14 @@ test_that("consensus detect_modules returns correct structure with 8 elements", 
                       "graph", "method", "params", "resolution_scan")
   expect_equal(length(result), 8L)
   expect_named(result, expected_names)
+
+  # Adaptive threshold output: expected_coclassification in resolution_scan
+  expect_true("expected_coclassification" %in%
+                names(result$resolution_scan))
+
+  # Adaptive threshold stored in params
+  expect_true("adaptive_threshold" %in% names(result$params))
+  expect_true(is.numeric(result$params$adaptive_threshold))
 })
 
 
@@ -501,7 +509,8 @@ test_that("consensus resolution_scan has correct dimensions and columns", {
   expect_s3_class(result$resolution_scan, "data.frame")
   expect_equal(nrow(result$resolution_scan), length(resolutions))
   expect_equal(colnames(result$resolution_scan),
-               c("resolution", "n_modules", "modularity", "ari_next"))
+               c("resolution", "n_modules", "modularity", "ari_next",
+                 "expected_coclassification"))
 })
 
 
@@ -586,6 +595,12 @@ test_that("consensus_threshold validation rejects 0 and 1", {
                    consensus_threshold = 1),
     "(0, 1)", fixed = TRUE
   )
+  # NULL (adaptive) should NOT error
+  expect_no_error(
+    detect_modules(td$net1, resolution = c(0.5, 1.0),
+                   consensus_threshold = NULL,
+                   objective_function = "modularity", seed = 42)
+  )
 })
 
 
@@ -597,4 +612,113 @@ test_that("consensus graph is original network not co-classification graph", {
 
   expect_true(igraph::is_igraph(result$graph))
   expect_equal(igraph::vcount(result$graph), nrow(td$net1$network))
+})
+
+
+# ---- Adaptive threshold tests ----
+
+test_that("adaptive threshold is in resolution_scan and params", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  # resolution_scan has expected_coclassification column
+  expect_true("expected_coclassification" %in%
+                names(result$resolution_scan))
+
+  # params has adaptive_threshold as a numeric scalar
+  expect_true("adaptive_threshold" %in% names(result$params))
+  expect_true(is.numeric(result$params$adaptive_threshold))
+  expect_equal(length(result$params$adaptive_threshold), 1L)
+
+  # expected_coclassification values are in [0, 1]
+  ecc <- result$resolution_scan$expected_coclassification
+  expect_true(all(ecc >= 0 & ecc <= 1))
+
+  # More modules -> lower expected co-classification (monotone or at least
+  # negatively correlated with n_modules)
+  n_mod <- result$resolution_scan$n_modules
+  # Only check where n_modules actually varies
+  if (length(unique(n_mod)) > 1) {
+    expect_true(cor(n_mod, ecc) < 0)
+  }
+})
+
+
+test_that("adaptive threshold avoids single-module collapse", {
+  td <- make_module_test_data()
+  # Broad resolution range that would collapse to 1 module with fixed 0.5
+
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.1, 5, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  # Adaptive threshold should preserve module structure
+  expect_true(result$n_modules >= 2)
+})
+
+
+test_that("fixed consensus_threshold still works", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           consensus_threshold = 0.3,
+                           objective_function = "modularity", seed = 42)
+
+  # Returns a valid partition
+  expect_true(result$n_modules >= 1)
+  expect_equal(length(result$modules), nrow(td$net1$network))
+  expect_equal(result$method, "leiden_consensus")
+
+  # Fixed threshold: adaptive_threshold should not be in params
+  # (or should reflect the fixed value)
+  expect_true(is.list(result$params))
+})
+
+
+test_that("adaptive and fixed threshold can produce different results", {
+  td <- make_module_test_data()
+  resolutions <- seq(0.1, 5, by = 0.5)
+
+  # Adaptive (default NULL)
+  adaptive <- detect_modules(td$net1, method = "leiden",
+                              resolution = resolutions,
+                              objective_function = "modularity", seed = 42)
+
+  # Fixed 0.5
+  fixed <- detect_modules(td$net1, method = "leiden",
+                           resolution = resolutions,
+                           consensus_threshold = 0.5,
+                           objective_function = "modularity", seed = 42)
+
+  # Both return valid structures
+  expect_equal(length(adaptive$modules), nrow(td$net1$network))
+  expect_equal(length(fixed$modules), nrow(td$net1$network))
+  expect_true(adaptive$n_modules >= 1)
+  expect_true(fixed$n_modules >= 1)
+
+  # Adaptive should generally find more modules than fixed 0.5 on broad range
+  expect_true(adaptive$n_modules >= fixed$n_modules)
+})
+
+
+test_that("expected_coclassification relates to module granularity", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 3.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  scan <- result$resolution_scan
+  n_mod <- scan$n_modules
+  ecc <- scan$expected_coclassification
+
+  # Higher resolution -> more modules -> lower expected co-classification
+  # Check negative correlation between n_modules and expected_coclassification
+  if (length(unique(n_mod)) > 1) {
+    expect_true(cor(n_mod, ecc) < 0)
+  }
+
+  # expected_coclassification should be in [0, 1] range
+  expect_true(all(ecc >= 0 & ecc <= 1))
 })

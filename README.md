@@ -256,6 +256,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | File | Purpose |
 |------|---------|
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging engine |
+| `src/coclassification.cpp` | Co-classification matrix engine for consensus modules |
 | `src/mutual_rank.cpp` | MR normalization with column-major access |
 | `src/clr.cpp` | CLR normalization |
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
@@ -288,6 +289,9 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in
   complex networks. *Scientific Reports*, 2, 336.
   [doi:10.1038/srep00336](https://doi.org/10.1038/srep00336)
+- Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
+  consensus clustering in networks. *Scientific Reports*, 8, 3259.
+  [doi:10.1038/s41598-018-21352-7](https://doi.org/10.1038/s41598-018-21352-7)
 - Bron, C. & Kerbosch, J. (1973). Algorithm 457: finding all cliques of
   an undirected graph. *Communications of the ACM*, 16(9), 575--577.
   [doi:10.1145/362342.362367](https://doi.org/10.1145/362342.362367)
