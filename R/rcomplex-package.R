@@ -5,27 +5,19 @@
 #' testing conservation at gene, module, and clique levels.
 #'
 #' @section Main functions:
-#' \subsection{Preprocessing}{
-#' - [parse_orthologs()]: Parse ortholog group files (tab-delimited)
-#' - [reduce_orthogroups()]: Merge correlated paralogs within HOGs (Ward.D2)
-#' - [compute_network()]: Build co-expression network from expression matrix
-#' }
-#' \subsection{Gene / HOG-level analysis}{
-#' - [compare_neighborhoods()]: Test conservation of network neighborhoods
-#' - [summarize_comparison()]: Q-value correction and summary statistics
-#' - [permutation_hog_test()]: Permutation-based HOG-level conservation test
-#' }
-#' \subsection{Module-level analysis}{
-#' - [detect_modules()]: Community detection (Leiden / Infomap / SBM;
-#'   multi-resolution consensus)
-#' - [compare_modules()]: Cross-species module comparison
-#' - [classify_modules()]: Classify modules as conserved/species-specific
-#' }
-#' \subsection{Clique-level analysis}{
-#' - [find_cliques()]: C++ clique detection via Bron-Kerbosch decomposition
-#' - [clique_stability()]: Leave-k-out jackknife stability for trait-exclusive
-#'   cliques
-#' - [clique_hubs()]: Rank genes by recurrence across trait-exclusive cliques
+#' \describe{
+#'   \item{[parse_orthologs()]}{Parse ortholog group files}
+#'   \item{[reduce_orthogroups()]}{Merge correlated paralogs within HOGs}
+#'   \item{[compute_network()]}{Build co-expression network}
+#'   \item{[compare_neighborhoods()]}{Pair-level hypergeometric tests}
+#'   \item{[summarize_comparison()]}{Q-value correction and summary}
+#'   \item{[permutation_hog_test()]}{HOG-level permutation test}
+#'   \item{[detect_modules()]}{Community detection with consensus}
+#'   \item{[compare_modules()]}{Cross-species module comparison}
+#'   \item{[classify_modules()]}{Module conservation classification}
+#'   \item{[find_cliques()]}{C++ clique detection (Bron-Kerbosch)}
+#'   \item{[clique_stability()]}{Leave-k-out jackknife stability}
+#'   \item{[clique_hubs()]}{Hub genes across trait-exclusive cliques}
 #' }
 #'
 #' @docType package
