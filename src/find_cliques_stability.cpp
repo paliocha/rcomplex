@@ -76,10 +76,16 @@ Rcpp::List find_cliques_stability_cpp(
     const double* eff_ptr  = edge_eff.begin();
     const int* trait_ptr   = species_trait.begin();
 
-    // ---- Group edges by HOG ----
+    // ---- Group edges by HOG (target-species edges only) ----
+    // Pre-filter: keep only edges where both endpoints are target species.
+    // find_cliques_for_hog would filter per-call via species_mask, but
+    // pre-filtering avoids O(E_non_target) work per subset in the hot loop.
     std::vector<std::vector<int>> hog_edges(n_hogs);
-    for (int i = 0; i < ne; ++i)
-        hog_edges[hog_ptr[i]].push_back(i);
+    for (int i = 0; i < ne; ++i) {
+        if (((target_mask >> sp1_ptr[i]) & 1) &&
+            ((target_mask >> sp2_ptr[i]) & 1))
+            hog_edges[hog_ptr[i]].push_back(i);
+    }
 
     // ---- Unpack full_cliques ----
     IntegerVector fc_hog_idx = full_cliques["hog_idx"];

@@ -567,6 +567,48 @@ test_that("non-target removal trivially preserves cliques with static edges", {
 })
 
 
+test_that("multi-level stability with mixed target/non-target removals", {
+  # 3 target species (all connected), 2 non-target
+  edges <- data.frame(
+    gene1 = c("A1", "A1", "B1"),
+    gene2 = c("B1", "C1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C"),
+    hog = rep("HOG1", 3),
+    q.value = rep(0.01, 3),
+    effect_size = rep(2.0, 3),
+    type = rep("conserved", 3),
+    stringsAsFactors = FALSE
+  )
+  trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "annual",
+             SP_D = "perennial", SP_E = "perennial")
+  target <- c("SP_A", "SP_B", "SP_C")
+  all_sp <- c("SP_A", "SP_B", "SP_C", "SP_D", "SP_E")
+
+  result <- clique_stability(edges, target, trait,
+                             all_species = all_sp,
+                             min_species = 2L, max_k = 2L)
+
+  # k=1: C(5,1) = 5 subsets, all testable (>= 2 targets remain), all stable
+  k1 <- result$stability[result$stability$k == 1, ]
+  expect_equal(nrow(k1), 1)
+  expect_equal(k1$n_subsets, 5L)
+  expect_equal(k1$stability_score, 1.0)
+
+  # k=2: C(5,2) = 10 subsets
+  # Mixed removals (1 target + 1 non-target): 3*2 = 6 subsets, 2 targets remain
+  # Two non-targets removed: C(2,2) = 1 subset, 3 targets remain
+  # Two targets removed: C(3,2) = 3 subsets, 1 target remains -> untestable
+  # Total testable: 6 + 1 = 7
+  k2 <- result$stability[result$stability$k == 2, ]
+  expect_equal(nrow(k2), 1)
+  expect_equal(k2$n_subsets, 7L)
+  expect_equal(k2$stability_score, 1.0)
+
+  expect_true(all(result$stability_class >= 2L))
+})
+
+
 test_that("all_species defaults to target_species (backward compat)", {
   edges <- make_stability_edges_binary()
   trait <- c(SP_A = "annual", SP_B = "annual",

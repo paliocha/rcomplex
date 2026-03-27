@@ -123,7 +123,7 @@ cor_rfast <- function(expr_matrix, method = "pearson") {
 #'   float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
 #'   normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
 #'   MPS, keep `use_torch = FALSE` here and use
-#'   `\link{permutation_hog_test}(use_torch = TRUE)` for the permutation
+#'   \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
 #'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
 #'
 #' @return A list with components:
