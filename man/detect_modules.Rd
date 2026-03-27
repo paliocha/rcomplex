@@ -12,7 +12,8 @@ detect_modules(
   n_iterations = 2L,
   nb_trials = 10L,
   seed = NULL,
-  consensus_threshold = 0.5
+  consensus_threshold = 0.5,
+  n_cores = 1L
 )
 }
 \arguments{
@@ -41,6 +42,10 @@ other methods.}
 (default 0.5). Only used when \code{resolution} is a vector. Gene pairs
 co-classified in fewer than this fraction of resolutions are not connected
 in the consensus graph.}
+
+\item{n_cores}{Number of parallel cores for consensus mode (default 1).
+Uses \code{parallel::mclapply()} to run Leiden at multiple resolutions
+concurrently. Effective on Unix/Linux; falls back to serial on Windows.}
 }
 \value{
 A list with components:

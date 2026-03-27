@@ -35,6 +35,9 @@
 #'   (default 0.5). Only used when \code{resolution} is a vector. Gene pairs
 #'   co-classified in fewer than this fraction of resolutions are not connected
 #'   in the consensus graph.
+#' @param n_cores Number of parallel cores for consensus mode (default 1).
+#'   Uses \code{parallel::mclapply()} to run Leiden at multiple resolutions
+#'   concurrently. Effective on Unix/Linux; falls back to serial on Windows.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -73,7 +76,8 @@ detect_modules <- function(net,
                            n_iterations = 2L,
                            nb_trials = 10L,
                            seed = NULL,
-                           consensus_threshold = 0.5) {
+                           consensus_threshold = 0.5,
+                           n_cores = 1L) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
 
@@ -83,7 +87,7 @@ detect_modules <- function(net,
       stop("Consensus mode (vector resolution) only supported for method = \"leiden\"")
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
-      objective_function, n_iterations, seed))
+      objective_function, n_iterations, seed, as.integer(n_cores)))
   }
 
   n_iterations <- as.integer(n_iterations)
@@ -185,7 +189,8 @@ detect_modules <- function(net,
 #'
 #' @noRd
 detect_modules_consensus <- function(net, resolutions, consensus_threshold,
-                                     objective_function, n_iterations, seed) {
+                                     objective_function, n_iterations, seed,
+                                     n_cores = 1L) {
   # Validate threshold
 
   if (consensus_threshold <= 0 || consensus_threshold >= 1) {
@@ -226,24 +231,27 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                           n_iterations = n_iterations, seed = seed))
   }
 
-  # Run Leiden at each resolution
-  memberships <- vector("list", n_res)
-  scan_n_modules <- integer(n_res)
-  scan_modularity <- numeric(n_res)
-
-  for (r in seq_len(n_res)) {
+  # Run Leiden at each resolution (parallel on Unix via fork)
+  run_one <- function(res) {
     comm <- igraph::cluster_leiden(
       g,
-      resolution = resolutions[r],
+      resolution = res,
       objective_function = objective_function,
       n_iterations = as.integer(n_iterations)
     )
     mem <- igraph::membership(comm)
     names(mem) <- igraph::V(g)$name
-    memberships[[r]] <- mem
-    scan_n_modules[r] <- length(unique(mem))
-    scan_modularity[r] <- igraph::modularity(g, mem)
+    list(mem = mem,
+         n_mod = length(unique(mem)),
+         quality = igraph::modularity(g, mem))
   }
+
+  results <- parallel::mclapply(resolutions, run_one,
+                                mc.cores = n_cores)
+
+  memberships <- lapply(results, `[[`, "mem")
+  scan_n_modules <- vapply(results, `[[`, integer(1), "n_mod")
+  scan_modularity <- vapply(results, `[[`, numeric(1), "quality")
 
   # ARI between consecutive resolutions
   scan_ari_next <- rep(NA_real_, n_res)
@@ -261,18 +269,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     stringsAsFactors = FALSE
   )
 
-  # Build co-classification matrix: fraction of resolutions where each gene
-  # pair was assigned to the same module
-  coclassif <- matrix(0, nrow = n_genes, ncol = n_genes,
-                       dimnames = list(genes, genes))
-  for (r in seq_len(n_res)) {
-    mem <- memberships[[r]]
-    for (mod_id in unique(mem)) {
-      idx <- which(mem == mod_id)
-      coclassif[idx, idx] <- coclassif[idx, idx] + 1
-    }
-  }
-  coclassif <- coclassif / n_res
+  # Build co-classification matrix: C[i,j] = fraction of resolutions
+  # where genes i and j share a module.
+  coclassif <- build_coclassification(memberships, n_genes)
+  dimnames(coclassif) <- list(genes, genes)
 
   # Threshold co-classification: zero out pairs below threshold
   consensus_adj <- coclassif
@@ -321,6 +321,25 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     ),
     resolution_scan = resolution_scan
   )
+}
+
+
+#' Build co-classification matrix from multiple partitions
+#' @param memberships List of integer membership vectors (same length N each)
+#' @param n_genes Number of genes (N)
+#' @return N x N numeric matrix with entries in [0, 1]
+#' @noRd
+build_coclassification <- function(memberships, n_genes) {
+  K <- length(memberships)
+  C <- matrix(0, n_genes, n_genes)
+  for (k in seq_len(K)) {
+    for (mod in split(seq_len(n_genes), memberships[[k]])) {
+      if (length(mod) > 1L)
+        C[mod, mod] <- C[mod, mod] + 1
+    }
+  }
+  diag(C) <- K
+  C / K
 }
 
 
