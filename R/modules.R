@@ -295,6 +295,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   }
 
   # ---- Build co-classification ----
+  # resolution_scan reflects the initial sweep only (not updated by iteration)
   cc_result <- build_coclassification_cpp(memberships, n_genes)
 
   resolution_scan <- data.frame(
@@ -308,6 +309,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 
   # ---- Consensus clustering ----
   n_consensus_iter <- 0L
+  # Save initial sweep for fallback if consensus graph becomes empty
+  initial_memberships <- memberships
 
   if (!is.null(consensus_threshold)) {
     # Fixed threshold: single pass, no iteration
@@ -322,9 +325,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 
     if (igraph::ecount(g_consensus) == 0L) {
       best_r <- which.max(scan_modularity)
-      membership <- memberships[[best_r]]
+      membership <- initial_memberships[[best_r]]
     } else {
-      # Run Leiden at all resolutions on consensus graph, pick best
       consensus_mems <- consensus_leiden_sweep(
         g_consensus, resolutions, objective_function, n_iterations, cl
       )
@@ -347,14 +349,18 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
         consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
       )
 
-      if (igraph::ecount(g_consensus) == 0L) break
+      # Empty consensus graph: fall back to best initial sweep partition
+      if (igraph::ecount(g_consensus) == 0L) {
+        memberships <- initial_memberships
+        break
+      }
 
-      # Re-run Leiden at all resolutions on consensus graph
       new_memberships <- consensus_leiden_sweep(
         g_consensus, resolutions, objective_function, n_iterations, cl
       )
 
-      # Convergence: all K partitions are ~identical
+      # Convergence: all K partitions are ~identical (vacuously true for
+      # n_res == 1, but that case is caught by the early return above)
       converged <- all(vapply(seq_len(n_res - 1L), function(r) {
         igraph::compare(new_memberships[[r]], new_memberships[[r + 1L]],
                         method = "adjusted.rand") > 0.999
@@ -364,7 +370,6 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       if (converged) break
     }
 
-    # Pick partition with best modularity on original graph
     membership <- pick_best_partition(memberships, g)
   }
 

@@ -59,11 +59,8 @@ Rcpp::List build_coclassification_cpp(
             double frac = static_cast<double>(s) * inv_n;
             double frac_sq = frac * frac;
             exp_k += frac_sq;
-            if (s == 1) {
-                C(mod[0], mod[0]) += 1.0;
-                E(mod[0], mod[0]) += frac_sq;
-                continue;
-            }
+            // Singletons only affect the diagonal, which is zeroed in R
+            if (s < 2) continue;
             for (int bi = 0; bi < s; ++bi) {
                 double* col_c = C.colptr(mod[bi]);
                 double* col_e = E.colptr(mod[bi]);
