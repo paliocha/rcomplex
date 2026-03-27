@@ -401,7 +401,12 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 }
 
 
-#' Run Leiden at all resolutions on a graph (internal)
+#' Run Leiden at all resolutions on a consensus graph (internal)
+#'
+#' Always uses modularity objective regardless of the original objective.
+#' Consensus graph weights are in [0, 1] (excess co-classification); CPM
+#' with resolution > 1 would make all edges repulsive, collapsing to
+#' singletons. Modularity is the correct objective per Jeub et al. (2018).
 #' @noRd
 consensus_leiden_sweep <- function(graph, resolutions, objective_function,
                                    n_iterations, cl = NULL) {
@@ -409,7 +414,7 @@ consensus_leiden_sweep <- function(graph, resolutions, objective_function,
     comm <- igraph::cluster_leiden(
       graph,
       resolution = res,
-      objective_function = objective_function,
+      objective_function = "modularity",
       n_iterations = as.integer(n_iterations)
     )
     mem <- igraph::membership(comm)
