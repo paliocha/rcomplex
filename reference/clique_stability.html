@@ -64,9 +64,10 @@ exclusivity is preserved.</p>
 <span>  <span class="va">edges</span>,</span>
 <span>  <span class="va">target_species</span>,</span>
 <span>  <span class="va">species_trait</span>,</span>
+<span>  all_species <span class="op">=</span> <span class="va">target_species</span>,</span>
 <span>  full_cliques <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  min_species <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">target_species</span><span class="op">)</span>,</span>
-<span>  max_k <span class="op">=</span> <span class="fl">3L</span>,</span>
+<span>  max_k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">all_species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span>,</span>
 <span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  jaccard_threshold <span class="op">=</span> <span class="fl">0.8</span>,</span>
 <span>  edge_type <span class="op">=</span> <span class="st">"conserved"</span>,</span>
@@ -83,14 +84,23 @@ exclusivity is preserved.</p>
 
 
 <dt id="arg-target-species">target_species<a class="anchor" aria-label="anchor" href="#arg-target-species"></a></dt>
-<dd><p>Character vector of species abbreviations.</p></dd>
+<dd><p>Character vector of species that define clique
+membership (e.g., the 4 annuals).</p></dd>
 
 
 <dt id="arg-species-trait">species_trait<a class="anchor" aria-label="anchor" href="#arg-species-trait"></a></dt>
 <dd><p>Named character or factor vector mapping species to
-trait groups. Names must include all <code>target_species</code>. Example:
-<code>c(SP_A = "annual", SP_B = "perennial")</code> or
-<code>c(SP_A = "tropical", SP_B = "temperate", SP_C = "arctic")</code>.</p></dd>
+trait groups. Names must include all <code>all_species</code>. Example:
+<code>c(SP_A = "annual", SP_B = "perennial")</code>.</p></dd>
+
+
+<dt id="arg-all-species">all_species<a class="anchor" aria-label="anchor" href="#arg-all-species"></a></dt>
+<dd><p>Character vector of ALL species in the analysis
+universe (default: <code>target_species</code>). Leave-k-out subsets are
+drawn from <code>all_species</code>. Must be a superset of
+<code>target_species</code>. When larger than <code>target_species</code>,
+removing a non-target species tests whether the clique signal is
+robust to changes in the broader phylogenetic context.</p></dd>
 
 
 <dt id="arg-full-cliques">full_cliques<a class="anchor" aria-label="anchor" href="#arg-full-cliques"></a></dt>
@@ -99,12 +109,15 @@ compute internally (default).</p></dd>
 
 
 <dt id="arg-min-species">min_species<a class="anchor" aria-label="anchor" href="#arg-min-species"></a></dt>
-<dd><p>Minimum species per clique
-(default: <code>length(target_species)</code>).</p></dd>
+<dd><p>Minimum species per clique in the full dataset
+(default: <code>length(target_species)</code>). During leave-k-out, reduced
+cliques require only 2 species (the minimum meaningful clique size);
+a clique is testable if at least 2 of its species remain active.</p></dd>
 
 
 <dt id="arg-max-k">max_k<a class="anchor" aria-label="anchor" href="#arg-max-k"></a></dt>
-<dd><p>Maximum number of species to leave out (default 3).</p></dd>
+<dd><p>Maximum number of species to leave out
+(default: <code>length(all_species) - 2</code>, leaving at least 2 species).</p></dd>
 
 
 <dt id="arg-max-genes-per-sp">max_genes_per_sp<a class="anchor" aria-label="anchor" href="#arg-max-genes-per-sp"></a></dt>
@@ -133,7 +146,8 @@ reduced-dataset cliques to full-dataset cliques (default 0.8).</p></dd>
 
 <dt>clique_disruption</dt>
 <dd><p>Data frame with columns: <code>species</code>,
-<code>trait_value</code>, <code>n_cliques_disrupted</code> (k=1 only)</p></dd>
+<code>trait_value</code>, <code>n_cliques_disrupted</code> (k=1 only).
+One row per species in <code>all_species</code>.</p></dd>
 
 <dt>stability_class</dt>
 <dd><p>Named integer vector: highest k at which
@@ -154,14 +168,21 @@ zone (tropical/temperate/arctic), or ploidy level (2n/4n/6n).</p><div class="sec
 <h3 id="how-it-works">How it works<a class="anchor" aria-label="anchor" href="#how-it-works"></a></h3>
 
 
-<p>For each combination of k species removed (k = 1, ..., max_k):</p><ol><li><p>All edges involving the removed species are dropped</p></li>
-<li><p>Full clique detection re-runs on the reduced edge set</p></li>
+<p>For each combination of k species removed from <code>all_species</code>
+(k = 1, ..., max_k):</p><ol><li><p>All edges involving the removed species are dropped</p></li>
+<li><p>Clique detection re-runs among remaining target species</p></li>
 <li><p>Each resulting clique is annotated by trait exclusivity</p></li>
 <li><p>Reduced cliques are matched to full-dataset cliques by Jaccard
 similarity of gene assignments (considering only non-removed species)</p></li>
 <li><p>For matched cliques, trait exclusivity preservation is checked</p></li>
-</ol><p>A clique is <em>stable at level k</em> if its trait exclusivity is preserved
-across ALL C(N, k) species-removal subsets where it remains testable.</p>
+</ol><p>A clique is <em>testable</em> in a subset if at least 2 of its species
+remain active. It is <em>stable at level k</em> if its trait exclusivity
+is preserved across ALL C(N, k) subsets where it is testable.</p>
+<p>When <code>all_species</code> is larger than <code>target_species</code>, subsets
+may remove non-target species. With static edges, removing a non-target
+species does not change target-species edges, so these subsets are
+trivially stable. This becomes meaningful when edge q-values are
+re-computed per subset (future extension).</p>
 </div>
 
 <div class="section">
@@ -169,8 +190,8 @@ across ALL C(N, k) species-removal subsets where it remains testable.</p>
 
 
 <p>The <code>sole_rep</code> column in the stability data frame is <code>TRUE</code> if
-this clique's trait value has only one species representative in the full
-target set, meaning removal of that species trivially breaks exclusivity.</p>
+this clique's trait value has only one target species representative,
+meaning removal of that species trivially breaks exclusivity.</p>
 </div>
 
 <div class="section">
@@ -187,6 +208,31 @@ via <code><a href="find_cliques.html">find_cliques</a></code>. You can also prec
 
     </div>
 
+    <div id="ref-examples">
+    <h2>Examples</h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="co"># Find annual-exclusive cliques stable across all 8 Poaceae species</span></span></span>
+<span class="r-in"><span><span class="va">annual_sp</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BDIS"</span>, <span class="st">"HVUL"</span>, <span class="st">"BMAX"</span>, <span class="st">"VBRO"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">perennial_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BSYL"</span>, <span class="st">"HJUB"</span>, <span class="st">"BMED"</span>, <span class="st">"FPRA"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">all_sp</span>       <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">annual_sp</span>, <span class="va">perennial_sp</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">trait</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"annual"</span>, <span class="st">"perennial"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, <span class="va">all_sp</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="va">cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="find_cliques.html">find_cliques</a></span><span class="op">(</span><span class="va">edges</span>, <span class="va">annual_sp</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">stab</span>    <span class="op">&lt;-</span> <span class="fu">clique_stability</span><span class="op">(</span><span class="va">edges</span>, <span class="va">annual_sp</span>, <span class="va">trait</span>,</span></span>
+<span class="r-in"><span>                            all_species <span class="op">=</span> <span class="va">all_sp</span>,</span></span>
+<span class="r-in"><span>                            full_cliques <span class="op">=</span> <span class="va">cliques</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># max_k defaults to 6 (= 8 - 2), testing k = 1..6</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Cliques surviving any single species dropout</span></span></span>
+<span class="r-in"><span><span class="va">k1</span> <span class="op">&lt;-</span> <span class="va">stab</span><span class="op">$</span><span class="va">stability</span><span class="op">[</span><span class="va">stab</span><span class="op">$</span><span class="va">stability</span><span class="op">$</span><span class="va">k</span> <span class="op">==</span> <span class="fl">1</span>, <span class="op">]</span></span></span>
+<span class="r-in"><span><span class="va">stable_cliques</span> <span class="op">&lt;-</span> <span class="va">cliques</span><span class="op">[</span><span class="va">k1</span><span class="op">$</span><span class="va">clique_idx</span><span class="op">[</span><span class="va">k1</span><span class="op">$</span><span class="va">stability_score</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="fl">1L</span>, <span class="op">]</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Multi-level: stability_class &gt;= 2 survives any pair of dropouts</span></span></span>
+<span class="r-in"><span><span class="va">deeply_stable</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span> <span class="op">&gt;=</span> <span class="fl">2</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top"><h2 data-toc-skip>Contents</h2>
