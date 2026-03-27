@@ -433,7 +433,6 @@ permutation_hog_test <- function(net1, net2, comparison,
   idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
 
   # Filter comparison to genes present in both networks — gene names may
-
   # not match after upstream merging/reduction of multi-copy orthologs.
   # NA indices from missing genes would cause index_put_ failures in torch
   # and undefined behavior in C++.

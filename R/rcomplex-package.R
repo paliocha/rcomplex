@@ -37,7 +37,6 @@
 ## usethis namespace: start
 #' @useDynLib rcomplex, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
-#' @importFrom igraph %--%
 #' @importFrom rlang .data .env
 #' @importFrom stats setNames
 #' @importFrom utils read.delim

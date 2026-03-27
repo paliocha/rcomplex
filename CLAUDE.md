@@ -18,7 +18,7 @@ Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106).
 Rscript -e 'Rcpp::compileAttributes()'
 Rscript -e 'devtools::document()'
 R CMD INSTALL .
-Rscript -e 'devtools::test()'    # 562 tests
+Rscript -e 'devtools::test()'
 R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 ```
 
