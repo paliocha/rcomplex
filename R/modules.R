@@ -330,7 +330,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       membership <- initial_memberships[[best_r]]
     } else {
       consensus_mems <- consensus_leiden_sweep(
-        g_consensus, resolutions, objective_function, n_iterations, cl
+        g_consensus, resolutions, n_iterations, cl
       )
       membership <- pick_best_partition(consensus_mems, g)
     }
@@ -360,7 +360,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       }
 
       new_memberships <- consensus_leiden_sweep(
-        g_consensus, resolutions, objective_function, n_iterations, cl
+        g_consensus, resolutions, n_iterations, cl
       )
 
       # Convergence: all K partitions are ~identical (vacuously true for
@@ -408,8 +408,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 #' with resolution > 1 would make all edges repulsive, collapsing to
 #' singletons. Modularity is the correct objective per Jeub et al. (2018).
 #' @noRd
-consensus_leiden_sweep <- function(graph, resolutions, objective_function,
-                                   n_iterations, cl = NULL) {
+consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
+                                   cl = NULL) {
   run_one <- function(res) {
     comm <- igraph::cluster_leiden(
       graph,
