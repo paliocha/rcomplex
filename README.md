@@ -200,7 +200,7 @@ The per-pair null subtraction (step 3) replaces the naive scalar
 threshold that over-retains edges from low-resolution mega-modules.
 Re-running the full resolution sweep on the consensus graph (step 4)
 avoids the resolution limit that afflicts single-resolution Leiden on
-dense graphs (Fortunato & Barthélémy, 2007).
+dense graphs (Fortunato & Barthélemy, 2007).
 
 ### Module comparison
 
@@ -316,7 +316,7 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
   consensus clustering in networks. *Scientific Reports*, 8, 3259.
   [doi:10.1038/s41598-018-21352-7](https://doi.org/10.1038/s41598-018-21352-7)
-- Fortunato, S. & Barthélémy, M. (2007). Resolution limit in community
+- Fortunato, S. & Barthélemy, M. (2007). Resolution limit in community
   detection. *PNAS*, 104(1), 36--41.
   [doi:10.1073/pnas.0605965104](https://doi.org/10.1073/pnas.0605965104)
 - Bron, C. & Kerbosch, J. (1973). Algorithm 457: finding all cliques of
