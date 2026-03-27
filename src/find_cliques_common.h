@@ -287,7 +287,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     for (int i = 0; i < n_edges_raw; ++i) {
         int idx = order[i];
         int64_t key = qval_pairs[idx].first;
-        double qv =qval_pairs[idx].second;
+        double qv = qval_pairs[idx].second;
         double eff = eff_pairs[idx].second;
 
         if (qval_sorted.empty() || qval_sorted.back().first != key) {
@@ -295,7 +295,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
             eff_sorted.push_back({key, eff});
         } else {
             // Duplicate key: keep the entry with smaller q-value
-            if (qv <qval_sorted.back().second) {
+            if (qv < qval_sorted.back().second) {
                 qval_sorted.back().second = qv;
                 eff_sorted.back().second = eff;
             }

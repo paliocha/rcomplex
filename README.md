@@ -249,7 +249,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | `R/comparison.R` | `compare_neighborhoods()` -- pair-level hypergeometric |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()` |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()` |
+| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_hubs()` |
 
 ### C++ layer (RcppArmadillo + OpenMP)
 
@@ -262,6 +262,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
+| `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
 | `src/module_jaccard_permutation.cpp` | Batched Jaccard permutation engine |
 | `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation) |
 | `src/find_cliques.cpp` | C++ clique detection wrapper |

@@ -1,4 +1,6 @@
-# --- Tests for find_coexpression_cliques() ---
+# --- Tests for find_coexpression_cliques() (deprecated, kept for reference) ---
+# Suppress deprecation warnings from find_coexpression_cliques
+fcc <- function(...) suppressWarnings(find_coexpression_cliques(...))
 
 test_that("simple 3-species clique found when all edges present", {
   edges <- data.frame(
@@ -12,7 +14,7 @@ test_that("simple 3-species clique found when all edges present", {
     stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result <- fcc(edges, c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(nrow(result), 1)
   expect_equal(result$hog, "HOG1")
@@ -36,7 +38,7 @@ test_that("incomplete graph returns 0 cliques", {
     stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result <- fcc(edges, c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(nrow(result), 0)
   expect_true("SP_A" %in% names(result))
@@ -57,7 +59,7 @@ test_that("multi-paralog HOG returns correct subset of cliques", {
     stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result <- fcc(edges, c("SP_A", "SP_B", "SP_C"))
 
 
   # Only A1-B1-C1 clique found (A2's edge to C1 is "n.s.")
@@ -77,7 +79,7 @@ test_that("multi-paralog HOG: both paralogs form cliques", {
     stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result <- fcc(edges, c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(nrow(result), 2)
   expect_setequal(result$SP_A, c("A1", "A2"))
@@ -95,7 +97,7 @@ test_that("multiple HOGs processed correctly", {
     stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result <- fcc(edges, c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(nrow(result), 2)
   expect_setequal(result$hog, c("HOG1", "HOG2"))
@@ -109,7 +111,7 @@ test_that("empty input returns empty result with correct columns", {
     effect_size = numeric(0), stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B"))
+  result <- fcc(edges, c("SP_A", "SP_B"))
 
   expect_equal(nrow(result), 0)
   expect_true(all(c("hog", "SP_A", "SP_B", "min_effect_size",
@@ -136,8 +138,8 @@ test_that("edge order independence: gene1/gene2 swap does not affect result", {
   edges2$species1[2] <- "SP_C"
   edges2$species2[2] <- "SP_A"
 
-  r1 <- find_coexpression_cliques(edges1, c("SP_A", "SP_B", "SP_C"))
-  r2 <- find_coexpression_cliques(edges2, c("SP_A", "SP_B", "SP_C"))
+  r1 <- fcc(edges1, c("SP_A", "SP_B", "SP_C"))
+  r2 <- fcc(edges2, c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(nrow(r1), 1)
   expect_equal(nrow(r2), 1)
@@ -158,7 +160,7 @@ test_that("effect size stats are correct", {
     stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result <- fcc(edges, c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(result$min_effect_size, 2.0)
   expect_equal(result$mean_effect_size, 4.0)
@@ -177,11 +179,11 @@ test_that("only specified edge_type is used", {
   )
 
   # Default edge_type = "conserved" should miss B1-C1 (diverged)
-  result_con <- find_coexpression_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result_con <- fcc(edges, c("SP_A", "SP_B", "SP_C"))
   expect_equal(nrow(result_con), 0)
 
   # Using both types should find the clique
-  result_both <- find_coexpression_cliques(
+  result_both <- fcc(
     edges, c("SP_A", "SP_B", "SP_C"),
     edge_type = c("conserved", "diverged")
   )
@@ -200,7 +202,7 @@ test_that("2-species cliques work", {
     stringsAsFactors = FALSE
   )
 
-  result <- find_coexpression_cliques(edges, c("SP_A", "SP_B"))
+  result <- fcc(edges, c("SP_A", "SP_B"))
 
   # A1-B1 and A2-B1 are both valid 2-species cliques
   expect_equal(nrow(result), 2)
@@ -211,7 +213,7 @@ test_that("2-species cliques work", {
 test_that("missing required columns raise error", {
   edges <- data.frame(gene1 = "A", gene2 = "B", stringsAsFactors = FALSE)
   expect_error(
-    find_coexpression_cliques(edges, c("SP_A", "SP_B")),
+    fcc(edges, c("SP_A", "SP_B")),
     "edges missing required columns"
   )
 })
@@ -224,7 +226,7 @@ test_that("fewer than 2 target species raises error", {
     stringsAsFactors = FALSE
   )
   expect_error(
-    find_coexpression_cliques(edges, "SP_A"),
+    fcc(edges, "SP_A"),
     "target_species must have at least 2 species"
   )
 })

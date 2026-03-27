@@ -3,11 +3,13 @@ Title: Comparative Co-Expression Network Analysis Across Species
 Version: 0.1.0
 Authors@R:
     person("Martin", "Paliocha", , "martin.paliocha@nmbu.no", role = c("aut", "cre"))
-Description: Compares gene co-expression networks across plant species by mapping
-    orthologous genes (via PLAZA ortholog groups), building co-expression networks
-    independently per species, then testing whether network neighborhoods are
-    significantly preserved using hypergeometric tests with q-value correction
-    (Storey, 2003) and effect sizes.
+Description: Compares gene co-expression networks across species by mapping
+    orthologous genes, building co-expression networks independently per species,
+    then testing conservation at gene, module, and clique levels. Includes
+    hypergeometric and permutation-based neighborhood tests, multi-resolution
+    consensus module detection (Leiden / Infomap / SBM), clique detection via
+    Bron-Kerbosch decomposition with leave-k-out jackknife stability analysis,
+    and hub gene identification.
     Based on Netotea et al. (2014) <doi:10.1186/1471-2164-15-106>.
 License: MIT + file LICENSE
 Encoding: UTF-8
@@ -23,6 +25,7 @@ Imports:
     DiscreteQvalue,
     qvalue,
     tidyr (>= 1.3.0),
+    parallel,
     rlang,
     stats,
     utils

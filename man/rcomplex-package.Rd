@@ -6,35 +6,35 @@
 \alias{rcomplex}
 \title{rcomplex: Comparative Co-Expression Network Analysis Across Species}
 \description{
-Compares gene co-expression networks across plant species by mapping
-orthologous genes, building co-expression networks independently per species,
-then testing whether network neighborhoods are significantly preserved using
-hypergeometric tests with q-value correction and effect sizes.
+Compares gene co-expression networks across species by mapping orthologous
+genes, building co-expression networks independently per species, then
+testing conservation at gene, module, and clique levels.
 }
 \section{Main functions}{
 
+\subsection{Preprocessing}{
 \itemize{
-\item \code{\link[=parse_orthologs]{parse_orthologs()}}: Parse PLAZA ortholog group files
+\item \code{\link[=parse_orthologs]{parse_orthologs()}}: Parse ortholog group files (tab-delimited)
+\item \code{\link[=reduce_orthogroups]{reduce_orthogroups()}}: Merge correlated paralogs within HOGs (Ward.D2)
 \item \code{\link[=compute_network]{compute_network()}}: Build co-expression network from expression matrix
+}
+\subsection{Gene / HOG-level analysis}{
 \item \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}: Test conservation of network neighborhoods
 \item \code{\link[=summarize_comparison]{summarize_comparison()}}: Q-value correction and summary statistics
 \item \code{\link[=permutation_hog_test]{permutation_hog_test()}}: Permutation-based HOG-level conservation test
-\item \code{\link[=detect_modules]{detect_modules()}}: Community detection in co-expression networks
+}
+\subsection{Module-level analysis}{
+\item \code{\link[=detect_modules]{detect_modules()}}: Community detection (Leiden / Infomap / SBM;
+multi-resolution consensus)
 \item \code{\link[=compare_modules]{compare_modules()}}: Cross-species module comparison
 \item \code{\link[=classify_modules]{classify_modules()}}: Classify modules as conserved/species-specific
 }
+\subsection{Clique-level analysis}{
+\item \code{\link[=find_cliques]{find_cliques()}}: C++ clique detection via Bron-Kerbosch decomposition
+\item \code{\link[=clique_stability]{clique_stability()}}: Leave-k-out jackknife stability for trait-exclusive
+cliques
+\item \code{\link[=clique_hubs]{clique_hubs()}}: Rank genes by recurrence across trait-exclusive cliques
 }
-
-\section{Typical workflow}{
-
-\enumerate{
-\item Parse ortholog groups with \code{\link[=parse_orthologs]{parse_orthologs()}}
-\item Build networks for each species with \code{\link[=compute_network]{compute_network()}}
-\item Compare neighborhoods with \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}
-\item Summarize results with \code{\link[=summarize_comparison]{summarize_comparison()}} or test HOG-level
-conservation with \code{\link[=permutation_hog_test]{permutation_hog_test()}}
-\item Optionally detect modules with \code{\link[=detect_modules]{detect_modules()}} and compare across
-species with \code{\link[=compare_modules]{compare_modules()}} and \code{\link[=classify_modules]{classify_modules()}}
 }
 }
 

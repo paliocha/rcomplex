@@ -7,25 +7,24 @@
 #include <vector>
 
 using namespace Rcpp;
-using namespace arma;
 
 // Ward.D2 clustering with early stopping at cut height h.
 // Input: unsquared Pearson distance matrix (1 - cor). Squares internally.
 // Returns: cluster assignments (contiguous 0..k-1) and number of clusters.
-static int ward_d2_cut(const mat& dist_unsq, double h, std::vector<int>& cid) {
+static int ward_d2_cut(const arma::mat& dist_unsq, double h, std::vector<int>& cid) {
     int n = dist_unsq.n_rows;
     cid.resize(n);
     std::iota(cid.begin(), cid.end(), 0);
     if (n <= 1) return n;
 
-    mat D = dist_unsq % dist_unsq;
+    arma::mat D = dist_unsq % dist_unsq;
     double h_sq = h * h;
 
     std::vector<bool> active(n, true);
     std::vector<int> sizes(n, 1);
 
     for (int step = 0; step < n - 1; step++) {
-        double min_d = datum::inf;
+        double min_d = arma::datum::inf;
         int mi = -1, mj = -1;
         for (int i = 0; i < n; i++) {
             if (!active[i]) continue;
@@ -98,7 +97,7 @@ List reduce_orthogroups_cpp(const arma::mat& expr,
     int n_merged = 0;
 
     // Pre-allocate output matrix at upper bound, fill rows directly
-    mat out_mat(n_original, n_samples);
+    arma::mat out_mat(n_original, n_samples);
     int out_row = 0;
     std::vector<int> out_source;
     std::vector<int> map_from, map_to;
@@ -129,7 +128,7 @@ List reduce_orthogroups_cpp(const arma::mat& expr,
         std::vector<int> var_gi, zv_gi;
         for (int i = 0; i < ng; i++) {
             int gi = members[i] - 1;
-            if (as_scalar(var(expr.row(gi))) > 0) var_gi.push_back(gi);
+            if (arma::as_scalar(arma::var(expr.row(gi))) > 0) var_gi.push_back(gi);
             else zv_gi.push_back(gi);
         }
         for (int gi : zv_gi) emit(gi);
@@ -141,10 +140,10 @@ List reduce_orthogroups_cpp(const arma::mat& expr,
 
         // Pearson correlation → distance → Ward.D2 clustering
         int nv = static_cast<int>(var_gi.size());
-        mat sub_expr(nv, n_samples);
+        arma::mat sub_expr(nv, n_samples);
         for (int i = 0; i < nv; i++) sub_expr.row(i) = expr.row(var_gi[i]);
 
-        mat dist_mat = 1.0 - cor(sub_expr.t());
+        arma::mat dist_mat = 1.0 - arma::cor(sub_expr.t());
         dist_mat.clamp(0.0, 2.0);
 
         int n_clusters = ward_d2_cut(dist_mat, h, clusters);
@@ -160,7 +159,7 @@ List reduce_orthogroups_cpp(const arma::mat& expr,
             if (grp.size() == 1) {
                 emit(rep_gi);
             } else {
-                rowvec avg = zeros<rowvec>(n_samples);
+                arma::rowvec avg = arma::zeros<arma::rowvec>(n_samples);
                 for (int m : grp) avg += expr.row(var_gi[m]);
                 avg /= static_cast<double>(grp.size());
 

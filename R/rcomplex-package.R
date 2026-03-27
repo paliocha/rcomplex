@@ -1,28 +1,32 @@
 #' rcomplex: Comparative Co-Expression Network Analysis Across Species
 #'
-#' Compares gene co-expression networks across plant species by mapping
-#' orthologous genes, building co-expression networks independently per species,
-#' then testing whether network neighborhoods are significantly preserved using
-#' hypergeometric tests with q-value correction and effect sizes.
+#' Compares gene co-expression networks across species by mapping orthologous
+#' genes, building co-expression networks independently per species, then
+#' testing conservation at gene, module, and clique levels.
 #'
 #' @section Main functions:
-#' - [parse_orthologs()]: Parse PLAZA ortholog group files
+#' \subsection{Preprocessing}{
+#' - [parse_orthologs()]: Parse ortholog group files (tab-delimited)
+#' - [reduce_orthogroups()]: Merge correlated paralogs within HOGs (Ward.D2)
 #' - [compute_network()]: Build co-expression network from expression matrix
+#' }
+#' \subsection{Gene / HOG-level analysis}{
 #' - [compare_neighborhoods()]: Test conservation of network neighborhoods
 #' - [summarize_comparison()]: Q-value correction and summary statistics
 #' - [permutation_hog_test()]: Permutation-based HOG-level conservation test
-#' - [detect_modules()]: Community detection in co-expression networks
+#' }
+#' \subsection{Module-level analysis}{
+#' - [detect_modules()]: Community detection (Leiden / Infomap / SBM;
+#'   multi-resolution consensus)
 #' - [compare_modules()]: Cross-species module comparison
 #' - [classify_modules()]: Classify modules as conserved/species-specific
-#'
-#' @section Typical workflow:
-#' 1. Parse ortholog groups with [parse_orthologs()]
-#' 2. Build networks for each species with [compute_network()]
-#' 3. Compare neighborhoods with [compare_neighborhoods()]
-#' 4. Summarize results with [summarize_comparison()] or test HOG-level
-#'    conservation with [permutation_hog_test()]
-#' 5. Optionally detect modules with [detect_modules()] and compare across
-#'    species with [compare_modules()] and [classify_modules()]
+#' }
+#' \subsection{Clique-level analysis}{
+#' - [find_cliques()]: C++ clique detection via Bron-Kerbosch decomposition
+#' - [clique_stability()]: Leave-k-out jackknife stability for trait-exclusive
+#'   cliques
+#' - [clique_hubs()]: Rank genes by recurrence across trait-exclusive cliques
+#' }
 #'
 #' @docType package
 #' @name rcomplex-package
@@ -35,7 +39,7 @@
 #' @importFrom Rcpp sourceCpp
 #' @importFrom igraph %--%
 #' @importFrom rlang .data .env
-#' @importFrom stats phyper setNames
+#' @importFrom stats setNames
 #' @importFrom utils read.delim
 ## usethis namespace: end
 NULL

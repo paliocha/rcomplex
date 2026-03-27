@@ -34,6 +34,7 @@
 #' @export
 find_coexpression_cliques <- function(edges, target_species,
                                       edge_type = "conserved") {
+  .Deprecated("find_cliques")
   # Validate inputs
   required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
                      "type", "effect_size")
