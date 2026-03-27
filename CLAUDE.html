@@ -48,26 +48,22 @@
 <p>This file provides guidance to Claude Code when working with code in this repository.</p>
 <div class="section level2">
 <h2 id="project-overview">Project Overview<a class="anchor" aria-label="anchor" href="#project-overview"></a></h2>
-<p>rcomplex is an R package for comparative co-expression network analysis across species. It maps orthologous genes (via PLAZA ortholog groups / HOGs), builds co-expression networks independently per species, then tests whether network neighborhoods are significantly preserved.</p>
-<p>Two levels of testing: - <strong>Pair-level</strong>: Hypergeometric tests with FDR correction and effect sizes (<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> + <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>) - <strong>HOG-level</strong>: Gene-identity permutation test with adaptive stopping (<code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, recommended for multi-copy gene families)</p>
-<p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
+<p>rcomplex is an R package for comparative co-expression network analysis across species. It maps orthologous genes (via ortholog groups / HOGs from OrthoFinder, FastOMA, PLAZA, etc.), builds co-expression networks independently per species, then tests conservation at three levels:</p>
+<ul><li>
+<strong>Gene / HOG-level</strong>: Hypergeometric tests with q-value correction (<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> + <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>) and gene-identity permutation with adaptive stopping (<code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>)</li>
+<li>
+<strong>Module-level</strong>: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests</li>
+<li>
+<strong>Clique-level</strong>: C++ Bron-Kerbosch clique detection, leave-k-out jackknife stability for trait-exclusive cliques, hub gene identification</li>
+</ul><p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="build--test">Build &amp; Test<a class="anchor" aria-label="anchor" href="#build--test"></a></h2>
-<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># Regenerate Rcpp exports after modifying C++ [[Rcpp::export]] signatures</span></span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'Rcpp::compileAttributes()'</span></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co"># Regenerate NAMESPACE and man/ from roxygen</span></span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::document()'</span></span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co"># Install the package locally</span></span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="ex">R</span> CMD INSTALL .</span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co"># Run tests (455 tests)</span></span>
-<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span></span>
-<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a></span>
-<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co"># Full R CMD check (expect 1 </span><span class="al">WARNING</span><span class="co"> from R_ext/Boolean.h — unfixable R header issue with Homebrew clang)</span></span>
-<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="ex">R</span> CMD check .</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'Rcpp::compileAttributes()'</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::document()'</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="ex">R</span> CMD INSTALL .</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span>    <span class="co"># 562 tests</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">R</span> CMD check .                     <span class="co"># expect 1 </span><span class="al">WARNING</span><span class="co"> from R_ext/Boolean.h</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="package-architecture">Package Architecture<a class="anchor" aria-label="anchor" href="#package-architecture"></a></h2>
@@ -77,32 +73,34 @@
 <th>Purpose</th>
 </tr></thead><tbody><tr class="odd"><td><code>R/orthologs.R</code></td>
 <td>
-<code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code> — parse PLAZA ortholog group files</td>
+<code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code>, <code><a href="reference/reduce_orthogroups.html">reduce_orthogroups()</a></code>
+</td>
 </tr><tr class="even"><td><code>R/network.R</code></td>
 <td>
-<code><a href="reference/compute_network.html">compute_network()</a></code> — correlation + MR/CLR normalization + density threshold</td>
+<code><a href="reference/compute_network.html">compute_network()</a></code> — correlation, MR/CLR, density threshold, torch GPU</td>
 </tr><tr class="odd"><td><code>R/comparison.R</code></td>
 <td>
-<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> — pair-level hypergeometric tests</td>
+<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> — pair-level hypergeometric</td>
 </tr><tr class="even"><td><code>R/summary.R</code></td>
 <td>
-<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code> (pair-level q-values), <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> (HOG-level permutation)</td>
-</tr><tr class="odd"><td><code>R/cliques.R</code></td>
+<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, torch FE helpers</td>
+</tr><tr class="odd"><td><code>R/modules.R</code></td>
 <td>
-<code><a href="reference/find_cliques.html">find_cliques()</a></code> (C++ clique engine), <code><a href="reference/clique_stability.html">clique_stability()</a></code> (leave-k-out jackknife)</td>
-</tr><tr class="even"><td><code>R/modules.R</code></td>
+<code><a href="reference/detect_modules.html">detect_modules()</a></code> (single + consensus), <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>
+</td>
+</tr><tr class="even"><td><code>R/cliques.R</code></td>
 <td>
-<code><a href="reference/detect_modules.html">detect_modules()</a></code>, <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>
+<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_hubs.html">clique_hubs()</a></code>
 </td>
 </tr><tr class="odd"><td><code>R/rcomplex-package.R</code></td>
 <td>Package-level roxygen, namespace imports</td>
 </tr></tbody></table></div>
 <div class="section level3">
-<h3 id="c-layer-src-armadillo--openmp">C++ layer (src/, Armadillo + OpenMP)<a class="anchor" aria-label="anchor" href="#c-layer-src-armadillo--openmp"></a></h3>
+<h3 id="c-layer-src-rcpparmadillo--openmp">C++ layer (src/, RcppArmadillo + OpenMP)<a class="anchor" aria-label="anchor" href="#c-layer-src-rcpparmadillo--openmp"></a></h3>
 <table class="table"><colgroup><col width="40%"><col width="60%"></colgroup><thead><tr class="header"><th>File</th>
 <th>Purpose</th>
 </tr></thead><tbody><tr class="odd"><td><code>src/mutual_rank.cpp</code></td>
-<td>MR normalization with cache-friendly column access</td>
+<td>MR normalization with column-major access</td>
 </tr><tr class="even"><td><code>src/clr.cpp</code></td>
 <td>CLR normalization</td>
 </tr><tr class="odd"><td><code>src/density_threshold.cpp</code></td>
@@ -110,63 +108,78 @@
 </tr><tr class="even"><td><code>src/neighborhood_comparison.cpp</code></td>
 <td>Pairwise neighborhood overlap (hypergeometric)</td>
 </tr><tr class="odd"><td><code>src/hog_permutation.cpp</code></td>
-<td>Permutation engine: bit-vector/flag-vector intersections, Besag &amp; Clifford stopping</td>
-</tr><tr class="even"><td><code>src/module_jaccard_permutation.cpp</code></td>
+<td>HOG permutation engine (bit-vector/flag-vector, Besag &amp; Clifford)</td>
+</tr><tr class="even"><td><code>src/fe_permutation.cpp</code></td>
+<td>GPU-precomputed FE permutation engine</td>
+</tr><tr class="odd"><td><code>src/module_jaccard_permutation.cpp</code></td>
 <td>Batched Jaccard permutation engine</td>
-</tr><tr class="odd"><td><code>src/find_cliques_common.h</code></td>
-<td>Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation)</td>
-</tr><tr class="even"><td><code>src/find_cliques.cpp</code></td>
+</tr><tr class="even"><td><code>src/reduce_orthogroups.cpp</code></td>
+<td>Ward.D2 paralog merging</td>
+</tr><tr class="odd"><td><code>src/coclassification.cpp</code></td>
+<td>Co-classification matrix for consensus modules</td>
+</tr><tr class="even"><td><code>src/find_cliques_common.h</code></td>
+<td>Shared clique primitives (BK, backtracking, trait, Jaccard)</td>
+</tr><tr class="odd"><td><code>src/find_cliques.cpp</code></td>
 <td>C++ clique detection wrapper</td>
-</tr><tr class="odd"><td><code>src/find_cliques_stability.cpp</code></td>
+</tr><tr class="even"><td><code>src/find_cliques_stability.cpp</code></td>
 <td>Leave-k-out stability engine with OpenMP</td>
+</tr><tr class="odd"><td><code>src/sample_k_distinct.h</code></td>
+<td>Shared rejection-sampling utility</td>
 </tr></tbody></table></div>
 <div class="section level3">
 <h3 id="tests">Tests<a class="anchor" aria-label="anchor" href="#tests"></a></h3>
 <table class="table"><colgroup><col width="42%"><col width="57%"></colgroup><thead><tr class="header"><th>File</th>
 <th>Covers</th>
 </tr></thead><tbody><tr class="odd"><td><code>tests/testthat/test-network.R</code></td>
-<td>Network construction, MR/CLR, density threshold</td>
+<td>Network construction, MR/CLR, density threshold, torch</td>
 </tr><tr class="even"><td><code>tests/testthat/test-comparison.R</code></td>
 <td>Neighborhood comparison, effect sizes</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-summary.R</code></td>
-<td>Pair-level FDR correction</td>
+<td>Pair-level q-value correction</td>
 </tr><tr class="even"><td><code>tests/testthat/test-permutation.R</code></td>
-<td>Permutation HOG test (correctness, adaptive stopping, p-value formula)</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-cliques.R</code></td>
-<td>Clique detection (igraph + C++ backends)</td>
-</tr><tr class="even"><td><code>tests/testthat/test-stability.R</code></td>
-<td>Leave-k-out jackknife stability</td>
+<td>HOG permutation (correctness, adaptive stopping, torch)</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-modules.R</code></td>
-<td>Module detection, comparison, classification</td>
+<td>Module detection, comparison, classification, consensus</td>
+</tr><tr class="even"><td><code>tests/testthat/test-cliques.R</code></td>
+<td>Clique detection (igraph + C++ backends)</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-stability.R</code></td>
+<td>Leave-k-out jackknife stability</td>
+</tr><tr class="even"><td><code>tests/testthat/test-clique-hubs.R</code></td>
+<td>Hub gene identification</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-reduce-orthogroups.R</code></td>
+<td>Paralog reduction</td>
 </tr><tr class="even"><td><code>tests/testthat/helper-reference.R</code></td>
-<td>Pure-R reference implementations for cross-checking C++</td>
+<td>Pure-R reference implementations</td>
 </tr></tbody></table></div>
 </div>
 <div class="section level2">
 <h2 id="key-design-decisions">Key Design Decisions<a class="anchor" aria-label="anchor" href="#key-design-decisions"></a></h2>
 <div class="section level3">
 <h3 id="column-major-memory-access">Column-major memory access<a class="anchor" aria-label="anchor" href="#column-major-memory-access"></a></h3>
-<p>Armadillo stores matrices column-major. Correlation and network matrices are symmetric, so <code>sim.col(i) == sim.row(i)</code> in value. All hot loops use column access (<code>sim.col(i)</code>, <code>net.colptr(i)</code>) for sequential reads instead of strided row access. This gives ~3x speedup on MR normalization and neighbor list extraction.</p>
+<p>Armadillo stores matrices column-major. All hot loops use <code>colptr()</code> for sequential reads. ~3x speedup on MR normalization and neighbor list extraction.</p>
 </div>
 <div class="section level3">
 <h3 id="integer-indices-in-c-string-mapping-in-r">Integer indices in C++, string mapping in R<a class="anchor" aria-label="anchor" href="#integer-indices-in-c-string-mapping-in-r"></a></h3>
-<p>Homebrew clang 21 has ABI issues with <code>std::unordered_map&lt;std::string, ...&gt;</code> (causes <code>__hash_memory</code> symbol not found at dlopen). All C++ functions use integer indices; the R wrappers handle string-to-int mapping via <code><a href="https://rdrr.io/r/base/match.html" class="external-link">match()</a></code>.</p>
+<p>Homebrew clang ABI issue with <code>std::unordered_map&lt;std::string, ...&gt;</code>. All C++ uses integer indices; R wrappers handle string-to-int mapping. The codebase also avoids <code>std::unordered_map</code> entirely — uses sorted vectors + binary search instead.</p>
 </div>
 <div class="section level3">
 <h3 id="hog-level-testing-uses-permutation-not-fishers-method">HOG-level testing uses permutation, not Fisher’s method<a class="anchor" aria-label="anchor" href="#hog-level-testing-uses-permutation-not-fishers-method"></a></h3>
-<p>Fisher’s method for combining pair-level p-values within HOGs is anti-conservative because pair-level tests are correlated (shared neighborhoods and ortholog mappings). <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> avoids this by permuting gene identities — the correlation structure is present in both observed and null distributions, so no independence assumption is needed.</p>
+<p>Fisher’s method is anti-conservative for multi-copy HOGs (correlated tests). <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> permutes gene identities instead.</p>
+</div>
+<div class="section level3">
+<h3 id="adaptive-consensus-module-detection">Adaptive consensus module detection<a class="anchor" aria-label="anchor" href="#adaptive-consensus-module-detection"></a></h3>
+<p>Multi-resolution Leiden sweep + Jeub-inspired adaptive thresholding. Subtracts expected co-classification under random assignment (E_k = sum_m(s_m/N)²), discounting mega-modules at low resolutions.</p>
 </div>
 <div class="section level3">
 <h3 id="build-system">Build system<a class="anchor" aria-label="anchor" href="#build-system"></a></h3>
 <ul><li>
-<code>Makevars</code>: Uses <code>$(SHLIB_OPENMP_CXXFLAGS)</code> for portable OpenMP (not <code>-fopenmp</code>)</li>
-<li>RcppArmadillo in <code>LinkingTo</code> only (NOT <code>Imports</code> — causes NOTE)</li>
-<li>NAMESPACE file must exist before <code><a href="https://rdrr.io/pkg/Rcpp/man/compileAttributes.html" class="external-link">Rcpp::compileAttributes()</a></code> works</li>
+<code>Makevars</code> / <code>Makevars.win</code>: C++23, <code>$(SHLIB_OPENMP_CXXFLAGS)</code> for portable OpenMP</li>
+<li>RcppArmadillo in <code>LinkingTo</code> only (NOT <code>Imports</code>)</li>
 </ul></div>
 </div>
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>
-<p><strong>Imports</strong>: Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, rlang, stats, utils <strong>Suggests</strong>: sbm (optional, for SBM community detection) <strong>LinkingTo</strong>: Rcpp, RcppArmadillo <strong>System</strong>: GNU make, C++23, OpenMP (optional)</p>
+<p><strong>Imports</strong>: Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, stats, utils <strong>Suggests</strong>: sbm, torch, testthat, lintr, pkgdown <strong>LinkingTo</strong>: Rcpp, RcppArmadillo <strong>System</strong>: GNU make, C++23, OpenMP (optional)</p>
 </div>
 </div>
 
