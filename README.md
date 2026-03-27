@@ -69,10 +69,10 @@ hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
 mod1 <- detect_modules(net1, method = "leiden", resolution = 1.0)
 
 # Or: multi-resolution consensus (Lancichinetti & Fortunato, 2012)
-mod1 <- detect_modules(net1, resolution = seq(0.1, 3.0, by = 0.1), seed = 42)
+mod1 <- detect_modules(net1, resolution = seq(0.1, 5, by = 0.1), seed = 42)
 # mod1$resolution_scan shows n_modules, modularity, ARI at each resolution
 
-mod2 <- detect_modules(net2, resolution = seq(0.1, 3.0, by = 0.1), seed = 42)
+mod2 <- detect_modules(net2, resolution = seq(0.1, 5, by = 0.1), seed = 42)
 
 # Compare modules across species (hypergeometric or Jaccard permutation)
 comp <- compare_modules(mod1, mod2, orthologs, method = "jaccard", n_cores = 4L)
