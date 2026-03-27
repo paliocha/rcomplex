@@ -62,7 +62,7 @@
 <div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'Rcpp::compileAttributes()'</span></span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::document()'</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="ex">R</span> CMD INSTALL .</span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span>    <span class="co"># 562 tests</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span></span>
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">R</span> CMD check .                     <span class="co"># expect 1 </span><span class="al">WARNING</span><span class="co"> from R_ext/Boolean.h</span></span></code></pre></div>
 </div>
 <div class="section level2">
