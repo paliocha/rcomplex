@@ -118,7 +118,7 @@ On Apple Silicon (MPS), torch uses float32 because Metal does not support
 float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
 normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
 MPS, keep <code>use_torch = FALSE</code> here and use
-<code>\link{permutation_hog_test}(use_torch = TRUE)</code> for the permutation
+<code><a href="permutation_hog_test.html">permutation_hog_test</a>(use_torch = TRUE)</code> for the permutation
 speedup instead. On CUDA, float64 is used with no precision tradeoff.</p></dd>
 
 </dl></div>
