@@ -58,36 +58,44 @@ testing conservation at gene, module, and clique levels.</p>
     <h2>Main functions</h2>
 
 
-<div class="section">
-<h3 id="preprocessing">Preprocessing<a class="anchor" aria-label="anchor" href="#preprocessing"></a></h3>
+<dl><dt><code><a href="parse_orthologs.html">parse_orthologs()</a></code></dt>
+<dd><p>Parse ortholog group files</p></dd>
 
-<ul><li><p><code><a href="parse_orthologs.html">parse_orthologs()</a></code>: Parse ortholog group files (tab-delimited)</p></li>
-<li><p><code><a href="reduce_orthogroups.html">reduce_orthogroups()</a></code>: Merge correlated paralogs within HOGs (Ward.D2)</p></li>
-<li><p><code><a href="compute_network.html">compute_network()</a></code>: Build co-expression network from expression matrix</p></li>
-</ul><div class="section">
-<h4 id="gene-hog-level-analysis">Gene / HOG-level analysis<a class="anchor" aria-label="anchor" href="#gene-hog-level-analysis"></a></h4>
-<p><code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code>: Test conservation of network neighborhoods
- <code><a href="summarize_comparison.html">summarize_comparison()</a></code>: Q-value correction and summary statistics
- <code><a href="permutation_hog_test.html">permutation_hog_test()</a></code>: Permutation-based HOG-level conservation test</p>
-</div>
-<div class="section">
-<h4 id="module-level-analysis">Module-level analysis<a class="anchor" aria-label="anchor" href="#module-level-analysis"></a></h4>
-<p><code><a href="detect_modules.html">detect_modules()</a></code>: Community detection (Leiden / Infomap / SBM;
-multi-resolution consensus)
- <code><a href="compare_modules.html">compare_modules()</a></code>: Cross-species module comparison
- <code><a href="classify_modules.html">classify_modules()</a></code>: Classify modules as conserved/species-specific</p>
-</div>
-<div class="section">
-<h4 id="clique-level-analysis">Clique-level analysis<a class="anchor" aria-label="anchor" href="#clique-level-analysis"></a></h4>
-<p><code><a href="find_cliques.html">find_cliques()</a></code>: C++ clique detection via Bron-Kerbosch decomposition
- <code><a href="clique_stability.html">clique_stability()</a></code>: Leave-k-out jackknife stability for trait-exclusive
-cliques
- <code><a href="clique_hubs.html">clique_hubs()</a></code>: Rank genes by recurrence across trait-exclusive cliques</p>
-</div>
+<dt><code><a href="reduce_orthogroups.html">reduce_orthogroups()</a></code></dt>
+<dd><p>Merge correlated paralogs within HOGs</p></dd>
 
-</div>
+<dt><code><a href="compute_network.html">compute_network()</a></code></dt>
+<dd><p>Build co-expression network</p></dd>
 
-    </div>
+<dt><code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code></dt>
+<dd><p>Pair-level hypergeometric tests</p></dd>
+
+<dt><code><a href="summarize_comparison.html">summarize_comparison()</a></code></dt>
+<dd><p>Q-value correction and summary</p></dd>
+
+<dt><code><a href="permutation_hog_test.html">permutation_hog_test()</a></code></dt>
+<dd><p>HOG-level permutation test</p></dd>
+
+<dt><code><a href="detect_modules.html">detect_modules()</a></code></dt>
+<dd><p>Community detection with consensus</p></dd>
+
+<dt><code><a href="compare_modules.html">compare_modules()</a></code></dt>
+<dd><p>Cross-species module comparison</p></dd>
+
+<dt><code><a href="classify_modules.html">classify_modules()</a></code></dt>
+<dd><p>Module conservation classification</p></dd>
+
+<dt><code><a href="find_cliques.html">find_cliques()</a></code></dt>
+<dd><p>C++ clique detection (Bron-Kerbosch)</p></dd>
+
+<dt><code><a href="clique_stability.html">clique_stability()</a></code></dt>
+<dd><p>Leave-k-out jackknife stability</p></dd>
+
+<dt><code><a href="clique_hubs.html">clique_hubs()</a></code></dt>
+<dd><p>Hub genes across trait-exclusive cliques</p></dd>
+
+
+</dl></div>
     <div id="see-also">
     <h2>See also</h2>
     <div class="dont-index"><p>Useful links:</p><ul><li><p><a href="https://paliocha.github.io/rcomplex/" class="external-link">https://paliocha.github.io/rcomplex/</a></p></li>
