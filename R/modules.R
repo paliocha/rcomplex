@@ -32,13 +32,17 @@
 #'   (default 10). Ignored for other methods.
 #' @param seed Random seed for reproducibility (default `NULL`).
 #' @param consensus_threshold Threshold for consensus mode. \code{NULL}
-#'   (default) uses adaptive thresholding: subtracts the expected
-#'   co-classification under random assignment (Jeub et al., 2018),
-#'   keeping only excess signal. A numeric value in (0, 1) applies a fixed
-#'   threshold (pairs co-classified in fewer than this fraction are dropped).
+#'   (default) uses iterative adaptive thresholding per Jeub et al. (2018):
+#'   subtracts the per-pair expected co-classification under random assignment
+#'   and iterates until the partition converges. A numeric value in (0, 1)
+#'   applies a fixed threshold without iteration (single pass).
 #' @param n_cores Number of parallel cores for consensus mode (default 1).
 #'   Uses a PSOCK cluster (\code{parallel::parLapply()}) for fork-safe
 #'   parallelism (compatible with prior torch/CUDA initialization).
+#' @param max_consensus_iter Maximum number of consensus iterations for
+#'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
+#'   Typically converges in 2--5 iterations. Ignored when
+#'   \code{consensus_threshold} is numeric.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -53,9 +57,12 @@
 #'   When \code{resolution} is a vector, the output also includes:
 #'   \describe{
 #'     \item{resolution_scan}{Data frame with columns \code{resolution},
-#'       \code{n_modules}, \code{modularity}, and \code{ari_next} (Adjusted
-#'       Rand Index with the next resolution; NA for the last).}
+#'       \code{n_modules}, \code{modularity}, \code{ari_next} (Adjusted
+#'       Rand Index with the next resolution; NA for the last), and
+#'       \code{expected_coclassification} (per-resolution expected scalar).}
 #'   }
+#'   The \code{params} list includes \code{n_consensus_iterations}
+#'   (number of iterations until convergence; 0 for fixed threshold).
 #'
 #' @references
 #' Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to Leiden:
@@ -82,7 +89,8 @@ detect_modules <- function(net,
                            nb_trials = 10L,
                            seed = NULL,
                            consensus_threshold = NULL,
-                           n_cores = 1L) {
+                           n_cores = 1L,
+                           max_consensus_iter = 10L) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
 
@@ -92,7 +100,8 @@ detect_modules <- function(net,
       stop("Consensus mode (vector resolution) only supported for method = \"leiden\"")
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
-      objective_function, n_iterations, seed, as.integer(n_cores)))
+      objective_function, n_iterations, seed, as.integer(n_cores),
+      as.integer(max_consensus_iter)))
   }
 
   n_iterations <- as.integer(n_iterations)
@@ -189,13 +198,15 @@ detect_modules <- function(net,
 #' Multi-resolution consensus module detection (internal)
 #'
 #' Runs Leiden at each resolution, builds a co-classification matrix,
-#' thresholds it, and produces a consensus partition via Leiden on the
-#' co-classification graph.
+#' subtracts per-pair expected co-classification (Jeub et al. 2018),
+#' and iterates until the partition converges. For fixed thresholds,
+#' performs a single pass without iteration.
 #'
 #' @noRd
 detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                                      objective_function, n_iterations, seed,
-                                     n_cores = 1L) {
+                                     n_cores = 1L,
+                                     max_consensus_iter = 10L) {
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
@@ -237,8 +248,15 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                           n_iterations = n_iterations, seed = seed))
   }
 
-  # Run Leiden at each resolution
-  run_one <- function(res) {
+  # Create PSOCK cluster if needed (used for initial sweep and iterations)
+  cl <- NULL
+  if (n_cores > 1L) {
+    cl <- parallel::makePSOCKcluster(n_cores)
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+  }
+
+  # ---- Initial Leiden sweep on original graph ----
+  run_initial <- function(res) {
     comm <- igraph::cluster_leiden(
       g,
       resolution = res,
@@ -252,12 +270,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
          quality = igraph::modularity(g, mem))
   }
 
-  if (n_cores > 1L) {
-    cl <- parallel::makePSOCKcluster(n_cores)
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-    results <- parallel::parLapply(cl, resolutions, run_one)
+  if (!is.null(cl)) {
+    results <- parallel::parLapply(cl, resolutions, run_initial)
   } else {
-    results <- lapply(resolutions, run_one)
+    results <- lapply(resolutions, run_initial)
   }
 
   failed <- vapply(results, is.null, logical(1))
@@ -278,10 +294,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     )
   }
 
-  # Build co-classification matrix (C++) and adaptive threshold
+  # ---- Build co-classification ----
   cc_result <- build_coclassification_cpp(memberships, n_genes)
-  coclassif <- cc_result$coclassification
-  dimnames(coclassif) <- list(genes, genes)
 
   resolution_scan <- data.frame(
     resolution = resolutions,
@@ -292,37 +306,66 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     stringsAsFactors = FALSE
   )
 
-  # Apply threshold: adaptive (NULL) or fixed (numeric)
-  if (is.null(consensus_threshold)) {
-    # Adaptive: excess co-classification above random expectation
-    consensus_adj <- coclassif - cc_result$adaptive_threshold
-    consensus_adj[consensus_adj < 0] <- 0
-  } else {
-    consensus_adj <- coclassif
+  # ---- Consensus clustering ----
+  n_consensus_iter <- 0L
+
+  if (!is.null(consensus_threshold)) {
+    # Fixed threshold: single pass, no iteration
+    consensus_adj <- cc_result$coclassification
     consensus_adj[consensus_adj < consensus_threshold] <- 0
-  }
-  diag(consensus_adj) <- 0
+    diag(consensus_adj) <- 0
+    dimnames(consensus_adj) <- list(genes, genes)
 
-  # Build consensus graph and run final Leiden
-  g_consensus <- igraph::graph_from_adjacency_matrix(
-    consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
-  )
-
-  if (igraph::ecount(g_consensus) == 0L) {
-    # No edges survive thresholding: fall back to best single resolution
-    best_r <- which.max(scan_modularity)
-    membership <- memberships[[best_r]]
-  } else {
-    # Run Leiden on co-classification graph with modularity objective
-    # (weights are in [0, 1], so modularity is appropriate)
-    comm_final <- igraph::cluster_leiden(
-      g_consensus,
-      resolution = 1.0,
-      objective_function = "modularity",
-      n_iterations = as.integer(n_iterations)
+    g_consensus <- igraph::graph_from_adjacency_matrix(
+      consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
     )
-    membership <- igraph::membership(comm_final)
-    names(membership) <- igraph::V(g_consensus)$name
+
+    if (igraph::ecount(g_consensus) == 0L) {
+      best_r <- which.max(scan_modularity)
+      membership <- memberships[[best_r]]
+    } else {
+      # Run Leiden at all resolutions on consensus graph, pick best
+      consensus_mems <- consensus_leiden_sweep(
+        g_consensus, resolutions, objective_function, n_iterations, cl
+      )
+      membership <- pick_best_partition(consensus_mems, g)
+    }
+  } else {
+    # Adaptive: iterate until convergence (Jeub et al. 2018, Algorithm 1)
+    for (iter in seq_len(max_consensus_iter)) {
+      n_consensus_iter <- iter
+
+      if (iter > 1L) {
+        cc_result <- build_coclassification_cpp(memberships, n_genes)
+      }
+
+      consensus_adj <- cc_result$excess_coclassification
+      diag(consensus_adj) <- 0
+      dimnames(consensus_adj) <- list(genes, genes)
+
+      g_consensus <- igraph::graph_from_adjacency_matrix(
+        consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
+      )
+
+      if (igraph::ecount(g_consensus) == 0L) break
+
+      # Re-run Leiden at all resolutions on consensus graph
+      new_memberships <- consensus_leiden_sweep(
+        g_consensus, resolutions, objective_function, n_iterations, cl
+      )
+
+      # Convergence: all K partitions are ~identical
+      converged <- all(vapply(seq_len(n_res - 1L), function(r) {
+        igraph::compare(new_memberships[[r]], new_memberships[[r + 1L]],
+                        method = "adjusted.rand") > 0.999
+      }, logical(1)))
+
+      memberships <- new_memberships
+      if (converged) break
+    }
+
+    # Pick partition with best modularity on original graph
+    membership <- pick_best_partition(memberships, g)
   }
 
   # Ensure integer membership with gene names
@@ -339,13 +382,47 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     params = list(
       resolutions = resolutions,
       consensus_threshold = consensus_threshold,
-      adaptive_threshold = cc_result$adaptive_threshold,
       objective_function = objective_function,
       n_resolutions = n_res,
+      n_consensus_iterations = n_consensus_iter,
       seed = seed
     ),
     resolution_scan = resolution_scan
   )
+}
+
+
+#' Run Leiden at all resolutions on a graph (internal)
+#' @noRd
+consensus_leiden_sweep <- function(graph, resolutions, objective_function,
+                                   n_iterations, cl = NULL) {
+  run_one <- function(res) {
+    comm <- igraph::cluster_leiden(
+      graph,
+      resolution = res,
+      objective_function = objective_function,
+      n_iterations = as.integer(n_iterations)
+    )
+    mem <- igraph::membership(comm)
+    names(mem) <- igraph::V(graph)$name
+    mem
+  }
+
+  if (!is.null(cl)) {
+    parallel::parLapply(cl, resolutions, run_one)
+  } else {
+    lapply(resolutions, run_one)
+  }
+}
+
+
+#' Pick partition with best modularity on a reference graph (internal)
+#' @noRd
+pick_best_partition <- function(memberships, graph) {
+  mods <- vapply(memberships, function(mem) {
+    igraph::modularity(graph, mem)
+  }, numeric(1))
+  memberships[[which.max(mods)]]
 }
 
 

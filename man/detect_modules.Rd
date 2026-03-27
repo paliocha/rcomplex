@@ -13,7 +13,8 @@ detect_modules(
   nb_trials = 10L,
   seed = NULL,
   consensus_threshold = NULL,
-  n_cores = 1L
+  n_cores = 1L,
+  max_consensus_iter = 10L
 )
 }
 \arguments{
@@ -39,14 +40,19 @@ other methods.}
 \item{seed}{Random seed for reproducibility (default \code{NULL}).}
 
 \item{consensus_threshold}{Threshold for consensus mode. \code{NULL}
-(default) uses adaptive thresholding: subtracts the expected
-co-classification under random assignment (Jeub et al., 2018),
-keeping only excess signal. A numeric value in (0, 1) applies a fixed
-threshold (pairs co-classified in fewer than this fraction are dropped).}
+(default) uses iterative adaptive thresholding per Jeub et al. (2018):
+subtracts the per-pair expected co-classification under random assignment
+and iterates until the partition converges. A numeric value in (0, 1)
+applies a fixed threshold without iteration (single pass).}
 
 \item{n_cores}{Number of parallel cores for consensus mode (default 1).
 Uses a PSOCK cluster (\code{parallel::parLapply()}) for fork-safe
 parallelism (compatible with prior torch/CUDA initialization).}
+
+\item{max_consensus_iter}{Maximum number of consensus iterations for
+adaptive mode (\code{consensus_threshold = NULL}). Default 10.
+Typically converges in 2--5 iterations. Ignored when
+\code{consensus_threshold} is numeric.}
 }
 \value{
 A list with components:
@@ -62,9 +68,12 @@ A list with components:
 When \code{resolution} is a vector, the output also includes:
 \describe{
 \item{resolution_scan}{Data frame with columns \code{resolution},
-\code{n_modules}, \code{modularity}, and \code{ari_next} (Adjusted
-Rand Index with the next resolution; NA for the last).}
+\code{n_modules}, \code{modularity}, \code{ari_next} (Adjusted
+Rand Index with the next resolution; NA for the last), and
+\code{expected_coclassification} (per-resolution expected scalar).}
 }
+The \code{params} list includes \code{n_consensus_iterations}
+(number of iterations until convergence; 0 for fixed threshold).
 }
 \description{
 Applies community detection to a thresholded co-expression network using

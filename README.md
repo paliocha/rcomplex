@@ -20,9 +20,9 @@ levels:
 
 Based on [Netotea *et al.*
 (2014)](https://doi.org/10.1186/1471-2164-15-106), extended with
-permutation-based HOG-level testing, module detection via Leiden /
-Infomap / Stochastic Block Model, C++ clique detection with
-Bron-Kerbosch decomposition, and leave-k-out jackknife stability
+permutation-based HOG-level testing, iterative multi-resolution
+consensus modules (Jeub *et al.*, 2018), C++ clique detection with
+Bron-Kerbosch / Tomita pivoting, and leave-k-out jackknife stability
 analysis.
 
 ## Installation
@@ -68,9 +68,10 @@ hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
 # Detect modules (single resolution)
 mod1 <- detect_modules(net1, method = "leiden", resolution = 1.0)
 
-# Or: multi-resolution consensus (Lancichinetti & Fortunato, 2012)
+# Or: iterative multi-resolution consensus (Jeub et al., 2018)
 mod1 <- detect_modules(net1, resolution = seq(0.1, 5, by = 0.1), seed = 42)
 # mod1$resolution_scan shows n_modules, modularity, ARI at each resolution
+# mod1$params$n_consensus_iterations shows how many iterations until convergence
 
 mod2 <- detect_modules(net2, resolution = seq(0.1, 5, by = 0.1), seed = 42)
 
@@ -84,7 +85,7 @@ classes <- classify_modules(comp)
 ### Clique-level analysis
 
 ```r
-# Find conserved cliques (C++ Bron-Kerbosch + backtracking)
+# Find conserved cliques (C++ Bron-Kerbosch / Tomita pivoting + backtracking)
 # Edges come from summarize_comparison() with q-values
 cliques <- find_cliques(edges, target_species, min_species = 3L)
 
@@ -114,10 +115,10 @@ hubs <- clique_hubs(cliques, target_species,
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
 | `summarize_comparison()` | Storey q-values and summary statistics |
 | `permutation_hog_test()` | Permutation-based HOG-level conservation test |
-| `detect_modules()` | Community detection (Leiden / Infomap / SBM); multi-resolution consensus |
+| `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
 | `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
 | `classify_modules()` | Three-tier module conservation classification |
-| `find_cliques()` | C++ clique detection via Bron-Kerbosch decomposition |
+| `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_hubs()` | Rank genes by recurrence across trait-exclusive cliques |
 
@@ -180,6 +181,27 @@ Besag & Clifford (1991) adaptive stopping terminates early once enough
 exceedances are observed, and Liang (2016) discrete q-values handle the
 non-uniform null distribution that adaptive stopping produces.
 
+### Multi-resolution consensus modules
+
+When `detect_modules()` receives a vector of resolutions, it runs
+iterative multi-resolution consensus clustering (Jeub *et al.*, 2018):
+
+1. Run Leiden at each resolution on the original network.
+2. Build an N x N co-classification matrix C (fraction of resolutions
+   placing each gene pair in the same module).
+3. Subtract the per-pair expected co-classification under random
+   assignment: E(i,j) = (1/K) sum_k (s_m(i)/N) * (s_m(j)/N), keeping
+   only excess signal above chance.
+4. Run Leiden at all resolutions on the thresholded consensus graph.
+5. Repeat from step 2 until all resolutions yield the same partition
+   (ARI > 0.999), or `max_consensus_iter` is reached.
+
+The per-pair null subtraction (step 3) replaces the naive scalar
+threshold that over-retains edges from low-resolution mega-modules.
+Re-running the full resolution sweep on the consensus graph (step 4)
+avoids the resolution limit that afflicts single-resolution Leiden on
+dense graphs (Fortunato & Barthelemy, 2007).
+
 ### Module comparison
 
 `compare_modules()` supports two methods:
@@ -205,9 +227,10 @@ non-uniform null distribution that adaptive stopping produces.
 `find_cliques()` uses a two-level decomposition to find conserved
 cliques across species within each ortholog group:
 
-1. **Species-level**: Bron-Kerbosch with pivoting (Bron & Kerbosch, 1973;
-   Tomita *et al.*, 2006) on the small species adjacency graph
-   (at most 16 nodes) to find all maximal species cliques.
+1. **Species-level**: Bron-Kerbosch with Tomita pivoting (Tomita *et al.*,
+   2006) on the species adjacency graph (at most 16 nodes) to enumerate
+   all maximal species cliques. The pivot is chosen as the vertex in
+   P ∪ X maximising |N(u) ∩ P|, giving worst-case O(3^(n/3)) time.
 2. **Gene-level**: Backtracking search assigns one gene per species,
    minimising mean q-value across all C(k, 2) edges. Early pruning
    rejects partial assignments where any required edge is missing.
@@ -256,7 +279,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | File | Purpose |
 |------|---------|
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging engine |
-| `src/coclassification.cpp` | Co-classification matrix engine for consensus modules |
+| `src/coclassification.cpp` | Co-classification matrix with per-pair null subtraction |
 | `src/mutual_rank.cpp` | MR normalization with column-major access |
 | `src/clr.cpp` | CLR normalization |
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
@@ -264,7 +287,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
 | `src/module_jaccard_permutation.cpp` | Batched Jaccard permutation engine |
-| `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch, backtracking, Jaccard, trait annotation) |
+| `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch / Tomita, backtracking, Jaccard, trait) |
 | `src/find_cliques.cpp` | C++ clique detection wrapper |
 | `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
 
@@ -293,6 +316,9 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
   consensus clustering in networks. *Scientific Reports*, 8, 3259.
   [doi:10.1038/s41598-018-21352-7](https://doi.org/10.1038/s41598-018-21352-7)
+- Fortunato, S. & Barthelemy, M. (2007). Resolution limit in community
+  detection. *PNAS*, 104(1), 36--41.
+  [doi:10.1073/pnas.0605965104](https://doi.org/10.1073/pnas.0605965104)
 - Bron, C. & Kerbosch, J. (1973). Algorithm 457: finding all cliques of
   an undirected graph. *Communications of the ACM*, 16(9), 575--577.
   [doi:10.1145/362342.362367](https://doi.org/10.1145/362342.362367)

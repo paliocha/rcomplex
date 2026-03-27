@@ -8,7 +8,7 @@ rcomplex is an R package for comparative co-expression network analysis across s
 
 - **Gene / HOG-level**: Hypergeometric tests with q-value correction (`compare_neighborhoods()` + `summarize_comparison()`) and gene-identity permutation with adaptive stopping (`permutation_hog_test()`)
 - **Module-level**: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests
-- **Clique-level**: C++ Bron-Kerbosch clique detection, leave-k-out jackknife stability for trait-exclusive cliques, hub gene identification
+- **Clique-level**: C++ Bron-Kerbosch / Tomita clique detection, leave-k-out jackknife stability for trait-exclusive cliques, hub gene identification
 
 Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106).
 
@@ -46,8 +46,8 @@ R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
 | `src/module_jaccard_permutation.cpp` | Batched Jaccard permutation engine |
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging |
-| `src/coclassification.cpp` | Co-classification matrix for consensus modules |
-| `src/find_cliques_common.h` | Shared clique primitives (BK, backtracking, trait, Jaccard) |
+| `src/coclassification.cpp` | Co-classification matrix with per-pair null subtraction (Jeub et al. 2018) |
+| `src/find_cliques_common.h` | Shared clique primitives (BK/Tomita, backtracking, trait, Jaccard) |
 | `src/find_cliques.cpp` | C++ clique detection wrapper |
 | `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
 | `src/sample_k_distinct.h` | Shared rejection-sampling utility |
@@ -77,8 +77,8 @@ Homebrew clang ABI issue with `std::unordered_map<std::string, ...>`. All C++ us
 ### HOG-level testing uses permutation, not Fisher's method
 Fisher's method is anti-conservative for multi-copy HOGs (correlated tests). `permutation_hog_test()` permutes gene identities instead.
 
-### Adaptive consensus module detection
-Multi-resolution Leiden sweep + Jeub-inspired adaptive thresholding. Subtracts expected co-classification under random assignment (E_k = sum_m(s_m/N)²), discounting mega-modules at low resolutions.
+### Iterative consensus module detection
+Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-pair null subtraction: E(i,j) = (1/K) sum_k (s_m(i)/N)(s_m(j)/N), not a scalar mean. Iterates co-classification → Leiden sweep on consensus graph until all resolutions converge (ARI > 0.999).
 
 ### Build system
 - `Makevars` / `Makevars.win`: C++23, `$(SHLIB_OPENMP_CXXFLAGS)` for portable OpenMP

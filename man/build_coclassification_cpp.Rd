@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{build_coclassification_cpp}
 \alias{build_coclassification_cpp}
-\title{Build co-classification matrix and compute adaptive threshold}
+\title{Build co-classification matrix with per-pair excess}
 \usage{
 build_coclassification_cpp(memberships, n_genes)
 }
@@ -13,15 +13,15 @@ igraph, each length N)}
 \item{n_genes}{Number of genes (N)}
 }
 \value{
-List with: coclassification (N x N matrix, entries in
-0 to 1 range), expected (length-K numeric vector of per-resolution
-expected co-classification), adaptive_threshold (scalar = mean of
-expected)
+List with: coclassification (N x N raw co-classification,
+values in 0 to 1), excess_coclassification (N x N, max(C - E, 0)),
+expected (length-K numeric vector of per-resolution expected scalars)
 }
 \description{
 For each of K resolution partitions, counts how often each gene pair
-is assigned to the same module. Returns the co-classification frequency
-matrix and per-resolution expected co-classification under random
-assignment (for adaptive thresholding per Jeub et al. 2018).
+is assigned to the same module. Also accumulates the per-pair expected
+co-classification under random assignment (Jeub et al. 2018):
+for same-module pairs at resolution k, E_k(i,j) = (s_m/N)^2 where
+s_m is the size of the module containing both i and j.
 }
 \keyword{internal}

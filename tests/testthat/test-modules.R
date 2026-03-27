@@ -474,9 +474,9 @@ test_that("consensus detect_modules returns correct structure with 8 elements", 
   expect_true("expected_coclassification" %in%
                 names(result$resolution_scan))
 
-  # Adaptive threshold stored in params
-  expect_true("adaptive_threshold" %in% names(result$params))
-  expect_true(is.numeric(result$params$adaptive_threshold))
+  # Consensus iteration count in params
+  expect_true("n_consensus_iterations" %in% names(result$params))
+  expect_true(is.integer(result$params$n_consensus_iterations))
 })
 
 
@@ -617,7 +617,7 @@ test_that("consensus graph is original network not co-classification graph", {
 
 # ---- Adaptive threshold tests ----
 
-test_that("adaptive threshold is in resolution_scan and params", {
+test_that("consensus diagnostics in resolution_scan and params", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1, method = "leiden",
                            resolution = seq(0.5, 2.0, by = 0.5),
@@ -627,10 +627,10 @@ test_that("adaptive threshold is in resolution_scan and params", {
   expect_true("expected_coclassification" %in%
                 names(result$resolution_scan))
 
-  # params has adaptive_threshold as a numeric scalar
-  expect_true("adaptive_threshold" %in% names(result$params))
-  expect_true(is.numeric(result$params$adaptive_threshold))
-  expect_equal(length(result$params$adaptive_threshold), 1L)
+  # params has n_consensus_iterations as integer
+  expect_true("n_consensus_iterations" %in% names(result$params))
+  expect_true(is.integer(result$params$n_consensus_iterations))
+  expect_true(result$params$n_consensus_iterations >= 1L)
 
   # expected_coclassification values are in [0, 1]
   ecc <- result$resolution_scan$expected_coclassification
@@ -671,9 +671,8 @@ test_that("fixed consensus_threshold still works", {
   expect_equal(length(result$modules), nrow(td$net1$network))
   expect_equal(result$method, "leiden_consensus")
 
-  # Fixed threshold: adaptive_threshold should not be in params
-  # (or should reflect the fixed value)
-  expect_true(is.list(result$params))
+  # Fixed threshold: n_consensus_iterations should be 0
+  expect_equal(result$params$n_consensus_iterations, 0L)
 })
 
 
@@ -722,3 +721,67 @@ test_that("expected_coclassification relates to module granularity", {
   # expected_coclassification should be in [0, 1] range
   expect_true(all(ecc >= 0 & ecc <= 1))
 })
+
+
+# ---- Iterative consensus convergence tests ----
+
+test_that("iterative consensus converges in few iterations", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  # Should converge (n_consensus_iterations >= 1)
+  expect_true(result$params$n_consensus_iterations >= 1L)
+  # Should converge quickly (well below max_consensus_iter default of 10)
+  expect_true(result$params$n_consensus_iterations <= 10L)
+})
+
+
+test_that("max_consensus_iter parameter is respected", {
+  td <- make_module_test_data()
+  # With max_consensus_iter = 1, only one iteration
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42,
+                           max_consensus_iter = 1L)
+
+  expect_equal(result$params$n_consensus_iterations, 1L)
+  # Should still produce valid modules
+  expect_true(result$n_modules >= 1)
+  expect_equal(length(result$modules), nrow(td$net1$network))
+})
+
+
+test_that("consensus iteration recovers planted partition", {
+  # Build a network with 5 planted modules of 20 genes each
+  set.seed(123)
+  n <- 100
+  n_mod <- 5
+  mod_size <- n / n_mod  # 20
+  mat <- matrix(0.05, n, n)  # low background
+  for (m in seq_len(n_mod)) {
+    idx <- ((m - 1) * mod_size + 1):(m * mod_size)
+    mat[idx, idx] <- 0.9
+  }
+  diag(mat) <- 1
+  rownames(mat) <- colnames(mat) <- paste0("G", seq_len(n))
+  net <- list(network = mat, threshold = 0.1)
+
+  # Run consensus with broad CPM resolution range
+  result <- detect_modules(net, method = "leiden",
+                           resolution = seq(0.1, 3.0, by = 0.3),
+                           objective_function = "modularity", seed = 42)
+
+  # Should find approximately 5 modules
+  expect_true(result$n_modules >= 4 && result$n_modules <= 6)
+
+  # Compute ARI against ground truth
+  truth <- rep(seq_len(n_mod), each = mod_size)
+  names(truth) <- paste0("G", seq_len(n))
+  ari <- igraph::compare(result$modules[names(truth)], truth,
+                         method = "adjusted.rand")
+  expect_true(ari > 0.9)
+})
+
+
