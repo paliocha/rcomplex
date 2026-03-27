@@ -2,14 +2,14 @@
 % Please edit documentation in R/cliques.R
 \name{clique_hubs}
 \alias{clique_hubs}
-\title{Identify hub genes that recur across trait-exclusive cliques}
+\title{Identify hub genes that recur across cliques}
 \usage{
 clique_hubs(
   cliques,
   target_species,
   species_trait = NULL,
   stability = NULL,
-  min_hogs = 2L
+  min_cliques = 2L
 )
 }
 \arguments{
@@ -29,18 +29,19 @@ When provided, adds stability-weighted columns: \code{mean_stability}
 \code{n_stable} (count of exclusive cliques with stability_score = 1.0
 at k=1). Requires \code{species_trait} to also be provided.}
 
-\item{min_hogs}{Minimum number of HOG appearances to include a gene
-in the output (default 2).}
+\item{min_cliques}{Minimum number of clique appearances to include a
+gene in the output (default 2).}
 }
 \value{
 A data frame sorted by \code{n_stable} (if stability provided),
-\code{n_exclusive} (if trait provided), or \code{n_hogs}, with columns:
+\code{n_exclusive} (if trait provided), or \code{n_cliques}, with:
 \describe{
 \item{gene}{Gene identifier}
 \item{species}{Species the gene belongs to}
-\item{n_hogs}{Number of distinct HOGs where this gene appears in a
-clique}
-\item{n_exclusive}{Number of those cliques that are trait-exclusive
+\item{n_cliques}{Number of cliques this gene participates in}
+\item{n_hogs}{Number of distinct HOGs (secondary; equals
+\code{n_cliques} when each HOG produces one clique)}
+\item{n_exclusive}{Number of trait-exclusive clique appearances
 (only present when \code{species_trait} is provided)}
 \item{n_\if{html}{\out{<trait>}}}{One column per trait level counting exclusive
 clique appearances (only present when \code{species_trait} is
@@ -53,8 +54,9 @@ at k=1 (only present when \code{stability} is provided)}
 }
 \description{
 For each gene appearing in the output of \code{\link{find_cliques}},
-counts how many distinct HOGs it participates in and how many of those
-cliques are trait-exclusive. When stability results are provided, each
-clique appearance is weighted by its phylogenetic stability score,
-distinguishing robust hubs from fragile ones.
+counts how many cliques it participates in (clique degree). A HOG can
+produce multiple cliques with different species subsets; \code{n_cliques}
+counts total clique appearances, while \code{n_hogs} counts distinct
+HOGs. When stability results are provided, each clique appearance is
+weighted by its phylogenetic stability score.
 }

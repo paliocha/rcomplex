@@ -17,26 +17,29 @@ make_hub_cliques <- function() {
 }
 
 
-test_that("hub genes are ranked by HOG count", {
+test_that("hub genes are ranked by clique count", {
   cliques <- make_hub_cliques()
   target <- c("SP_A", "SP_B", "SP_C")
 
-  result <- clique_hubs(cliques, target, min_hogs = 1L)
+  result <- clique_hubs(cliques, target, min_cliques = 1L)
 
   expect_equal(result$gene[1], "A1")
+  expect_equal(result$n_cliques[result$gene == "A1"], 3L)
+  expect_equal(result$n_cliques[result$gene == "B1"], 2L)
+  # n_hogs equals n_cliques here (1 clique per HOG)
   expect_equal(result$n_hogs[result$gene == "A1"], 3L)
-  expect_equal(result$n_hogs[result$gene == "B1"], 2L)
 })
 
 
-test_that("min_hogs filters genes", {
+test_that("min_cliques filters genes by clique count", {
   cliques <- make_hub_cliques()
   target <- c("SP_A", "SP_B", "SP_C")
 
-  result <- clique_hubs(cliques, target, min_hogs = 3L)
+  result <- clique_hubs(cliques, target, min_cliques = 3L)
 
   expect_equal(nrow(result), 1)
   expect_equal(result$gene, "A1")
+  expect_equal(result$n_cliques, 3L)
 })
 
 
@@ -45,7 +48,7 @@ test_that("trait annotation produces per-trait columns", {
   trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "annual")
   target <- c("SP_A", "SP_B", "SP_C")
 
-  result <- clique_hubs(cliques, target, species_trait = trait, min_hogs = 1L)
+  result <- clique_hubs(cliques, target, species_trait = trait, min_cliques = 1L)
 
   expect_true("n_exclusive" %in% names(result))
   expect_true("n_annual" %in% names(result))
@@ -72,10 +75,10 @@ test_that("mixed cliques are not counted as exclusive", {
   trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "perennial")
   target <- c("SP_A", "SP_B", "SP_C")
 
-  result <- clique_hubs(cliques, target, species_trait = trait, min_hogs = 1L)
+  result <- clique_hubs(cliques, target, species_trait = trait, min_cliques = 1L)
 
   a1 <- result[result$gene == "A1", ]
-  expect_equal(a1$n_hogs, 2L)
+  expect_equal(a1$n_cliques, 2L)
   expect_equal(a1$n_exclusive, 1L)
   expect_equal(a1$n_annual, 1L)
 })
@@ -98,7 +101,7 @@ test_that("multiple trait levels produce correct columns", {
   trait <- c(SP_A = "warm", SP_B = "warm", SP_C = "cold", SP_D = "cold")
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  result <- clique_hubs(cliques, target, species_trait = trait, min_hogs = 1L)
+  result <- clique_hubs(cliques, target, species_trait = trait, min_cliques = 1L)
 
   expect_true("n_warm" %in% names(result))
   expect_true("n_cold" %in% names(result))
@@ -124,7 +127,7 @@ test_that("sorted by n_exclusive when trait provided", {
   trait <- c(SP_A = "x", SP_B = "x")
   target <- c("SP_A", "SP_B")
 
-  result <- clique_hubs(cliques, target, species_trait = trait, min_hogs = 1L)
+  result <- clique_hubs(cliques, target, species_trait = trait, min_cliques = 1L)
 
   # B1 appears in 3 exclusive cliques, A2 in 2, A1 in 1
   expect_equal(result$gene[1], "B1")
@@ -138,15 +141,16 @@ test_that("empty cliques returns empty result", {
     mean_effect_size = numeric(0), n_edges = integer(0),
     stringsAsFactors = FALSE
   )
-  result <- clique_hubs(cliques, c("SP_A", "SP_B"), min_hogs = 1L)
+  result <- clique_hubs(cliques, c("SP_A", "SP_B"), min_cliques = 1L)
   expect_equal(nrow(result), 0)
 })
 
 
 test_that("no trait produces no exclusive columns", {
   cliques <- make_hub_cliques()
-  result <- clique_hubs(cliques, c("SP_A", "SP_B", "SP_C"), min_hogs = 1L)
+  result <- clique_hubs(cliques, c("SP_A", "SP_B", "SP_C"), min_cliques = 1L)
 
+  expect_true("n_cliques" %in% names(result))
   expect_true("n_hogs" %in% names(result))
   expect_false("n_exclusive" %in% names(result))
 })
@@ -170,14 +174,15 @@ test_that("duplicate HOG with different species compositions annotates correctly
   trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "perennial")
   target <- c("SP_A", "SP_B", "SP_C")
 
-  result <- clique_hubs(cliques, target, species_trait = trait, min_hogs = 1L)
+  result <- clique_hubs(cliques, target, species_trait = trait, min_cliques = 1L)
 
   # A1 only in row1 (annual-excl) -> n_exclusive = 1
   expect_equal(result$n_exclusive[result$gene == "A1"], 1L)
   # C1 only in row2 (mixed) -> n_exclusive = 0
   expect_equal(result$n_exclusive[result$gene == "C1"], 0L)
-  # B1 in both rows: row1 annual-excl, row2 mixed -> n_exclusive = 1, n_hogs = 1
+  # B1 in both rows: row1 annual-excl, row2 mixed -> n_cliques = 2, n_hogs = 1
   expect_equal(result$n_exclusive[result$gene == "B1"], 1L)
+  expect_equal(result$n_cliques[result$gene == "B1"], 2L)
   expect_equal(result$n_hogs[result$gene == "B1"], 1L)
 })
 
@@ -206,7 +211,7 @@ test_that("stability weighting adds mean_stability and n_stable", {
   )
 
   result <- clique_hubs(cliques, target, species_trait = trait,
-                        stability = stab, min_hogs = 1L)
+                        stability = stab, min_cliques = 1L)
 
   expect_true("mean_stability" %in% names(result))
   expect_true("n_stable" %in% names(result))
@@ -253,7 +258,7 @@ test_that("stability sorts by n_stable first", {
   )
 
   result <- clique_hubs(cliques, target, species_trait = trait,
-                        stability = stab, min_hogs = 1L)
+                        stability = stab, min_cliques = 1L)
 
   # A2: n_stable=2, B1: n_stable=2 (HOG2+HOG3 stable), A1: n_stable=0
   # B1 has 3 cliques total (n_exclusive=3) but only 2 stable
@@ -275,7 +280,7 @@ test_that("no stability columns when stability is NULL", {
   cliques <- make_hub_cliques()
   trait <- c(SP_A = "x", SP_B = "x", SP_C = "x")
   result <- clique_hubs(cliques, c("SP_A", "SP_B", "SP_C"),
-                        species_trait = trait, min_hogs = 1L)
+                        species_trait = trait, min_cliques = 1L)
   expect_false("mean_stability" %in% names(result))
   expect_false("n_stable" %in% names(result))
 })
