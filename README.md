@@ -65,9 +65,14 @@ hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
 ### Module-level analysis
 
 ```r
-# Detect modules in each network
-mod1 <- detect_modules(net1, method = "leiden")
-mod2 <- detect_modules(net2, method = "leiden")
+# Detect modules (single resolution)
+mod1 <- detect_modules(net1, method = "leiden", resolution = 1.0)
+
+# Or: multi-resolution consensus (Lancichinetti & Fortunato, 2012)
+mod1 <- detect_modules(net1, resolution = seq(0.1, 3.0, by = 0.1), seed = 42)
+# mod1$resolution_scan shows n_modules, modularity, ARI at each resolution
+
+mod2 <- detect_modules(net2, resolution = seq(0.1, 3.0, by = 0.1), seed = 42)
 
 # Compare modules across species (hypergeometric or Jaccard permutation)
 comp <- compare_modules(mod1, mod2, orthologs, method = "jaccard", n_cores = 4L)
@@ -109,7 +114,7 @@ hubs <- clique_hubs(cliques, target_species,
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
 | `summarize_comparison()` | Storey q-values and summary statistics |
 | `permutation_hog_test()` | Permutation-based HOG-level conservation test |
-| `detect_modules()` | Community detection (Leiden / Infomap / SBM) |
+| `detect_modules()` | Community detection (Leiden / Infomap / SBM); multi-resolution consensus |
 | `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
 | `classify_modules()` | Three-tier module conservation classification |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch decomposition |
@@ -280,6 +285,9 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Liang, K. (2016). False discovery rate estimation for large-scale
   homogeneous discrete p-values. *Biometrics*, 72(2), 639--648.
   [doi:10.1111/biom.12429](https://doi.org/10.1111/biom.12429)
+- Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in
+  complex networks. *Scientific Reports*, 2, 336.
+  [doi:10.1038/srep00336](https://doi.org/10.1038/srep00336)
 - Bron, C. & Kerbosch, J. (1973). Algorithm 457: finding all cliques of
   an undirected graph. *Communications of the ACM*, 16(9), 575--577.
   [doi:10.1145/362342.362367](https://doi.org/10.1145/362342.362367)

@@ -20,8 +20,10 @@
 #' @param net Network object from [compute_network()].
 #' @param method Community detection method: `"leiden"` (default), `"infomap"`,
 #'   or `"sbm"`.
-#' @param resolution Resolution parameter for Leiden algorithm (default 1.0).
-#'   Higher values produce more, smaller modules. Ignored for other methods.
+#' @param resolution Resolution parameter for Leiden (default 1.0). Pass a
+#'   numeric vector (e.g., \code{seq(0.5, 2.0, by = 0.5)}) to run at multiple
+#'   resolutions and produce a consensus partition via co-classification
+#'   (Lancichinetti & Fortunato, 2012). Ignored for other methods.
 #' @param objective_function Leiden objective: `"CPM"` (default) or
 #'   `"modularity"`. Ignored for other methods.
 #' @param n_iterations Number of Leiden iterations (default 2). Ignored for
@@ -29,6 +31,10 @@
 #' @param nb_trials Number of Infomap attempts; best result is kept
 #'   (default 10). Ignored for other methods.
 #' @param seed Random seed for reproducibility (default `NULL`).
+#' @param consensus_threshold Co-classification threshold for consensus mode
+#'   (default 0.5). Only used when \code{resolution} is a vector. Gene pairs
+#'   co-classified in fewer than this fraction of resolutions are not connected
+#'   in the consensus graph.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -40,6 +46,12 @@
 #'     \item{method}{Method used}
 #'     \item{params}{List of parameters used}
 #'   }
+#'   When \code{resolution} is a vector, the output also includes:
+#'   \describe{
+#'     \item{resolution_scan}{Data frame with columns \code{resolution},
+#'       \code{n_modules}, \code{modularity}, and \code{ari_next} (Adjusted
+#'       Rand Index with the next resolution; NA for the last).}
+#'   }
 #'
 #' @references
 #' Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to Leiden:
@@ -50,6 +62,9 @@
 #' networks reveal community structure. *PNAS*, 105(4), 1118--1123.
 #' \doi{10.1073/pnas.0706851105}
 #'
+#' Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in complex
+#' networks. *Scientific Reports*, 2, 336. \doi{10.1038/srep00336}
+#'
 #' @export
 detect_modules <- function(net,
                            method = c("leiden", "infomap", "sbm"),
@@ -57,9 +72,20 @@ detect_modules <- function(net,
                            objective_function = c("CPM", "modularity"),
                            n_iterations = 2L,
                            nb_trials = 10L,
-                           seed = NULL) {
+                           seed = NULL,
+                           consensus_threshold = 0.5) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
+
+  # Consensus mode: vector resolution triggers multi-resolution + consensus
+  if (length(resolution) > 1L) {
+    if (method != "leiden")
+      stop("Consensus mode (vector resolution) only supported for method = \"leiden\"")
+    return(detect_modules_consensus(
+      net, resolution, consensus_threshold,
+      objective_function, n_iterations, seed))
+  }
+
   n_iterations <- as.integer(n_iterations)
   nb_trials <- as.integer(nb_trials)
 
@@ -147,6 +173,153 @@ detect_modules <- function(net,
     graph = g,
     method = method,
     params = params
+  )
+}
+
+
+#' Multi-resolution consensus module detection (internal)
+#'
+#' Runs Leiden at each resolution, builds a co-classification matrix,
+#' thresholds it, and produces a consensus partition via Leiden on the
+#' co-classification graph.
+#'
+#' @noRd
+detect_modules_consensus <- function(net, resolutions, consensus_threshold,
+                                     objective_function, n_iterations, seed) {
+  # Validate threshold
+
+  if (consensus_threshold <= 0 || consensus_threshold >= 1) {
+    stop("consensus_threshold must be in (0, 1)")
+  }
+
+  if (!is.list(net) || is.null(net$network)) {
+    stop("net must be a network object from compute_network()")
+  }
+
+  mat <- net$network
+  thr <- net$threshold
+  genes <- rownames(mat)
+  n_genes <- length(genes)
+
+  # Build thresholded adjacency
+  adj <- mat
+  adj[adj < thr] <- 0
+
+  if (!any(adj[upper.tri(adj)] > 0)) {
+    stop("No edges above threshold; cannot detect modules")
+  }
+
+  if (!is.null(seed)) set.seed(seed)
+
+  # Build original graph (returned in output)
+  g <- igraph::graph_from_adjacency_matrix(
+    adj, mode = "upper", weighted = TRUE, diag = FALSE
+  )
+
+  resolutions <- sort(resolutions)
+  n_res <- length(resolutions)
+
+  # If only one resolution after dedup, fall back to single-resolution
+  if (n_res == 1L) {
+    return(detect_modules(net, method = "leiden", resolution = resolutions,
+                          objective_function = objective_function,
+                          n_iterations = n_iterations, seed = seed))
+  }
+
+  # Run Leiden at each resolution
+  memberships <- vector("list", n_res)
+  scan_n_modules <- integer(n_res)
+  scan_modularity <- numeric(n_res)
+
+  for (r in seq_len(n_res)) {
+    comm <- igraph::cluster_leiden(
+      g,
+      resolution = resolutions[r],
+      objective_function = objective_function,
+      n_iterations = as.integer(n_iterations)
+    )
+    mem <- igraph::membership(comm)
+    names(mem) <- igraph::V(g)$name
+    memberships[[r]] <- mem
+    scan_n_modules[r] <- length(unique(mem))
+    scan_modularity[r] <- igraph::modularity(g, mem)
+  }
+
+  # ARI between consecutive resolutions
+  scan_ari_next <- rep(NA_real_, n_res)
+  for (r in seq_len(n_res - 1L)) {
+    scan_ari_next[r] <- igraph::compare(
+      memberships[[r]], memberships[[r + 1L]], method = "adjusted.rand"
+    )
+  }
+
+  resolution_scan <- data.frame(
+    resolution = resolutions,
+    n_modules = scan_n_modules,
+    modularity = scan_modularity,
+    ari_next = scan_ari_next,
+    stringsAsFactors = FALSE
+  )
+
+  # Build co-classification matrix: fraction of resolutions where each gene
+  # pair was assigned to the same module
+  coclassif <- matrix(0, nrow = n_genes, ncol = n_genes,
+                       dimnames = list(genes, genes))
+  for (r in seq_len(n_res)) {
+    mem <- memberships[[r]]
+    for (mod_id in unique(mem)) {
+      idx <- which(mem == mod_id)
+      coclassif[idx, idx] <- coclassif[idx, idx] + 1
+    }
+  }
+  coclassif <- coclassif / n_res
+
+  # Threshold co-classification: zero out pairs below threshold
+  consensus_adj <- coclassif
+  consensus_adj[consensus_adj < consensus_threshold] <- 0
+  diag(consensus_adj) <- 0
+
+  # Build consensus graph and run final Leiden
+  g_consensus <- igraph::graph_from_adjacency_matrix(
+    consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
+  )
+
+  if (igraph::ecount(g_consensus) == 0L) {
+    # No edges survive thresholding: fall back to best single resolution
+    best_r <- which.max(scan_modularity)
+    membership <- memberships[[best_r]]
+  } else {
+    # Run Leiden on co-classification graph with modularity objective
+    # (weights are in [0, 1], so modularity is appropriate)
+    comm_final <- igraph::cluster_leiden(
+      g_consensus,
+      resolution = 1.0,
+      objective_function = "modularity",
+      n_iterations = as.integer(n_iterations)
+    )
+    membership <- igraph::membership(comm_final)
+    names(membership) <- igraph::V(g_consensus)$name
+  }
+
+  # Ensure integer membership with gene names
+  membership <- stats::setNames(as.integer(membership), names(membership))
+  module_genes <- split(names(membership), membership)
+
+  list(
+    modules = membership,
+    module_genes = module_genes,
+    n_modules = length(module_genes),
+    modularity = igraph::modularity(g, membership),
+    graph = g,
+    method = "leiden_consensus",
+    params = list(
+      resolutions = resolutions,
+      consensus_threshold = consensus_threshold,
+      objective_function = objective_function,
+      n_resolutions = n_res,
+      seed = seed
+    ),
+    resolution_scan = resolution_scan
   )
 }
 

@@ -11,7 +11,8 @@ detect_modules(
   objective_function = c("CPM", "modularity"),
   n_iterations = 2L,
   nb_trials = 10L,
-  seed = NULL
+  seed = NULL,
+  consensus_threshold = 0.5
 )
 }
 \arguments{
@@ -20,8 +21,10 @@ detect_modules(
 \item{method}{Community detection method: \code{"leiden"} (default), \code{"infomap"},
 or \code{"sbm"}.}
 
-\item{resolution}{Resolution parameter for Leiden algorithm (default 1.0).
-Higher values produce more, smaller modules. Ignored for other methods.}
+\item{resolution}{Resolution parameter for Leiden (default 1.0). Pass a
+numeric vector (e.g., \code{seq(0.5, 2.0, by = 0.5)}) to run at multiple
+resolutions and produce a consensus partition via co-classification
+(Lancichinetti & Fortunato, 2012). Ignored for other methods.}
 
 \item{objective_function}{Leiden objective: \code{"CPM"} (default) or
 \code{"modularity"}. Ignored for other methods.}
@@ -33,6 +36,11 @@ other methods.}
 (default 10). Ignored for other methods.}
 
 \item{seed}{Random seed for reproducibility (default \code{NULL}).}
+
+\item{consensus_threshold}{Co-classification threshold for consensus mode
+(default 0.5). Only used when \code{resolution} is a vector. Gene pairs
+co-classified in fewer than this fraction of resolutions are not connected
+in the consensus graph.}
 }
 \value{
 A list with components:
@@ -44,6 +52,12 @@ A list with components:
 \item{graph}{The igraph graph object used for community detection}
 \item{method}{Method used}
 \item{params}{List of parameters used}
+}
+When \code{resolution} is a vector, the output also includes:
+\describe{
+\item{resolution_scan}{Data frame with columns \code{resolution},
+\code{n_modules}, \code{modularity}, and \code{ari_next} (Adjusted
+Rand Index with the next resolution; NA for the last).}
 }
 }
 \description{
@@ -74,4 +88,7 @@ guaranteeing well-connected communities. \emph{Scientific Reports}, 9, 5233.
 Rosvall, M. & Bergstrom, C. T. (2008). Maps of random walks on complex
 networks reveal community structure. \emph{PNAS}, 105(4), 1118--1123.
 \doi{10.1073/pnas.0706851105}
+
+Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in complex
+networks. \emph{Scientific Reports}, 2, 336. \doi{10.1038/srep00336}
 }

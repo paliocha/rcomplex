@@ -454,3 +454,147 @@ test_that("classify_modules best_jaccard matches expectation", {
   expect_true(all(result$best_jaccard >= 0 & result$best_jaccard <= 1))
   expect_true(all(result$best_q >= 0 & result$best_q <= 1))
 })
+
+
+# ---- Consensus module detection tests ----
+
+test_that("consensus detect_modules returns correct structure with 8 elements", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  expect_type(result, "list")
+  expected_names <- c("modules", "module_genes", "n_modules", "modularity",
+                      "graph", "method", "params", "resolution_scan")
+  expect_equal(length(result), 8L)
+  expect_named(result, expected_names)
+})
+
+
+test_that("consensus detect_modules finds correct partition", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  # Genes 1-10 should be in the same module
+  mods_1_10 <- result$modules[paste0("A", 1:10)]
+  expect_equal(length(unique(mods_1_10)), 1)
+
+  # Genes 11-20 should be in the same module
+  mods_11_20 <- result$modules[paste0("A", 11:20)]
+  expect_equal(length(unique(mods_11_20)), 1)
+
+  # The two groups should be in different modules
+  expect_true(unique(mods_1_10) != unique(mods_11_20))
+})
+
+
+test_that("consensus resolution_scan has correct dimensions and columns", {
+  td <- make_module_test_data()
+  resolutions <- seq(0.5, 2.0, by = 0.5)
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = resolutions,
+                           objective_function = "modularity", seed = 42)
+
+  expect_s3_class(result$resolution_scan, "data.frame")
+  expect_equal(nrow(result$resolution_scan), length(resolutions))
+  expect_equal(colnames(result$resolution_scan),
+               c("resolution", "n_modules", "modularity", "ari_next"))
+})
+
+
+test_that("consensus resolution_scan ari_next values are valid", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  ari_vals <- result$resolution_scan$ari_next
+  non_na <- ari_vals[!is.na(ari_vals)]
+  expect_true(all(non_na >= -1 & non_na <= 1))
+  expect_true(is.na(ari_vals[length(ari_vals)]))
+})
+
+
+test_that("scalar resolution still returns 7-element list without resolution_scan", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = 1.0,
+                           objective_function = "modularity", seed = 42)
+
+  expect_equal(length(result), 7L)
+  expect_null(result$resolution_scan)
+  expect_equal(result$method, "leiden")
+})
+
+
+test_that("consensus detect_modules returns method leiden_consensus", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  expect_equal(result$method, "leiden_consensus")
+})
+
+
+test_that("consensus mode errors for non-leiden methods", {
+  td <- make_module_test_data()
+  expect_error(
+    detect_modules(td$net1, method = "infomap", resolution = c(0.5, 1.0)),
+    "Consensus mode"
+  )
+})
+
+
+test_that("consensus detect_modules is reproducible with same seed", {
+  td <- make_module_test_data()
+  r1 <- detect_modules(td$net1, method = "leiden",
+                        resolution = seq(0.5, 2.0, by = 0.5),
+                        objective_function = "modularity", seed = 42)
+  r2 <- detect_modules(td$net1, method = "leiden",
+                        resolution = seq(0.5, 2.0, by = 0.5),
+                        objective_function = "modularity", seed = 42)
+
+  expect_identical(r1$modules, r2$modules)
+})
+
+
+test_that("single-element vector resolution behaves like scalar", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = c(1.0),
+                           objective_function = "modularity", seed = 42)
+
+  expect_equal(length(result), 7L)
+  expect_null(result$resolution_scan)
+  expect_equal(result$method, "leiden")
+})
+
+
+test_that("consensus_threshold validation rejects 0 and 1", {
+  td <- make_module_test_data()
+  expect_error(
+    detect_modules(td$net1, resolution = c(0.5, 1.0),
+                   consensus_threshold = 0),
+    "(0, 1)", fixed = TRUE
+  )
+  expect_error(
+    detect_modules(td$net1, resolution = c(0.5, 1.0),
+                   consensus_threshold = 1),
+    "(0, 1)", fixed = TRUE
+  )
+})
+
+
+test_that("consensus graph is original network not co-classification graph", {
+  td <- make_module_test_data()
+  result <- detect_modules(td$net1, method = "leiden",
+                           resolution = seq(0.5, 2.0, by = 0.5),
+                           objective_function = "modularity", seed = 42)
+
+  expect_true(igraph::is_igraph(result$graph))
+  expect_equal(igraph::vcount(result$graph), nrow(td$net1$network))
+})
