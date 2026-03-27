@@ -8,9 +8,10 @@ clique_stability(
   edges,
   target_species,
   species_trait,
+  all_species = target_species,
   full_cliques = NULL,
   min_species = length(target_species),
-  max_k = 3L,
+  max_k = length(all_species) - 2L,
   max_genes_per_sp = 10L,
   jaccard_threshold = 0.8,
   edge_type = "conserved",
@@ -20,20 +21,30 @@ clique_stability(
 \arguments{
 \item{edges}{Data frame (same format as \code{\link{find_cliques}}).}
 
-\item{target_species}{Character vector of species abbreviations.}
+\item{target_species}{Character vector of species that define clique
+membership (e.g., the 4 annuals).}
 
 \item{species_trait}{Named character or factor vector mapping species to
-trait groups. Names must include all \code{target_species}. Example:
-\code{c(SP_A = "annual", SP_B = "perennial")} or
-\code{c(SP_A = "tropical", SP_B = "temperate", SP_C = "arctic")}.}
+trait groups. Names must include all \code{all_species}. Example:
+\code{c(SP_A = "annual", SP_B = "perennial")}.}
+
+\item{all_species}{Character vector of ALL species in the analysis
+universe (default: \code{target_species}). Leave-k-out subsets are
+drawn from \code{all_species}. Must be a superset of
+\code{target_species}. When larger than \code{target_species},
+removing a non-target species tests whether the clique signal is
+robust to changes in the broader phylogenetic context.}
 
 \item{full_cliques}{Output of \code{\link{find_cliques}}, or \code{NULL} to
 compute internally (default).}
 
-\item{min_species}{Minimum species per clique
-(default: \code{length(target_species)}).}
+\item{min_species}{Minimum species per clique in the full dataset
+(default: \code{length(target_species)}). During leave-k-out, reduced
+cliques require only 2 species (the minimum meaningful clique size);
+a clique is testable if at least 2 of its species remain active.}
 
-\item{max_k}{Maximum number of species to leave out (default 3).}
+\item{max_k}{Maximum number of species to leave out
+(default: \code{length(all_species) - 2}, leaving at least 2 species).}
 
 \item{max_genes_per_sp}{Maximum genes per species per HOG (default 10).}
 
@@ -51,7 +62,8 @@ A list with components:
 \code{hog}, \code{trait_value}, \code{k}, \code{n_subsets},
 \code{n_stable}, \code{stability_score}, \code{sole_rep}}
 \item{clique_disruption}{Data frame with columns: \code{species},
-\code{trait_value}, \code{n_cliques_disrupted} (k=1 only)}
+\code{trait_value}, \code{n_cliques_disrupted} (k=1 only).
+One row per species in \code{all_species}.}
 \item{stability_class}{Named integer vector: highest k at which
 each exclusive clique is stable across ALL subsets (0 = unstable
 at k=1)}
@@ -73,25 +85,33 @@ number of levels. For example, life habit (annual/perennial), climate
 zone (tropical/temperate/arctic), or ploidy level (2n/4n/6n).
 \subsection{How it works}{
 
-For each combination of k species removed (k = 1, ..., max_k):
+For each combination of k species removed from \code{all_species}
+(k = 1, ..., max_k):
 \enumerate{
 \item All edges involving the removed species are dropped
-\item Full clique detection re-runs on the reduced edge set
+\item Clique detection re-runs among remaining target species
 \item Each resulting clique is annotated by trait exclusivity
 \item Reduced cliques are matched to full-dataset cliques by Jaccard
 similarity of gene assignments (considering only non-removed species)
 \item For matched cliques, trait exclusivity preservation is checked
 }
 
-A clique is \emph{stable at level k} if its trait exclusivity is preserved
-across ALL C(N, k) species-removal subsets where it remains testable.
+A clique is \emph{testable} in a subset if at least 2 of its species
+remain active. It is \emph{stable at level k} if its trait exclusivity
+is preserved across ALL C(N, k) subsets where it is testable.
+
+When \code{all_species} is larger than \code{target_species}, subsets
+may remove non-target species. With static edges, removing a non-target
+species does not change target-species edges, so these subsets are
+trivially stable. This becomes meaningful when edge q-values are
+re-computed per subset (future extension).
 }
 
 \subsection{sole_rep column}{
 
 The \code{sole_rep} column in the stability data frame is \code{TRUE} if
-this clique's trait value has only one species representative in the full
-target set, meaning removal of that species trivially breaks exclusivity.
+this clique's trait value has only one target species representative,
+meaning removal of that species trivially breaks exclusivity.
 }
 
 \subsection{full_cliques parameter}{
@@ -104,4 +124,27 @@ stab <- clique_stability(edges, target_species, species_trait,
                          full_cliques = fc)
 }
 }
+}
+\examples{
+\dontrun{
+# Find annual-exclusive cliques stable across all 8 Poaceae species
+annual_sp    <- c("BDIS", "HVUL", "BMAX", "VBRO")
+perennial_sp <- c("BSYL", "HJUB", "BMED", "FPRA")
+all_sp       <- c(annual_sp, perennial_sp)
+trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
+
+cliques <- find_cliques(edges, annual_sp)
+stab    <- clique_stability(edges, annual_sp, trait,
+                            all_species = all_sp,
+                            full_cliques = cliques)
+# max_k defaults to 6 (= 8 - 2), testing k = 1..6
+
+# Cliques surviving any single species dropout
+k1 <- stab$stability[stab$stability$k == 1, ]
+stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1] + 1L, ]
+
+# Multi-level: stability_class >= 2 survives any pair of dropouts
+deeply_stable <- which(stab$stability_class >= 2)
+}
+
 }

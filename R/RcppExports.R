@@ -102,31 +102,18 @@ find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edg
 
 #' Leave-k-out jackknife stability for trait-exclusive cliques
 #'
-#' For each combination of k species removed (k = 1..max_k), re-runs clique
-#' finding on remaining species and checks whether each trait-exclusive clique
-#' from the full analysis is preserved with matching gene assignment and trait.
-#'
-#' @param edge_hog 0-based HOG index per edge
-#' @param edge_g1 0-based gene index for gene 1
-#' @param edge_g2 0-based gene index for gene 2
-#' @param edge_sp1 0-based species index for gene 1
-#' @param edge_sp2 0-based species index for gene 2
-#' @param edge_qval q-value per edge
-#' @param edge_eff Effect size per edge
-#' @param n_target_species Number of target species
-#' @param min_species Minimum species for valid clique
-#' @param n_hogs Total HOGs
-#' @param n_genes Total genes
-#' @param species_trait Trait value per species (0, 1, 2, ... any discrete levels)
-#' @param full_cliques Output of find_cliques_cpp() on the full dataset
-#' @param max_k Maximum species to leave out (default 3)
-#' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
-#' @param jaccard_threshold Threshold for matching cliques (default 0.8)
-#' @param n_cores OpenMP threads (default 1)
+#' @param edge_hog,edge_g1,edge_g2,edge_sp1,edge_sp2 0-based edge vectors
+#' @param edge_qval,edge_eff per-edge q-value and effect size
+#' @param n_all_species total species in the analysis universe
+#' @param n_hogs,n_genes total HOGs and genes
+#' @param species_trait trait value per species (length n_all_species)
+#' @param is_target 1/0 per species (length n_all_species): target membership
+#' @param full_cliques output of find_cliques_cpp on the full dataset
+#' @param max_k,max_genes_per_sp,jaccard_threshold,n_cores tuning parameters
 #' @return List with stability, clique_disruption, stability_class, novel_cliques
 #' @keywords internal
-find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, species_trait, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L) {
-    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, species_trait, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores)
+find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, species_trait, is_target, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L) {
+    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, species_trait, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores)
 }
 
 #' Permutation-based HOG-level conservation test

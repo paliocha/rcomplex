@@ -12,11 +12,11 @@ find_cliques_stability_cpp(
   edge_sp2,
   edge_qval,
   edge_eff,
-  n_target_species,
-  min_species,
+  n_all_species,
   n_hogs,
   n_genes,
   species_trait,
+  is_target,
   full_cliques,
   max_k = 3L,
   max_genes_per_sp = 10L,
@@ -25,46 +25,26 @@ find_cliques_stability_cpp(
 )
 }
 \arguments{
-\item{edge_hog}{0-based HOG index per edge}
+\item{edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2}{0-based edge vectors}
 
-\item{edge_g1}{0-based gene index for gene 1}
+\item{edge_qval, edge_eff}{per-edge q-value and effect size}
 
-\item{edge_g2}{0-based gene index for gene 2}
+\item{n_all_species}{total species in the analysis universe}
 
-\item{edge_sp1}{0-based species index for gene 1}
+\item{n_hogs, n_genes}{total HOGs and genes}
 
-\item{edge_sp2}{0-based species index for gene 2}
+\item{species_trait}{trait value per species (length n_all_species)}
 
-\item{edge_qval}{q-value per edge}
+\item{is_target}{1/0 per species (length n_all_species): target membership}
 
-\item{edge_eff}{Effect size per edge}
+\item{full_cliques}{output of find_cliques_cpp on the full dataset}
 
-\item{n_target_species}{Number of target species}
-
-\item{min_species}{Minimum species for valid clique}
-
-\item{n_hogs}{Total HOGs}
-
-\item{n_genes}{Total genes}
-
-\item{species_trait}{Trait value per species (0, 1, 2, ... any discrete levels)}
-
-\item{full_cliques}{Output of find_cliques_cpp() on the full dataset}
-
-\item{max_k}{Maximum species to leave out (default 3)}
-
-\item{max_genes_per_sp}{Maximum genes per species per HOG (default 10)}
-
-\item{jaccard_threshold}{Threshold for matching cliques (default 0.8)}
-
-\item{n_cores}{OpenMP threads (default 1)}
+\item{max_k, max_genes_per_sp, jaccard_threshold, n_cores}{tuning parameters}
 }
 \value{
 List with stability, clique_disruption, stability_class, novel_cliques
 }
 \description{
-For each combination of k species removed (k = 1..max_k), re-runs clique
-finding on remaining species and checks whether each trait-exclusive clique
-from the full analysis is preserved with matching gene assignment and trait.
+Leave-k-out jackknife stability for trait-exclusive cliques
 }
 \keyword{internal}

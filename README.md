@@ -85,24 +85,28 @@ classes <- classify_modules(comp)
 ### Clique-level analysis
 
 ```r
-# Find conserved cliques (C++ Bron-Kerbosch / Tomita pivoting + backtracking)
-# Edges come from summarize_comparison() with q-values
-cliques <- find_cliques(edges, target_species, min_species = 3L)
+# Species and trait definitions
+annual_sp    <- c("BDIS", "HVUL", "BMAX", "VBRO")
+perennial_sp <- c("BSYL", "HJUB", "BMED", "FPRA")
+all_sp       <- c(annual_sp, perennial_sp)
+trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
 
-# Leave-k-out stability for trait-exclusive cliques
-# species_trait: any discrete trait (life habit, climate zone, ploidy, ...)
-stability <- clique_stability(
-  edges, target_species,
-  species_trait = c(SP_A = "annual", SP_B = "annual",
-                    SP_C = "perennial", SP_D = "perennial"),
-  min_species = 3L, max_k = 3L, n_cores = 4L
-)
+# Find annual-exclusive cliques (C++ Bron-Kerbosch / Tomita pivoting)
+cliques <- find_cliques(edges, annual_sp)
 
-# Identify hub genes recurring across many trait-exclusive cliques
-hubs <- clique_hubs(cliques, target_species,
-                    species_trait = c(SP_A = "annual", SP_B = "annual",
-                                     SP_C = "perennial", SP_D = "perennial"),
-                    min_hogs = 3L)
+# Leave-k-out stability over the full 8-species universe
+# max_k defaults to length(all_sp) - 2 = 6, testing all meaningful depths
+stab <- clique_stability(edges, annual_sp, trait,
+                         all_species = all_sp,
+                         full_cliques = cliques, n_cores = 4L)
+
+# Phylogenetically stable cliques (survive any single species dropout)
+k1 <- stab$stability[stab$stability$k == 1, ]
+stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1] + 1L, ]
+
+# Hub genes recurring across stable trait-exclusive cliques
+hubs <- clique_hubs(cliques, annual_sp, species_trait = trait,
+                    stability = stab, min_hogs = 3L)
 ```
 
 ## Main functions

@@ -87,8 +87,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // find_cliques_stability_cpp
-Rcpp::List find_cliques_stability_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_sp1, IntegerVector edge_sp2, NumericVector edge_qval, NumericVector edge_eff, int n_target_species, int min_species, int n_hogs, int n_genes, IntegerVector species_trait, Rcpp::List full_cliques, int max_k, int max_genes_per_sp, double jaccard_threshold, int n_cores);
-RcppExport SEXP _rcomplex_find_cliques_stability_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_sp1SEXP, SEXP edge_sp2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_target_speciesSEXP, SEXP min_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP species_traitSEXP, SEXP full_cliquesSEXP, SEXP max_kSEXP, SEXP max_genes_per_spSEXP, SEXP jaccard_thresholdSEXP, SEXP n_coresSEXP) {
+Rcpp::List find_cliques_stability_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_sp1, IntegerVector edge_sp2, NumericVector edge_qval, NumericVector edge_eff, int n_all_species, int n_hogs, int n_genes, IntegerVector species_trait, IntegerVector is_target, Rcpp::List full_cliques, int max_k, int max_genes_per_sp, double jaccard_threshold, int n_cores);
+RcppExport SEXP _rcomplex_find_cliques_stability_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_sp1SEXP, SEXP edge_sp2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_all_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP species_traitSEXP, SEXP is_targetSEXP, SEXP full_cliquesSEXP, SEXP max_kSEXP, SEXP max_genes_per_spSEXP, SEXP jaccard_thresholdSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -99,17 +99,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< IntegerVector >::type edge_sp2(edge_sp2SEXP);
     Rcpp::traits::input_parameter< NumericVector >::type edge_qval(edge_qvalSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type edge_eff(edge_effSEXP);
-    Rcpp::traits::input_parameter< int >::type n_target_species(n_target_speciesSEXP);
-    Rcpp::traits::input_parameter< int >::type min_species(min_speciesSEXP);
+    Rcpp::traits::input_parameter< int >::type n_all_species(n_all_speciesSEXP);
     Rcpp::traits::input_parameter< int >::type n_hogs(n_hogsSEXP);
     Rcpp::traits::input_parameter< int >::type n_genes(n_genesSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type species_trait(species_traitSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type is_target(is_targetSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type full_cliques(full_cliquesSEXP);
     Rcpp::traits::input_parameter< int >::type max_k(max_kSEXP);
     Rcpp::traits::input_parameter< int >::type max_genes_per_sp(max_genes_per_spSEXP);
     Rcpp::traits::input_parameter< double >::type jaccard_threshold(jaccard_thresholdSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(find_cliques_stability_cpp(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, species_trait, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores));
+    rcpp_result_gen = Rcpp::wrap(find_cliques_stability_cpp(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, species_trait, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }

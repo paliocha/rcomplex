@@ -179,16 +179,25 @@ find_cliques <- function(edges, target_species,
 #' zone (tropical/temperate/arctic), or ploidy level (2n/4n/6n).
 #'
 #' @param edges Data frame (same format as \code{\link{find_cliques}}).
-#' @param target_species Character vector of species abbreviations.
+#' @param target_species Character vector of species that define clique
+#'   membership (e.g., the 4 annuals).
 #' @param species_trait Named character or factor vector mapping species to
-#'   trait groups. Names must include all \code{target_species}. Example:
-#'   \code{c(SP_A = "annual", SP_B = "perennial")} or
-#'   \code{c(SP_A = "tropical", SP_B = "temperate", SP_C = "arctic")}.
+#'   trait groups. Names must include all \code{all_species}. Example:
+#'   \code{c(SP_A = "annual", SP_B = "perennial")}.
+#' @param all_species Character vector of ALL species in the analysis
+#'   universe (default: \code{target_species}). Leave-k-out subsets are
+#'   drawn from \code{all_species}. Must be a superset of
+#'   \code{target_species}. When larger than \code{target_species},
+#'   removing a non-target species tests whether the clique signal is
+#'   robust to changes in the broader phylogenetic context.
 #' @param full_cliques Output of \code{\link{find_cliques}}, or \code{NULL} to
 #'   compute internally (default).
-#' @param min_species Minimum species per clique
-#'   (default: \code{length(target_species)}).
-#' @param max_k Maximum number of species to leave out (default 3).
+#' @param min_species Minimum species per clique in the full dataset
+#'   (default: \code{length(target_species)}). During leave-k-out, reduced
+#'   cliques require only 2 species (the minimum meaningful clique size);
+#'   a clique is testable if at least 2 of its species remain active.
+#' @param max_k Maximum number of species to leave out
+#'   (default: \code{length(all_species) - 2}, leaving at least 2 species).
 #' @param max_genes_per_sp Maximum genes per species per HOG (default 10).
 #' @param jaccard_threshold Minimum Jaccard similarity for matching
 #'   reduced-dataset cliques to full-dataset cliques (default 0.8).
@@ -201,7 +210,8 @@ find_cliques <- function(edges, target_species,
 #'       \code{hog}, \code{trait_value}, \code{k}, \code{n_subsets},
 #'       \code{n_stable}, \code{stability_score}, \code{sole_rep}}
 #'     \item{clique_disruption}{Data frame with columns: \code{species},
-#'       \code{trait_value}, \code{n_cliques_disrupted} (k=1 only)}
+#'       \code{trait_value}, \code{n_cliques_disrupted} (k=1 only).
+#'       One row per species in \code{all_species}.}
 #'     \item{stability_class}{Named integer vector: highest k at which
 #'       each exclusive clique is stable across ALL subsets (0 = unstable
 #'       at k=1)}
@@ -212,24 +222,32 @@ find_cliques <- function(edges, target_species,
 #' @details
 #' ## How it works
 #'
-#' For each combination of k species removed (k = 1, ..., max_k):
+#' For each combination of k species removed from \code{all_species}
+#' (k = 1, ..., max_k):
 #' \enumerate{
 #'   \item All edges involving the removed species are dropped
-#'   \item Full clique detection re-runs on the reduced edge set
+#'   \item Clique detection re-runs among remaining target species
 #'   \item Each resulting clique is annotated by trait exclusivity
 #'   \item Reduced cliques are matched to full-dataset cliques by Jaccard
 #'     similarity of gene assignments (considering only non-removed species)
 #'   \item For matched cliques, trait exclusivity preservation is checked
 #' }
 #'
-#' A clique is \emph{stable at level k} if its trait exclusivity is preserved
-#' across ALL C(N, k) species-removal subsets where it remains testable.
+#' A clique is \emph{testable} in a subset if at least 2 of its species
+#' remain active. It is \emph{stable at level k} if its trait exclusivity
+#' is preserved across ALL C(N, k) subsets where it is testable.
+#'
+#' When \code{all_species} is larger than \code{target_species}, subsets
+#' may remove non-target species. With static edges, removing a non-target
+#' species does not change target-species edges, so these subsets are
+#' trivially stable. This becomes meaningful when edge q-values are
+#' re-computed per subset (future extension).
 #'
 #' ## sole_rep column
 #'
 #' The \code{sole_rep} column in the stability data frame is \code{TRUE} if
-#' this clique's trait value has only one species representative in the full
-#' target set, meaning removal of that species trivially breaks exclusivity.
+#' this clique's trait value has only one target species representative,
+#' meaning removal of that species trivially breaks exclusivity.
 #'
 #' ## full_cliques parameter
 #'
@@ -241,11 +259,35 @@ find_cliques <- function(edges, target_species,
 #'                          full_cliques = fc)
 #' }
 #'
+#' @examples
+#' \dontrun{
+#' # Find annual-exclusive cliques stable across all 8 Poaceae species
+#' annual_sp    <- c("BDIS", "HVUL", "BMAX", "VBRO")
+#' perennial_sp <- c("BSYL", "HJUB", "BMED", "FPRA")
+#' all_sp       <- c(annual_sp, perennial_sp)
+#' trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
+#'
+#' cliques <- find_cliques(edges, annual_sp)
+#' stab    <- clique_stability(edges, annual_sp, trait,
+#'                             all_species = all_sp,
+#'                             full_cliques = cliques)
+#' # max_k defaults to 6 (= 8 - 2), testing k = 1..6
+#'
+#' # Cliques surviving any single species dropout
+#' k1 <- stab$stability[stab$stability$k == 1, ]
+#' stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1] + 1L, ]
+#'
+#' # Multi-level: stability_class >= 2 survives any pair of dropouts
+#' deeply_stable <- which(stab$stability_class >= 2)
+#' }
+#'
 #' @export
 clique_stability <- function(edges, target_species, species_trait,
+                             all_species = target_species,
                              full_cliques = NULL,
                              min_species = length(target_species),
-                             max_k = 3L, max_genes_per_sp = 10L,
+                             max_k = length(all_species) - 2L,
+                             max_genes_per_sp = 10L,
                              jaccard_threshold = 0.8,
                              edge_type = "conserved", n_cores = 1L) {
   # Validate inputs
@@ -258,13 +300,16 @@ clique_stability <- function(edges, target_species, species_trait,
   if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
   }
+  if (!all(target_species %in% all_species)) {
+    stop("target_species must be a subset of all_species")
+  }
   if (!is.character(species_trait) && !is.factor(species_trait)) {
     stop("species_trait must be a named character or factor vector")
   }
   if (is.null(names(species_trait))) {
     stop("species_trait must be a named vector with species as names")
   }
-  missing_sp <- setdiff(target_species, names(species_trait))
+  missing_sp <- setdiff(all_species, names(species_trait))
   if (length(missing_sp) > 0) {
     stop("species_trait missing entries for: ",
          paste(missing_sp, collapse = ", "))
@@ -274,14 +319,17 @@ clique_stability <- function(edges, target_species, species_trait,
   if (max_k < 1L) {
     stop("max_k must be >= 1")
   }
-  if (max_k >= length(target_species)) {
-    stop("max_k must be < length(target_species)")
+  if (max_k >= length(all_species)) {
+    stop("max_k must be < length(all_species)")
   }
 
-  # Convert species_trait to 0-based integer
-  trait_char <- as.character(species_trait[target_species])
+  # Convert species_trait to 0-based integer (for ALL species)
+  trait_char <- as.character(species_trait[all_species])
   trait_levels <- unique(trait_char)
   trait_int <- as.integer(match(trait_char, trait_levels) - 1L)
+
+  # Build is_target: 1 for target species, 0 for non-target
+  is_target <- as.integer(all_species %in% target_species)
 
   # Empty result template
   empty_stability <- data.frame(
@@ -307,52 +355,50 @@ clique_stability <- function(edges, target_species, species_trait,
   }
   if (nrow(edges) == 0) return(empty_result)
 
-  # Encode edges as 0-based integer vectors
-  enc <- encode_clique_edges(edges, target_species)
+  # Encode edges with ALL species (full universe)
+  enc <- encode_clique_edges(edges, all_species)
   if (!enc$any_valid) return(empty_result)
 
-  # Compute or re-encode full_cliques
+  # Compute full cliques if not provided
   if (is.null(full_cliques)) {
-    raw_cliques <- find_cliques_cpp(
-      enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
-      enc$edge_qval, enc$edge_effect,
-      length(target_species), as.integer(min_species),
-      length(enc$unique_hogs), length(enc$all_genes),
-      as.integer(max_genes_per_sp)
-    )
-  } else {
-    # Re-encode from string-based find_cliques() output to integer lists
-    fc_hog_idx <- as.integer(enc$hog_map[as.character(full_cliques$hog)])
-    n_fc <- nrow(full_cliques)
-    fc_genes <- matrix(NA_integer_, nrow = n_fc, ncol = length(target_species))
-    for (j in seq_along(target_species)) {
-      sp <- target_species[j]
-      if (sp %in% names(full_cliques)) {
-        gnames <- full_cliques[[sp]]
-        mapped <- enc$gene_map[gnames[!is.na(gnames)]]
-        fc_genes[!is.na(gnames), j] <- as.integer(mapped)
+    full_cliques <- find_cliques(edges, target_species,
+                                 min_species = min_species,
+                                 max_genes_per_sp = max_genes_per_sp,
+                                 edge_type = edge_type)
+  }
+  if (nrow(full_cliques) == 0) return(empty_result)
+
+  # Re-encode full_cliques into all_species index space
+  fc_hog_idx <- as.integer(enc$hog_map[as.character(full_cliques$hog)])
+  n_fc <- nrow(full_cliques)
+  fc_genes <- matrix(NA_integer_, nrow = n_fc, ncol = length(all_species))
+  for (j in seq_along(all_species)) {
+    sp <- all_species[j]
+    if (sp %in% names(full_cliques)) {
+      gnames <- full_cliques[[sp]]
+      present <- !is.na(gnames)
+      if (any(present)) {
+        fc_genes[present, j] <- as.integer(enc$gene_map[gnames[present]])
       }
     }
-    raw_cliques <- list(
-      hog_idx = fc_hog_idx,
-      genes = fc_genes,
-      n_species = as.integer(full_cliques$n_species),
-      mean_q = full_cliques$mean_q,
-      max_q = full_cliques$max_q,
-      mean_effect_size = full_cliques$mean_effect_size,
-      n_edges = as.integer(full_cliques$n_edges)
-    )
   }
-
-  if (length(raw_cliques$hog_idx) == 0) return(empty_result)
+  raw_cliques <- list(
+    hog_idx = fc_hog_idx,
+    genes = fc_genes,
+    n_species = as.integer(full_cliques$n_species),
+    mean_q = full_cliques$mean_q,
+    max_q = full_cliques$max_q,
+    mean_effect_size = full_cliques$mean_effect_size,
+    n_edges = as.integer(full_cliques$n_edges)
+  )
 
   # Call C++ stability function
   cpp_result <- find_cliques_stability_cpp(
     enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
     enc$edge_qval, enc$edge_effect,
-    length(target_species), as.integer(min_species),
+    length(all_species),
     length(enc$unique_hogs), length(enc$all_genes),
-    trait_int, raw_cliques,
+    trait_int, is_target, raw_cliques,
     as.integer(max_k), as.integer(max_genes_per_sp),
     jaccard_threshold, n_cores
   )
@@ -367,10 +413,10 @@ clique_stability <- function(edges, target_species, species_trait,
     stab$trait_value <- character(0)
   }
 
-  # Post-process: clique_disruption data frame (k=1 only)
+  # Post-process: clique_disruption (one row per all_species)
   disrupt <- cpp_result$clique_disruption
   if (nrow(disrupt) > 0) {
-    disrupt$species <- target_species[disrupt$species_idx + 1L]
+    disrupt$species <- all_species[disrupt$species_idx + 1L]
     disrupt$trait_value <- trait_levels[disrupt$trait_value + 1L]
     disrupt <- disrupt[, c("species", "trait_value", "n_cliques_disrupted"),
                        drop = FALSE]
@@ -378,8 +424,6 @@ clique_stability <- function(edges, target_species, species_trait,
     disrupt <- empty_disruption
   }
 
-  # Post-process: stability_class — highest k at which each exclusive
-  # clique is stable across ALL subsets (0 = unstable at k=1)
   sc <- cpp_result$stability_class
 
   list(
