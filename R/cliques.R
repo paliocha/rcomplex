@@ -507,9 +507,9 @@ clique_stability <- function(edges, target_species, species_trait,
 #'
 #' For each gene appearing in the output of \code{\link{find_cliques}},
 #' counts how many distinct HOGs it participates in and how many of those
-#' cliques are trait-exclusive. Genes that appear in conserved cliques
-#' across many independent ortholog groups are candidate master
-#' determinants of the trait.
+#' cliques are trait-exclusive. When stability results are provided, each
+#' clique appearance is weighted by its phylogenetic stability score,
+#' distinguishing robust hubs from fragile ones.
 #'
 #' @param cliques Output of \code{\link{find_cliques}}.
 #' @param target_species Character vector of species (must match column
@@ -518,11 +518,16 @@ clique_stability <- function(edges, target_species, species_trait,
 #'   species to trait groups (same format as \code{\link{clique_stability}}).
 #'   When provided, cliques are annotated by trait exclusivity and per-trait
 #'   counts are included in the output.
+#' @param stability Optional output of \code{\link{clique_stability}}.
+#'   When provided, adds stability-weighted columns: \code{mean_stability}
+#'   (mean k=1 stability score across the gene's exclusive cliques) and
+#'   \code{n_stable} (count of exclusive cliques with stability_score = 1.0
+#'   at k=1). Requires \code{species_trait} to also be provided.
 #' @param min_hogs Minimum number of HOG appearances to include a gene
 #'   in the output (default 2).
 #'
-#' @return A data frame sorted by \code{n_exclusive} (or \code{n_hogs} if
-#'   no trait provided), with columns:
+#' @return A data frame sorted by \code{n_stable} (if stability provided),
+#'   \code{n_exclusive} (if trait provided), or \code{n_hogs}, with columns:
 #'   \describe{
 #'     \item{gene}{Gene identifier}
 #'     \item{species}{Species the gene belongs to}
@@ -533,11 +538,16 @@ clique_stability <- function(edges, target_species, species_trait,
 #'     \item{n_<trait>}{One column per trait level counting exclusive
 #'       clique appearances (only present when \code{species_trait} is
 #'       provided)}
+#'     \item{mean_stability}{Mean stability score (k=1) across exclusive
+#'       cliques (only present when \code{stability} is provided)}
+#'     \item{n_stable}{Count of exclusive cliques with perfect stability
+#'       at k=1 (only present when \code{stability} is provided)}
 #'   }
 #'
 #' @export
 clique_hubs <- function(cliques, target_species,
-                        species_trait = NULL, min_hogs = 2L) {
+                        species_trait = NULL, stability = NULL,
+                        min_hogs = 2L) {
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data frame from find_cliques()")
   }
@@ -548,6 +558,12 @@ clique_hubs <- function(cliques, target_species,
   if (length(missing_sp) > 0) {
     stop("cliques missing columns for species: ",
          paste(missing_sp, collapse = ", "))
+  }
+  if (!is.null(stability)) {
+    if (is.null(species_trait))
+      stop("species_trait is required when stability is provided")
+    if (!is.list(stability) || is.null(stability$stability))
+      stop("stability must be output of clique_stability()")
   }
 
   # Unpivot: one row per (clique row, gene, species)
@@ -609,12 +625,44 @@ clique_hubs <- function(cliques, target_species,
     }
   }
 
+  # Stability-weighted columns
+  if (!is.null(stability) && !is.null(species_trait)) {
+    stab_k1 <- stability$stability[stability$stability$k == 1,
+                                   c("clique_idx", "stability_score"),
+                                   drop = FALSE]
+    if (nrow(stab_k1) > 0) {
+      # clique_idx is 0-based; row_idx in long is 1-based
+      stab_k1$row_idx <- stab_k1$clique_idx + 1L
+      long_stab <- merge(long[long$exclusive, , drop = FALSE],
+                         stab_k1[, c("row_idx", "stability_score")],
+                         by = "row_idx", all.x = TRUE)
+      long_stab$stability_score[is.na(long_stab$stability_score)] <- 0
+
+      gene_mean_stab <- tapply(long_stab$stability_score, long_stab$gene, mean)
+      gene_n_stable <- tapply(long_stab$stability_score, long_stab$gene,
+                              function(s) sum(s >= 1.0))
+      gene_sp$mean_stability <- as.numeric(gene_mean_stab[gene_sp$gene])
+      gene_sp$mean_stability[is.na(gene_sp$mean_stability)] <- 0
+      gene_sp$n_stable <- as.integer(gene_n_stable[gene_sp$gene])
+      gene_sp$n_stable[is.na(gene_sp$n_stable)] <- 0L
+    } else {
+      gene_sp$mean_stability <- 0
+      gene_sp$n_stable <- 0L
+    }
+  }
+
   # Filter and sort
   gene_sp <- gene_sp[gene_sp$n_hogs >= min_hogs, , drop = FALSE]
 
-  sort_col <- if (!is.null(species_trait)) "n_exclusive" else "n_hogs"
-  gene_sp <- gene_sp[order(-gene_sp[[sort_col]], -gene_sp$n_hogs), ,
-                      drop = FALSE]
+  if (!is.null(stability) && "n_stable" %in% names(gene_sp)) {
+    sort_ord <- order(-gene_sp$n_stable, -gene_sp$mean_stability,
+                      -gene_sp$n_hogs)
+  } else if (!is.null(species_trait)) {
+    sort_ord <- order(-gene_sp$n_exclusive, -gene_sp$n_hogs)
+  } else {
+    sort_ord <- order(-gene_sp$n_hogs)
+  }
+  gene_sp <- gene_sp[sort_ord, , drop = FALSE]
 
   rownames(gene_sp) <- NULL
   gene_sp

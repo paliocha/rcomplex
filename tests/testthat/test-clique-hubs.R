@@ -182,6 +182,105 @@ test_that("duplicate HOG with different species compositions annotates correctly
 })
 
 
+# ---- Stability-weighted hub tests ----
+
+test_that("stability weighting adds mean_stability and n_stable", {
+  cliques <- make_hub_cliques()
+  trait <- c(SP_A = "x", SP_B = "x", SP_C = "x")
+  target <- c("SP_A", "SP_B", "SP_C")
+
+  # Mock stability output: HOG1 and HOG2 stable, HOG3 not
+  stab <- list(
+    stability = data.frame(
+      clique_idx = c(0L, 1L, 2L),
+      hog = c("HOG1", "HOG2", "HOG3"),
+      trait_value = rep("x", 3),
+      k = c(1L, 1L, 1L),
+      n_subsets = c(2L, 2L, 2L),
+      n_stable = c(2L, 2L, 0L),
+      stability_score = c(1.0, 1.0, 0.0),
+      sole_rep = c(FALSE, FALSE, FALSE),
+      stringsAsFactors = FALSE
+    ),
+    stability_class = c(1L, 1L, 0L)
+  )
+
+  result <- clique_hubs(cliques, target, species_trait = trait,
+                        stability = stab, min_hogs = 1L)
+
+  expect_true("mean_stability" %in% names(result))
+  expect_true("n_stable" %in% names(result))
+
+  # A1 in HOG1 (stable), HOG2 (stable), HOG3 (unstable) -> n_stable=2, mean=2/3
+  a1 <- result[result$gene == "A1", ]
+  expect_equal(a1$n_stable, 2L)
+  expect_equal(a1$mean_stability, 2 / 3, tolerance = 1e-10)
+
+  # B1 in HOG1 (stable), HOG2 (stable) -> n_stable=2, mean=1.0
+  b1 <- result[result$gene == "B1", ]
+  expect_equal(b1$n_stable, 2L)
+  expect_equal(b1$mean_stability, 1.0)
+})
+
+
+test_that("stability sorts by n_stable first", {
+  cliques <- data.frame(
+    hog = c("HOG1", "HOG2", "HOG3"),
+    SP_A = c("A1", "A2", "A2"),
+    SP_B = c("B1", "B1", "B1"),
+    n_species = c(2L, 2L, 2L),
+    mean_q = rep(0.01, 3), max_q = rep(0.01, 3),
+    mean_effect_size = rep(2.0, 3), n_edges = c(1L, 1L, 1L),
+    stringsAsFactors = FALSE
+  )
+  trait <- c(SP_A = "x", SP_B = "x")
+  target <- c("SP_A", "SP_B")
+
+  # B1 in all 3 cliques but only 1 stable; A2 in 2 cliques both stable
+  stab <- list(
+    stability = data.frame(
+      clique_idx = c(0L, 1L, 2L),
+      hog = c("HOG1", "HOG2", "HOG3"),
+      trait_value = rep("x", 3),
+      k = c(1L, 1L, 1L),
+      n_subsets = c(1L, 1L, 1L),
+      n_stable = c(0L, 1L, 1L),
+      stability_score = c(0.0, 1.0, 1.0),
+      sole_rep = c(FALSE, FALSE, FALSE),
+      stringsAsFactors = FALSE
+    ),
+    stability_class = c(0L, 1L, 1L)
+  )
+
+  result <- clique_hubs(cliques, target, species_trait = trait,
+                        stability = stab, min_hogs = 1L)
+
+  # A2: n_stable=2, B1: n_stable=2 (HOG2+HOG3 stable), A1: n_stable=0
+  # B1 has 3 cliques total (n_exclusive=3) but only 2 stable
+  # Sort: n_stable desc, then mean_stability desc
+  expect_equal(result$gene[nrow(result)], "A1")  # A1 last (0 stable)
+})
+
+
+test_that("stability without trait raises error", {
+  cliques <- make_hub_cliques()
+  stab <- list(stability = data.frame(clique_idx = integer(0)))
+  expect_error(clique_hubs(cliques, c("SP_A", "SP_B", "SP_C"),
+                           stability = stab),
+               "species_trait is required")
+})
+
+
+test_that("no stability columns when stability is NULL", {
+  cliques <- make_hub_cliques()
+  trait <- c(SP_A = "x", SP_B = "x", SP_C = "x")
+  result <- clique_hubs(cliques, c("SP_A", "SP_B", "SP_C"),
+                        species_trait = trait, min_hogs = 1L)
+  expect_false("mean_stability" %in% names(result))
+  expect_false("n_stable" %in% names(result))
+})
+
+
 test_that("input validation works", {
   expect_error(clique_hubs("not_a_df", c("SP_A")),
                "data frame")

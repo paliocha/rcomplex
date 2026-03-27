@@ -4,7 +4,13 @@
 \alias{clique_hubs}
 \title{Identify hub genes that recur across trait-exclusive cliques}
 \usage{
-clique_hubs(cliques, target_species, species_trait = NULL, min_hogs = 2L)
+clique_hubs(
+  cliques,
+  target_species,
+  species_trait = NULL,
+  stability = NULL,
+  min_hogs = 2L
+)
 }
 \arguments{
 \item{cliques}{Output of \code{\link{find_cliques}}.}
@@ -17,12 +23,18 @@ species to trait groups (same format as \code{\link{clique_stability}}).
 When provided, cliques are annotated by trait exclusivity and per-trait
 counts are included in the output.}
 
+\item{stability}{Optional output of \code{\link{clique_stability}}.
+When provided, adds stability-weighted columns: \code{mean_stability}
+(mean k=1 stability score across the gene's exclusive cliques) and
+\code{n_stable} (count of exclusive cliques with stability_score = 1.0
+at k=1). Requires \code{species_trait} to also be provided.}
+
 \item{min_hogs}{Minimum number of HOG appearances to include a gene
 in the output (default 2).}
 }
 \value{
-A data frame sorted by \code{n_exclusive} (or \code{n_hogs} if
-no trait provided), with columns:
+A data frame sorted by \code{n_stable} (if stability provided),
+\code{n_exclusive} (if trait provided), or \code{n_hogs}, with columns:
 \describe{
 \item{gene}{Gene identifier}
 \item{species}{Species the gene belongs to}
@@ -33,12 +45,16 @@ clique}
 \item{n_\if{html}{\out{<trait>}}}{One column per trait level counting exclusive
 clique appearances (only present when \code{species_trait} is
 provided)}
+\item{mean_stability}{Mean stability score (k=1) across exclusive
+cliques (only present when \code{stability} is provided)}
+\item{n_stable}{Count of exclusive cliques with perfect stability
+at k=1 (only present when \code{stability} is provided)}
 }
 }
 \description{
 For each gene appearing in the output of \code{\link{find_cliques}},
 counts how many distinct HOGs it participates in and how many of those
-cliques are trait-exclusive. Genes that appear in conserved cliques
-across many independent ortholog groups are candidate master
-determinants of the trait.
+cliques are trait-exclusive. When stability results are provided, each
+clique appearance is weighted by its phylogenetic stability score,
+distinguishing robust hubs from fragile ones.
 }
