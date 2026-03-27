@@ -60,7 +60,7 @@ the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).</p>
 <span>  n_iterations <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>  nb_trials <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  consensus_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  consensus_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -105,10 +105,11 @@ other methods.</p></dd>
 
 
 <dt id="arg-consensus-threshold">consensus_threshold<a class="anchor" aria-label="anchor" href="#arg-consensus-threshold"></a></dt>
-<dd><p>Co-classification threshold for consensus mode
-(default 0.5). Only used when <code>resolution</code> is a vector. Gene pairs
-co-classified in fewer than this fraction of resolutions are not connected
-in the consensus graph.</p></dd>
+<dd><p>Threshold for consensus mode. <code>NULL</code>
+(default) uses adaptive thresholding: subtracts the expected
+co-classification under random assignment (Jeub et al., 2018),
+keeping only excess signal. A numeric value in (0, 1) applies a fixed
+threshold (pairs co-classified in fewer than this fraction are dropped).</p></dd>
 
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
@@ -180,6 +181,9 @@ networks reveal community structure. <em>PNAS</em>, 105(4), 1118–1123.
 <a href="https://doi.org/10.1073/pnas.0706851105" class="external-link">doi:10.1073/pnas.0706851105</a></p>
 <p>Lancichinetti, A. &amp; Fortunato, S. (2012). Consensus clustering in complex
 networks. <em>Scientific Reports</em>, 2, 336. <a href="https://doi.org/10.1038/srep00336" class="external-link">doi:10.1038/srep00336</a></p>
+<p>Jeub, L. G. S., Sporns, O. &amp; Fortunato, S. (2018). Multiresolution
+consensus clustering in networks. <em>Scientific Reports</em>, 8, 3259.
+<a href="https://doi.org/10.1038/s41598-018-21352-7" class="external-link">doi:10.1038/s41598-018-21352-7</a></p>
     </div>
 
   </div>
