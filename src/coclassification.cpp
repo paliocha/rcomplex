@@ -11,23 +11,19 @@ using namespace Rcpp;
 
 //' Build co-classification matrix with per-pair excess
 //'
-//' For each of K resolution partitions, counts how often each gene pair
-//' is assigned to the same module. Also accumulates the per-pair expected
-//' co-classification under random assignment (Jeub et al. 2018):
-//' for same-module pairs at resolution k, E_k(i,j) = (s_m/N)^2 where
-//' s_m is the size of the module containing both i and j.
-//'
-//' @param memberships List of K IntegerVectors (1-based module IDs from
-//'   igraph, each length N)
+//' @param memberships List of K IntegerVectors (1-based module IDs)
 //' @param n_genes Number of genes (N)
-//' @return List with: coclassification (N x N raw co-classification,
-//'   values in 0 to 1), excess_coclassification (N x N, max(C - E, 0)),
-//'   expected (length-K numeric vector of per-resolution expected scalars)
+//' @param return_excess If TRUE, return excess (adaptive path).
+//'   If FALSE, return raw co-classification (fixed threshold path).
+//'   Only one N x N matrix is returned, saving ~4.6 GB for N = 24k.
+//' @return List with one of coclassification or excess_coclassification,
+//'   plus expected (length-K per-resolution expected scalars)
 //' @keywords internal
 // [[Rcpp::export]]
 Rcpp::List build_coclassification_cpp(
     const Rcpp::List& memberships,
-    int n_genes)
+    int n_genes,
+    bool return_excess = true)
 {
     int K = memberships.size();
     arma::mat C(n_genes, n_genes, arma::fill::zeros);
@@ -73,17 +69,24 @@ Rcpp::List build_coclassification_cpp(
         expected_vec[k] = exp_k;
     }
 
-    // Normalize to [0, 1]
     double inv_K = 1.0 / static_cast<double>(K);
     C *= inv_K;
-    E *= inv_K;
 
-    // Excess co-classification: reuse E to store max(C - E, 0)
-    E = arma::clamp(C - E, 0.0, 1.0);
-
-    return Rcpp::List::create(
-        Named("coclassification") = C,
-        Named("excess_coclassification") = E,
-        Named("expected") = expected_vec
-    );
+    if (return_excess) {
+        E *= inv_K;
+        // Excess = clamp(C - E, 0, 1) computed in-place, no temporary
+        C -= E;
+        E.reset();
+        C.transform([](double val) { return val < 0.0 ? 0.0 : val; });
+        return Rcpp::List::create(
+            Named("excess_coclassification") = C,
+            Named("expected") = expected_vec
+        );
+    } else {
+        E.reset();
+        return Rcpp::List::create(
+            Named("coclassification") = C,
+            Named("expected") = expected_vec
+        );
+    }
 }

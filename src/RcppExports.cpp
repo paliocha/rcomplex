@@ -24,14 +24,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // build_coclassification_cpp
-Rcpp::List build_coclassification_cpp(const Rcpp::List& memberships, int n_genes);
-RcppExport SEXP _rcomplex_build_coclassification_cpp(SEXP membershipsSEXP, SEXP n_genesSEXP) {
+Rcpp::List build_coclassification_cpp(const Rcpp::List& memberships, int n_genes, bool return_excess);
+RcppExport SEXP _rcomplex_build_coclassification_cpp(SEXP membershipsSEXP, SEXP n_genesSEXP, SEXP return_excessSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const Rcpp::List& >::type memberships(membershipsSEXP);
     Rcpp::traits::input_parameter< int >::type n_genes(n_genesSEXP);
-    rcpp_result_gen = Rcpp::wrap(build_coclassification_cpp(memberships, n_genes));
+    Rcpp::traits::input_parameter< bool >::type return_excess(return_excessSEXP);
+    rcpp_result_gen = Rcpp::wrap(build_coclassification_cpp(memberships, n_genes, return_excess));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -206,7 +207,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_apply_clr_to_cor_cpp", (DL_FUNC) &_rcomplex_apply_clr_to_cor_cpp, 2},
-    {"_rcomplex_build_coclassification_cpp", (DL_FUNC) &_rcomplex_build_coclassification_cpp, 2},
+    {"_rcomplex_build_coclassification_cpp", (DL_FUNC) &_rcomplex_build_coclassification_cpp, 3},
     {"_rcomplex_density_threshold_cpp", (DL_FUNC) &_rcomplex_density_threshold_cpp, 2},
     {"_rcomplex_fe_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_fe_hog_permutation_test_cpp, 7},
     {"_rcomplex_find_cliques_cpp", (DL_FUNC) &_rcomplex_find_cliques_cpp, 12},

@@ -4,24 +4,22 @@
 \alias{build_coclassification_cpp}
 \title{Build co-classification matrix with per-pair excess}
 \usage{
-build_coclassification_cpp(memberships, n_genes)
+build_coclassification_cpp(memberships, n_genes, return_excess = TRUE)
 }
 \arguments{
-\item{memberships}{List of K IntegerVectors (1-based module IDs from
-igraph, each length N)}
+\item{memberships}{List of K IntegerVectors (1-based module IDs)}
 
 \item{n_genes}{Number of genes (N)}
+
+\item{return_excess}{If TRUE, return excess (adaptive path).
+If FALSE, return raw co-classification (fixed threshold path).
+Only one N x N matrix is returned, saving ~4.6 GB for N = 24k.}
 }
 \value{
-List with: coclassification (N x N raw co-classification,
-values in 0 to 1), excess_coclassification (N x N, max(C - E, 0)),
-expected (length-K numeric vector of per-resolution expected scalars)
+List with one of coclassification or excess_coclassification,
+plus expected (length-K per-resolution expected scalars)
 }
 \description{
-For each of K resolution partitions, counts how often each gene pair
-is assigned to the same module. Also accumulates the per-pair expected
-co-classification under random assignment (Jeub et al. 2018):
-for same-module pairs at resolution k, E_k(i,j) = (s_m/N)^2 where
-s_m is the size of the module containing both i and j.
+Build co-classification matrix with per-pair excess
 }
 \keyword{internal}

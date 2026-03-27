@@ -218,14 +218,12 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     stop("net must be a network object from compute_network()")
   }
 
-  mat <- net$network
-  thr <- net$threshold
-  genes <- rownames(mat)
+  genes <- rownames(net$network)
   n_genes <- length(genes)
 
   # Build thresholded adjacency
-  adj <- mat
-  adj[adj < thr] <- 0
+  adj <- net$network
+  adj[adj < net$threshold] <- 0
 
   if (!any(adj[upper.tri(adj)] > 0)) {
     stop("No edges above threshold; cannot detect modules")
@@ -233,10 +231,11 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 
   if (!is.null(seed)) set.seed(seed)
 
-  # Build original graph (returned in output)
+  # Build original graph — then free the dense adjacency (~4.6 GB for N=24k)
   g <- igraph::graph_from_adjacency_matrix(
     adj, mode = "upper", weighted = TRUE, diag = FALSE
   )
+  rm(adj); gc()
 
   resolutions <- sort(resolutions)
   n_res <- length(resolutions)
@@ -296,7 +295,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 
   # ---- Build co-classification ----
   # resolution_scan reflects the initial sweep only (not updated by iteration)
-  cc_result <- build_coclassification_cpp(memberships, n_genes)
+  use_excess <- is.null(consensus_threshold)
+  cc_result <- build_coclassification_cpp(memberships, n_genes, use_excess)
 
   resolution_scan <- data.frame(
     resolution = resolutions,
@@ -312,9 +312,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # Save initial sweep for fallback if consensus graph becomes empty
   initial_memberships <- memberships
 
-  if (!is.null(consensus_threshold)) {
+  if (!use_excess) {
     # Fixed threshold: single pass, no iteration
     consensus_adj <- cc_result$coclassification
+    rm(cc_result)  # drop ref before diag<- triggers COW
     consensus_adj[consensus_adj < consensus_threshold] <- 0
     diag(consensus_adj) <- 0
     dimnames(consensus_adj) <- list(genes, genes)
@@ -322,6 +323,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     g_consensus <- igraph::graph_from_adjacency_matrix(
       consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
     )
+    rm(consensus_adj)
 
     if (igraph::ecount(g_consensus) == 0L) {
       best_r <- which.max(scan_modularity)
@@ -338,16 +340,18 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       n_consensus_iter <- iter
 
       if (iter > 1L) {
-        cc_result <- build_coclassification_cpp(memberships, n_genes)
+        cc_result <- build_coclassification_cpp(memberships, n_genes, TRUE)
       }
 
       consensus_adj <- cc_result$excess_coclassification
+      rm(cc_result)  # drop ref before diag<- triggers COW
       diag(consensus_adj) <- 0
       dimnames(consensus_adj) <- list(genes, genes)
 
       g_consensus <- igraph::graph_from_adjacency_matrix(
         consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
       )
+      rm(consensus_adj)
 
       # Empty consensus graph: fall back to best initial sweep partition
       if (igraph::ecount(g_consensus) == 0L) {
