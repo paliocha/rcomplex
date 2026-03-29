@@ -376,18 +376,16 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
           modularity = igraph::modularity(g, membership),
           graph = g,
           method = "leiden_consensus",
-          k1_test = k1_result,
           params = list(
             resolutions = resolutions,
             consensus_threshold = consensus_threshold,
             objective_function = objective_function,
             n_resolutions = n_res,
             n_consensus_iterations = 0L,
-            seed = seed,
-            test_k1 = TRUE,
-            k1_p_value = k1_result$p_value
+            seed = seed
           ),
-          resolution_scan = resolution_scan
+          resolution_scan = resolution_scan,
+          k1_test = k1_result
         ))
       }
     }
