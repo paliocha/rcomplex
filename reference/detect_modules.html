@@ -64,7 +64,8 @@ the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).</p>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  max_consensus_iter <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  test_k1 <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  n_perm_k1 <span class="op">=</span> <span class="fl">100L</span></span>
+<span>  n_perm_k1 <span class="op">=</span> <span class="fl">100L</span>,</span>
+<span>  alpha_k1 <span class="op">=</span> <span class="fl">0.05</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -138,6 +139,11 @@ consensus mode.</p></dd>
 <dt id="arg-n-perm-k-">n_perm_k1<a class="anchor" aria-label="anchor" href="#arg-n-perm-k-"></a></dt>
 <dd><p>Number of permutations for the K = 1 test.
 Default 100.</p></dd>
+
+
+<dt id="arg-alpha-k-">alpha_k1<a class="anchor" aria-label="anchor" href="#arg-alpha-k-"></a></dt>
+<dd><p>Significance level for the K = 1 test.
+Default 0.05.</p></dd>
 
 </dl></div>
     <div id="value">
