@@ -524,7 +524,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
   n_genes <- length(genes)
 
   lambda_obs <- sparse_excess_spectral_norm_cpp(memberships_obs, n_genes,
-                                                 edge_list_0)
+                                                 edge_list_0, n_cores)
 
   run_one_perm <- function(b) {
     g_perm <- igraph::rewire(g, igraph::keeping_degseq(

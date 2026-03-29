@@ -100,7 +100,7 @@ Rcpp::List build_coclassification_cpp(
 
 // Shared edge-restricted C/E accumulation for sparse co-classification.
 // Populates C_vec, E_vec (length n_edges), and expected_vec (length K).
-// Each edge writes to its own index — no races under OpenMP.
+// Each edge writes to its own index -- no races under OpenMP.
 static void accumulate_sparse_CE(
     const Rcpp::List& memberships,
     int n_genes,
@@ -141,7 +141,7 @@ static void accumulate_sparse_CE(
         expected_vec[k] = exp_k;
 
 #ifdef _OPENMP
-        #pragma omp parallel for schedule(static) if(n_cores > 1)
+        #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
 #endif
         for (int idx = 0; idx < n_edges; ++idx) {
             int i = edges(idx, 0);
@@ -182,9 +182,6 @@ Rcpp::List build_sparse_coclassification_cpp(
     std::vector<double> E_vec(n_edges, 0.0);
     Rcpp::NumericVector expected_vec(K);
 
-#ifdef _OPENMP
-    if (n_cores > 1) omp_set_num_threads(n_cores);
-#endif
     accumulate_sparse_CE(memberships, n_genes, edges, n_edges,
                          C_vec, E_vec, expected_vec, n_cores);
 
@@ -231,9 +228,6 @@ double sparse_excess_spectral_norm_cpp(
     std::vector<double> E_vec(n_edges, 0.0);
     Rcpp::NumericVector expected_vec(K);
 
-#ifdef _OPENMP
-    if (n_cores > 1) omp_set_num_threads(n_cores);
-#endif
     accumulate_sparse_CE(memberships, n_genes, edges, n_edges,
                          C_vec, E_vec, expected_vec, n_cores);
 
