@@ -49,7 +49,9 @@ and iterates until the partition converges. A numeric value in (0, 1)
 applies a fixed threshold without iteration (single pass).}
 
 \item{n_cores}{Number of parallel cores (default 1). Used for
-\code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.}
+\code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
+Uses fork-based parallelism; avoid combining with active CUDA
+contexts in the same session.}
 
 \item{max_consensus_iter}{Maximum number of consensus iterations for
 adaptive mode (\code{consensus_threshold = NULL}). Default 10.
