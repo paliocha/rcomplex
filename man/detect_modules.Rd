@@ -48,9 +48,8 @@ subtracts the per-pair expected co-classification under random assignment
 and iterates until the partition converges. A numeric value in (0, 1)
 applies a fixed threshold without iteration (single pass).}
 
-\item{n_cores}{Number of parallel cores for consensus mode (default 1).
-Uses a PSOCK cluster (\code{parallel::parLapply()}) for fork-safe
-parallelism (compatible with prior torch/CUDA initialization).}
+\item{n_cores}{Number of parallel cores (default 1). Used for
+\code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.}
 
 \item{max_consensus_iter}{Maximum number of consensus iterations for
 adaptive mode (\code{consensus_threshold = NULL}). Default 10.

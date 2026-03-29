@@ -36,9 +36,8 @@
 #'   subtracts the per-pair expected co-classification under random assignment
 #'   and iterates until the partition converges. A numeric value in (0, 1)
 #'   applies a fixed threshold without iteration (single pass).
-#' @param n_cores Number of parallel cores for consensus mode (default 1).
-#'   Uses a PSOCK cluster (\code{parallel::parLapply()}) for fork-safe
-#'   parallelism (compatible with prior torch/CUDA initialization).
+#' @param n_cores Number of parallel cores (default 1). Used for
+#'   \code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
 #' @param max_consensus_iter Maximum number of consensus iterations for
 #'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
 #'   Typically converges in 2--5 iterations. Ignored when
@@ -273,12 +272,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                           n_iterations = n_iterations, seed = seed))
   }
 
-  # Create PSOCK cluster if needed (used for initial sweep and iterations)
-  cl <- NULL
-  if (n_cores > 1L) {
-    cl <- parallel::makePSOCKcluster(n_cores)
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-  }
+  use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
 
   # ---- Initial Leiden sweep on original graph ----
   run_initial <- function(res) {
@@ -295,8 +289,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
          quality = igraph::modularity(g, mem))
   }
 
-  if (!is.null(cl)) {
-    results <- parallel::parLapply(cl, resolutions, run_initial)
+  if (use_mc) {
+    results <- parallel::mclapply(resolutions, run_initial, mc.cores = n_cores)
   } else {
     results <- lapply(resolutions, run_initial)
   }
@@ -361,7 +355,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       )
 
       consensus_mems <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, cl
+        g_consensus, resolutions, n_iterations, n_cores
       )
       membership <- pick_best_partition(consensus_mems, g)
     }
@@ -424,7 +418,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       )
 
       new_memberships <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, cl
+        g_consensus, resolutions, n_iterations, n_cores
       )
 
       # Convergence: all K partitions are ~identical (vacuously true for
@@ -479,7 +473,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 #' singletons. Modularity is the correct objective per Jeub et al. (2018).
 #' @noRd
 consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
-                                   cl = NULL) {
+                                   n_cores = 1L) {
   vertex_names <- igraph::V(graph)$name
 
   run_one <- function(res) {
@@ -494,8 +488,8 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
     mem
   }
 
-  if (!is.null(cl)) {
-    parallel::parLapply(cl, resolutions, run_one)
+  if (.Platform$OS.type == "unix" && n_cores > 1L) {
+    parallel::mclapply(resolutions, run_one, mc.cores = n_cores)
   } else {
     lapply(resolutions, run_one)
   }
