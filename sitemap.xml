@@ -8,6 +8,7 @@
 <url><loc>/reference/apply_clr_to_cor_cpp.html</loc></url>
 <url><loc>/reference/build_coclassification_cpp.html</loc></url>
 <url><loc>/reference/build_combined_fe_torch.html</loc></url>
+<url><loc>/reference/build_sparse_coclassification_cpp.html</loc></url>
 <url><loc>/reference/classify_modules.html</loc></url>
 <url><loc>/reference/clique_hubs.html</loc></url>
 <url><loc>/reference/clique_stability.html</loc></url>
@@ -33,6 +34,7 @@
 <url><loc>/reference/rcomplex-package.html</loc></url>
 <url><loc>/reference/reduce_orthogroups.html</loc></url>
 <url><loc>/reference/reduce_orthogroups_cpp.html</loc></url>
+<url><loc>/reference/sparse_excess_spectral_norm_cpp.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
 <url><loc>/reference/torch_device_dtype.html</loc></url>
 </urlset>

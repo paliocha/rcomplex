@@ -62,7 +62,9 @@ the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).</p>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  consensus_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  max_consensus_iter <span class="op">=</span> <span class="fl">10L</span></span>
+<span>  max_consensus_iter <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  test_k1 <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  n_perm_k1 <span class="op">=</span> <span class="fl">100L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -125,6 +127,18 @@ adaptive mode (<code>consensus_threshold = NULL</code>). Default 10.
 Typically converges in 2–5 iterations. Ignored when
 <code>consensus_threshold</code> is numeric.</p></dd>
 
+
+<dt id="arg-test-k-">test_k1<a class="anchor" aria-label="anchor" href="#arg-test-k-"></a></dt>
+<dd><p>Logical. Test the null hypothesis K = 1 (no community
+structure) via permutation of the spectral norm of the excess
+co-classification matrix. Default <code>TRUE</code>. Only used in adaptive
+consensus mode.</p></dd>
+
+
+<dt id="arg-n-perm-k-">n_perm_k1<a class="anchor" aria-label="anchor" href="#arg-n-perm-k-"></a></dt>
+<dd><p>Number of permutations for the K = 1 test.
+Default 100.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
@@ -156,9 +170,20 @@ Typically converges in 2–5 iterations. Ignored when
 Rand Index with the next resolution; NA for the last), and
 <code>expected_coclassification</code> (per-resolution expected scalar).</p></dd>
 
+<dt>k1_test</dt>
+<dd><p>When <code>test_k1 = TRUE</code>, a list with components:
+<code>lambda_obs</code> (observed spectral norm), <code>lambda_null</code>
+(null distribution), <code>p_value</code>, and <code>has_structure</code>.</p></dd>
+
 
 </dl><p>The <code>params</code> list includes <code>n_consensus_iterations</code>
 (number of iterations until convergence; 0 for fixed threshold).</p>
+    </div>
+    <div id="details">
+    <h2>Details</h2>
+    <p>The adaptive consensus path uses sparse co-classification
+restricted to the original network's edge set, reducing memory from
+O(N^2) to O(|E|).</p>
     </div>
     <div id="methods">
     <h2>Methods</h2>
@@ -195,6 +220,9 @@ networks. <em>Scientific Reports</em>, 2, 336. <a href="https://doi.org/10.1038/
 <p>Jeub, L. G. S., Sporns, O. &amp; Fortunato, S. (2018). Multiresolution
 consensus clustering in networks. <em>Scientific Reports</em>, 8, 3259.
 <a href="https://doi.org/10.1038/s41598-018-21352-7" class="external-link">doi:10.1038/s41598-018-21352-7</a></p>
+<p>Senbabaoglu, Y. et al. (2014). Critical limitations of consensus
+clustering in class discovery. <em>Scientific Reports</em>, 4, 6207.
+<a href="https://doi.org/10.1038/srep06207" class="external-link">doi:10.1038/srep06207</a></p>
     </div>
 
   </div>

@@ -282,13 +282,14 @@
 </h3>
 <p>When <code><a href="reference/detect_modules.html">detect_modules()</a></code> receives a vector of resolutions, it runs iterative multi-resolution consensus clustering (Jeub <em>et al.</em>, 2018):</p>
 <ol style="list-style-type: decimal">
+<li>(Optional) Test K = 1 null via spectral norm permutation: compare the leading eigenvalue of the excess co-classification matrix against a null from degree-preserving rewiring. If p &gt; 0.05, return a single module.</li>
 <li>Run Leiden at each resolution on the original network.</li>
-<li>Build an N x N co-classification matrix C (fraction of resolutions placing each gene pair in the same module).</li>
-<li>Subtract the per-pair expected co-classification under random assignment: E(i,j) = (1/K) sum_k (s_m(i)/N) * (s_m(j)/N), keeping only excess signal above chance.</li>
-<li>Run Leiden at all resolutions on the thresholded consensus graph.</li>
-<li>Repeat from step 2 until all resolutions yield the same partition (ARI &gt; 0.999), or <code>max_consensus_iter</code> is reached.</li>
+<li>For each gene pair connected in the original thresholded network, compute co-classification C (fraction of resolutions placing the pair in the same module) and per-pair expected E(i,j) = (1/K) sum_k (s_m(i)/N) * (s_m(j)/N). Memory is O(|E|), not O(N^2).</li>
+<li>Build a sparse consensus graph from edges with positive excess C - E.</li>
+<li>Run Leiden at all resolutions on the consensus graph.</li>
+<li>Repeat from step 3 until all resolutions yield the same partition (ARI &gt; 0.999), or <code>max_consensus_iter</code> is reached.</li>
 </ol>
-<p>The per-pair null subtraction (step 3) replaces the naive scalar threshold that over-retains edges from low-resolution mega-modules. Re-running the full resolution sweep on the consensus graph (step 4) avoids the resolution limit that afflicts single-resolution Leiden on dense graphs (Fortunato &amp; Barthélemy, 2007).</p>
+<p>The sparse edge-restricted co-classification (step 3) replaces the dense N x N matrix, reducing memory from ~3.2 GB to ~48 MB for N = 20K genes at 3% density. Re-running the full resolution sweep on the consensus graph (step 5) avoids the resolution limit that afflicts single-resolution Leiden on dense graphs (Fortunato &amp; Barthélemy, 2007).</p>
 </div>
 <div class="section level3">
 <h3 id="module-comparison">Module comparison<a class="anchor" aria-label="anchor" href="#module-comparison"></a>
@@ -424,7 +425,7 @@
 </tr>
 <tr class="even">
 <td><code>src/coclassification.cpp</code></td>
-<td>Co-classification matrix with per-pair null subtraction</td>
+<td>Dense and sparse co-classification with per-pair null subtraction; spectral norm for K=1 test</td>
 </tr>
 <tr class="odd">
 <td><code>src/mutual_rank.cpp</code></td>
@@ -486,6 +487,8 @@
 <li>Lancichinetti, A. &amp; Fortunato, S. (2012). Consensus clustering in complex networks. <em>Scientific Reports</em>, 2, 336. <a href="https://doi.org/10.1038/srep00336" class="external-link">doi:10.1038/srep00336</a>
 </li>
 <li>Jeub, L. G. S., Sporns, O. &amp; Fortunato, S. (2018). Multiresolution consensus clustering in networks. <em>Scientific Reports</em>, 8, 3259. <a href="https://doi.org/10.1038/s41598-018-21352-7" class="external-link">doi:10.1038/s41598-018-21352-7</a>
+</li>
+<li>Senbabaoglu, Y. <em>et al.</em> (2014). Critical limitations of consensus clustering in class discovery. <em>Scientific Reports</em>, 4, 6207. <a href="https://doi.org/10.1038/srep06207" class="external-link">doi:10.1038/srep06207</a>
 </li>
 <li>Fortunato, S. &amp; Barthélemy, M. (2007). Resolution limit in community detection. <em>PNAS</em>, 104(1), 36–41. <a href="https://doi.org/10.1073/pnas.0605965104" class="external-link">doi:10.1073/pnas.0605965104</a>
 </li>
