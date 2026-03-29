@@ -43,6 +43,12 @@
 #'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
 #'   Typically converges in 2--5 iterations. Ignored when
 #'   \code{consensus_threshold} is numeric.
+#' @param test_k1 Logical. Test the null hypothesis K = 1 (no community
+#'   structure) via permutation of the spectral norm of the excess
+#'   co-classification matrix. Default \code{TRUE}. Only used in adaptive
+#'   consensus mode.
+#' @param n_perm_k1 Number of permutations for the K = 1 test.
+#'   Default 100.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -60,9 +66,16 @@
 #'       \code{n_modules}, \code{modularity}, \code{ari_next} (Adjusted
 #'       Rand Index with the next resolution; NA for the last), and
 #'       \code{expected_coclassification} (per-resolution expected scalar).}
+#'     \item{k1_test}{When \code{test_k1 = TRUE}, a list with components:
+#'       \code{lambda_obs} (observed spectral norm), \code{lambda_null}
+#'       (null distribution), \code{p_value}, and \code{has_structure}.}
 #'   }
 #'   The \code{params} list includes \code{n_consensus_iterations}
 #'   (number of iterations until convergence; 0 for fixed threshold).
+#'
+#' @details The adaptive consensus path uses sparse co-classification
+#'   restricted to the original network's edge set, reducing memory from
+#'   O(N^2) to O(|E|).
 #'
 #' @references
 #' Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to Leiden:
@@ -80,6 +93,10 @@
 #' consensus clustering in networks. *Scientific Reports*, 8, 3259.
 #' \doi{10.1038/s41598-018-21352-7}
 #'
+#' Senbabaoglu, Y. et al. (2014). Critical limitations of consensus
+#' clustering in class discovery. *Scientific Reports*, 4, 6207.
+#' \doi{10.1038/srep06207}
+#'
 #' @export
 detect_modules <- function(net,
                            method = c("leiden", "infomap", "sbm"),
@@ -90,7 +107,9 @@ detect_modules <- function(net,
                            seed = NULL,
                            consensus_threshold = NULL,
                            n_cores = 1L,
-                           max_consensus_iter = 10L) {
+                           max_consensus_iter = 10L,
+                           test_k1 = TRUE,
+                           n_perm_k1 = 100L) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
 
@@ -101,7 +120,7 @@ detect_modules <- function(net,
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
       objective_function, n_iterations, seed, as.integer(n_cores),
-      as.integer(max_consensus_iter)))
+      as.integer(max_consensus_iter), test_k1, as.integer(n_perm_k1)))
   }
 
   n_iterations <- as.integer(n_iterations)
@@ -206,7 +225,9 @@ detect_modules <- function(net,
 detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                                      objective_function, n_iterations, seed,
                                      n_cores = 1L,
-                                     max_consensus_iter = 10L) {
+                                     max_consensus_iter = 10L,
+                                     test_k1 = TRUE,
+                                     n_perm_k1 = 100L) {
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
@@ -293,17 +314,17 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     )
   }
 
-  # ---- Build co-classification ----
-  # resolution_scan reflects the initial sweep only (not updated by iteration)
-  use_excess <- is.null(consensus_threshold)
-  cc_result <- build_coclassification_cpp(memberships, n_genes, use_excess)
+  # ---- Extract edge list for sparse co-classification ----
+  edge_list_0 <- igraph::as_edgelist(g, names = FALSE) - 1L
+  storage.mode(edge_list_0) <- "integer"
 
+  # ---- Build resolution scan (expected filled during consensus) ----
   resolution_scan <- data.frame(
     resolution = resolutions,
     n_modules = scan_n_modules,
     modularity = scan_modularity,
     ari_next = scan_ari_next,
-    expected_coclassification = cc_result$expected,
+    expected_coclassification = NA_real_,
     stringsAsFactors = FALSE
   )
 
@@ -311,9 +332,13 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   n_consensus_iter <- 0L
   # Save initial sweep for fallback if consensus graph becomes empty
   initial_memberships <- memberships
+  k1_result <- NULL
 
-  if (!use_excess) {
-    # Fixed threshold: single pass, no iteration
+  if (!is.null(consensus_threshold)) {
+    # Fixed threshold: single pass, no iteration (dense co-classification)
+    cc_result <- build_coclassification_cpp(memberships, n_genes, FALSE)
+    resolution_scan$expected_coclassification <- cc_result$expected
+
     consensus_adj <- cc_result$coclassification
     rm(cc_result)  # drop ref before diag<- triggers COW
     consensus_adj[consensus_adj < consensus_threshold] <- 0
@@ -335,29 +360,65 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       membership <- pick_best_partition(consensus_mems, g)
     }
   } else {
+    # K = 1 test
+    if (test_k1) {
+      k1_result <- test_community_structure(
+        g, genes, resolutions, objective_function, n_iterations, seed,
+        memberships, edge_list_0, n_perm_k1, n_cores
+      )
+      if (!k1_result$has_structure) {
+        membership <- stats::setNames(rep(1L, n_genes), genes)
+        module_genes <- list(`1` = genes)
+        return(list(
+          modules = membership,
+          module_genes = module_genes,
+          n_modules = 1L,
+          modularity = igraph::modularity(g, membership),
+          graph = g,
+          method = "leiden_consensus",
+          k1_test = k1_result,
+          params = list(
+            resolutions = resolutions,
+            consensus_threshold = consensus_threshold,
+            objective_function = objective_function,
+            n_resolutions = n_res,
+            n_consensus_iterations = 0L,
+            seed = seed,
+            test_k1 = TRUE,
+            k1_p_value = k1_result$p_value
+          ),
+          resolution_scan = resolution_scan
+        ))
+      }
+    }
+
     # Adaptive: iterate until convergence (Jeub et al. 2018, Algorithm 1)
     for (iter in seq_len(max_consensus_iter)) {
       n_consensus_iter <- iter
 
-      if (iter > 1L) {
-        cc_result <- build_coclassification_cpp(memberships, n_genes, TRUE)
+      cc_sparse <- build_sparse_coclassification_cpp(
+        memberships, n_genes, edge_list_0
+      )
+
+      if (iter == 1L) {
+        resolution_scan$expected_coclassification <- cc_sparse$expected
       }
 
-      consensus_adj <- cc_result$excess_coclassification
-      rm(cc_result)  # drop ref before diag<- triggers COW
-      diag(consensus_adj) <- 0
-      dimnames(consensus_adj) <- list(genes, genes)
-
-      g_consensus <- igraph::graph_from_adjacency_matrix(
-        consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
-      )
-      rm(consensus_adj)
-
-      # Empty consensus graph: fall back to best initial sweep partition
-      if (igraph::ecount(g_consensus) == 0L) {
+      keep <- cc_sparse$excess > 0
+      if (!any(keep)) {
         memberships <- initial_memberships
         break
       }
+
+      consensus_el <- cbind(cc_sparse$from[keep] + 1L,
+                            cc_sparse$to[keep] + 1L)
+      g_consensus <- igraph::make_empty_graph(n = n_genes, directed = FALSE)
+      igraph::V(g_consensus)$name <- genes
+      g_consensus <- igraph::add_edges(
+        g_consensus,
+        as.vector(t(consensus_el)),
+        weight = cc_sparse$excess[keep]
+      )
 
       new_memberships <- consensus_leiden_sweep(
         g_consensus, resolutions, n_iterations, cl
@@ -381,7 +442,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   membership <- stats::setNames(as.integer(membership), names(membership))
   module_genes <- split(names(membership), membership)
 
-  list(
+  result <- list(
     modules = membership,
     module_genes = module_genes,
     n_modules = length(module_genes),
@@ -398,6 +459,12 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     ),
     resolution_scan = resolution_scan
   )
+
+  if (test_k1 && !is.null(k1_result)) {
+    result$k1_test <- k1_result
+  }
+
+  result
 }
 
 
@@ -439,6 +506,60 @@ pick_best_partition <- function(memberships, graph) {
   memberships[[which.max(mods)]]
 }
 
+
+#' Test for community structure (K = 1 null) via spectral norm permutation
+#'
+#' Compares the leading eigenvalue of the sparse excess co-classification
+#' matrix against a null distribution from degree-preserving rewiring.
+#' @noRd
+test_community_structure <- function(g, genes, resolutions, objective_function,
+                                      n_iterations, seed, memberships_obs,
+                                      edge_list_0, n_perm = 100L,
+                                      n_cores = 1L) {
+  n_genes <- length(genes)
+
+  lambda_obs <- sparse_excess_spectral_norm_cpp(memberships_obs, n_genes,
+                                                 edge_list_0)
+
+  run_one_perm <- function(b) {
+    g_perm <- igraph::rewire(g, igraph::keeping_degseq(
+      niter = 10L * igraph::ecount(g)))
+    igraph::E(g_perm)$weight <- igraph::E(g)$weight[
+      sample.int(igraph::ecount(g))]
+
+    mems_perm <- lapply(resolutions, function(res) {
+      comm <- igraph::cluster_leiden(
+        g_perm, resolution = res,
+        objective_function = objective_function,
+        n_iterations = as.integer(n_iterations)
+      )
+      mem <- igraph::membership(comm)
+      names(mem) <- igraph::V(g_perm)$name
+      mem
+    })
+
+    el_perm <- igraph::as_edgelist(g_perm, names = FALSE) - 1L
+    storage.mode(el_perm) <- "integer"
+    sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
+  }
+
+  if (.Platform$OS.type == "unix" && n_cores > 1L) {
+    lambda_null <- unlist(parallel::mclapply(
+      seq_len(n_perm), run_one_perm, mc.cores = n_cores
+    ))
+  } else {
+    lambda_null <- vapply(seq_len(n_perm), run_one_perm, numeric(1))
+  }
+
+  p_value <- (1 + sum(lambda_null >= lambda_obs)) / (1 + n_perm)
+
+  list(
+    lambda_obs = lambda_obs,
+    lambda_null = lambda_null,
+    p_value = p_value,
+    has_structure = p_value < 0.05
+  )
+}
 
 
 #' Compare co-expression modules across species

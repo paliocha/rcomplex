@@ -14,7 +14,9 @@ detect_modules(
   seed = NULL,
   consensus_threshold = NULL,
   n_cores = 1L,
-  max_consensus_iter = 10L
+  max_consensus_iter = 10L,
+  test_k1 = TRUE,
+  n_perm_k1 = 100L
 )
 }
 \arguments{
@@ -53,6 +55,14 @@ parallelism (compatible with prior torch/CUDA initialization).}
 adaptive mode (\code{consensus_threshold = NULL}). Default 10.
 Typically converges in 2--5 iterations. Ignored when
 \code{consensus_threshold} is numeric.}
+
+\item{test_k1}{Logical. Test the null hypothesis K = 1 (no community
+structure) via permutation of the spectral norm of the excess
+co-classification matrix. Default \code{TRUE}. Only used in adaptive
+consensus mode.}
+
+\item{n_perm_k1}{Number of permutations for the K = 1 test.
+Default 100.}
 }
 \value{
 A list with components:
@@ -71,6 +81,9 @@ When \code{resolution} is a vector, the output also includes:
 \code{n_modules}, \code{modularity}, \code{ari_next} (Adjusted
 Rand Index with the next resolution; NA for the last), and
 \code{expected_coclassification} (per-resolution expected scalar).}
+\item{k1_test}{When \code{test_k1 = TRUE}, a list with components:
+\code{lambda_obs} (observed spectral norm), \code{lambda_null}
+(null distribution), \code{p_value}, and \code{has_structure}.}
 }
 The \code{params} list includes \code{n_consensus_iterations}
 (number of iterations until convergence; 0 for fixed threshold).
@@ -78,6 +91,11 @@ The \code{params} list includes \code{n_consensus_iterations}
 \description{
 Applies community detection to a thresholded co-expression network using
 the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).
+}
+\details{
+The adaptive consensus path uses sparse co-classification
+restricted to the original network's edge set, reducing memory from
+O(N^2) to O(|E|).
 }
 \section{Methods}{
 
@@ -110,4 +128,8 @@ networks. \emph{Scientific Reports}, 2, 336. \doi{10.1038/srep00336}
 Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
 consensus clustering in networks. \emph{Scientific Reports}, 8, 3259.
 \doi{10.1038/s41598-018-21352-7}
+
+Senbabaoglu, Y. et al. (2014). Critical limitations of consensus
+clustering in class discovery. \emph{Scientific Reports}, 4, 6207.
+\doi{10.1038/srep06207}
 }

@@ -190,21 +190,25 @@ non-uniform null distribution that adaptive stopping produces.
 When `detect_modules()` receives a vector of resolutions, it runs
 iterative multi-resolution consensus clustering (Jeub *et al.*, 2018):
 
-1. Run Leiden at each resolution on the original network.
-2. Build an N x N co-classification matrix C (fraction of resolutions
-   placing each gene pair in the same module).
-3. Subtract the per-pair expected co-classification under random
-   assignment: E(i,j) = (1/K) sum_k (s_m(i)/N) * (s_m(j)/N), keeping
-   only excess signal above chance.
-4. Run Leiden at all resolutions on the thresholded consensus graph.
-5. Repeat from step 2 until all resolutions yield the same partition
+1. (Optional) Test K = 1 null via spectral norm permutation: compare the
+   leading eigenvalue of the excess co-classification matrix against a
+   null from degree-preserving rewiring. If p > 0.05, return a single
+   module.
+2. Run Leiden at each resolution on the original network.
+3. For each gene pair connected in the original thresholded network,
+   compute co-classification C (fraction of resolutions placing the pair
+   in the same module) and per-pair expected E(i,j) = (1/K) sum_k
+   (s_m(i)/N) * (s_m(j)/N). Memory is O(|E|), not O(N^2).
+4. Build a sparse consensus graph from edges with positive excess C - E.
+5. Run Leiden at all resolutions on the consensus graph.
+6. Repeat from step 3 until all resolutions yield the same partition
    (ARI > 0.999), or `max_consensus_iter` is reached.
 
-The per-pair null subtraction (step 3) replaces the naive scalar
-threshold that over-retains edges from low-resolution mega-modules.
-Re-running the full resolution sweep on the consensus graph (step 4)
-avoids the resolution limit that afflicts single-resolution Leiden on
-dense graphs (Fortunato & Barthélemy, 2007).
+The sparse edge-restricted co-classification (step 3) replaces the
+dense N x N matrix, reducing memory from ~3.2 GB to ~48 MB for N = 20K
+genes at 3% density. Re-running the full resolution sweep on the
+consensus graph (step 5) avoids the resolution limit that afflicts
+single-resolution Leiden on dense graphs (Fortunato & Barthélemy, 2007).
 
 ### Module comparison
 
@@ -283,7 +287,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | File | Purpose |
 |------|---------|
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging engine |
-| `src/coclassification.cpp` | Co-classification matrix with per-pair null subtraction |
+| `src/coclassification.cpp` | Dense and sparse co-classification with per-pair null subtraction; spectral norm for K=1 test |
 | `src/mutual_rank.cpp` | MR normalization with column-major access |
 | `src/clr.cpp` | CLR normalization |
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
@@ -320,6 +324,9 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
   consensus clustering in networks. *Scientific Reports*, 8, 3259.
   [doi:10.1038/s41598-018-21352-7](https://doi.org/10.1038/s41598-018-21352-7)
+- Senbabaoglu, Y. *et al.* (2014). Critical limitations of consensus
+  clustering in class discovery. *Scientific Reports*, 4, 6207.
+  [doi:10.1038/srep06207](https://doi.org/10.1038/srep06207)
 - Fortunato, S. & Barthélemy, M. (2007). Resolution limit in community
   detection. *PNAS*, 104(1), 36--41.
   [doi:10.1073/pnas.0605965104](https://doi.org/10.1073/pnas.0605965104)

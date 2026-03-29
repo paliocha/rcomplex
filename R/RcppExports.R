@@ -42,6 +42,37 @@ build_coclassification_cpp <- function(memberships, n_genes, return_excess = TRU
     .Call(`_rcomplex_build_coclassification_cpp`, memberships, n_genes, return_excess)
 }
 
+#' Sparse co-classification restricted to original network edges
+#'
+#' Computes co-classification and per-pair excess only for gene pairs
+#' connected in the thresholded co-expression network, reducing memory
+#' from O(N^2) to O(|E|).
+#'
+#' @param memberships List of K IntegerVectors (1-based module IDs)
+#' @param n_genes Number of genes (N)
+#' @param edges |E| x 2 IntegerMatrix of 0-based vertex indices
+#' @return List with from, to (0-based), coclassification, excess,
+#'   and expected (length-K per-resolution expected scalars)
+#' @keywords internal
+build_sparse_coclassification_cpp <- function(memberships, n_genes, edges) {
+    .Call(`_rcomplex_build_sparse_coclassification_cpp`, memberships, n_genes, edges)
+}
+
+#' Leading eigenvalue of sparse excess co-classification matrix
+#'
+#' Computes the spectral norm (largest eigenvalue) of the excess
+#' co-classification matrix restricted to the original edge set.
+#' Used for the K = 1 community structure test.
+#'
+#' @param memberships List of K IntegerVectors (1-based module IDs)
+#' @param n_genes Number of genes (N)
+#' @param edges |E| x 2 IntegerMatrix of 0-based vertex indices
+#' @return Leading eigenvalue (non-negative scalar)
+#' @keywords internal
+sparse_excess_spectral_norm_cpp <- function(memberships, n_genes, edges) {
+    .Call(`_rcomplex_sparse_excess_spectral_norm_cpp`, memberships, n_genes, edges)
+}
+
 #' Compute density threshold from a symmetric matrix
 #'
 #' Extracts the upper triangle (excluding diagonal) and finds the value at
