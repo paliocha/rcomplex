@@ -16,7 +16,8 @@ detect_modules(
   n_cores = 1L,
   max_consensus_iter = 10L,
   test_k1 = TRUE,
-  n_perm_k1 = 100L
+  n_perm_k1 = 100L,
+  alpha_k1 = 0.05
 )
 }
 \arguments{
@@ -63,6 +64,9 @@ consensus mode.}
 
 \item{n_perm_k1}{Number of permutations for the K = 1 test.
 Default 100.}
+
+\item{alpha_k1}{Significance level for the K = 1 test.
+Default 0.05.}
 }
 \value{
 A list with components:

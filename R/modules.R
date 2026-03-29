@@ -49,6 +49,8 @@
 #'   consensus mode.
 #' @param n_perm_k1 Number of permutations for the K = 1 test.
 #'   Default 100.
+#' @param alpha_k1 Significance level for the K = 1 test.
+#'   Default 0.05.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -109,7 +111,8 @@ detect_modules <- function(net,
                            n_cores = 1L,
                            max_consensus_iter = 10L,
                            test_k1 = TRUE,
-                           n_perm_k1 = 100L) {
+                           n_perm_k1 = 100L,
+                           alpha_k1 = 0.05) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
 
@@ -120,7 +123,8 @@ detect_modules <- function(net,
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
       objective_function, n_iterations, seed, as.integer(n_cores),
-      as.integer(max_consensus_iter), test_k1, as.integer(n_perm_k1)))
+      as.integer(max_consensus_iter), test_k1, as.integer(n_perm_k1),
+      alpha_k1))
   }
 
   n_iterations <- as.integer(n_iterations)
@@ -227,7 +231,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
                                      n_cores = 1L,
                                      max_consensus_iter = 10L,
                                      test_k1 = TRUE,
-                                     n_perm_k1 = 100L) {
+                                     n_perm_k1 = 100L,
+                                     alpha_k1 = 0.05) {
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
@@ -363,8 +368,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     # K = 1 test
     if (test_k1) {
       k1_result <- test_community_structure(
-        g, genes, resolutions, objective_function, n_iterations, seed,
-        memberships, edge_list_0, n_perm_k1, n_cores
+        g, genes, resolutions, objective_function, n_iterations,
+        memberships, edge_list_0, n_perm_k1, n_cores, alpha_k1
       )
       if (!k1_result$has_structure) {
         membership <- stats::setNames(rep(1L, n_genes), genes)
@@ -511,9 +516,9 @@ pick_best_partition <- function(memberships, graph) {
 #' matrix against a null distribution from degree-preserving rewiring.
 #' @noRd
 test_community_structure <- function(g, genes, resolutions, objective_function,
-                                      n_iterations, seed, memberships_obs,
+                                      n_iterations, memberships_obs,
                                       edge_list_0, n_perm = 100L,
-                                      n_cores = 1L) {
+                                      n_cores = 1L, alpha = 0.05) {
   n_genes <- length(genes)
 
   lambda_obs <- sparse_excess_spectral_norm_cpp(memberships_obs, n_genes,
@@ -555,7 +560,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     lambda_obs = lambda_obs,
     lambda_null = lambda_null,
     p_value = p_value,
-    has_structure = p_value < 0.05
+    has_structure = p_value < alpha
   )
 }
 

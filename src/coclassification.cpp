@@ -94,31 +94,18 @@ Rcpp::List build_coclassification_cpp(
 }
 
 
-//' Sparse co-classification restricted to original network edges
-//'
-//' Computes co-classification and per-pair excess only for gene pairs
-//' connected in the thresholded co-expression network, reducing memory
-//' from O(N^2) to O(|E|).
-//'
-//' @param memberships List of K IntegerVectors (1-based module IDs)
-//' @param n_genes Number of genes (N)
-//' @param edges |E| x 2 IntegerMatrix of 0-based vertex indices
-//' @return List with from, to (0-based), coclassification, excess,
-//'   and expected (length-K per-resolution expected scalars)
-//' @keywords internal
-// [[Rcpp::export]]
-Rcpp::List build_sparse_coclassification_cpp(
+// Shared edge-restricted C/E accumulation for sparse co-classification.
+// Populates C_vec, E_vec (length n_edges), and expected_vec (length K).
+static void accumulate_sparse_CE(
     const Rcpp::List& memberships,
     int n_genes,
-    const Rcpp::IntegerMatrix& edges)
+    const Rcpp::IntegerMatrix& edges,
+    int n_edges,
+    std::vector<double>& C_vec,
+    std::vector<double>& E_vec,
+    Rcpp::NumericVector& expected_vec)
 {
     int K = memberships.size();
-    int n_edges = edges.nrow();
-
-    std::vector<double> C_vec(n_edges, 0.0);
-    std::vector<double> E_vec(n_edges, 0.0);
-    Rcpp::NumericVector expected_vec(K);
-
     double inv_n = 1.0 / n_genes;
 
     for (int k = 0; k < K; ++k) {
@@ -126,7 +113,6 @@ Rcpp::List build_sparse_coclassification_cpp(
 
         Rcpp::IntegerVector mem = memberships[k];
 
-        // Build mod_of and mod_size (1-based module IDs from igraph)
         int max_mod = 0;
         for (int i = 0; i < n_genes; ++i)
             if (mem[i] > max_mod) max_mod = mem[i];
@@ -158,6 +144,35 @@ Rcpp::List build_sparse_coclassification_cpp(
             }
         }
     }
+}
+
+
+//' Sparse co-classification restricted to original network edges
+//'
+//' Computes co-classification and per-pair excess only for gene pairs
+//' connected in the thresholded co-expression network, reducing memory
+//' from O(N^2) to O(|E|).
+//'
+//' @param memberships List of K IntegerVectors (1-based module IDs)
+//' @param n_genes Number of genes (N)
+//' @param edges |E| x 2 IntegerMatrix of 0-based vertex indices
+//' @return List with from, to (0-based), coclassification, excess,
+//'   and expected (length-K per-resolution expected scalars)
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::List build_sparse_coclassification_cpp(
+    const Rcpp::List& memberships,
+    int n_genes,
+    const Rcpp::IntegerMatrix& edges)
+{
+    int K = memberships.size();
+    int n_edges = edges.nrow();
+
+    std::vector<double> C_vec(n_edges, 0.0);
+    std::vector<double> E_vec(n_edges, 0.0);
+    Rcpp::NumericVector expected_vec(K);
+    accumulate_sparse_CE(memberships, n_genes, edges, n_edges,
+                         C_vec, E_vec, expected_vec);
 
     double inv_K = 1.0 / static_cast<double>(K);
     Rcpp::NumericVector coclassification(n_edges);
@@ -208,35 +223,9 @@ double sparse_excess_spectral_norm_cpp(
 
     std::vector<double> C_vec(n_edges, 0.0);
     std::vector<double> E_vec(n_edges, 0.0);
-
-    double inv_n = 1.0 / n_genes;
-
-    for (int k = 0; k < K; ++k) {
-        if (k % 10 == 0) Rcpp::checkUserInterrupt();
-
-        Rcpp::IntegerVector mem = memberships[k];
-
-        int max_mod = 0;
-        for (int i = 0; i < n_genes; ++i)
-            if (mem[i] > max_mod) max_mod = mem[i];
-
-        std::vector<int> mod_of(n_genes);
-        std::vector<int> mod_size(max_mod + 1, 0);
-        for (int i = 0; i < n_genes; ++i) {
-            mod_of[i] = mem[i];
-            mod_size[mem[i]]++;
-        }
-
-        for (int idx = 0; idx < n_edges; ++idx) {
-            int i = edges(idx, 0);
-            int j = edges(idx, 1);
-            if (mod_of[i] == mod_of[j]) {
-                C_vec[idx] += 1.0;
-                double frac = static_cast<double>(mod_size[mod_of[i]]) * inv_n;
-                E_vec[idx] += frac * frac;
-            }
-        }
-    }
+    Rcpp::NumericVector expected_vec(K);  // unused but required by helper
+    accumulate_sparse_CE(memberships, n_genes, edges, n_edges,
+                         C_vec, E_vec, expected_vec);
 
     double inv_K = 1.0 / static_cast<double>(K);
 
