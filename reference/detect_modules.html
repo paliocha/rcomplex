@@ -117,9 +117,8 @@ applies a fixed threshold without iteration (single pass).</p></dd>
 
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
-<dd><p>Number of parallel cores for consensus mode (default 1).
-Uses a PSOCK cluster (<code><a href="https://rdrr.io/r/parallel/clusterApply.html" class="external-link">parallel::parLapply()</a></code>) for fork-safe
-parallelism (compatible with prior torch/CUDA initialization).</p></dd>
+<dd><p>Number of parallel cores (default 1). Used for
+<code>mclapply</code> Leiden sweeps on Unix and OpenMP edge scans in C++.</p></dd>
 
 
 <dt id="arg-max-consensus-iter">max_consensus_iter<a class="anchor" aria-label="anchor" href="#arg-max-consensus-iter"></a></dt>
