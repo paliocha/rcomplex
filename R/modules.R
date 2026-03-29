@@ -297,8 +297,11 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     results <- lapply(resolutions, run_initial)
   }
 
-  errs <- vapply(results, inherits, logical(1), "try-error")
-  if (any(errs)) stop(attr(results[[which(errs)[1L]]], "condition"))
+  errs <- which(vapply(results, inherits, logical(1), "try-error"))
+  if (length(errs)) {
+    e <- results[[errs[1L]]]
+    stop(attr(e, "condition") %||% as.character(e))
+  }
   failed <- vapply(results, is.null, logical(1))
   if (any(failed)) {
     stop("Parallel workers returned NULL at resolutions: ",
@@ -493,10 +496,13 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
   }
 
   if (.Platform$OS.type == "unix" && n_cores > 1L) {
-    result <- parallel::mclapply(resolutions, run_one, mc.cores = n_cores)
-    errs <- vapply(result, inherits, logical(1), "try-error")
-    if (any(errs)) stop(attr(result[[which(errs)[1L]]], "condition"))
-    result
+    results <- parallel::mclapply(resolutions, run_one, mc.cores = n_cores)
+    errs <- which(vapply(results, inherits, logical(1), "try-error"))
+    if (length(errs)) {
+      e <- results[[errs[1L]]]
+      stop(attr(e, "condition") %||% as.character(e))
+    }
+    results
   } else {
     lapply(resolutions, run_one)
   }
