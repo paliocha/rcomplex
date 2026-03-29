@@ -4,7 +4,7 @@
 \alias{sparse_excess_spectral_norm_cpp}
 \title{Leading eigenvalue of sparse excess co-classification matrix}
 \usage{
-sparse_excess_spectral_norm_cpp(memberships, n_genes, edges)
+sparse_excess_spectral_norm_cpp(memberships, n_genes, edges, n_cores = 1L)
 }
 \arguments{
 \item{memberships}{List of K IntegerVectors (1-based module IDs)}

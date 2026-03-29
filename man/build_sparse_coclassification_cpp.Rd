@@ -4,7 +4,7 @@
 \alias{build_sparse_coclassification_cpp}
 \title{Sparse co-classification restricted to original network edges}
 \usage{
-build_sparse_coclassification_cpp(memberships, n_genes, edges)
+build_sparse_coclassification_cpp(memberships, n_genes, edges, n_cores = 1L)
 }
 \arguments{
 \item{memberships}{List of K IntegerVectors (1-based module IDs)}

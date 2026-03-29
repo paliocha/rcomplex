@@ -340,25 +340,26 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   k1_result <- NULL
 
   if (!is.null(consensus_threshold)) {
-    # Fixed threshold: single pass, no iteration (dense co-classification)
-    cc_result <- build_coclassification_cpp(memberships, n_genes, FALSE)
-    resolution_scan$expected_coclassification <- cc_result$expected
-
-    consensus_adj <- cc_result$coclassification
-    rm(cc_result)  # drop ref before diag<- triggers COW
-    consensus_adj[consensus_adj < consensus_threshold] <- 0
-    diag(consensus_adj) <- 0
-    dimnames(consensus_adj) <- list(genes, genes)
-
-    g_consensus <- igraph::graph_from_adjacency_matrix(
-      consensus_adj, mode = "upper", weighted = TRUE, diag = FALSE
+    # Fixed threshold: single pass, sparse co-classification
+    cc_sparse <- build_sparse_coclassification_cpp(
+      memberships, n_genes, edge_list_0, n_cores
     )
-    rm(consensus_adj)
+    resolution_scan$expected_coclassification <- cc_sparse$expected
 
-    if (igraph::ecount(g_consensus) == 0L) {
+    keep <- cc_sparse$coclassification >= consensus_threshold
+    if (!any(keep)) {
       best_r <- which.max(scan_modularity)
       membership <- initial_memberships[[best_r]]
     } else {
+      consensus_el <- edge_list_0[keep, , drop = FALSE] + 1L
+      g_consensus <- igraph::make_empty_graph(n = n_genes, directed = FALSE)
+      igraph::V(g_consensus)$name <- genes
+      g_consensus <- igraph::add_edges(
+        g_consensus,
+        as.vector(t(consensus_el)),
+        weight = cc_sparse$coclassification[keep]
+      )
+
       consensus_mems <- consensus_leiden_sweep(
         g_consensus, resolutions, n_iterations, cl
       )
@@ -400,7 +401,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       n_consensus_iter <- iter
 
       cc_sparse <- build_sparse_coclassification_cpp(
-        memberships, n_genes, edge_list_0
+        memberships, n_genes, edge_list_0, n_cores
       )
 
       if (iter == 1L) {
@@ -413,8 +414,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
         break
       }
 
-      consensus_el <- cbind(cc_sparse$from[keep] + 1L,
-                            cc_sparse$to[keep] + 1L)
+      consensus_el <- edge_list_0[keep, , drop = FALSE] + 1L
       g_consensus <- igraph::make_empty_graph(n = n_genes, directed = FALSE)
       igraph::V(g_consensus)$name <- genes
       g_consensus <- igraph::add_edges(
@@ -480,6 +480,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 #' @noRd
 consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
                                    cl = NULL) {
+  vertex_names <- igraph::V(graph)$name
+
   run_one <- function(res) {
     comm <- igraph::cluster_leiden(
       graph,
@@ -488,7 +490,7 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
       n_iterations = as.integer(n_iterations)
     )
     mem <- igraph::membership(comm)
-    names(mem) <- igraph::V(graph)$name
+    names(mem) <- vertex_names
     mem
   }
 

@@ -7,6 +7,10 @@
 #include <RcppArmadillo.h>
 #include <vector>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 using namespace Rcpp;
 
 //' Build co-classification matrix with per-pair excess
@@ -96,6 +100,7 @@ Rcpp::List build_coclassification_cpp(
 
 // Shared edge-restricted C/E accumulation for sparse co-classification.
 // Populates C_vec, E_vec (length n_edges), and expected_vec (length K).
+// Each edge writes to its own index — no races under OpenMP.
 static void accumulate_sparse_CE(
     const Rcpp::List& memberships,
     int n_genes,
@@ -103,7 +108,8 @@ static void accumulate_sparse_CE(
     int n_edges,
     std::vector<double>& C_vec,
     std::vector<double>& E_vec,
-    Rcpp::NumericVector& expected_vec)
+    Rcpp::NumericVector& expected_vec,
+    int n_cores = 1)
 {
     int K = memberships.size();
     double inv_n = 1.0 / n_genes;
@@ -134,6 +140,9 @@ static void accumulate_sparse_CE(
         }
         expected_vec[k] = exp_k;
 
+#ifdef _OPENMP
+        #pragma omp parallel for schedule(static) if(n_cores > 1)
+#endif
         for (int idx = 0; idx < n_edges; ++idx) {
             int i = edges(idx, 0);
             int j = edges(idx, 1);
@@ -163,7 +172,8 @@ static void accumulate_sparse_CE(
 Rcpp::List build_sparse_coclassification_cpp(
     const Rcpp::List& memberships,
     int n_genes,
-    const Rcpp::IntegerMatrix& edges)
+    const Rcpp::IntegerMatrix& edges,
+    int n_cores = 1)
 {
     int K = memberships.size();
     int n_edges = edges.nrow();
@@ -171,8 +181,12 @@ Rcpp::List build_sparse_coclassification_cpp(
     std::vector<double> C_vec(n_edges, 0.0);
     std::vector<double> E_vec(n_edges, 0.0);
     Rcpp::NumericVector expected_vec(K);
+
+#ifdef _OPENMP
+    if (n_cores > 1) omp_set_num_threads(n_cores);
+#endif
     accumulate_sparse_CE(memberships, n_genes, edges, n_edges,
-                         C_vec, E_vec, expected_vec);
+                         C_vec, E_vec, expected_vec, n_cores);
 
     double inv_K = 1.0 / static_cast<double>(K);
     Rcpp::NumericVector coclassification(n_edges);
@@ -184,16 +198,7 @@ Rcpp::List build_sparse_coclassification_cpp(
         excess[idx] = ex > 0.0 ? ex : 0.0;
     }
 
-    Rcpp::IntegerVector from_out(n_edges);
-    Rcpp::IntegerVector to_out(n_edges);
-    for (int idx = 0; idx < n_edges; ++idx) {
-        from_out[idx] = edges(idx, 0);
-        to_out[idx] = edges(idx, 1);
-    }
-
     return Rcpp::List::create(
-        Named("from") = from_out,
-        Named("to") = to_out,
         Named("coclassification") = coclassification,
         Named("excess") = excess,
         Named("expected") = expected_vec
@@ -216,16 +221,21 @@ Rcpp::List build_sparse_coclassification_cpp(
 double sparse_excess_spectral_norm_cpp(
     const Rcpp::List& memberships,
     int n_genes,
-    const Rcpp::IntegerMatrix& edges)
+    const Rcpp::IntegerMatrix& edges,
+    int n_cores = 1)
 {
     int K = memberships.size();
     int n_edges = edges.nrow();
 
     std::vector<double> C_vec(n_edges, 0.0);
     std::vector<double> E_vec(n_edges, 0.0);
-    Rcpp::NumericVector expected_vec(K);  // unused but required by helper
+    Rcpp::NumericVector expected_vec(K);
+
+#ifdef _OPENMP
+    if (n_cores > 1) omp_set_num_threads(n_cores);
+#endif
     accumulate_sparse_CE(memberships, n_genes, edges, n_edges,
-                         C_vec, E_vec, expected_vec);
+                         C_vec, E_vec, expected_vec, n_cores);
 
     double inv_K = 1.0 / static_cast<double>(K);
 

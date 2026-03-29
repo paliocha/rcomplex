@@ -54,8 +54,8 @@ build_coclassification_cpp <- function(memberships, n_genes, return_excess = TRU
 #' @return List with from, to (0-based), coclassification, excess,
 #'   and expected (length-K per-resolution expected scalars)
 #' @keywords internal
-build_sparse_coclassification_cpp <- function(memberships, n_genes, edges) {
-    .Call(`_rcomplex_build_sparse_coclassification_cpp`, memberships, n_genes, edges)
+build_sparse_coclassification_cpp <- function(memberships, n_genes, edges, n_cores = 1L) {
+    .Call(`_rcomplex_build_sparse_coclassification_cpp`, memberships, n_genes, edges, n_cores)
 }
 
 #' Leading eigenvalue of sparse excess co-classification matrix
@@ -69,8 +69,8 @@ build_sparse_coclassification_cpp <- function(memberships, n_genes, edges) {
 #' @param edges |E| x 2 IntegerMatrix of 0-based vertex indices
 #' @return Leading eigenvalue (non-negative scalar)
 #' @keywords internal
-sparse_excess_spectral_norm_cpp <- function(memberships, n_genes, edges) {
-    .Call(`_rcomplex_sparse_excess_spectral_norm_cpp`, memberships, n_genes, edges)
+sparse_excess_spectral_norm_cpp <- function(memberships, n_genes, edges, n_cores = 1L) {
+    .Call(`_rcomplex_sparse_excess_spectral_norm_cpp`, memberships, n_genes, edges, n_cores)
 }
 
 #' Compute density threshold from a symmetric matrix
