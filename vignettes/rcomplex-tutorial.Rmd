@@ -180,41 +180,57 @@ for (m in multipliers) {
   # Find cliques at stricter threshold
   tight_cliques <- find_cliques(tight_edges, species, min_species = 2L)
 
-  # Jackknife stability at this threshold level
+  # Jackknife stability: test all k from 1 to max (N - 2 = 6)
   if (nrow(tight_cliques) > 0) {
+    max_k <- length(species) - 2L
     stab <- clique_stability(tight_edges, species, trait,
                               all_species = species,
                               full_cliques = tight_cliques,
-                              max_k = 1L)
+                              max_k = max_k)
     robustness[[as.character(m)]] <- list(
       cliques = tight_cliques,
       n_cliques = nrow(tight_cliques),
-      n_stable = sum(stab$stability_class >= 1),
+      n_exclusive = length(stab$stability_class),
+      stability_class = stab$stability_class,
       mean_density = mean(eff_densities),
       stability = stab
     )
   } else {
     robustness[[as.character(m)]] <- list(
-      cliques = tight_cliques, n_cliques = 0L, n_stable = 0L,
+      cliques = tight_cliques, n_cliques = 0L, n_exclusive = 0L,
+      stability_class = integer(0),
       mean_density = mean(eff_densities))
   }
 }
 
-# Summary: cliques surviving at each density level
-cat("Density    | Cliques | Stable (k=1)\n")
-cat("-----------|---------|-------------\n")
-cat(sprintf("%-10s | %7d | %12d\n", "3.00% (baseline)",
-            nrow(cliques), NA))
+# Summary: cliques surviving at each density level with stability class
+# stability_class = highest k at which ALL species-removal subsets preserve
+# the clique's trait exclusivity. k=6 means the clique survives removal of
+# any 6 of 8 species (maximally robust).
+max_k <- length(species) - 2L
+header <- paste0("Density    | Cliques | Exclusive | ",
+                 paste(sprintf("k=%d", 0:max_k), collapse = " | "))
+cat(header, "\n")
+cat(paste(rep("-", nchar(header)), collapse = ""), "\n")
 for (m in names(robustness)) {
   r <- robustness[[m]]
-  cat(sprintf("%-10s | %7d | %12d\n",
+  sc_tab <- table(factor(r$stability_class, levels = 0:max_k))
+  sc_str <- paste(sprintf("%3d", sc_tab), collapse = " | ")
+  cat(sprintf("%-10s | %7d | %9d | %s\n",
               sprintf("%.2f%%", r$mean_density * 100),
-              r$n_cliques, r$n_stable))
+              r$n_cliques, r$n_exclusive, sc_str))
 }
 ```
 
-Cliques that survive at tighter density AND remain stable to single-species
-removal represent the most reliable conservation signals.
+The stability class distribution is strikingly bimodal: cliques are either
+unstable (class 0) or maximally stable (class `r length(species) - 2L`).
+This makes biological sense -- with 4 species per trait group, a
+trait-exclusive clique either depends on a specific species combination
+(fragile) or reflects a genuinely conserved pattern that persists regardless
+of which species are removed (robust).
+
+Cliques that survive at tighter density AND have maximal stability class
+represent the strongest conservation signals in the dataset.
 
 ## 7. HOG classification
 
