@@ -389,8 +389,8 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     // --- 4. Species-level clique/subset enumeration ---
     std::vector<std::vector<int>> sp_cliques;
 
-    if (max_missing_edges == 0) {
-        // Exact: Bron-Kerbosch on species adjacency graph
+    // Helper: run BK on the present-species adjacency graph
+    auto run_bk = [&]() {
         std::vector<std::vector<bool>> local_adj(
             n_present, std::vector<bool>(n_present, false));
         for (int i = 0; i < n_present; i++) {
@@ -405,30 +405,21 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         std::iota(P.begin(), P.end(), 0);
         std::vector<int> X;
         bron_kerbosch(R, P, X, local_adj, min_species, sp_cliques);
+    };
+
+    if (max_missing_edges == 0) {
+        run_bk();
     } else {
         // Tolerant: enumerate all species subsets of size >= min_species
         // where number of missing species-pair edges <= max_missing_edges.
-        // Practical limit: ~20 species (C(20,10) = 184,756 subsets).
+        // Practical limit: ~25 species (C(25,12) ~ 5M subsets).
         // For larger n_present, the total enumeration becomes infeasible.
         static constexpr int MAX_TOLERANT_SPECIES = 25;
         if (n_present > MAX_TOLERANT_SPECIES) {
-            // Fall back to BK (exact cliques only) for large species counts
-            // to avoid combinatorial explosion. The max_missing_edges
-            // tolerance is silently ignored.
-            std::vector<std::vector<bool>> local_adj(
-                n_present, std::vector<bool>(n_present, false));
-            for (int i = 0; i < n_present; i++) {
-                for (int j = i + 1; j < n_present; j++) {
-                    if (sp_adj[present_sp[i]][present_sp[j]]) {
-                        local_adj[i][j] = local_adj[j][i] = true;
-                    }
-                }
-            }
-            std::vector<int> R;
-            std::vector<int> P(n_present);
-            std::iota(P.begin(), P.end(), 0);
-            std::vector<int> X;
-            bron_kerbosch(R, P, X, local_adj, min_species, sp_cliques);
+            REprintf("Warning: max_missing_edges tolerance ignored for HOG "
+                     "with %d species (limit %d); using exact BK\n",
+                     n_present, MAX_TOLERANT_SPECIES);
+            run_bk();
         } else {
             for (int sz = n_present; sz >= min_species; sz--) {
                 if (sz == 0) continue;
