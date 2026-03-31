@@ -149,7 +149,7 @@ species:</p>
 </tbody>
 </table>
 <p>The dataset is a 500-HOG subset of VST-normalized RNA-seq from the
-EVOTREE project, stored as SummarizedExperiment objects.</p>
+“Live or let die?” project, stored as SummarizedExperiment objects.</p>
 <div class="section level2">
 <h2 id="data-preparation">1. Data preparation<a class="anchor" aria-label="anchor" href="#data-preparation"></a>
 </h2>
@@ -343,9 +343,6 @@ running leave-k-out jackknife stability at each level:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The baseline density is 3%. Each multiplier tightens the MR threshold,</span></span>
 <span><span class="co"># which corresponds to a lower effective density percentile.</span></span>
-<span><span class="co"># Compute the actual density at each multiplier level.</span></span>
-<span><span class="va">baseline_density</span> <span class="op">&lt;-</span> <span class="fl">0.03</span></span>
-<span></span>
 <span><span class="va">multipliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.01</span>, <span class="fl">1.02</span>, <span class="fl">1.03</span>, <span class="fl">1.05</span><span class="op">)</span></span>
 <span><span class="va">robustness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -432,7 +429,7 @@ class represent the strongest conservation signals in the dataset.</p>
 complete &gt; partial &gt; differentiated &gt; trait_specific &gt;
 unclassified.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Use stability from the 1.02x level (tighter than baseline, with data)</span></span>
+<code class="sourceCode R"><span><span class="co"># Use stability from the 1.02x level (NULL if no cliques survived)</span></span>
 <span><span class="va">stab_input</span> <span class="op">&lt;-</span> <span class="va">robustness</span><span class="op">[[</span><span class="st">"1.02"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">stability</span></span>
 <span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_cliques.html">classify_cliques</a></span><span class="op">(</span><span class="va">edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
