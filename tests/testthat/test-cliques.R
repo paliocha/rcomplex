@@ -349,6 +349,50 @@ test_that("clique_persistence handles multiple cliques", {
 })
 
 
+test_that("clique_persistence aggregates across 3 species and reversed edges", {
+  net_a <- matrix(c(0, 10, 3,  10, 0, 0.5,  3, 0.5, 0), nrow = 3,
+                  dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
+  net_b <- matrix(c(0, 8, 4,  8, 0, 0.5,  4, 0.5, 0), nrow = 3,
+                  dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
+  net_c <- matrix(c(0, 6, 5,  6, 0, 0.5,  5, 0.5, 0), nrow = 3,
+                  dimnames = list(c("C1", "C2", "C3"), c("C1", "C2", "C3")))
+
+  networks <- list(
+    SP_A = list(network = net_a, threshold = 2.0),
+    SP_B = list(network = net_b, threshold = 2.5),
+    SP_C = list(network = net_c, threshold = 3.0)
+  )
+
+  cliques <- data.frame(
+    hog = "HOG1", SP_A = "A1", SP_B = "B1", SP_C = "C1",
+    n_species = 3L, mean_q = 0.01, max_q = 0.01,
+    mean_effect_size = 3.0, n_edges = 3L,
+    stringsAsFactors = FALSE
+  )
+
+  # SP_C->SP_A edge is reversed (species1=SP_C, species2=SP_A)
+  edges <- data.frame(
+    gene1 = c("A2", "C2",  "B3"),
+    gene2 = c("B2", "A2",  "C3"),
+    species1 = c("SP_A", "SP_C", "SP_B"),
+    species2 = c("SP_B", "SP_A", "SP_C"),
+    hog = c("HOG_X", "HOG_X", "HOG_Y"),
+    q.value = c(0.5, 0.5, 0.5), effect_size = c(1.0, 1.0, 1.0),
+    stringsAsFactors = FALSE
+  )
+
+  result <- clique_persistence(cliques, networks,
+                               c("SP_A", "SP_B", "SP_C"), edges)
+
+  # (SP_A,SP_B): A2->B2, min(10/2, 8/2.5) = 3.2
+  # (SP_A,SP_C): A2->C2 via reversed edge, min(10/2, 6/3) = 2.0
+  # (SP_B,SP_C): B3->C3, min(4/2.5, 5/3) = 1.6
+  expect_equal(result$persistence, 1.6, tolerance = 1e-10)
+  expect_equal(result$mean_persistence, mean(c(3.2, 2.0, 1.6)),
+               tolerance = 1e-10)
+})
+
+
 test_that("clique_persistence excludes self from neighbours", {
   net <- matrix(c(99, 1,  1, 99), nrow = 2,
                 dimnames = list(c("A1", "A2"), c("A1", "A2")))
