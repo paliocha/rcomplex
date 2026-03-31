@@ -4,7 +4,7 @@
 [![R-CMD-check](https://github.com/paliocha/rcomplex/actions/workflows/r.yml/badge.svg)](https://github.com/paliocha/rcomplex/actions/workflows/r.yml)
 <!-- badges: end -->
 
-Comparative co-expression network analysis across species.
+Comparative analysis of plant co-expression networks in R
 
 **rcomplex** maps orthologous genes between species, builds co-expression
 networks independently, then tests conservation at three complementary
