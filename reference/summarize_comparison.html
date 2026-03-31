@@ -56,7 +56,9 @@ statistics at gene-pair, gene, and ortholog-group levels.</p>
 <span>  <span class="va">comparison</span>,</span>
 <span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
 <span>  alpha <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  filter_zero <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  filter_zero <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sp1 <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sp2 <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -82,6 +84,14 @@ divergence (lower-tail, uses <code>.p.val.div</code> columns).</p></dd>
 <dd><p>If <code>TRUE</code> (default for <code>"greater"</code>), remove rows where
 both overlap values are zero. Defaults to <code>FALSE</code> for <code>"less"</code>.</p></dd>
 
+
+<dt id="arg-sp-sp-">sp1, sp2<a class="anchor" aria-label="anchor" href="#arg-sp-sp-"></a></dt>
+<dd><p>Optional species abbreviations. When both are provided,
+<code><a href="comparison_to_edges.html">comparison_to_edges</a></code> is called internally and the result
+is returned as a third list element <code>$edges</code>. This avoids a
+separate <code><a href="comparison_to_edges.html">comparison_to_edges()</a></code> call when preparing input for
+<code><a href="find_cliques.html">find_cliques</a></code>.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
@@ -93,6 +103,10 @@ Rows are filtered according to <code>filter_zero</code>.</p></dd>
 <dt>summary</dt>
 <dd><p>List of summary statistics at gene-pair, gene, and
 ortholog-group levels, thresholded on q-values.</p></dd>
+
+<dt>edges</dt>
+<dd><p>(Only when <code>sp1</code> and <code>sp2</code> are provided.)
+Edge-format data frame from <code><a href="comparison_to_edges.html">comparison_to_edges()</a></code>.</p></dd>
 
 
 </dl></div>
