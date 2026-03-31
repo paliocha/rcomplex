@@ -4,10 +4,8 @@
 <url><loc>/LICENSE-text.html</loc></url>
 <url><loc>/authors.html</loc></url>
 <url><loc>/index.html</loc></url>
-<url><loc>/reference/adj_to_gpu.html</loc></url>
 <url><loc>/reference/apply_clr_to_cor_cpp.html</loc></url>
 <url><loc>/reference/build_coclassification_cpp.html</loc></url>
-<url><loc>/reference/build_combined_fe_torch.html</loc></url>
 <url><loc>/reference/build_sparse_coclassification_cpp.html</loc></url>
 <url><loc>/reference/classify_modules.html</loc></url>
 <url><loc>/reference/clique_hubs.html</loc></url>
@@ -17,11 +15,8 @@
 <url><loc>/reference/compare_neighborhoods.html</loc></url>
 <url><loc>/reference/compare_neighborhoods_cpp.html</loc></url>
 <url><loc>/reference/compute_network.html</loc></url>
-<url><loc>/reference/cor_rfast.html</loc></url>
-<url><loc>/reference/cor_torch.html</loc></url>
 <url><loc>/reference/density_threshold_cpp.html</loc></url>
 <url><loc>/reference/detect_modules.html</loc></url>
-<url><loc>/reference/dot-gpu_gc.html</loc></url>
 <url><loc>/reference/fe_hog_permutation_test_cpp.html</loc></url>
 <url><loc>/reference/find_cliques.html</loc></url>
 <url><loc>/reference/find_cliques_cpp.html</loc></url>
@@ -37,6 +32,5 @@
 <url><loc>/reference/reduce_orthogroups_cpp.html</loc></url>
 <url><loc>/reference/sparse_excess_spectral_norm_cpp.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
-<url><loc>/reference/torch_device_dtype.html</loc></url>
 </urlset>
 
