@@ -920,8 +920,8 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #'       cliques (NA for complete/partial/unclassified)}
 #'     \item{stability_class}{From stability results (NA if not
 #'       provided)}
-#'     \item{persistence}{Min persistence from sweep survival at
-#'       multiplier 2 (NA if not provided)}
+#'     \item{persistence}{Highest multiplier at which the HOG's
+#'       clique survived (NA if not provided)}
 #'     \item{robust}{Logical: passes both stability and persistence
 #'       thresholds (NA if neither provided)}
 #'   }
@@ -1161,7 +1161,7 @@ classify_cliques <- function(
 
   # --- Stability annotation ---
   out$stability_class <- NA_integer_
-  if (!is.null(stability) && length(stability$stability_class) > 0) {
+  if (!is.null(stability$stability) && nrow(stability$stability) > 0) {
     # stability_class is per-clique (0-based); map to HOGs via
     # the cliques that stability was computed on
     stab_df <- stability$stability
@@ -1180,7 +1180,7 @@ classify_cliques <- function(
   if (!is.null(sweep) && "survival" %in% names(sweep)) {
     surv <- sweep$survival
     if (nrow(surv) > 0) {
-      # For each HOG, check the lowest multiplier where it survived
+      # For each HOG, find the highest multiplier where it survived
       surv_ok <- surv[surv$survived, , drop = FALSE]
       if (nrow(surv_ok) > 0) {
         best_mult <- tapply(surv_ok$multiplier, surv_ok$hog, max)

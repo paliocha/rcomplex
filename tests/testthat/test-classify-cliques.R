@@ -247,6 +247,48 @@ test_that("robust flag without annotations is NA", {
 })
 
 
+test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
+  setup <- make_classify_edges()
+
+  stab <- list(
+    stability = data.frame(
+      clique_idx = 0L, hog = "HOG1",
+      trait_value = "annual", k = 1L,
+      n_subsets = 2L, n_stable = 2L,
+      stability_score = 1.0, sole_rep = FALSE,
+      stringsAsFactors = FALSE
+    ),
+    stability_class = 1L
+  )
+
+  # Mock sweep: HOG1 survived at multiplier 2
+  sweep <- list(
+    survival = data.frame(
+      clique_idx = 0L, hog = "HOG1",
+      multiplier = 2, survived = TRUE,
+      jaccard = 1.0, n_species_orig = 4L,
+      n_species_new = 4L,
+      stringsAsFactors = FALSE
+    )
+  )
+
+  result <- classify_cliques(setup$edges, setup$target, setup$trait,
+                              stability = stab, sweep = sweep,
+                              min_stability_class = 1L,
+                              min_persistence = 1.5)
+
+  hog1 <- result[result$hog == "HOG1", ]
+  expect_false(is.na(hog1$stability_class))
+  expect_false(is.na(hog1$persistence))
+  expect_equal(hog1$persistence, 2)
+  expect_true(hog1$robust)
+
+  # HOGs without stability/sweep data should not be robust
+  hog5 <- result[result$hog == "HOG5", ]
+  expect_false(isTRUE(hog5$robust))
+})
+
+
 test_that("single-species trait groups are handled gracefully", {
   # Only 3 species: SP_A alone in its group
   target <- c("SP_A", "SP_B", "SP_C")
