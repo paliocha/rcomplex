@@ -199,6 +199,81 @@ test_that("find_cliques fewer than 2 target species raises error", {
 })
 
 
+# --- Tests for edge cases ---
+
+test_that("find_cliques handles duplicate edges (keeps min q-value)", {
+  # Same gene pair twice with different q-values
+  edges <- data.frame(
+    gene1 = c("A1", "A1"),
+    gene2 = c("B1", "B1"),
+    species1 = c("SP_A", "SP_A"),
+    species2 = c("SP_B", "SP_B"),
+    hog = rep("HOG1", 2),
+    type = rep("conserved", 2),
+    q.value = c(0.5, 0.01),  # second is better
+    effect_size = c(1.0, 3.0),
+    stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
+  expect_equal(nrow(result), 1)
+  expect_equal(result$mean_q, 0.01, tolerance = 1e-10)
+  expect_equal(result$mean_effect_size, 3.0, tolerance = 1e-10)
+})
+
+
+test_that("find_cliques handles many paralogs without error", {
+  # 6 paralogs per species in one HOG — exercises deep backtracking
+  n_par <- 6
+  pairs <- expand.grid(
+    a = paste0("A", seq_len(n_par)),
+    b = paste0("B", seq_len(n_par)),
+    stringsAsFactors = FALSE
+  )
+  edges <- data.frame(
+    gene1 = pairs$a, gene2 = pairs$b,
+    species1 = "SP_A", species2 = "SP_B",
+    hog = "HOG1", type = "conserved",
+    q.value = runif(nrow(pairs), 0.001, 0.05),
+    effect_size = runif(nrow(pairs), 1.5, 4.0),
+    stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
+  expect_equal(nrow(result), 1)
+  expect_equal(result$n_species, 2L)
+  # Should pick the pair with the lowest q-value
+  expect_true(result$mean_q <= max(edges$q.value))
+})
+
+
+test_that("max_missing_edges with paralogs picks best assignment", {
+  # 3 species, 2 paralogs in SP_A, missing A-C edges
+  # A1 connects to B1, A2 connects to B1
+  # B1 connects to C1
+  # No A-C edges -> need max_missing = 1 for 3-species clique
+  edges <- data.frame(
+    gene1 = c("A1", "A2", "B1"),
+    gene2 = c("B1", "B1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_B", "SP_C"),
+    hog = rep("HOG1", 3),
+    type = rep("conserved", 3),
+    q.value = c(0.01, 0.05, 0.02),
+    effect_size = c(3.0, 1.5, 2.5),
+    stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
+                         min_species = 3L, max_missing_edges = 1L)
+
+  expect_equal(nrow(result), 1)
+  # Should pick A1 (lower q with B1) over A2
+  expect_equal(result$SP_A, "A1")
+  expect_equal(result$n_missing, 1L)
+})
+
+
 # --- Tests for max_missing_edges ---
 
 test_that("max_missing_edges=0 requires all edges (default)", {

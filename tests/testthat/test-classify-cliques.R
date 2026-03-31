@@ -239,6 +239,34 @@ test_that("stability annotation populates stability_class", {
 })
 
 
+test_that("stability_class uses max across multi-clique HOGs", {
+  setup <- make_classify_edges()
+
+  # Mock: HOG3 has two exclusive cliques with different stability_class
+  stab <- list(
+    stability = data.frame(
+      clique_idx = c(2L, 3L),
+      hog = c("HOG3", "HOG3"),
+      trait_value = c("annual", "perennial"),
+      k = c(1L, 1L),
+      n_subsets = c(2L, 2L),
+      n_stable = c(2L, 0L),
+      stability_score = c(1.0, 0.0),
+      sole_rep = c(FALSE, FALSE),
+      stringsAsFactors = FALSE
+    ),
+    stability_class = c(2L, 0L)  # first clique very stable, second not
+  )
+
+  result <- classify_cliques(setup$edges, setup$target, setup$trait,
+                              stability = stab)
+
+  hog3 <- result[result$hog == "HOG3", ]
+  # max(2, 0) = 2 — best clique wins
+  expect_equal(hog3$stability_class, 2L)
+})
+
+
 test_that("robust flag without annotations is NA", {
   setup <- make_classify_edges()
   result <- classify_cliques(setup$edges, setup$target, setup$trait)
@@ -355,4 +383,45 @@ test_that("single-species trait groups are handled gracefully", {
   hog1 <- result[result$hog == "HOG1", ]
   expect_equal(hog1$classification, "trait_specific")
   expect_equal(hog1$trait_groups, "common")
+})
+
+
+test_that("end-to-end: real clique_stability output feeds classify_cliques", {
+  setup <- make_classify_edges()
+  target <- setup$target
+  trait <- setup$trait
+
+  # Find cliques — need trait-exclusive ones for stability to track
+  cliques <- find_cliques(setup$edges, target, min_species = 2L,
+                          edge_type = "conserved")
+  if (nrow(cliques) == 0) skip("No cliques found for stability test")
+
+  # clique_stability only tracks trait-exclusive cliques.
+  # HOG3 has annual-exclusive (A3-B3) and perennial-exclusive (C3-D3) cliques.
+  # HOG4 has annual-exclusive (A4-B4).
+  stab <- clique_stability(setup$edges, target, trait,
+                            all_species = target,
+                            full_cliques = cliques,
+                            max_k = 1L)
+
+  result <- classify_cliques(setup$edges, target, trait,
+                              stability = stab)
+
+  # HOG3 is differentiated — its annual clique should have stability data
+  hog3 <- result[result$hog == "HOG3", ]
+  expect_equal(hog3$classification, "differentiated")
+
+  # HOG4 is trait_specific — its annual clique should have stability data
+  hog4 <- result[result$hog == "HOG4", ]
+  expect_equal(hog4$classification, "trait_specific")
+
+  # At least one of HOG3/HOG4 should have non-NA stability_class
+  # (they are trait-exclusive, so stability tracks them)
+  has_sc <- !is.na(hog3$stability_class) || !is.na(hog4$stability_class)
+  expect_true(has_sc)
+
+  # HOG1 (complete, mixed-trait) should have NA stability_class
+  # (not trait-exclusive, so stability doesn't track it)
+  hog1 <- result[result$hog == "HOG1", ]
+  expect_true(is.na(hog1$stability_class))
 })

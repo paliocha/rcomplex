@@ -1165,7 +1165,10 @@ classify_cliques <- function(
       # clique_idx values in the stability DF). Map to HOG via the DF.
       excl_cliques <- unique(stab_df$clique_idx)
       excl_hogs <- stab_df$hog[match(excl_cliques, stab_df$clique_idx)]
-      # Best (max) stability_class per HOG
+      # Best (max) stability_class per HOG: a HOG's classification is
+      # determined by its best clique, so we take the most stable one.
+      # Use max (optimistic) not min (conservative) — consistent with
+      # best_per_hog() which picks the lowest-mean-q clique per HOG.
       best_sc <- tapply(sc_vec, excl_hogs, max)
       idx <- match(out$hog, names(best_sc))
       out$stability_class[!is.na(idx)] <- as.integer(best_sc[idx[!is.na(idx)]])
