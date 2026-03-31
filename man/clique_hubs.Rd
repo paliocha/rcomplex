@@ -60,3 +60,11 @@ counts total clique appearances, while \code{n_hogs} counts distinct
 HOGs. When stability results are provided, each clique appearance is
 weighted by its phylogenetic stability score.
 }
+\examples{
+\dontrun{
+hubs <- clique_hubs(cliques, target_species, species_trait = trait,
+                    stability = stab, min_cliques = 2L)
+head(hubs)  # sorted by n_stable, then n_exclusive
+}
+
+}

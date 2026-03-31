@@ -68,3 +68,12 @@ co-expression values. Diagonal is set to 0.}
 Calculates correlation, applies normalization (Mutual Rank or CLR),
 and determines a density-based co-expression threshold.
 }
+\examples{
+\dontrun{
+net <- compute_network(expr_matrix, cor_method = "spearman",
+                       norm_method = "mr", density = 0.03)
+net$threshold   # MR threshold at 3\% density
+dim(net$network) # gene x gene MR matrix
+}
+
+}

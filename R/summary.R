@@ -60,6 +60,13 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' genomewide studies. \emph{Proceedings of the National Academy of Sciences},
 #' 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
 #'
+#' @examples
+#' \dontrun{
+#' summary <- summarize_comparison(comparison, alternative = "greater")
+#' sig <- summary$results[summary$results$Species1.q.val.con < 0.05, ]
+#' summary$summary$gene_pairs$reciprocal
+#' }
+#'
 #' @export
 summarize_comparison <- function(comparison,
                                  alternative = c("greater", "less"),
@@ -382,6 +389,13 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #' Liang, K. (2016). False discovery rate estimation for large-scale
 #' homogeneous discrete p-values. \emph{Biometrics}, 72(2), 639--648.
 #' \doi{10.1111/biom.12429}
+#'
+#' @examples
+#' \dontrun{
+#' hog_results <- permutation_hog_test(net1, net2, comparison,
+#'                                     n_cores = 8L, use_torch = TRUE)
+#' significant <- hog_results[hog_results$q.value < 0.05, ]
+#' }
 #'
 #' @export
 permutation_hog_test <- function(net1, net2, comparison,

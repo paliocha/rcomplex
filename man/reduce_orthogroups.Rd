@@ -55,3 +55,11 @@ Subfunctionalized paralogs (distinct expression programs) are preserved
 as separate clusters. Zero-variance genes and genes not assigned to any
 HOG are kept as-is.
 }
+\examples{
+\dontrun{
+reduced <- reduce_orthogroups(expr_matrix, orthologs)
+reduced$expr_matrix  # reduced expression matrix
+reduced$gene_map     # original -> representative mapping
+}
+
+}

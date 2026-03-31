@@ -26,3 +26,10 @@ A data frame with columns:
 Reads a PLAZA ortholog group file and extracts pairwise ortholog
 relationships between two species.
 }
+\examples{
+\dontrun{
+ortho <- parse_orthologs("orthologs.tsv", "species_A", "species_B")
+head(ortho)
+}
+
+}

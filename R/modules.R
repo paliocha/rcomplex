@@ -100,6 +100,17 @@
 #' clustering in class discovery. *Scientific Reports*, 4, 6207.
 #' \doi{10.1038/srep06207}
 #'
+#' @examples
+#' \dontrun{
+#' # Single resolution
+#' mods <- detect_modules(net, method = "leiden", resolution = 1.0)
+#' table(mods$modules)  # module sizes
+#'
+#' # Multi-resolution consensus (Jeub et al. 2018)
+#' mods_consensus <- detect_modules(net, resolution = c(0.5, 1.0, 2.0),
+#'                                  n_cores = 4L)
+#' }
+#'
 #' @export
 detect_modules <- function(net,
                            method = c("leiden", "infomap", "sbm"),
@@ -631,6 +642,12 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #'       (from both species directions)}
 #'   }
 #'
+#' @examples
+#' \dontrun{
+#' mod_comp <- compare_modules(modules_A, modules_B, orthologs)
+#' mod_comp$pairs[mod_comp$pairs$q.value < 0.05, ]
+#' }
+#'
 #' @export
 compare_modules <- function(modules1, modules2, orthologs,
                             method = c("hypergeometric", "jaccard"),
@@ -925,6 +942,12 @@ compute_best_matches <- function(pairs) {
 #'     \item{best_q}{Q-value for best match}
 #'     \item{n_significant}{Number of significant matches in the other species}
 #'   }
+#'
+#' @examples
+#' \dontrun{
+#' classes <- classify_modules(mod_comp)
+#' table(classes$classification)  # conserved / partially / species_specific
+#' }
 #'
 #' @export
 classify_modules <- function(module_comparison,

@@ -22,15 +22,11 @@ Renamed to `hog` throughout all R code, tests, and fixture files.
 ### 6. ~~Implicit species identity in comparison output~~ RESOLVED via item 4
 Species identity is injected by `comparison_to_edges(sp1, sp2)` — no need to change `compare_neighborhoods()` output.
 
-### 7. Missing `@examples` on most exported functions
-**Files**: All exported functions except `clique_stability()`
-**Problem**: rOpenSci pkgcheck flags this. Examples are essential for discoverability and `example()` usage.
-**Fix**: Add minimal `@examples` (can use `\dontrun{}` for functions requiring large datasets).
+### 7. ~~Missing `@examples` on most exported functions~~ DONE
+Added `\dontrun{}` examples to all 13 exported functions.
 
-### 8. CLR inner loop could use Armadillo vectorisation
-**File**: `src/clr.cpp:65-68`
-**Problem**: Scalar `std::max(0.0, ...)` in O(n^2) loop. Armadillo has vectorised `arma::clamp()` and element-wise operations that could replace the manual loop.
-**Fix**: Pre-compute z-score matrices with Armadillo vectorised ops, clamp to zero, then compute CLR in one pass.
+### 8. ~~CLR inner loop could use Armadillo vectorisation~~ DONE (f8de0ff)
+Z-scoring vectorised with `each_col`/`transform`, in-place hypot.
 
 ## Tier 2: Minor
 

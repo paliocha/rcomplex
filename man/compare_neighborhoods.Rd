@@ -68,3 +68,11 @@ Recommended workflow:
 }
 }
 
+\examples{
+\dontrun{
+comparison <- compare_neighborhoods(net_A, net_B, orthologs)
+head(comparison[, c("Species1", "Species2", "hog",
+                     "Species1.effect.size")])
+}
+
+}

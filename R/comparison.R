@@ -52,6 +52,13 @@
 #'       indicate conservation, < 1 indicate divergence.}
 #'   }
 #'
+#' @examples
+#' \dontrun{
+#' comparison <- compare_neighborhoods(net_A, net_B, orthologs)
+#' head(comparison[, c("Species1", "Species2", "hog",
+#'                      "Species1.effect.size")])
+#' }
+#'
 #' @export
 compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   # Validate inputs
@@ -144,6 +151,15 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'     \item{type}{\code{"conserved"} or \code{"diverged"} if
 #'       \code{q.value < alpha}; \code{"ns"} otherwise}
 #'   }
+#'
+#' @examples
+#' \dontrun{
+#' summary_AB <- summarize_comparison(comparison_AB)
+#' edges_AB <- comparison_to_edges(summary_AB$results, "SP_A", "SP_B")
+#'
+#' # Combine multiple species pairs for find_cliques()
+#' edges <- rbind(edges_AB, edges_AC, edges_BC)
+#' }
 #'
 #' @export
 comparison_to_edges <- function(comparison, sp1, sp2,

@@ -50,3 +50,13 @@ format expected by \code{\link{find_cliques}} and
 \code{\link{clique_persistence}}. Renames columns, injects species
 identity, and computes per-pair effect sizes and classification.
 }
+\examples{
+\dontrun{
+summary_AB <- summarize_comparison(comparison_AB)
+edges_AB <- comparison_to_edges(summary_AB$results, "SP_A", "SP_B")
+
+# Combine multiple species pairs for find_cliques()
+edges <- rbind(edges_AB, edges_AC, edges_BC)
+}
+
+}

@@ -37,6 +37,14 @@ ortholog-group levels, thresholded on q-values.}
 Computes q-values (Storey & Tibshirani, 2003), filters results, and computes summary
 statistics at gene-pair, gene, and ortholog-group levels.
 }
+\examples{
+\dontrun{
+summary <- summarize_comparison(comparison, alternative = "greater")
+sig <- summary$results[summary$results$Species1.q.val.con < 0.05, ]
+summary$summary$gene_pairs$reciprocal
+}
+
+}
 \references{
 Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
 genomewide studies. \emph{Proceedings of the National Academy of Sciences},

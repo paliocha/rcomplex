@@ -118,6 +118,18 @@ Can detect both assortative and non-assortative structure.}
 }
 }
 
+\examples{
+\dontrun{
+# Single resolution
+mods <- detect_modules(net, method = "leiden", resolution = 1.0)
+table(mods$modules)  # module sizes
+
+# Multi-resolution consensus (Jeub et al. 2018)
+mods_consensus <- detect_modules(net, resolution = c(0.5, 1.0, 2.0),
+                                 n_cores = 4L)
+}
+
+}
 \references{
 Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to Leiden:
 guaranteeing well-connected communities. \emph{Scientific Reports}, 9, 5233.

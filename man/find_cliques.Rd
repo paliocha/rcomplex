@@ -54,3 +54,12 @@ pivoting on the species-level adjacency graph to find maximal species
 cliques, then backtracking to assign the best gene per species
 (minimising mean q-value across all edges).
 }
+\examples{
+\dontrun{
+cliques <- find_cliques(edges, target_species = c("SP_A", "SP_B", "SP_C"))
+
+# Allow partial species cliques (2 of 3 species)
+partial <- find_cliques(edges, target_species, min_species = 2L)
+}
+
+}

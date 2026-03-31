@@ -86,6 +86,14 @@ encode_clique_edges <- function(edges, target_species) {
 #'     \item{n_edges}{Number of edges (= C(n_species, 2))}
 #'   }
 #'
+#' @examples
+#' \dontrun{
+#' cliques <- find_cliques(edges, target_species = c("SP_A", "SP_B", "SP_C"))
+#'
+#' # Allow partial species cliques (2 of 3 species)
+#' partial <- find_cliques(edges, target_species, min_species = 2L)
+#' }
+#'
 #' @export
 find_cliques <- function(edges, target_species,
                          min_species = length(target_species),
@@ -475,6 +483,13 @@ clique_stability <- function(edges, target_species, species_trait,
 #'       at k=1 (only present when \code{stability} is provided)}
 #'   }
 #'
+#' @examples
+#' \dontrun{
+#' hubs <- clique_hubs(cliques, target_species, species_trait = trait,
+#'                     stability = stab, min_cliques = 2L)
+#' head(hubs)  # sorted by n_stable, then n_exclusive
+#' }
+#'
 #' @export
 clique_hubs <- function(cliques, target_species,
                         species_trait = NULL, stability = NULL,
@@ -635,6 +650,12 @@ clique_hubs <- function(cliques, target_species,
 #'     \item{mean_persistence}{Mean co-expressolog ratio. Overall
 #'       robustness of the conservation signal.}
 #'   }
+#'
+#' @examples
+#' \dontrun{
+#' result <- clique_persistence(cliques, target_species, networks, edges)
+#' result[result$persistence > 2.0, ]  # robust to 2x threshold tightening
+#' }
 #'
 #' @export
 clique_persistence <- function(cliques, target_species, networks, edges) {

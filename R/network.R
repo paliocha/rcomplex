@@ -137,6 +137,14 @@ cor_rfast <- function(expr_matrix, method = "pearson") {
 #'     \item{params}{List of parameters used.}
 #'   }
 #'
+#' @examples
+#' \dontrun{
+#' net <- compute_network(expr_matrix, cor_method = "spearman",
+#'                        norm_method = "mr", density = 0.03)
+#' net$threshold   # MR threshold at 3% density
+#' dim(net$network) # gene x gene MR matrix
+#' }
+#'
 #' @export
 compute_network <- function(expr_matrix,
                             cor_method = c("pearson", "spearman"),

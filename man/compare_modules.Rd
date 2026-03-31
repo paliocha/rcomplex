@@ -65,3 +65,10 @@ Besag-Clifford adaptive stopping. Q-values use the Liang (2016) discrete
 method via \code{\link[DiscreteQvalue:DQ]{DiscreteQvalue::DQ()}}.
 }
 
+\examples{
+\dontrun{
+mod_comp <- compare_modules(modules_A, modules_B, orthologs)
+mod_comp$pairs[mod_comp$pairs$q.value < 0.05, ]
+}
+
+}

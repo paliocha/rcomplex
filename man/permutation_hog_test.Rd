@@ -121,6 +121,14 @@ The Liang method estimates pi0 using the discrete support structure and
 is correctly calibrated (pi0 = 1 on null simulations).
 }
 
+\examples{
+\dontrun{
+hog_results <- permutation_hog_test(net1, net2, comparison,
+                                    n_cores = 8L, use_torch = TRUE)
+significant <- hog_results[hog_results$q.value < 0.05, ]
+}
+
+}
 \references{
 Besag, J. & Clifford, P. (1991). Sequential Monte Carlo p-values.
 \emph{Biometrika}, 78(2), 301--304. \doi{10.1093/biomet/78.2.301}

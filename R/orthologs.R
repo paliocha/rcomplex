@@ -15,6 +15,12 @@
 #'     \item{hog}{Integer ortholog group identifier}
 #'   }
 #'
+#' @examples
+#' \dontrun{
+#' ortho <- parse_orthologs("orthologs.tsv", "species_A", "species_B")
+#' head(ortho)
+#' }
+#'
 #' @export
 parse_orthologs <- function(file, species1, species2) {
   if (!file.exists(file)) {
@@ -82,6 +88,13 @@ parse_orthologs <- function(file, species1, species2) {
 #'     \item{n_reduced}{Number of genes after reduction.}
 #'     \item{n_merged}{Number of genes absorbed into representatives.}
 #'   }
+#'
+#' @examples
+#' \dontrun{
+#' reduced <- reduce_orthogroups(expr_matrix, orthologs)
+#' reduced$expr_matrix  # reduced expression matrix
+#' reduced$gene_map     # original -> representative mapping
+#' }
 #'
 #' @export
 reduce_orthogroups <- function(expr_matrix, orthologs,

@@ -41,3 +41,10 @@ Jaccard < \code{jaccard_threshold} (module split or merged across species)}
 }
 }
 
+\examples{
+\dontrun{
+classes <- classify_modules(mod_comp)
+table(classes$classification)  # conserved / partially / species_specific
+}
+
+}

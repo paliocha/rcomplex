@@ -45,3 +45,10 @@ A persistence of 1.0 means the weakest co-expressolog edge is exactly
 at threshold (marginal). Values above 1.0 indicate the conservation
 signal survives at stricter density thresholds.
 }
+\examples{
+\dontrun{
+result <- clique_persistence(cliques, target_species, networks, edges)
+result[result$persistence > 2.0, ]  # robust to 2x threshold tightening
+}
+
+}
