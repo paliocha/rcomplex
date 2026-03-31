@@ -466,6 +466,10 @@ permutation_hog_test <- function(net1, net2, comparison,
     )
     rm(net1_mat, net2_mat)
     .gpu_gc()
+    on.exit({
+      if (exists("combined", inherits = FALSE)) rm(combined)
+      gc()
+    }, add = TRUE)
     perm_result <- fe_hog_permutation_test_cpp(
       combined = combined,
       hog_sp1_list = hog_sp1_list,
