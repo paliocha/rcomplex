@@ -410,6 +410,20 @@ permutation_hog_test <- function(net1, net2, comparison,
     stop("use_torch = TRUE requires the torch package ",
          "(install.packages('torch'); torch::install_torch())")
   }
+  if (use_torch && requireNamespace("torch", quietly = TRUE) &&
+      torch::backends_mps_is_available()) {
+    mps_lossy <- vapply(list(net1, net2), function(net) {
+      cm <- net$params$cor_method %||% ""
+      nm <- net$params$norm_method %||% ""
+      cm == "spearman" && nm == "mr"
+    }, logical(1))
+    if (any(mps_lossy)) {
+      warning("MPS float32 with Spearman + MR can produce rank-swap ",
+              "artifacts. Consider use_torch = FALSE for permutation, ",
+              "or recompute networks with cor_method = 'pearson'.",
+              call. = FALSE)
+    }
+  }
   if (nrow(comparison) == 0) {
     return(data.frame(
       OrthoGroup = character(0), n_pairs = integer(0),

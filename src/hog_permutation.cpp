@@ -307,6 +307,11 @@ Rcpp::DataFrame hog_permutation_test_cpp(
 
     // ---- Choose intersection mode and build bit-vectors ----
     bool use_bitvec = (std::max(n1, n2) <= 100000);
+    if (!use_bitvec) {
+        Rcpp::Function msg("message");
+        msg("Network size > 100K genes: using flag-vector mode "
+            "(slower than bit-vector; expected for large genomes)");
+    }
     int n1w = (n1 + 63) / 64;
     int n2w = (n2 + 63) / 64;
     std::vector<uint64_t> neigh1_bv, reach1_bv, neigh2_bv, reach2_bv;
