@@ -603,3 +603,83 @@ clique_hubs <- function(cliques, target_species,
   rownames(gene_sp) <- NULL
   gene_sp
 }
+
+
+#' Compute persistence scores for cliques
+#'
+#' For each clique, measures how robust its genes' co-expression
+#' neighbourhoods are to threshold tightening. For each gene in each
+#' species, computes the ratio of the weakest neighbour's MR value to
+#' the species threshold. The clique-level persistence is the minimum
+#' ratio across all species — the bottleneck.
+#'
+#' A persistence of 1.0 means the weakest edge is exactly at threshold
+#' (marginal). Values above 1.0 indicate the clique survives at stricter
+#' density thresholds. For example, persistence = 3.0 at a 3\% density
+#' threshold means the clique would survive at roughly 1\% density.
+#'
+#' @param cliques Output of \code{\link{find_cliques}} (data frame with
+#'   \code{hog}, one column per species, and summary statistics).
+#' @param networks Named list of \code{\link{compute_network}} outputs
+#'   keyed by species abbreviation. Each element must have \code{$network}
+#'   (named numeric matrix) and \code{$threshold} (scalar).
+#' @param target_species Character vector matching column names in
+#'   \code{cliques} and names in \code{networks}.
+#'
+#' @return The input \code{cliques} data frame with two appended columns:
+#'   \describe{
+#'     \item{persistence}{Minimum over species of
+#'       (weakest-neighbour MR / threshold). The bottleneck species.}
+#'     \item{mean_persistence}{Mean over species. Overall depth of the
+#'       clique's genes into the MR distribution.}
+#'   }
+#'
+#' @export
+clique_persistence <- function(cliques, networks, target_species) {
+  if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
+    stop("cliques must be a data frame from find_cliques()")
+  }
+  if (!is.list(networks) || is.null(names(networks))) {
+    stop("networks must be a named list keyed by species")
+  }
+  if (length(target_species) < 2) {
+    stop("target_species must have at least 2 species")
+  }
+  missing_sp <- setdiff(target_species, names(cliques))
+  if (length(missing_sp) > 0) {
+    stop("cliques missing columns for species: ",
+         paste(missing_sp, collapse = ", "))
+  }
+  missing_net <- setdiff(target_species, names(networks))
+  if (length(missing_net) > 0) {
+    stop("networks missing entries for species: ",
+         paste(missing_net, collapse = ", "))
+  }
+
+  n <- nrow(cliques)
+  persistence <- rep(NA_real_, n)
+  mean_persistence <- rep(NA_real_, n)
+
+  for (i in seq_len(n)) {
+    ratios <- numeric(0)
+    for (sp in target_species) {
+      gene <- cliques[[sp]][i]
+      if (is.na(gene)) next
+      net <- networks[[sp]]$network
+      thr <- networks[[sp]]$threshold
+      if (!gene %in% rownames(net)) next
+      mr_vals <- net[gene, ]
+      neighbours <- mr_vals[mr_vals >= thr]
+      if (length(neighbours) == 0L) next
+      ratios <- c(ratios, min(neighbours) / thr)
+    }
+    if (length(ratios) > 0L) {
+      persistence[i] <- min(ratios)
+      mean_persistence[i] <- mean(ratios)
+    }
+  }
+
+  cliques$persistence <- persistence
+  cliques$mean_persistence <- mean_persistence
+  cliques
+}
