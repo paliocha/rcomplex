@@ -13,7 +13,7 @@ test_that("identical paralogs are merged", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2"),
     Species2 = c("X1", "X2"),
-    OrthoGroup = c(1L, 1L),
+    hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
 
@@ -42,7 +42,7 @@ test_that("uncorrelated paralogs are kept separate", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2"),
     Species2 = c("X1", "X2"),
-    OrthoGroup = c(1L, 1L),
+    hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
 
@@ -63,7 +63,7 @@ test_that("non-HOG genes are preserved", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2"),
     Species2 = c("X1", "X2"),
-    OrthoGroup = c(1L, 1L),
+    hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
 
@@ -84,7 +84,7 @@ test_that("zero-variance genes are kept as singletons", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2", "G3"),
     Species2 = c("X1", "X2", "X3"),
-    OrthoGroup = c(1L, 1L, 1L),
+    hog = c(1L, 1L, 1L),
     stringsAsFactors = FALSE
   )
 
@@ -105,7 +105,7 @@ test_that("merged genes have averaged expression", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2"),
     Species2 = c("X1", "X2"),
-    OrthoGroup = c(1L, 1L),
+    hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
 
@@ -129,7 +129,7 @@ test_that("multiple HOGs are processed independently", {
   orthologs <- data.frame(
     Species1 = c("A1", "A2", "B1", "B2"),
     Species2 = c("X1", "X2", "Y1", "Y2"),
-    OrthoGroup = c(1L, 1L, 2L, 2L),
+    hog = c(1L, 1L, 2L, 2L),
     stringsAsFactors = FALSE
   )
 
@@ -148,7 +148,7 @@ test_that("cor_threshold = 1.0 merges nothing", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2"),
     Species2 = c("X1", "X2"),
-    OrthoGroup = c(1L, 1L),
+    hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
 
@@ -167,7 +167,7 @@ test_that("gene_col parameter works for Species2", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2", "G3"),
     Species2 = c("X1", "X2", "X3"),
-    OrthoGroup = c(1L, 1L, 2L),
+    hog = c(1L, 1L, 2L),
     stringsAsFactors = FALSE
   )
 
@@ -186,7 +186,7 @@ test_that("single-gene HOGs are passed through", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2"),
     Species2 = c("X1", "X2"),
-    OrthoGroup = c(1L, 2L),
+    hog = c(1L, 2L),
     stringsAsFactors = FALSE
   )
 
@@ -206,7 +206,7 @@ test_that("gene_map covers all original genes", {
   orthologs <- data.frame(
     Species1 = c("G1", "G2", "G3"),
     Species2 = c("X1", "X2", "X3"),
-    OrthoGroup = c(1L, 1L, 2L),
+    hog = c(1L, 1L, 2L),
     stringsAsFactors = FALSE
   )
 
@@ -218,7 +218,7 @@ test_that("gene_map covers all original genes", {
 
 test_that("input validation works", {
   expr <- rbind(G1 = c(1, 2, 3))
-  ortho <- data.frame(Species1 = "G1", Species2 = "X1", OrthoGroup = 1L,
+  ortho <- data.frame(Species1 = "G1", Species2 = "X1", hog = 1L,
                       stringsAsFactors = FALSE)
 
   expect_error(reduce_orthogroups("not a matrix", ortho),

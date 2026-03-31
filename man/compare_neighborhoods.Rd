@@ -12,7 +12,7 @@ compare_neighborhoods(net1, net2, orthologs, n_cores = 1L)
 \item{net2}{Network object for species 2 (output of \code{\link[=compute_network]{compute_network()}}).}
 
 \item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, and
-\code{OrthoGroup} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
+\code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
 }
@@ -21,7 +21,7 @@ A data frame with columns:
 \describe{
 \item{Species1}{Gene identifier for species 1}
 \item{Species2}{Gene identifier for species 2}
-\item{OrthoGroup}{Ortholog group identifier}
+\item{hog}{Ortholog group identifier}
 \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
 \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
 from net2}

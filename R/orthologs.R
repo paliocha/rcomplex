@@ -12,7 +12,7 @@
 #'   \describe{
 #'     \item{Species1}{Gene identifier for species 1}
 #'     \item{Species2}{Gene identifier for species 2}
-#'     \item{OrthoGroup}{Integer ortholog group identifier}
+#'     \item{hog}{Integer ortholog group identifier}
 #'   }
 #'
 #' @export
@@ -26,7 +26,7 @@ parse_orthologs <- function(file, species1, species2) {
   ortho <- ortho |>
     dplyr::filter(.data$species == .env$species1) |>
     dplyr::group_by(.data$gene_content) |>
-    dplyr::mutate(OrthoGroup = dplyr::cur_group_id()) |>
+    dplyr::mutate(hog = dplyr::cur_group_id()) |>
     dplyr::ungroup() |>
     tidyr::separate_longer_delim("gene_content", delim = ";") |>
     dplyr::filter(grepl(.env$species2, .data$gene_content, fixed = TRUE)) |>
@@ -38,7 +38,7 @@ parse_orthologs <- function(file, species1, species2) {
       Species1 = .data$gene_id,
       Species2 = .data$gene_content
     ) |>
-    dplyr::select("Species1", "Species2", "OrthoGroup")
+    dplyr::select("Species1", "Species2", "hog")
 
   as.data.frame(ortho)
 }
@@ -63,7 +63,7 @@ parse_orthologs <- function(file, species1, species2) {
 #' @param expr_matrix Numeric matrix (genes x samples) with gene identifiers
 #'   as row names.
 #' @param orthologs Data frame with columns \code{Species1} (or the column
-#'   matching gene row names), \code{Species2}, and \code{OrthoGroup}, as
+#'   matching gene row names), \code{Species2}, and \code{hog}, as
 #'   returned by \code{\link{parse_orthologs}}.
 #' @param gene_col Character: which column of \code{orthologs} contains gene
 #'   IDs matching row names of \code{expr_matrix} (default \code{"Species1"}).
@@ -96,8 +96,8 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
   if (!gene_col %in% names(orthologs)) {
     stop("orthologs must have column '", gene_col, "'")
   }
-  if (!"OrthoGroup" %in% names(orthologs)) {
-    stop("orthologs must have column 'OrthoGroup'")
+  if (!"hog" %in% names(orthologs)) {
+    stop("orthologs must have column 'hog'")
   }
   if (cor_threshold < 0 || cor_threshold > 1) {
     stop("cor_threshold must be between 0 and 1")
@@ -110,7 +110,7 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
   ortho_sub <- orthologs[orthologs[[gene_col]] %in% gene_names, , drop = FALSE]
   gene_to_row <- stats::setNames(seq_len(n_genes), gene_names)
 
-  hog_genes <- split(ortho_sub[[gene_col]], ortho_sub$OrthoGroup)
+  hog_genes <- split(ortho_sub[[gene_col]], ortho_sub$hog)
   hog_members <- lapply(hog_genes, function(genes) {
     as.integer(gene_to_row[genes[genes %in% gene_names]])
   })

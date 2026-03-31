@@ -614,7 +614,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #' @param modules2 Module detection result for species 2
 #'   (output of [detect_modules()]).
 #' @param orthologs Data frame with columns `Species1`, `Species2`, and
-#'   `OrthoGroup` (output of [parse_orthologs()]).
+#'   `hog` (output of [parse_orthologs()]).
 #' @param method Test method: `"hypergeometric"` (default) or `"jaccard"`.
 #' @param min_exceedances Besag-Clifford stopping parameter for Jaccard method
 #'   (default 50).

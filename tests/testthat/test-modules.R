@@ -29,7 +29,7 @@ make_module_test_data <- function() {
   orthologs <- data.frame(
     Species1 = paste0("A", 1:20),
     Species2 = paste0("B", 1:20),
-    OrthoGroup = paste0("HOG", 1:20),
+    hog = paste0("HOG", 1:20),
     stringsAsFactors = FALSE
   )
 

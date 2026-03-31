@@ -19,7 +19,7 @@ A data frame with columns:
 \describe{
 \item{Species1}{Gene identifier for species 1}
 \item{Species2}{Gene identifier for species 2}
-\item{OrthoGroup}{Integer ortholog group identifier}
+\item{hog}{Integer ortholog group identifier}
 }
 }
 \description{

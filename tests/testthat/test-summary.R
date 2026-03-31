@@ -2,7 +2,7 @@ test_that("summarize_comparison returns correct structure", {
   comparison <- data.frame(
     Species1 = paste0("A_", 1:10),
     Species2 = paste0("B_", 1:10),
-    OrthoGroup = rep(1:5, each = 2),
+    hog = rep(1:5, each = 2),
     Species1.neigh = rep(10, 10),
     Species1.ortho.neigh = rep(5, 10),
     Species1.neigh.overlap = c(3, 0, 2, 4, 1, 3, 2, 0, 1, 5),
@@ -37,7 +37,7 @@ test_that("zero-overlap rows are filtered by default", {
   comparison <- data.frame(
     Species1 = paste0("A_", 1:5),
     Species2 = paste0("B_", 1:5),
-    OrthoGroup = 1:5,
+    hog = 1:5,
     Species1.neigh = rep(10, 5),
     Species1.ortho.neigh = rep(5, 5),
     Species1.neigh.overlap = c(3, 0, 2, 0, 1),
@@ -64,7 +64,7 @@ test_that("q-values are computed", {
   comparison <- data.frame(
     Species1 = paste0("A_", 1:5),
     Species2 = paste0("B_", 1:5),
-    OrthoGroup = 1:5,
+    hog = 1:5,
     Species1.neigh = rep(10, 5),
     Species1.ortho.neigh = rep(5, 5),
     Species1.neigh.overlap = rep(2, 5),
@@ -103,7 +103,7 @@ test_that("summary counts are correct", {
   comparison <- data.frame(
     Species1 = c("A_1", "A_1", "A_2"),
     Species2 = c("B_1", "B_2", "B_2"),
-    OrthoGroup = c(1, 1, 2),
+    hog = c(1, 1, 2),
     Species1.neigh = rep(10, 3),
     Species1.ortho.neigh = rep(5, 3),
     Species1.neigh.overlap = rep(5, 3),
@@ -129,7 +129,7 @@ test_that("empty comparison handled gracefully", {
   comparison <- data.frame(
     Species1 = character(0),
     Species2 = character(0),
-    OrthoGroup = integer(0),
+    hog = integer(0),
     Species1.neigh = integer(0),
     Species1.ortho.neigh = integer(0),
     Species1.neigh.overlap = integer(0),
@@ -154,7 +154,7 @@ test_that("alternative='less' uses divergence p-values", {
   comparison <- data.frame(
     Species1 = paste0("A_", 1:5),
     Species2 = paste0("B_", 1:5),
-    OrthoGroup = 1:5,
+    hog = 1:5,
     Species1.neigh = rep(10, 5),
     Species1.ortho.neigh = rep(5, 5),
     Species1.neigh.overlap = c(0, 0, 0, 3, 5),
@@ -191,7 +191,7 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
   comparison <- data.frame(
     Species1 = paste0("A_", 1:3),
     Species2 = paste0("B_", 1:3),
-    OrthoGroup = 1:3,
+    hog = 1:3,
     Species1.neigh = rep(10, 3),
     Species1.ortho.neigh = rep(5, 3),
     Species1.neigh.overlap = c(0, 0, 2),

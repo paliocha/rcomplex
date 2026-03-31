@@ -71,7 +71,7 @@ summarize_comparison <- function(comparison,
     filter_zero <- alternative == "greater"
   }
 
-  if (!all(c("Species1", "Species2", "OrthoGroup",
+  if (!all(c("Species1", "Species2", "hog",
              "Species1.p.val.con", "Species2.p.val.con",
              "Species1.p.val.div", "Species2.p.val.div",
              "Species1.neigh.overlap",
@@ -141,10 +141,10 @@ summarize_comparison <- function(comparison,
         reciprocal_sp2 = count_sig(max_q, res$Species2)
       ),
       orthogroups = list(
-        sp1 = count_sig(q1, res$OrthoGroup),
-        sp2 = count_sig(q2, res$OrthoGroup),
-        reciprocal = count_sig(max_q, res$OrthoGroup),
-        total = length(unique(res$OrthoGroup))
+        sp1 = count_sig(q1, res$hog),
+        sp2 = count_sig(q2, res$hog),
+        reciprocal = count_sig(max_q, res$hog),
+        total = length(unique(res$hog))
       )
     )
   )
@@ -362,7 +362,7 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #'
 #' @return A data frame with one row per HOG, ordered by p-value, with columns:
 #'   \describe{
-#'     \item{OrthoGroup}{HOG identifier}
+#'     \item{hog}{HOG identifier}
 #'     \item{n_pairs}{Number of ortholog pairs (M x N) in this HOG}
 #'     \item{n_sp1}{Number of unique species-1 genes (M)}
 #'     \item{n_sp2}{Number of unique species-2 genes (N)}
@@ -400,7 +400,7 @@ permutation_hog_test <- function(net1, net2, comparison,
   if (!is.list(net2) || is.null(net2$network)) {
     stop("net2 must be a network object from compute_network()")
   }
-  required <- c("Species1", "Species2", "OrthoGroup",
+  required <- c("Species1", "Species2", "hog",
                  "Species1.effect.size", "Species2.effect.size")
   missing_cols <- setdiff(required, names(comparison))
   if (length(missing_cols) > 0) {
@@ -429,7 +429,7 @@ permutation_hog_test <- function(net1, net2, comparison,
   }
   if (nrow(comparison) == 0) {
     return(data.frame(
-      OrthoGroup = character(0), n_pairs = integer(0),
+      hog = character(0), n_pairs = integer(0),
       n_sp1 = integer(0), n_sp2 = integer(0),
       T_obs = numeric(0), n_perm = integer(0),
       n_exceed = integer(0), mean_eff = numeric(0),
@@ -465,7 +465,7 @@ permutation_hog_test <- function(net1, net2, comparison,
   ortho_sp2_idx <- as.integer(idx2[ortho_pairs$Species2])
 
   # Per-HOG unique gene indices
-  hog_groups <- split(seq_len(nrow(comparison)), comparison$OrthoGroup)
+  hog_groups <- split(seq_len(nrow(comparison)), comparison$hog)
   hog_names <- names(hog_groups)
 
   hog_sp1_list <- lapply(hog_groups, function(rows) {
@@ -514,7 +514,7 @@ permutation_hog_test <- function(net1, net2, comparison,
   eff <- sqrt(comparison$Species1.effect.size * comparison$Species2.effect.size)
 
   result <- data.frame(
-    OrthoGroup = hog_names,
+    hog = hog_names,
     n_pairs    = vapply(hog_groups, length, integer(1)),
     n_sp1      = vapply(hog_sp1_list, length, integer(1)),
     n_sp2      = vapply(hog_sp2_list, length, integer(1)),

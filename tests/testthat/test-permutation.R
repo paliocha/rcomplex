@@ -38,7 +38,7 @@ make_test_nets <- function() {
   orthologs <- data.frame(
     Species1 = paste0("A", c(1:8, 14, 15)),
     Species2 = paste0("B", c(1:8, 14, 15)),
-    OrthoGroup = c(rep("HOG1", 3), paste0("HOG", 2:6), "HOG_NC", "HOG_NC"),
+    hog = c(rep("HOG1", 3), paste0("HOG", 2:6), "HOG_NC", "HOG_NC"),
     stringsAsFactors = FALSE
   )
 
@@ -56,10 +56,10 @@ test_that("permutation_hog_test returns correct structure", {
   )
 
   expect_s3_class(result, "data.frame")
-  expect_named(result, c("OrthoGroup", "n_pairs", "n_sp1", "n_sp2",
+  expect_named(result, c("hog", "n_pairs", "n_sp1", "n_sp2",
                          "T_obs", "n_perm", "n_exceed", "mean_eff",
                          "p.value", "q.value"))
-  n_hogs <- length(unique(td$comparison$OrthoGroup))
+  n_hogs <- length(unique(td$comparison$hog))
   expect_equal(nrow(result), n_hogs)
 })
 
@@ -72,8 +72,8 @@ test_that("conserved HOG has smaller p-value than non-conserved", {
     max_permutations = 2000L, min_exceedances = 50L
   )
 
-  hog1 <- result[result$OrthoGroup == "HOG1", ]
-  hog_nc <- result[result$OrthoGroup == "HOG_NC", ]
+  hog1 <- result[result$hog == "HOG1", ]
+  hog_nc <- result[result$hog == "HOG_NC", ]
 
   # HOG1 (conserved) should have much smaller p-value
   expect_true(hog1$p.value < hog_nc$p.value)
@@ -94,11 +94,11 @@ test_that("adaptive stopping terminates early for clearly null HOGs", {
 
   # Non-conserved HOGs: T_obs=0 skips permutations entirely, or
   # exceedances accumulate fast and trigger early stopping
-  hog_nc <- result[result$OrthoGroup == "HOG_NC", ]
+  hog_nc <- result[result$hog == "HOG_NC", ]
   expect_true(hog_nc$n_perm == 0L || hog_nc$n_exceed >= 20L)
 
   # Conserved HOG should run more permutations (fewer exceedances)
-  hog1 <- result[result$OrthoGroup == "HOG1", ]
+  hog1 <- result[result$hog == "HOG1", ]
   expect_true(hog1$n_perm >= hog_nc$n_perm)
 })
 
@@ -145,15 +145,15 @@ test_that("alternative='less' tests divergence", {
     max_permutations = 500L, min_exceedances = 20L
   )
 
-  hog1_con <- result_con[result_con$OrthoGroup == "HOG1", ]
-  hog1_div <- result_div[result_div$OrthoGroup == "HOG1", ]
+  hog1_con <- result_con[result_con$hog == "HOG1", ]
+  hog1_div <- result_div[result_div$hog == "HOG1", ]
 
   # Conserved HOG should be significant for conservation, not divergence
   expect_true(hog1_con$p.value < hog1_div$p.value)
 
   # Non-conserved HOG with T_obs=0: under "less", T_obs=0 is extreme
   # divergence — permutations must actually run (not be short-circuited)
-  hog_nc_div <- result_div[result_div$OrthoGroup == "HOG_NC", ]
+  hog_nc_div <- result_div[result_div$hog == "HOG_NC", ]
   expect_true(hog_nc_div$n_perm > 0L)
 })
 
@@ -164,7 +164,7 @@ test_that("empty comparison handled gracefully", {
 
   result <- permutation_hog_test(td$net1, td$net2, empty)
   expect_equal(nrow(result), 0)
-  expect_named(result, c("OrthoGroup", "n_pairs", "n_sp1", "n_sp2",
+  expect_named(result, c("hog", "n_pairs", "n_sp1", "n_sp2",
                          "T_obs", "n_perm", "n_exceed", "mean_eff",
                          "p.value", "q.value"))
 })
@@ -172,7 +172,7 @@ test_that("empty comparison handled gracefully", {
 
 test_that("single-pair HOG works", {
   td <- make_test_nets()
-  single <- td$comparison[td$comparison$OrthoGroup %in%
+  single <- td$comparison[td$comparison$hog %in%
                             paste0("HOG", 2:6), ]
 
   set.seed(42)
@@ -195,12 +195,12 @@ test_that("n_sp1 and n_sp2 reflect unique gene counts", {
     max_permutations = 100L, min_exceedances = 10L
   )
 
-  hog1 <- result[result$OrthoGroup == "HOG1", ]
+  hog1 <- result[result$hog == "HOG1", ]
   expect_equal(hog1$n_sp1, 3L)
   expect_equal(hog1$n_sp2, 3L)
   expect_equal(hog1$n_pairs, 3L)
 
-  hog_nc <- result[result$OrthoGroup == "HOG_NC", ]
+  hog_nc <- result[result$hog == "HOG_NC", ]
   expect_equal(hog_nc$n_sp1, 2L)
   expect_equal(hog_nc$n_sp2, 2L)
   expect_equal(hog_nc$n_pairs, 2L)
@@ -245,12 +245,12 @@ test_that("effect sizes are computed correctly", {
     max_permutations = 100L, min_exceedances = 10L
   )
 
-  hog1_rows <- td$comparison$OrthoGroup == "HOG1"
+  hog1_rows <- td$comparison$hog == "HOG1"
   expected_eff <- mean(sqrt(
     td$comparison$Species1.effect.size[hog1_rows] *
       td$comparison$Species2.effect.size[hog1_rows]
   ))
-  hog1 <- result[result$OrthoGroup == "HOG1", ]
+  hog1 <- result[result$hog == "HOG1", ]
   expect_equal(hog1$mean_eff, expected_eff, tolerance = 1e-10)
 })
 
@@ -288,8 +288,8 @@ test_that("torch backend T_obs matches bit-vector backend", {
   )
 
   # T_obs should match closely — MPS uses float32, so ~1e-6 differences
-  bv_order <- order(result_bv$OrthoGroup)
-  fe_order <- order(result_fe$OrthoGroup)
+  bv_order <- order(result_bv$hog)
+  fe_order <- order(result_fe$hog)
   expect_equal(result_fe$T_obs[fe_order], result_bv$T_obs[bv_order],
                tolerance = 1e-5)
 })
@@ -308,8 +308,8 @@ test_that("torch backend conserved vs non-conserved HOGs", {
     use_torch = TRUE
   )
 
-  hog1 <- result[result$OrthoGroup == "HOG1", ]
-  hog_nc <- result[result$OrthoGroup == "HOG_NC", ]
+  hog1 <- result[result$hog == "HOG1", ]
+  hog_nc <- result[result$hog == "HOG_NC", ]
 
   expect_true(hog1$p.value < hog_nc$p.value)
   expect_true(hog1$T_obs > hog_nc$T_obs)

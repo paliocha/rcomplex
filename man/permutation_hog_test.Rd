@@ -42,7 +42,7 @@ via torch, then run permutations as fast table lookups. Requires the
 \value{
 A data frame with one row per HOG, ordered by p-value, with columns:
 \describe{
-\item{OrthoGroup}{HOG identifier}
+\item{hog}{HOG identifier}
 \item{n_pairs}{Number of ortholog pairs (M x N) in this HOG}
 \item{n_sp1}{Number of unique species-1 genes (M)}
 \item{n_sp2}{Number of unique species-2 genes (N)}

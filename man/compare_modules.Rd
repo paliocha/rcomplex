@@ -22,7 +22,7 @@ compare_modules(
 (output of \code{\link[=detect_modules]{detect_modules()}}).}
 
 \item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, and
-\code{OrthoGroup} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
+\code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
 
 \item{method}{Test method: \code{"hypergeometric"} (default) or \code{"jaccard"}.}
 

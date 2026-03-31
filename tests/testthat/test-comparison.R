@@ -11,7 +11,7 @@ test_that("compare_neighborhoods returns correct structure", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
     Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    OrthoGroup = 1:30,
+    hog = 1:30,
     stringsAsFactors = FALSE
   )
 
@@ -19,7 +19,7 @@ test_that("compare_neighborhoods returns correct structure", {
 
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 30)
-  expected_cols <- c("Species1", "Species2", "OrthoGroup",
+  expected_cols <- c("Species1", "Species2", "hog",
                      "Species1.neigh", "Species1.ortho.neigh",
                      "Species1.neigh.overlap", "Species1.p.val.con",
                      "Species1.p.val.div", "Species1.effect.size",
@@ -42,7 +42,7 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
     Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    OrthoGroup = 1:30,
+    hog = 1:30,
     stringsAsFactors = FALSE
   )
 
@@ -77,7 +77,7 @@ test_that("C++ comparison matches R reference", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
     Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    OrthoGroup = 1:30,
+    hog = 1:30,
     stringsAsFactors = FALSE
   )
 
@@ -150,7 +150,7 @@ test_that("multicopy orthologs handled correctly", {
   ortho <- data.frame(
     Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
     Species2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
-    OrthoGroup = c(1:30, 1),
+    hog = c(1:30, 1),
     stringsAsFactors = FALSE
   )
 
@@ -176,7 +176,7 @@ test_that("orthologs not in network are filtered", {
   ortho <- data.frame(
     Species1 = c("A_001", "A_002", "A_999"),
     Species2 = c("B_001", "B_002", "B_999"),
-    OrthoGroup = 1:3,
+    hog = 1:3,
     stringsAsFactors = FALSE
   )
 
@@ -227,7 +227,7 @@ test_that("divergence p-values detect disjoint neighborhoods", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:n)),
     Species2 = paste0("B_", sprintf("%03d", 1:n)),
-    OrthoGroup = 1:n,
+    hog = 1:n,
     stringsAsFactors = FALSE
   )
 
@@ -263,7 +263,7 @@ test_that("identical neighborhoods give high divergence p-value", {
   ortho <- data.frame(
     Species1 = paste0("G_", sprintf("%03d", 1:n)),
     Species2 = paste0("H_", sprintf("%03d", 1:n)),
-    OrthoGroup = 1:n,
+    hog = 1:n,
     stringsAsFactors = FALSE
   )
 
@@ -300,7 +300,7 @@ test_that("effect size < 1 when overlap is less than expected", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:n)),
     Species2 = paste0("B_", sprintf("%03d", 1:n)),
-    OrthoGroup = 1:n,
+    hog = 1:n,
     stringsAsFactors = FALSE
   )
 
@@ -311,4 +311,55 @@ test_that("effect size < 1 when overlap is less than expected", {
   expect_equal(row1$Species1.neigh.overlap, 0)
   expect_equal(row1$Species1.effect.size, 0)
   expect_true(row1$Species1.p.val.div < 0.05)
+})
+
+
+# --- Tests for comparison_to_edges() ---
+
+test_that("comparison_to_edges produces correct edge format", {
+  comp <- data.frame(
+    Species1 = c("A1", "A2"),
+    Species2 = c("B1", "B2"),
+    hog = c(1L, 2L),
+    Species1.effect.size = c(4.0, 1.0),
+    Species2.effect.size = c(9.0, 1.0),
+    Species1.q.val.con = c(0.01, 0.80),
+    Species2.q.val.con = c(0.03, 0.90)
+  )
+
+  edges <- comparison_to_edges(comp, "SP_A", "SP_B")
+
+  expect_equal(names(edges), c("gene1", "gene2", "species1", "species2",
+                                "hog", "q.value", "effect_size", "type"))
+  expect_equal(edges$gene1, c("A1", "A2"))
+  expect_equal(edges$species1, c("SP_A", "SP_A"))
+  expect_equal(edges$species2, c("SP_B", "SP_B"))
+  # q.value = min of two directions
+  expect_equal(edges$q.value, c(0.01, 0.80))
+  # effect_size = geometric mean
+  expect_equal(edges$effect_size, c(sqrt(4 * 9), sqrt(1 * 1)))
+  # type classification
+  expect_equal(edges$type, c("conserved", "ns"))
+})
+
+
+test_that("comparison_to_edges handles alternative='less'", {
+  comp <- data.frame(
+    Species1 = "A1", Species2 = "B1", hog = 1L,
+    Species1.effect.size = 0.2, Species2.effect.size = 0.3,
+    Species1.q.val.div = 0.01, Species2.q.val.div = 0.02
+  )
+
+  edges <- comparison_to_edges(comp, "SP_A", "SP_B", alternative = "less")
+
+  expect_equal(edges$q.value, 0.01)
+  expect_equal(edges$type, "diverged")
+})
+
+
+test_that("comparison_to_edges validates missing columns", {
+  expect_error(
+    comparison_to_edges(data.frame(x = 1), "A", "B"),
+    "comparison missing required columns"
+  )
 })

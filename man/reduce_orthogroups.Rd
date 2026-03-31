@@ -16,7 +16,7 @@ reduce_orthogroups(
 as row names.}
 
 \item{orthologs}{Data frame with columns \code{Species1} (or the column
-matching gene row names), \code{Species2}, and \code{OrthoGroup}, as
+matching gene row names), \code{Species2}, and \code{hog}, as
 returned by \code{\link{parse_orthologs}}.}
 
 \item{gene_col}{Character: which column of \code{orthologs} contains gene

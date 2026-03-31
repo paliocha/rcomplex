@@ -22,14 +22,14 @@
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
 #' @param orthologs Data frame with columns `Species1`, `Species2`, and
-#'   `OrthoGroup` (output of [parse_orthologs()]).
+#'   `hog` (output of [parse_orthologs()]).
 #' @param n_cores Number of threads for parallel computation (default 1).
 #'
 #' @return A data frame with columns:
 #'   \describe{
 #'     \item{Species1}{Gene identifier for species 1}
 #'     \item{Species2}{Gene identifier for species 2}
-#'     \item{OrthoGroup}{Ortholog group identifier}
+#'     \item{hog}{Ortholog group identifier}
 #'     \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
 #'     \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
 #'       from net2}
@@ -61,8 +61,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   if (!is.list(net2) || is.null(net2$network)) {
     stop("net2 must be a network object from compute_network()")
   }
-  if (!all(c("Species1", "Species2", "OrthoGroup") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, OrthoGroup")
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: Species1, Species2, hog")
   }
 
   net1_mat <- net1$network
@@ -77,7 +77,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   orthologs <- orthologs[orthologs$Species1 %in% net1_genes &
                            orthologs$Species2 %in% net2_genes, ,
                          drop = FALSE]
-  orthologs <- unique(orthologs[, c("Species1", "Species2", "OrthoGroup"),
+  orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
                                 drop = FALSE])
 
   if (nrow(orthologs) == 0) {
@@ -106,7 +106,80 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
   # Combine with ortholog info
   cbind(
-    orthologs[, c("Species1", "Species2", "OrthoGroup"), drop = FALSE],
+    orthologs[, c("Species1", "Species2", "hog"), drop = FALSE],
     result
+  )
+}
+
+
+#' Build clique edges from pairwise comparison results
+#'
+#' Converts output from \code{\link{summarize_comparison}} into the edge
+#' format expected by \code{\link{find_cliques}} and
+#' \code{\link{clique_persistence}}. Renames columns, injects species
+#' identity, and computes per-pair effect sizes and classification.
+#'
+#' @param comparison Data frame from \code{\link{summarize_comparison}}
+#'   (the \code{$results} element). Must contain columns \code{Species1},
+#'   \code{Species2}, \code{hog}, plus q-value and effect-size columns
+#'   from both directions.
+#' @param sp1 Species abbreviation for \code{Species1} genes (e.g.,
+#'   \code{"BDIS"}).
+#' @param sp2 Species abbreviation for \code{Species2} genes.
+#' @param alternative Which test direction to use for q-values and
+#'   classification: \code{"greater"} (conservation, default) or
+#'   \code{"less"} (divergence).
+#' @param alpha Significance threshold for the \code{type} column
+#'   (default 0.05).
+#'
+#' @return Data frame with columns:
+#'   \describe{
+#'     \item{gene1}{Gene identifier (Species1)}
+#'     \item{gene2}{Gene identifier (Species2)}
+#'     \item{species1}{Species abbreviation for gene1 (\code{sp1})}
+#'     \item{species2}{Species abbreviation for gene2 (\code{sp2})}
+#'     \item{hog}{Ortholog group identifier}
+#'     \item{q.value}{Minimum of the two directional q-values}
+#'     \item{effect_size}{Geometric mean of directional effect sizes}
+#'     \item{type}{\code{"conserved"} or \code{"diverged"} if
+#'       \code{q.value < alpha}; \code{"ns"} otherwise}
+#'   }
+#'
+#' @export
+comparison_to_edges <- function(comparison, sp1, sp2,
+                                alternative = c("greater", "less"),
+                                alpha = 0.05) {
+  alternative <- match.arg(alternative)
+
+  suffix <- if (alternative == "greater") "con" else "div"
+  q1_col <- paste0("Species1.q.val.", suffix)
+  q2_col <- paste0("Species2.q.val.", suffix)
+
+  required <- c("Species1", "Species2", "hog",
+                 "Species1.effect.size", "Species2.effect.size",
+                 q1_col, q2_col)
+  missing_cols <- setdiff(required, names(comparison))
+  if (length(missing_cols) > 0) {
+    stop("comparison missing required columns: ",
+         paste(missing_cols, collapse = ", "),
+         ". Did you pass summarize_comparison()$results?")
+  }
+
+  q_min <- pmin(comparison[[q1_col]], comparison[[q2_col]])
+  eff_geo <- sqrt(comparison$Species1.effect.size *
+                  comparison$Species2.effect.size)
+
+  type_label <- if (alternative == "greater") "conserved" else "diverged"
+  type <- ifelse(q_min < alpha, type_label, "ns")
+
+  data.frame(
+    gene1 = comparison$Species1,
+    gene2 = comparison$Species2,
+    species1 = sp1,
+    species2 = sp2,
+    hog = comparison$hog,
+    q.value = q_min,
+    effect_size = eff_geo,
+    type = type
   )
 }
