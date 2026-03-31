@@ -97,8 +97,7 @@ Rcpp::DataFrame fe_hog_permutation_test_cpp(
     Rcpp::NumericVector out_p_value(n_hogs);
 
 #ifdef _OPENMP
-    if (n_cores > 1) omp_set_num_threads(n_cores);
-    #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
+    #pragma omp parallel for schedule(dynamic) num_threads(n_cores) if(n_cores > 1)
 #endif
     for (int h = 0; h < n_hogs; ++h) {
         int tid = 0;

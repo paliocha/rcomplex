@@ -212,8 +212,7 @@ Rcpp::List find_cliques_stability_cpp(
         }
 
 #ifdef _OPENMP
-        if (n_cores > 1) omp_set_num_threads(n_cores);
-        #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
+        #pragma omp parallel for schedule(dynamic) num_threads(n_cores) if(n_cores > 1)
 #endif
         for (int s = 0; s < n_subsets_k; ++s) {
             int tid = 0;

@@ -156,7 +156,6 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
     }
 
 #ifdef _OPENMP
-    if (n_cores > 1) omp_set_num_threads(n_cores);
 #endif
 
     // Seen buffer for sequential remap (main thread only)
@@ -189,7 +188,7 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
         }
 
 #ifdef _OPENMP
-        #pragma omp parallel for schedule(dynamic) if(n_cores > 1)
+        #pragma omp parallel for schedule(dynamic) num_threads(n_cores) if(n_cores > 1)
 #endif
         for (int p = 0; p < n_pairs; ++p) {
             if (!pair_active[p]) continue;

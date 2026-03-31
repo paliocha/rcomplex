@@ -99,17 +99,14 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
     arma::mat result(n, n, arma::fill::zeros);
 
 #ifdef _OPENMP
-    if (n_cores > 1) {
-        omp_set_num_threads(n_cores);
-    }
-    #pragma omp parallel for schedule(static) if(n_cores > 1)
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         row_ranks.col(i) = compute_ranks_impl(sim.col(i), ascending);
     }
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static, 1) if(n_cores > 1)
+    #pragma omp parallel for schedule(static, 1) num_threads(n_cores) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         for (arma::uword j = i + 1; j < n; ++j) {

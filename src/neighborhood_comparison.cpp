@@ -131,19 +131,13 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         }
     }
 
-#ifdef _OPENMP
-    if (n_cores > 1) {
-        omp_set_num_threads(n_cores);
-    }
-#endif
-
     // Precompute neighbor lists using column-major access (cache-friendly on
     // symmetric Armadillo matrices: col(i) == row(i) in value)
     std::vector<std::vector<int>> neighbors1(n1);
     std::vector<std::vector<int>> neighbors2(n2);
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) if(n_cores > 1)
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
 #endif
     for (int i = 0; i < n1; ++i) {
         const double* col_i = net1.colptr(i);
@@ -155,7 +149,7 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
     }
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) if(n_cores > 1)
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
 #endif
     for (int i = 0; i < n2; ++i) {
         const double* col_i = net2.colptr(i);
@@ -184,7 +178,7 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
 
     // Parallel comparison loop
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) if(n_cores > 1)
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
 #endif
     for (int p = 0; p < n_pairs; ++p) {
         int g1_idx = pair_sp1_idx[p];

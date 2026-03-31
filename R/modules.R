@@ -292,6 +292,12 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   }
 
   if (use_mc) {
+    old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
+    Sys.setenv(OMP_NUM_THREADS = 1L)
+    on.exit({
+      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
+      else Sys.setenv(OMP_NUM_THREADS = old_omp)
+    }, add = TRUE)
     results <- parallel::mclapply(resolutions, run_initial, mc.cores = n_cores)
   } else {
     results <- lapply(resolutions, run_initial)
@@ -495,6 +501,12 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
   }
 
   if (.Platform$OS.type == "unix" && n_cores > 1L) {
+    old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
+    Sys.setenv(OMP_NUM_THREADS = 1L)
+    on.exit({
+      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
+      else Sys.setenv(OMP_NUM_THREADS = old_omp)
+    }, add = TRUE)
     results <- parallel::mclapply(resolutions, run_one, mc.cores = n_cores)
     errs <- which(vapply(results, inherits, logical(1), "try-error"))
     if (length(errs)) {
@@ -555,6 +567,12 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
   }
 
   if (.Platform$OS.type == "unix" && n_cores > 1L) {
+    old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
+    Sys.setenv(OMP_NUM_THREADS = 1L)
+    on.exit({
+      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
+      else Sys.setenv(OMP_NUM_THREADS = old_omp)
+    }, add = TRUE)
     lambda_null <- unlist(parallel::mclapply(
       seq_len(n_perm), run_one_perm, mc.cores = n_cores
     ))
