@@ -420,9 +420,10 @@ test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
 
   result <- run_pairwise_comparisons(nets, ortho)
 
-  # Should have edges from all 3 pairs
+  # Should have edges from multiple pairs
   sp_pairs <- unique(paste(result$species1, result$species2))
-  expect_true(length(sp_pairs) >= 1)  # at least some pairs produced edges
+  expect_true(length(sp_pairs) >= 2)
+  expect_true("SP_A SP_B" %in% sp_pairs)
 })
 
 

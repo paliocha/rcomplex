@@ -262,7 +262,10 @@ run_pairwise_comparisons <- function(
     species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
   }
 
-  pair_edges <- list()
+  n_pairs <- length(species_pairs)
+  pair_edges <- vector("list", n_pairs)
+  idx <- 0L
+
   for (pair in species_pairs) {
     sp_a <- pair[1]
     sp_b <- pair[2]
@@ -277,22 +280,30 @@ run_pairwise_comparisons <- function(
     comparison <- tryCatch(
       compare_neighborhoods(networks[[sp_a]], networks[[sp_b]],
                             orthologs, n_cores),
-      error = function(e) NULL
+      error = function(e) {
+        warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
+        NULL
+      }
     )
     if (is.null(comparison) || nrow(comparison) == 0) next
 
     summary_res <- tryCatch(
       summarize_comparison(comparison, alternative, alpha),
-      error = function(e) NULL
+      error = function(e) {
+        warning("Pair ", sp_a, "-", sp_b, " q-value computation failed: ",
+                conditionMessage(e))
+        NULL
+      }
     )
     if (is.null(summary_res) || nrow(summary_res$results) == 0) next
 
     edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
                                      alternative, alpha)
-    pair_edges[[length(pair_edges) + 1L]] <- edges_df
+    idx <- idx + 1L
+    pair_edges[[idx]] <- edges_df
   }
 
-  if (length(pair_edges) == 0) {
+  if (idx == 0L) {
     return(data.frame(
       gene1 = character(0), gene2 = character(0),
       species1 = character(0), species2 = character(0),
@@ -300,5 +311,5 @@ run_pairwise_comparisons <- function(
       effect_size = numeric(0), type = character(0)))
   }
 
-  do.call(rbind, pair_edges)
+  do.call(rbind, pair_edges[seq_len(idx)])
 }

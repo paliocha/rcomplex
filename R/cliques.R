@@ -752,13 +752,21 @@ clique_threshold_sweep <- function(
       comparison <- tryCatch(
         compare_neighborhoods(tight_nets[[sp_a]], tight_nets[[sp_b]],
                               orthologs, n_cores),
-        error = function(e) NULL
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b, " at ", m, "x failed: ",
+                  conditionMessage(e))
+          NULL
+        }
       )
       if (is.null(comparison) || nrow(comparison) == 0) next
 
       summary_res <- tryCatch(
         summarize_comparison(comparison, alternative, alpha),
-        error = function(e) NULL
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b, " q-values at ", m,
+                  "x failed: ", conditionMessage(e))
+          NULL
+        }
       )
       if (is.null(summary_res) || nrow(summary_res$results) == 0) next
 
