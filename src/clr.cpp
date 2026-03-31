@@ -52,8 +52,14 @@ arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
     arma::vec row_sds = arma::stddev(cor_matrix, 0, 1);
     row_sds.elem(arma::find(row_sds < 1e-10)).fill(1.0);
 
-    arma::mat clr_matrix(n, n, arma::fill::zeros);
+    // Vectorised row z-scoring and clamping (replaces per-element arithmetic)
+    arma::mat Z = cor_matrix;
+    Z.each_col() -= row_means;
+    Z.each_col() /= row_sds;
+    Z.transform([](double x) { return std::max(0.0, x); });
 
+    // Combine row and column z-scores: CLR(i,j) = hypot(Z(i,j), Z(j,i))
+    // Each (i,j)/(j,i) pair read+written by exactly one iteration — in-place safe
 #ifdef _OPENMP
     if (n_cores > 1) {
         omp_set_num_threads(n_cores);
@@ -62,17 +68,12 @@ arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         for (arma::uword j = i + 1; j < n; ++j) {
-            double z_row = std::max(0.0,
-                (cor_matrix(i, j) - row_means(i)) / row_sds(i));
-            double z_col = std::max(0.0,
-                (cor_matrix(i, j) - row_means(j)) / row_sds(j));
-
-            double val = std::hypot(z_row, z_col);
-
-            clr_matrix(i, j) = val;
-            clr_matrix(j, i) = val;
+            double val = std::hypot(Z(i, j), Z(j, i));
+            Z(i, j) = val;
+            Z(j, i) = val;
         }
+        Z(i, i) = 0.0;
     }
 
-    return clr_matrix;
+    return Z;
 }
