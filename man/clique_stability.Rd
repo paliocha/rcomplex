@@ -58,7 +58,7 @@ reduced-dataset cliques to full-dataset cliques (default 0.8).}
 \value{
 A list with components:
 \describe{
-\item{stability}{Data frame with columns: \code{clique_idx},
+\item{stability}{Data frame with columns: \code{clique_idx} (1-based),
 \code{hog}, \code{trait_value}, \code{k}, \code{n_subsets},
 \code{n_stable}, \code{stability_score}, \code{sole_rep}}
 \item{clique_disruption}{Data frame with columns: \code{species},

@@ -69,6 +69,8 @@ test_that("clique_threshold_sweep returns correct structure", {
                      "jaccard", "n_species_orig", "n_species_new") %in%
                     names(surv)))
   expect_equal(nrow(surv), nrow(setup$cliques) * 2)
+  # clique_idx should be 1-based
+  expect_true(all(surv$clique_idx >= 1L))
 })
 
 
