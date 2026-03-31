@@ -1,4 +1,4 @@
-Species1	Species2	OrthoGroup
+Species1	Species2	hog
 GeneA_001	GeneB_001	1
 GeneA_002	GeneB_002	2
 GeneA_003	GeneB_003	3

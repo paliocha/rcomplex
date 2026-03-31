@@ -165,7 +165,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
          ". Did you pass summarize_comparison()$results?")
   }
 
-  q_min <- pmin(comparison[[q1_col]], comparison[[q2_col]])
+  q_min <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
   eff_geo <- sqrt(comparison$Species1.effect.size *
                   comparison$Species2.effect.size)
 
