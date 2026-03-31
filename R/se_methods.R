@@ -1,51 +1,21 @@
 #' Build per-species SummarizedExperiment from long-format data
 #'
 #' Pivots a long-format expression table (one row per gene-sample
-#' observation) into a \code{\link[SummarizedExperiment]{SummarizedExperiment}}
-#' for a single species. Gene metadata (including HOG assignments) is
-#' stored in \code{rowData}, and sample metadata in \code{colData}.
+#' observation) into a SummarizedExperiment for a single species.
+#' This is a convenience helper, not core rcomplex functionality.
 #'
-#' @param data Data frame (or tibble) in long format with at minimum
-#'   columns for species, gene ID, sample ID, and expression value.
-#' @param species Character, species abbreviation to extract (matched
-#'   against \code{species_col}).
-#' @param assay_col Column containing expression values
-#'   (default \code{"vst.count"}).
-#' @param gene_col Column with gene identifiers (default \code{"gene_id"}).
-#' @param sample_col Column with sample identifiers
-#'   (default \code{"sample_id"}).
-#' @param species_col Column with species abbreviations
-#'   (default \code{"abbrev"}).
-#' @param hog_col Column with HOG identifiers (default \code{"HOG"}),
-#'   or \code{NULL} to omit.
-#' @param gene_metadata Character vector of additional columns to include
-#'   in \code{rowData} (e.g., \code{"protein_id"}). Default \code{NULL}.
-#' @param sample_metadata Character vector of additional columns to
-#'   include in \code{colData} (e.g., \code{c("tissue", "time.point")}).
-#'   Default \code{NULL}.
-#'
-#' @return A \code{\link[SummarizedExperiment]{SummarizedExperiment}} with:
-#'   \describe{
-#'     \item{assay}{Genes x samples matrix named by \code{assay_col}.}
-#'     \item{rowData}{Gene-level metadata including \code{hog} (if
-#'       \code{hog_col} is non-NULL).}
-#'     \item{colData}{Sample-level metadata.}
-#'     \item{metadata}{List with \code{species} abbreviation.}
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' data <- readRDS("vst_hog.RDS")
-#' se_bdis <- build_se(data, "BDIS",
-#'                     sample_metadata = c("tissue", "time.point", "day"))
-#' se_hvul <- build_se(data, "HVUL",
-#'                     sample_metadata = c("tissue", "time.point", "day"))
-#'
-#' # Use directly with compute_network
-#' net <- compute_network(se_bdis, cor_method = "spearman")
-#' }
-#'
-#' @export
+#' @param data Data frame in long format with columns for species,
+#'   gene ID, sample ID, and expression value.
+#' @param species Character, species abbreviation to extract.
+#' @param assay_col Column containing expression values.
+#' @param gene_col Column with gene identifiers.
+#' @param sample_col Column with sample identifiers.
+#' @param species_col Column with species abbreviations.
+#' @param hog_col Column with HOG identifiers, or \code{NULL} to omit.
+#' @param gene_metadata Additional columns for \code{rowData}.
+#' @param sample_metadata Additional columns for \code{colData}.
+#' @return A SummarizedExperiment.
+#' @noRd
 build_se <- function(data, species,
                      assay_col = "vst.count",
                      gene_col = "gene_id",
@@ -62,7 +32,7 @@ build_se <- function(data, species,
   }
 
   # Filter to species
-  sp_data <- data[data[[species_col]] == species, , drop = FALSE]
+  sp_data <- data[data[[species_col]] %in% species, , drop = FALSE]
   if (nrow(sp_data) == 0) {
     stop("No rows found for species '", species, "' in column '",
          species_col, "'")
@@ -106,7 +76,7 @@ build_se <- function(data, species,
                               row.names = samples)
 
   SummarizedExperiment::SummarizedExperiment(
-    assays = list(mat),
+    assays = stats::setNames(list(mat), assay_col),
     rowData = rd,
     colData = cd,
     metadata = list(species = species)
