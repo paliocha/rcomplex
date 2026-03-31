@@ -3,6 +3,7 @@
 // Matches R's hclust(method="ward.D2") + cutree(h = 1 - cor_threshold).
 
 #include <RcppArmadillo.h>
+#include <algorithm>
 #include <numeric>
 #include <vector>
 
@@ -51,9 +52,7 @@ static int ward_d2_cut(const arma::mat& dist_unsq, double h, std::vector<int>& c
         }
 
         int old_id = cid[mj], new_id = cid[mi];
-        for (int i = 0; i < n; i++) {
-            if (cid[i] == old_id) cid[i] = new_id;
-        }
+        std::replace(cid.begin(), cid.end(), old_id, new_id);
         sizes[mi] += sizes[mj];
         active[mj] = false;
     }
