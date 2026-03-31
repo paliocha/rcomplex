@@ -249,7 +249,7 @@ Rcpp::List find_cliques_stability_cpp(
                 auto reduced = find_cliques_for_hog(
                     h, hog_edges[h], g1_ptr, g2_ptr, sp1_ptr, sp2_ptr,
                     qval_ptr, eff_ptr, active_target, n_all_species,
-                    2, max_genes_per_sp, thread_seen[tid]);
+                    2, max_genes_per_sp, 0, thread_seen[tid]);
 
                 std::vector<char> rc_matched(reduced.size(), 0);
 

@@ -119,11 +119,12 @@ fe_hog_permutation_test_cpp <- function(combined, hog_sp1_list, hog_sp2_list, te
 #' @param n_hogs Total number of distinct HOGs
 #' @param n_genes Total number of distinct genes
 #' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
+#' @param max_missing_edges Maximum missing edges tolerated (default 0)
 #' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-#'   n_species, mean_q, max_q, mean_effect_size, n_edges
+#'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing
 #' @keywords internal
-find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp = 10L) {
-    .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp)
+find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp = 10L, max_missing_edges = 0L) {
+    .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges)
 }
 
 #' Leave-k-out jackknife stability for trait-exclusive cliques

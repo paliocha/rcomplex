@@ -42,7 +42,7 @@ library(rcomplex)
 # 1. Parse ortholog groups (tab-delimited, see format below)
 orthologs <- parse_orthologs("orthogroups.txt", "species1", "species2")
 
-# 2. Build co-expression networks
+# 2. Build co-expression networks (accepts matrix or SummarizedExperiment)
 net1 <- compute_network(expr1, norm_method = "MR", density = 0.03)
 net2 <- compute_network(expr2, norm_method = "MR", density = 0.03)
 
@@ -57,6 +57,9 @@ From here, three analysis paths are available.
 ```r
 # Pair-level q-values (Storey & Tibshirani, 2003)
 summary <- summarize_comparison(comparison)
+
+# Convert to edge format for clique analysis (multi-species)
+edges_AB <- comparison_to_edges(summary$results, "SP_A", "SP_B")
 
 # HOG-level permutation test (recommended for multi-copy gene families)
 hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
@@ -104,9 +107,9 @@ stab <- clique_stability(edges, annual_sp, trait,
 k1 <- stab$stability[stab$stability$k == 1, ]
 stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1] + 1L, ]
 
-# Hub genes recurring across stable trait-exclusive cliques
-hubs <- clique_hubs(cliques, annual_sp, species_trait = trait,
-                    stability = stab, min_hogs = 3L)
+# Co-expressolog persistence (robustness to threshold tightening)
+persist <- clique_persistence(cliques, annual_sp, networks, edges)
+persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 ```
 
 ## Main functions
@@ -115,16 +118,18 @@ hubs <- clique_hubs(cliques, annual_sp, species_trait = trait,
 |----------|---------|
 | `parse_orthologs()` | Parse ortholog group files (tab-delimited) |
 | `reduce_orthogroups()` | Merge correlated paralogs within HOGs (Ward.D2 clustering) |
-| `compute_network()` | Correlation + MR/CLR normalization + density threshold |
+| `extract_orthologs()` | Derive ortholog pairs from two SummarizedExperiment objects by HOG |
+| `compute_network()` | Correlation + MR/CLR normalization + density threshold (S4 generic: matrix or SE) |
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
 | `summarize_comparison()` | Storey q-values and summary statistics |
+| `comparison_to_edges()` | Convert comparison results to edge format for clique analysis |
 | `permutation_hog_test()` | Permutation-based HOG-level conservation test |
 | `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
 | `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
 | `classify_modules()` | Three-tier module conservation classification |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
-| `clique_hubs()` | Rank genes by recurrence across trait-exclusive cliques |
+| `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
 
 ## Ortholog file format
 
@@ -157,6 +162,25 @@ distinct expression programs are preserved as separate clusters.
 ```r
 reduced <- reduce_orthogroups(expr1, orthologs, cor_threshold = 0.7)
 net1 <- compute_network(reduced$expr_matrix, norm_method = "MR", density = 0.03)
+```
+
+### SummarizedExperiment integration
+
+`compute_network()` is an S4 generic that accepts either a numeric matrix
+or a `SummarizedExperiment`. When passed an SE, it extracts the specified
+assay and proceeds as usual:
+
+```r
+net1 <- compute_network(se1, assay = "vst.count", norm_method = "MR", density = 0.03)
+```
+
+`extract_orthologs()` derives ortholog pairs by matching HOG identifiers
+in `rowData()` of two SE objects, producing the same data frame format as
+`parse_orthologs()`:
+
+```r
+orthologs <- extract_orthologs(se1, se2, hog_col = "hog")
+comparison <- compare_neighborhoods(net1, net2, orthologs)
 ```
 
 ## Statistical methods
@@ -236,7 +260,7 @@ single-resolution Leiden on dense graphs (Fortunato & Barthélemy, 2007).
 cliques across species within each ortholog group:
 
 1. **Species-level**: Bron-Kerbosch with Tomita pivoting (Tomita *et al.*,
-   2006) on the species adjacency graph (at most 16 nodes) to enumerate
+   2006) on the species adjacency graph (up to 64 species) to enumerate
    all maximal species cliques. The pivot is chosen as the vertex in
    P ∪ X maximising |N(u) ∩ P|, giving worst-case O(3^(n/3)) time.
 2. **Gene-level**: Backtracking search assigns one gene per species,
@@ -269,6 +293,18 @@ The analysis is parallelised over subsets with OpenMP (`n_cores`
 parameter) and uses uint64_t bitmask filtering for species membership
 (supports up to 64 species).
 
+### Clique persistence
+
+`clique_persistence()` measures how robust each clique's conservation
+signal is to threshold tightening. For each clique edge (species pair),
+it identifies co-expressologs -- genes that are co-expression neighbours
+of the clique gene in both species -- and computes the ratio of the
+weakest co-expressolog edge's MR value to the species' density threshold.
+
+A persistence of 1.0 means the weakest supporting edge is exactly at
+threshold (marginal). Values above 1.0 indicate the conservation signal
+would survive at stricter density thresholds.
+
 ## Architecture
 
 ### R layer
@@ -276,11 +312,12 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | File | Purpose |
 |------|---------|
 | `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
-| `R/network.R` | `compute_network()` -- correlation, MR/CLR, density threshold |
-| `R/comparison.R` | `compare_neighborhoods()` -- pair-level hypergeometric |
+| `R/network.R` | `compute_network()` -- S4 generic (matrix / SE), correlation, MR/CLR, density threshold |
+| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()` -- pair-level hypergeometric, edge conversion |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()` |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_hubs()` |
+| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()` |
+| `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
 
 ### C++ layer (RcppArmadillo + OpenMP)
 
@@ -298,6 +335,7 @@ parameter) and uses uint64_t bitmask filtering for species membership
 | `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch / Tomita, backtracking, Jaccard, trait) |
 | `src/find_cliques.cpp` | C++ clique detection wrapper |
 | `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
+| `src/sample_k_distinct.h` | Shared rejection-sampling utility for subset generation |
 
 All C++ functions use integer indices only (string mapping is done in R)
 due to Homebrew clang ABI constraints. Network matrices are accessed

@@ -29,10 +29,11 @@ R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 |------|---------|
 | `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
 | `R/network.R` | `compute_network()` — correlation, MR/CLR, density threshold, torch GPU |
-| `R/comparison.R` | `compare_neighborhoods()` — pair-level hypergeometric |
+| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()` — pair-level hypergeometric, edge conversion |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, torch FE helpers |
 | `R/modules.R` | `detect_modules()` (single + consensus), `compare_modules()`, `classify_modules()` |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_hubs()` |
+| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()` |
+| `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) — SummarizedExperiment helpers |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
 
 ### C++ layer (src/, RcppArmadillo + OpenMP)
@@ -64,6 +65,7 @@ R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 | `tests/testthat/test-stability.R` | Leave-k-out jackknife stability |
 | `tests/testthat/test-clique-hubs.R` | Hub gene identification |
 | `tests/testthat/test-reduce-orthogroups.R` | Paralog reduction |
+| `tests/testthat/test-se.R` | SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network) |
 | `tests/testthat/helper-reference.R` | Pure-R reference implementations |
 
 ## Key Design Decisions
@@ -86,7 +88,7 @@ Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-
 
 ## Dependencies
 
-**Imports**: Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, stats, utils
+**Imports**: methods, Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, S4Vectors, stats, SummarizedExperiment, utils
 **Suggests**: sbm, torch, testthat, lintr, pkgdown
 **LinkingTo**: Rcpp, RcppArmadillo
 **System**: GNU make, C++23, OpenMP (optional)

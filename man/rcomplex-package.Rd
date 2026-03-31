@@ -15,16 +15,18 @@ testing conservation at gene, module, and clique levels.
 \describe{
 \item{\code{\link[=parse_orthologs]{parse_orthologs()}}}{Parse ortholog group files}
 \item{\code{\link[=reduce_orthogroups]{reduce_orthogroups()}}}{Merge correlated paralogs within HOGs}
-\item{\code{\link[=compute_network]{compute_network()}}}{Build co-expression network}
+\item{\code{\link[=extract_orthologs]{extract_orthologs()}}}{Derive ortholog pairs from SummarizedExperiment objects}
+\item{\code{\link[=compute_network]{compute_network()}}}{Build co-expression network (matrix or SummarizedExperiment)}
 \item{\code{\link[=compare_neighborhoods]{compare_neighborhoods()}}}{Pair-level hypergeometric tests}
 \item{\code{\link[=summarize_comparison]{summarize_comparison()}}}{Q-value correction and summary}
+\item{\code{\link[=comparison_to_edges]{comparison_to_edges()}}}{Convert comparison results to clique edge format}
 \item{\code{\link[=permutation_hog_test]{permutation_hog_test()}}}{HOG-level permutation test}
 \item{\code{\link[=detect_modules]{detect_modules()}}}{Community detection with consensus}
 \item{\code{\link[=compare_modules]{compare_modules()}}}{Cross-species module comparison}
 \item{\code{\link[=classify_modules]{classify_modules()}}}{Module conservation classification}
 \item{\code{\link[=find_cliques]{find_cliques()}}}{C++ clique detection (Bron-Kerbosch)}
 \item{\code{\link[=clique_stability]{clique_stability()}}}{Leave-k-out jackknife stability}
-\item{\code{\link[=clique_hubs]{clique_hubs()}}}{Hub genes across trait-exclusive cliques}
+\item{\code{\link[=clique_persistence]{clique_persistence()}}}{Co-expressolog persistence scores}
 }
 }
 

@@ -52,6 +52,7 @@ struct AssignResult {
     double max_q;
     double sum_effect;
     int n_edges;
+    int n_missing;            // number of missing edges in this assignment
     bool found;
 };
 
@@ -110,9 +111,10 @@ inline void bron_kerbosch(
 // Gene assignment backtracking
 // ---------------------------------------------------------------------------
 // For a given species-level clique, finds the gene assignment (one gene per
-// species) with the lowest mean FDR across all C(k,2) edges.
-// Prunes early: at each depth, rejects if ANY edge to a previously assigned
-// gene is missing.
+// species) with the lowest mean FDR across all present edges.
+// When max_missing == 0 (default): prunes if ANY edge is missing.
+// When max_missing > 0: tolerates up to max_missing missing edges,
+// preferring assignments with fewer missing edges, then lower mean q-value.
 //
 // Uses sorted vectors + binary search instead of std::unordered_map.
 inline void assign_bt(
@@ -126,6 +128,8 @@ inline void assign_bt(
     double cur_sum_q,
     double cur_max_q,
     double cur_sum_eff,
+    int cur_missing,
+    int max_missing,
     AssignResult& best,
     int& iterations,
     int max_iterations)
@@ -133,15 +137,27 @@ inline void assign_bt(
     if (++iterations > max_iterations) return;
 
     if (depth == k) {
-        int total_edges = k * (k - 1) / 2;
-        double mean_q = cur_sum_q / total_edges;
-        double best_mean = best.found ? best.sum_q / best.n_edges : 1e18;
-        if (!best.found || mean_q < best_mean) {
+        int total_possible = k * (k - 1) / 2;
+        int present_edges = total_possible - cur_missing;
+        if (present_edges == 0) return;  // no edges at all — skip
+        double mean_q = cur_sum_q / present_edges;
+        // Prefer fewer missing edges first, then lower mean q-value
+        bool is_better = false;
+        if (!best.found) {
+            is_better = true;
+        } else if (cur_missing < best.n_missing) {
+            is_better = true;
+        } else if (cur_missing == best.n_missing) {
+            double best_mean = best.sum_q / best.n_edges;
+            is_better = (mean_q < best_mean);
+        }
+        if (is_better) {
             best.genes = current;
             best.sum_q = cur_sum_q;
             best.max_q = cur_max_q;
             best.sum_effect = cur_sum_eff;
-            best.n_edges = total_edges;
+            best.n_edges = present_edges;
+            best.n_missing = cur_missing;
             best.found = true;
         }
         return;
@@ -149,27 +165,33 @@ inline void assign_bt(
 
     int sp = sp_order[depth];
     for (int gene : sp_genes[sp]) {
-        bool ok = true;
         double new_sum_q = cur_sum_q;
         double new_max_q = cur_max_q;
         double new_sum_eff = cur_sum_eff;
+        int new_missing = cur_missing;
+        bool over_budget = false;
 
         for (int j = 0; j < depth; j++) {
             int64_t key = edge_key(current[j], gene);
             bool qval_found = false;
             double qval = lookup_sorted(qval_sorted, key, qval_found);
-            if (!qval_found) { ok = false; break; }
-            new_sum_q += qval;
-            if (qval > new_max_q) new_max_q = qval;
-            bool eff_found = false;
-            double eff_val = lookup_sorted(eff_sorted, key, eff_found);
-            if (eff_found) new_sum_eff += eff_val;
+            if (!qval_found) {
+                new_missing++;
+                if (new_missing > max_missing) { over_budget = true; break; }
+            } else {
+                new_sum_q += qval;
+                if (qval > new_max_q) new_max_q = qval;
+                bool eff_found = false;
+                double eff_val = lookup_sorted(eff_sorted, key, eff_found);
+                if (eff_found) new_sum_eff += eff_val;
+            }
         }
-        if (!ok) continue;
+        if (over_budget) continue;
 
         current[depth] = gene;
         assign_bt(depth + 1, k, sp_order, sp_genes, qval_sorted, eff_sorted,
                   current, new_sum_q, new_max_q, new_sum_eff,
+                  new_missing, max_missing,
                   best, iterations, max_iterations);
 
         if (iterations > max_iterations) return;
@@ -185,6 +207,7 @@ struct CliqueResult {
     int n_species;
     double mean_q, max_q, mean_effect;
     int n_edges;
+    int n_missing;            // number of missing edges (0 when max_missing_edges=0)
 };
 
 // ---------------------------------------------------------------------------
@@ -214,6 +237,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     int n_target_species,
     int min_species,
     int max_genes_per_sp,
+    int max_missing_edges,
     std::vector<bool>& seen_genes,   // caller-provided, size n_genes
     int max_iterations = 2000000)
 {
@@ -362,28 +386,68 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         genes = std::move(top_genes);
     }
 
-    // --- 4. Species-level maximal cliques (Bron-Kerbosch) ---
-    // Build local adjacency for present species only
-    std::vector<std::vector<bool>> local_adj(
-        n_present, std::vector<bool>(n_present, false));
-    for (int i = 0; i < n_present; i++) {
-        for (int j = i + 1; j < n_present; j++) {
-            if (sp_adj[present_sp[i]][present_sp[j]]) {
-                local_adj[i][j] = local_adj[j][i] = true;
+    // --- 4. Species-level clique/subset enumeration ---
+    std::vector<std::vector<int>> sp_cliques;
+
+    if (max_missing_edges == 0) {
+        // Exact: Bron-Kerbosch on species adjacency graph
+        std::vector<std::vector<bool>> local_adj(
+            n_present, std::vector<bool>(n_present, false));
+        for (int i = 0; i < n_present; i++) {
+            for (int j = i + 1; j < n_present; j++) {
+                if (sp_adj[present_sp[i]][present_sp[j]]) {
+                    local_adj[i][j] = local_adj[j][i] = true;
+                }
+            }
+        }
+        std::vector<int> R;
+        std::vector<int> P(n_present);
+        std::iota(P.begin(), P.end(), 0);
+        std::vector<int> X;
+        bron_kerbosch(R, P, X, local_adj, min_species, sp_cliques);
+    } else {
+        // Tolerant: enumerate all species subsets of size >= min_species
+        // where number of missing species-pair edges <= max_missing_edges.
+        // For n_present <= 64 this is feasible.
+        for (int sz = n_present; sz >= min_species; sz--) {
+            // Generate all C(n_present, sz) subsets via Gosper's hack
+            if (sz == 0) continue;
+            uint64_t mask = (1ULL << sz) - 1;
+            uint64_t limit = 1ULL << n_present;
+            while (mask < limit) {
+                // Count missing edges in this subset
+                int missing = 0;
+                bool feasible = true;
+                std::vector<int> subset;
+                subset.reserve(sz);
+                for (int i = 0; i < n_present; i++) {
+                    if ((mask >> i) & 1) subset.push_back(i);
+                }
+                for (int i = 0; i < sz && feasible; i++) {
+                    for (int j = i + 1; j < sz; j++) {
+                        if (!sp_adj[present_sp[subset[i]]][present_sp[subset[j]]]) {
+                            missing++;
+                            if (missing > max_missing_edges) {
+                                feasible = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (feasible) {
+                    sp_cliques.push_back(std::move(subset));
+                }
+                // Next subset (Gosper's hack)
+                uint64_t c = mask & (~mask + 1);
+                uint64_t r = mask + c;
+                mask = (((r ^ mask) >> 2) / c) | r;
             }
         }
     }
 
-    std::vector<int> R;
-    std::vector<int> P(n_present);
-    std::iota(P.begin(), P.end(), 0);
-    std::vector<int> X;
-    std::vector<std::vector<int>> sp_cliques;
-    bron_kerbosch(R, P, X, local_adj, min_species, sp_cliques);
-
     if (sp_cliques.empty()) return results;
 
-    // --- 5. Gene assignment for each species clique ---
+    // --- 5. Gene assignment for each species clique/subset ---
     for (auto& sp_cl : sp_cliques) {
         int k = static_cast<int>(sp_cl.size());
 
@@ -405,10 +469,12 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         best.max_q = 0.0;
         best.sum_effect = 0.0;
         best.n_edges = 0;
+        best.n_missing = 0;
         int iterations = 0;
 
         assign_bt(0, k, global_sp, sp_genes, qval_sorted, eff_sorted,
-                  current, 0.0, 0.0, 0.0, best, iterations, max_iterations);
+                  current, 0.0, 0.0, 0.0, 0, max_missing_edges,
+                  best, iterations, max_iterations);
 
         if (best.found) {
             CliqueResult cr;
@@ -418,11 +484,11 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
                 cr.genes[global_sp[i]] = best.genes[i];
             }
             cr.n_species = k;
-            int total_edges = k * (k - 1) / 2;
-            cr.mean_q = best.sum_q / total_edges;
+            cr.n_edges = best.n_edges;
+            cr.n_missing = best.n_missing;
+            cr.mean_q = (best.n_edges > 0) ? best.sum_q / best.n_edges : 1.0;
             cr.max_q = best.max_q;
-            cr.mean_effect = best.sum_effect / total_edges;
-            cr.n_edges = total_edges;
+            cr.mean_effect = (best.n_edges > 0) ? best.sum_effect / best.n_edges : 0.0;
             results.push_back(std::move(cr));
         }
     }

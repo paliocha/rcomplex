@@ -54,7 +54,13 @@ encode_clique_edges <- function(edges, target_species) {
 #' For each Hierarchical Ortholog Group (HOG), uses Bron-Kerbosch with
 #' pivoting on the species-level adjacency graph to find maximal species
 #' cliques, then backtracking to assign the best gene per species
-#' (minimising mean q-value across all edges).
+#' (minimising mean q-value across all present edges).
+#'
+#' When \code{max_missing_edges > 0}, tolerates up to that many missing
+#' species-pair edges per clique. Instead of Bron-Kerbosch (which only
+#' finds fully connected subgraphs), all species subsets with at most
+#' \code{max_missing_edges} missing edges are enumerated. Assignments
+#' prefer fewer missing edges, then lower mean q-value.
 #'
 #' @param edges Data frame with columns:
 #'   \describe{
@@ -72,6 +78,9 @@ encode_clique_edges <- function(edges, target_species) {
 #'   (default: \code{length(target_species)}).
 #' @param max_genes_per_sp Maximum genes considered per species per HOG
 #'   (default 10). Keeps the most-connected genes.
+#' @param max_missing_edges Maximum number of missing species-pair edges
+#'   tolerated per clique (default 0 = all edges required). When > 0,
+#'   uses subset enumeration instead of Bron-Kerbosch.
 #' @param edge_type If \code{edges} has a \code{type} column, keep only
 #'   edges with \code{type \%in\% edge_type} (default \code{"conserved"}).
 #'
@@ -80,10 +89,12 @@ encode_clique_edges <- function(edges, target_species) {
 #'     \item{hog}{Ortholog group identifier}
 #'     \item{<species>}{One column per target species (gene ID or NA)}
 #'     \item{n_species}{Number of species in the clique}
-#'     \item{mean_q}{Mean q-value across clique edges}
-#'     \item{max_q}{Maximum q-value across clique edges}
-#'     \item{mean_effect_size}{Mean effect size across clique edges}
-#'     \item{n_edges}{Number of edges (= C(n_species, 2))}
+#'     \item{mean_q}{Mean q-value across present clique edges}
+#'     \item{max_q}{Maximum q-value across present clique edges}
+#'     \item{mean_effect_size}{Mean effect size across present edges}
+#'     \item{n_edges}{Number of present edges}
+#'     \item{n_missing}{Number of missing edges (0 when
+#'       \code{max_missing_edges = 0})}
 #'   }
 #'
 #' @examples
@@ -92,12 +103,16 @@ encode_clique_edges <- function(edges, target_species) {
 #'
 #' # Allow partial species cliques (2 of 3 species)
 #' partial <- find_cliques(edges, target_species, min_species = 2L)
+#'
+#' # Tolerate 1 missing edge (e.g., 5 of 6 edges in a 4-species clique)
+#' tolerant <- find_cliques(edges, target_species, max_missing_edges = 1L)
 #' }
 #'
 #' @export
 find_cliques <- function(edges, target_species,
                          min_species = length(target_species),
                          max_genes_per_sp = 10L,
+                         max_missing_edges = 0L,
                          edge_type = "conserved") {
   # Validate inputs
   required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
@@ -120,7 +135,8 @@ find_cliques <- function(edges, target_species,
     list(hog = character(0)),
     stats::setNames(lapply(target_species, \(x) character(0)), target_species),
     list(n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
-         mean_effect_size = numeric(0), n_edges = integer(0))
+         mean_effect_size = numeric(0), n_edges = integer(0),
+         n_missing = integer(0))
   )
   empty_result <- as.data.frame(empty_cols)
 
@@ -140,7 +156,7 @@ find_cliques <- function(edges, target_species,
     enc$edge_qval, enc$edge_effect,
     length(target_species), min_species,
     length(enc$unique_hogs), length(enc$all_genes),
-    as.integer(max_genes_per_sp)
+    as.integer(max_genes_per_sp), as.integer(max_missing_edges)
   )
 
   # Map back to strings
@@ -168,6 +184,7 @@ find_cliques <- function(edges, target_species,
   out$max_q <- result$max_q
   out$mean_effect_size <- result$mean_effect_size
   out$n_edges <- as.integer(result$n_edges)
+  out$n_missing <- as.integer(result$n_missing)
   out
 }
 
@@ -437,183 +454,6 @@ clique_stability <- function(edges, target_species, species_trait,
     stability_class = sc,
     novel_cliques = cpp_result$novel_cliques
   )
-}
-
-
-#' Identify hub genes that recur across cliques
-#'
-#' For each gene appearing in the output of \code{\link{find_cliques}},
-#' counts how many cliques it participates in (clique degree). A HOG can
-#' produce multiple cliques with different species subsets; \code{n_cliques}
-#' counts total clique appearances, while \code{n_hogs} counts distinct
-#' HOGs. When stability results are provided, each clique appearance is
-#' weighted by its phylogenetic stability score.
-#'
-#' @param cliques Output of \code{\link{find_cliques}}.
-#' @param target_species Character vector of species (must match column
-#'   names in \code{cliques}).
-#' @param species_trait Optional named character or factor vector mapping
-#'   species to trait groups (same format as \code{\link{clique_stability}}).
-#'   When provided, cliques are annotated by trait exclusivity and per-trait
-#'   counts are included in the output.
-#' @param stability Optional output of \code{\link{clique_stability}}.
-#'   When provided, adds stability-weighted columns: \code{mean_stability}
-#'   (mean k=1 stability score across the gene's exclusive cliques) and
-#'   \code{n_stable} (count of exclusive cliques with stability_score = 1.0
-#'   at k=1). Requires \code{species_trait} to also be provided.
-#' @param min_cliques Minimum number of clique appearances to include a
-#'   gene in the output (default 2).
-#'
-#' @return A data frame sorted by \code{n_stable} (if stability provided),
-#'   \code{n_exclusive} (if trait provided), or \code{n_cliques}, with:
-#'   \describe{
-#'     \item{gene}{Gene identifier}
-#'     \item{species}{Species the gene belongs to}
-#'     \item{n_cliques}{Number of cliques this gene participates in}
-#'     \item{n_hogs}{Number of distinct HOGs (secondary; equals
-#'       \code{n_cliques} when each HOG produces one clique)}
-#'     \item{n_exclusive}{Number of trait-exclusive clique appearances
-#'       (only present when \code{species_trait} is provided)}
-#'     \item{n_<trait>}{One column per trait level counting exclusive
-#'       clique appearances (only present when \code{species_trait} is
-#'       provided)}
-#'     \item{mean_stability}{Mean stability score (k=1) across exclusive
-#'       cliques (only present when \code{stability} is provided)}
-#'     \item{n_stable}{Count of exclusive cliques with perfect stability
-#'       at k=1 (only present when \code{stability} is provided)}
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' hubs <- clique_hubs(cliques, target_species, species_trait = trait,
-#'                     stability = stab, min_cliques = 2L)
-#' head(hubs)  # sorted by n_stable, then n_exclusive
-#' }
-#'
-#' @export
-clique_hubs <- function(cliques, target_species,
-                        species_trait = NULL, stability = NULL,
-                        min_cliques = 2L) {
-  if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
-    stop("cliques must be a data frame from find_cliques(); got ",
-         paste(class(cliques), collapse = "/"))
-  }
-  if (length(target_species) < 2) {
-    stop("target_species must have at least 2 species")
-  }
-  missing_sp <- setdiff(target_species, names(cliques))
-  if (length(missing_sp) > 0) {
-    stop("cliques missing columns for species: ",
-         paste(missing_sp, collapse = ", "))
-  }
-  if (!is.null(stability)) {
-    if (is.null(species_trait))
-      stop("species_trait is required when stability is provided")
-    if (!is.list(stability) || is.null(stability$stability))
-      stop("stability must be output of clique_stability()")
-  }
-
-  # Unpivot: one row per (clique row, gene, species)
-  # Use row index (not hog) as join key — a HOG can produce multiple cliques
-  # with different species compositions and therefore different trait annotations.
-  long <- do.call(rbind, lapply(target_species, function(sp) {
-    genes <- cliques[[sp]]
-    keep <- !is.na(genes)
-    if (!any(keep)) return(NULL)
-    data.frame(row_idx = which(keep), hog = cliques$hog[keep],
-               gene = genes[keep], species = sp)
-  }))
-
-  if (is.null(long) || nrow(long) == 0) {
-    cols <- list(gene = character(0), species = character(0),
-                 n_cliques = integer(0), n_hogs = integer(0))
-    if (!is.null(species_trait)) {
-      cols$n_exclusive <- integer(0)
-    }
-    return(as.data.frame(cols))
-  }
-
-  # Annotate cliques with trait exclusivity if trait provided
-  if (!is.null(species_trait)) {
-    trait_char <- as.character(species_trait)
-    trait_levels <- unique(trait_char)
-
-    # Per clique row: exclusive trait value or NA (mixed)
-    clique_trait <- vapply(seq_len(nrow(cliques)), function(i) {
-      spp <- target_species[!is.na(cliques[i, target_species])]
-      traits <- trait_char[match(spp, names(species_trait))]
-      if (length(unique(traits)) == 1L) traits[1] else NA_character_
-    }, character(1))
-
-    long$trait_value <- clique_trait[long$row_idx]
-    long$exclusive <- !is.na(long$trait_value)
-  }
-
-  # Aggregate per gene: clique count (primary) and HOG count (secondary)
-  gene_sp <- unique(long[, c("gene", "species")])
-  gene_cliques <- tapply(long$row_idx, long$gene, length)
-  gene_hogs <- tapply(long$hog, long$gene, function(h) length(unique(h)))
-  gene_sp$n_cliques <- as.integer(gene_cliques[gene_sp$gene])
-  gene_sp$n_hogs <- as.integer(gene_hogs[gene_sp$gene])
-
-  if (!is.null(species_trait)) {
-    excl <- long[long$exclusive, , drop = FALSE]
-
-    gene_excl <- tapply(excl$row_idx, excl$gene, length)
-    gene_sp$n_exclusive <- as.integer(gene_excl[gene_sp$gene])
-    gene_sp$n_exclusive[is.na(gene_sp$n_exclusive)] <- 0L
-
-    # Per-trait columns (count clique appearances, not unique HOGs)
-    for (tl in trait_levels) {
-      sub <- excl[excl$trait_value == tl, , drop = FALSE]
-      counts <- tapply(sub$row_idx, sub$gene, length)
-      col_name <- paste0("n_", tl)
-      gene_sp[[col_name]] <- as.integer(counts[gene_sp$gene])
-      gene_sp[[col_name]][is.na(gene_sp[[col_name]])] <- 0L
-    }
-  }
-
-  # Stability-weighted columns
-  if (!is.null(stability) && !is.null(species_trait)) {
-    stab_k1 <- stability$stability[stability$stability$k == 1,
-                                   c("clique_idx", "stability_score"),
-                                   drop = FALSE]
-    if (nrow(stab_k1) > 0) {
-      # clique_idx is 0-based; row_idx in long is 1-based
-      stab_k1$row_idx <- stab_k1$clique_idx + 1L
-      long_stab <- merge(long[long$exclusive, , drop = FALSE],
-                         stab_k1[, c("row_idx", "stability_score")],
-                         by = "row_idx", all.x = TRUE)
-      long_stab$stability_score[is.na(long_stab$stability_score)] <- 0
-
-      gene_mean_stab <- tapply(long_stab$stability_score, long_stab$gene, mean)
-      gene_n_stable <- tapply(long_stab$stability_score, long_stab$gene,
-                              function(s) sum(s >= 1.0))
-      gene_sp$mean_stability <- as.numeric(gene_mean_stab[gene_sp$gene])
-      gene_sp$mean_stability[is.na(gene_sp$mean_stability)] <- 0
-      gene_sp$n_stable <- as.integer(gene_n_stable[gene_sp$gene])
-      gene_sp$n_stable[is.na(gene_sp$n_stable)] <- 0L
-    } else {
-      gene_sp$mean_stability <- 0
-      gene_sp$n_stable <- 0L
-    }
-  }
-
-  # Filter and sort
-  gene_sp <- gene_sp[gene_sp$n_cliques >= min_cliques, , drop = FALSE]
-
-  if (!is.null(stability) && "n_stable" %in% names(gene_sp)) {
-    sort_ord <- order(-gene_sp$n_stable, -gene_sp$mean_stability,
-                      -gene_sp$n_cliques)
-  } else if (!is.null(species_trait)) {
-    sort_ord <- order(-gene_sp$n_exclusive, -gene_sp$n_cliques)
-  } else {
-    sort_ord <- order(-gene_sp$n_cliques)
-  }
-  gene_sp <- gene_sp[sort_ord, , drop = FALSE]
-
-  rownames(gene_sp) <- NULL
-  gene_sp
 }
 
 

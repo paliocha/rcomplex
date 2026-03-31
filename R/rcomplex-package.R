@@ -8,16 +8,18 @@
 #' \describe{
 #'   \item{[parse_orthologs()]}{Parse ortholog group files}
 #'   \item{[reduce_orthogroups()]}{Merge correlated paralogs within HOGs}
-#'   \item{[compute_network()]}{Build co-expression network}
+#'   \item{[extract_orthologs()]}{Derive ortholog pairs from SummarizedExperiment objects}
+#'   \item{[compute_network()]}{Build co-expression network (matrix or SummarizedExperiment)}
 #'   \item{[compare_neighborhoods()]}{Pair-level hypergeometric tests}
 #'   \item{[summarize_comparison()]}{Q-value correction and summary}
+#'   \item{[comparison_to_edges()]}{Convert comparison results to clique edge format}
 #'   \item{[permutation_hog_test()]}{HOG-level permutation test}
 #'   \item{[detect_modules()]}{Community detection with consensus}
 #'   \item{[compare_modules()]}{Cross-species module comparison}
 #'   \item{[classify_modules()]}{Module conservation classification}
 #'   \item{[find_cliques()]}{C++ clique detection (Bron-Kerbosch)}
 #'   \item{[clique_stability()]}{Leave-k-out jackknife stability}
-#'   \item{[clique_hubs()]}{Hub genes across trait-exclusive cliques}
+#'   \item{[clique_persistence()]}{Co-expressolog persistence scores}
 #' }
 #'
 #' @docType package

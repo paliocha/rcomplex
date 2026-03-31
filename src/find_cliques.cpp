@@ -1,7 +1,8 @@
 // find_cliques.cpp
 // Fast EVOTREE-style clique finding via two-level decomposition
 //
-// Level 1: Species-level maximal cliques (Bron-Kerbosch on <= 16 species)
+// Level 1: Species-level maximal cliques (Bron-Kerbosch on <= 64 species)
+//          When max_missing_edges > 0, enumerates species subsets instead.
 // Level 2: Best gene assignment per species clique (backtracking with pruning)
 //
 // This avoids the combinatorial explosion of igraph::max_cliques() on
@@ -31,8 +32,9 @@ using namespace Rcpp;
 //' @param n_hogs Total number of distinct HOGs
 //' @param n_genes Total number of distinct genes
 //' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
+//' @param max_missing_edges Maximum missing edges tolerated (default 0)
 //' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-//'   n_species, mean_q, max_q, mean_effect_size, n_edges
+//'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing
 //' @keywords internal
 // [[Rcpp::export]]
 Rcpp::List find_cliques_cpp(
@@ -47,7 +49,8 @@ Rcpp::List find_cliques_cpp(
     int min_species,
     int n_hogs,
     int n_genes,
-    int max_genes_per_sp = 10)
+    int max_genes_per_sp = 10,
+    int max_missing_edges = 0)
 {
     if (n_target_species > 64)
         Rcpp::stop("n_target_species must be <= 64");
@@ -81,6 +84,7 @@ Rcpp::List find_cliques_cpp(
     std::vector<int> res_n_sp;
     std::vector<double> res_mean_q, res_max_q, res_mean_eff;
     std::vector<int> res_n_edges;
+    std::vector<int> res_n_missing;
 
     for (int h = 0; h < n_hogs; h++) {
         if (hog_edges[h].empty()) continue;
@@ -93,7 +97,7 @@ Rcpp::List find_cliques_cpp(
             h, hog_edges[h],
             g1_ptr, g2_ptr, sp1_ptr, sp2_ptr, qval_ptr, eff_ptr,
             full_mask, n_target_species, min_species, max_genes_per_sp,
-            seen_genes);
+            max_missing_edges, seen_genes);
 
         // Collect results
         for (auto& cr : cliques) {
@@ -104,6 +108,7 @@ Rcpp::List find_cliques_cpp(
             res_max_q.push_back(cr.max_q);
             res_mean_eff.push_back(cr.mean_effect);
             res_n_edges.push_back(cr.n_edges);
+            res_n_missing.push_back(cr.n_missing);
         }
     }
 
@@ -114,6 +119,7 @@ Rcpp::List find_cliques_cpp(
     IntegerVector out_n_sp(nr);
     NumericVector out_mean_q(nr), out_max_q(nr), out_mean_eff(nr);
     IntegerVector out_n_edges(nr);
+    IntegerVector out_n_missing(nr);
 
     std::fill(out_genes.begin(), out_genes.end(), NA_INTEGER);
 
@@ -129,6 +135,7 @@ Rcpp::List find_cliques_cpp(
         out_max_q[i] = res_max_q[i];
         out_mean_eff[i] = res_mean_eff[i];
         out_n_edges[i] = res_n_edges[i];
+        out_n_missing[i] = res_n_missing[i];
     }
 
     return List::create(
@@ -138,6 +145,7 @@ Rcpp::List find_cliques_cpp(
         Named("mean_q") = out_mean_q,
         Named("max_q") = out_max_q,
         Named("mean_effect_size") = out_mean_eff,
-        Named("n_edges") = out_n_edges
+        Named("n_edges") = out_n_edges,
+        Named("n_missing") = out_n_missing
     );
 }
