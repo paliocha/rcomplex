@@ -99,6 +99,11 @@ clique's genes into the MR distribution.</p></dd>
 (marginal). Values above 1.0 indicate the clique survives at stricter
 density thresholds. For example, persistence = 3.0 at a 3\<!-- % density -->
 threshold means the clique would survive at roughly 1\<!-- % density. --></p>
+<p>The score reflects the gene's full neighbourhood, not just edges to
+other clique members. This is intentional: conservation is tested on
+neighbourhood overlap, so a gene losing any neighbour at a tighter
+threshold weakens the overlap signal even if clique-internal edges
+remain strong.</p>
     </div>
 
   </div>
