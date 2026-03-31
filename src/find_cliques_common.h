@@ -1,6 +1,6 @@
 // find_cliques_common.h
 // Shared helpers for two-level clique decomposition:
-//   Level 1: Species-level maximal cliques (Bron-Kerbosch on <= 16 species)
+//   Level 1: Species-level maximal cliques (Bron-Kerbosch on <= 64 species)
 //   Level 2: Best gene assignment per species clique (backtracking with pruning)
 //
 // All functions are inline so this header can be included from multiple TUs
@@ -408,39 +408,61 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     } else {
         // Tolerant: enumerate all species subsets of size >= min_species
         // where number of missing species-pair edges <= max_missing_edges.
-        // For n_present <= 64 this is feasible.
-        for (int sz = n_present; sz >= min_species; sz--) {
-            // Generate all C(n_present, sz) subsets via Gosper's hack
-            if (sz == 0) continue;
-            uint64_t mask = (1ULL << sz) - 1;
-            uint64_t limit = 1ULL << n_present;
-            while (mask < limit) {
-                // Count missing edges in this subset
-                int missing = 0;
-                bool feasible = true;
-                std::vector<int> subset;
-                subset.reserve(sz);
-                for (int i = 0; i < n_present; i++) {
-                    if ((mask >> i) & 1) subset.push_back(i);
+        // Practical limit: ~20 species (C(20,10) = 184,756 subsets).
+        // For larger n_present, the total enumeration becomes infeasible.
+        static constexpr int MAX_TOLERANT_SPECIES = 25;
+        if (n_present > MAX_TOLERANT_SPECIES) {
+            // Fall back to BK (exact cliques only) for large species counts
+            // to avoid combinatorial explosion. The max_missing_edges
+            // tolerance is silently ignored.
+            std::vector<std::vector<bool>> local_adj(
+                n_present, std::vector<bool>(n_present, false));
+            for (int i = 0; i < n_present; i++) {
+                for (int j = i + 1; j < n_present; j++) {
+                    if (sp_adj[present_sp[i]][present_sp[j]]) {
+                        local_adj[i][j] = local_adj[j][i] = true;
+                    }
                 }
-                for (int i = 0; i < sz && feasible; i++) {
-                    for (int j = i + 1; j < sz; j++) {
-                        if (!sp_adj[present_sp[subset[i]]][present_sp[subset[j]]]) {
-                            missing++;
-                            if (missing > max_missing_edges) {
-                                feasible = false;
-                                break;
+            }
+            std::vector<int> R;
+            std::vector<int> P(n_present);
+            std::iota(P.begin(), P.end(), 0);
+            std::vector<int> X;
+            bron_kerbosch(R, P, X, local_adj, min_species, sp_cliques);
+        } else {
+            for (int sz = n_present; sz >= min_species; sz--) {
+                if (sz == 0) continue;
+                // Gosper's hack: enumerate all C(n_present, sz) subsets.
+                // Safe shift: n_present <= MAX_TOLERANT_SPECIES < 64.
+                uint64_t mask = (1ULL << sz) - 1;
+                uint64_t limit = 1ULL << n_present;
+                while (mask < limit) {
+                    int missing = 0;
+                    bool feasible = true;
+                    std::vector<int> subset;
+                    subset.reserve(sz);
+                    for (int i = 0; i < n_present; i++) {
+                        if ((mask >> i) & 1) subset.push_back(i);
+                    }
+                    for (int i = 0; i < sz && feasible; i++) {
+                        for (int j = i + 1; j < sz; j++) {
+                            if (!sp_adj[present_sp[subset[i]]][present_sp[subset[j]]]) {
+                                missing++;
+                                if (missing > max_missing_edges) {
+                                    feasible = false;
+                                    break;
+                                }
                             }
                         }
                     }
+                    if (feasible) {
+                        sp_cliques.push_back(std::move(subset));
+                    }
+                    // Next subset (Gosper's hack)
+                    uint64_t c = mask & (~mask + 1);
+                    uint64_t r = mask + c;
+                    mask = (((r ^ mask) >> 2) / c) | r;
                 }
-                if (feasible) {
-                    sp_cliques.push_back(std::move(subset));
-                }
-                // Next subset (Gosper's hack)
-                uint64_t c = mask & (~mask + 1);
-                uint64_t r = mask + c;
-                mask = (((r ^ mask) >> 2) / c) | r;
             }
         }
     }

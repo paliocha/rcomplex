@@ -36,7 +36,8 @@ Optionally includes a \code{type} column for filtering.}
 
 \item{max_missing_edges}{Maximum number of missing species-pair edges
 tolerated per clique (default 0 = all edges required). When > 0,
-uses subset enumeration instead of Bron-Kerbosch.}
+uses subset enumeration instead of Bron-Kerbosch. Practical limit:
+~25 species; falls back to exact BK for larger species counts.}
 
 \item{edge_type}{If \code{edges} has a \code{type} column, keep only
 edges with \code{type \%in\% edge_type} (default \code{"conserved"}).}
