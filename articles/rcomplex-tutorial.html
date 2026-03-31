@@ -324,16 +324,29 @@ threshold each clique’s supporting edges are:</p>
 axes:</p>
 <ul>
 <li>
-<strong>Threshold robustness</strong> – survives at stricter density
-thresholds</li>
+<strong>Threshold robustness</strong> – the clique survives at
+stricter density thresholds (the co-expression signal is strong, not
+marginal)</li>
 <li>
-<strong>Phylogenetic robustness</strong> – survives species removal
-(jackknife)</li>
+<strong>Phylogenetic robustness</strong> – the clique survives
+species removal (the conservation pattern is general, not
+taxon-dependent)</li>
 </ul>
-<p>We sweep over threshold multipliers and run leave-k-out stability at
-each level:</p>
+<p><strong>Network density</strong> controls how many edges are retained
+in the co-expression network. At 3% density, only the top 3% of all
+pairwise MR values pass the threshold – these are the strongest
+co-expression relationships. A gene pair that barely passes at 3% might
+not pass at 2.5%, while a truly co-expressed pair will survive much
+stricter cutoffs.</p>
+<p>We test robustness by sweeping over tighter density percentiles and
+running leave-k-out jackknife stability at each level:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">multipliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># The baseline density is 3%. Each multiplier tightens the MR threshold,</span></span>
+<span><span class="co"># which corresponds to a lower effective density percentile.</span></span>
+<span><span class="co"># Compute the actual density at each multiplier level.</span></span>
+<span><span class="va">baseline_density</span> <span class="op">&lt;-</span> <span class="fl">0.03</span></span>
+<span></span>
+<span><span class="va">multipliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.01</span>, <span class="fl">1.02</span>, <span class="fl">1.03</span>, <span class="fl">1.05</span><span class="op">)</span></span>
 <span><span class="va">robustness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="va">multipliers</span><span class="op">)</span> <span class="op">{</span></span>
@@ -343,6 +356,13 @@ each level:</p>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>network <span class="op">=</span> <span class="va">net</span><span class="op">$</span><span class="va">network</span>, threshold <span class="op">=</span> <span class="va">net</span><span class="op">$</span><span class="va">threshold</span> <span class="op">*</span> <span class="va">m</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">tight_nets</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">species</span></span>
+<span></span>
+<span>  <span class="co"># Compute effective density at this threshold (fraction of edges surviving)</span></span>
+<span>  <span class="va">eff_densities</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">species</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sp</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">mat</span> <span class="op">&lt;-</span> <span class="va">networks</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">network</span></span>
+<span>    <span class="va">vals</span> <span class="op">&lt;-</span> <span class="va">mat</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lower.tri.html" class="external-link">upper.tri</a></span><span class="op">(</span><span class="va">mat</span><span class="op">)</span><span class="op">]</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">vals</span> <span class="op">&gt;=</span> <span class="va">networks</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">threshold</span> <span class="op">*</span> <span class="va">m</span><span class="op">)</span></span>
+<span>  <span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span>  <span class="co"># Re-run comparisons at stricter threshold</span></span>
 <span>  <span class="va">tight_edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_pairwise_comparisons.html">run_pairwise_comparisons</a></span><span class="op">(</span><span class="va">tight_nets</span>, <span class="va">orthologs</span><span class="op">)</span></span>
@@ -360,27 +380,37 @@ each level:</p>
 <span>      cliques <span class="op">=</span> <span class="va">tight_cliques</span>,</span>
 <span>      n_cliques <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">tight_cliques</span><span class="op">)</span>,</span>
 <span>      n_stable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span> <span class="op">&gt;=</span> <span class="fl">1</span><span class="op">)</span>,</span>
+<span>      mean_density <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eff_densities</span><span class="op">)</span>,</span>
 <span>      stability <span class="op">=</span> <span class="va">stab</span></span>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
 <span>    <span class="va">robustness</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>      cliques <span class="op">=</span> <span class="va">tight_cliques</span>, n_cliques <span class="op">=</span> <span class="fl">0L</span>, n_stable <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
+<span>      cliques <span class="op">=</span> <span class="va">tight_cliques</span>, n_cliques <span class="op">=</span> <span class="fl">0L</span>, n_stable <span class="op">=</span> <span class="fl">0L</span>,</span>
+<span>      mean_density <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eff_densities</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="op">}</span></span>
 <span><span class="op">}</span></span>
 <span></span>
-<span><span class="co"># Summary: cliques that survive AND are phylogenetically stable</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Multiplier | Cliques | Stable (k=1)\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Multiplier | Cliques | Stable (k=1)</span></span>
+<span><span class="co"># Summary: cliques surviving at each density level</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Density    | Cliques | Stable (k=1)\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Density    | Cliques | Stable (k=1)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"-----------|---------|-------------\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; -----------|---------|-------------</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-10s | %7d | %12d\n"</span>, <span class="st">"3.00% (baseline)"</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">cliques</span><span class="op">)</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; 3.00% (baseline) |    1044 |           NA</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">robustness</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">r</span> <span class="op">&lt;-</span> <span class="va">robustness</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-10s | %7d | %12d\n"</span>,</span>
-<span>              <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">m</span>, <span class="st">"x"</span><span class="op">)</span>, <span class="va">r</span><span class="op">$</span><span class="va">n_cliques</span>, <span class="va">r</span><span class="op">$</span><span class="va">n_stable</span><span class="op">)</span><span class="op">)</span></span>
+<span>              <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f%%"</span>, <span class="va">r</span><span class="op">$</span><span class="va">mean_density</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span>,</span>
+<span>              <span class="va">r</span><span class="op">$</span><span class="va">n_cliques</span>, <span class="va">r</span><span class="op">$</span><span class="va">n_stable</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span><span class="co">#&gt; 1.5x       |       0 |            0</span></span>
-<span><span class="co">#&gt; 2x         |       0 |            0</span></span>
-<span><span class="co">#&gt; 3x         |       0 |            0</span></span></code></pre></div>
+<span><span class="co">#&gt; 2.38%      |     992 |          232</span></span>
+<span><span class="co">#&gt; 1.81%      |     900 |          228</span></span>
+<span><span class="co">#&gt; 1.31%      |     777 |          181</span></span>
+<span><span class="co">#&gt; 0.46%      |     429 |          117</span></span></code></pre></div>
+<p>Cliques that survive at tighter density AND remain stable to
+single-species removal represent the most reliable conservation
+signals.</p>
 </div>
 <div class="section level2">
 <h2 id="hog-classification">7. HOG classification<a class="anchor" aria-label="anchor" href="#hog-classification"></a>
@@ -389,10 +419,8 @@ each level:</p>
 complete &gt; partial &gt; differentiated &gt; trait_specific &gt;
 unclassified.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Use stability from the 1.5x threshold level</span></span>
-<span><span class="va">stab_input</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">robustness</span><span class="op">[[</span><span class="st">"1.5"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">stability</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">robustness</span><span class="op">[[</span><span class="st">"1.5"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">stability</span></span>
-<span><span class="op">}</span> <span class="kw">else</span> <span class="cn">NULL</span></span>
+<code class="sourceCode R"><span><span class="co"># Use stability from the 1.02x level (tighter than baseline, with data)</span></span>
+<span><span class="va">stab_input</span> <span class="op">&lt;-</span> <span class="va">robustness</span><span class="op">[[</span><span class="st">"1.02"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">stability</span></span>
 <span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_cliques.html">classify_cliques</a></span><span class="op">(</span><span class="va">edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
 <span>                            min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
