@@ -27,6 +27,8 @@ compute_network(x, ...)
 names as gene identifiers, or a
 \code{\link[SummarizedExperiment]{SummarizedExperiment}}.}
 
+\item{...}{Arguments passed to methods (see below).}
+
 \item{cor_method}{Correlation method: \code{"pearson"} (default) or \code{"spearman"}.}
 
 \item{norm_method}{Normalization method: \code{"MR"} (Mutual Rank, default) or

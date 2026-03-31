@@ -8,3 +8,4 @@
 ^\.gitignore$
 ^rcomplex\.Rcheck$
 ^rcomplex.*\.tar\.gz$
+^docs$

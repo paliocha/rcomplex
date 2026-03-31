@@ -104,6 +104,7 @@ cor_rfast <- function(x, method = "pearson") {
 #' @param x Expression data: a numeric matrix (genes x samples) with row
 #'   names as gene identifiers, or a
 #'   \code{\link[SummarizedExperiment]{SummarizedExperiment}}.
+#' @param ... Arguments passed to methods (see below).
 #' @param cor_method Correlation method: `"pearson"` (default) or `"spearman"`.
 #' @param norm_method Normalization method: `"MR"` (Mutual Rank, default) or
 #'   `"CLR"` (Context Likelihood Ratio).
