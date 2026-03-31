@@ -32,7 +32,7 @@ R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 | `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()` — pair-level hypergeometric, edge conversion |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, torch FE helpers |
 | `R/modules.R` | `detect_modules()` (single + consensus), `compare_modules()`, `classify_modules()` |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()` |
+| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) — SummarizedExperiment helpers |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
 
@@ -63,7 +63,8 @@ R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 | `tests/testthat/test-modules.R` | Module detection, comparison, classification, consensus |
 | `tests/testthat/test-cliques.R` | Clique detection (igraph + C++ backends) |
 | `tests/testthat/test-stability.R` | Leave-k-out jackknife stability |
-| `tests/testthat/test-clique-hubs.R` | Hub gene identification |
+| `tests/testthat/test-threshold-sweep.R` | Threshold sweep structural survival |
+| `tests/testthat/test-classify-cliques.R` | HOG classification waterfall pipeline |
 | `tests/testthat/test-reduce-orthogroups.R` | Paralog reduction |
 | `tests/testthat/test-se.R` | SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network) |
 | `tests/testthat/helper-reference.R` | Pure-R reference implementations |

@@ -618,3 +618,591 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
   cliques$mean_persistence <- mean_persistence
   cliques
 }
+
+
+#' Structural survival of cliques across stricter density thresholds
+#'
+#' Re-runs the full clique detection pipeline at progressively stricter
+#' thresholds (multipliers of the original). At each level, networks are
+#' re-thresholded, neighborhoods re-compared, q-values recomputed, and
+#' cliques re-detected. No permutations are involved -- all tests are
+#' analytical (hypergeometric + Storey q-values).
+#'
+#' @param cliques Baseline output of \code{\link{find_cliques}}.
+#' @param target_species Character vector of species abbreviations.
+#' @param networks Named list of \code{\link{compute_network}} outputs,
+#'   keyed by species abbreviation. Each element must have \code{$network}
+#'   (named numeric matrix) and \code{$threshold} (scalar).
+#' @param orthologs Data frame with columns \code{Species1}, \code{Species2},
+#'   \code{hog} (output of \code{\link{parse_orthologs}} or
+#'   \code{\link{extract_orthologs}}).
+#' @param species_pairs Optional list of length-2 character vectors
+#'   specifying which species pairs to compare. Defaults to all
+#'   \code{combn(target_species, 2)}.
+#' @param multipliers Numeric vector of threshold multipliers (each > 1).
+#'   Default \code{c(1.5, 2, 3, 5, 10)}.
+#' @param alternative Passed to \code{\link{summarize_comparison}} and
+#'   \code{\link{comparison_to_edges}}: \code{"greater"} (default) or
+#'   \code{"less"}.
+#' @param alpha Significance threshold for edge classification
+#'   (default 0.05).
+#' @param min_species Minimum species per clique
+#'   (default \code{length(target_species)}).
+#' @param max_genes_per_sp Maximum genes per species per HOG (default 10).
+#' @param max_missing_edges Passed to \code{\link{find_cliques}}
+#'   (default 0).
+#' @param edge_type Edge type filter (default \code{"conserved"}).
+#' @param jaccard_threshold Minimum per-species-slot Jaccard similarity
+#'   for a clique to count as "survived" (default 0.5).
+#' @param n_cores Cores for \code{\link{compare_neighborhoods}}
+#'   (default 1).
+#'
+#' @return A list with components:
+#'   \describe{
+#'     \item{survival}{Data frame with one row per (baseline clique,
+#'       multiplier): \code{clique_idx} (0-based), \code{hog},
+#'       \code{multiplier}, \code{survived} (logical), \code{jaccard},
+#'       \code{n_species_orig}, \code{n_species_new}.}
+#'     \item{sweep_cliques}{Named list of \code{find_cliques()} outputs
+#'       keyed by multiplier.}
+#'     \item{sweep_edges}{Named list of combined edge data frames keyed
+#'       by multiplier.}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' sweep <- clique_threshold_sweep(cliques, target_species, networks,
+#'                                  orthologs, multipliers = c(1.5, 2, 5))
+#' # Survival curve
+#' sapply(sort(unique(sweep$survival$multiplier)),
+#'        function(m) mean(sweep$survival$survived[sweep$survival$multiplier == m]))
+#' }
+#'
+#' @export
+clique_threshold_sweep <- function(
+    cliques, target_species, networks, orthologs,
+    species_pairs = NULL,
+    multipliers = c(1.5, 2, 3, 5, 10),
+    alternative = c("greater", "less"),
+    alpha = 0.05,
+    min_species = length(target_species),
+    max_genes_per_sp = 10L,
+    max_missing_edges = 0L,
+    edge_type = "conserved",
+    jaccard_threshold = 0.5,
+    n_cores = 1L) {
+
+  alternative <- match.arg(alternative)
+
+  # --- Validation ---
+  if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
+    stop("cliques must be a data frame from find_cliques()")
+  }
+  if (length(target_species) < 2) {
+    stop("target_species must have at least 2 species")
+  }
+  if (!is.list(networks) || is.null(names(networks))) {
+    stop("networks must be a named list keyed by species")
+  }
+  missing_net <- setdiff(target_species, names(networks))
+  if (length(missing_net) > 0) {
+    stop("networks missing entries for: ",
+         paste(missing_net, collapse = ", "))
+  }
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: Species1, Species2, hog")
+  }
+  if (length(multipliers) == 0) {
+    return(list(
+      survival = data.frame(
+        clique_idx = integer(0), hog = character(0),
+        multiplier = numeric(0), survived = logical(0),
+        jaccard = numeric(0), n_species_orig = integer(0),
+        n_species_new = integer(0)),
+      sweep_cliques = list(),
+      sweep_edges = list()))
+  }
+
+  if (is.null(species_pairs)) {
+    species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
+  }
+
+  sweep_cliques <- list()
+  sweep_edges <- list()
+  survival_rows <- vector("list", length(multipliers) * nrow(cliques))
+  row_idx <- 0L
+
+  for (m in sort(multipliers)) {
+    m_key <- as.character(m)
+    message("Threshold sweep: multiplier ", m)
+
+    # Re-threshold all networks (shallow copy, R COW avoids matrix dup)
+    tight_nets <- lapply(networks[target_species], function(net) {
+      list(network = net$network, threshold = net$threshold * m)
+    })
+    names(tight_nets) <- target_species
+
+    # Pairwise comparisons
+    pair_edges <- list()
+    for (pair in species_pairs) {
+      sp_a <- pair[1]
+      sp_b <- pair[2]
+
+      comparison <- tryCatch(
+        compare_neighborhoods(tight_nets[[sp_a]], tight_nets[[sp_b]],
+                              orthologs, n_cores),
+        error = function(e) NULL
+      )
+      if (is.null(comparison) || nrow(comparison) == 0) next
+
+      summary_res <- tryCatch(
+        summarize_comparison(comparison, alternative, alpha),
+        error = function(e) NULL
+      )
+      if (is.null(summary_res) || nrow(summary_res$results) == 0) next
+
+      edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
+                                       alternative, alpha)
+      pair_edges[[length(pair_edges) + 1L]] <- edges_df
+    }
+
+    if (length(pair_edges) == 0) {
+      all_edges <- data.frame(
+        gene1 = character(0), gene2 = character(0),
+        species1 = character(0), species2 = character(0),
+        hog = character(0), q.value = numeric(0),
+        effect_size = numeric(0), type = character(0))
+    } else {
+      all_edges <- do.call(rbind, pair_edges)
+    }
+
+    sweep_edges[[m_key]] <- all_edges
+
+    # Find cliques at this threshold
+    new_cliques <- find_cliques(all_edges, target_species,
+                                 min_species = min_species,
+                                 max_genes_per_sp = max_genes_per_sp,
+                                 max_missing_edges = max_missing_edges,
+                                 edge_type = edge_type)
+    sweep_cliques[[m_key]] <- new_cliques
+
+    # Match baseline cliques to new cliques
+    for (i in seq_len(nrow(cliques))) {
+      row_idx <- row_idx + 1L
+      baseline_hog <- cliques$hog[i]
+      best_jaccard <- NA_real_
+      best_n_sp <- NA_integer_
+
+      if (nrow(new_cliques) > 0) {
+        candidates <- which(new_cliques$hog == baseline_hog)
+        for (j in candidates) {
+          jac <- jaccard_clique_match(cliques[i, ], new_cliques[j, ],
+                                       target_species)
+          if (is.na(best_jaccard) || jac > best_jaccard) {
+            best_jaccard <- jac
+            best_n_sp <- new_cliques$n_species[j]
+          }
+        }
+      }
+
+      survived <- !is.na(best_jaccard) && best_jaccard >= jaccard_threshold
+      survival_rows[[row_idx]] <- data.frame(
+        clique_idx = i - 1L,
+        hog = baseline_hog,
+        multiplier = m,
+        survived = survived,
+        jaccard = best_jaccard,
+        n_species_orig = cliques$n_species[i],
+        n_species_new = if (survived) best_n_sp else NA_integer_,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  survival <- do.call(rbind, survival_rows[seq_len(row_idx)])
+  if (is.null(survival)) {
+    survival <- data.frame(
+      clique_idx = integer(0), hog = character(0),
+      multiplier = numeric(0), survived = logical(0),
+      jaccard = numeric(0), n_species_orig = integer(0),
+      n_species_new = integer(0))
+  }
+  rownames(survival) <- NULL
+
+  list(
+    survival = survival,
+    sweep_cliques = sweep_cliques,
+    sweep_edges = sweep_edges
+  )
+}
+
+
+#' Per-species-slot Jaccard similarity between two clique rows
+#'
+#' Compares gene assignments slot by slot across target species.
+#' A slot matches if both rows have the same gene for that species.
+#' @noRd
+jaccard_clique_match <- function(row1, row2, target_species) {
+  intersect_n <- 0L
+  union_n <- 0L
+  for (sp in target_species) {
+    g1 <- row1[[sp]]
+    g2 <- row2[[sp]]
+    has1 <- !is.na(g1)
+    has2 <- !is.na(g2)
+    if (has1 || has2) {
+      union_n <- union_n + 1L
+      if (has1 && has2 && g1 == g2) intersect_n <- intersect_n + 1L
+    }
+  }
+  if (union_n == 0L) 0 else intersect_n / union_n
+}
+
+
+#' Classify HOGs by clique conservation pattern
+#'
+#' Sequential waterfall classification of Hierarchical Ortholog Groups
+#' based on cross-species clique structure and trait group membership.
+#' Each HOG is assigned to exactly one category; earlier categories
+#' take precedence.
+#'
+#' The pipeline:
+#' \enumerate{
+#'   \item \strong{complete}: all target species form a clique (all
+#'     \code{C(N,2)} edges conserved).
+#'   \item \strong{partial}: a clique exists with \code{min_species}
+#'     to \code{N-1} species (or with missing edges when
+#'     \code{max_missing_edges > 0}).
+#'   \item \strong{differentiated}: at least 2 trait groups each have
+#'     a within-group clique, but no cross-group conserved edge exists.
+#'   \item \strong{trait_specific}: exactly 1 trait group has a
+#'     within-group clique.
+#'   \item \strong{unclassified}: none of the above.
+#' }
+#'
+#' @param edges Data frame with columns \code{gene1}, \code{gene2},
+#'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
+#'   \code{effect_size}, and \code{type}. Must contain ALL edges
+#'   (conserved + ns + diverged), not pre-filtered, because the
+#'   differentiated check needs to verify absence of cross-group
+#'   conserved edges.
+#' @param target_species Character vector of all species.
+#' @param species_trait Named character or factor vector mapping each
+#'   species to a trait value (e.g., \code{c(SP_A = "annual",
+#'   SP_B = "perennial")}).
+#' @param min_species Minimum species for a partial or within-group
+#'   clique (default 2).
+#' @param max_genes_per_sp Passed to \code{\link{find_cliques}}
+#'   (default 10).
+#' @param max_missing_edges Passed to \code{\link{find_cliques}} for
+#'   partial detection (default 0).
+#' @param edge_type Edge types considered conserved (default
+#'   \code{"conserved"}).
+#' @param stability Optional output of \code{\link{clique_stability}}.
+#' @param sweep Optional output of \code{\link{clique_threshold_sweep}}.
+#' @param min_stability_class Minimum stability class for the
+#'   \code{robust} flag (default 0).
+#' @param min_persistence Minimum persistence for the \code{robust}
+#'   flag (default 1.0).
+#'
+#' @return A data frame with one row per HOG:
+#'   \describe{
+#'     \item{hog}{HOG identifier}
+#'     \item{classification}{One of \code{"complete"}, \code{"partial"},
+#'       \code{"differentiated"}, \code{"trait_specific"},
+#'       \code{"unclassified"}}
+#'     \item{n_species}{Species count in the best clique (NA for
+#'       unclassified)}
+#'     \item{best_mean_q}{Mean q-value of the best clique (NA for
+#'       unclassified)}
+#'     \item{trait_groups}{Comma-separated trait groups with internal
+#'       cliques (NA for complete/partial/unclassified)}
+#'     \item{stability_class}{From stability results (NA if not
+#'       provided)}
+#'     \item{persistence}{Min persistence from sweep survival at
+#'       multiplier 2 (NA if not provided)}
+#'     \item{robust}{Logical: passes both stability and persistence
+#'       thresholds (NA if neither provided)}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' result <- classify_cliques(edges, target_species, species_trait)
+#' table(result$classification)
+#' }
+#'
+#' @export
+classify_cliques <- function(
+    edges, target_species, species_trait,
+    min_species = 2L,
+    max_genes_per_sp = 10L,
+    max_missing_edges = 0L,
+    edge_type = "conserved",
+    stability = NULL,
+    sweep = NULL,
+    min_stability_class = 0L,
+    min_persistence = 1.0) {
+
+  # --- Validation ---
+  required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
+                     "q.value", "effect_size", "type")
+  missing_cols <- setdiff(required_cols, names(edges))
+  if (length(missing_cols) > 0) {
+    stop("edges missing required columns: ",
+         paste(missing_cols, collapse = ", "))
+  }
+  if (length(target_species) < 2) {
+    stop("target_species must have at least 2 species")
+  }
+  if (!is.character(species_trait) && !is.factor(species_trait)) {
+    stop("species_trait must be a named character or factor vector")
+  }
+  if (is.null(names(species_trait))) {
+    stop("species_trait must be a named vector")
+  }
+  missing_sp <- setdiff(target_species, names(species_trait))
+  if (length(missing_sp) > 0) {
+    stop("species_trait missing entries for: ",
+         paste(missing_sp, collapse = ", "))
+  }
+  min_species <- as.integer(min_species)
+  if (min_species < 2L) stop("min_species must be >= 2")
+
+  if (!is.null(stability)) {
+    if (!is.list(stability) || is.null(stability$stability))
+      stop("stability must be output of clique_stability()")
+  }
+
+  trait_char <- as.character(species_trait[target_species])
+  names(trait_char) <- target_species
+  trait_levels <- unique(trait_char)
+  n_sp <- length(target_species)
+  all_hogs <- unique(edges$hog)
+
+  # Empty result template
+  empty <- data.frame(
+    hog = character(0), classification = character(0),
+    n_species = integer(0), best_mean_q = numeric(0),
+    trait_groups = character(0), stability_class = integer(0),
+    persistence = numeric(0), robust = logical(0),
+    stringsAsFactors = FALSE
+  )
+  if (length(all_hogs) == 0) return(empty)
+
+  # --- Step 1: Complete cliques (all target species) ---
+  complete_cliques <- find_cliques(edges, target_species,
+                                    min_species = n_sp,
+                                    max_genes_per_sp = max_genes_per_sp,
+                                    max_missing_edges = 0L,
+                                    edge_type = edge_type)
+  complete_hogs <- unique(complete_cliques$hog)
+
+  # --- Step 2: Partial cliques (< N species, or with missing edges) ---
+  all_cliques <- find_cliques(edges, target_species,
+                               min_species = min_species,
+                               max_genes_per_sp = max_genes_per_sp,
+                               max_missing_edges = max_missing_edges,
+                               edge_type = edge_type)
+  # Partial cliques must span at least 2 trait groups (cross-group)
+  # to distinguish from trait_specific / differentiated patterns.
+  partial_candidates <- setdiff(unique(all_cliques$hog), complete_hogs)
+  partial_hogs <- character(0)
+  for (h in partial_candidates) {
+    hog_rows <- all_cliques[all_cliques$hog == h, , drop = FALSE]
+    # Check if any clique row spans 2+ trait groups
+    any_cross <- FALSE
+    for (r in seq_len(nrow(hog_rows))) {
+      spp <- target_species[!is.na(hog_rows[r, target_species])]
+      traits_in <- unique(trait_char[spp])
+      if (length(traits_in) >= 2L) { any_cross <- TRUE; break }
+    }
+    if (any_cross) partial_hogs <- c(partial_hogs, h)
+  }
+
+  # --- Step 3: Within-group cliques per trait group ---
+  within_group_cliques <- list()
+  within_group_hogs <- list()
+
+  for (group in trait_levels) {
+    group_sp <- names(trait_char[trait_char == group])
+    if (length(group_sp) < 2L) {
+      within_group_cliques[[group]] <- NULL
+      within_group_hogs[[group]] <- character(0)
+      next
+    }
+    wg <- find_cliques(edges, group_sp,
+                        min_species = min_species,
+                        max_genes_per_sp = max_genes_per_sp,
+                        max_missing_edges = max_missing_edges,
+                        edge_type = edge_type)
+    within_group_cliques[[group]] <- wg
+    within_group_hogs[[group]] <- unique(wg$hog)
+  }
+
+  # --- Step 4: Differentiated (2+ groups with cliques, no cross-group conserved) ---
+  remaining <- setdiff(all_hogs, c(complete_hogs, partial_hogs))
+
+  # Identify cross-group conserved edges
+  conserved <- edges[edges$type %in% edge_type, , drop = FALSE]
+  if (nrow(conserved) > 0) {
+    t1 <- trait_char[conserved$species1]
+    t2 <- trait_char[conserved$species2]
+    # Only keep edges where both species are in target_species
+    valid <- !is.na(t1) & !is.na(t2)
+    cross_conserved <- conserved[valid & t1 != t2, , drop = FALSE]
+    hogs_with_cross <- unique(cross_conserved$hog)
+  } else {
+    hogs_with_cross <- character(0)
+  }
+
+  diff_hogs <- character(0)
+  diff_groups <- character(0)
+  for (h in remaining) {
+    groups_present <- trait_levels[vapply(trait_levels, function(g) {
+      h %in% within_group_hogs[[g]]
+    }, logical(1))]
+    if (length(groups_present) >= 2L && !h %in% hogs_with_cross) {
+      diff_hogs <- c(diff_hogs, h)
+      diff_groups <- c(diff_groups, paste(groups_present, collapse = ","))
+    }
+  }
+
+  # --- Step 5: Trait-specific (exactly 1 group has a clique) ---
+  remaining2 <- setdiff(remaining, diff_hogs)
+  ts_hogs <- character(0)
+  ts_groups <- character(0)
+  for (h in remaining2) {
+    groups_present <- trait_levels[vapply(trait_levels, function(g) {
+      h %in% within_group_hogs[[g]]
+    }, logical(1))]
+    if (length(groups_present) == 1L) {
+      ts_hogs <- c(ts_hogs, h)
+      ts_groups <- c(ts_groups, groups_present)
+    }
+  }
+
+  # --- Step 6: Unclassified ---
+  classified <- c(complete_hogs, partial_hogs, diff_hogs, ts_hogs)
+  unclass_hogs <- setdiff(all_hogs, classified)
+
+  # --- Build output ---
+  # Helper: best clique per HOG from a cliques df
+  best_per_hog <- function(cliques_df, hogs) {
+    sub <- cliques_df[cliques_df$hog %in% hogs, , drop = FALSE]
+    if (nrow(sub) == 0) {
+      return(data.frame(hog = character(0), n_species = integer(0),
+                        best_mean_q = numeric(0)))
+    }
+    sub <- sub[order(sub$mean_q), , drop = FALSE]
+    sub <- sub[!duplicated(sub$hog), , drop = FALSE]
+    data.frame(hog = sub$hog, n_species = sub$n_species,
+               best_mean_q = sub$mean_q, stringsAsFactors = FALSE)
+  }
+
+  rows <- list()
+
+  # Complete
+  if (length(complete_hogs) > 0) {
+    info <- best_per_hog(complete_cliques, complete_hogs)
+    rows[[length(rows) + 1L]] <- data.frame(
+      hog = info$hog, classification = "complete",
+      n_species = info$n_species, best_mean_q = info$best_mean_q,
+      trait_groups = NA_character_, stringsAsFactors = FALSE)
+  }
+
+  # Partial
+  if (length(partial_hogs) > 0) {
+    info <- best_per_hog(all_cliques, partial_hogs)
+    rows[[length(rows) + 1L]] <- data.frame(
+      hog = info$hog, classification = "partial",
+      n_species = info$n_species, best_mean_q = info$best_mean_q,
+      trait_groups = NA_character_, stringsAsFactors = FALSE)
+  }
+
+  # Differentiated
+  if (length(diff_hogs) > 0) {
+    # Best within-group clique for each differentiated HOG
+    wg_summary <- do.call(rbind, lapply(within_group_cliques[trait_levels],
+      function(df) if (!is.null(df) && nrow(df) > 0)
+        df[, c("hog", "n_species", "mean_q"), drop = FALSE] else NULL))
+    info <- best_per_hog(wg_summary, diff_hogs)
+    tg <- diff_groups[match(info$hog, diff_hogs)]
+    rows[[length(rows) + 1L]] <- data.frame(
+      hog = info$hog, classification = "differentiated",
+      n_species = info$n_species, best_mean_q = info$best_mean_q,
+      trait_groups = tg, stringsAsFactors = FALSE)
+  }
+
+  # Trait-specific
+  if (length(ts_hogs) > 0) {
+    wg_summary2 <- do.call(rbind, lapply(within_group_cliques[trait_levels],
+      function(df) if (!is.null(df) && nrow(df) > 0)
+        df[, c("hog", "n_species", "mean_q"), drop = FALSE] else NULL))
+    info <- best_per_hog(wg_summary2, ts_hogs)
+    tg <- ts_groups[match(info$hog, ts_hogs)]
+    rows[[length(rows) + 1L]] <- data.frame(
+      hog = info$hog, classification = "trait_specific",
+      n_species = info$n_species, best_mean_q = info$best_mean_q,
+      trait_groups = tg, stringsAsFactors = FALSE)
+  }
+
+  # Unclassified
+  if (length(unclass_hogs) > 0) {
+    rows[[length(rows) + 1L]] <- data.frame(
+      hog = unclass_hogs, classification = "unclassified",
+      n_species = NA_integer_, best_mean_q = NA_real_,
+      trait_groups = NA_character_, stringsAsFactors = FALSE)
+  }
+
+  out <- do.call(rbind, rows)
+  if (is.null(out)) return(empty)
+  rownames(out) <- NULL
+
+  # --- Stability annotation ---
+  out$stability_class <- NA_integer_
+  if (!is.null(stability) && length(stability$stability_class) > 0) {
+    # stability_class is per-clique (0-based); map to HOGs via
+    # the cliques that stability was computed on
+    stab_df <- stability$stability
+    if (nrow(stab_df) > 0 && "hog" %in% names(stab_df)) {
+      # Best stability class per HOG
+      best_sc <- tapply(stab_df$stability_score[stab_df$k == 1],
+                        stab_df$hog[stab_df$k == 1],
+                        function(s) if (all(s >= 1.0)) 1L else 0L)
+      idx <- match(out$hog, names(best_sc))
+      out$stability_class[!is.na(idx)] <- best_sc[idx[!is.na(idx)]]
+    }
+  }
+
+  # --- Sweep annotation ---
+  out$persistence <- NA_real_
+  if (!is.null(sweep) && "survival" %in% names(sweep)) {
+    surv <- sweep$survival
+    if (nrow(surv) > 0) {
+      # For each HOG, check the lowest multiplier where it survived
+      surv_ok <- surv[surv$survived, , drop = FALSE]
+      if (nrow(surv_ok) > 0) {
+        best_mult <- tapply(surv_ok$multiplier, surv_ok$hog, max)
+        idx <- match(out$hog, names(best_mult))
+        out$persistence[!is.na(idx)] <- best_mult[idx[!is.na(idx)]]
+      }
+    }
+  }
+
+  # --- Robust flag ---
+  has_stab <- !is.null(stability)
+  has_sweep <- !is.null(sweep)
+  if (has_stab || has_sweep) {
+    stab_ok <- if (has_stab) {
+      !is.na(out$stability_class) & out$stability_class >= min_stability_class
+    } else TRUE
+    sweep_ok <- if (has_sweep) {
+      !is.na(out$persistence) & out$persistence >= min_persistence
+    } else TRUE
+    out$robust <- stab_ok & sweep_ok
+  } else {
+    out$robust <- NA
+  }
+
+  out
+}

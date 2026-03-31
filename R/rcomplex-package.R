@@ -20,6 +20,8 @@
 #'   \item{[find_cliques()]}{C++ clique detection (Bron-Kerbosch)}
 #'   \item{[clique_stability()]}{Leave-k-out jackknife stability}
 #'   \item{[clique_persistence()]}{Co-expressolog persistence scores}
+#'   \item{[clique_threshold_sweep()]}{Structural survival across stricter thresholds}
+#'   \item{[classify_cliques()]}{Waterfall HOG classification by clique pattern}
 #' }
 #'
 #' @docType package

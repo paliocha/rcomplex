@@ -130,6 +130,8 @@ persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
+| `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |
+| `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific) |
 
 ## Ortholog file format
 
@@ -316,7 +318,7 @@ would survive at stricter density thresholds.
 | `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()` -- pair-level hypergeometric, edge conversion |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()` |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()` |
+| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
 
 ### C++ layer (RcppArmadillo + OpenMP)
