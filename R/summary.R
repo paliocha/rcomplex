@@ -82,6 +82,10 @@ summarize_comparison <- function(comparison,
                                  sp1 = NULL, sp2 = NULL) {
   alternative <- match.arg(alternative)
 
+  if (xor(is.null(sp1), is.null(sp2))) {
+    stop("Both sp1 and sp2 must be provided, or neither.")
+  }
+
   if (is.null(filter_zero)) {
     filter_zero <- alternative == "greater"
   }

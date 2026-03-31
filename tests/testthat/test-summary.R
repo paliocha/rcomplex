@@ -251,3 +251,40 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
   separate <- comparison_to_edges(result2$results, "SP_A", "SP_B")
   expect_equal(result2$edges, separate)
 })
+
+
+test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
+  comparison <- data.frame(
+    Species1 = "A_1", Species2 = "B_1", hog = 1,
+    Species1.neigh.overlap = 5, Species2.neigh.overlap = 4,
+    Species1.p.val.con = 0.01, Species2.p.val.con = 0.02,
+    Species1.p.val.div = 0.99, Species2.p.val.div = 0.99,
+    Species1.effect.size = 3.0, Species2.effect.size = 2.5
+  )
+
+  expect_error(summarize_comparison(comparison, sp1 = "SP_A"),
+               "Both sp1 and sp2")
+  expect_error(summarize_comparison(comparison, sp2 = "SP_B"),
+               "Both sp1 and sp2")
+})
+
+
+test_that("summarize_comparison with sp1/sp2 returns empty $edges on zero rows", {
+  # All zero overlap -> filtered out with default filter_zero=TRUE
+  comparison <- data.frame(
+    Species1 = c("A_1", "A_2"), Species2 = c("B_1", "B_2"),
+    hog = c(1, 2),
+    Species1.neigh.overlap = c(0, 0), Species2.neigh.overlap = c(0, 0),
+    Species1.p.val.con = c(1, 1), Species2.p.val.con = c(1, 1),
+    Species1.p.val.div = c(0.5, 0.5), Species2.p.val.div = c(0.5, 0.5),
+    Species1.effect.size = c(1, 1), Species2.effect.size = c(1, 1)
+  )
+
+  result <- summarize_comparison(comparison, sp1 = "SP_A", sp2 = "SP_B")
+  expect_equal(nrow(result$results), 0)
+  expect_true(!is.null(result$edges))
+  expect_equal(nrow(result$edges), 0)
+  expect_true(all(c("gene1", "gene2", "species1", "species2",
+                     "hog", "q.value", "effect_size", "type") %in%
+                    names(result$edges)))
+})
