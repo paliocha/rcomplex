@@ -1,0 +1,217 @@
+---
+title: "Comparative co-expression analysis with rcomplex"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Comparative co-expression analysis with rcomplex}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This vignette demonstrates a complete rcomplex analysis using expression
+data from eight Pooideae grass species spanning four phylogenetic pairs,
+each containing one annual and one perennial species:
+
+| Species | Code | Life cycle | Pair |
+|---------|------|------------|------|
+| *Brachypodium distachyon* | BDIS | Annual | Brachypodium |
+| *Brachypodium sylvaticum* | BSYL | Perennial | Brachypodium |
+| *Hordeum vulgare* | HVUL | Annual | Hordeum |
+| *Hordeum jubatum* | HJUB | Perennial | Hordeum |
+| *Briza maxima* | BMAX | Annual | Briza |
+| *Briza media* (crossmapped to BMAX) | BMED | Perennial | Briza |
+| *Vulpia bromoides* | VBRO | Annual | Festuca/Vulpia |
+| *Festuca pratensis* | FPRA | Perennial | Festuca/Vulpia |
+
+The dataset is a 500-HOG subset of VST-normalized RNA-seq from the
+EVOTREE project, stored as SummarizedExperiment objects.
+
+## 1. Data preparation
+
+```{r data}
+library(rcomplex)
+library(SummarizedExperiment)
+
+se_list <- readRDS(system.file("extdata", "pooideae_vignette.rds",
+                                package = "rcomplex"))
+species <- names(se_list)
+
+# Life cycle trait
+trait <- c(BDIS = "annual", BSYL = "perennial",
+           HVUL = "annual", HJUB = "perennial",
+           BMAX = "annual", BMED = "perennial",
+           VBRO = "annual", FPRA = "perennial")
+```
+
+Build co-expression networks for each species using Mutual Rank (MR)
+normalization at 3% density:
+
+```{r networks}
+networks <- lapply(species, function(sp) {
+  compute_network(se_list[[sp]], norm_method = "MR", density = 0.03)
+})
+names(networks) <- species
+```
+
+Extract ortholog pairs from HOG annotations in rowData:
+
+```{r orthologs}
+ortho_pairs <- utils::combn(species, 2, simplify = FALSE)
+ortho_list <- lapply(ortho_pairs, function(pair) {
+  extract_orthologs(se_list[[pair[1]]], se_list[[pair[2]]])
+})
+orthologs <- do.call(rbind, ortho_list)
+cat(nrow(orthologs), "ortholog pairs across",
+    length(ortho_pairs), "species pairs\n")
+```
+
+## 2. Pairwise comparison
+
+`run_pairwise_comparisons()` runs the full comparison pipeline for all
+C(8,2) = 28 species pairs: hypergeometric neighborhood test, Storey
+q-values, and edge classification:
+
+```{r comparison}
+edges <- run_pairwise_comparisons(networks, orthologs)
+cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
+    sum(edges$type == "ns"), "non-significant\n")
+```
+
+## 3. Gene/HOG-level analysis
+
+For a single species pair, `summarize_comparison()` provides detailed
+statistics. The `sp1`/`sp2` arguments produce edge-format output directly:
+
+```{r gene-level}
+comp_bdis_bsyl <- compare_neighborhoods(
+  networks$BDIS, networks$BSYL, orthologs)
+summary_bb <- summarize_comparison(comp_bdis_bsyl,
+                                    sp1 = "BDIS", sp2 = "BSYL")
+cat("Reciprocally conserved pairs:", summary_bb$summary$gene_pairs$reciprocal,
+    "of", summary_bb$summary$gene_pairs$total, "\n")
+```
+
+## 4. Module-level analysis
+
+Detect co-expression modules with Leiden community detection, then
+compare across species:
+
+```{r modules}
+mod_bdis <- detect_modules(networks$BDIS, method = "leiden", resolution = 1.0)
+mod_bsyl <- detect_modules(networks$BSYL, method = "leiden", resolution = 1.0)
+
+mod_comp <- compare_modules(mod_bdis, mod_bsyl, orthologs,
+                             method = "hypergeometric")
+classes <- classify_modules(mod_comp)
+print(table(classes$classification))
+```
+
+## 5. Clique detection
+
+Find fully connected subsets of ortholog groups across species:
+
+```{r cliques}
+# All cliques (at least 2 species)
+cliques <- find_cliques(edges, species, min_species = 2L)
+cat(nrow(cliques), "cliques\n")
+print(table(cliques$n_species))
+```
+
+Analytical persistence scores measure how far above the detection
+threshold each clique's supporting edges are:
+
+```{r persistence}
+cliques_p <- clique_persistence(cliques, species, networks, edges)
+cat("Median persistence:", round(median(cliques_p$persistence, na.rm = TRUE), 2), "\n")
+```
+
+## 6. Combined robustness analysis
+
+The strongest findings are cliques robust on two independent axes:
+
+- **Threshold robustness** -- survives at stricter density thresholds
+- **Phylogenetic robustness** -- survives species removal (jackknife)
+
+We sweep over threshold multipliers and run leave-k-out stability at
+each level:
+
+```{r robustness}
+multipliers <- c(1.5, 2, 3)
+robustness <- list()
+
+for (m in multipliers) {
+  # Re-threshold networks (shallow copy, no matrix duplication)
+  tight_nets <- lapply(networks, function(net) {
+    list(network = net$network, threshold = net$threshold * m)
+  })
+  names(tight_nets) <- species
+
+  # Re-run comparisons at stricter threshold
+  tight_edges <- run_pairwise_comparisons(tight_nets, orthologs)
+
+  # Find cliques at stricter threshold
+  tight_cliques <- find_cliques(tight_edges, species, min_species = 2L)
+
+  # Jackknife stability at this threshold level
+  if (nrow(tight_cliques) > 0) {
+    stab <- clique_stability(tight_edges, species, trait,
+                              all_species = species,
+                              full_cliques = tight_cliques,
+                              max_k = 1L)
+    robustness[[as.character(m)]] <- list(
+      cliques = tight_cliques,
+      n_cliques = nrow(tight_cliques),
+      n_stable = sum(stab$stability_class >= 1),
+      stability = stab
+    )
+  } else {
+    robustness[[as.character(m)]] <- list(
+      cliques = tight_cliques, n_cliques = 0L, n_stable = 0L)
+  }
+}
+
+# Summary: cliques that survive AND are phylogenetically stable
+cat("Multiplier | Cliques | Stable (k=1)\n")
+cat("-----------|---------|-------------\n")
+for (m in names(robustness)) {
+  r <- robustness[[m]]
+  cat(sprintf("%-10s | %7d | %12d\n",
+              paste0(m, "x"), r$n_cliques, r$n_stable))
+}
+```
+
+## 7. HOG classification
+
+Classify each HOG by its conservation pattern using the waterfall:
+complete > partial > differentiated > trait_specific > unclassified.
+
+```{r classify}
+# Use stability from the 1.5x threshold level
+stab_input <- if (!is.null(robustness[["1.5"]]$stability)) {
+  robustness[["1.5"]]$stability
+} else NULL
+
+result <- classify_cliques(edges, species, trait,
+                            min_species = 2L,
+                            stability = stab_input)
+print(table(result$classification))
+```
+
+- **complete**: all 8 species form a clique -- deeply conserved across
+  all Pooideae
+- **partial**: clique spans both annual and perennial species, but not
+  all 8
+- **differentiated**: annual species have a clique AND perennial species
+  have a clique, but no cross-group conservation -- lineage-specific
+  co-expression programs
+- **trait_specific**: only annuals or only perennials have a clique
+- **unclassified**: no conservation signal detected
+
+## Session info
+
+```{r sessioninfo}
+sessionInfo()
+```

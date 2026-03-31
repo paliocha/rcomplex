@@ -38,6 +38,8 @@ URL: https://paliocha.github.io/rcomplex/,
     https://github.com/paliocha/rcomplex
 BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
+    knitr,
+    rmarkdown,
     S4Vectors,
     sbm,
     SummarizedExperiment,
@@ -45,4 +47,5 @@ Suggests:
     testthat (>= 3.0.0),
     lintr,
     pkgdown
+VignetteBuilder: knitr
 Config/testthat/edition: 3
