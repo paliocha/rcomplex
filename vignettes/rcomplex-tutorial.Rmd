@@ -135,14 +135,28 @@ cat("Median persistence:", round(median(cliques_p$persistence, na.rm = TRUE), 2)
 
 The strongest findings are cliques robust on two independent axes:
 
-- **Threshold robustness** -- survives at stricter density thresholds
-- **Phylogenetic robustness** -- survives species removal (jackknife)
+- **Threshold robustness** -- the clique survives at stricter density
+  thresholds (the co-expression signal is strong, not marginal)
+- **Phylogenetic robustness** -- the clique survives species removal
+  (the conservation pattern is general, not taxon-dependent)
 
-We sweep over threshold multipliers and run leave-k-out stability at
-each level:
+**Network density** controls how many edges are retained in the
+co-expression network. At 3% density, only the top 3% of all
+pairwise MR values pass the threshold -- these are the strongest
+co-expression relationships. A gene pair that barely passes at 3%
+might not pass at 2.5%, while a truly co-expressed pair will survive
+much stricter cutoffs.
+
+We test robustness by sweeping over tighter density percentiles and
+running leave-k-out jackknife stability at each level:
 
 ```{r robustness}
-multipliers <- c(1.5, 2, 3)
+# The baseline density is 3%. Each multiplier tightens the MR threshold,
+# which corresponds to a lower effective density percentile.
+# Compute the actual density at each multiplier level.
+baseline_density <- 0.03
+
+multipliers <- c(1.01, 1.02, 1.03, 1.05)
 robustness <- list()
 
 for (m in multipliers) {
@@ -152,6 +166,13 @@ for (m in multipliers) {
     list(network = net$network, threshold = net$threshold * m)
   })
   names(tight_nets) <- species
+
+  # Compute effective density at this threshold (fraction of edges surviving)
+  eff_densities <- vapply(species, function(sp) {
+    mat <- networks[[sp]]$network
+    vals <- mat[upper.tri(mat)]
+    mean(vals >= networks[[sp]]$threshold * m)
+  }, numeric(1))
 
   # Re-run comparisons at stricter threshold
   tight_edges <- run_pairwise_comparisons(tight_nets, orthologs)
@@ -169,23 +190,31 @@ for (m in multipliers) {
       cliques = tight_cliques,
       n_cliques = nrow(tight_cliques),
       n_stable = sum(stab$stability_class >= 1),
+      mean_density = mean(eff_densities),
       stability = stab
     )
   } else {
     robustness[[as.character(m)]] <- list(
-      cliques = tight_cliques, n_cliques = 0L, n_stable = 0L)
+      cliques = tight_cliques, n_cliques = 0L, n_stable = 0L,
+      mean_density = mean(eff_densities))
   }
 }
 
-# Summary: cliques that survive AND are phylogenetically stable
-cat("Multiplier | Cliques | Stable (k=1)\n")
+# Summary: cliques surviving at each density level
+cat("Density    | Cliques | Stable (k=1)\n")
 cat("-----------|---------|-------------\n")
+cat(sprintf("%-10s | %7d | %12d\n", "3.00% (baseline)",
+            nrow(cliques), NA))
 for (m in names(robustness)) {
   r <- robustness[[m]]
   cat(sprintf("%-10s | %7d | %12d\n",
-              paste0(m, "x"), r$n_cliques, r$n_stable))
+              sprintf("%.2f%%", r$mean_density * 100),
+              r$n_cliques, r$n_stable))
 }
 ```
+
+Cliques that survive at tighter density AND remain stable to single-species
+removal represent the most reliable conservation signals.
 
 ## 7. HOG classification
 
@@ -193,10 +222,8 @@ Classify each HOG by its conservation pattern using the waterfall:
 complete > partial > differentiated > trait_specific > unclassified.
 
 ```{r classify}
-# Use stability from the 1.5x threshold level
-stab_input <- if (!is.null(robustness[["1.5"]]$stability)) {
-  robustness[["1.5"]]$stability
-} else NULL
+# Use stability from the 1.02x level (tighter than baseline, with data)
+stab_input <- robustness[["1.02"]]$stability
 
 result <- classify_cliques(edges, species, trait,
                             min_species = 2L,
