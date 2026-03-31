@@ -58,7 +58,7 @@ co-expressolog edge's MR value to its species threshold.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">clique_persistence</span><span class="op">(</span><span class="va">cliques</span>, <span class="va">networks</span>, <span class="va">target_species</span>, <span class="va">edges</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">clique_persistence</span><span class="op">(</span><span class="va">cliques</span>, <span class="va">target_species</span>, <span class="va">networks</span>, <span class="va">edges</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -70,15 +70,15 @@ co-expressolog edge's MR value to its species threshold.</p>
 <code>hog</code>, one column per species, and summary statistics).</p></dd>
 
 
+<dt id="arg-target-species">target_species<a class="anchor" aria-label="anchor" href="#arg-target-species"></a></dt>
+<dd><p>Character vector matching column names in
+<code>cliques</code> and names in <code>networks</code>.</p></dd>
+
+
 <dt id="arg-networks">networks<a class="anchor" aria-label="anchor" href="#arg-networks"></a></dt>
 <dd><p>Named list of <code><a href="compute_network.html">compute_network</a></code> outputs
 keyed by species abbreviation. Each element must have <code>$network</code>
 (named numeric matrix) and <code>$threshold</code> (scalar).</p></dd>
-
-
-<dt id="arg-target-species">target_species<a class="anchor" aria-label="anchor" href="#arg-target-species"></a></dt>
-<dd><p>Character vector matching column names in
-<code>cliques</code> and names in <code>networks</code>.</p></dd>
 
 
 <dt id="arg-edges">edges<a class="anchor" aria-label="anchor" href="#arg-edges"></a></dt>
