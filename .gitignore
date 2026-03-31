@@ -9,3 +9,5 @@ src/*.dll
 *.Rcheck/
 .DS_Store
 nf-rcomplex/
+vignettes/*.html
+vignettes/*.R

@@ -8,7 +8,10 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>",
+  eval = requireNamespace("SummarizedExperiment", quietly = TRUE)
+)
 ```
 
 This vignette demonstrates a complete rcomplex analysis using expression
@@ -143,7 +146,8 @@ multipliers <- c(1.5, 2, 3)
 robustness <- list()
 
 for (m in multipliers) {
-  # Re-threshold networks (shallow copy, no matrix duplication)
+
+  # Re-threshold: only $network and $threshold are needed downstream
   tight_nets <- lapply(networks, function(net) {
     list(network = net$network, threshold = net$threshold * m)
   })
