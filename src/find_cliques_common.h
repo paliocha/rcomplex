@@ -572,8 +572,15 @@ inline std::vector<uint64_t> generate_subsets(int n, int k) {
     }
     if (k > n) return result;
 
+    // Guard: 1ULL << 64 is undefined behavior
+    if (k == n) {
+        // Only one subset: all n bits set
+        result.push_back((n == 64) ? ~0ULL : (1ULL << n) - 1);
+        return result;
+    }
+    // Now k < n, so k <= 63 and (1ULL << k) is safe
     uint64_t mask = (1ULL << k) - 1;
-    uint64_t limit = 1ULL << n;
+    uint64_t limit = (n == 64) ? ~0ULL : (1ULL << n);
 
     while (mask < limit) {
         result.push_back(mask);
