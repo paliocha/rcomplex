@@ -30,7 +30,7 @@ each containing one annual and one perennial species:
 | *Festuca pratensis* | FPRA | Perennial | Festuca/Vulpia |
 
 The dataset is a 500-HOG subset of VST-normalized RNA-seq from the
-EVOTREE project, stored as SummarizedExperiment objects.
+"Live or let die?" project, stored as SummarizedExperiment objects.
 
 ## 1. Data preparation
 
@@ -153,9 +153,6 @@ running leave-k-out jackknife stability at each level:
 ```{r robustness}
 # The baseline density is 3%. Each multiplier tightens the MR threshold,
 # which corresponds to a lower effective density percentile.
-# Compute the actual density at each multiplier level.
-baseline_density <- 0.03
-
 multipliers <- c(1.01, 1.02, 1.03, 1.05)
 robustness <- list()
 
@@ -238,7 +235,7 @@ Classify each HOG by its conservation pattern using the waterfall:
 complete > partial > differentiated > trait_specific > unclassified.
 
 ```{r classify}
-# Use stability from the 1.02x level (tighter than baseline, with data)
+# Use stability from the 1.02x level (NULL if no cliques survived)
 stab_input <- robustness[["1.02"]]$stability
 
 result <- classify_cliques(edges, species, trait,
