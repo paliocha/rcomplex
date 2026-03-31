@@ -252,6 +252,10 @@ setMethod("compute_network", "matrix", function(x,
 #' @export
 setMethod("compute_network", "SummarizedExperiment", function(x,
     assay = 1L, ...) {
+  if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
+    stop("SummarizedExperiment package is required. ",
+         "Install with: BiocManager::install('SummarizedExperiment')")
+  }
   expr <- SummarizedExperiment::assay(x, assay)
   compute_network(expr, ...)
 })
