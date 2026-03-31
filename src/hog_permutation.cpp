@@ -28,8 +28,10 @@
 // [[Rcpp::plugins(openmp)]]
 
 #include <RcppArmadillo.h>
+#include <algorithm>
 #include <bit>
 #include <cstdint>
+#include <numeric>
 #include <span>
 #include <vector>
 
@@ -371,15 +373,25 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     }
 
     // ---- HOG-level permutation tests ----
+    // Sort HOGs by descending total gene count so large HOGs (most work)
+    // are scheduled first, reducing tail latency with guided scheduling
+    std::vector<int> hog_order(n_hogs);
+    std::iota(hog_order.begin(), hog_order.end(), 0);
+    std::sort(hog_order.begin(), hog_order.end(), [&](int a, int b) {
+        return (hog_sp1[a].size() + hog_sp2[a].size()) >
+               (hog_sp1[b].size() + hog_sp2[b].size());
+    });
+
     Rcpp::NumericVector out_T_obs(n_hogs);
     Rcpp::IntegerVector out_n_perm(n_hogs);
     Rcpp::IntegerVector out_n_exceed(n_hogs);
     Rcpp::NumericVector out_p_value(n_hogs);
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(dynamic) num_threads(n_cores) if(n_cores > 1)
+    #pragma omp parallel for schedule(guided) num_threads(n_cores) if(n_cores > 1)
 #endif
-    for (int h = 0; h < n_hogs; ++h) {
+    for (int hi = 0; hi < n_hogs; ++hi) {
+        int h = hog_order[hi];
         int tid = 0;
 #ifdef _OPENMP
         tid = omp_get_thread_num();
