@@ -58,7 +58,7 @@ arma::mat apply_clr_to_cor_cpp(const arma::mat& cor_matrix, int n_cores = 1) {
     if (n_cores > 1) {
         omp_set_num_threads(n_cores);
     }
-    #pragma omp parallel for schedule(static) if(n_cores > 1)
+    #pragma omp parallel for schedule(static, 1) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         for (arma::uword j = i + 1; j < n; ++j) {

@@ -109,7 +109,7 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
     }
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) if(n_cores > 1)
+    #pragma omp parallel for schedule(static, 1) if(n_cores > 1)
 #endif
     for (arma::uword i = 0; i < n; ++i) {
         for (arma::uword j = i + 1; j < n; ++j) {
