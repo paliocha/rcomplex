@@ -216,3 +216,38 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
                                           filter_zero = TRUE)
   expect_equal(nrow(result_filtered$results), 1)
 })
+
+
+test_that("summarize_comparison with sp1/sp2 returns $edges", {
+  comparison <- data.frame(
+    Species1 = paste0("A_", 1:10),
+    Species2 = paste0("B_", 1:10),
+    hog = rep(1:5, each = 2),
+    Species1.neigh.overlap = c(5, 3, 0, 4, 2, 1, 6, 0, 3, 4),
+    Species2.neigh.overlap = c(4, 2, 0, 3, 1, 2, 5, 0, 4, 3),
+    Species1.p.val.con = c(0.001, 0.05, 0.9, 0.01, 0.1, 0.2, 0.001, 0.8, 0.03, 0.01),
+    Species2.p.val.con = c(0.002, 0.06, 0.8, 0.02, 0.15, 0.25, 0.002, 0.7, 0.04, 0.02),
+    Species1.p.val.div = rep(0.99, 10),
+    Species2.p.val.div = rep(0.99, 10),
+    Species1.effect.size = c(3.0, 1.5, 1.0, 2.5, 1.2, 1.1, 3.5, 1.0, 2.0, 2.5),
+    Species2.effect.size = c(2.5, 1.3, 1.0, 2.0, 1.1, 1.2, 3.0, 1.0, 2.5, 2.0)
+  )
+
+  # Without sp1/sp2: no $edges
+  result1 <- summarize_comparison(comparison)
+  expect_null(result1$edges)
+
+  # With sp1/sp2: has $edges
+  result2 <- summarize_comparison(comparison, sp1 = "SP_A", sp2 = "SP_B")
+  expect_true(!is.null(result2$edges))
+  expect_true(is.data.frame(result2$edges))
+  expect_true(all(c("gene1", "gene2", "species1", "species2",
+                     "hog", "q.value", "effect_size", "type") %in%
+                    names(result2$edges)))
+  expect_true(all(result2$edges$species1 == "SP_A"))
+  expect_true(all(result2$edges$species2 == "SP_B"))
+
+  # $edges should match calling comparison_to_edges separately
+  separate <- comparison_to_edges(result2$results, "SP_A", "SP_B")
+  expect_equal(result2$edges, separate)
+})

@@ -45,6 +45,11 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' @param alpha Significance threshold applied to q-values (default 0.05).
 #' @param filter_zero If `TRUE` (default for `"greater"`), remove rows where
 #'   both overlap values are zero. Defaults to `FALSE` for `"less"`.
+#' @param sp1,sp2 Optional species abbreviations. When both are provided,
+#'   \code{\link{comparison_to_edges}} is called internally and the result
+#'   is returned as a third list element \code{$edges}. This avoids a
+#'   separate \code{comparison_to_edges()} call when preparing input for
+#'   \code{\link{find_cliques}}.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -53,6 +58,8 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'       Rows are filtered according to `filter_zero`.}
 #'     \item{summary}{List of summary statistics at gene-pair, gene, and
 #'       ortholog-group levels, thresholded on q-values.}
+#'     \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
+#'       Edge-format data frame from \code{comparison_to_edges()}.}
 #'   }
 #'
 #' @references
@@ -71,7 +78,8 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 summarize_comparison <- function(comparison,
                                  alternative = c("greater", "less"),
                                  alpha = 0.05,
-                                 filter_zero = NULL) {
+                                 filter_zero = NULL,
+                                 sp1 = NULL, sp2 = NULL) {
   alternative <- match.arg(alternative)
 
   if (is.null(filter_zero)) {
@@ -104,7 +112,7 @@ summarize_comparison <- function(comparison,
   }
 
   if (nrow(res) == 0) {
-    return(list(
+    out <- list(
       results = res,
       summary = list(
         gene_pairs = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
@@ -114,7 +122,15 @@ summarize_comparison <- function(comparison,
         ),
         orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L)
       )
-    ))
+    )
+    if (!is.null(sp1) && !is.null(sp2)) {
+      out$edges <- data.frame(
+        gene1 = character(0), gene2 = character(0),
+        species1 = character(0), species2 = character(0),
+        hog = character(0), q.value = numeric(0),
+        effect_size = numeric(0), type = character(0))
+    }
+    return(out)
   }
 
   # Compute q-values on selected p-value columns
@@ -132,7 +148,7 @@ summarize_comparison <- function(comparison,
   q2 <- res[[q2_col]]
   max_q <- pmax(q1, q2)
 
-  list(
+  out <- list(
     results = res,
     summary = list(
       gene_pairs = list(
@@ -155,6 +171,12 @@ summarize_comparison <- function(comparison,
       )
     )
   )
+
+  if (!is.null(sp1) && !is.null(sp2)) {
+    out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha)
+  }
+
+  out
 }
 
 

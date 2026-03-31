@@ -8,7 +8,9 @@ summarize_comparison(
   comparison,
   alternative = c("greater", "less"),
   alpha = 0.05,
-  filter_zero = NULL
+  filter_zero = NULL,
+  sp1 = NULL,
+  sp2 = NULL
 )
 }
 \arguments{
@@ -22,6 +24,12 @@ divergence (lower-tail, uses \code{.p.val.div} columns).}
 
 \item{filter_zero}{If \code{TRUE} (default for \code{"greater"}), remove rows where
 both overlap values are zero. Defaults to \code{FALSE} for \code{"less"}.}
+
+\item{sp1, sp2}{Optional species abbreviations. When both are provided,
+\code{\link{comparison_to_edges}} is called internally and the result
+is returned as a third list element \code{$edges}. This avoids a
+separate \code{comparison_to_edges()} call when preparing input for
+\code{\link{find_cliques}}.}
 }
 \value{
 A list with components:
@@ -31,6 +39,8 @@ q-value columns (\code{.q.val.con} or \code{.q.val.div}) added.
 Rows are filtered according to \code{filter_zero}.}
 \item{summary}{List of summary statistics at gene-pair, gene, and
 ortholog-group levels, thresholded on q-values.}
+\item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
+Edge-format data frame from \code{comparison_to_edges()}.}
 }
 }
 \description{
