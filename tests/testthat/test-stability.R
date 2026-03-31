@@ -95,6 +95,9 @@ test_that("clique_stability returns correct structure", {
   # stability_class is an integer vector
   expect_true(is.integer(result$stability_class))
 
+  # clique_idx is 1-based (R convention)
+  expect_true(all(result$stability$clique_idx >= 1L))
+
   # novel_cliques is an integer
   expect_true(is.integer(result$novel_cliques))
 })

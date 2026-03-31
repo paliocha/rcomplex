@@ -300,7 +300,7 @@ find_cliques <- function(edges, target_species,
 #'
 #' # Cliques surviving any single species dropout
 #' k1 <- stab$stability[stab$stability$k == 1, ]
-#' stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1] + 1L, ]
+#' stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1], ]
 #'
 #' # Multi-level: stability_class >= 2 survives any pair of dropouts
 #' deeply_stable <- which(stab$stability_class >= 2)
@@ -429,7 +429,9 @@ clique_stability <- function(edges, target_species, species_trait,
   # Post-process: stability data frame
   stab <- cpp_result$stability
   if (nrow(stab) > 0) {
-    stab$hog <- enc$unique_hogs[raw_cliques$hog_idx[stab$clique_idx + 1L] + 1L]
+    # Convert 0-based C++ clique_idx to 1-based R indexing
+    stab$clique_idx <- stab$clique_idx + 1L
+    stab$hog <- enc$unique_hogs[raw_cliques$hog_idx[stab$clique_idx] + 1L]
     stab$trait_value <- trait_levels[stab$trait_value + 1L]
   } else {
     stab$hog <- character(0)
@@ -661,7 +663,7 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
 #' @return A list with components:
 #'   \describe{
 #'     \item{survival}{Data frame with one row per (baseline clique,
-#'       multiplier): \code{clique_idx} (0-based), \code{hog},
+#'       multiplier): \code{clique_idx} (1-based), \code{hog},
 #'       \code{multiplier}, \code{survived} (logical), \code{jaccard},
 #'       \code{n_species_orig}, \code{n_species_new}.}
 #'     \item{sweep_cliques}{Named list of \code{find_cliques()} outputs
@@ -816,7 +818,7 @@ clique_threshold_sweep <- function(
 
       survived <- !is.na(best_jaccard) && best_jaccard >= jaccard_threshold
       survival_rows[[row_idx]] <- data.frame(
-        clique_idx = i - 1L,
+        clique_idx = i,
         hog = baseline_hog,
         multiplier = m,
         survived = survived,

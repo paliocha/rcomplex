@@ -68,7 +68,7 @@ for a clique to count as "survived" (default 0.5).}
 A list with components:
 \describe{
 \item{survival}{Data frame with one row per (baseline clique,
-multiplier): \code{clique_idx} (0-based), \code{hog},
+multiplier): \code{clique_idx} (1-based), \code{hog},
 \code{multiplier}, \code{survived} (logical), \code{jaccard},
 \code{n_species_orig}, \code{n_species_new}.}
 \item{sweep_cliques}{Named list of \code{find_cliques()} outputs

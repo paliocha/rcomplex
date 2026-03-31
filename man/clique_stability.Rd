@@ -141,7 +141,7 @@ stab    <- clique_stability(edges, annual_sp, trait,
 
 # Cliques surviving any single species dropout
 k1 <- stab$stability[stab$stability$k == 1, ]
-stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1] + 1L, ]
+stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1], ]
 
 # Multi-level: stability_class >= 2 survives any pair of dropouts
 deeply_stable <- which(stab$stability_class >= 2)

@@ -222,7 +222,7 @@ test_that("stability annotation populates stability_class", {
   # Mock stability output
   stab <- list(
     stability = data.frame(
-      clique_idx = 0L, hog = "HOG1",
+      clique_idx = 1L, hog = "HOG1",
       trait_value = "annual", k = 1L,
       n_subsets = 2L, n_stable = 2L,
       stability_score = 1.0, sole_rep = FALSE,
@@ -280,7 +280,7 @@ test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
 
   stab <- list(
     stability = data.frame(
-      clique_idx = 0L, hog = "HOG1",
+      clique_idx = 1L, hog = "HOG1",
       trait_value = "annual", k = 1L,
       n_subsets = 2L, n_stable = 2L,
       stability_score = 1.0, sole_rep = FALSE,
@@ -292,7 +292,7 @@ test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
   # Mock sweep: HOG1 survived at multiplier 2
   sweep <- list(
     survival = data.frame(
-      clique_idx = 0L, hog = "HOG1",
+      clique_idx = 1L, hog = "HOG1",
       multiplier = 2, survived = TRUE,
       jaccard = 1.0, n_species_orig = 4L,
       n_species_new = 4L,
@@ -322,7 +322,7 @@ test_that("robust is FALSE when stability passes but sweep fails", {
 
   stab <- list(
     stability = data.frame(
-      clique_idx = 0L, hog = "HOG1",
+      clique_idx = 1L, hog = "HOG1",
       trait_value = "annual", k = 1L,
       n_subsets = 2L, n_stable = 2L,
       stability_score = 1.0, sole_rep = FALSE,
@@ -334,7 +334,7 @@ test_that("robust is FALSE when stability passes but sweep fails", {
   # Sweep: HOG1 did NOT survive at any multiplier
   sweep <- list(
     survival = data.frame(
-      clique_idx = 0L, hog = "HOG1",
+      clique_idx = 1L, hog = "HOG1",
       multiplier = 2, survived = FALSE,
       jaccard = 0.0, n_species_orig = 4L,
       n_species_new = NA_integer_,

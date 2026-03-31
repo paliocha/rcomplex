@@ -105,7 +105,7 @@ stab <- clique_stability(edges, annual_sp, trait,
 
 # Phylogenetically stable cliques (survive any single species dropout)
 k1 <- stab$stability[stab$stability$k == 1, ]
-stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1] + 1L, ]
+stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1], ]
 
 # Co-expressolog persistence (robustness to threshold tightening)
 persist <- clique_persistence(cliques, annual_sp, networks, edges)
