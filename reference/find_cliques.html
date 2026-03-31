@@ -113,7 +113,8 @@ cliques, then backtracking to assign the best gene per species
 <dt id="arg-max-missing-edges">max_missing_edges<a class="anchor" aria-label="anchor" href="#arg-max-missing-edges"></a></dt>
 <dd><p>Maximum number of missing species-pair edges
 tolerated per clique (default 0 = all edges required). When &gt; 0,
-uses subset enumeration instead of Bron-Kerbosch.</p></dd>
+uses subset enumeration instead of Bron-Kerbosch. Practical limit:
+~25 species; falls back to exact BK for larger species counts.</p></dd>
 
 
 <dt id="arg-edge-type">edge_type<a class="anchor" aria-label="anchor" href="#arg-edge-type"></a></dt>
