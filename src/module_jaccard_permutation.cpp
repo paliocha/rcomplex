@@ -155,9 +155,6 @@ Rcpp::DataFrame module_jaccard_permutation_cpp(
         }
     }
 
-#ifdef _OPENMP
-#endif
-
     // Seen buffer for sequential remap (main thread only)
     std::vector<char> seen(n_sp2_universe, 0);
     // Per-iteration remapped sp2 sets, computed sequentially after shuffle
