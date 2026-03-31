@@ -94,7 +94,7 @@
 <span><span class="co"># 1. Parse ortholog groups (tab-delimited, see format below)</span></span>
 <span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/parse_orthologs.html">parse_orthologs</a></span><span class="op">(</span><span class="st">"orthogroups.txt"</span>, <span class="st">"species1"</span>, <span class="st">"species2"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 2. Build co-expression networks</span></span>
+<span><span class="co"># 2. Build co-expression networks (accepts matrix or SummarizedExperiment)</span></span>
 <span><span class="va">net1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">expr1</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span>
 <span><span class="va">net2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">expr2</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span>
 <span></span>
@@ -107,6 +107,9 @@
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Pair-level q-values (Storey &amp; Tibshirani, 2003)</span></span>
 <span><span class="va">summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/summarize_comparison.html">summarize_comparison</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Convert to edge format for clique analysis (multi-species)</span></span>
+<span><span class="va">edges_AB</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/comparison_to_edges.html">comparison_to_edges</a></span><span class="op">(</span><span class="va">summary</span><span class="op">$</span><span class="va">results</span>, <span class="st">"SP_A"</span>, <span class="st">"SP_B"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># HOG-level permutation test (recommended for multi-copy gene families)</span></span>
 <span><span class="va">hog_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/permutation_hog_test.html">permutation_hog_test</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">comparison</span>, n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></code></pre></div>
@@ -154,9 +157,9 @@
 <span><span class="va">k1</span> <span class="op">&lt;-</span> <span class="va">stab</span><span class="op">$</span><span class="va">stability</span><span class="op">[</span><span class="va">stab</span><span class="op">$</span><span class="va">stability</span><span class="op">$</span><span class="va">k</span> <span class="op">==</span> <span class="fl">1</span>, <span class="op">]</span></span>
 <span><span class="va">stable_cliques</span> <span class="op">&lt;-</span> <span class="va">cliques</span><span class="op">[</span><span class="va">k1</span><span class="op">$</span><span class="va">clique_idx</span><span class="op">[</span><span class="va">k1</span><span class="op">$</span><span class="va">stability_score</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="fl">1L</span>, <span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Hub genes recurring across stable trait-exclusive cliques</span></span>
-<span><span class="va">hubs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/clique_hubs.html">clique_hubs</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">annual_sp</span>, species_trait <span class="op">=</span> <span class="va">trait</span>,</span>
-<span>                    stability <span class="op">=</span> <span class="va">stab</span>, min_hogs <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Co-expressolog persistence (robustness to threshold tightening)</span></span>
+<span><span class="va">persist</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/clique_persistence.html">clique_persistence</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">annual_sp</span>, <span class="va">networks</span>, <span class="va">edges</span><span class="op">)</span></span>
+<span><span class="va">persist</span><span class="op">[</span><span class="va">persist</span><span class="op">$</span><span class="va">persistence</span> <span class="op">&gt;</span> <span class="fl">2.0</span>, <span class="op">]</span>  <span class="co"># survive 2x stricter thresholds</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -181,16 +184,24 @@
 <td>Merge correlated paralogs within HOGs (Ward.D2 clustering)</td>
 </tr>
 <tr class="odd">
-<td><code><a href="reference/compute_network.html">compute_network()</a></code></td>
-<td>Correlation + MR/CLR normalization + density threshold</td>
+<td><code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code></td>
+<td>Derive ortholog pairs from two SummarizedExperiment objects by HOG</td>
 </tr>
 <tr class="even">
+<td><code><a href="reference/compute_network.html">compute_network()</a></code></td>
+<td>Correlation + MR/CLR normalization + density threshold (S4 generic: matrix or SE)</td>
+</tr>
+<tr class="odd">
 <td><code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code></td>
 <td>Pair-level hypergeometric neighborhood tests</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code></td>
 <td>Storey q-values and summary statistics</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code></td>
+<td>Convert comparison results to edge format for clique analysis</td>
 </tr>
 <tr class="even">
 <td><code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code></td>
@@ -217,8 +228,8 @@
 <td>Leave-k-out jackknife stability for trait-exclusive cliques</td>
 </tr>
 <tr class="even">
-<td><code><a href="reference/clique_hubs.html">clique_hubs()</a></code></td>
-<td>Rank genes by recurrence across trait-exclusive cliques</td>
+<td><code><a href="reference/clique_persistence.html">clique_persistence()</a></code></td>
+<td>Co-expressolog persistence scores (robustness to threshold tightening)</td>
 </tr>
 </tbody>
 </table>
@@ -260,6 +271,17 @@
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">reduced</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/reduce_orthogroups.html">reduce_orthogroups</a></span><span class="op">(</span><span class="va">expr1</span>, <span class="va">orthologs</span>, cor_threshold <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span></span>
 <span><span class="va">net1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">reduced</span><span class="op">$</span><span class="va">expr_matrix</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="summarizedexperiment-integration">SummarizedExperiment integration<a class="anchor" aria-label="anchor" href="#summarizedexperiment-integration"></a>
+</h3>
+<p><code><a href="reference/compute_network.html">compute_network()</a></code> is an S4 generic that accepts either a numeric matrix or a <code>SummarizedExperiment</code>. When passed an SE, it extracts the specified assay and proceeds as usual:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">net1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">se1</span>, assay <span class="op">=</span> <span class="st">"vst.count"</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code> derives ortholog pairs by matching HOG identifiers in <code>rowData()</code> of two SE objects, producing the same data frame format as <code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code>:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/extract_orthologs.html">extract_orthologs</a></span><span class="op">(</span><span class="va">se1</span>, <span class="va">se2</span>, hog_col <span class="op">=</span> <span class="st">"hog"</span><span class="op">)</span></span>
+<span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">orthologs</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -331,7 +353,7 @@
 <li>
 <strong>Species-level</strong>: Bron-Kerbosch with Tomita pivoting (Tomita <em>et al.</em>,
 <ol start="2006" style="list-style-type: decimal">
-<li>on the species adjacency graph (at most 16 nodes) to enumerate all maximal species cliques. The pivot is chosen as the vertex in P ∪ X maximising |N(u) ∩ P|, giving worst-case O(3^(n/3)) time.</li>
+<li>on the species adjacency graph (up to 64 species) to enumerate all maximal species cliques. The pivot is chosen as the vertex in P ∪ X maximising |N(u) ∩ P|, giving worst-case O(3^(n/3)) time.</li>
 </ol>
 </li>
 <li>
@@ -352,6 +374,12 @@
 </ol>
 <p>A clique’s <em>stability score</em> at level k is the fraction of C(N, k) species-removal subsets where its trait exclusivity is preserved. The <em>stability class</em> is the highest k at which the score equals 1.0.</p>
 <p>The analysis is parallelised over subsets with OpenMP (<code>n_cores</code> parameter) and uses uint64_t bitmask filtering for species membership (supports up to 64 species).</p>
+</div>
+<div class="section level3">
+<h3 id="clique-persistence">Clique persistence<a class="anchor" aria-label="anchor" href="#clique-persistence"></a>
+</h3>
+<p><code><a href="reference/clique_persistence.html">clique_persistence()</a></code> measures how robust each clique’s conservation signal is to threshold tightening. For each clique edge (species pair), it identifies co-expressologs – genes that are co-expression neighbours of the clique gene in both species – and computes the ratio of the weakest co-expressolog edge’s MR value to the species’ density threshold.</p>
+<p>A persistence of 1.0 means the weakest supporting edge is exactly at threshold (marginal). Values above 1.0 indicate the conservation signal would survive at stricter density thresholds.</p>
 </div>
 </div>
 <div class="section level2">
@@ -379,12 +407,12 @@
 <tr class="even">
 <td><code>R/network.R</code></td>
 <td>
-<code><a href="reference/compute_network.html">compute_network()</a></code> – correlation, MR/CLR, density threshold</td>
+<code><a href="reference/compute_network.html">compute_network()</a></code> – S4 generic (matrix / SE), correlation, MR/CLR, density threshold</td>
 </tr>
 <tr class="odd">
 <td><code>R/comparison.R</code></td>
 <td>
-<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> – pair-level hypergeometric</td>
+<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, <code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code> – pair-level hypergeometric, edge conversion</td>
 </tr>
 <tr class="even">
 <td><code>R/summary.R</code></td>
@@ -400,8 +428,13 @@
 <tr class="even">
 <td><code>R/cliques.R</code></td>
 <td>
-<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_hubs.html">clique_hubs()</a></code>
+<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>
 </td>
+</tr>
+<tr class="odd">
+<td><code>R/se_methods.R</code></td>
+<td>
+<code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code>, <code>build_se()</code> (internal) – SummarizedExperiment helpers</td>
 </tr>
 </tbody>
 </table>
@@ -466,6 +499,10 @@
 <tr class="even">
 <td><code>src/find_cliques_stability.cpp</code></td>
 <td>Leave-k-out stability engine with OpenMP</td>
+</tr>
+<tr class="odd">
+<td><code>src/sample_k_distinct.h</code></td>
+<td>Shared rejection-sampling utility for subset generation</td>
 </tr>
 </tbody>
 </table>

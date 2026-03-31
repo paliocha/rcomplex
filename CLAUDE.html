@@ -80,7 +80,7 @@
 <code><a href="reference/compute_network.html">compute_network()</a></code> — correlation, MR/CLR, density threshold, torch GPU</td>
 </tr><tr class="odd"><td><code>R/comparison.R</code></td>
 <td>
-<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> — pair-level hypergeometric</td>
+<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, <code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code> — pair-level hypergeometric, edge conversion</td>
 </tr><tr class="even"><td><code>R/summary.R</code></td>
 <td>
 <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, torch FE helpers</td>
@@ -90,9 +90,12 @@
 </td>
 </tr><tr class="even"><td><code>R/cliques.R</code></td>
 <td>
-<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_hubs.html">clique_hubs()</a></code>
+<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>
 </td>
-</tr><tr class="odd"><td><code>R/rcomplex-package.R</code></td>
+</tr><tr class="odd"><td><code>R/se_methods.R</code></td>
+<td>
+<code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code>, <code>build_se()</code> (internal) — SummarizedExperiment helpers</td>
+</tr><tr class="even"><td><code>R/rcomplex-package.R</code></td>
 <td>Package-level roxygen, namespace imports</td>
 </tr></tbody></table></div>
 <div class="section level3">
@@ -148,7 +151,9 @@
 <td>Hub gene identification</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-reduce-orthogroups.R</code></td>
 <td>Paralog reduction</td>
-</tr><tr class="even"><td><code>tests/testthat/helper-reference.R</code></td>
+</tr><tr class="even"><td><code>tests/testthat/test-se.R</code></td>
+<td>SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network)</td>
+</tr><tr class="odd"><td><code>tests/testthat/helper-reference.R</code></td>
 <td>Pure-R reference implementations</td>
 </tr></tbody></table></div>
 </div>
@@ -179,7 +184,7 @@
 </div>
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>
-<p><strong>Imports</strong>: Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, stats, utils <strong>Suggests</strong>: sbm, torch, testthat, lintr, pkgdown <strong>LinkingTo</strong>: Rcpp, RcppArmadillo <strong>System</strong>: GNU make, C++23, OpenMP (optional)</p>
+<p><strong>Imports</strong>: methods, Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, S4Vectors, stats, SummarizedExperiment, utils <strong>Suggests</strong>: sbm, torch, testthat, lintr, pkgdown <strong>LinkingTo</strong>: Rcpp, RcppArmadillo <strong>System</strong>: GNU make, C++23, OpenMP (optional)</p>
 </div>
 </div>
 

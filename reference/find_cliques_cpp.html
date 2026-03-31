@@ -62,7 +62,8 @@
 <span>  <span class="va">min_species</span>,</span>
 <span>  <span class="va">n_hogs</span>,</span>
 <span>  <span class="va">n_genes</span>,</span>
-<span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span></span>
+<span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  max_missing_edges <span class="op">=</span> <span class="fl">0L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -117,11 +118,15 @@
 <dt id="arg-max-genes-per-sp">max_genes_per_sp<a class="anchor" aria-label="anchor" href="#arg-max-genes-per-sp"></a></dt>
 <dd><p>Maximum genes per species per HOG (default 10)</p></dd>
 
+
+<dt id="arg-max-missing-edges">max_missing_edges<a class="anchor" aria-label="anchor" href="#arg-max-missing-edges"></a></dt>
+<dd><p>Maximum missing edges tolerated (default 0)</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     <p>List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-n_species, mean_q, max_q, mean_effect_size, n_edges</p>
+n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing</p>
     </div>
 
   </div>
