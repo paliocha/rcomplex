@@ -317,6 +317,32 @@ test_that("clique_persistence handles multiple cliques", {
 })
 
 
+test_that("clique_persistence excludes self from neighbours", {
+  # Network with non-zero diagonal — gene must not count as its own neighbour
+  net <- matrix(c(99, 1,  1, 99), nrow = 2,
+                dimnames = list(c("A1", "A2"), c("A1", "A2")))
+
+  networks <- list(
+    SP_A = list(network = net, threshold = 2.0),
+    SP_B = list(network = net, threshold = 2.0)
+  )
+
+  cliques <- data.frame(
+    hog = "HOG1",
+    SP_A = "A1", SP_B = "A2",
+    n_species = 2L, mean_q = 0.01, max_q = 0.01,
+    mean_effect_size = 2.0, n_edges = 1L,
+    stringsAsFactors = FALSE
+  )
+
+  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"))
+
+  # Without self-exclusion this would be min(99/2, 99/2) = 49.5
+  # With self-exclusion: only neighbour is 1.0, below threshold -> no neighbours
+  expect_true(is.na(result$persistence))
+})
+
+
 test_that("clique_persistence validates inputs", {
   expect_error(clique_persistence(data.frame(x = 1), list(), c("A", "B")),
                "cliques must be a data frame from find_cliques")

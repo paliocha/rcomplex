@@ -618,6 +618,12 @@ clique_hubs <- function(cliques, target_species,
 #' density thresholds. For example, persistence = 3.0 at a 3\% density
 #' threshold means the clique would survive at roughly 1\% density.
 #'
+#' The score reflects the gene's full neighbourhood, not just edges to
+#' other clique members. This is intentional: conservation is tested on
+#' neighbourhood overlap, so a gene losing any neighbour at a tighter
+#' threshold weakens the overlap signal even if clique-internal edges
+#' remain strong.
+#'
 #' @param cliques Output of \code{\link{find_cliques}} (data frame with
 #'   \code{hog}, one column per species, and summary statistics).
 #' @param networks Named list of \code{\link{compute_network}} outputs
@@ -668,7 +674,7 @@ clique_persistence <- function(cliques, networks, target_species) {
       net <- networks[[sp]]$network
       thr <- networks[[sp]]$threshold
       if (!gene %in% rownames(net)) next
-      mr_vals <- net[gene, ]
+      mr_vals <- net[gene, colnames(net) != gene]
       neighbours <- mr_vals[mr_vals >= thr]
       if (length(neighbours) == 0L) next
       ratios <- c(ratios, min(neighbours) / thr)
