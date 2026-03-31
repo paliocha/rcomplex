@@ -215,6 +215,16 @@ homogeneous discrete p-values. <em>Biometrics</em>, 72(2), 639–648.
 <a href="https://doi.org/10.1111/biom.12429" class="external-link">doi:10.1111/biom.12429</a></p>
     </div>
 
+    <div id="ref-examples">
+    <h2>Examples</h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="va">hog_results</span> <span class="op">&lt;-</span> <span class="fu">permutation_hog_test</span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">comparison</span>,</span></span>
+<span class="r-in"><span>                                    n_cores <span class="op">=</span> <span class="fl">8L</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">significant</span> <span class="op">&lt;-</span> <span class="va">hog_results</span><span class="op">[</span><span class="va">hog_results</span><span class="op">$</span><span class="va">q.value</span> <span class="op">&lt;</span> <span class="fl">0.05</span>, <span class="op">]</span></span></span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top"><h2 data-toc-skip>Contents</h2>
