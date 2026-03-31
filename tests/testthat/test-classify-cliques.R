@@ -289,6 +289,51 @@ test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
 })
 
 
+test_that("robust is FALSE when stability passes but sweep fails", {
+  setup <- make_classify_edges()
+
+  stab <- list(
+    stability = data.frame(
+      clique_idx = 0L, hog = "HOG1",
+      trait_value = "annual", k = 1L,
+      n_subsets = 2L, n_stable = 2L,
+      stability_score = 1.0, sole_rep = FALSE,
+      stringsAsFactors = FALSE
+    ),
+    stability_class = 1L
+  )
+
+  # Sweep: HOG1 did NOT survive at any multiplier
+  sweep <- list(
+    survival = data.frame(
+      clique_idx = 0L, hog = "HOG1",
+      multiplier = 2, survived = FALSE,
+      jaccard = 0.0, n_species_orig = 4L,
+      n_species_new = NA_integer_,
+      stringsAsFactors = FALSE
+    )
+  )
+
+  result <- classify_cliques(setup$edges, setup$target, setup$trait,
+                              stability = stab, sweep = sweep,
+                              min_stability_class = 1L,
+                              min_persistence = 1.5)
+
+  hog1 <- result[result$hog == "HOG1", ]
+  # Stability passes but persistence is NA (never survived) -> robust FALSE
+  expect_false(hog1$robust)
+})
+
+
+test_that("stability=list() is rejected by input validation", {
+  setup <- make_classify_edges()
+  expect_error(
+    classify_cliques(setup$edges, setup$target, setup$trait,
+                     stability = list()),
+    "stability must be output of clique_stability")
+})
+
+
 test_that("single-species trait groups are handled gracefully", {
   # Only 3 species: SP_A alone in its group
   target <- c("SP_A", "SP_B", "SP_C")

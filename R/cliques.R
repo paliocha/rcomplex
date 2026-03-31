@@ -1191,8 +1191,9 @@ classify_cliques <- function(
   }
 
   # --- Robust flag ---
-  has_stab <- !is.null(stability)
-  has_sweep <- !is.null(sweep)
+  has_stab <- !is.null(stability$stability) && nrow(stability$stability) > 0
+  has_sweep <- !is.null(sweep) && "survival" %in% names(sweep) &&
+    nrow(sweep$survival) > 0
   if (has_stab || has_sweep) {
     stab_ok <- if (has_stab) {
       !is.na(out$stability_class) & out$stability_class >= min_stability_class
