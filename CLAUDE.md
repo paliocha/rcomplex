@@ -89,7 +89,7 @@ Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-
 
 ## Dependencies
 
-**Imports**: methods, Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, S4Vectors, stats, SummarizedExperiment, utils
-**Suggests**: sbm, torch, testthat, lintr, pkgdown
+**Imports**: methods, Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, stats, utils
+**Suggests**: S4Vectors, sbm, SummarizedExperiment, torch, testthat, lintr, pkgdown
 **LinkingTo**: Rcpp, RcppArmadillo
 **System**: GNU make, C++23, OpenMP (optional)

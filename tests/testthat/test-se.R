@@ -1,5 +1,8 @@
 # Tests for SummarizedExperiment integration
 
+skip_if_not_installed("SummarizedExperiment")
+skip_if_not_installed("S4Vectors")
+
 # Helper: minimal long-format data for build_se
 make_long_data <- function(species = "SP_A", genes = paste0("G", 1:3),
                            samples = paste0("S", 1:4),

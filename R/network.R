@@ -247,7 +247,8 @@ setMethod("compute_network", "matrix", function(x,
 
 #' @rdname compute_network
 #' @param assay Assay name or index to extract from the
-#'   SummarizedExperiment (default 1).
+#'   SummarizedExperiment (default 1). Requires the
+#'   \pkg{SummarizedExperiment} package.
 #' @export
 setMethod("compute_network", "SummarizedExperiment", function(x,
     assay = 1L, ...) {

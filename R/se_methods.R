@@ -24,6 +24,11 @@ build_se <- function(data, species,
                      hog_col = "HOG",
                      gene_metadata = NULL,
                      sample_metadata = NULL) {
+  if (!requireNamespace("SummarizedExperiment", quietly = TRUE) ||
+      !requireNamespace("S4Vectors", quietly = TRUE)) {
+    stop("SummarizedExperiment and S4Vectors packages are required. ",
+         "Install with: BiocManager::install(c('SummarizedExperiment', 'S4Vectors'))")
+  }
   required <- c(species_col, gene_col, sample_col, assay_col)
   missing_cols <- setdiff(required, names(data))
   if (length(missing_cols) > 0) {
@@ -110,6 +115,10 @@ build_se <- function(data, species,
 #'
 #' @export
 extract_orthologs <- function(se1, se2, hog_col = "hog") {
+  if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
+    stop("SummarizedExperiment package is required. ",
+         "Install with: BiocManager::install('SummarizedExperiment')")
+  }
   rd1 <- SummarizedExperiment::rowData(se1)
   rd2 <- SummarizedExperiment::rowData(se2)
 

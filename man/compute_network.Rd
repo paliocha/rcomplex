@@ -62,7 +62,8 @@ MPS, keep \code{use_torch = FALSE} here and use
 speedup instead. On CUDA, float64 is used with no precision tradeoff.}
 
 \item{assay}{Assay name or index to extract from the
-SummarizedExperiment (default 1).}
+SummarizedExperiment (default 1). Requires the
+\pkg{SummarizedExperiment} package.}
 }
 \value{
 A list with components:

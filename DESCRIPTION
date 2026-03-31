@@ -28,9 +28,7 @@ Imports:
     tidyr (>= 1.3.0),
     parallel,
     rlang,
-    S4Vectors,
     stats,
-    SummarizedExperiment,
     utils
 LinkingTo:
     Rcpp,
@@ -40,7 +38,9 @@ URL: https://paliocha.github.io/rcomplex/,
     https://github.com/paliocha/rcomplex
 BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
+    S4Vectors,
     sbm,
+    SummarizedExperiment,
     torch,
     testthat (>= 3.0.0),
     lintr,
