@@ -410,7 +410,7 @@ Rcpp::DataFrame hog_permutation_test_cpp(
                 n1, n2, thread_f1[tid], thread_f2[tid]);
         }
 
-        if (T_obs <= 0.0) {
+        if (test_greater && T_obs <= 0.0) {
             out_T_obs[h] = 0.0;
             out_n_perm[h] = 0;
             out_n_exceed[h] = 0;

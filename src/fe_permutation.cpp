@@ -124,7 +124,7 @@ Rcpp::DataFrame fe_hog_permutation_test_cpp(
 
         double T_obs = submatrix_sum(combined, sp1, sp2);
 
-        if (T_obs <= 0.0) {
+        if (test_greater && T_obs <= 0.0) {
             out_T_obs[h] = 0.0;
             out_n_perm[h] = 0;
             out_n_exceed[h] = 0;

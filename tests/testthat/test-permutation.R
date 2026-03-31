@@ -150,6 +150,11 @@ test_that("alternative='less' tests divergence", {
 
   # Conserved HOG should be significant for conservation, not divergence
   expect_true(hog1_con$p.value < hog1_div$p.value)
+
+  # Non-conserved HOG with T_obs=0: under "less", T_obs=0 is extreme
+  # divergence — permutations must actually run (not be short-circuited)
+  hog_nc_div <- result_div[result_div$OrthoGroup == "HOG_NC", ]
+  expect_true(hog_nc_div$n_perm > 0L)
 })
 
 
