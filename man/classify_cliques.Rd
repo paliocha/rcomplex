@@ -76,12 +76,15 @@ thresholds (NA if neither provided)}
 }
 }
 \description{
-Sequential waterfall classification of Hierarchical Ortholog Groups
-based on cross-species clique structure and trait group membership.
-Each HOG is assigned to exactly one category; earlier categories
-take precedence.
+Convenience wrapper that runs \code{\link{find_cliques}} internally
+(once for all species, once per trait group) and applies a sequential
+waterfall classification. For fine-grained control over the clique
+detection parameters per step, call \code{find_cliques()} directly.
 }
 \details{
+Each HOG is assigned to exactly one category; earlier categories
+take precedence.
+
 The pipeline:
 \enumerate{
 \item \strong{complete}: all target species form a clique (all

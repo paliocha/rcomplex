@@ -78,11 +78,15 @@ by multiplier.}
 }
 }
 \description{
-Re-runs the full clique detection pipeline at progressively stricter
-thresholds (multipliers of the original). At each level, networks are
-re-thresholded, neighborhoods re-compared, q-values recomputed, and
-cliques re-detected. No permutations are involved -- all tests are
-analytical (hypergeometric + Storey q-values).
+Convenience wrapper that re-runs the full comparison-to-clique pipeline
+(\code{\link{compare_neighborhoods}} -> \code{\link{summarize_comparison}}
+-> \code{\link{comparison_to_edges}} -> \code{\link{find_cliques}}) at
+progressively stricter thresholds. For custom threshold logic, call the
+individual functions directly.
+}
+\details{
+No permutations are involved -- all tests are analytical
+(hypergeometric + Storey q-values).
 }
 \examples{
 \dontrun{

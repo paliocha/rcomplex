@@ -28,8 +28,8 @@ testing conservation at gene, module, and clique levels.
 \item{\code{\link[=find_cliques]{find_cliques()}}}{C++ clique detection (Bron-Kerbosch)}
 \item{\code{\link[=clique_stability]{clique_stability()}}}{Leave-k-out jackknife stability}
 \item{\code{\link[=clique_persistence]{clique_persistence()}}}{Co-expressolog persistence scores}
-\item{\code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}}{Structural survival across stricter thresholds}
-\item{\code{\link[=classify_cliques]{classify_cliques()}}}{Waterfall HOG classification by clique pattern}
+\item{\code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}}{Threshold sweep (convenience wrapper)}
+\item{\code{\link[=classify_cliques]{classify_cliques()}}}{HOG classification (convenience wrapper)}
 }
 }
 

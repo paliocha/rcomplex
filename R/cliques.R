@@ -625,11 +625,14 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
 
 #' Structural survival of cliques across stricter density thresholds
 #'
-#' Re-runs the full clique detection pipeline at progressively stricter
-#' thresholds (multipliers of the original). At each level, networks are
-#' re-thresholded, neighborhoods re-compared, q-values recomputed, and
-#' cliques re-detected. No permutations are involved -- all tests are
-#' analytical (hypergeometric + Storey q-values).
+#' Convenience wrapper that re-runs the full comparison-to-clique pipeline
+#' (\code{\link{compare_neighborhoods}} -> \code{\link{summarize_comparison}}
+#' -> \code{\link{comparison_to_edges}} -> \code{\link{find_cliques}}) at
+#' progressively stricter thresholds. For custom threshold logic, call the
+#' individual functions directly.
+#'
+#' No permutations are involved -- all tests are analytical
+#' (hypergeometric + Storey q-values).
 #'
 #' @param cliques Baseline output of \code{\link{find_cliques}}.
 #' @param target_species Character vector of species abbreviations.
@@ -872,8 +875,11 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 
 #' Classify HOGs by clique conservation pattern
 #'
-#' Sequential waterfall classification of Hierarchical Ortholog Groups
-#' based on cross-species clique structure and trait group membership.
+#' Convenience wrapper that runs \code{\link{find_cliques}} internally
+#' (once for all species, once per trait group) and applies a sequential
+#' waterfall classification. For fine-grained control over the clique
+#' detection parameters per step, call \code{find_cliques()} directly.
+#'
 #' Each HOG is assigned to exactly one category; earlier categories
 #' take precedence.
 #'
