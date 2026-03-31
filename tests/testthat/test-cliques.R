@@ -201,40 +201,81 @@ test_that("find_cliques fewer than 2 target species raises error", {
 
 # --- Tests for clique_persistence() ---
 
-test_that("clique_persistence computes correct ratios", {
-  net_a <- matrix(c(0, 5, 3,  5, 0, 1,  3, 1, 0), nrow = 3,
+test_that("clique_persistence uses co-expressologs not full neighbourhood", {
+  # A1 has neighbours A2 (strong) and A3 (marginal)
+  # B1 has neighbours B2 (strong) and B3 (marginal)
+  # Only A2<->B2 are orthologs, so persistence comes from that pair alone
+  net_a <- matrix(c(0, 10, 2.1,  10, 0, 0.5,  2.1, 0.5, 0), nrow = 3,
                   dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
-  net_b <- matrix(c(0, 4, 2,  4, 0, 1,  2, 1, 0), nrow = 3,
+  net_b <- matrix(c(0, 8, 2.6,  8, 0, 0.5,  2.6, 0.5, 0), nrow = 3,
                   dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
-  net_c <- matrix(c(0, 6, 1,  6, 0, 3,  1, 3, 0), nrow = 3,
-                  dimnames = list(c("C1", "C2", "C3"), c("C1", "C2", "C3")))
 
   networks <- list(
-    SP_A = list(network = net_a, threshold = 2.5),
-    SP_B = list(network = net_b, threshold = 1.5),
-    SP_C = list(network = net_c, threshold = 2.0)
+    SP_A = list(network = net_a, threshold = 2.0),
+    SP_B = list(network = net_b, threshold = 2.5)
   )
 
   cliques <- data.frame(
-    hog = "HOG1",
-    SP_A = "A1", SP_B = "B1", SP_C = "C1",
-    n_species = 3L, mean_q = 0.02, max_q = 0.03,
-    mean_effect_size = 3.0, n_edges = 3L,
+    hog = "HOG1", SP_A = "A1", SP_B = "B1",
+    n_species = 2L, mean_q = 0.01, max_q = 0.01,
+    mean_effect_size = 3.0, n_edges = 1L,
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B", "SP_C"))
+  edges <- data.frame(
+    gene1 = c("A1", "A2"), gene2 = c("B1", "B2"),
+    species1 = c("SP_A", "SP_A"), species2 = c("SP_B", "SP_B"),
+    hog = c("HOG1", "HOG_X"),
+    q.value = c(0.01, 0.5), effect_size = c(3.0, 1.0),
+    stringsAsFactors = FALSE
+  )
 
-  # A1: neighbours >= 2.5 are A2(5), A3(3). Weakest = 3.0. Ratio = 1.2
-  # B1: neighbours >= 1.5 are B2(4), B3(2). Weakest = 2.0. Ratio = 4/3
-  # C1: neighbours >= 2.0 are C2(6). Weakest = 6.0. Ratio = 3.0
-  expect_equal(result$persistence, 1.2, tolerance = 1e-10)
-  expect_equal(result$mean_persistence, mean(c(1.2, 4 / 3, 3.0)),
-               tolerance = 1e-10)
+  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+
+  # Only co-expressolog: (A2, B2). ratio = min(10/2, 8/2.5) = 3.2
+  # Neighbourhood-wide would give 1.04 (dominated by marginal A3, B3)
+  expect_equal(result$persistence, 3.2, tolerance = 1e-10)
+  expect_equal(result$mean_persistence, 3.2, tolerance = 1e-10)
 })
 
 
-test_that("clique_persistence handles NA species columns", {
+test_that("clique_persistence weakest co-expressolog determines score", {
+  net_a <- matrix(c(0, 10, 3,  10, 0, 0.5,  3, 0.5, 0), nrow = 3,
+                  dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
+  net_b <- matrix(c(0, 8, 2.6,  8, 0, 0.5,  2.6, 0.5, 0), nrow = 3,
+                  dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
+
+  networks <- list(
+    SP_A = list(network = net_a, threshold = 2.0),
+    SP_B = list(network = net_b, threshold = 2.5)
+  )
+
+  cliques <- data.frame(
+    hog = "HOG1", SP_A = "A1", SP_B = "B1",
+    n_species = 2L, mean_q = 0.01, max_q = 0.01,
+    mean_effect_size = 3.0, n_edges = 1L,
+    stringsAsFactors = FALSE
+  )
+
+  edges <- data.frame(
+    gene1 = c("A1", "A2", "A3"),
+    gene2 = c("B1", "B2", "B3"),
+    species1 = rep("SP_A", 3), species2 = rep("SP_B", 3),
+    hog = c("HOG1", "HOG_X", "HOG_Y"),
+    q.value = rep(0.01, 3), effect_size = rep(3.0, 3),
+    stringsAsFactors = FALSE
+  )
+
+  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+
+  # (A2,B2): min(10/2, 8/2.5) = min(5, 3.2) = 3.2
+  # (A3,B3): min(3/2, 2.6/2.5) = min(1.5, 1.04) = 1.04
+  expect_equal(result$persistence, 1.04, tolerance = 1e-10)
+  expect_equal(result$mean_persistence, mean(c(3.2, 1.04)), tolerance = 1e-10)
+})
+
+
+test_that("clique_persistence returns NA with no co-expressologs", {
   net_a <- matrix(c(0, 5,  5, 0), nrow = 2,
                   dimnames = list(c("A1", "A2"), c("A1", "A2")))
   net_b <- matrix(c(0, 3,  3, 0), nrow = 2,
@@ -246,39 +287,22 @@ test_that("clique_persistence handles NA species columns", {
   )
 
   cliques <- data.frame(
-    hog = "HOG1",
-    SP_A = "A1", SP_B = NA_character_,
-    n_species = 1L, mean_q = 0.01, max_q = 0.01,
-    mean_effect_size = 2.0, n_edges = 0L,
-    stringsAsFactors = FALSE
-  )
-
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"))
-
-  # Only SP_A contributes: A1 neighbour A2(5.0) >= 2.0, ratio = 2.5
-  expect_equal(result$persistence, 2.5)
-  expect_equal(result$mean_persistence, 2.5)
-})
-
-
-test_that("clique_persistence returns NA when gene not in network", {
-  net_a <- matrix(c(0, 5,  5, 0), nrow = 2,
-                  dimnames = list(c("A1", "A2"), c("A1", "A2")))
-
-  networks <- list(
-    SP_A = list(network = net_a, threshold = 2.0),
-    SP_B = list(network = net_a, threshold = 2.0)
-  )
-
-  cliques <- data.frame(
-    hog = "HOG1",
-    SP_A = "MISSING", SP_B = "ALSO_MISSING",
+    hog = "HOG1", SP_A = "A1", SP_B = "B1",
     n_species = 2L, mean_q = 0.01, max_q = 0.01,
     mean_effect_size = 2.0, n_edges = 1L,
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"))
+  # A2's ortholog B3 is not in SP_B's network -> no co-expressologs
+  edges <- data.frame(
+    gene1 = c("A1", "A2"), gene2 = c("B1", "B3"),
+    species1 = c("SP_A", "SP_A"), species2 = c("SP_B", "SP_B"),
+    hog = c("HOG1", "HOG_X"),
+    q.value = c(0.01, 0.5), effect_size = c(3.0, 1.0),
+    stringsAsFactors = FALSE
+  )
+
+  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
 
   expect_true(is.na(result$persistence))
   expect_true(is.na(result$mean_persistence))
@@ -286,14 +310,14 @@ test_that("clique_persistence returns NA when gene not in network", {
 
 
 test_that("clique_persistence handles multiple cliques", {
-  net_a <- matrix(c(0, 5, 3,  5, 0, 1,  3, 1, 0), nrow = 3,
+  net_a <- matrix(c(0, 10, 3,  10, 0, 0.5,  3, 0.5, 0), nrow = 3,
                   dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
-  net_b <- matrix(c(0, 4, 2,  4, 0, 1,  2, 1, 0), nrow = 3,
+  net_b <- matrix(c(0, 8, 4,  8, 0, 0.5,  4, 0.5, 0), nrow = 3,
                   dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
 
   networks <- list(
-    SP_A = list(network = net_a, threshold = 2.5),
-    SP_B = list(network = net_b, threshold = 1.5)
+    SP_A = list(network = net_a, threshold = 2.0),
+    SP_B = list(network = net_b, threshold = 2.5)
   )
 
   cliques <- data.frame(
@@ -305,20 +329,27 @@ test_that("clique_persistence handles multiple cliques", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"))
+  edges <- data.frame(
+    gene1 = c("A1", "A2", "A3"),
+    gene2 = c("B1", "B2", "B3"),
+    species1 = rep("SP_A", 3), species2 = rep("SP_B", 3),
+    hog = c("HOG1", "HOG2", "HOG3"),
+    q.value = rep(0.01, 3), effect_size = rep(3.0, 3),
+    stringsAsFactors = FALSE
+  )
 
-  # HOG1: A1 ratio=1.2, B1 ratio=4/3 -> persistence=1.2
-  # HOG2: A2 neighbours>=2.5 are A1(5). ratio=5/2.5=2.0
-  #        B2 neighbours>=1.5 are B1(4). ratio=4/1.5=8/3
-  #        persistence=2.0
-  expect_equal(result$persistence[1], 1.2, tolerance = 1e-10)
-  expect_equal(result$persistence[2], 2.0, tolerance = 1e-10)
-  expect_equal(nrow(result), 2)
+  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+
+  # HOG1 (A1, B1): co-expressologs (A2,B2) min(10/2,8/2.5)=3.2,
+  #   (A3,B3) min(3/2,4/2.5)=min(1.5,1.6)=1.5 -> persistence=1.5
+  # HOG2 (A2, B2): co-expressolog (A1,B1) min(10/2,8/2.5)=3.2
+  #   (A3 not neighbour of A2) -> persistence=3.2
+  expect_equal(result$persistence[1], 1.5, tolerance = 1e-10)
+  expect_equal(result$persistence[2], 3.2, tolerance = 1e-10)
 })
 
 
 test_that("clique_persistence excludes self from neighbours", {
-  # Network with non-zero diagonal — gene must not count as its own neighbour
   net <- matrix(c(99, 1,  1, 99), nrow = 2,
                 dimnames = list(c("A1", "A2"), c("A1", "A2")))
 
@@ -328,34 +359,55 @@ test_that("clique_persistence excludes self from neighbours", {
   )
 
   cliques <- data.frame(
-    hog = "HOG1",
-    SP_A = "A1", SP_B = "A2",
+    hog = "HOG1", SP_A = "A1", SP_B = "A2",
     n_species = 2L, mean_q = 0.01, max_q = 0.01,
     mean_effect_size = 2.0, n_edges = 1L,
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"))
+  edges <- data.frame(
+    gene1 = "A1", gene2 = "A2",
+    species1 = "SP_A", species2 = "SP_B",
+    hog = "HOG1", q.value = 0.01, effect_size = 3.0,
+    stringsAsFactors = FALSE
+  )
 
-  # Without self-exclusion this would be min(99/2, 99/2) = 49.5
-  # With self-exclusion: only neighbour is 1.0, below threshold -> no neighbours
+  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+
+  # With self-exclusion: A1's only neighbour is A2 (MR=1 < 2.0) -> no neighbours
   expect_true(is.na(result$persistence))
 })
 
 
 test_that("clique_persistence validates inputs", {
-  expect_error(clique_persistence(data.frame(x = 1), list(), c("A", "B")),
-               "cliques must be a data frame from find_cliques")
-  expect_error(clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                                  list(), c("A", "B")),
-               "networks must be a named list")
-  expect_error(clique_persistence(data.frame(hog = "H", A = "g"),
-                                  list(A = list()), c("A")),
-               "target_species must have at least 2 species")
-  expect_error(clique_persistence(data.frame(hog = "H", A = "g"),
-                                  list(A = list(), B = list()), c("A", "B")),
-               "cliques missing columns for species")
-  expect_error(clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                                  list(A = list()), c("A", "B")),
-               "networks missing entries for species")
+  dummy_edges <- data.frame(
+    gene1 = "A", gene2 = "B", species1 = "SP_A", species2 = "SP_B",
+    hog = "H", q.value = 0.01, effect_size = 1.0,
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    clique_persistence(data.frame(x = 1), list(), c("A", "B"), dummy_edges),
+    "cliques must be a data frame from find_cliques")
+  expect_error(
+    clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
+                       list(), c("A", "B"), dummy_edges),
+    "networks must be a named list")
+  expect_error(
+    clique_persistence(data.frame(hog = "H", A = "g"),
+                       list(A = list()), c("A"), dummy_edges),
+    "target_species must have at least 2 species")
+  expect_error(
+    clique_persistence(data.frame(hog = "H", A = "g"),
+                       list(A = list(), B = list()), c("A", "B"), dummy_edges),
+    "cliques missing columns for species")
+  expect_error(
+    clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
+                       list(A = list()), c("A", "B"), dummy_edges),
+    "networks missing entries for species")
+  expect_error(
+    clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
+                       list(A = list(), B = list()), c("A", "B"),
+                       data.frame(x = 1)),
+    "edges missing required columns")
 })

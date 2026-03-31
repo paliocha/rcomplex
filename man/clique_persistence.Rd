@@ -2,9 +2,9 @@
 % Please edit documentation in R/cliques.R
 \name{clique_persistence}
 \alias{clique_persistence}
-\title{Compute persistence scores for cliques}
+\title{Compute co-expressolog persistence scores for cliques}
 \usage{
-clique_persistence(cliques, networks, target_species)
+clique_persistence(cliques, networks, target_species, edges)
 }
 \arguments{
 \item{cliques}{Output of \code{\link{find_cliques}} (data frame with
@@ -16,32 +16,32 @@ keyed by species abbreviation. Each element must have \code{$network}
 
 \item{target_species}{Character vector matching column names in
 \code{cliques} and names in \code{networks}.}
+
+\item{edges}{Data frame with columns \code{gene1}, \code{gene2},
+\code{species1}, \code{species2} (same format as
+\code{\link{find_cliques}} input). Used solely as the ortholog
+mapping to identify co-expressologs; \code{q.value},
+\code{effect_size}, and \code{type} columns are ignored. Should
+include all comparison pairs, not just conserved edges.}
 }
 \value{
 The input \code{cliques} data frame with two appended columns:
 \describe{
-\item{persistence}{Minimum over species of
-(weakest-neighbour MR / threshold). The bottleneck species.}
-\item{mean_persistence}{Mean over species. Overall depth of the
-clique's genes into the MR distribution.}
+\item{persistence}{Minimum co-expressolog ratio across all
+species pairs. The weakest shared-neighbour edge.}
+\item{mean_persistence}{Mean co-expressolog ratio. Overall
+robustness of the conservation signal.}
 }
 }
 \description{
-For each clique, measures how robust its genes' co-expression
-neighbourhoods are to threshold tightening. For each gene in each
-species, computes the ratio of the weakest neighbour's MR value to
-the species threshold. The clique-level persistence is the minimum
-ratio across all species — the bottleneck.
+For each clique, measures how robust the conservation signal is to
+threshold tightening. Co-expressologs are genes that are co-expression
+neighbours of the clique gene in both species (connected through the
+ortholog mapping). The persistence score is the ratio of the weakest
+co-expressolog edge's MR value to its species threshold.
 }
 \details{
-A persistence of 1.0 means the weakest edge is exactly at threshold
-(marginal). Values above 1.0 indicate the clique survives at stricter
-density thresholds. For example, persistence = 3.0 at a 3\\% density
-threshold means the clique would survive at roughly 1\\% density.
-
-The score reflects the gene's full neighbourhood, not just edges to
-other clique members. This is intentional: conservation is tested on
-neighbourhood overlap, so a gene losing any neighbour at a tighter
-threshold weakens the overlap signal even if clique-internal edges
-remain strong.
+A persistence of 1.0 means the weakest co-expressolog edge is exactly
+at threshold (marginal). Values above 1.0 indicate the conservation
+signal survives at stricter density thresholds.
 }

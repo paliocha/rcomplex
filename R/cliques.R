@@ -605,24 +605,17 @@ clique_hubs <- function(cliques, target_species,
 }
 
 
-#' Compute persistence scores for cliques
+#' Compute co-expressolog persistence scores for cliques
 #'
-#' For each clique, measures how robust its genes' co-expression
-#' neighbourhoods are to threshold tightening. For each gene in each
-#' species, computes the ratio of the weakest neighbour's MR value to
-#' the species threshold. The clique-level persistence is the minimum
-#' ratio across all species — the bottleneck.
+#' For each clique, measures how robust the conservation signal is to
+#' threshold tightening. Co-expressologs are genes that are co-expression
+#' neighbours of the clique gene in both species (connected through the
+#' ortholog mapping). The persistence score is the ratio of the weakest
+#' co-expressolog edge's MR value to its species threshold.
 #'
-#' A persistence of 1.0 means the weakest edge is exactly at threshold
-#' (marginal). Values above 1.0 indicate the clique survives at stricter
-#' density thresholds. For example, persistence = 3.0 at a 3\% density
-#' threshold means the clique would survive at roughly 1\% density.
-#'
-#' The score reflects the gene's full neighbourhood, not just edges to
-#' other clique members. This is intentional: conservation is tested on
-#' neighbourhood overlap, so a gene losing any neighbour at a tighter
-#' threshold weakens the overlap signal even if clique-internal edges
-#' remain strong.
+#' A persistence of 1.0 means the weakest co-expressolog edge is exactly
+#' at threshold (marginal). Values above 1.0 indicate the conservation
+#' signal survives at stricter density thresholds.
 #'
 #' @param cliques Output of \code{\link{find_cliques}} (data frame with
 #'   \code{hog}, one column per species, and summary statistics).
@@ -631,17 +624,23 @@ clique_hubs <- function(cliques, target_species,
 #'   (named numeric matrix) and \code{$threshold} (scalar).
 #' @param target_species Character vector matching column names in
 #'   \code{cliques} and names in \code{networks}.
+#' @param edges Data frame with columns \code{gene1}, \code{gene2},
+#'   \code{species1}, \code{species2} (same format as
+#'   \code{\link{find_cliques}} input). Used solely as the ortholog
+#'   mapping to identify co-expressologs; \code{q.value},
+#'   \code{effect_size}, and \code{type} columns are ignored. Should
+#'   include all comparison pairs, not just conserved edges.
 #'
 #' @return The input \code{cliques} data frame with two appended columns:
 #'   \describe{
-#'     \item{persistence}{Minimum over species of
-#'       (weakest-neighbour MR / threshold). The bottleneck species.}
-#'     \item{mean_persistence}{Mean over species. Overall depth of the
-#'       clique's genes into the MR distribution.}
+#'     \item{persistence}{Minimum co-expressolog ratio across all
+#'       species pairs. The weakest shared-neighbour edge.}
+#'     \item{mean_persistence}{Mean co-expressolog ratio. Overall
+#'       robustness of the conservation signal.}
 #'   }
 #'
 #' @export
-clique_persistence <- function(cliques, networks, target_species) {
+clique_persistence <- function(cliques, networks, target_species, edges) {
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data frame from find_cliques()")
   }
@@ -661,6 +660,26 @@ clique_persistence <- function(cliques, networks, target_species) {
     stop("networks missing entries for species: ",
          paste(missing_net, collapse = ", "))
   }
+  ortho_cols <- c("gene1", "gene2", "species1", "species2")
+  missing_cols <- setdiff(ortho_cols, names(edges))
+  if (length(missing_cols) > 0) {
+    stop("edges missing required columns: ",
+         paste(missing_cols, collapse = ", "))
+  }
+
+  # Pre-build ortholog lookup: ortho[["sp_a.sp_b"]][[gene_a]] -> c(gene_b, ...)
+  ortho <- list()
+  for (pair in utils::combn(target_species, 2, simplify = FALSE)) {
+    sp_a <- pair[1]
+    sp_b <- pair[2]
+    fwd <- edges[edges$species1 == sp_a & edges$species2 == sp_b, , drop = FALSE]
+    rev <- edges[edges$species1 == sp_b & edges$species2 == sp_a, , drop = FALSE]
+    gene_a <- c(fwd$gene1, rev$gene2)
+    gene_b <- c(fwd$gene2, rev$gene1)
+    if (length(gene_a) == 0L) next
+    ortho[[paste(sp_a, sp_b, sep = ".")]] <-
+      lapply(split(gene_b, gene_a), unique)
+  }
 
   n <- nrow(cliques)
   persistence <- rep(NA_real_, n)
@@ -668,17 +687,67 @@ clique_persistence <- function(cliques, networks, target_species) {
 
   for (i in seq_len(n)) {
     ratios <- numeric(0)
+
+    # Active species and genes for this clique
+    active_sp <- character(0)
+    active_g <- character(0)
     for (sp in target_species) {
-      gene <- cliques[[sp]][i]
-      if (is.na(gene)) next
-      net <- networks[[sp]]$network
-      thr <- networks[[sp]]$threshold
-      if (!gene %in% rownames(net)) next
-      mr_vals <- net[gene, colnames(net) != gene]
-      neighbours <- mr_vals[mr_vals >= thr]
-      if (length(neighbours) == 0L) next
-      ratios <- c(ratios, min(neighbours) / thr)
+      g <- cliques[[sp]][i]
+      if (!is.na(g)) {
+        active_sp <- c(active_sp, sp)
+        active_g <- c(active_g, g)
+      }
     }
+    names(active_g) <- active_sp
+    if (length(active_sp) < 2L) next
+
+    # For each species pair in the clique
+    for (a_idx in seq_along(active_sp)[-length(active_sp)]) {
+      for (b_idx in (a_idx + 1L):length(active_sp)) {
+        sp_a <- active_sp[a_idx]
+        sp_b <- active_sp[b_idx]
+        g_a <- active_g[[sp_a]]
+        g_b <- active_g[[sp_b]]
+
+        net_a <- networks[[sp_a]]$network
+        thr_a <- networks[[sp_a]]$threshold
+        net_b <- networks[[sp_b]]$network
+        thr_b <- networks[[sp_b]]$threshold
+        if (!g_a %in% rownames(net_a) || !g_b %in% rownames(net_b)) next
+
+        # Neighbours (excluding self)
+        mr_a <- net_a[g_a, colnames(net_a) != g_a]
+        neigh_a <- names(mr_a[mr_a >= thr_a])
+        if (length(neigh_a) == 0L) next
+
+        mr_b <- net_b[g_b, colnames(net_b) != g_b]
+        neigh_b <- names(mr_b[mr_b >= thr_b])
+        if (length(neigh_b) == 0L) next
+
+        # Map neighbours of g_a through orthologs to sp_b
+        lookup <- ortho[[paste(sp_a, sp_b, sep = ".")]]
+        if (is.null(lookup)) next
+
+        mapped <- lookup[neigh_a]
+        mapped <- mapped[!vapply(mapped, is.null, logical(1))]
+        if (length(mapped) == 0L) next
+
+        gene_a_vec <- rep(names(mapped), lengths(mapped))
+        gene_b_vec <- unlist(mapped, use.names = FALSE)
+
+        # Filter to co-expressologs (ortholog is also a neighbour)
+        is_coexpr <- gene_b_vec %in% neigh_b
+        if (!any(is_coexpr)) next
+
+        # Vectorised ratio: min(MR_a/thr_a, MR_b/thr_b) per pair
+        pair_ratios <- pmin(
+          mr_a[gene_a_vec[is_coexpr]] / thr_a,
+          mr_b[gene_b_vec[is_coexpr]] / thr_b
+        )
+        ratios <- c(ratios, pair_ratios)
+      }
+    }
+
     if (length(ratios) > 0L) {
       persistence[i] <- min(ratios)
       mean_persistence[i] <- mean(ratios)
