@@ -59,7 +59,7 @@ struct AssignResult {
 // ---------------------------------------------------------------------------
 // Bron-Kerbosch with pivoting for species-level maximal cliques
 // ---------------------------------------------------------------------------
-// Operates on a small graph (<= 16 nodes). Finds all maximal cliques
+// Operates on a small graph (<= 64 nodes). Finds all maximal cliques
 // with at least min_size vertices.
 inline void bron_kerbosch(
     std::vector<int>& R,
