@@ -990,20 +990,16 @@ classify_cliques <- function(
   )
   if (length(all_hogs) == 0) return(empty)
 
-  # --- Step 1: Complete cliques (all target species) ---
-  complete_cliques <- find_cliques(edges, target_species,
-                                    min_species = n_sp,
-                                    max_genes_per_sp = max_genes_per_sp,
-                                    max_missing_edges = 0L,
-                                    edge_type = edge_type)
-  complete_hogs <- unique(complete_cliques$hog)
-
-  # --- Step 2: Partial cliques (< N species, or with missing edges) ---
+  # --- Steps 1+2: Find all cliques (complete + partial in one pass) ---
   all_cliques <- find_cliques(edges, target_species,
                                min_species = min_species,
                                max_genes_per_sp = max_genes_per_sp,
                                max_missing_edges = max_missing_edges,
                                edge_type = edge_type)
+
+  # Complete = all N species, no missing edges
+  is_complete <- all_cliques$n_species == n_sp & all_cliques$n_missing == 0L
+  complete_hogs <- unique(all_cliques$hog[is_complete])
   # Partial cliques must span at least 2 trait groups (cross-group)
   # to distinguish from trait_specific / differentiated patterns.
   partial_candidates <- setdiff(unique(all_cliques$hog), complete_hogs)
@@ -1104,7 +1100,7 @@ classify_cliques <- function(
 
   # Complete
   if (length(complete_hogs) > 0) {
-    info <- best_per_hog(complete_cliques, complete_hogs)
+    info <- best_per_hog(all_cliques[is_complete, , drop = FALSE], complete_hogs)
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "complete",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
