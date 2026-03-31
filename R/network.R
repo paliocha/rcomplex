@@ -252,10 +252,8 @@ setMethod("compute_network", "matrix", function(x,
 #' @export
 setMethod("compute_network", "SummarizedExperiment", function(x,
     assay = 1L, ...) {
-  if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
-    stop("SummarizedExperiment package is required. ",
-         "Install with: BiocManager::install('SummarizedExperiment')")
-  }
+  # No requireNamespace guard needed: S4 dispatch to this method
+  # requires the SummarizedExperiment class (and package) to be loaded.
   expr <- SummarizedExperiment::assay(x, assay)
   compute_network(expr, ...)
 })
