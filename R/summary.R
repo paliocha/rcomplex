@@ -419,9 +419,11 @@ permutation_hog_test <- function(net1, net2, comparison,
       cm == "spearman" && nm == "mr"
     }, logical(1))
     if (any(mps_lossy)) {
-      warning("MPS float32 with Spearman + MR can produce rank-swap ",
-              "artifacts. Consider use_torch = FALSE for permutation, ",
-              "or recompute networks with cor_method = 'pearson'.",
+      warning("Input networks use Spearman + MR which can produce ",
+              "rank-swap artifacts in MPS float32. Consider recomputing ",
+              "networks with use_torch = FALSE or cor_method = 'pearson'. ",
+              "(This warning is heuristic: it checks network params, not ",
+              "whether MPS was actually used during compute_network().)",
               call. = FALSE)
     }
   }
