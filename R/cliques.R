@@ -1162,16 +1162,17 @@ classify_cliques <- function(
   # --- Stability annotation ---
   out$stability_class <- NA_integer_
   if (!is.null(stability$stability) && nrow(stability$stability) > 0) {
-    # stability_class is per-clique (0-based); map to HOGs via
-    # the cliques that stability was computed on
     stab_df <- stability$stability
-    if (nrow(stab_df) > 0 && "hog" %in% names(stab_df)) {
-      # Best stability class per HOG
-      best_sc <- tapply(stab_df$stability_score[stab_df$k == 1],
-                        stab_df$hog[stab_df$k == 1],
-                        function(s) if (all(s >= 1.0)) 1L else 0L)
+    sc_vec <- stability$stability_class
+    if ("hog" %in% names(stab_df) && length(sc_vec) > 0) {
+      # stability_class is per-exclusive-clique (same order as unique
+      # clique_idx values in the stability DF). Map to HOG via the DF.
+      excl_cliques <- unique(stab_df$clique_idx)
+      excl_hogs <- stab_df$hog[match(excl_cliques, stab_df$clique_idx)]
+      # Best (max) stability_class per HOG
+      best_sc <- tapply(sc_vec, excl_hogs, max)
       idx <- match(out$hog, names(best_sc))
-      out$stability_class[!is.na(idx)] <- best_sc[idx[!is.na(idx)]]
+      out$stability_class[!is.na(idx)] <- as.integer(best_sc[idx[!is.na(idx)]])
     }
   }
 
