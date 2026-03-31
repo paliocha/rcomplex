@@ -580,16 +580,22 @@ inline std::vector<uint64_t> generate_subsets(int n, int k) {
     }
     // Now k < n, so k <= 63 and (1ULL << k) is safe
     uint64_t mask = (1ULL << k) - 1;
-    uint64_t limit = (n == 64) ? ~0ULL : (1ULL << n);
+    uint64_t limit = (n < 64) ? (1ULL << n) : 0ULL;  // 0 = unused for n==64
 
-    while (mask < limit) {
+    while (true) {
+        // For n < 64: standard termination on limit
+        if (n < 64 && mask >= limit) break;
         result.push_back(mask);
 
         // Gosper's hack: next k-subset in lexicographic order
         uint64_t c = mask & (~mask + 1);      // lowest set bit
         uint64_t r = mask + c;                 // carry into next higher bit
         uint64_t diff = ((r ^ mask) >> 2) / c;
-        mask = diff | r;
+        uint64_t next = diff | r;
+
+        // For n == 64: detect overflow wrap-around (next <= mask)
+        if (next <= mask) break;
+        mask = next;
     }
 
     return result;
