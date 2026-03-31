@@ -166,6 +166,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   }
 
   q_min <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
+  q_min[is.infinite(q_min)] <- NA_real_
   eff_geo <- sqrt(comparison$Species1.effect.size *
                   comparison$Species2.effect.size)
 

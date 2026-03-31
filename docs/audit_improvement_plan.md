@@ -4,20 +4,14 @@ Consolidated from 5-agent audit (R idioms, C++ idioms, API consistency, data str
 
 ## Tier 1: Worth Fixing
 
-### 1. Fork + OpenMP oversubscription
-**Files**: `R/modules.R:294-295, 498-499, 559-560`
-**Problem**: `mclapply(mc.cores=N)` forks N processes. Each child may call C++ with OpenMP set to M threads. On 8 cores: 8 forks x 8 threads = 64 OS threads thrashing.
-**Fix**: Set `OMP_NUM_THREADS=1` before `mclapply()`, or pass `n_cores=1L` to any C++ function called inside fork children. Also applies to `test_community_structure()` where forked children call `sparse_excess_spectral_norm_cpp()` with the parent's `n_cores`.
+### 1. ~~Fork + OpenMP oversubscription~~ DONE (d26cd5a)
+`num_threads()` clause + `OMP_NUM_THREADS=1` in mclapply forks.
 
-### 2. Global `omp_set_num_threads()` leaks between functions
-**Files**: `src/neighborhood_comparison.cpp:136`, `src/hog_permutation.cpp:244`, `src/fe_permutation.cpp:100`, `src/find_cliques_stability.cpp:215`, `src/clr.cpp:59`, `src/mutual_rank.cpp:103`
-**Problem**: `omp_set_num_threads()` modifies process-wide state. If `permutation_hog_test(n_cores=8)` runs, subsequent calls inherit 8 threads even if they request 1.
-**Fix**: Replace `omp_set_num_threads(n_cores)` with `#pragma omp parallel num_threads(n_cores)` clause — pattern already used in `src/coclassification.cpp:144`.
+### 2. ~~Global `omp_set_num_threads()` leaks between functions~~ DONE (d26cd5a)
+Replaced all 7 calls with `num_threads(n_cores)` pragma clause.
 
-### 3. Besag-Clifford adaptive stopping causes thread starvation
-**Files**: `src/hog_permutation.cpp:377`, `src/fe_permutation.cpp:101`
-**Problem**: Small HOGs finish in 50 permutations (~50ms); large HOGs run 10K permutations (~1000ms). With `schedule(dynamic)` default chunk=1, large HOGs serialize the tail. Effective parallelism drops to 1-2 threads in final phase.
-**Fix**: Sort HOGs by descending size before the parallel loop. Use `schedule(guided)` or `schedule(dynamic, 4)` to batch small HOGs together.
+### 3. ~~Besag-Clifford adaptive stopping causes thread starvation~~ DONE (3638e3b)
+HOGs sorted by descending size, `schedule(guided)` for permutation loops.
 
 ### 4. ~~Missing `comparison_to_edges()` helper~~ DONE (020de30)
 Added `comparison_to_edges(comparison, sp1, sp2)` — bridges comparison→cliques.
