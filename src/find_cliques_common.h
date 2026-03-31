@@ -416,9 +416,9 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         // For larger n_present, the total enumeration becomes infeasible.
         static constexpr int MAX_TOLERANT_SPECIES = 25;
         if (n_present > MAX_TOLERANT_SPECIES) {
-            REprintf("Warning: max_missing_edges tolerance ignored for HOG "
-                     "with %d species (limit %d); using exact BK\n",
-                     n_present, MAX_TOLERANT_SPECIES);
+            Rcpp::warning("max_missing_edges tolerance ignored for HOG "
+                         "with %d species (limit %d); using exact BK",
+                         n_present, MAX_TOLERANT_SPECIES);
             run_bk();
         } else {
             for (int sz = n_present; sz >= min_species; sz--) {
