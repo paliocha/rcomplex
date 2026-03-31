@@ -97,6 +97,41 @@ cat("Reciprocally conserved pairs:", summary_bb$summary$gene_pairs$reciprocal,
     "of", summary_bb$summary$gene_pairs$total, "\n")
 ```
 
+### HOG-level permutation test (GPU-accelerated)
+
+The pair-level hypergeometric test treats each gene pair independently,
+but genes within the same HOG share network neighborhoods. Fisher's
+method for combining these correlated p-values is anti-conservative.
+`permutation_hog_test()` instead permutes gene identities within each
+HOG, producing exact p-values regardless of the dependency structure.
+
+With `use_torch = TRUE`, the fold-enrichment matrix is precomputed on
+GPU via matrix multiplication, reducing each permutation to fast table
+lookups. We run this for all 28 species pairs:
+
+```{r permutation, eval = requireNamespace("torch", quietly = TRUE)}
+hog_results <- list()
+for (pair in utils::combn(species, 2, simplify = FALSE)) {
+  sp_a <- pair[1]; sp_b <- pair[2]
+  pair_name <- paste(sp_a, sp_b, sep = "-")
+
+  comp <- compare_neighborhoods(networks[[sp_a]], networks[[sp_b]],
+                                 orthologs)
+  if (nrow(comp) == 0) next
+
+  hog_res <- permutation_hog_test(
+    networks[[sp_a]], networks[[sp_b]], comp,
+    n_cores = 4L, use_torch = TRUE
+  )
+  hog_res$pair <- pair_name
+  hog_results[[pair_name]] <- hog_res
+}
+
+all_hog <- do.call(rbind, hog_results)
+cat(nrow(all_hog), "HOG tests across", length(hog_results), "pairs\n")
+cat(sum(all_hog$q.value < 0.05), "significant HOGs (q < 0.05)\n")
+```
+
 ## 4. Module-level analysis
 
 Detect co-expression modules with Leiden community detection, then
