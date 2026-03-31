@@ -400,11 +400,12 @@ permutation_hog_test <- function(net1, net2, comparison,
   if (!is.list(net2) || is.null(net2$network)) {
     stop("net2 must be a network object from compute_network()")
   }
-  if (!all(c("Species1", "Species2", "OrthoGroup",
-             "Species1.effect.size",
-             "Species2.effect.size") %in%
-             names(comparison))) {
-    stop("comparison must be output from compare_neighborhoods()")
+  required <- c("Species1", "Species2", "OrthoGroup",
+                 "Species1.effect.size", "Species2.effect.size")
+  missing_cols <- setdiff(required, names(comparison))
+  if (length(missing_cols) > 0) {
+    stop("comparison missing required columns: ",
+         paste(missing_cols, collapse = ", "))
   }
   if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
     stop("use_torch = TRUE requires the torch package ",

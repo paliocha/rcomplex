@@ -232,7 +232,7 @@ test_that("input validation works", {
   )
   expect_error(
     permutation_hog_test(td$net1, td$net2, data.frame(x = 1)),
-    "comparison must be output from compare_neighborhoods"
+    "comparison missing required columns"
   )
 })
 

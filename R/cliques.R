@@ -480,7 +480,8 @@ clique_hubs <- function(cliques, target_species,
                         species_trait = NULL, stability = NULL,
                         min_cliques = 2L) {
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
-    stop("cliques must be a data frame from find_cliques()")
+    stop("cliques must be a data frame from find_cliques(); got ",
+         paste(class(cliques), collapse = "/"))
   }
   if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
@@ -638,10 +639,12 @@ clique_hubs <- function(cliques, target_species,
 #' @export
 clique_persistence <- function(cliques, target_species, networks, edges) {
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
-    stop("cliques must be a data frame from find_cliques()")
+    stop("cliques must be a data frame from find_cliques(); got ",
+         paste(class(cliques), collapse = "/"))
   }
   if (!is.list(networks) || is.null(names(networks))) {
-    stop("networks must be a named list keyed by species")
+    stop("networks must be a named list keyed by species; got ",
+         paste(class(networks), collapse = "/"))
   }
   if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
