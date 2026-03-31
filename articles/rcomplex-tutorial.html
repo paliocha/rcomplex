@@ -337,7 +337,8 @@ each level:</p>
 <span><span class="va">robustness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="va">multipliers</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="co"># Re-threshold networks (shallow copy, no matrix duplication)</span></span>
+<span></span>
+<span>  <span class="co"># Re-threshold: only $network and $threshold are needed downstream</span></span>
 <span>  <span class="va">tight_nets</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">networks</span>, <span class="kw">function</span><span class="op">(</span><span class="va">net</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>network <span class="op">=</span> <span class="va">net</span><span class="op">$</span><span class="va">network</span>, threshold <span class="op">=</span> <span class="va">net</span><span class="op">$</span><span class="va">threshold</span> <span class="op">*</span> <span class="va">m</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span></span>
