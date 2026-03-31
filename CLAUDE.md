@@ -8,7 +8,7 @@ rcomplex is an R package for comparative co-expression network analysis across s
 
 - **Gene / HOG-level**: Hypergeometric tests with q-value correction (`compare_neighborhoods()` + `summarize_comparison()`) and gene-identity permutation with adaptive stopping (`permutation_hog_test()`)
 - **Module-level**: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests
-- **Clique-level**: C++ Bron-Kerbosch / Tomita clique detection, leave-k-out jackknife stability for trait-exclusive cliques, hub gene identification
+- **Clique-level**: C++ Bron-Kerbosch / Tomita clique detection, leave-k-out jackknife stability for trait-exclusive cliques, threshold sweep, HOG conservation classification
 
 Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106).
 

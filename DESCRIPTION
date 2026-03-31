@@ -9,7 +9,7 @@ Description: Compares gene co-expression networks across species by mapping
     hypergeometric and permutation-based neighborhood tests, multi-resolution
     consensus module detection (Leiden / Infomap / SBM), clique detection via
     Bron-Kerbosch decomposition with leave-k-out jackknife stability analysis,
-    and hub gene identification.
+    and HOG conservation classification.
     Based on Netotea et al. (2014) <doi:10.1186/1471-2164-15-106>.
 License: MIT + file LICENSE
 Encoding: UTF-8
