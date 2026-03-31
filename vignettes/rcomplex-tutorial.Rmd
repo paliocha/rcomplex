@@ -71,49 +71,48 @@ cat(nrow(orthologs), "ortholog pairs across",
     length(ortho_pairs), "species pairs\n")
 ```
 
-## 2. Pairwise comparison
+## 2. Pairwise comparison and HOG-level testing
 
-`run_pairwise_comparisons()` runs the full comparison pipeline for all
-C(8,2) = 28 species pairs: hypergeometric neighborhood test, Storey
-q-values, and edge classification:
+For each of the C(8,2) = 28 species pairs, we run two analyses:
 
-```{r comparison}
-edges <- run_pairwise_comparisons(networks, orthologs)
-cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
-    sum(edges$type == "ns"), "non-significant\n")
-```
-
-## 3. Gene/HOG-level analysis
-
-For a single species pair, `summarize_comparison()` provides detailed
-statistics. The `sp1`/`sp2` arguments produce edge-format output directly:
-
-```{r gene-level}
-comp_bdis_bsyl <- compare_neighborhoods(
-  networks$BDIS, networks$BSYL, orthologs)
-summary_bb <- summarize_comparison(comp_bdis_bsyl,
-                                    sp1 = "BDIS", sp2 = "BSYL")
-cat("Reciprocally conserved pairs:", summary_bb$summary$gene_pairs$reciprocal,
-    "of", summary_bb$summary$gene_pairs$total, "\n")
-```
-
-### HOG-level permutation test (GPU-accelerated)
-
-The pair-level hypergeometric test treats each gene pair independently,
-but genes within the same HOG share network neighborhoods. Fisher's
-method for combining these correlated p-values is anti-conservative.
-`permutation_hog_test()` instead permutes gene identities within each
-HOG, producing exact p-values regardless of the dependency structure.
+1. **Neighborhood comparison** (`compare_neighborhoods()`): hypergeometric
+   test for overlap of co-expression neighborhoods, producing per-pair
+   p-values and fold-enrichment effect sizes.
+2. **HOG-level permutation test** (`permutation_hog_test()`): gene-identity
+   permutation within each HOG. This is necessary because pair-level tests
+   within a HOG are correlated (shared neighborhoods), making Fisher's
+   method or Storey q-values anti-conservative. The permutation p-value is
+   exact regardless of the dependency structure.
 
 With `use_torch = TRUE`, the fold-enrichment matrix is precomputed on
-GPU via matrix multiplication, reducing each permutation to fast table
-lookups. We run this for all 28 species pairs:
+GPU, reducing each permutation to fast table lookups.
 
-```{r permutation, eval = requireNamespace("torch", quietly = TRUE)}
+The HOG-level q-values determine which edges are co-expressologs
+(conserved co-expression relationships):
+
+```{r comparison, eval = requireNamespace("torch", quietly = TRUE)}
+# Helper: build edges from raw comparison + HOG-level q-values
+build_perm_edges <- function(comp, hog_res, sp_a, sp_b, alpha = 0.05) {
+  hog_q <- hog_res$q.value[match(comp$hog, hog_res$hog)]
+  data.frame(
+    gene1 = comp$Species1,
+    gene2 = comp$Species2,
+    species1 = sp_a,
+    species2 = sp_b,
+    hog = comp$hog,
+    q.value = hog_q,
+    effect_size = sqrt(comp$Species1.effect.size * comp$Species2.effect.size),
+    type = ifelse(!is.na(hog_q) & hog_q < alpha, "conserved", "ns")
+  )
+}
+
+# Run all 28 pairs
+pair_edges <- list()
 hog_results <- list()
+idx <- 0L
+
 for (pair in utils::combn(species, 2, simplify = FALSE)) {
   sp_a <- pair[1]; sp_b <- pair[2]
-  pair_name <- paste(sp_a, sp_b, sep = "-")
 
   comp <- compare_neighborhoods(networks[[sp_a]], networks[[sp_b]],
                                  orthologs)
@@ -123,13 +122,30 @@ for (pair in utils::combn(species, 2, simplify = FALSE)) {
     networks[[sp_a]], networks[[sp_b]], comp,
     n_cores = 4L, use_torch = TRUE
   )
-  hog_res$pair <- pair_name
-  hog_results[[pair_name]] <- hog_res
+
+  idx <- idx + 1L
+  pair_edges[[idx]] <- build_perm_edges(comp, hog_res, sp_a, sp_b)
+  hog_res$pair <- paste(sp_a, sp_b, sep = "-")
+  hog_results[[paste(sp_a, sp_b, sep = "-")]] <- hog_res
 }
 
+edges <- do.call(rbind, pair_edges)
 all_hog <- do.call(rbind, hog_results)
-cat(nrow(all_hog), "HOG tests across", length(hog_results), "pairs\n")
-cat(sum(all_hog$q.value < 0.05), "significant HOGs (q < 0.05)\n")
+
+cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
+    sum(edges$type == "ns"), "non-significant\n")
+cat(nrow(all_hog), "HOG tests,",
+    sum(all_hog$q.value < 0.05), "significant (q < 0.05)\n")
+```
+
+For analyses without GPU or for quick exploration, `run_pairwise_comparisons()`
+provides a faster analytical path using pair-level Storey q-values:
+
+```{r analytical-edges}
+edges_analytical <- run_pairwise_comparisons(networks, orthologs)
+cat("Analytical path:", sum(edges_analytical$type == "conserved"),
+    "conserved edges (vs", sum(edges$type == "conserved"),
+    "from permutation)\n")
 ```
 
 ## 4. Module-level analysis
@@ -151,8 +167,8 @@ print(table(classes$classification))
 
 Find fully connected subsets of ortholog groups across species:
 
-```{r cliques}
-# All cliques (at least 2 species)
+```{r cliques, eval = requireNamespace("torch", quietly = TRUE)}
+# All cliques (at least 2 species), using permutation-validated edges
 cliques <- find_cliques(edges, species, min_species = 2L)
 cat(nrow(cliques), "cliques\n")
 print(table(cliques$n_species))
@@ -161,7 +177,7 @@ print(table(cliques$n_species))
 Analytical persistence scores measure how far above the detection
 threshold each clique's supporting edges are:
 
-```{r persistence}
+```{r persistence, eval = requireNamespace("torch", quietly = TRUE)}
 cliques_p <- clique_persistence(cliques, species, networks, edges)
 cat("Median persistence:", round(median(cliques_p$persistence, na.rm = TRUE), 2), "\n")
 ```
@@ -185,7 +201,7 @@ much stricter cutoffs.
 We test robustness by sweeping over tighter density percentiles and
 running leave-k-out jackknife stability at each level:
 
-```{r robustness}
+```{r robustness, eval = requireNamespace("torch", quietly = TRUE)}
 # The baseline density is 3%. Each multiplier tightens the MR threshold,
 # which corresponds to a lower effective density percentile.
 multipliers <- c(1.01, 1.02, 1.03, 1.05)
@@ -199,15 +215,31 @@ for (m in multipliers) {
   })
   names(tight_nets) <- species
 
-  # Compute effective density at this threshold (fraction of edges surviving)
+  # Compute effective density at this threshold
   eff_densities <- vapply(species, function(sp) {
     mat <- networks[[sp]]$network
     vals <- mat[upper.tri(mat)]
     mean(vals >= networks[[sp]]$threshold * m)
   }, numeric(1))
 
-  # Re-run comparisons at stricter threshold
-  tight_edges <- run_pairwise_comparisons(tight_nets, orthologs)
+  # Re-run comparisons + permutation at the stricter threshold
+  # (neighborhoods change with threshold, so permutation must be re-run)
+  tight_pair_edges <- list()
+  tidx <- 0L
+  for (pair in utils::combn(species, 2, simplify = FALSE)) {
+    sp_a <- pair[1]; sp_b <- pair[2]
+    comp <- tryCatch(
+      compare_neighborhoods(tight_nets[[sp_a]], tight_nets[[sp_b]], orthologs),
+      error = function(e) NULL)
+    if (is.null(comp) || nrow(comp) == 0) next
+    hog_res <- permutation_hog_test(tight_nets[[sp_a]], tight_nets[[sp_b]],
+                                     comp, n_cores = 4L, use_torch = TRUE)
+    tidx <- tidx + 1L
+    tight_pair_edges[[tidx]] <- build_perm_edges(comp, hog_res, sp_a, sp_b)
+  }
+
+  tight_edges <- if (tidx > 0) do.call(rbind, tight_pair_edges[seq_len(tidx)])
+                 else edges[0, ]
 
   # Find cliques at stricter threshold
   tight_cliques <- find_cliques(tight_edges, species, min_species = 2L)
@@ -269,7 +301,7 @@ represent the strongest conservation signals in the dataset.
 Classify each HOG by its conservation pattern using the waterfall:
 complete > partial > differentiated > trait_specific > unclassified.
 
-```{r classify}
+```{r classify, eval = requireNamespace("torch", quietly = TRUE)}
 # Use stability from the 1.02x level (NULL if no cliques survived)
 stab_input <- robustness[["1.02"]]$stability
 
