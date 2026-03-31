@@ -114,7 +114,7 @@ find_cliques <- function(edges, target_species,
     list(n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
          mean_effect_size = numeric(0), n_edges = integer(0))
   )
-  empty_result <- as.data.frame(empty_cols, stringsAsFactors = FALSE)
+  empty_result <- as.data.frame(empty_cols)
 
   # Filter by edge_type if type column exists
   if ("type" %in% names(edges)) {
@@ -144,8 +144,7 @@ find_cliques <- function(edges, target_species,
   # Gene matrix: map 0-based indices back to gene names
   gene_matrix <- result$genes  # IntegerMatrix (n_cliques x n_species)
   gene_df <- as.data.frame(matrix(NA_character_, nrow = nrow(gene_matrix),
-                                  ncol = ncol(gene_matrix)),
-                           stringsAsFactors = FALSE)
+                                  ncol = ncol(gene_matrix)))
   names(gene_df) <- target_species
   for (j in seq_len(ncol(gene_matrix))) {
     idx <- gene_matrix[, j]
@@ -154,7 +153,7 @@ find_cliques <- function(edges, target_species,
   }
 
   # Build result data frame
-  out <- data.frame(hog = hog_names, stringsAsFactors = FALSE)
+  out <- data.frame(hog = hog_names)
   out <- cbind(out, gene_df)
   out$n_species <- as.integer(result$n_species)
   out$mean_q <- result$mean_q
@@ -315,7 +314,6 @@ clique_stability <- function(edges, target_species, species_trait,
          paste(missing_sp, collapse = ", "))
   }
   max_k <- as.integer(max_k)
-  n_cores <- as.integer(n_cores)
   if (max_k < 1L) {
     stop("max_k must be >= 1")
   }
@@ -335,12 +333,11 @@ clique_stability <- function(edges, target_species, species_trait,
   empty_stability <- data.frame(
     clique_idx = integer(0), hog = character(0), trait_value = character(0),
     k = integer(0), n_subsets = integer(0), n_stable = integer(0),
-    stability_score = numeric(0), sole_rep = logical(0),
-    stringsAsFactors = FALSE
+    stability_score = numeric(0), sole_rep = logical(0)
   )
   empty_disruption <- data.frame(
     species = character(0), trait_value = character(0),
-    n_cliques_disrupted = integer(0), stringsAsFactors = FALSE
+    n_cliques_disrupted = integer(0)
   )
   empty_result <- list(
     stability = empty_stability,
@@ -508,8 +505,7 @@ clique_hubs <- function(cliques, target_species,
     keep <- !is.na(genes)
     if (!any(keep)) return(NULL)
     data.frame(row_idx = which(keep), hog = cliques$hog[keep],
-               gene = genes[keep], species = sp,
-               stringsAsFactors = FALSE)
+               gene = genes[keep], species = sp)
   }))
 
   if (is.null(long) || nrow(long) == 0) {
@@ -518,7 +514,7 @@ clique_hubs <- function(cliques, target_species,
     if (!is.null(species_trait)) {
       cols$n_exclusive <- integer(0)
     }
-    return(as.data.frame(cols, stringsAsFactors = FALSE))
+    return(as.data.frame(cols))
   }
 
   # Annotate cliques with trait exclusivity if trait provided

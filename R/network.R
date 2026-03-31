@@ -9,7 +9,7 @@
 #' values < 2^24).
 #'
 #' @return List with `device` (string) and `dtype` (torch dtype object).
-#' @keywords internal
+#' @noRd
 torch_device_dtype <- function() {
   if (torch::cuda_is_available()) {
     # Try float64 first (full precision), then float32 (still exact for FE).
@@ -45,7 +45,7 @@ torch_device_dtype <- function() {
 #' releases the CUDA caching allocator's free blocks. The CUDA empty-cache
 #' call is only made when CUDA is available; no-op on MPS/CPU.
 #'
-#' @keywords internal
+#' @noRd
 .gpu_gc <- function() {
   gc()
   if (torch::cuda_is_available()) torch::cuda_empty_cache()
@@ -63,7 +63,7 @@ torch_device_dtype <- function() {
 #' @param expr_matrix Numeric matrix (genes x samples).
 #' @param method `"pearson"` or `"spearman"`.
 #' @return Correlation matrix (genes x genes) as a base R matrix.
-#' @keywords internal
+#' @noRd
 cor_torch <- function(expr_matrix, method = "pearson") {
   dd <- torch_device_dtype()
 
@@ -85,7 +85,7 @@ cor_torch <- function(expr_matrix, method = "pearson") {
 #' @param expr_matrix Numeric matrix (genes x samples).
 #' @param method `"pearson"` or `"spearman"`.
 #' @return Correlation matrix (genes x genes).
-#' @keywords internal
+#' @noRd
 cor_rfast <- function(expr_matrix, method = "pearson") {
   if (method == "pearson") {
     Rfast::cora(t(expr_matrix))
@@ -149,8 +149,6 @@ compute_network <- function(expr_matrix,
                             use_torch = FALSE) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
-  n_cores <- as.integer(n_cores)
-
   if (!is.matrix(expr_matrix)) {
     stop("expr_matrix must be a matrix")
   }

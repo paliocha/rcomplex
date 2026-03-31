@@ -330,8 +330,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     n_modules = scan_n_modules,
     modularity = scan_modularity,
     ari_next = scan_ari_next,
-    expected_coclassification = NA_real_,
-    stringsAsFactors = FALSE
+    expected_coclassification = NA_real_
   )
 
   # ---- Consensus clustering ----
@@ -623,8 +622,6 @@ compare_modules <- function(modules1, modules2, orthologs,
   method <- match.arg(method)
   min_exceedances <- as.integer(min_exceedances)
   max_permutations <- as.integer(max_permutations)
-  n_cores <- as.integer(n_cores)
-
   if (!is.list(modules1) || is.null(modules1$module_genes)) {
     stop("modules1 must be output from detect_modules()")
   }
@@ -721,8 +718,7 @@ compare_modules_hypergeometric <- function(mg1, mg2, sp1_to_sp2, sp2_mappable) {
     jaccard = ifelse(un > 0L, ol / un, 0),
     p.value = ifelse(ol > 0L & k > 0L & m > 0L,
                      stats::phyper(ol - 1L, m, N - m, k, lower.tail = FALSE),
-                     1),
-    stringsAsFactors = FALSE
+                     1)
   )
 
   n_pairs <- nrow(pairs)
@@ -824,8 +820,7 @@ compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
     size_sp1 = vapply(mg1, length, integer(1))[idx_i],
     size_sp2 = vapply(mg2, length, integer(1))[idx_j],
     overlap = obs_overlap, jaccard = obs_jaccard,
-    p.value = perm_result$p_value,
-    stringsAsFactors = FALSE
+    p.value = perm_result$p_value
   )
 
   # Discrete q-values (Liang 2016) for Besag-Clifford p-values
@@ -855,8 +850,7 @@ best_match_direction <- function(pairs, from_col, to_col, species_label) {
         jaccard = best$jaccard,
         p.value = best$p.value,
         q.value = best$q.value,
-        n_significant = sum(df$q.value < 0.05),
-        stringsAsFactors = FALSE
+        n_significant = sum(df$q.value < 0.05)
       )
     }
   ))
@@ -871,8 +865,7 @@ compute_best_matches <- function(pairs) {
       module = character(0), species = character(0),
       best_match = character(0), overlap = integer(0),
       jaccard = numeric(0), p.value = numeric(0),
-      q.value = numeric(0), n_significant = integer(0),
-      stringsAsFactors = FALSE
+      q.value = numeric(0), n_significant = integer(0)
     ))
   }
 
@@ -931,8 +924,7 @@ classify_modules <- function(module_comparison,
       module = character(0), species = character(0),
       classification = character(0), best_match = character(0),
       best_jaccard = numeric(0), best_q = numeric(0),
-      n_significant = integer(0),
-      stringsAsFactors = FALSE
+      n_significant = integer(0)
     ))
   }
 
@@ -950,7 +942,6 @@ classify_modules <- function(module_comparison,
     best_match = best$best_match,
     best_jaccard = best$jaccard,
     best_q = best$q.value,
-    n_significant = best$n_significant,
-    stringsAsFactors = FALSE
+    n_significant = best$n_significant
   )
 }

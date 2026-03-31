@@ -21,7 +21,7 @@ parse_orthologs <- function(file, species1, species2) {
     stop("Ortholog file not found: ", file)
   }
 
-  ortho <- utils::read.delim(file, stringsAsFactors = FALSE)
+  ortho <- utils::read.delim(file)
 
   ortho <- ortho |>
     dplyr::filter(.data$species == .env$species1) |>
@@ -133,8 +133,7 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
   # Build gene mapping
   gene_map <- data.frame(
     original = gene_names[result$map_from],
-    representative = gene_names[result$map_to],
-    stringsAsFactors = FALSE
+    representative = gene_names[result$map_to]
   )
 
   list(

@@ -164,7 +164,7 @@ summarize_comparison <- function(comparison,
 #' @param dtype Torch dtype for the result.
 #' @param device Torch device string.
 #' @return Binary adjacency tensor (n x n) on `device`, diagonal = 0.
-#' @keywords internal
+#' @noRd
 adj_to_gpu <- function(net_mat, thr, dtype, device) {
   n <- nrow(net_mat)
   edges <- which(net_mat >= thr & row(net_mat) != col(net_mat), arr.ind = TRUE)
@@ -193,7 +193,7 @@ adj_to_gpu <- function(net_mat, thr, dtype, device) {
 #' @param tile_size Number of rows per tile (default 4096). Smaller values
 #'   reduce peak VRAM at the cost of more kernel launches.
 #' @return Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
-#' @keywords internal
+#' @noRd
 build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
                                     ortho_sp1_idx, ortho_sp2_idx,
                                     tile_size = 4096L) {
@@ -393,7 +393,6 @@ permutation_hog_test <- function(net1, net2, comparison,
   alternative <- match.arg(alternative)
   min_exceedances <- as.integer(min_exceedances)
   max_permutations <- as.integer(max_permutations)
-  n_cores <- as.integer(n_cores)
 
   if (!is.list(net1) || is.null(net1$network)) {
     stop("net1 must be a network object from compute_network()")
@@ -417,8 +416,7 @@ permutation_hog_test <- function(net1, net2, comparison,
       n_sp1 = integer(0), n_sp2 = integer(0),
       T_obs = numeric(0), n_perm = integer(0),
       n_exceed = integer(0), mean_eff = numeric(0),
-      p.value = numeric(0), q.value = numeric(0),
-      stringsAsFactors = FALSE
+      p.value = numeric(0), q.value = numeric(0)
     ))
   }
 
@@ -505,8 +503,7 @@ permutation_hog_test <- function(net1, net2, comparison,
     n_perm     = perm_result$n_perm,
     n_exceed   = perm_result$n_exceed,
     mean_eff   = vapply(hog_groups, function(i) mean(eff[i]), double(1)),
-    p.value    = perm_result$p_value,
-    stringsAsFactors = FALSE
+    p.value    = perm_result$p_value
   )
   bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
 

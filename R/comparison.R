@@ -54,8 +54,6 @@
 #'
 #' @export
 compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
-  n_cores <- as.integer(n_cores)
-
   # Validate inputs
   if (!is.list(net1) || is.null(net1$network)) {
     stop("net1 must be a network object from compute_network()")

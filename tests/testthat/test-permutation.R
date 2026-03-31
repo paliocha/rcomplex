@@ -92,9 +92,10 @@ test_that("adaptive stopping terminates early for clearly null HOGs", {
     max_permutations = 5000L, min_exceedances = 20L
   )
 
-  # Non-conserved HOGs should stop early (exceedances accumulate fast)
+  # Non-conserved HOGs: T_obs=0 skips permutations entirely, or
+  # exceedances accumulate fast and trigger early stopping
   hog_nc <- result[result$OrthoGroup == "HOG_NC", ]
-  expect_true(hog_nc$n_exceed >= 20L || hog_nc$n_perm == 5000L)
+  expect_true(hog_nc$n_perm == 0L || hog_nc$n_exceed >= 20L)
 
   # Conserved HOG should run more permutations (fewer exceedances)
   hog1 <- result[result$OrthoGroup == "HOG1", ]
