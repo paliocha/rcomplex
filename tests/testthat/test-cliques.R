@@ -230,7 +230,7 @@ test_that("clique_persistence uses co-expressologs not full neighbourhood", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+  result <- clique_persistence(cliques, c("SP_A", "SP_B"), networks, edges)
 
   # Only co-expressolog: (A2, B2). ratio = min(10/2, 8/2.5) = 3.2
   # Neighbourhood-wide would give 1.04 (dominated by marginal A3, B3)
@@ -266,7 +266,7 @@ test_that("clique_persistence weakest co-expressolog determines score", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+  result <- clique_persistence(cliques, c("SP_A", "SP_B"), networks, edges)
 
   # (A2,B2): min(10/2, 8/2.5) = min(5, 3.2) = 3.2
   # (A3,B3): min(3/2, 2.6/2.5) = min(1.5, 1.04) = 1.04
@@ -302,7 +302,7 @@ test_that("clique_persistence returns NA with no co-expressologs", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+  result <- clique_persistence(cliques, c("SP_A", "SP_B"), networks, edges)
 
   expect_true(is.na(result$persistence))
   expect_true(is.na(result$mean_persistence))
@@ -338,7 +338,7 @@ test_that("clique_persistence handles multiple cliques", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+  result <- clique_persistence(cliques, c("SP_A", "SP_B"), networks, edges)
 
   # HOG1 (A1, B1): co-expressologs (A2,B2) min(10/2,8/2.5)=3.2,
   #   (A3,B3) min(3/2,4/2.5)=min(1.5,1.6)=1.5 -> persistence=1.5
@@ -381,8 +381,8 @@ test_that("clique_persistence aggregates across 3 species and reversed edges", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks,
-                               c("SP_A", "SP_B", "SP_C"), edges)
+  result <- clique_persistence(cliques, c("SP_A", "SP_B", "SP_C"),
+                               networks, edges)
 
   # (SP_A,SP_B): A2->B2, min(10/2, 8/2.5) = 3.2
   # (SP_A,SP_C): A2->C2 via reversed edge, min(10/2, 6/3) = 2.0
@@ -416,7 +416,7 @@ test_that("clique_persistence excludes self from neighbours", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, networks, c("SP_A", "SP_B"), edges)
+  result <- clique_persistence(cliques, c("SP_A", "SP_B"), networks, edges)
 
   # With self-exclusion: A1's only neighbour is A2 (MR=1 < 2.0) -> no neighbours
   expect_true(is.na(result$persistence))
@@ -431,27 +431,27 @@ test_that("clique_persistence validates inputs", {
   )
 
   expect_error(
-    clique_persistence(data.frame(x = 1), list(), c("A", "B"), dummy_edges),
+    clique_persistence(data.frame(x = 1), c("A", "B"), list(), dummy_edges),
     "cliques must be a data frame from find_cliques")
   expect_error(
     clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                       list(), c("A", "B"), dummy_edges),
+                       c("A", "B"), list(), dummy_edges),
     "networks must be a named list")
   expect_error(
     clique_persistence(data.frame(hog = "H", A = "g"),
-                       list(A = list()), c("A"), dummy_edges),
+                       c("A"), list(A = list()), dummy_edges),
     "target_species must have at least 2 species")
   expect_error(
     clique_persistence(data.frame(hog = "H", A = "g"),
-                       list(A = list(), B = list()), c("A", "B"), dummy_edges),
+                       c("A", "B"), list(A = list(), B = list()), dummy_edges),
     "cliques missing columns for species")
   expect_error(
     clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                       list(A = list()), c("A", "B"), dummy_edges),
+                       c("A", "B"), list(A = list()), dummy_edges),
     "networks missing entries for species")
   expect_error(
     clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                       list(A = list(), B = list()), c("A", "B"),
+                       c("A", "B"), list(A = list(), B = list()),
                        data.frame(x = 1)),
     "edges missing required columns")
 })

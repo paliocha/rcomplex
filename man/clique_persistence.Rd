@@ -4,18 +4,18 @@
 \alias{clique_persistence}
 \title{Compute co-expressolog persistence scores for cliques}
 \usage{
-clique_persistence(cliques, networks, target_species, edges)
+clique_persistence(cliques, target_species, networks, edges)
 }
 \arguments{
 \item{cliques}{Output of \code{\link{find_cliques}} (data frame with
 \code{hog}, one column per species, and summary statistics).}
 
+\item{target_species}{Character vector matching column names in
+\code{cliques} and names in \code{networks}.}
+
 \item{networks}{Named list of \code{\link{compute_network}} outputs
 keyed by species abbreviation. Each element must have \code{$network}
 (named numeric matrix) and \code{$threshold} (scalar).}
-
-\item{target_species}{Character vector matching column names in
-\code{cliques} and names in \code{networks}.}
 
 \item{edges}{Data frame with columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2} (same format as

@@ -615,11 +615,11 @@ clique_hubs <- function(cliques, target_species,
 #'
 #' @param cliques Output of \code{\link{find_cliques}} (data frame with
 #'   \code{hog}, one column per species, and summary statistics).
+#' @param target_species Character vector matching column names in
+#'   \code{cliques} and names in \code{networks}.
 #' @param networks Named list of \code{\link{compute_network}} outputs
 #'   keyed by species abbreviation. Each element must have \code{$network}
 #'   (named numeric matrix) and \code{$threshold} (scalar).
-#' @param target_species Character vector matching column names in
-#'   \code{cliques} and names in \code{networks}.
 #' @param edges Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2} (same format as
 #'   \code{\link{find_cliques}} input). Used solely as the ortholog
@@ -636,7 +636,7 @@ clique_hubs <- function(cliques, target_species,
 #'   }
 #'
 #' @export
-clique_persistence <- function(cliques, networks, target_species, edges) {
+clique_persistence <- function(cliques, target_species, networks, edges) {
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data frame from find_cliques()")
   }
