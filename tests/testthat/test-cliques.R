@@ -234,8 +234,8 @@ test_that("find_cliques handles many paralogs without error", {
     gene1 = pairs$a, gene2 = pairs$b,
     species1 = "SP_A", species2 = "SP_B",
     hog = "HOG1", type = "conserved",
-    q.value = runif(nrow(pairs), 0.001, 0.05),
-    effect_size = runif(nrow(pairs), 1.5, 4.0),
+    q.value = seq(0.001, 0.05, length.out = nrow(pairs)),
+    effect_size = seq(1.5, 4.0, length.out = nrow(pairs)),
     stringsAsFactors = FALSE
   )
 

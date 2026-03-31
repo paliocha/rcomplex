@@ -20,6 +20,7 @@ testing conservation at gene, module, and clique levels.
 \item{\code{\link[=compare_neighborhoods]{compare_neighborhoods()}}}{Pair-level hypergeometric tests}
 \item{\code{\link[=summarize_comparison]{summarize_comparison()}}}{Q-value correction and summary}
 \item{\code{\link[=comparison_to_edges]{comparison_to_edges()}}}{Convert comparison results to clique edge format}
+\item{\code{\link[=run_pairwise_comparisons]{run_pairwise_comparisons()}}}{Batch pairwise comparison pipeline}
 \item{\code{\link[=permutation_hog_test]{permutation_hog_test()}}}{HOG-level permutation test}
 \item{\code{\link[=detect_modules]{detect_modules()}}}{Community detection with consensus}
 \item{\code{\link[=compare_modules]{compare_modules()}}}{Cross-species module comparison}

@@ -415,10 +415,9 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
   hog4 <- result[result$hog == "HOG4", ]
   expect_equal(hog4$classification, "trait_specific")
 
-  # At least one of HOG3/HOG4 should have non-NA stability_class
-  # (they are trait-exclusive, so stability tracks them)
-  has_sc <- !is.na(hog3$stability_class) || !is.na(hog4$stability_class)
-  expect_true(has_sc)
+  # Both HOG3 and HOG4 have trait-exclusive cliques, so stability tracks them
+  expect_false(is.na(hog3$stability_class))
+  expect_false(is.na(hog4$stability_class))
 
   # HOG1 (complete, mixed-trait) should have NA stability_class
   # (not trait-exclusive, so stability doesn't track it)

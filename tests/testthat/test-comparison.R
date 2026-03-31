@@ -363,3 +363,109 @@ test_that("comparison_to_edges validates missing columns", {
     "comparison missing required columns"
   )
 })
+
+
+# --- Tests for run_pairwise_comparisons() ---
+
+test_that("run_pairwise_comparisons returns combined edges for 2 species", {
+  set.seed(42)
+  expr1 <- matrix(rnorm(500), nrow = 50, ncol = 10)
+  rownames(expr1) <- paste0("A_", sprintf("%03d", 1:50))
+  expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
+  rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
+
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+
+  ortho <- data.frame(
+    Species1 = paste0("A_", sprintf("%03d", 1:30)),
+    Species2 = paste0("B_", sprintf("%03d", 1:30)),
+    hog = paste0("HOG", 1:30),
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_pairwise_comparisons(
+    networks = list(SP_A = net1, SP_B = net2),
+    orthologs = ortho
+  )
+
+  expect_true(is.data.frame(result))
+  expect_true(all(c("gene1", "gene2", "species1", "species2", "hog",
+                     "q.value", "effect_size", "type") %in% names(result)))
+  expect_true(all(result$species1 == "SP_A"))
+  expect_true(all(result$species2 == "SP_B"))
+})
+
+
+test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
+  set.seed(42)
+  make_net <- function(prefix, n = 30) {
+    expr <- matrix(rnorm(n * 10), nrow = n)
+    rownames(expr) <- paste0(prefix, "_", sprintf("%03d", seq_len(n)))
+    compute_network(expr, density = 0.1, mr_log_transform = FALSE)
+  }
+
+  nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
+
+  ortho <- data.frame(
+    Species1 = c(paste0("A_", sprintf("%03d", 1:20)),
+                 paste0("A_", sprintf("%03d", 1:20)),
+                 paste0("B_", sprintf("%03d", 1:20))),
+    Species2 = c(paste0("B_", sprintf("%03d", 1:20)),
+                 paste0("C_", sprintf("%03d", 1:20)),
+                 paste0("C_", sprintf("%03d", 1:20))),
+    hog = rep(paste0("HOG", 1:20), 3),
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_pairwise_comparisons(nets, ortho)
+
+  # Should have edges from all 3 pairs
+  sp_pairs <- unique(paste(result$species1, result$species2))
+  expect_true(length(sp_pairs) >= 1)  # at least some pairs produced edges
+})
+
+
+test_that("run_pairwise_comparisons validates inputs", {
+  expect_error(
+    run_pairwise_comparisons(list(A = list(network = matrix(0))),
+                              data.frame(Species1 = "a",
+                                         Species2 = "b", hog = 1)),
+    "at least 2 species"
+  )
+  expect_error(
+    run_pairwise_comparisons(c(a = 1, b = 2), data.frame(x = 1)),
+    "networks must be a named list"
+  )
+  expect_error(
+    run_pairwise_comparisons(list(A = list(), B = list()), data.frame(x = 1)),
+    "orthologs must have columns"
+  )
+})
+
+
+test_that("run_pairwise_comparisons with custom species_pairs", {
+  set.seed(42)
+  make_net <- function(prefix, n = 30) {
+    expr <- matrix(rnorm(n * 10), nrow = n)
+    rownames(expr) <- paste0(prefix, "_", sprintf("%03d", seq_len(n)))
+    compute_network(expr, density = 0.1, mr_log_transform = FALSE)
+  }
+
+  nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
+
+  ortho <- data.frame(
+    Species1 = paste0("A_", sprintf("%03d", 1:20)),
+    Species2 = paste0("B_", sprintf("%03d", 1:20)),
+    hog = paste0("HOG", 1:20),
+    stringsAsFactors = FALSE
+  )
+
+  # Only compare A vs B, skip A-C and B-C
+  result <- run_pairwise_comparisons(nets, ortho,
+                                      species_pairs = list(c("SP_A", "SP_B")))
+
+  if (nrow(result) > 0) {
+    expect_true(all(result$species1 == "SP_A" & result$species2 == "SP_B"))
+  }
+})

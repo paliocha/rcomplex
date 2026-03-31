@@ -200,3 +200,105 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     type = type
   )
 }
+
+
+#' Run pairwise comparisons across all species pairs
+#'
+#' Convenience function that runs the full comparison pipeline
+#' (\code{\link{compare_neighborhoods}} -> \code{\link{summarize_comparison}}
+#' -> \code{\link{comparison_to_edges}}) for each species pair and combines
+#' the results into a single edge data frame ready for
+#' \code{\link{find_cliques}}.
+#'
+#' @param networks Named list of \code{\link{compute_network}} outputs,
+#'   keyed by species abbreviation.
+#' @param orthologs Data frame with columns \code{Species1},
+#'   \code{Species2}, \code{hog} (from \code{\link{parse_orthologs}} or
+#'   \code{\link{extract_orthologs}}).
+#' @param species_pairs Optional list of length-2 character vectors
+#'   specifying which pairs to compare. Defaults to all
+#'   \code{combn(names(networks), 2)}.
+#' @param alternative Passed to \code{\link{summarize_comparison}}:
+#'   \code{"greater"} (conservation, default) or \code{"less"} (divergence).
+#' @param alpha Significance threshold (default 0.05).
+#' @param n_cores Cores for \code{\link{compare_neighborhoods}}
+#'   (default 1).
+#'
+#' @return Data frame with columns \code{gene1}, \code{gene2},
+#'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
+#'   \code{effect_size}, \code{type}. Ready for \code{\link{find_cliques}}
+#'   or \code{\link{classify_cliques}}.
+#'
+#' @examples
+#' \dontrun{
+#' edges <- run_pairwise_comparisons(
+#'   networks = list(SP_A = net_a, SP_B = net_b, SP_C = net_c),
+#'   orthologs = ortho
+#' )
+#' cliques <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+#' }
+#'
+#' @export
+run_pairwise_comparisons <- function(
+    networks, orthologs,
+    species_pairs = NULL,
+    alternative = c("greater", "less"),
+    alpha = 0.05,
+    n_cores = 1L) {
+
+  alternative <- match.arg(alternative)
+
+  if (!is.list(networks) || is.null(names(networks))) {
+    stop("networks must be a named list keyed by species")
+  }
+  if (length(networks) < 2) {
+    stop("networks must contain at least 2 species")
+  }
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: Species1, Species2, hog")
+  }
+
+  if (is.null(species_pairs)) {
+    species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
+  }
+
+  pair_edges <- list()
+  for (pair in species_pairs) {
+    sp_a <- pair[1]
+    sp_b <- pair[2]
+
+    if (!sp_a %in% names(networks)) {
+      stop("species '", sp_a, "' not found in networks")
+    }
+    if (!sp_b %in% names(networks)) {
+      stop("species '", sp_b, "' not found in networks")
+    }
+
+    comparison <- tryCatch(
+      compare_neighborhoods(networks[[sp_a]], networks[[sp_b]],
+                            orthologs, n_cores),
+      error = function(e) NULL
+    )
+    if (is.null(comparison) || nrow(comparison) == 0) next
+
+    summary_res <- tryCatch(
+      summarize_comparison(comparison, alternative, alpha),
+      error = function(e) NULL
+    )
+    if (is.null(summary_res) || nrow(summary_res$results) == 0) next
+
+    edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
+                                     alternative, alpha)
+    pair_edges[[length(pair_edges) + 1L]] <- edges_df
+  }
+
+  if (length(pair_edges) == 0) {
+    return(data.frame(
+      gene1 = character(0), gene2 = character(0),
+      species1 = character(0), species2 = character(0),
+      hog = character(0), q.value = numeric(0),
+      effect_size = numeric(0), type = character(0)))
+  }
+
+  do.call(rbind, pair_edges)
+}

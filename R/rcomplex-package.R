@@ -13,6 +13,7 @@
 #'   \item{[compare_neighborhoods()]}{Pair-level hypergeometric tests}
 #'   \item{[summarize_comparison()]}{Q-value correction and summary}
 #'   \item{[comparison_to_edges()]}{Convert comparison results to clique edge format}
+#'   \item{[run_pairwise_comparisons()]}{Batch pairwise comparison pipeline}
 #'   \item{[permutation_hog_test()]}{HOG-level permutation test}
 #'   \item{[detect_modules()]}{Community detection with consensus}
 #'   \item{[compare_modules()]}{Cross-species module comparison}
