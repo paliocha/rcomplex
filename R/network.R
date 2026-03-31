@@ -60,18 +60,18 @@ torch_device_dtype <- function() {
 #' Pearson: center rows, L2-normalize, GEMM.
 #' Spearman: rank rows first, then Pearson on ranks.
 #'
-#' @param expr_matrix Numeric matrix (genes x samples).
+#' @param x Numeric matrix (genes x samples).
 #' @param method `"pearson"` or `"spearman"`.
 #' @return Correlation matrix (genes x genes) as a base R matrix.
 #' @noRd
-cor_torch <- function(expr_matrix, method = "pearson") {
+cor_torch <- function(x, method = "pearson") {
   dd <- torch_device_dtype()
 
   if (method == "spearman") {
-    expr_matrix <- t(apply(expr_matrix, 1, rank))
+    x <- t(apply(x, 1, rank))
   }
 
-  x <- torch::torch_tensor(expr_matrix, dtype = dd$dtype, device = dd$device)
+  x <- torch::torch_tensor(x, dtype = dd$dtype, device = dd$device)
   x <- x - x$mean(dim = 2L, keepdim = TRUE)
   norms <- x$norm(dim = 2L, keepdim = TRUE)$clamp(min = 1e-30)
   x <- x / norms
@@ -82,25 +82,28 @@ cor_torch <- function(expr_matrix, method = "pearson") {
 
 #' Compute gene-gene correlation matrix via Rfast
 #'
-#' @param expr_matrix Numeric matrix (genes x samples).
+#' @param x Numeric matrix (genes x samples).
 #' @param method `"pearson"` or `"spearman"`.
 #' @return Correlation matrix (genes x genes).
 #' @noRd
-cor_rfast <- function(expr_matrix, method = "pearson") {
+cor_rfast <- function(x, method = "pearson") {
   if (method == "pearson") {
-    Rfast::cora(t(expr_matrix))
+    Rfast::cora(t(x))
   } else {
-    Rfast::cora(apply(expr_matrix, 1, rank))
+    Rfast::cora(apply(x, 1, rank))
   }
 }
 
-#' Compute co-expression network from an expression matrix
+#' Compute co-expression network
 #'
 #' Calculates correlation, applies normalization (Mutual Rank or CLR),
-#' and determines a density-based co-expression threshold.
+#' and determines a density-based co-expression threshold. Accepts either
+#' a numeric matrix or a
+#' \code{\link[SummarizedExperiment]{SummarizedExperiment}}.
 #'
-#' @param expr_matrix Numeric matrix of expression values (genes x samples).
-#'   Row names must be gene identifiers.
+#' @param x Expression data: a numeric matrix (genes x samples) with row
+#'   names as gene identifiers, or a
+#'   \code{\link[SummarizedExperiment]{SummarizedExperiment}}.
 #' @param cor_method Correlation method: `"pearson"` (default) or `"spearman"`.
 #' @param norm_method Normalization method: `"MR"` (Mutual Rank, default) or
 #'   `"CLR"` (Context Likelihood Ratio).
@@ -139,14 +142,21 @@ cor_rfast <- function(expr_matrix, method = "pearson") {
 #'
 #' @examples
 #' \dontrun{
-#' net <- compute_network(expr_matrix, cor_method = "spearman",
+#' # From a matrix:
+#' net <- compute_network(x, cor_method = "spearman",
 #'                        norm_method = "mr", density = 0.03)
-#' net$threshold   # MR threshold at 3% density
-#' dim(net$network) # gene x gene MR matrix
+#'
+#' # From a SummarizedExperiment:
+#' net <- compute_network(se, assay = "vst", cor_method = "spearman")
 #' }
 #'
+#' @rdname compute_network
 #' @export
-compute_network <- function(expr_matrix,
+setGeneric("compute_network", function(x, ...) standardGeneric("compute_network"))
+
+#' @rdname compute_network
+#' @export
+setMethod("compute_network", "matrix", function(x,
                             cor_method = c("pearson", "spearman"),
                             norm_method = c("MR", "CLR"),
                             density = 0.03,
@@ -157,11 +167,8 @@ compute_network <- function(expr_matrix,
                             use_torch = FALSE) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
-  if (!is.matrix(expr_matrix)) {
-    stop("expr_matrix must be a matrix")
-  }
-  if (is.null(rownames(expr_matrix))) {
-    stop("expr_matrix must have row names (gene identifiers)")
+  if (is.null(rownames(x))) {
+    stop("x must have row names (gene identifiers)")
   }
   if (density <= 0 || density >= 1) {
     stop("density must be between 0 and 1 (exclusive)")
@@ -174,25 +181,25 @@ compute_network <- function(expr_matrix,
   # Filter low-variance genes
   n_removed <- 0L
   if (!is.null(min_var)) {
-    row_var <- rowSums((expr_matrix - rowMeans(expr_matrix))^2) /
-      (ncol(expr_matrix) - 1L)
+    row_var <- rowSums((x - rowMeans(x))^2) /
+      (ncol(x) - 1L)
     keep <- row_var > min_var
     n_removed <- sum(!keep)
     if (n_removed > 0L) {
-      expr_matrix <- expr_matrix[keep, , drop = FALSE]
+      x <- x[keep, , drop = FALSE]
     }
-    if (nrow(expr_matrix) < 3L) {
+    if (nrow(x) < 3L) {
       stop("Fewer than 3 genes remain after variance filtering (min_var = ",
            min_var, ")")
     }
   }
 
-  gene_names <- rownames(expr_matrix)
-  n_genes <- nrow(expr_matrix)
+  gene_names <- rownames(x)
+  n_genes <- nrow(x)
 
   # Correlation
   cor_fn <- if (use_torch) cor_torch else cor_rfast
-  net <- cor_fn(expr_matrix, method = cor_method)
+  net <- cor_fn(x, method = cor_method)
   if (use_torch) .gpu_gc()
 
   # Clip to [-1, 1]
@@ -235,4 +242,14 @@ compute_network <- function(expr_matrix,
       min_var = min_var
     )
   )
-}
+})
+
+#' @rdname compute_network
+#' @param assay Assay name or index to extract from the
+#'   SummarizedExperiment (default 1).
+#' @export
+setMethod("compute_network", "SummarizedExperiment", function(x,
+    assay = 1L, ...) {
+  expr <- SummarizedExperiment::assay(x, assay)
+  compute_network(expr, ...)
+})

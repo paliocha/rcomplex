@@ -2,10 +2,14 @@
 % Please edit documentation in R/network.R
 \name{compute_network}
 \alias{compute_network}
-\title{Compute co-expression network from an expression matrix}
+\alias{compute_network,matrix-method}
+\alias{compute_network,SummarizedExperiment-method}
+\title{Compute co-expression network}
 \usage{
-compute_network(
-  expr_matrix,
+compute_network(x, ...)
+
+\S4method{compute_network}{matrix}(
+  x,
   cor_method = c("pearson", "spearman"),
   norm_method = c("MR", "CLR"),
   density = 0.03,
@@ -15,10 +19,13 @@ compute_network(
   n_cores = 1L,
   use_torch = FALSE
 )
+
+\S4method{compute_network}{SummarizedExperiment}(x, assay = 1L, ...)
 }
 \arguments{
-\item{expr_matrix}{Numeric matrix of expression values (genes x samples).
-Row names must be gene identifiers.}
+\item{x}{Expression data: a numeric matrix (genes x samples) with row
+names as gene identifiers, or a
+\code{\link[SummarizedExperiment]{SummarizedExperiment}}.}
 
 \item{cor_method}{Correlation method: \code{"pearson"} (default) or \code{"spearman"}.}
 
@@ -51,6 +58,9 @@ normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
 MPS, keep \code{use_torch = FALSE} here and use
 \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
 speedup instead. On CUDA, float64 is used with no precision tradeoff.}
+
+\item{assay}{Assay name or index to extract from the
+SummarizedExperiment (default 1).}
 }
 \value{
 A list with components:
@@ -66,14 +76,18 @@ co-expression values. Diagonal is set to 0.}
 }
 \description{
 Calculates correlation, applies normalization (Mutual Rank or CLR),
-and determines a density-based co-expression threshold.
+and determines a density-based co-expression threshold. Accepts either
+a numeric matrix or a
+\code{\link[SummarizedExperiment]{SummarizedExperiment}}.
 }
 \examples{
 \dontrun{
-net <- compute_network(expr_matrix, cor_method = "spearman",
+# From a matrix:
+net <- compute_network(x, cor_method = "spearman",
                        norm_method = "mr", density = 0.03)
-net$threshold   # MR threshold at 3\% density
-dim(net$network) # gene x gene MR matrix
+
+# From a SummarizedExperiment:
+net <- compute_network(se, assay = "vst", cor_method = "spearman")
 }
 
 }

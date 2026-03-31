@@ -129,7 +129,7 @@ test_that("abs_cor option works", {
 })
 
 test_that("input validation works", {
-  expect_error(compute_network(data.frame(a = 1:5)), "must be a matrix")
+  expect_error(compute_network(data.frame(a = 1:5)))
   mat <- matrix(1:10, nrow = 5)
   expect_error(compute_network(mat), "must have row names")
   rownames(mat) <- paste0("g", 1:5)
