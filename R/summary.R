@@ -494,8 +494,6 @@ permutation_hog_test <- function(net1, net2, comparison,
       max_permutations = max_permutations,
       n_cores = n_cores
     )
-    rm(combined)
-    gc()
   } else {
     perm_result <- hog_permutation_test_cpp(
       net1 = net1_mat, net2 = net2_mat,
