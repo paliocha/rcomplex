@@ -286,6 +286,20 @@ signal for some HOGs while eliminating it for others. The overall trend
 is downward, but local fluctuations reflect the discrete nature of the
 permutation q-values.
 
+**Analytical alternative: `clique_persistence()`.**
+The density sweep above is rigorous but expensive — it re-runs the
+full permutation pipeline at each threshold level. For a quick estimate,
+`clique_persistence()` computes the ratio of each co-expressolog edge's
+MR value to the species' density threshold. A persistence of 1.5 means
+the weakest supporting edge is 50% above threshold and would survive a
+1.5x tightening. This is a principled analytical proxy: it correctly
+identifies the weakest link in each clique's co-expressolog support.
+However, it cannot detect that tighter neighborhoods may change which
+HOGs reach significance in the permutation test, or that new cliques
+may form from HOGs that become significant at stricter thresholds.
+Use persistence for screening or when GPU is unavailable; use the full
+sweep for publication-quality robustness assessment.
+
 ## 6. Clique detection and phylogenetic stability
 
 Using edges from a robust density level (1.02x), we find cliques and
