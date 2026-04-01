@@ -331,7 +331,7 @@ sweep for publication-quality robustness assessment.
 
 ## 6. Clique detection and phylogenetic stability
 
-Using edges from the baseline density level (3%), we find cliques and
+Using edges from the baseline density level, we find cliques and
 test their phylogenetic stability via leave-k-out jackknife. The
 jackknife removes k species at a time and checks whether each
 trait-exclusive clique is preserved:
