@@ -986,3 +986,571 @@ classify_modules <- function(module_comparison,
     n_significant = best$n_significant
   )
 }
+
+
+#' Identify hub genes within co-expression modules
+#'
+#' Computes within-module centrality for each gene and flags the top-ranked
+#' genes as hubs.  Optionally maps genes to ortholog groups (HOGs) for
+#' downstream conservation analysis with [classify_hub_conservation()].
+#'
+#' @section Centrality measures:
+#' Centrality is computed on the **within-module subgraph** (edges between
+#' genes in the same module only):
+#' \describe{
+#'   \item{degree}{Weighted degree (`igraph::strength`): sum of edge weights
+#'     to other genes in the same module.}
+#'   \item{betweenness}{Shortest-path betweenness using inverse edge weights
+#'     as distances.  Identifies genes that bridge sub-clusters within a module.}
+#'   \item{eigenvector}{Eigenvector centrality (`igraph::eigen_centrality`):
+#'     high for genes connected to other high-centrality genes.}
+#' }
+#'
+#' @section Tie-breaking cascade:
+#' When genes share the same primary centrality score, hub selection uses a
+#' biologically informed cascade (all available tiers evaluated):
+#' \enumerate{
+#'   \item Primary centrality (user-selected measure)
+#'   \item Global weighted degree across the full network
+#'   \item Alternative within-module centrality (betweenness if primary is
+#'     degree; degree otherwise)
+#'   \item Mean within-module edge weight (strength / degree)
+#'   \item Per-gene conservation effect size (requires `comparison`)
+#'   \item Per-HOG minimum q-value (requires `comparison`; lower = better)
+#' }
+#'
+#' @param modules Output of [detect_modules()].
+#' @param net Output of [compute_network()].
+#' @param orthologs Optional data frame from [parse_orthologs()] with columns
+#'   `Species1`, `Species2`, `hog`.  The function auto-detects which column
+#'   matches the gene names in `modules`.  If `NULL`, the `hog` column in the
+#'   result is all `NA`.
+#' @param comparison Optional data frame: the `$results` element from
+#'   [summarize_comparison()].  When provided, enables conservation-informed
+#'   tie-breaking (tiers 5--6).  Must contain columns `Species1`, `Species2`,
+#'   `hog`, `Species1.effect.size`, `Species2.effect.size`, plus at least one
+#'   pair of q-value columns (`Species1.q.val.con`/`Species2.q.val.con` or
+#'   the `.div` variants).
+#' @param centrality Centrality measure: `"degree"` (default), `"betweenness"`,
+#'   or `"eigenvector"`.
+#' @param top_n Integer: flag the top N genes per module as hubs.  If `NULL`
+#'   (default), uses `top_fraction` instead.
+#' @param top_fraction Numeric in (0, 1): fraction of genes per module to flag
+#'   as hubs (default 0.1).  Ignored when `top_n` is non-NULL.
+#' @param min_module_size Integer: modules with fewer genes get
+#'   `is_hub = FALSE` for all genes (default 3).
+#'
+#' @return A data frame with one row per gene, ordered by module then rank:
+#'   \describe{
+#'     \item{gene}{Gene identifier}
+#'     \item{module}{Module ID (integer)}
+#'     \item{centrality}{Within-module centrality score}
+#'     \item{global_degree}{Weighted degree in the full (thresholded) network}
+#'     \item{rank}{Rank within module (1 = highest centrality)}
+#'     \item{is_hub}{`TRUE` if the gene is in the top slice}
+#'     \item{hog}{HOG identifier (`NA` if `orthologs` not provided or gene
+#'       not in the ortholog table)}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' hubs <- identify_module_hubs(modules, net, orthologs,
+#'                              comparison = summary$results)
+#' hubs[hubs$is_hub, ]
+#' }
+#'
+#' @export
+identify_module_hubs <- function(modules, net, orthologs = NULL,
+                                 comparison = NULL,
+                                 centrality = c("degree", "betweenness",
+                                                "eigenvector"),
+                                 top_n = NULL,
+                                 top_fraction = 0.1,
+                                 min_module_size = 3L) {
+  centrality <- match.arg(centrality)
+
+  if (!is.list(modules) || is.null(modules$module_genes) ||
+        is.null(modules$graph)) {
+    stop("modules must be output from detect_modules()")
+  }
+  if (!is.list(net) || is.null(net$network)) {
+    stop("net must be output from compute_network()")
+  }
+  if (!is.null(top_n)) {
+    top_n <- as.integer(top_n)
+    if (top_n < 1L) stop("top_n must be >= 1")
+  } else {
+    if (top_fraction <= 0 || top_fraction >= 1) {
+      stop("top_fraction must be in (0, 1)")
+    }
+  }
+  min_module_size <- as.integer(min_module_size)
+
+  g <- modules$graph
+
+  # Pre-compute global weighted degree (tie-breaker tier 2)
+  global_str <- igraph::strength(g)
+
+  # Pre-compute conservation lookups if comparison provided (tiers 5-6)
+  gene_conserv <- NULL
+  hog_min_q <- NULL
+  if (!is.null(comparison)) {
+    if (!all(c("Species1", "Species2", "hog",
+               "Species1.effect.size", "Species2.effect.size") %in%
+             names(comparison))) {
+      stop("comparison must be $results from summarize_comparison()")
+    }
+    # Auto-detect which column has our genes
+    all_genes <- names(modules$modules)
+    in_sp1 <- sum(all_genes %in% comparison$Species1)
+    in_sp2 <- sum(all_genes %in% comparison$Species2)
+    comp_col <- if (in_sp1 >= in_sp2) "Species1" else "Species2"
+
+    # Per-row geometric mean of effect sizes
+    geo_eff <- sqrt(comparison$Species1.effect.size *
+                    comparison$Species2.effect.size)
+
+    # Per-gene mean conservation effect (higher = more conserved)
+    comp_genes <- comparison[[comp_col]]
+    gene_conserv <- vapply(
+      split(geo_eff, comp_genes), mean, numeric(1), na.rm = TRUE
+    )
+
+    # Per-HOG minimum q-value (lower = more conserved)
+    q1_col <- if ("Species1.q.val.con" %in% names(comparison)) {
+      "Species1.q.val.con"
+    } else if ("Species1.q.val.div" %in% names(comparison)) {
+      "Species1.q.val.div"
+    } else {
+      NULL
+    }
+    q2_col <- if ("Species2.q.val.con" %in% names(comparison)) {
+      "Species2.q.val.con"
+    } else if ("Species2.q.val.div" %in% names(comparison)) {
+      "Species2.q.val.div"
+    } else {
+      NULL
+    }
+    if (!is.null(q1_col) && !is.null(q2_col)) {
+      pair_q <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
+      hog_min_q <- vapply(
+        split(pair_q, comparison$hog), min, numeric(1), na.rm = TRUE
+      )
+    }
+  }
+
+  # HOG mapping (needed for tier-6 tie-breaking and output)
+  hog_lookup <- NULL
+  if (!is.null(orthologs)) {
+    if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
+      stop("orthologs must have columns: Species1, Species2, hog")
+    }
+    all_genes <- names(modules$modules)
+    in_sp1 <- sum(all_genes %in% orthologs$Species1)
+    in_sp2 <- sum(all_genes %in% orthologs$Species2)
+    gene_col <- if (in_sp1 >= in_sp2) "Species1" else "Species2"
+
+    gene_hog <- unique(orthologs[, c(gene_col, "hog"), drop = FALSE])
+    gene_hog <- gene_hog[!duplicated(gene_hog[[gene_col]]), , drop = FALSE]
+    hog_lookup <- stats::setNames(
+      as.character(gene_hog$hog), gene_hog[[gene_col]]
+    )
+  }
+
+  rows <- vector("list", length(modules$module_genes))
+
+  for (i in seq_along(modules$module_genes)) {
+    mod_id <- names(modules$module_genes)[i]
+    genes <- modules$module_genes[[i]]
+    n_genes <- length(genes)
+
+    if (n_genes < min_module_size) {
+      rows[[i]] <- data.frame(
+        gene = genes, module = as.integer(mod_id),
+        centrality = NA_real_,
+        alt_centrality = NA_real_,
+        mean_edge_weight = NA_real_,
+        global_degree = global_str[genes],
+        rank = NA_integer_, is_hub = FALSE,
+        stringsAsFactors = FALSE
+      )
+      next
+    }
+
+    sub <- igraph::induced_subgraph(g, genes)
+    w <- igraph::E(sub)$weight
+    inv_w <- if (!is.null(w)) 1 / w else NULL
+
+    # Compute strength and betweenness once, reuse for primary/alt/mean_ew
+    sub_str <- igraph::strength(sub)
+    sub_btw <- igraph::betweenness(sub, weights = inv_w)
+
+    # Primary centrality (tier 1)
+    cent_vals <- switch(centrality,
+      degree = sub_str,
+      betweenness = sub_btw,
+      eigenvector = igraph::eigen_centrality(sub, weights = w)$vector
+    )
+
+    # Alternative centrality (tier 3): betweenness if primary is degree,
+    # degree otherwise — the most complementary pair
+    alt_cent <- if (centrality == "degree") sub_btw else sub_str
+
+    # Mean within-module edge weight (tier 4): strength / degree
+    sub_deg <- igraph::degree(sub)
+    mean_ew <- ifelse(sub_deg > 0, sub_str / sub_deg, 0)
+
+    rnk <- rank(-cent_vals, ties.method = "min")
+
+    hub_cutoff <- if (!is.null(top_n)) {
+      min(top_n, n_genes)
+    } else {
+      max(1L, ceiling(top_fraction * n_genes))
+    }
+
+    rows[[i]] <- data.frame(
+      gene = names(cent_vals), module = as.integer(mod_id),
+      centrality = as.numeric(cent_vals),
+      alt_centrality = as.numeric(alt_cent),
+      mean_edge_weight = as.numeric(mean_ew),
+      global_degree = as.numeric(global_str[genes]),
+      rank = as.integer(rnk),
+      is_hub = FALSE,  # filled below
+      stringsAsFactors = FALSE
+    )
+  }
+
+  result <- do.call(rbind, rows)
+  rownames(result) <- NULL
+
+  # HOG mapping (vectorized, once for all genes)
+  result$hog <- NA_character_
+  if (!is.null(hog_lookup)) {
+    matched <- match(result$gene, names(hog_lookup))
+    result$hog[!is.na(matched)] <- hog_lookup[matched[!is.na(matched)]]
+  }
+
+  # Conservation lookups (vectorized, once for all genes — tiers 5-6)
+  result$conserv_eff <- 0
+  result$hog_q <- 1
+  if (!is.null(gene_conserv)) {
+    matched <- match(result$gene, names(gene_conserv))
+    result$conserv_eff[!is.na(matched)] <- gene_conserv[matched[!is.na(matched)]]
+  }
+  if (!is.null(hog_min_q) && !is.null(hog_lookup)) {
+    matched <- match(result$hog, names(hog_min_q))
+    result$hog_q[!is.na(matched)] <- hog_min_q[matched[!is.na(matched)]]
+  }
+
+  # Hub selection per module: tie-breaking cascade across all 6 tiers
+  # Tiers 1-5 descending (higher = better), tier 6 ascending (lower = better)
+  mod_ids <- unique(result$module[!is.na(result$centrality)])
+  for (m in mod_ids) {
+    idx <- which(result$module == m & !is.na(result$centrality))
+    n_mod <- length(idx)
+    hub_cutoff <- if (!is.null(top_n)) {
+      min(top_n, n_mod)
+    } else {
+      max(1L, ceiling(top_fraction * n_mod))
+    }
+    ord <- order(-result$centrality[idx], -result$global_degree[idx],
+                 -result$alt_centrality[idx], -result$mean_edge_weight[idx],
+                 -result$conserv_eff[idx], result$hog_q[idx])
+    result$is_hub[idx[ord[seq_len(hub_cutoff)]]] <- TRUE
+  }
+
+  # Drop internal tie-breaking columns
+  result$alt_centrality <- NULL
+  result$mean_edge_weight <- NULL
+  result$conserv_eff <- NULL
+  result$hog_q <- NULL
+
+  result
+}
+
+
+#' Classify hub gene conservation across species and traits
+#'
+#' Given per-species hub identification results (from
+#' [identify_module_hubs()]), maps hub genes to HOGs and classifies each HOG
+#' by its hub conservation pattern relative to a discrete trait (e.g.
+#' annual / perennial).
+#'
+#' @section Classification waterfall:
+#' For each HOG that appears in at least one species:
+#' \describe{
+#'   \item{conserved_hub}{Hub in multiple trait groups **and** the hub modules
+#'     correspond across traits (checked via `module_comparisons`).}
+#'   \item{rewired_hub}{Hub in multiple trait groups but in
+#'     **non-corresponding** modules -- the gene kept its centrality but
+#'     changed regulatory context.}
+#'   \item{multi_trait_hub}{Hub in multiple trait groups; module correspondence
+#'     unknown (`module_comparisons` not provided).}
+#'   \item{[trait]_specific_hub}{Hub in exactly one trait group (e.g.
+#'     `"annual_specific_hub"`).}
+#'   \item{sporadic_hub}{Hub in some species but does not reach
+#'     `min_trait_fraction` in any trait group.}
+#'   \item{non_hub}{Present in modules but not a hub in any species.}
+#' }
+#'
+#' @param hub_results Named list keyed by species name.  Each element is the
+#'   data frame output of [identify_module_hubs()] (with `orthologs`
+#'   provided so the `hog` column is populated).
+#' @param species_trait Named character or factor vector mapping species to
+#'   trait groups, e.g. `c(SP_A = "annual", SP_B = "annual",
+#'   SP_C = "perennial", SP_D = "perennial")`.
+#' @param module_comparisons Optional named list of [compare_modules()] outputs
+#'   keyed by alphabetically sorted species pair (e.g. `"SP_A.SP_C"`).
+#'   Required for the conserved_hub vs rewired_hub distinction.
+#' @param alpha Significance threshold for module correspondence (default 0.05).
+#' @param jaccard_threshold Jaccard threshold for module correspondence
+#'   (default 0.1).
+#' @param min_trait_fraction Minimum fraction of species (within a trait group)
+#'   where the HOG must be a hub for the group to count (default 0.5).
+#' @param correspondence_threshold Fraction of cross-trait hub pairs that must
+#'   have corresponding modules for the HOG to be classified as
+#'   `conserved_hub` rather than `rewired_hub` (default 0.5).
+#'
+#' @return A data frame with one row per HOG:
+#'   \describe{
+#'     \item{hog}{HOG identifier}
+#'     \item{classification}{Conservation category (see Classification
+#'       waterfall)}
+#'     \item{n_species_hub}{Number of species where the HOG is a hub}
+#'     \item{n_species_present}{Number of species where the HOG has genes}
+#'     \item{hub_trait_groups}{Comma-separated trait groups where it qualifies
+#'       as hub (`NA` for non_hub)}
+#'     \item{n_corresponding}{Cross-trait hub pairs with corresponding modules
+#'       (`NA` without `module_comparisons`)}
+#'     \item{n_cross_pairs}{Total cross-trait hub pairs checked (`NA` without
+#'       `module_comparisons`)}
+#'     \item{max_centrality}{Highest centrality score across species}
+#'     \item{best_hub_species}{Species with highest centrality}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' hub_list <- list(
+#'   SP_A = identify_module_hubs(mods_A, net_A, ortho_A),
+#'   SP_B = identify_module_hubs(mods_B, net_B, ortho_B)
+#' )
+#' trait <- c(SP_A = "annual", SP_B = "perennial")
+#' classify_hub_conservation(hub_list, trait)
+#' }
+#'
+#' @export
+classify_hub_conservation <- function(hub_results, species_trait,
+                                      module_comparisons = NULL,
+                                      alpha = 0.05,
+                                      jaccard_threshold = 0.1,
+                                      min_trait_fraction = 0.5,
+                                      correspondence_threshold = 0.5) {
+  # --- Validation ---
+  if (!is.list(hub_results) || is.null(names(hub_results))) {
+    stop("hub_results must be a named list keyed by species")
+  }
+  if (!is.character(species_trait) && !is.factor(species_trait)) {
+    stop("species_trait must be a named character or factor vector")
+  }
+  if (is.null(names(species_trait))) {
+    stop("species_trait must be a named vector")
+  }
+  missing_sp <- setdiff(names(hub_results), names(species_trait))
+  if (length(missing_sp) > 0) {
+    stop("species_trait missing entries for: ",
+         paste(missing_sp, collapse = ", "))
+  }
+  req_cols <- c("gene", "module", "is_hub", "hog", "centrality")
+  for (sp in names(hub_results)) {
+    if (!is.data.frame(hub_results[[sp]]) ||
+          !all(req_cols %in% names(hub_results[[sp]]))) {
+      stop("hub_results[['", sp,
+           "']] must be output from identify_module_hubs() with orthologs")
+    }
+  }
+
+  trait_char <- as.character(species_trait[names(hub_results)])
+  names(trait_char) <- names(hub_results)
+  trait_levels <- unique(trait_char)
+  species_by_trait <- split(names(trait_char), trait_char)
+
+  # --- Build HOG-level summary: stack all results, aggregate per (hog, sp) ---
+  tagged <- lapply(names(hub_results), function(sp) {
+    hr <- hub_results[[sp]]
+    hr <- hr[!is.na(hr$hog), , drop = FALSE]
+    if (nrow(hr) == 0L) return(NULL)
+    hr$species <- sp
+    hr
+  })
+  stacked <- do.call(rbind, tagged)
+
+  # Empty result template
+  empty <- data.frame(
+    hog = character(0), classification = character(0),
+    n_species_hub = integer(0), n_species_present = integer(0),
+    hub_trait_groups = character(0),
+    n_corresponding = integer(0), n_cross_pairs = integer(0),
+    max_centrality = numeric(0), best_hub_species = character(0),
+    stringsAsFactors = FALSE
+  )
+  if (is.null(stacked) || nrow(stacked) == 0L) return(empty)
+
+  # One row per (hog, species): is_hub (OR), hub_module, max_centrality
+  hog_df <- do.call(rbind, lapply(
+    split(stacked, paste(stacked$hog, stacked$species, sep = "\x01")),
+    function(df) {
+      any_hub <- any(df$is_hub)
+      hub_mod <- if (any_hub) {
+        hub_rows <- df[df$is_hub, , drop = FALSE]
+        hub_rows$module[which.max(hub_rows$centrality)]
+      } else {
+        NA_integer_
+      }
+      cent <- df$centrality[!is.na(df$centrality)]
+      data.frame(
+        hog = df$hog[1], species = df$species[1],
+        is_hub = any_hub, hub_module = hub_mod,
+        max_centrality = if (length(cent) == 0L) NA_real_ else max(cent),
+        stringsAsFactors = FALSE
+      )
+    }
+  ))
+  rownames(hog_df) <- NULL
+
+  # --- Pre-compute (hog x trait) hub fraction matrix ---
+  hog_df$trait <- trait_char[hog_df$species]
+  hub_frac <- tapply(hog_df$is_hub, list(hog_df$hog, hog_df$trait), mean)
+  hub_frac[is.na(hub_frac)] <- 0
+  is_hub_group <- hub_frac >= min_trait_fraction  # logical matrix
+
+  # --- Pre-compute per-HOG aggregates ---
+  hog_n_present <- tapply(hog_df$species, hog_df$hog, length)
+  hog_n_hub <- tapply(hog_df$is_hub, hog_df$hog, sum)
+  hog_max_cent <- tapply(hog_df$max_centrality, hog_df$hog, function(x) {
+    cx <- x[!is.na(x)]
+    if (length(cx) == 0L) NA_real_ else max(cx)
+  })
+  hog_best_sp <- tapply(
+    seq_len(nrow(hog_df)), hog_df$hog,
+    function(idx) {
+      sub <- hog_df[idx, , drop = FALSE]
+      cx <- sub$max_centrality
+      if (all(is.na(cx))) sub$species[1] else sub$species[which.max(cx)]
+    }
+  )
+
+  # --- Pre-build module correspondence lookup per species pair ---
+  corresp_lookup <- list()  # keyed by "SP_A.SP_C", values = named logical
+  if (!is.null(module_comparisons)) {
+    for (pair_key in names(module_comparisons)) {
+      pairs <- module_comparisons[[pair_key]]$pairs
+      is_match <- pairs$q.value < alpha & pairs$jaccard >= jaccard_threshold
+      keys <- paste(pairs$module_sp1, pairs$module_sp2, sep = "\x01")
+      corresp_lookup[[pair_key]] <- stats::setNames(is_match, keys)
+    }
+  }
+
+  # O(1) module correspondence check
+  check_correspondence <- function(sp_a, mod_a, sp_b, mod_b) {
+    if (length(corresp_lookup) == 0L) return(NA)
+    pair_key <- paste(sort(c(sp_a, sp_b)), collapse = ".")
+    lkp <- corresp_lookup[[pair_key]]
+    if (is.null(lkp)) return(NA)
+    sorted <- sort(c(sp_a, sp_b))
+    mod_key <- if (sp_a == sorted[1]) {
+      paste(mod_a, mod_b, sep = "\x01")
+    } else {
+      paste(mod_b, mod_a, sep = "\x01")
+    }
+    val <- lkp[mod_key]
+    if (is.na(val)) FALSE else val
+  }
+
+  # --- Classify each HOG ---
+  hog_groups <- split(hog_df, hog_df$hog)
+  all_hogs <- names(hog_groups)
+
+  out_rows <- lapply(all_hogs, function(h) {
+    h_df <- hog_groups[[h]]
+    n_present <- hog_n_present[[h]]
+    n_hub <- hog_n_hub[[h]]
+    max_cent <- hog_max_cent[[h]]
+    best_sp <- hog_best_sp[[h]]
+
+    # Trait-group hub status from pre-computed matrix (fix #6)
+    hub_group_names <- colnames(is_hub_group)[is_hub_group[h, ]]
+
+    n_corresponding <- NA_integer_
+    n_cross_pairs <- NA_integer_
+
+    if (n_hub == 0L) {
+      classification <- "non_hub"
+    } else if (length(hub_group_names) >= 2L) {
+      # Hub in multiple trait groups -- check module correspondence
+      hub_sp_by_group <- lapply(hub_group_names, function(g) {
+        h_df$species[h_df$species %in% species_by_trait[[g]] & h_df$is_hub]
+      })
+      group_indices <- seq_along(hub_group_names)
+      pair_mat <- if (length(group_indices) == 2L) {
+        matrix(group_indices, nrow = 2)
+      } else {
+        utils::combn(group_indices, 2)
+      }
+      cross_pairs <- do.call(rbind, lapply(
+        seq_len(ncol(pair_mat)), function(k) {
+          expand.grid(sp_a = hub_sp_by_group[[pair_mat[1, k]]],
+                      sp_b = hub_sp_by_group[[pair_mat[2, k]]],
+                      stringsAsFactors = FALSE)
+        }
+      ))
+
+      n_cross_pairs <- nrow(cross_pairs)
+
+      corresp <- vapply(seq_len(n_cross_pairs), function(j) {
+        mod_a <- h_df$hub_module[h_df$species == cross_pairs$sp_a[j]]
+        mod_b <- h_df$hub_module[h_df$species == cross_pairs$sp_b[j]]
+        check_correspondence(cross_pairs$sp_a[j], mod_a,
+                             cross_pairs$sp_b[j], mod_b)
+      }, logical(1))
+
+      if (all(is.na(corresp))) {
+        classification <- "multi_trait_hub"
+        n_corresponding <- NA_integer_
+      } else {
+        n_corresponding <- sum(corresp, na.rm = TRUE)
+        n_available <- sum(!is.na(corresp))
+        classification <- if (n_corresponding / n_available >=
+                              correspondence_threshold) {
+          "conserved_hub"
+        } else {
+          "rewired_hub"
+        }
+      }
+    } else if (length(hub_group_names) == 1L) {
+      classification <- paste0(hub_group_names, "_specific_hub")
+    } else {
+      classification <- "sporadic_hub"
+    }
+
+    data.frame(
+      hog = h,
+      classification = classification,
+      n_species_hub = as.integer(n_hub),
+      n_species_present = as.integer(n_present),
+      hub_trait_groups = if (length(hub_group_names) > 0L) {
+        paste(sort(hub_group_names), collapse = ",")
+      } else {
+        NA_character_
+      },
+      n_corresponding = n_corresponding,
+      n_cross_pairs = n_cross_pairs,
+      max_centrality = max_cent,
+      best_hub_species = best_sp,
+      stringsAsFactors = FALSE
+    )
+  })
+
+  result <- do.call(rbind, out_rows)
+  rownames(result) <- NULL
+  result
+}

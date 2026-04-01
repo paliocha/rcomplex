@@ -25,6 +25,8 @@ testing conservation at gene, module, and clique levels.
 \item{\code{\link[=detect_modules]{detect_modules()}}}{Community detection with consensus}
 \item{\code{\link[=compare_modules]{compare_modules()}}}{Cross-species module comparison}
 \item{\code{\link[=classify_modules]{classify_modules()}}}{Module conservation classification}
+\item{\code{\link[=identify_module_hubs]{identify_module_hubs()}}}{Within-module hub gene identification}
+\item{\code{\link[=classify_hub_conservation]{classify_hub_conservation()}}}{Hub conservation across traits}
 \item{\code{\link[=find_cliques]{find_cliques()}}}{C++ clique detection (Bron-Kerbosch)}
 \item{\code{\link[=clique_stability]{clique_stability()}}}{Leave-k-out jackknife stability}
 \item{\code{\link[=clique_persistence]{clique_persistence()}}}{Co-expressolog persistence scores}

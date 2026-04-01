@@ -18,6 +18,8 @@
 #'   \item{[detect_modules()]}{Community detection with consensus}
 #'   \item{[compare_modules()]}{Cross-species module comparison}
 #'   \item{[classify_modules()]}{Module conservation classification}
+#'   \item{[identify_module_hubs()]}{Within-module hub gene identification}
+#'   \item{[classify_hub_conservation()]}{Hub conservation across traits}
 #'   \item{[find_cliques()]}{C++ clique detection (Bron-Kerbosch)}
 #'   \item{[clique_stability()]}{Leave-k-out jackknife stability}
 #'   \item{[clique_persistence()]}{Co-expressolog persistence scores}
