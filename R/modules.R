@@ -1075,7 +1075,7 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
   centrality <- match.arg(centrality)
 
   if (!is.list(modules) || is.null(modules$module_genes) ||
-        is.null(modules$graph)) {
+        is.null(modules$graph) || is.null(modules$modules)) {
     stop("modules must be output from detect_modules()")
   }
   if (!is.list(net) || is.null(net$network)) {
@@ -1188,7 +1188,10 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
     # Compute all three centrality measures once
     sub_str <- igraph::strength(sub)
     sub_btw <- igraph::betweenness(sub, weights = inv_w)
-    sub_eig <- igraph::eigen_centrality(sub, weights = w)$vector
+    sub_eig <- tryCatch(
+      igraph::eigen_centrality(sub, weights = w)$vector,
+      error = function(e) stats::setNames(rep(0, length(genes)), genes)
+    )
 
     # Primary centrality for ranking/tie-breaking (tier 1)
     cent_vals <- switch(centrality,

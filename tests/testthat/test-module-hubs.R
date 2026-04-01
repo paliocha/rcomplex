@@ -543,3 +543,53 @@ test_that("classify_hub_conservation multi_trait_hub without module_comparisons"
     expect_true(all(is.na(multi$n_corresponding)))
   }
 })
+
+
+test_that("identify_module_hubs comparison parameter enables conservation tie-breaking", {
+  # Build a network where two genes have identical within-module degree
+  # but different conservation effect sizes
+  n <- 10L
+  gnames <- paste0("G", seq_len(n))
+  mat <- matrix(0, n, n, dimnames = list(gnames, gnames))
+  # All genes fully connected (identical within-module degree)
+  mat[1:n, 1:n] <- 0.8
+  diag(mat) <- 1
+
+  net <- list(network = mat, threshold = 0.5)
+  m <- detect_modules(net, method = "leiden",
+                       objective_function = "modularity", seed = 42)
+
+  # Orthologs: 1:1 mapping to partner species
+  ortho <- data.frame(
+    Species1 = gnames,
+    Species2 = paste0("P", seq_len(n)),
+    hog = paste0("HOG", seq_len(n)),
+    stringsAsFactors = FALSE
+  )
+
+  # Mock comparison: G1 has high conservation effect, G2 has low
+  mock_comparison <- data.frame(
+    Species1 = gnames,
+    Species2 = paste0("P", seq_len(n)),
+    hog = paste0("HOG", seq_len(n)),
+    Species1.effect.size = c(10, 0.5, rep(1, n - 2)),
+    Species2.effect.size = c(10, 0.5, rep(1, n - 2)),
+    Species1.q.val.con = c(0.001, 0.9, rep(0.5, n - 2)),
+    Species2.q.val.con = c(0.001, 0.9, rep(0.5, n - 2)),
+    stringsAsFactors = FALSE
+  )
+
+  # Without comparison: all genes have equal centrality,
+  # tie-breaking falls to global degree (also equal), then alt centrality, etc.
+  result_no_comp <- identify_module_hubs(m, net, ortho, top_n = 1L)
+
+  # With comparison: G1 should win the tie (highest conservation effect)
+  result_with_comp <- identify_module_hubs(m, net, ortho,
+                                            comparison = mock_comparison,
+                                            top_n = 1L)
+
+  g1_mod <- result_with_comp$module[result_with_comp$gene == "G1"]
+  hub_with <- result_with_comp[result_with_comp$module == g1_mod &
+                                 result_with_comp$is_hub, ]
+  expect_true("G1" %in% hub_with$gene)
+})
