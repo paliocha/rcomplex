@@ -144,7 +144,22 @@
 <span><span class="va">comp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_modules.html">compare_modules</a></span><span class="op">(</span><span class="va">mod1</span>, <span class="va">mod2</span>, <span class="va">orthologs</span>, method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Classify: conserved, partially conserved, or species-specific</span></span>
-<span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Identify hub genes within modules (6-tier tie-breaking cascade)</span></span>
+<span><span class="va">hubs1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod1</span>, <span class="va">net1</span>, <span class="va">orthologs</span>,</span>
+<span>                              comparison <span class="op">=</span> <span class="va">summary</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span>
+<span><span class="va">hubs2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod2</span>, <span class="va">net2</span>, <span class="va">orthologs</span>,</span>
+<span>                              comparison <span class="op">=</span> <span class="va">summary</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span>
+<span><span class="va">hubs1</span><span class="op">[</span><span class="va">hubs1</span><span class="op">$</span><span class="va">is_hub</span>, <span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Classify hub conservation across traits</span></span>
+<span><span class="va">trait</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>SP_A <span class="op">=</span> <span class="st">"annual"</span>, SP_B <span class="op">=</span> <span class="st">"perennial"</span><span class="op">)</span></span>
+<span><span class="va">hub_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_hub_conservation.html">classify_hub_conservation</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>SP_A <span class="op">=</span> <span class="va">hubs1</span>, SP_B <span class="op">=</span> <span class="va">hubs2</span><span class="op">)</span>, <span class="va">trait</span>,</span>
+<span>  module_comparisons <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"SP_A.SP_B"</span> <span class="op">=</span> <span class="va">comp</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">hub_class</span><span class="op">[</span><span class="va">hub_class</span><span class="op">$</span><span class="va">classification</span> <span class="op">!=</span> <span class="st">"non_hub"</span>, <span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="clique-level-analysis">Clique-level analysis<a class="anchor" aria-label="anchor" href="#clique-level-analysis"></a>
@@ -230,6 +245,14 @@
 <tr class="odd">
 <td><code><a href="reference/classify_modules.html">classify_modules()</a></code></td>
 <td>Three-tier module conservation classification</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code></td>
+<td>Within-module hub identification with 6-tier conservation-aware tie-breaking</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code></td>
+<td>Hub conservation across traits (conserved / rewired / trait-specific)</td>
 </tr>
 <tr class="even">
 <td><code><a href="reference/find_cliques.html">find_cliques()</a></code></td>
@@ -442,7 +465,7 @@
 <tr class="odd">
 <td><code>R/modules.R</code></td>
 <td>
-<code><a href="reference/detect_modules.html">detect_modules()</a></code>, <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>
+<code><a href="reference/detect_modules.html">detect_modules()</a></code>, <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>, <code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>
 </td>
 </tr>
 <tr class="even">
