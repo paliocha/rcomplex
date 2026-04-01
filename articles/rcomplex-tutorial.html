@@ -445,10 +445,10 @@ robustness assessment.</p>
 <div class="section level2">
 <h2 id="clique-detection-and-phylogenetic-stability">6. Clique detection and phylogenetic stability<a class="anchor" aria-label="anchor" href="#clique-detection-and-phylogenetic-stability"></a>
 </h2>
-<p>Using edges from the baseline density level (3%), we find cliques and
-test their phylogenetic stability via leave-k-out jackknife. The
-jackknife removes k species at a time and checks whether each
-trait-exclusive clique is preserved:</p>
+<p>Using edges from the baseline density level, we find cliques and test
+their phylogenetic stability via leave-k-out jackknife. The jackknife
+removes k species at a time and checks whether each trait-exclusive
+clique is preserved:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use the baseline (1.0x) edges for clique detection and stability</span></span>
 <span><span class="va">robust_edges</span> <span class="op">&lt;-</span> <span class="va">sweep_results</span><span class="op">[[</span><span class="st">"1"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">edges</span></span>
