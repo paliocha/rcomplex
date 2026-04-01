@@ -394,6 +394,19 @@ hog_edge_survival <- cbind(vapply(names(sweep_results), function(m) {
 }, logical(nrow(result))))
 result$n_densities_survived <- rowSums(hog_edge_survival)
 
+# Annotate trait composition from the baseline cliques
+# For each HOG, count how many annual/perennial species are in its best clique
+result$n_annual <- NA_integer_
+result$n_perennial <- NA_integer_
+for (i in seq_len(nrow(result))) {
+  hog_cliques <- cliques[cliques$hog == result$hog[i], , drop = FALSE]
+  if (nrow(hog_cliques) == 0) next
+  best <- hog_cliques[which.min(hog_cliques$mean_q), ]
+  present_sp <- species[!is.na(best[, species])]
+  result$n_annual[i] <- sum(trait[present_sp] == "annual")
+  result$n_perennial[i] <- sum(trait[present_sp] == "perennial")
+}
+
 # Show top-ranked HOGs per category
 for (cls in c("complete", "partial", "differentiated", "trait_specific")) {
   sub <- result[result$classification == cls, ]
@@ -401,12 +414,19 @@ for (cls in c("complete", "partial", "differentiated", "trait_specific")) {
   sort_q <- if ("best_mean_q" %in% names(sub)) sub$best_mean_q else 0
   sub <- sub[order(-sub$n_densities_survived, sort_q), ]
   cat("\n", toupper(cls), "- top 5:\n")
-  show_cols <- c("hog", "n_species", "best_mean_q", "stability_class",
-                 "n_densities_survived")
+  show_cols <- c("hog", "n_species", "n_annual", "n_perennial",
+                 "best_mean_q", "stability_class", "n_densities_survived")
   show_cols <- intersect(show_cols, names(sub))
   print(head(sub[, show_cols], 5), row.names = FALSE)
 }
 ```
+
+Note that `stability_class` is NA for partial and complete cliques --
+these span both trait groups and are therefore not trait-exclusive. The
+jackknife stability test asks "does removing species break trait
+exclusivity?", which only applies to trait-exclusive cliques
+(differentiated and trait_specific). For cross-trait cliques, the
+`n_densities_survived` column is the relevant robustness measure.
 
 ## Session info
 
