@@ -40,10 +40,13 @@ BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
     DT,
     knitr,
+    purrr (>= 1.0.0),
     rmarkdown,
     S4Vectors,
     sbm,
+    stringr,
     SummarizedExperiment,
+    tibble (>= 3.1.0),
     torch,
     testthat (>= 3.0.0),
     lintr,

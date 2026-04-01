@@ -26,6 +26,15 @@ show_table <- function(df, pageLength = 10, ...) {
     knitr::kable(df)
   }
 }
+
+# Helper for ranked classification tables
+show_classification <- function(df, class, cols, caption) {
+  sub <- df |>
+    dplyr::filter(classification == class) |>
+    dplyr::select(dplyr::any_of(cols)) |>
+    dplyr::arrange(dplyr::desc(n_densities_survived), best_mean_q)
+  show_table(sub, pageLength = 10, caption = caption)
+}
 ```
 
 This vignette demonstrates a complete rcomplex analysis using expression
@@ -51,17 +60,19 @@ The dataset contains the 1500 most highly expressed HOGs from VST-normalized RNA
 ```{r data, message = FALSE}
 library(rcomplex)
 library(SummarizedExperiment)
+library(dplyr, warn.conflicts = FALSE)
+library(tidyr)
+library(purrr)
+library(tibble)
 
 se_list <- readRDS(system.file("extdata", "pooideae_vignette.rds",
                                 package = "rcomplex"))
-species <- names(se_list)
-
-# Life cycle trait
-trait <- c(BDIS = "annual", BSYL = "perennial",
-           HVUL = "annual", HJUB = "perennial",
-           BMAX = "annual", BMED = "perennial",
-           VBRO = "annual", FPRA = "perennial")
 ```
+
+We organise all per-species data in a single nested tibble. Each column
+accumulates one processing stage — the `tribble` defines species metadata,
+then `mutate` + `map` appends the SE objects, paralog reduction, and
+network construction as list-columns:
 
 ### Paralog reduction
 
@@ -74,77 +85,91 @@ Paralogs above the correlation threshold (default 0.7) are replaced
 by their averaged expression; subfunctionalized copies with distinct
 expression programs are preserved:
 
-```{r reduce}
-# Build a per-species ortholog table from rowData HOG annotations
-reduced_se <- lapply(species, function(sp) {
-  expr <- SummarizedExperiment::assay(se_list[[sp]], 1)
-  rd <- SummarizedExperiment::rowData(se_list[[sp]])
-  ortho_sp <- data.frame(
-    gene = rownames(se_list[[sp]]),
-    hog = as.character(rd$hog),
-    stringsAsFactors = FALSE
+```{r species-data}
+species_data <- tribble(
+  ~species, ~trait,
+  "BDIS",   "annual",
+  "BSYL",   "perennial",
+  "HVUL",   "annual",
+  "HJUB",   "perennial",
+  "BMAX",   "annual",
+  "BMED",   "perennial",
+  "VBRO",   "annual",
+  "FPRA",   "perennial"
+) |>
+  mutate(
+    se = se_list[species],
+    reduced = map(se, \(s) {
+      expr <- SummarizedExperiment::assay(s, 1)
+      rd <- SummarizedExperiment::rowData(s)
+      ortho_sp <- tibble(gene = rownames(s),
+                         hog = as.character(rd$hog)) |>
+        filter(!is.na(hog))
+      reduce_orthogroups(expr, ortho_sp, gene_col = "gene",
+                         cor_threshold = 0.7)
+    })
   )
-  ortho_sp <- ortho_sp[!is.na(ortho_sp$hog), ]
-  reduced <- reduce_orthogroups(expr, ortho_sp, gene_col = "gene",
-                                 cor_threshold = 0.7)
-  cat(sp, ":", reduced$n_original, "->", reduced$n_reduced, "genes",
-      "(", reduced$n_merged, "merged )\n")
-  reduced
-})
-names(reduced_se) <- species
+
+walk2(species_data$species, species_data$reduced, \(sp, r)
+  cat(sp, ":", r$n_original, "->", r$n_reduced, "genes",
+      "(", r$n_merged, "merged )\n"))
 ```
 
 ### Network construction
 
 Build co-expression networks from the reduced expression matrices
-using Mutual Rank (MR) normalization at 3% density. We pass the
-matrix directly since SE metadata is no longer needed post-reduction:
+using Mutual Rank (MR) normalization at 3% density:
 
 ```{r networks}
-networks <- lapply(species, function(sp) {
-  compute_network(reduced_se[[sp]]$expr_matrix,
-                  norm_method = "MR", density = 0.03)
-})
-names(networks) <- species
+species_data <- species_data |>
+  mutate(network = map(reduced, \(r)
+    compute_network(r$expr_matrix, norm_method = "MR", density = 0.03)))
+
+# Named lists for functions that expect them
+species  <- species_data$species
+trait_vec <- set_names(species_data$trait, species)
+networks <- set_names(species_data$network, species)
 ```
 
 ### Ortholog extraction
 
 Extract ortholog pairs from HOG annotations in rowData. After
 paralog reduction, gene names may have changed (merged representatives),
-so we map through each species' reduction. Gene IDs are species-unique
-(genome-specific identifiers), so each species' map is applied only
-to the column containing that species' genes:
+so we map through each species' reduction via joins. Gene IDs are
+species-unique (genome-specific identifiers), so each species' map
+is applied only to the column containing that species' genes:
 
 ```{r orthologs}
-ortho_pairs <- utils::combn(species, 2, simplify = FALSE)
-ortho_list <- lapply(ortho_pairs, function(pair) {
-  o <- extract_orthologs(se_list[[pair[1]]], se_list[[pair[2]]])
-  o$sp1_name <- pair[1]
-  o$sp2_name <- pair[2]
-  o
-})
-orthologs <- do.call(rbind, ortho_list)
+# All species pairs as a tibble
+pairs <- combn(species, 2, simplify = FALSE) |>
+  map(\(p) tibble(sp1 = p[1], sp2 = p[2])) |>
+  list_rbind()
 
-# Map original gene names to reduced representatives (species-aware)
-for (sp in species) {
-  gm <- reduced_se[[sp]]$gene_map
-  map <- stats::setNames(gm$representative, gm$original)
-  is_sp1 <- orthologs$sp1_name == sp
-  is_sp2 <- orthologs$sp2_name == sp
-  orthologs$Species1[is_sp1] <- ifelse(
-    orthologs$Species1[is_sp1] %in% names(map),
-    map[orthologs$Species1[is_sp1]], orthologs$Species1[is_sp1])
-  orthologs$Species2[is_sp2] <- ifelse(
-    orthologs$Species2[is_sp2] %in% names(map),
-    map[orthologs$Species2[is_sp2]], orthologs$Species2[is_sp2])
-}
-orthologs$sp1_name <- orthologs$sp2_name <- NULL
-# Deduplicate after mapping (merged paralogs collapse to same pair)
-orthologs <- unique(orthologs)
+# Extract orthologs for every pair, then map gene names through reduction
+gene_maps <- species_data |>
+  transmute(species, gm = map(reduced, "gene_map")) |>
+  unnest(gm) |>
+  select(species, original, representative)
+
+orthologs <- pairs |>
+  mutate(data = map2(sp1, sp2, \(a, b)
+    extract_orthologs(se_list[[a]], se_list[[b]]))) |>
+  unnest(data) |>
+  # Map Species1 genes via sp1's reduction
+  left_join(gene_maps |> select(sp1 = species,
+                                 Species1 = original, rep1 = representative),
+            by = c("sp1", "Species1")) |>
+  mutate(Species1 = coalesce(rep1, Species1)) |>
+  # Map Species2 genes via sp2's reduction
+  left_join(gene_maps |> select(sp2 = species,
+                                 Species2 = original, rep2 = representative),
+            by = c("sp2", "Species2")) |>
+  mutate(Species2 = coalesce(rep2, Species2)) |>
+  select(-sp1, -sp2, -rep1, -rep2) |>
+  distinct()
 
 cat(nrow(orthologs), "ortholog pairs across",
-    length(ortho_pairs), "species pairs\n")
+    nrow(pairs), "species pairs\n")
 ```
 
 ## 2. Pairwise comparison and HOG-level testing
@@ -170,7 +195,7 @@ The HOG-level q-values determine which edges are co-expressologs
 # Helper: build edges from raw comparison + HOG-level q-values
 build_perm_edges <- function(comp, hog_res, sp_a, sp_b, alpha = 0.05) {
   hog_q <- hog_res$q.value[match(comp$hog, hog_res$hog)]
-  data.frame(
+  tibble(
     gene1 = comp$Species1,
     gene2 = comp$Species2,
     species1 = sp_a,
@@ -178,36 +203,36 @@ build_perm_edges <- function(comp, hog_res, sp_a, sp_b, alpha = 0.05) {
     hog = comp$hog,
     q.value = hog_q,
     effect_size = sqrt(comp$Species1.effect.size * comp$Species2.effect.size),
-    type = ifelse(!is.na(hog_q) & hog_q < alpha, "conserved", "ns")
+    type = if_else(!is.na(hog_q) & hog_q < alpha, "conserved", "ns")
   )
 }
 
-# Run all 28 pairs
-pair_edges <- list()
-hog_results <- list()
-idx <- 0L
+n_cores <- min(4L, parallel::detectCores(logical = FALSE))
 
-for (pair in utils::combn(species, 2, simplify = FALSE)) {
-  sp_a <- pair[1]; sp_b <- pair[2]
+# Run all 28 pairs: nested tibble with comp + hog_res as list-columns
+comparisons <- pairs |>
+  mutate(
+    comp = map2(sp1, sp2, \(a, b)
+      compare_neighborhoods(networks[[a]], networks[[b]], orthologs)),
+    hog_res = pmap(list(sp1, sp2, comp), \(a, b, c) {
+      if (nrow(c) == 0) return(NULL)
+      permutation_hog_test(networks[[a]], networks[[b]], c,
+                           n_cores = n_cores, use_torch = TRUE)
+    })
+  ) |>
+  filter(map_int(comp, nrow) > 0)
 
-  comp <- compare_neighborhoods(networks[[sp_a]], networks[[sp_b]],
-                                 orthologs)
-  if (nrow(comp) == 0) next
+edges <- comparisons |>
+  pmap(\(sp1, sp2, comp, hog_res, ...)
+    build_perm_edges(comp, hog_res, sp1, sp2)) |>
+  list_rbind()
 
-  hog_res <- permutation_hog_test(
-    networks[[sp_a]], networks[[sp_b]], comp,
-    n_cores = min(4L, parallel::detectCores(logical = FALSE)),
-    use_torch = TRUE
-  )
-
-  idx <- idx + 1L
-  pair_edges[[idx]] <- build_perm_edges(comp, hog_res, sp_a, sp_b)
-  hog_res$pair <- paste(sp_a, sp_b, sep = "-")
-  hog_results[[paste(sp_a, sp_b, sep = "-")]] <- hog_res
-}
-
-edges <- do.call(rbind, pair_edges)
-all_hog <- do.call(rbind, hog_results)
+all_hog <- comparisons |>
+  transmute(hog_res = map2(hog_res, paste(sp1, sp2, sep = "-"), \(h, pair) {
+    h$pair <- pair; h
+  })) |>
+  pull(hog_res) |>
+  list_rbind()
 
 cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
     sum(edges$type == "ns"), "non-significant\n")
@@ -253,26 +278,32 @@ measures (degree, betweenness, eigenvector) are reported regardless of
 which is chosen as primary:
 
 ```{r module-hubs}
+# Comparison result for BDIS vs BSYL (for conservation tie-breaking)
+comp_bdis_bsyl <- comparisons |>
+  filter(sp1 == "BDIS", sp2 == "BSYL") |>
+  pull(comp) |>
+  pluck(1)
+
 # Identify hubs (top 10% per module by weighted degree)
 hubs_bdis <- identify_module_hubs(mod_bdis, networks$BDIS, orthologs,
-                                   comparison = summary$results)
+                                   comparison = comp_bdis_bsyl)
 hubs_bsyl <- identify_module_hubs(mod_bsyl, networks$BSYL, orthologs,
-                                   comparison = summary$results)
+                                   comparison = comp_bdis_bsyl)
 
-show_table(hubs_bdis[hubs_bdis$is_hub, ],
+show_table(hubs_bdis |> filter(is_hub),
            caption = "Hub genes in BDIS modules")
 ```
 
 ```{r hub-conservation}
 # Classify hub conservation across traits
-trait <- c(BDIS = "annual", BSYL = "perennial")
+hub_trait <- c(BDIS = "annual", BSYL = "perennial")
 
 hub_class <- classify_hub_conservation(
-  list(BDIS = hubs_bdis, BSYL = hubs_bsyl), trait,
+  list(BDIS = hubs_bdis, BSYL = hubs_bsyl), hub_trait,
   module_comparisons = list("BDIS.BSYL" = mod_comp)
 )
 
-show_table(hub_class[hub_class$classification != "non_hub", ],
+show_table(hub_class |> filter(classification != "non_hub"),
            caption = "Hub conservation (BDIS vs BSYL)")
 ```
 
@@ -287,30 +318,30 @@ makes trait-group filtering straightforward:
 
 ```{r hub-partners}
 # Pick a trait-specific hub (if any exist)
-ts_hubs <- hub_class[hub_class$classification %in%
-                       c("trait_specific_hub", "rewired_hub",
-                         "conserved_hub"), ]
+ts_hubs <- hub_class |>
+  filter(classification %in% c("trait_specific_hub", "rewired_hub",
+                                "conserved_hub"))
+
 if (nrow(ts_hubs) > 0) {
   candidate <- ts_hubs$hog[1]
   cat("Querying partners of", candidate, "\n\n")
 
   partners <- get_coexpressed_hogs(
     candidate, networks, orthologs,
-    species_trait = trait, min_species = 2L,
+    species_trait = trait_vec, min_species = 2L,
     edges = edges
   )
 
   cat(nrow(partners), "partner HOGs co-expressed in >= 2 species\n")
 
   if (nrow(partners) > 0) {
-    # Partners co-expressed only in annual species
-    annual_only <- partners[!is.na(partners$coexpressed_traits) &
-                              partners$coexpressed_traits == "annual", ]
+    annual_only <- partners |>
+      filter(!is.na(coexpressed_traits), coexpressed_traits == "annual")
     cat(nrow(annual_only), "annual-only partners\n")
 
-    # Partners co-expressed across both trait groups
-    cross_trait <- partners[!is.na(partners$coexpressed_traits) &
-                              grepl(",", partners$coexpressed_traits), ]
+    cross_trait <- partners |>
+      filter(!is.na(coexpressed_traits),
+             stringr::str_detect(coexpressed_traits, ","))
     cat(nrow(cross_trait), "cross-trait partners\n")
 
     show_table(head(partners, 20),
@@ -347,56 +378,49 @@ neighborhoods change with the threshold, altering the HOG-level
 q-values:
 
 ```{r density-sweep}
-# 11 levels: 5 looser + baseline + 5 tighter
-multipliers <- seq(0.95, 1.05, by = 0.01)
-sweep_results <- list()
+sweep <- tibble(multiplier = seq(0.95, 1.05, by = 0.01)) |>
+  mutate(results = map(multiplier, \(m) {
+    tight_nets <- map(networks, \(net)
+      list(network = net$network, threshold = net$threshold * m))
 
-for (m in multipliers) {
-  tight_nets <- lapply(networks, function(net) {
-    list(network = net$network, threshold = net$threshold * m)
-  })
-  names(tight_nets) <- species
+    eff_density <- mean(map_dbl(networks, \(net) {
+      vals <- net$network[upper.tri(net$network)]
+      mean(vals >= net$threshold * m)
+    }))
 
-  # Effective density at this threshold
-  eff_density <- mean(vapply(species, function(sp) {
-    vals <- networks[[sp]]$network[upper.tri(networks[[sp]]$network)]
-    mean(vals >= networks[[sp]]$threshold * m)
-  }, numeric(1)))
+    tight_edges <- pairs |>
+      mutate(edges = map2(sp1, sp2, \(a, b) {
+        comp <- tryCatch(
+          compare_neighborhoods(tight_nets[[a]], tight_nets[[b]], orthologs),
+          error = \(e) NULL)
+        if (is.null(comp) || nrow(comp) == 0) return(NULL)
+        hog_res <- permutation_hog_test(
+          tight_nets[[a]], tight_nets[[b]], comp,
+          n_cores = n_cores, use_torch = TRUE)
+        build_perm_edges(comp, hog_res, a, b)
+      })) |>
+      pull(edges) |>
+      compact() |>
+      list_rbind()
 
-  # Re-run comparisons + permutation at stricter threshold
-  tight_pair_edges <- list()
-  tidx <- 0L
-  for (pair in utils::combn(species, 2, simplify = FALSE)) {
-    sp_a <- pair[1]; sp_b <- pair[2]
-    comp <- tryCatch(
-      compare_neighborhoods(tight_nets[[sp_a]], tight_nets[[sp_b]], orthologs),
-      error = function(e) NULL)
-    if (is.null(comp) || nrow(comp) == 0) next
-    hog_res <- permutation_hog_test(tight_nets[[sp_a]], tight_nets[[sp_b]],
-                                     comp,
-                                     n_cores = min(4L, parallel::detectCores(logical = FALSE)),
-                                     use_torch = TRUE)
-    tidx <- tidx + 1L
-    tight_pair_edges[[tidx]] <- build_perm_edges(comp, hog_res, sp_a, sp_b)
-  }
-  tight_edges <- if (tidx > 0) do.call(rbind, tight_pair_edges[seq_len(tidx)])
-                 else edges[0, ]
+    if (is.null(tight_edges) || nrow(tight_edges) == 0) {
+      tight_edges <- edges[0, ]
+    }
 
-  n_conserved <- sum(tight_edges$type == "conserved")
-  sweep_results[[as.character(m)]] <- list(
-    edges = tight_edges, eff_density = eff_density,
-    n_conserved = n_conserved)
-}
+    list(edges = tight_edges, eff_density = eff_density,
+         n_conserved = sum(tight_edges$type == "conserved"))
+  })) |>
+  unnest_wider(results)
 
 # Edge survival across density levels
-sweep_df <- data.frame(
-  Multiplier = paste0(names(sweep_results), "x"),
-  Eff_density = sprintf("%.2f%%", vapply(sweep_results,
-    function(r) r$eff_density * 100, numeric(1))),
-  Conserved_edges = vapply(sweep_results, function(r) r$n_conserved, numeric(1)),
-  Baseline = ifelse(names(sweep_results) == "1", "***", "")
-)
-show_table(sweep_df, caption = "Conserved edges across density levels")
+sweep |>
+  transmute(
+    Multiplier = paste0(multiplier, "x"),
+    Eff_density = sprintf("%.2f%%", eff_density * 100),
+    Conserved_edges = n_conserved,
+    Baseline = if_else(multiplier == 1, "***", "")
+  ) |>
+  show_table(caption = "Conserved edges across density levels")
 ```
 
 The edge count may not decrease monotonically because the permutation
@@ -430,9 +454,11 @@ trait-exclusive clique is preserved:
 
 ```{r cliques-stability}
 # Use the baseline (1.0x) edges for clique detection and stability
-robust_edges <- sweep_results[["1"]]$edges
+robust_edges <- sweep |> filter(multiplier == 1) |> pull(edges) |> pluck(1)
 cat("Using", sum(robust_edges$type == "conserved"), "conserved edges at",
-    sprintf("%.2f%%", sweep_results[["1"]]$eff_density * 100), "density\n\n")
+    sprintf("%.2f%%",
+            (sweep |> filter(multiplier == 1) |> pull(eff_density)) * 100),
+    "density\n\n")
 
 # Find cliques
 cliques <- find_cliques(robust_edges, species, min_species = 2L)
@@ -445,7 +471,7 @@ show_table(as.data.frame(table(n_species = cliques$n_species)),
 ```{r stability}
 # Jackknife stability (all k from 1 to N-2)
 max_k <- length(species) - 2L
-stab <- clique_stability(robust_edges, species, trait,
+stab <- clique_stability(robust_edges, species, trait_vec,
                           all_species = species,
                           full_cliques = cliques,
                           max_k = max_k)
@@ -463,7 +489,7 @@ category by robustness. The waterfall assigns each HOG to exactly one
 class: complete > partial > differentiated > trait_specific > unclassified.
 
 ```{r classify}
-result <- classify_cliques(robust_edges, species, trait,
+result <- classify_cliques(robust_edges, species, trait_vec,
                             min_species = 2L,
                             stability = stab)
 
@@ -487,27 +513,28 @@ with high stability class are the strongest findings:
 
 ```{r ranking}
 # Count how many density levels each HOG's edges survive
-hog_edge_survival <- cbind(vapply(names(sweep_results), function(m) {
-  e <- sweep_results[[m]]$edges
-  conserved_hogs <- unique(e$hog[e$type == "conserved"])
-  result$hog %in% conserved_hogs
-}, logical(nrow(result))))
-result$n_densities_survived <- rowSums(hog_edge_survival)
+conserved_per_level <- sweep |>
+  transmute(level = as.character(multiplier),
+            hogs = map(edges, \(e) unique(e$hog[e$type == "conserved"])))
 
-# Annotate trait composition from the baseline cliques
-# For each HOG, count how many annual/perennial species are in its best clique
-result$n_annual <- NA_integer_
-result$n_perennial <- NA_integer_
-for (i in seq_len(nrow(result))) {
-  hog_cliques <- cliques[cliques$hog == result$hog[i], , drop = FALSE]
-  if (nrow(hog_cliques) == 0) next
-  idx <- which.min(hog_cliques$mean_q)
-  if (length(idx) == 0) next
-  best <- hog_cliques[idx, ]
-  present_sp <- species[!is.na(best[, species])]
-  result$n_annual[i] <- sum(trait[present_sp] == "annual")
-  result$n_perennial[i] <- sum(trait[present_sp] == "perennial")
-}
+result <- result |>
+  mutate(n_densities_survived = map_int(hog, \(h)
+    sum(map_lgl(conserved_per_level$hogs, \(hogs) h %in% hogs))))
+
+# Annotate trait composition from the best clique per HOG
+hog_traits <- cliques |>
+  group_by(hog) |>
+  slice_min(mean_q, n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  pivot_longer(all_of(species), names_to = "sp", values_to = "gene") |>
+  filter(!is.na(gene)) |>
+  summarise(
+    n_annual = sum(trait_vec[sp] == "annual"),
+    n_perennial = sum(trait_vec[sp] == "perennial"),
+    .by = hog
+  )
+
+result <- left_join(result, hog_traits, by = "hog")
 
 # Show ranked HOGs per category
 show_cols <- c("hog", "n_species", "n_annual", "n_perennial",
@@ -524,63 +551,32 @@ exclusivity?", which only applies to trait-exclusive cliques
 
 ### {.tabset}
 
-```{r partial, results='asis'}
-sub <- result[result$classification == "partial", show_cols]
-if (nrow(sub) > 0) {
-  sub <- sub[order(-sub$n_densities_survived,
-                   if ("best_mean_q" %in% names(sub)) sub$best_mean_q else 0), ]
-}
-```
-
 #### Partial
 
 ```{r partial-table}
-show_table(sub, pageLength = 10, caption = "Partial HOGs (cross-trait cliques)")
-```
-
-```{r trait-specific, results='asis'}
-sub_ts <- result[result$classification == "trait_specific", show_cols]
-if (nrow(sub_ts) > 0) {
-  sub_ts <- sub_ts[order(-sub_ts$n_densities_survived,
-                         if ("best_mean_q" %in% names(sub_ts)) sub_ts$best_mean_q else 0), ]
-}
+show_classification(result, "partial", show_cols,
+                    "Partial HOGs (cross-trait cliques)")
 ```
 
 #### Trait-specific
 
 ```{r trait-specific-table}
-show_table(sub_ts, pageLength = 10,
-           caption = "Trait-specific HOGs (one lineage only)")
-```
-
-```{r differentiated, results='asis'}
-sub_diff <- result[result$classification == "differentiated", show_cols]
-if (nrow(sub_diff) > 0) {
-  sub_diff <- sub_diff[order(-sub_diff$n_densities_survived,
-                             if ("best_mean_q" %in% names(sub_diff)) sub_diff$best_mean_q else 0), ]
-}
+show_classification(result, "trait_specific", show_cols,
+                    "Trait-specific HOGs (one lineage only)")
 ```
 
 #### Differentiated
 
 ```{r differentiated-table}
-show_table(sub_diff, pageLength = 10,
-           caption = "Differentiated HOGs (within-group conservation, cross-group divergence)")
-```
-
-```{r complete, results='asis'}
-sub_comp <- result[result$classification == "complete", show_cols]
-if (nrow(sub_comp) > 0) {
-  sub_comp <- sub_comp[order(-sub_comp$n_densities_survived,
-                             if ("best_mean_q" %in% names(sub_comp)) sub_comp$best_mean_q else 0), ]
-}
+show_classification(result, "differentiated", show_cols,
+                    "Differentiated HOGs (within-group conservation, cross-group divergence)")
 ```
 
 #### Complete
 
 ```{r complete-table}
-show_table(sub_comp, pageLength = 10,
-           caption = "Complete HOGs (all 8 species)")
+show_classification(result, "complete", show_cols,
+                    "Complete HOGs (all 8 species)")
 ```
 
 ###

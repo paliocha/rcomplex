@@ -11,3 +11,5 @@ src/*.dll
 nf-rcomplex/
 vignettes/*.html
 vignettes/*.R
+/doc/
+/Meta/

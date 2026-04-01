@@ -9,3 +9,5 @@
 ^rcomplex\.Rcheck$
 ^rcomplex.*\.tar\.gz$
 ^docs$
+^doc$
+^Meta$
