@@ -50,17 +50,55 @@ trait <- c(BDIS = "annual", BSYL = "perennial",
            VBRO = "annual", FPRA = "perennial")
 ```
 
-Build co-expression networks for each species using Mutual Rank (MR)
-normalization at 3% density:
+### Paralog reduction
+
+Multi-copy gene families often contain recent duplicates with nearly
+identical expression profiles. These inflate the combinatorial search
+space for clique detection without adding information.
+`reduce_orthogroups()` merges correlated paralogs within each HOG
+using Ward.D2 hierarchical clustering on Pearson correlation distance.
+Paralogs above the correlation threshold (default 0.7) are replaced
+by their averaged expression; subfunctionalized copies with distinct
+expression programs are preserved:
+
+```{r reduce}
+# Build a per-species ortholog table from rowData HOG annotations
+reduced_se <- lapply(species, function(sp) {
+  expr <- SummarizedExperiment::assay(se_list[[sp]], 1)
+  rd <- SummarizedExperiment::rowData(se_list[[sp]])
+  ortho_sp <- data.frame(
+    Species1 = rownames(se_list[[sp]]),
+    hog = as.character(rd$hog),
+    stringsAsFactors = FALSE
+  )
+  ortho_sp <- ortho_sp[!is.na(ortho_sp$hog), ]
+  reduced <- reduce_orthogroups(expr, ortho_sp, gene_col = "Species1",
+                                 cor_threshold = 0.7)
+  cat(sp, ":", reduced$n_original, "->", reduced$n_reduced, "genes",
+      "(", reduced$n_merged, "merged )\n")
+  reduced
+})
+names(reduced_se) <- species
+```
+
+### Network construction
+
+Build co-expression networks from the reduced expression matrices
+using Mutual Rank (MR) normalization at 3% density:
 
 ```{r networks}
 networks <- lapply(species, function(sp) {
-  compute_network(se_list[[sp]], norm_method = "MR", density = 0.03)
+  compute_network(reduced_se[[sp]]$expr_matrix,
+                  norm_method = "MR", density = 0.03)
 })
 names(networks) <- species
 ```
 
-Extract ortholog pairs from HOG annotations in rowData:
+### Ortholog extraction
+
+Extract ortholog pairs from HOG annotations in rowData. After
+paralog reduction, gene names may have changed (merged representatives),
+so we map through the reduction:
 
 ```{r orthologs}
 ortho_pairs <- utils::combn(species, 2, simplify = FALSE)
@@ -68,6 +106,21 @@ ortho_list <- lapply(ortho_pairs, function(pair) {
   extract_orthologs(se_list[[pair[1]]], se_list[[pair[2]]])
 })
 orthologs <- do.call(rbind, ortho_list)
+
+# Map original gene names to reduced representatives
+for (sp in species) {
+  gm <- reduced_se[[sp]]$gene_map
+  map <- stats::setNames(gm$representative, gm$original)
+  orthologs$Species1 <- ifelse(
+    orthologs$Species1 %in% names(map),
+    map[orthologs$Species1], orthologs$Species1)
+  orthologs$Species2 <- ifelse(
+    orthologs$Species2 %in% names(map),
+    map[orthologs$Species2], orthologs$Species2)
+}
+# Deduplicate after mapping (merged paralogs collapse to same pair)
+orthologs <- unique(orthologs)
+
 cat(nrow(orthologs), "ortholog pairs across",
     length(ortho_pairs), "species pairs\n")
 ```
@@ -226,6 +279,12 @@ for (m in names(sweep_results)) {
   cat(sprintf("%-7s | %15d\n", sprintf("%.2f%%", r$eff_density * 100), r$n_conserved))
 }
 ```
+
+The edge count may not decrease monotonically because the permutation
+test operates at the HOG level: tighter neighborhoods can sharpen the
+signal for some HOGs while eliminating it for others. The overall trend
+is downward, but local fluctuations reflect the discrete nature of the
+permutation q-values.
 
 ## 6. Clique detection and phylogenetic stability
 
