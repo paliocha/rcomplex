@@ -1190,7 +1190,11 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
     sub_btw <- igraph::betweenness(sub, weights = inv_w)
     sub_eig <- tryCatch(
       igraph::eigen_centrality(sub, weights = w)$vector,
-      error = function(e) stats::setNames(rep(0, length(genes)), genes)
+      error = function(e) {
+        warning("eigen_centrality failed for module ", mod_id, ": ",
+                conditionMessage(e), "; using zero fallback")
+        stats::setNames(rep(0, length(genes)), genes)
+      }
     )
 
     # Primary centrality for ranking/tie-breaking (tier 1)

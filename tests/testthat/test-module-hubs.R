@@ -596,29 +596,35 @@ test_that("identify_module_hubs comparison parameter enables conservation tie-br
     stringsAsFactors = FALSE
   )
 
-  # Mock comparison: G1 has high conservation effect, G2 has low
+  # Mock comparison: G10 (last in input order) has highest conservation effect.
+  # Without comparison, G10 has no advantage; with comparison, it wins tier 5.
   mock_comparison <- data.frame(
     Species1 = gnames,
     Species2 = paste0("P", seq_len(n)),
     hog = paste0("HOG", seq_len(n)),
-    Species1.effect.size = c(10, 0.5, rep(1, n - 2)),
-    Species2.effect.size = c(10, 0.5, rep(1, n - 2)),
-    Species1.q.val.con = c(0.001, 0.9, rep(0.5, n - 2)),
-    Species2.q.val.con = c(0.001, 0.9, rep(0.5, n - 2)),
+    Species1.effect.size = c(rep(1, n - 1), 10),
+    Species2.effect.size = c(rep(1, n - 1), 10),
+    Species1.q.val.con = c(rep(0.5, n - 1), 0.001),
+    Species2.q.val.con = c(rep(0.5, n - 1), 0.001),
     stringsAsFactors = FALSE
   )
 
-  # Without comparison: all genes have equal centrality,
-  # tie-breaking falls to global degree (also equal), then alt centrality, etc.
+  # Without comparison: all tiers 1-4 are equal; input order picks first gene
   result_no_comp <- identify_module_hubs(m, net, ortho, top_n = 1L)
 
-  # With comparison: G1 should win the tie (highest conservation effect)
+  # With comparison: G10 should win the tie (highest conservation effect)
   result_with_comp <- identify_module_hubs(m, net, ortho,
                                             comparison = mock_comparison,
                                             top_n = 1L)
 
-  g1_mod <- result_with_comp$module[result_with_comp$gene == "G1"]
-  hub_with <- result_with_comp[result_with_comp$module == g1_mod &
+  g10_mod <- result_with_comp$module[result_with_comp$gene == "G10"]
+  hub_with <- result_with_comp[result_with_comp$module == g10_mod &
                                  result_with_comp$is_hub, ]
-  expect_true("G1" %in% hub_with$gene)
+  expect_true("G10" %in% hub_with$gene)
+
+  # The comparison must have actually changed the result: without it,
+  # G10 (last in input order) would not be selected
+  hub_no <- result_no_comp[result_no_comp$module == g10_mod &
+                             result_no_comp$is_hub, ]
+  expect_false("G10" %in% hub_no$gene)
 })
