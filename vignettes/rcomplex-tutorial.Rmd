@@ -14,11 +14,12 @@ has_torch <- requireNamespace("torch", quietly = TRUE) &&
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
                       eval = has_se && has_torch)
 
-# Helper for interactive tables
+# Helper for interactive tables (sortable by one or multiple columns)
 show_table <- function(df, pageLength = 10, ...) {
   if (requireNamespace("DT", quietly = TRUE)) {
     DT::datatable(df, rownames = FALSE,
-                  options = list(pageLength = pageLength, scrollX = TRUE),
+                  options = list(pageLength = pageLength, scrollX = TRUE,
+                                 ordering = TRUE, orderMulti = TRUE),
                   ...)
   } else {
     knitr::kable(df)
@@ -237,7 +238,36 @@ mod_comp <- compare_modules(mod_bdis, mod_bsyl, orthologs,
 classes <- classify_modules(mod_comp)
 
 show_table(as.data.frame(table(classes$classification)),
-           pageLength = 5, caption = "Module classification (BDIS vs BSYL)")
+           caption = "Module classification (BDIS vs BSYL)")
+```
+
+### Hub genes and trait conservation
+
+Identify hub genes within each species' modules, then classify each HOG
+by whether it acts as a hub across trait groups:
+
+```{r module-hubs}
+# Identify hubs (top 10% per module by weighted degree)
+hubs_bdis <- identify_module_hubs(mod_bdis, networks$BDIS, orthologs,
+                                   comparison = summary$results)
+hubs_bsyl <- identify_module_hubs(mod_bsyl, networks$BSYL, orthologs,
+                                   comparison = summary$results)
+
+show_table(hubs_bdis[hubs_bdis$is_hub, ],
+           caption = "Hub genes in BDIS modules")
+```
+
+```{r hub-conservation}
+# Classify hub conservation across traits
+trait <- c(BDIS = "annual", BSYL = "perennial")
+
+hub_class <- classify_hub_conservation(
+  list(BDIS = hubs_bdis, BSYL = hubs_bsyl), trait,
+  module_comparisons = list("BDIS.BSYL" = mod_comp)
+)
+
+show_table(hub_class[hub_class$classification != "non_hub", ],
+           caption = "Hub conservation (BDIS vs BSYL)")
 ```
 
 ## 5. Edge robustness: density sweep
@@ -315,7 +345,7 @@ sweep_df <- data.frame(
   Conserved_edges = vapply(sweep_results, function(r) r$n_conserved, numeric(1)),
   Baseline = ifelse(names(sweep_results) == "1", "***", "")
 )
-show_table(sweep_df, pageLength = 11, caption = "Conserved edges across density levels")
+show_table(sweep_df, caption = "Conserved edges across density levels")
 ```
 
 The edge count may not decrease monotonically because the permutation

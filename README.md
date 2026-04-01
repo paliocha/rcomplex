@@ -83,6 +83,21 @@ comp <- compare_modules(mod1, mod2, orthologs, method = "jaccard", n_cores = 4L)
 
 # Classify: conserved, partially conserved, or species-specific
 classes <- classify_modules(comp)
+
+# Identify hub genes within modules (6-tier tie-breaking cascade)
+hubs1 <- identify_module_hubs(mod1, net1, orthologs,
+                              comparison = summary$results)
+hubs2 <- identify_module_hubs(mod2, net2, orthologs,
+                              comparison = summary$results)
+hubs1[hubs1$is_hub, ]
+
+# Classify hub conservation across traits
+trait <- c(SP_A = "annual", SP_B = "perennial")
+hub_class <- classify_hub_conservation(
+  list(SP_A = hubs1, SP_B = hubs2), trait,
+  module_comparisons = list("SP_A.SP_B" = comp)
+)
+hub_class[hub_class$classification != "non_hub", ]
 ```
 
 ### Clique-level analysis
@@ -127,6 +142,8 @@ persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 | `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
 | `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
 | `classify_modules()` | Three-tier module conservation classification |
+| `identify_module_hubs()` | Within-module hub identification with 6-tier conservation-aware tie-breaking |
+| `classify_hub_conservation()` | Hub conservation across traits (conserved / rewired / trait-specific) |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
@@ -317,7 +334,7 @@ would survive at stricter density thresholds.
 | `R/network.R` | `compute_network()` -- S4 generic (matrix / SE), correlation, MR/CLR, density threshold |
 | `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()` -- pair-level hypergeometric, edge conversion |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
-| `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()` |
+| `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()`, `identify_module_hubs()`, `classify_hub_conservation()` |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
 
