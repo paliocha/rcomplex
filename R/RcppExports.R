@@ -127,20 +127,19 @@ find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edg
     .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges)
 }
 
-#' Leave-k-out jackknife stability for trait-exclusive cliques
+#' Leave-k-out jackknife structural stability for cliques
 #'
 #' @param edge_hog,edge_g1,edge_g2,edge_sp1,edge_sp2 0-based edge vectors
 #' @param edge_qval,edge_eff per-edge q-value and effect size
 #' @param n_all_species total species in the analysis universe
 #' @param n_hogs,n_genes total HOGs and genes
-#' @param species_trait trait value per species (length n_all_species)
 #' @param is_target 1/0 per species (length n_all_species): target membership
 #' @param full_cliques output of find_cliques_cpp on the full dataset
 #' @param max_k,max_genes_per_sp,jaccard_threshold,n_cores tuning parameters
 #' @return List with stability, clique_disruption, stability_class, novel_cliques
 #' @keywords internal
-find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, species_trait, is_target, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L) {
-    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, species_trait, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores)
+find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L) {
+    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores)
 }
 
 #' Permutation-based HOG-level conservation test

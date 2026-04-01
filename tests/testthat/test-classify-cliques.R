@@ -219,13 +219,16 @@ test_that("classify_cliques with empty edges returns empty", {
 test_that("stability annotation populates stability_class", {
   setup <- make_classify_edges()
 
-  # Mock stability output
+  # Mock stability output (structural, no trait_value)
   stab <- list(
     stability = data.frame(
       clique_idx = 1L, hog = "HOG1",
-      trait_value = "annual", k = 1L,
+      k = 1L,
       n_subsets = 2L, n_stable = 2L,
-      stability_score = 1.0, sole_rep = FALSE,
+      stability_score = 1.0,
+      species_present = "SP_A,SP_B",
+      traits = "annual",
+      sole_rep = FALSE,
       stringsAsFactors = FALSE
     ),
     stability_class = 1L
@@ -242,16 +245,17 @@ test_that("stability annotation populates stability_class", {
 test_that("stability_class uses max across multi-clique HOGs", {
   setup <- make_classify_edges()
 
-  # Mock: HOG3 has two exclusive cliques with different stability_class
+  # Mock: HOG3 has two cliques with different stability_class
   stab <- list(
     stability = data.frame(
       clique_idx = c(2L, 3L),
       hog = c("HOG3", "HOG3"),
-      trait_value = c("annual", "perennial"),
       k = c(1L, 1L),
       n_subsets = c(2L, 2L),
       n_stable = c(2L, 0L),
       stability_score = c(1.0, 0.0),
+      species_present = c("SP_A,SP_B", "SP_C,SP_D"),
+      traits = c("annual", "perennial"),
       sole_rep = c(FALSE, FALSE),
       stringsAsFactors = FALSE
     ),
@@ -281,9 +285,12 @@ test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
   stab <- list(
     stability = data.frame(
       clique_idx = 1L, hog = "HOG1",
-      trait_value = "annual", k = 1L,
+      k = 1L,
       n_subsets = 2L, n_stable = 2L,
-      stability_score = 1.0, sole_rep = FALSE,
+      stability_score = 1.0,
+      species_present = "SP_A,SP_B",
+      traits = "annual",
+      sole_rep = FALSE,
       stringsAsFactors = FALSE
     ),
     stability_class = 1L
@@ -323,9 +330,12 @@ test_that("robust is FALSE when stability passes but sweep fails", {
   stab <- list(
     stability = data.frame(
       clique_idx = 1L, hog = "HOG1",
-      trait_value = "annual", k = 1L,
+      k = 1L,
       n_subsets = 2L, n_stable = 2L,
-      stability_score = 1.0, sole_rep = FALSE,
+      stability_score = 1.0,
+      species_present = "SP_A,SP_B",
+      traits = "annual",
+      sole_rep = FALSE,
       stringsAsFactors = FALSE
     ),
     stability_class = 1L
@@ -396,9 +406,7 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
                           edge_type = "conserved")
   if (nrow(cliques) == 0) skip("No cliques found for stability test")
 
-  # clique_stability only tracks trait-exclusive cliques.
-  # HOG3 has annual-exclusive (A3-B3) and perennial-exclusive (C3-D3) cliques.
-  # HOG4 has annual-exclusive (A4-B4).
+  # clique_stability now tests ALL cliques structurally.
   stab <- clique_stability(setup$edges, target, trait,
                             all_species = target,
                             full_cliques = cliques,
@@ -407,20 +415,19 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
   result <- classify_cliques(setup$edges, target, trait,
                               stability = stab)
 
-  # HOG3 is differentiated — its annual clique should have stability data
+  # HOG3 is differentiated — should have stability data
   hog3 <- result[result$hog == "HOG3", ]
   expect_equal(hog3$classification, "differentiated")
 
-  # HOG4 is trait_specific — its annual clique should have stability data
+  # HOG4 is trait_specific — should have stability data
   hog4 <- result[result$hog == "HOG4", ]
   expect_equal(hog4$classification, "trait_specific")
 
-  # Both HOG3 and HOG4 have trait-exclusive cliques, so stability tracks them
+  # All HOGs now have stability_class (structural, trait-agnostic)
   expect_false(is.na(hog3$stability_class))
   expect_false(is.na(hog4$stability_class))
 
-  # HOG1 (complete, mixed-trait) should have NA stability_class
-  # (not trait-exclusive, so stability doesn't track it)
+  # HOG1 (complete, mixed-trait) also gets stability_class now
   hog1 <- result[result$hog == "HOG1", ]
-  expect_true(is.na(hog1$stability_class))
+  expect_false(is.na(hog1$stability_class))
 })

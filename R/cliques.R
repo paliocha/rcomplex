@@ -190,25 +190,23 @@ find_cliques <- function(edges, target_species,
 }
 
 
-#' Leave-k-out jackknife stability analysis for trait-exclusive cliques
+#' Leave-k-out jackknife structural stability for cliques
 #'
-#' Tests how robust each clique's trait exclusivity is to species removal.
-#' A clique is \emph{trait-exclusive} if all its species share the same
-#' discrete trait value (e.g., all "annual" or all "perennial"). The analysis
-#' removes k = 1, 2, \ldots, \code{max_k} species at a time, re-runs full
-#' clique detection on each reduced species set, and checks whether
-#' exclusivity is preserved.
-#'
-#' The trait system is generic: any discrete species-level trait with any
-#' number of levels. For example, life habit (annual/perennial), climate
-#' zone (tropical/temperate/arctic), or ploidy level (2n/4n/6n).
+#' Tests how structurally robust each clique is to species removal.
+#' The analysis removes k = 1, 2, \ldots, \code{max_k} species at a time,
+#' re-runs full clique detection on each reduced species set, and checks
+#' whether matching gene assignments are preserved (Jaccard similarity).
+#' ALL cliques are tested, regardless of trait composition. Trait
+#' annotations are added post-hoc if \code{species_trait} is provided.
 #'
 #' @param edges Data frame (same format as \code{\link{find_cliques}}).
 #' @param target_species Character vector of species that define clique
-#'   membership (e.g., the 4 annuals).
-#' @param species_trait Named character or factor vector mapping species to
-#'   trait groups. Names must include all \code{all_species}. Example:
-#'   \code{c(SP_A = "annual", SP_B = "perennial")}.
+#'   membership.
+#' @param species_trait Optional named character or factor vector mapping
+#'   species to trait groups. Names must include all \code{all_species}.
+#'   If provided, trait annotations (\code{traits}, \code{sole_rep}) are
+#'   added to the output. If \code{NULL} (default), trait columns are
+#'   \code{NA}.
 #' @param all_species Character vector of ALL species in the analysis
 #'   universe (default: \code{target_species}). Leave-k-out subsets are
 #'   drawn from \code{all_species}. Must be a superset of
@@ -232,14 +230,16 @@ find_cliques <- function(edges, target_species,
 #' @return A list with components:
 #'   \describe{
 #'     \item{stability}{Data frame with columns: \code{clique_idx} (1-based),
-#'       \code{hog}, \code{trait_value}, \code{k}, \code{n_subsets},
-#'       \code{n_stable}, \code{stability_score}, \code{sole_rep}}
+#'       \code{hog}, \code{k}, \code{n_subsets}, \code{n_stable},
+#'       \code{stability_score}, \code{species_present}, \code{traits},
+#'       \code{sole_rep}. One row per (clique, k) pair.}
 #'     \item{clique_disruption}{Data frame with columns: \code{species},
-#'       \code{trait_value}, \code{n_cliques_disrupted} (k=1 only).
+#'       \code{n_cliques_disrupted} (k=1 only), and optionally
+#'       \code{trait_value} if \code{species_trait} is provided.
 #'       One row per species in \code{all_species}.}
-#'     \item{stability_class}{Named integer vector: highest k at which
-#'       each exclusive clique is stable across ALL subsets (0 = unstable
-#'       at k=1)}
+#'     \item{stability_class}{Integer vector (length = number of cliques):
+#'       highest k at which each clique is structurally stable across ALL
+#'       subsets (0 = unstable at k=1)}
 #'     \item{novel_cliques}{Integer: total count of novel cliques across
 #'       all subsets}
 #'   }
@@ -252,27 +252,22 @@ find_cliques <- function(edges, target_species,
 #' \enumerate{
 #'   \item All edges involving the removed species are dropped
 #'   \item Clique detection re-runs among remaining target species
-#'   \item Each resulting clique is annotated by trait exclusivity
 #'   \item Reduced cliques are matched to full-dataset cliques by Jaccard
 #'     similarity of gene assignments (considering only non-removed species)
-#'   \item For matched cliques, trait exclusivity preservation is checked
 #' }
 #'
 #' A clique is \emph{testable} in a subset if at least 2 of its species
-#' remain active. It is \emph{stable at level k} if its trait exclusivity
-#' is preserved across ALL C(N, k) subsets where it is testable.
+#' remain active. It is \emph{stable at level k} if its gene assignments
+#' are preserved across ALL C(N, k) subsets where it is testable.
 #'
-#' When \code{all_species} is larger than \code{target_species}, subsets
-#' may remove non-target species. With static edges, removing a non-target
-#' species does not change target-species edges, so these subsets are
-#' trivially stable. This becomes meaningful when edge q-values are
-#' re-computed per subset (future extension).
+#' Stability is purely structural — trait annotations are orthogonal and
+#' added post-hoc from \code{species_trait} if provided.
 #'
 #' ## sole_rep column
 #'
-#' The \code{sole_rep} column in the stability data frame is \code{TRUE} if
-#' this clique's trait value has only one target species representative,
-#' meaning removal of that species trivially breaks exclusivity.
+#' The \code{sole_rep} column is \code{TRUE} if this clique has a single
+#' trait value and that trait value has only one target species
+#' representative. Only populated when \code{species_trait} is provided.
 #'
 #' ## full_cliques parameter
 #'
@@ -280,23 +275,22 @@ find_cliques <- function(edges, target_species,
 #' via \code{\link{find_cliques}}. You can also precompute them:
 #' \preformatted{
 #' fc <- find_cliques(edges, target_species)
-#' stab <- clique_stability(edges, target_species, species_trait,
+#' stab <- clique_stability(edges, target_species,
 #'                          full_cliques = fc)
 #' }
 #'
 #' @examples
 #' \dontrun{
-#' # Find annual-exclusive cliques stable across all 8 Poaceae species
-#' annual_sp    <- c("BDIS", "HVUL", "BMAX", "VBRO")
-#' perennial_sp <- c("BSYL", "HJUB", "BMED", "FPRA")
-#' all_sp       <- c(annual_sp, perennial_sp)
-#' trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
-#'
-#' cliques <- find_cliques(edges, annual_sp)
-#' stab    <- clique_stability(edges, annual_sp, trait,
-#'                             all_species = all_sp,
+#' # Structural stability for all cliques
+#' cliques <- find_cliques(edges, all_sp, min_species = 2L)
+#' stab    <- clique_stability(edges, all_sp,
 #'                             full_cliques = cliques)
-#' # max_k defaults to 6 (= 8 - 2), testing k = 1..6
+#'
+#' # With trait annotation
+#' trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
+#' stab  <- clique_stability(edges, all_sp,
+#'                           species_trait = trait,
+#'                           full_cliques = cliques)
 #'
 #' # Cliques surviving any single species dropout
 #' k1 <- stab$stability[stab$stability$k == 1, ]
@@ -307,7 +301,7 @@ find_cliques <- function(edges, target_species,
 #' }
 #'
 #' @export
-clique_stability <- function(edges, target_species, species_trait,
+clique_stability <- function(edges, target_species, species_trait = NULL,
                              all_species = target_species,
                              full_cliques = NULL,
                              min_species = length(target_species),
@@ -328,16 +322,18 @@ clique_stability <- function(edges, target_species, species_trait,
   if (!all(target_species %in% all_species)) {
     stop("target_species must be a subset of all_species")
   }
-  if (!is.character(species_trait) && !is.factor(species_trait)) {
-    stop("species_trait must be a named character or factor vector")
-  }
-  if (is.null(names(species_trait))) {
-    stop("species_trait must be a named vector with species as names")
-  }
-  missing_sp <- setdiff(all_species, names(species_trait))
-  if (length(missing_sp) > 0) {
-    stop("species_trait missing entries for: ",
-         paste(missing_sp, collapse = ", "))
+  if (!is.null(species_trait)) {
+    if (!is.character(species_trait) && !is.factor(species_trait)) {
+      stop("species_trait must be a named character or factor vector")
+    }
+    if (is.null(names(species_trait))) {
+      stop("species_trait must be a named vector with species as names")
+    }
+    missing_sp <- setdiff(all_species, names(species_trait))
+    if (length(missing_sp) > 0) {
+      stop("species_trait missing entries for: ",
+           paste(missing_sp, collapse = ", "))
+    }
   }
   max_k <- as.integer(max_k)
   if (max_k < 1L) {
@@ -347,22 +343,18 @@ clique_stability <- function(edges, target_species, species_trait,
     stop("max_k must be < length(all_species)")
   }
 
-  # Convert species_trait to 0-based integer (for ALL species)
-  trait_char <- as.character(species_trait[all_species])
-  trait_levels <- unique(trait_char)
-  trait_int <- as.integer(match(trait_char, trait_levels) - 1L)
-
   # Build is_target: 1 for target species, 0 for non-target
   is_target <- as.integer(all_species %in% target_species)
 
   # Empty result template
   empty_stability <- data.frame(
-    clique_idx = integer(0), hog = character(0), trait_value = character(0),
+    clique_idx = integer(0), hog = character(0),
     k = integer(0), n_subsets = integer(0), n_stable = integer(0),
-    stability_score = numeric(0), sole_rep = logical(0)
+    stability_score = numeric(0), species_present = character(0),
+    traits = character(0), sole_rep = logical(0)
   )
   empty_disruption <- data.frame(
-    species = character(0), trait_value = character(0),
+    species = character(0),
     n_cliques_disrupted = integer(0)
   )
   empty_result <- list(
@@ -415,13 +407,13 @@ clique_stability <- function(edges, target_species, species_trait,
     n_edges = as.integer(full_cliques$n_edges)
   )
 
-  # Call C++ stability function
+  # Call C++ stability function (trait-agnostic)
   cpp_result <- find_cliques_stability_cpp(
     enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
     enc$edge_qval, enc$edge_effect,
     length(all_species),
     length(enc$unique_hogs), length(enc$all_genes),
-    trait_int, is_target, raw_cliques,
+    is_target, raw_cliques,
     as.integer(max_k), as.integer(max_genes_per_sp),
     jaccard_threshold, n_cores
   )
@@ -429,22 +421,59 @@ clique_stability <- function(edges, target_species, species_trait,
   # Post-process: stability data frame
   stab <- cpp_result$stability
   if (nrow(stab) > 0) {
-    # Convert 0-based C++ clique_idx to 1-based R indexing
     stab$clique_idx <- stab$clique_idx + 1L
     stab$hog <- enc$unique_hogs[raw_cliques$hog_idx[stab$clique_idx] + 1L]
-    stab$trait_value <- trait_levels[stab$trait_value + 1L]
   } else {
     stab$hog <- character(0)
-    stab$trait_value <- character(0)
+  }
+
+  # Post-hoc trait annotation per clique (vectorized via presence matrix)
+  sp_cols <- intersect(target_species, names(full_cliques))
+  present_mat <- !is.na(full_cliques[, sp_cols, drop = FALSE])
+
+  sp_present <- apply(present_mat, 1L, \(row)
+    paste(sp_cols[row], collapse = ","))
+
+  if (!is.null(species_trait)) {
+    trait_char <- as.character(species_trait[sp_cols])
+    trait_counts <- table(as.character(species_trait[target_species]))
+
+    trait_annot <- vapply(seq_len(n_fc), \(i) {
+      tv <- trait_char[present_mat[i, ]]
+      if (length(tv) == 0L) NA_character_
+      else paste(sort(unique(tv)), collapse = ",")
+    }, character(1))
+
+    sole_rep_vec <- vapply(seq_len(n_fc), \(i) {
+      tv <- unique(trait_char[present_mat[i, ]])
+      if (length(tv) == 1L) unname(trait_counts[tv]) == 1L else FALSE
+    }, logical(1))
+  } else {
+    trait_annot <- rep(NA_character_, n_fc)
+    sole_rep_vec <- rep(NA, n_fc)
+  }
+
+  # Merge annotations onto stability data frame by clique_idx
+  if (nrow(stab) > 0) {
+    stab$species_present <- sp_present[stab$clique_idx]
+    stab$traits <- trait_annot[stab$clique_idx]
+    stab$sole_rep <- sole_rep_vec[stab$clique_idx]
+  } else {
+    stab$species_present <- character(0)
+    stab$traits <- character(0)
+    stab$sole_rep <- logical(0)
   }
 
   # Post-process: clique_disruption (one row per all_species)
   disrupt <- cpp_result$clique_disruption
   if (nrow(disrupt) > 0) {
     disrupt$species <- all_species[disrupt$species_idx + 1L]
-    disrupt$trait_value <- trait_levels[disrupt$trait_value + 1L]
-    disrupt <- disrupt[, c("species", "trait_value", "n_cliques_disrupted"),
-                       drop = FALSE]
+    cols <- c("species", "n_cliques_disrupted")
+    if (!is.null(species_trait)) {
+      disrupt$trait_value <- as.character(species_trait[disrupt$species])
+      cols <- c("species", "trait_value", "n_cliques_disrupted")
+    }
+    disrupt <- disrupt[, cols, drop = FALSE]
   } else {
     disrupt <- empty_disruption
   }
@@ -1177,15 +1206,15 @@ classify_cliques <- function(
     stab_df <- stability$stability
     sc_vec <- stability$stability_class
     if ("hog" %in% names(stab_df) && length(sc_vec) > 0) {
-      # stability_class is per-exclusive-clique (same order as unique
-      # clique_idx values in the stability DF). Map to HOG via the DF.
-      excl_cliques <- unique(stab_df$clique_idx)
-      excl_hogs <- stab_df$hog[match(excl_cliques, stab_df$clique_idx)]
+      # stability_class is per-clique (same order as full_cliques).
+      # Map to HOG via the stability DF.
+      all_clique_idx <- unique(stab_df$clique_idx)
+      all_clique_hogs <- stab_df$hog[match(all_clique_idx, stab_df$clique_idx)]
       # Best (max) stability_class per HOG: a HOG's classification is
       # determined by its best clique, so we take the most stable one.
       # Use max (optimistic) not min (conservative) — consistent with
       # best_per_hog() which picks the lowest-mean-q clique per HOG.
-      best_sc <- tapply(sc_vec, excl_hogs, max)
+      best_sc <- tapply(sc_vec, all_clique_hogs, max)
       idx <- match(out$hog, names(best_sc))
       out$stability_class[!is.na(idx)] <- as.integer(best_sc[idx[!is.na(idx)]])
     }

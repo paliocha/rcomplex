@@ -453,12 +453,13 @@ may form from HOGs that become significant at stricter thresholds.
 Use persistence for screening or when GPU is unavailable; use the full
 sweep for publication-quality robustness assessment.
 
-## 6. Clique detection and phylogenetic stability
+## 6. Clique detection and structural stability
 
 Using edges from the baseline density level, we find cliques and
-test their phylogenetic stability via leave-k-out jackknife. The
+test their structural stability via leave-k-out jackknife. The
 jackknife removes k species at a time and checks whether each
-trait-exclusive clique is preserved:
+clique's gene assignments are preserved (purely structural,
+trait-agnostic). Trait annotations are added post-hoc:
 
 ```{r cliques-stability}
 # Use the baseline (1.0x) edges for clique detection and stability
@@ -480,11 +481,13 @@ cliques |>
 ```{r stability}
 # Jackknife stability (all k from 1 to N-2)
 max_k <- length(species) - 2L
-stab <- clique_stability(robust_edges, species, trait_vec,
+stab <- clique_stability(robust_edges, species,
+                          species_trait = trait_vec,
                           all_species = species,
                           full_cliques = cliques,
                           max_k = max_k)
-cat("Trait-exclusive cliques:", length(stab$stability_class), "\n")
+cat("Cliques tested:", length(stab$stability_class), "\n")
+cat("Structurally stable at k=1:", sum(stab$stability_class >= 1L), "\n")
 
 tibble(stability_class = stab$stability_class) |>
   mutate(stability_class = factor(stability_class, levels = 0:max_k)) |>
@@ -556,12 +559,11 @@ show_cols <- c("hog", "n_species", "n_annual", "n_perennial",
 show_cols <- intersect(show_cols, names(result))
 ```
 
-Note that `stability_class` is NA for partial and complete cliques --
-these span both trait groups and are therefore not trait-exclusive. The
-jackknife stability test asks "does removing species break trait
-exclusivity?", which only applies to trait-exclusive cliques
-(differentiated and trait_specific). For cross-trait cliques, the
-`n_densities_survived` column is the relevant robustness measure.
+Every clique now has a `stability_class` -- the highest k at which it
+survives ALL species-removal subsets. This is a purely structural measure.
+Trait annotations (from the `traits` column in the stability output) are
+orthogonal: they describe which life-cycle groups each clique spans, not
+whether the clique is robust.
 
 ### {.tabset}
 
