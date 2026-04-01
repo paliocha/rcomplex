@@ -128,7 +128,7 @@ test_that("identify_module_hubs top_fraction controls hub count", {
 })
 
 
-test_that("identify_module_hubs rank 1 has highest centrality", {
+test_that("identify_module_hubs rank 1 has highest centrality (default degree)", {
   td <- make_hub_test_data()
   result <- identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]])
   for (m in unique(result$module)) {
@@ -137,6 +137,35 @@ test_that("identify_module_hubs rank 1 has highest centrality", {
     top <- mod_df[mod_df$rank == 1L, ]
     expect_equal(top$degree, max(mod_df$degree))
   }
+})
+
+
+test_that("identify_module_hubs rank reflects non-default centrality", {
+  # Use the bridge-gene network where degree and betweenness disagree
+  n <- 10L
+  gnames <- paste0("H", seq_len(n))
+  mat <- matrix(0, n, n, dimnames = list(gnames, gnames))
+  mat[1:5, 1:5] <- 0.8
+  mat[c(1, 6:10), c(1, 6:10)] <- 0.8
+  diag(mat) <- 1
+
+  net <- list(network = mat, threshold = 0.5)
+  m <- detect_modules(net, method = "leiden",
+                       objective_function = "modularity", seed = 42)
+
+  result_btw <- identify_module_hubs(m, net, centrality = "betweenness")
+
+  # Rank should reflect betweenness, not degree.
+  # All rank-1 genes should have max betweenness (ties.method = "min").
+  for (mod in unique(result_btw$module)) {
+    mod_df <- result_btw[result_btw$module == mod, ]
+    if (all(is.na(mod_df$betweenness))) next
+    top <- mod_df[mod_df$rank == 1L, ]
+    expect_true(all(top$betweenness == max(mod_df$betweenness)))
+  }
+
+  # Attribute should record the primary centrality
+  expect_equal(attr(result_btw, "primary_centrality"), "betweenness")
 })
 
 

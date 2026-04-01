@@ -1267,6 +1267,7 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
   result$conserv_eff <- NULL
   result$hog_q <- NULL
 
+  attr(result, "primary_centrality") <- centrality
   result
 }
 
@@ -1376,6 +1377,14 @@ classify_hub_conservation <- function(hub_results, species_trait,
   trait_levels <- unique(trait_char)
   species_by_trait <- split(names(trait_char), trait_char)
 
+  # Determine which centrality column to use for max_centrality / hub_module.
+  # Reads the attribute set by identify_module_hubs(); falls back to "degree".
+  primary_col <- unique(vapply(hub_results, function(hr) {
+    pc <- attr(hr, "primary_centrality")
+    if (is.null(pc)) "degree" else pc
+  }, character(1)))
+  if (length(primary_col) != 1L) primary_col <- "degree"
+
   # --- Build HOG-level summary: stack all results, aggregate per (hog, sp) ---
   tagged <- lapply(names(hub_results), function(sp) {
     hr <- hub_results[[sp]]
@@ -1404,11 +1413,11 @@ classify_hub_conservation <- function(hub_results, species_trait,
       any_hub <- any(df$is_hub)
       hub_mod <- if (any_hub) {
         hub_rows <- df[df$is_hub, , drop = FALSE]
-        hub_rows$module[which.max(hub_rows$degree)]
+        hub_rows$module[which.max(hub_rows[[primary_col]])]
       } else {
         NA_integer_
       }
-      cent <- df$degree[!is.na(df$degree)]
+      cent <- df[[primary_col]][!is.na(df[[primary_col]])]
       data.frame(
         hog = df$hog[1], species = df$species[1],
         is_hub = any_hub, hub_module = hub_mod,
