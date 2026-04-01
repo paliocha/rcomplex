@@ -539,12 +539,13 @@ when GPU is unavailable; use the full sweep for publication-quality
 robustness assessment.</p>
 </div>
 <div class="section level2">
-<h2 id="clique-detection-and-phylogenetic-stability">6. Clique detection and phylogenetic stability<a class="anchor" aria-label="anchor" href="#clique-detection-and-phylogenetic-stability"></a>
+<h2 id="clique-detection-and-structural-stability">6. Clique detection and structural stability<a class="anchor" aria-label="anchor" href="#clique-detection-and-structural-stability"></a>
 </h2>
 <p>Using edges from the baseline density level, we find cliques and test
-their phylogenetic stability via leave-k-out jackknife. The jackknife
-removes k species at a time and checks whether each trait-exclusive
-clique is preserved:</p>
+their structural stability via leave-k-out jackknife. The jackknife
+removes k species at a time and checks whether each clique’s gene
+assignments are preserved (purely structural, trait-agnostic). Trait
+annotations are added post-hoc:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use the baseline (1.0x) edges for clique detection and stability</span></span>
 <span><span class="va">robust_edges</span> <span class="op">&lt;-</span> <span class="va">sweep</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">multiplier</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/pluck.html" class="external-link">pluck</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
@@ -563,11 +564,13 @@ clique is preserved:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Jackknife stability (all k from 1 to N-2)</span></span>
 <span><span class="va">max_k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span></span>
-<span><span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_stability.html">clique_stability</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, <span class="va">trait_vec</span>,</span>
+<span><span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_stability.html">clique_stability</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>,</span>
+<span>                          species_trait <span class="op">=</span> <span class="va">trait_vec</span>,</span>
 <span>                          all_species <span class="op">=</span> <span class="va">species</span>,</span>
 <span>                          full_cliques <span class="op">=</span> <span class="va">cliques</span>,</span>
 <span>                          max_k <span class="op">=</span> <span class="va">max_k</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Trait-exclusive cliques:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Cliques tested:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Structurally stable at k=1:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span> <span class="op">&gt;=</span> <span class="fl">1L</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>stability_class <span class="op">=</span> <span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>stability_class <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">stability_class</span>, levels <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="va">max_k</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -641,13 +644,12 @@ high stability class are the strongest findings:</p>
 <span><span class="va">show_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"hog"</span>, <span class="st">"n_species"</span>, <span class="st">"n_annual"</span>, <span class="st">"n_perennial"</span>,</span>
 <span>               <span class="st">"best_mean_q"</span>, <span class="st">"stability_class"</span>, <span class="st">"n_densities_survived"</span><span class="op">)</span></span>
 <span><span class="va">show_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">show_cols</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>Note that <code>stability_class</code> is NA for partial and complete
-cliques – these span both trait groups and are therefore not
-trait-exclusive. The jackknife stability test asks “does removing
-species break trait exclusivity?”, which only applies to trait-exclusive
-cliques (differentiated and trait_specific). For cross-trait cliques,
-the <code>n_densities_survived</code> column is the relevant robustness
-measure.</p>
+<p>Every clique now has a <code>stability_class</code> – the highest k
+at which it survives ALL species-removal subsets. This is a purely
+structural measure. Trait annotations (from the <code>traits</code>
+column in the stability output) are orthogonal: they describe which
+life-cycle groups each clique spans, not whether the clique is
+robust.</p>
 <div class="section level3 tabset">
 <h3 class="tabset" id="section"></h3>
 <div class="section level4">
