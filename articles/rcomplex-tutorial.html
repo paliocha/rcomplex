@@ -156,75 +156,6 @@ species:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://paliocha.github.io/rcomplex/" class="external-link">rcomplex</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://bioconductor.org/packages/SummarizedExperiment" class="external-link">SummarizedExperiment</a></span><span class="op">)</span></span>
-<span><span class="co">#&gt; Loading required package: MatrixGenerics</span></span>
-<span><span class="co">#&gt; Loading required package: matrixStats</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Attaching package: 'MatrixGenerics'</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:matrixStats':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,</span></span>
-<span><span class="co">#&gt;     colCounts, colCummaxs, colCummins, colCumprods, colCumsums,</span></span>
-<span><span class="co">#&gt;     colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,</span></span>
-<span><span class="co">#&gt;     colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,</span></span>
-<span><span class="co">#&gt;     colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,</span></span>
-<span><span class="co">#&gt;     colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,</span></span>
-<span><span class="co">#&gt;     colWeightedMeans, colWeightedMedians, colWeightedSds,</span></span>
-<span><span class="co">#&gt;     colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,</span></span>
-<span><span class="co">#&gt;     rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,</span></span>
-<span><span class="co">#&gt;     rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,</span></span>
-<span><span class="co">#&gt;     rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,</span></span>
-<span><span class="co">#&gt;     rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,</span></span>
-<span><span class="co">#&gt;     rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,</span></span>
-<span><span class="co">#&gt;     rowWeightedMads, rowWeightedMeans, rowWeightedMedians,</span></span>
-<span><span class="co">#&gt;     rowWeightedSds, rowWeightedVars</span></span>
-<span><span class="co">#&gt; Loading required package: GenomicRanges</span></span>
-<span><span class="co">#&gt; Loading required package: stats4</span></span>
-<span><span class="co">#&gt; Loading required package: BiocGenerics</span></span>
-<span><span class="co">#&gt; Loading required package: generics</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Attaching package: 'generics'</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:base':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     as.difftime, as.factor, as.ordered, intersect, is.element, setdiff,</span></span>
-<span><span class="co">#&gt;     setequal, union</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Attaching package: 'BiocGenerics'</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:stats':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     IQR, mad, sd, var, xtabs</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:base':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     anyDuplicated, aperm, append, as.data.frame, basename, cbind,</span></span>
-<span><span class="co">#&gt;     colnames, dirname, do.call, duplicated, eval, evalq, Filter, Find,</span></span>
-<span><span class="co">#&gt;     get, grep, grepl, is.unsorted, lapply, Map, mapply, match, mget,</span></span>
-<span><span class="co">#&gt;     order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,</span></span>
-<span><span class="co">#&gt;     rbind, Reduce, rownames, sapply, saveRDS, table, tapply, unique,</span></span>
-<span><span class="co">#&gt;     unsplit, which.max, which.min</span></span>
-<span><span class="co">#&gt; Loading required package: S4Vectors</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Attaching package: 'S4Vectors'</span></span>
-<span><span class="co">#&gt; The following object is masked from 'package:utils':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     findMatches</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:base':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     expand.grid, I, unname</span></span>
-<span><span class="co">#&gt; Loading required package: IRanges</span></span>
-<span><span class="co">#&gt; Loading required package: Seqinfo</span></span>
-<span><span class="co">#&gt; Loading required package: Biobase</span></span>
-<span><span class="co">#&gt; Welcome to Bioconductor</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     Vignettes contain introductory material; view with</span></span>
-<span><span class="co">#&gt;     'browseVignettes()'. To cite Bioconductor, see</span></span>
-<span><span class="co">#&gt;     'citation("Biobase")', and for packages 'citation("pkgname")'.</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Attaching package: 'Biobase'</span></span>
-<span><span class="co">#&gt; The following object is masked from 'package:MatrixGenerics':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     rowMedians</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:matrixStats':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     anyMissing, rowMedians</span></span>
 <span></span>
 <span><span class="va">se_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"pooideae_vignette.rds"</span>,</span>
 <span>                                package <span class="op">=</span> <span class="st">"rcomplex"</span><span class="op">)</span><span class="op">)</span></span>
@@ -235,210 +166,321 @@ species:</p>
 <span>           HVUL <span class="op">=</span> <span class="st">"annual"</span>, HJUB <span class="op">=</span> <span class="st">"perennial"</span>,</span>
 <span>           BMAX <span class="op">=</span> <span class="st">"annual"</span>, BMED <span class="op">=</span> <span class="st">"perennial"</span>,</span>
 <span>           VBRO <span class="op">=</span> <span class="st">"annual"</span>, FPRA <span class="op">=</span> <span class="st">"perennial"</span><span class="op">)</span></span></code></pre></div>
-<p>Build co-expression networks for each species using Mutual Rank (MR)
-normalization at 3% density:</p>
+<div class="section level3">
+<h3 id="paralog-reduction">Paralog reduction<a class="anchor" aria-label="anchor" href="#paralog-reduction"></a>
+</h3>
+<p>Multi-copy gene families often contain recent duplicates with nearly
+identical expression profiles. These inflate the combinatorial search
+space for clique detection without adding information.
+<code><a href="../reference/reduce_orthogroups.html">reduce_orthogroups()</a></code> merges correlated paralogs within each
+HOG using Ward.D2 hierarchical clustering on Pearson correlation
+distance. Paralogs above the correlation threshold (default 0.7) are
+replaced by their averaged expression; subfunctionalized copies with
+distinct expression programs are preserved:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Build a per-species ortholog table from rowData HOG annotations</span></span>
+<span><span class="va">reduced_se</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">species</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sp</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">expr</span> <span class="op">&lt;-</span> <span class="fu">SummarizedExperiment</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">assay</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="va">rd</span> <span class="op">&lt;-</span> <span class="fu">SummarizedExperiment</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">rowData</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="va">ortho_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    gene <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>    hog <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">rd</span><span class="op">$</span><span class="va">hog</span><span class="op">)</span>,</span>
+<span>    stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  <span class="op">)</span></span>
+<span>  <span class="va">ortho_sp</span> <span class="op">&lt;-</span> <span class="va">ortho_sp</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ortho_sp</span><span class="op">$</span><span class="va">hog</span><span class="op">)</span>, <span class="op">]</span></span>
+<span>  <span class="va">reduced</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/reduce_orthogroups.html">reduce_orthogroups</a></span><span class="op">(</span><span class="va">expr</span>, <span class="va">ortho_sp</span>, gene_col <span class="op">=</span> <span class="st">"gene"</span>,</span>
+<span>                                 cor_threshold <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">sp</span>, <span class="st">":"</span>, <span class="va">reduced</span><span class="op">$</span><span class="va">n_original</span>, <span class="st">"-&gt;"</span>, <span class="va">reduced</span><span class="op">$</span><span class="va">n_reduced</span>, <span class="st">"genes"</span>,</span>
+<span>      <span class="st">"("</span>, <span class="va">reduced</span><span class="op">$</span><span class="va">n_merged</span>, <span class="st">"merged )\n"</span><span class="op">)</span></span>
+<span>  <span class="va">reduced</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">reduced_se</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">species</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="network-construction">Network construction<a class="anchor" aria-label="anchor" href="#network-construction"></a>
+</h3>
+<p>Build co-expression networks from the reduced expression matrices
+using Mutual Rank (MR) normalization at 3% density. We pass the matrix
+directly since SE metadata is no longer needed post-reduction:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">networks</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">species</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sp</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="../reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="../reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">reduced_se</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">expr_matrix</span>,</span>
+<span>                  norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">networks</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">species</span></span></code></pre></div>
-<p>Extract ortholog pairs from HOG annotations in rowData:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+</div>
+<div class="section level3">
+<h3 id="ortholog-extraction">Ortholog extraction<a class="anchor" aria-label="anchor" href="#ortholog-extraction"></a>
+</h3>
+<p>Extract ortholog pairs from HOG annotations in rowData. After paralog
+reduction, gene names may have changed (merged representatives), so we
+map through each species’ reduction. Gene IDs are species-unique
+(genome-specific identifiers), so each species’ map is applied only to
+the column containing that species’ genes:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ortho_pairs</span> <span class="op">&lt;-</span> <span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/combn.html" class="external-link">combn</a></span><span class="op">(</span><span class="va">species</span>, <span class="fl">2</span>, simplify <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">ortho_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">ortho_pairs</span>, <span class="kw">function</span><span class="op">(</span><span class="va">pair</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="../reference/extract_orthologs.html">extract_orthologs</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">[[</span><span class="va">pair</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">]</span>, <span class="va">se_list</span><span class="op">[[</span><span class="va">pair</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="va">o</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/extract_orthologs.html">extract_orthologs</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">[[</span><span class="va">pair</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">]</span>, <span class="va">se_list</span><span class="op">[[</span><span class="va">pair</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="va">o</span><span class="op">$</span><span class="va">sp1_name</span> <span class="op">&lt;-</span> <span class="va">pair</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span>  <span class="va">o</span><span class="op">$</span><span class="va">sp2_name</span> <span class="op">&lt;-</span> <span class="va">pair</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span>
+<span>  <span class="va">o</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">ortho_list</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Map original gene names to reduced representatives (species-aware)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">sp</span> <span class="kw">in</span> <span class="va">species</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">gm</span> <span class="op">&lt;-</span> <span class="va">reduced_se</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">gene_map</span></span>
+<span>  <span class="va">map</span> <span class="op">&lt;-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="va">gm</span><span class="op">$</span><span class="va">representative</span>, <span class="va">gm</span><span class="op">$</span><span class="va">original</span><span class="op">)</span></span>
+<span>  <span class="va">is_sp1</span> <span class="op">&lt;-</span> <span class="va">orthologs</span><span class="op">$</span><span class="va">sp1_name</span> <span class="op">==</span> <span class="va">sp</span></span>
+<span>  <span class="va">is_sp2</span> <span class="op">&lt;-</span> <span class="va">orthologs</span><span class="op">$</span><span class="va">sp2_name</span> <span class="op">==</span> <span class="va">sp</span></span>
+<span>  <span class="va">orthologs</span><span class="op">$</span><span class="va">Species1</span><span class="op">[</span><span class="va">is_sp1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span></span>
+<span>    <span class="va">orthologs</span><span class="op">$</span><span class="va">Species1</span><span class="op">[</span><span class="va">is_sp1</span><span class="op">]</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">map</span><span class="op">)</span>,</span>
+<span>    <span class="va">map</span><span class="op">[</span><span class="va">orthologs</span><span class="op">$</span><span class="va">Species1</span><span class="op">[</span><span class="va">is_sp1</span><span class="op">]</span><span class="op">]</span>, <span class="va">orthologs</span><span class="op">$</span><span class="va">Species1</span><span class="op">[</span><span class="va">is_sp1</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="va">orthologs</span><span class="op">$</span><span class="va">Species2</span><span class="op">[</span><span class="va">is_sp2</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span></span>
+<span>    <span class="va">orthologs</span><span class="op">$</span><span class="va">Species2</span><span class="op">[</span><span class="va">is_sp2</span><span class="op">]</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">map</span><span class="op">)</span>,</span>
+<span>    <span class="va">map</span><span class="op">[</span><span class="va">orthologs</span><span class="op">$</span><span class="va">Species2</span><span class="op">[</span><span class="va">is_sp2</span><span class="op">]</span><span class="op">]</span>, <span class="va">orthologs</span><span class="op">$</span><span class="va">Species2</span><span class="op">[</span><span class="va">is_sp2</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">orthologs</span><span class="op">$</span><span class="va">sp1_name</span> <span class="op">&lt;-</span> <span class="va">orthologs</span><span class="op">$</span><span class="va">sp2_name</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
+<span><span class="co"># Deduplicate after mapping (merged paralogs collapse to same pair)</span></span>
+<span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">orthologs</span><span class="op">)</span></span>
+<span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">orthologs</span><span class="op">)</span>, <span class="st">"ortholog pairs across"</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">ortho_pairs</span><span class="op">)</span>, <span class="st">"species pairs\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; 62152 ortholog pairs across 28 species pairs</span></span></code></pre></div>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">ortho_pairs</span><span class="op">)</span>, <span class="st">"species pairs\n"</span><span class="op">)</span></span></code></pre></div>
+</div>
 </div>
 <div class="section level2">
-<h2 id="pairwise-comparison">2. Pairwise comparison<a class="anchor" aria-label="anchor" href="#pairwise-comparison"></a>
+<h2 id="pairwise-comparison-and-hog-level-testing">2. Pairwise comparison and HOG-level testing<a class="anchor" aria-label="anchor" href="#pairwise-comparison-and-hog-level-testing"></a>
 </h2>
-<p><code><a href="../reference/run_pairwise_comparisons.html">run_pairwise_comparisons()</a></code> runs the full comparison
-pipeline for all C(8,2) = 28 species pairs: hypergeometric neighborhood
-test, Storey q-values, and edge classification:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_pairwise_comparisons.html">run_pairwise_comparisons</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span><span class="op">)</span></span>
+<p>For each of the C(8,2) = 28 species pairs, we run two analyses:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>Neighborhood comparison</strong>
+(<code><a href="../reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>): hypergeometric test for overlap
+of co-expression neighborhoods, producing per-pair p-values and
+fold-enrichment effect sizes.</li>
+<li>
+<strong>HOG-level permutation test</strong>
+(<code><a href="../reference/permutation_hog_test.html">permutation_hog_test()</a></code>): gene-identity permutation within
+each HOG. This is necessary because pair-level tests within a HOG are
+correlated (shared neighborhoods), making Fisher’s method or Storey
+q-values anti-conservative. The permutation p-value is exact regardless
+of the dependency structure.</li>
+</ol>
+<p>With <code>use_torch = TRUE</code>, the fold-enrichment matrix is
+precomputed on GPU, reducing each permutation to fast table lookups.</p>
+<p>The HOG-level q-values determine which edges are co-expressologs
+(conserved co-expression relationships):</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Helper: build edges from raw comparison + HOG-level q-values</span></span>
+<span><span class="va">build_perm_edges</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">comp</span>, <span class="va">hog_res</span>, <span class="va">sp_a</span>, <span class="va">sp_b</span>, <span class="va">alpha</span> <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">hog_q</span> <span class="op">&lt;-</span> <span class="va">hog_res</span><span class="op">$</span><span class="va">q.value</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">comp</span><span class="op">$</span><span class="va">hog</span>, <span class="va">hog_res</span><span class="op">$</span><span class="va">hog</span><span class="op">)</span><span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    gene1 <span class="op">=</span> <span class="va">comp</span><span class="op">$</span><span class="va">Species1</span>,</span>
+<span>    gene2 <span class="op">=</span> <span class="va">comp</span><span class="op">$</span><span class="va">Species2</span>,</span>
+<span>    species1 <span class="op">=</span> <span class="va">sp_a</span>,</span>
+<span>    species2 <span class="op">=</span> <span class="va">sp_b</span>,</span>
+<span>    hog <span class="op">=</span> <span class="va">comp</span><span class="op">$</span><span class="va">hog</span>,</span>
+<span>    q.value <span class="op">=</span> <span class="va">hog_q</span>,</span>
+<span>    effect_size <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">comp</span><span class="op">$</span><span class="va">Species1.effect.size</span> <span class="op">*</span> <span class="va">comp</span><span class="op">$</span><span class="va">Species2.effect.size</span><span class="op">)</span>,</span>
+<span>    type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">hog_q</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">hog_q</span> <span class="op">&lt;</span> <span class="va">alpha</span>, <span class="st">"conserved"</span>, <span class="st">"ns"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Run all 28 pairs</span></span>
+<span><span class="va">pair_edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">hog_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">idx</span> <span class="op">&lt;-</span> <span class="fl">0L</span></span>
+<span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">pair</span> <span class="kw">in</span> <span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/combn.html" class="external-link">combn</a></span><span class="op">(</span><span class="va">species</span>, <span class="fl">2</span>, simplify <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">sp_a</span> <span class="op">&lt;-</span> <span class="va">pair</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>; <span class="va">sp_b</span> <span class="op">&lt;-</span> <span class="va">pair</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span>
+<span></span>
+<span>  <span class="va">comp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">networks</span><span class="op">[[</span><span class="va">sp_a</span><span class="op">]</span><span class="op">]</span>, <span class="va">networks</span><span class="op">[[</span><span class="va">sp_b</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>                                 <span class="va">orthologs</span><span class="op">)</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw">next</span></span>
+<span></span>
+<span>  <span class="va">hog_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/permutation_hog_test.html">permutation_hog_test</a></span><span class="op">(</span></span>
+<span>    <span class="va">networks</span><span class="op">[[</span><span class="va">sp_a</span><span class="op">]</span><span class="op">]</span>, <span class="va">networks</span><span class="op">[[</span><span class="va">sp_b</span><span class="op">]</span><span class="op">]</span>, <span class="va">comp</span>,</span>
+<span>    n_cores <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fl">4L</span>, <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span>logical <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    use_torch <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">idx</span> <span class="op">&lt;-</span> <span class="va">idx</span> <span class="op">+</span> <span class="fl">1L</span></span>
+<span>  <span class="va">pair_edges</span><span class="op">[[</span><span class="va">idx</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu">build_perm_edges</span><span class="op">(</span><span class="va">comp</span>, <span class="va">hog_res</span>, <span class="va">sp_a</span>, <span class="va">sp_b</span><span class="op">)</span></span>
+<span>  <span class="va">hog_res</span><span class="op">$</span><span class="va">pair</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">sp_a</span>, <span class="va">sp_b</span>, sep <span class="op">=</span> <span class="st">"-"</span><span class="op">)</span></span>
+<span>  <span class="va">hog_results</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">sp_a</span>, <span class="va">sp_b</span>, sep <span class="op">=</span> <span class="st">"-"</span><span class="op">)</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">hog_res</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">pair_edges</span><span class="op">)</span></span>
+<span><span class="va">all_hog</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">hog_results</span><span class="op">)</span></span>
+<span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span>, <span class="st">"edges:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved,"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"ns"</span><span class="op">)</span>, <span class="st">"non-significant\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; 31735 edges: 11590 conserved, 20145 non-significant</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="genehog-level-analysis">3. Gene/HOG-level analysis<a class="anchor" aria-label="anchor" href="#genehog-level-analysis"></a>
-</h2>
-<p>For a single species pair, <code><a href="../reference/summarize_comparison.html">summarize_comparison()</a></code>
-provides detailed statistics. The <code>sp1</code>/<code>sp2</code>
-arguments produce edge-format output directly:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">comp_bdis_bsyl</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span></span>
-<span>  <span class="va">networks</span><span class="op">$</span><span class="va">BDIS</span>, <span class="va">networks</span><span class="op">$</span><span class="va">BSYL</span>, <span class="va">orthologs</span><span class="op">)</span></span>
-<span><span class="va">summary_bb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summarize_comparison.html">summarize_comparison</a></span><span class="op">(</span><span class="va">comp_bdis_bsyl</span>,</span>
-<span>                                    sp1 <span class="op">=</span> <span class="st">"BDIS"</span>, sp2 <span class="op">=</span> <span class="st">"BSYL"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Reciprocally conserved pairs:"</span>, <span class="va">summary_bb</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">gene_pairs</span><span class="op">$</span><span class="va">reciprocal</span>,</span>
-<span>    <span class="st">"of"</span>, <span class="va">summary_bb</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">gene_pairs</span><span class="op">$</span><span class="va">total</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Reciprocally conserved pairs: 311 of 847</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">all_hog</span><span class="op">)</span>, <span class="st">"HOG tests,"</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">all_hog</span><span class="op">$</span><span class="va">q.value</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span>, <span class="st">"significant (q &lt; 0.05)\n"</span><span class="op">)</span></span></code></pre></div>
+<p>For quick exploration without GPU,
+<code><a href="../reference/run_pairwise_comparisons.html">run_pairwise_comparisons()</a></code> provides a faster analytical
+path using pair-level Storey q-values (less statistically rigorous for
+multi-copy HOGs):</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">edges_analytical</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_pairwise_comparisons.html">run_pairwise_comparisons</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Analytical:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges_analytical</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Permutation:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="module-level-analysis">4. Module-level analysis<a class="anchor" aria-label="anchor" href="#module-level-analysis"></a>
 </h2>
 <p>Detect co-expression modules with Leiden community detection, then
 compare across species:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_bdis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">networks</span><span class="op">$</span><span class="va">BDIS</span>, method <span class="op">=</span> <span class="st">"leiden"</span>, resolution <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
 <span><span class="va">mod_bsyl</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">networks</span><span class="op">$</span><span class="va">BSYL</span>, method <span class="op">=</span> <span class="st">"leiden"</span>, resolution <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">mod_comp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_modules.html">compare_modules</a></span><span class="op">(</span><span class="va">mod_bdis</span>, <span class="va">mod_bsyl</span>, <span class="va">orthologs</span>,</span>
 <span>                             method <span class="op">=</span> <span class="st">"hypergeometric"</span><span class="op">)</span></span>
 <span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">mod_comp</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">classes</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;        conserved species_specific </span></span>
-<span><span class="co">#&gt;                2               46</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">classes</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="clique-detection">5. Clique detection<a class="anchor" aria-label="anchor" href="#clique-detection"></a>
+<h2 id="edge-robustness-density-sweep">5. Edge robustness: density sweep<a class="anchor" aria-label="anchor" href="#edge-robustness-density-sweep"></a>
 </h2>
-<p>Find fully connected subsets of ortholog groups across species:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># All cliques (at least 2 species)</span></span>
-<span><span class="va">cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_cliques.html">find_cliques</a></span><span class="op">(</span><span class="va">edges</span>, <span class="va">species</span>, min_species <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">cliques</span><span class="op">)</span>, <span class="st">"cliques\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; 1044 cliques</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">cliques</span><span class="op">$</span><span class="va">n_species</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;   2   3   4   5   6   7   8 </span></span>
-<span><span class="co">#&gt; 610 188 103  55  32  55   1</span></span></code></pre></div>
-<p>Analytical persistence scores measure how far above the detection
-threshold each clique’s supporting edges are:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">cliques_p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_persistence.html">clique_persistence</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">species</span>, <span class="va">networks</span>, <span class="va">edges</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Median persistence:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/median.html" class="external-link">median</a></span><span class="op">(</span><span class="va">cliques_p</span><span class="op">$</span><span class="va">persistence</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Median persistence: 1</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="combined-robustness-analysis">6. Combined robustness analysis<a class="anchor" aria-label="anchor" href="#combined-robustness-analysis"></a>
-</h2>
-<p>The strongest findings are cliques robust on two independent
-axes:</p>
-<ul>
-<li>
-<strong>Threshold robustness</strong> – the clique survives at
-stricter density thresholds (the co-expression signal is strong, not
-marginal)</li>
-<li>
-<strong>Phylogenetic robustness</strong> – the clique survives
-species removal (the conservation pattern is general, not
-taxon-dependent)</li>
-</ul>
 <p><strong>Network density</strong> controls how many edges are retained
 in the co-expression network. At 3% density, only the top 3% of all
 pairwise MR values pass the threshold – these are the strongest
-co-expression relationships. A gene pair that barely passes at 3% might
-not pass at 2.5%, while a truly co-expressed pair will survive much
-stricter cutoffs.</p>
-<p>We test robustness by sweeping over tighter density percentiles and
-running leave-k-out jackknife stability at each level:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># The baseline density is 3%. Each multiplier tightens the MR threshold,</span></span>
-<span><span class="co"># which corresponds to a lower effective density percentile.</span></span>
-<span><span class="va">multipliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.01</span>, <span class="fl">1.02</span>, <span class="fl">1.03</span>, <span class="fl">1.05</span><span class="op">)</span></span>
-<span><span class="va">robustness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+co-expression relationships.</p>
+<p>We sweep over 11 density levels centered at the 3% baseline, testing
+both directions:</p>
+<ul>
+<li>
+<strong>Tighter</strong> (below 3%): does the signal survive
+stricter thresholds? Edges that persist are strong, not marginal.</li>
+<li>
+<strong>Looser</strong> (above 3%): is the signal specific to this
+density, or stable across a range? Cliques that only appear at very
+loose thresholds are likely noise from extra edges.</li>
+</ul>
+<p>The 3% choice is somewhat arbitrary. Centering the sweep around it
+reveals sensitivity to that choice – a truly robust co-expressolog
+should be present across a range of densities, not just at one
+particular cutoff.</p>
+<p>The permutation pipeline is re-run at each level because network
+neighborhoods change with the threshold, altering the HOG-level
+q-values:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># 11 levels: 5 looser + baseline + 5 tighter</span></span>
+<span><span class="va">multipliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.95</span>, <span class="fl">1.05</span>, by <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span>
+<span><span class="va">sweep_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="va">multipliers</span><span class="op">)</span> <span class="op">{</span></span>
-<span></span>
-<span>  <span class="co"># Re-threshold: only $network and $threshold are needed downstream</span></span>
 <span>  <span class="va">tight_nets</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">networks</span>, <span class="kw">function</span><span class="op">(</span><span class="va">net</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>network <span class="op">=</span> <span class="va">net</span><span class="op">$</span><span class="va">network</span>, threshold <span class="op">=</span> <span class="va">net</span><span class="op">$</span><span class="va">threshold</span> <span class="op">*</span> <span class="va">m</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">tight_nets</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">species</span></span>
 <span></span>
-<span>  <span class="co"># Compute effective density at this threshold (fraction of edges surviving)</span></span>
-<span>  <span class="va">eff_densities</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">species</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sp</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">mat</span> <span class="op">&lt;-</span> <span class="va">networks</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">network</span></span>
-<span>    <span class="va">vals</span> <span class="op">&lt;-</span> <span class="va">mat</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lower.tri.html" class="external-link">upper.tri</a></span><span class="op">(</span><span class="va">mat</span><span class="op">)</span><span class="op">]</span></span>
+<span>  <span class="co"># Effective density at this threshold</span></span>
+<span>  <span class="va">eff_density</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">species</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sp</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">vals</span> <span class="op">&lt;-</span> <span class="va">networks</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">network</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lower.tri.html" class="external-link">upper.tri</a></span><span class="op">(</span><span class="va">networks</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">network</span><span class="op">)</span><span class="op">]</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">vals</span> <span class="op">&gt;=</span> <span class="va">networks</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">threshold</span> <span class="op">*</span> <span class="va">m</span><span class="op">)</span></span>
-<span>  <span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="co"># Re-run comparisons at stricter threshold</span></span>
-<span>  <span class="va">tight_edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_pairwise_comparisons.html">run_pairwise_comparisons</a></span><span class="op">(</span><span class="va">tight_nets</span>, <span class="va">orthologs</span><span class="op">)</span></span>
-<span></span>
-<span>  <span class="co"># Find cliques at stricter threshold</span></span>
-<span>  <span class="va">tight_cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_cliques.html">find_cliques</a></span><span class="op">(</span><span class="va">tight_edges</span>, <span class="va">species</span>, min_species <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span>
-<span></span>
-<span>  <span class="co"># Jackknife stability: test all k from 1 to max (N - 2 = 6)</span></span>
-<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">tight_cliques</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">max_k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span></span>
-<span>    <span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_stability.html">clique_stability</a></span><span class="op">(</span><span class="va">tight_edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
-<span>                              all_species <span class="op">=</span> <span class="va">species</span>,</span>
-<span>                              full_cliques <span class="op">=</span> <span class="va">tight_cliques</span>,</span>
-<span>                              max_k <span class="op">=</span> <span class="va">max_k</span><span class="op">)</span></span>
-<span>    <span class="va">robustness</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>      cliques <span class="op">=</span> <span class="va">tight_cliques</span>,</span>
-<span>      n_cliques <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">tight_cliques</span><span class="op">)</span>,</span>
-<span>      n_exclusive <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span><span class="op">)</span>,</span>
-<span>      stability_class <span class="op">=</span> <span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span>,</span>
-<span>      mean_density <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eff_densities</span><span class="op">)</span>,</span>
-<span>      stability <span class="op">=</span> <span class="va">stab</span></span>
-<span>    <span class="op">)</span></span>
-<span>  <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
-<span>    <span class="va">robustness</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>      cliques <span class="op">=</span> <span class="va">tight_cliques</span>, n_cliques <span class="op">=</span> <span class="fl">0L</span>, n_exclusive <span class="op">=</span> <span class="fl">0L</span>,</span>
-<span>      stability_class <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
-<span>      mean_density <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eff_densities</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="co"># Re-run comparisons + permutation at stricter threshold</span></span>
+<span>  <span class="va">tight_pair_edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  <span class="va">tidx</span> <span class="op">&lt;-</span> <span class="fl">0L</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">pair</span> <span class="kw">in</span> <span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/combn.html" class="external-link">combn</a></span><span class="op">(</span><span class="va">species</span>, <span class="fl">2</span>, simplify <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">sp_a</span> <span class="op">&lt;-</span> <span class="va">pair</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>; <span class="va">sp_b</span> <span class="op">&lt;-</span> <span class="va">pair</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span>
+<span>    <span class="va">comp</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
+<span>      <span class="fu"><a href="../reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">tight_nets</span><span class="op">[[</span><span class="va">sp_a</span><span class="op">]</span><span class="op">]</span>, <span class="va">tight_nets</span><span class="op">[[</span><span class="va">sp_b</span><span class="op">]</span><span class="op">]</span>, <span class="va">orthologs</span><span class="op">)</span>,</span>
+<span>      error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span> <span class="op">||</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw">next</span></span>
+<span>    <span class="va">hog_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/permutation_hog_test.html">permutation_hog_test</a></span><span class="op">(</span><span class="va">tight_nets</span><span class="op">[[</span><span class="va">sp_a</span><span class="op">]</span><span class="op">]</span>, <span class="va">tight_nets</span><span class="op">[[</span><span class="va">sp_b</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>                                     <span class="va">comp</span>,</span>
+<span>                                     n_cores <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fl">4L</span>, <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span>logical <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>                                     use_torch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>    <span class="va">tidx</span> <span class="op">&lt;-</span> <span class="va">tidx</span> <span class="op">+</span> <span class="fl">1L</span></span>
+<span>    <span class="va">tight_pair_edges</span><span class="op">[[</span><span class="va">tidx</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu">build_perm_edges</span><span class="op">(</span><span class="va">comp</span>, <span class="va">hog_res</span>, <span class="va">sp_a</span>, <span class="va">sp_b</span><span class="op">)</span></span>
 <span>  <span class="op">}</span></span>
+<span>  <span class="va">tight_edges</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="va">tidx</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">tight_pair_edges</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">tidx</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span>                 <span class="kw">else</span> <span class="va">edges</span><span class="op">[</span><span class="fl">0</span>, <span class="op">]</span></span>
+<span></span>
+<span>  <span class="va">n_conserved</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">tight_edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span></span>
+<span>  <span class="va">sweep_results</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    edges <span class="op">=</span> <span class="va">tight_edges</span>, eff_density <span class="op">=</span> <span class="va">eff_density</span>,</span>
+<span>    n_conserved <span class="op">=</span> <span class="va">n_conserved</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span></span>
-<span><span class="co"># Summary: cliques surviving at each density level with stability class</span></span>
-<span><span class="co"># stability_class = highest k at which ALL species-removal subsets preserve</span></span>
-<span><span class="co"># the clique's trait exclusivity. k=6 means the clique survives removal of</span></span>
-<span><span class="co"># any 6 of 8 species (maximally robust).</span></span>
-<span><span class="va">max_k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span></span>
-<span><span class="va">header</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"Density    | Cliques | Exclusive | "</span>,</span>
-<span>                 <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"k=%d"</span>, <span class="fl">0</span><span class="op">:</span><span class="va">max_k</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">" | "</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">header</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Density    | Cliques | Exclusive | k=0 | k=1 | k=2 | k=3 | k=4 | k=5 | k=6</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"-"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nchar</a></span><span class="op">(</span><span class="va">header</span><span class="op">)</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; --------------------------------------------------------------------------</span></span>
-<span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">robustness</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">r</span> <span class="op">&lt;-</span> <span class="va">robustness</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span></span>
-<span>  <span class="va">sc_tab</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">stability_class</span>, levels <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="va">max_k</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="va">sc_str</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%3d"</span>, <span class="va">sc_tab</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">" | "</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-10s | %7d | %9d | %s\n"</span>,</span>
-<span>              <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f%%"</span>, <span class="va">r</span><span class="op">$</span><span class="va">mean_density</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span>,</span>
-<span>              <span class="va">r</span><span class="op">$</span><span class="va">n_cliques</span>, <span class="va">r</span><span class="op">$</span><span class="va">n_exclusive</span>, <span class="va">sc_str</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span><span class="co">#&gt; 2.38%      |     992 |       260 |  28 |   0 |   0 |   0 |   0 |   0 | 232</span></span>
-<span><span class="co">#&gt; 1.81%      |     900 |       254 |  26 |   0 |   0 |   0 |   0 |   0 | 228</span></span>
-<span><span class="co">#&gt; 1.31%      |     777 |       199 |  18 |   0 |   0 |   0 |   0 |   0 | 181</span></span>
-<span><span class="co">#&gt; 0.46%      |     429 |       128 |  11 |   0 |   0 |   0 |   0 |   0 | 117</span></span></code></pre></div>
-<p>The stability class distribution is strikingly bimodal: cliques are
-either unstable (class 0) or maximally stable (class 6). This makes
-biological sense – with 4 species per trait group, a trait-exclusive
-clique either depends on a specific species combination (fragile) or
-reflects a genuinely conserved pattern that persists regardless of which
-species are removed (robust).</p>
-<p>Cliques that survive at tighter density AND have maximal stability
-class represent the strongest conservation signals in the dataset.</p>
+<span><span class="co"># Edge survival across density levels (baseline = 3% at multiplier 1.0)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Multiplier | Eff. density | Conserved edges\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"-----------|--------------|----------------\n"</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sweep_results</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">r</span> <span class="op">&lt;-</span> <span class="va">sweep_results</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span></span>
+<span>  <span class="va">label</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="st">" *baseline*"</span> <span class="kw">else</span> <span class="st">""</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-10s | %12s | %15d%s\n"</span>,</span>
+<span>              <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">m</span>, <span class="st">"x"</span><span class="op">)</span>,</span>
+<span>              <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f%%"</span>, <span class="va">r</span><span class="op">$</span><span class="va">eff_density</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span>,</span>
+<span>              <span class="va">r</span><span class="op">$</span><span class="va">n_conserved</span>, <span class="va">label</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<p>The edge count may not decrease monotonically because the permutation
+test operates at the HOG level: tighter neighborhoods can sharpen the
+signal for some HOGs while eliminating it for others. Local fluctuations
+reflect the discrete nature of the permutation q-values. The
+interpretation is asymmetric: surviving tighter thresholds indicates
+strong signal, while surviving looser thresholds indicates specificity
+(not merely noise from additional edges).</p>
+<p><strong>Analytical alternative:
+<code><a href="../reference/clique_persistence.html">clique_persistence()</a></code>.</strong> The density sweep above is
+rigorous but expensive — it re-runs the full permutation pipeline at
+each threshold level. For a quick estimate,
+<code><a href="../reference/clique_persistence.html">clique_persistence()</a></code> computes the ratio of each
+co-expressolog edge’s MR value to the species’ density threshold. A
+persistence of 1.5 means the weakest supporting edge is 50% above
+threshold and would survive a 1.5x tightening. This is a principled
+analytical proxy: it correctly identifies the weakest link in each
+clique’s co-expressolog support. However, it cannot detect that tighter
+neighborhoods may change which HOGs reach significance in the
+permutation test, or that new cliques may form from HOGs that become
+significant at stricter thresholds. Use persistence for screening or
+when GPU is unavailable; use the full sweep for publication-quality
+robustness assessment.</p>
 </div>
 <div class="section level2">
-<h2 id="hog-classification">7. HOG classification<a class="anchor" aria-label="anchor" href="#hog-classification"></a>
+<h2 id="clique-detection-and-phylogenetic-stability">6. Clique detection and phylogenetic stability<a class="anchor" aria-label="anchor" href="#clique-detection-and-phylogenetic-stability"></a>
 </h2>
-<p>Classify each HOG by its conservation pattern using the waterfall:
-complete &gt; partial &gt; differentiated &gt; trait_specific &gt;
-unclassified.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Use stability from the 1.02x level (NULL if no cliques survived)</span></span>
-<span><span class="va">stab_input</span> <span class="op">&lt;-</span> <span class="va">robustness</span><span class="op">[[</span><span class="st">"1.02"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">stability</span></span>
+<p>Using edges from a robust density level (1.02x), we find cliques and
+test their phylogenetic stability via leave-k-out jackknife. The
+jackknife removes k species at a time and checks whether each
+trait-exclusive clique is preserved:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Use the baseline (1.0x) edges for clique detection and stability</span></span>
+<span><span class="va">robust_edges</span> <span class="op">&lt;-</span> <span class="va">sweep_results</span><span class="op">[[</span><span class="st">"1"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">edges</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Using"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">robust_edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges at"</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f%%"</span>, <span class="va">sweep_results</span><span class="op">[[</span><span class="st">"1"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">eff_density</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span>, <span class="st">"density\n\n"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_cliques.html">classify_cliques</a></span><span class="op">(</span><span class="va">edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
+<span><span class="co"># Find cliques</span></span>
+<span><span class="va">cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_cliques.html">find_cliques</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, min_species <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">cliques</span><span class="op">)</span>, <span class="st">"cliques\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">cliques</span><span class="op">$</span><span class="va">n_species</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Jackknife stability (all k from 1 to N-2)</span></span>
+<span><span class="va">max_k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span></span>
+<span><span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_stability.html">clique_stability</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
+<span>                          all_species <span class="op">=</span> <span class="va">species</span>,</span>
+<span>                          full_cliques <span class="op">=</span> <span class="va">cliques</span>,</span>
+<span>                          max_k <span class="op">=</span> <span class="va">max_k</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nTrait-exclusive cliques:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Stability class distribution:\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span>, levels <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="va">max_k</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="hog-classification-with-robustness-ranking">7. HOG classification with robustness ranking<a class="anchor" aria-label="anchor" href="#hog-classification-with-robustness-ranking"></a>
+</h2>
+<p>Classify each HOG by its conservation pattern, then rank within each
+category by robustness. The waterfall assigns each HOG to exactly one
+class: complete &gt; partial &gt; differentiated &gt; trait_specific
+&gt; unclassified.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_cliques.html">classify_cliques</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
 <span>                            min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
-<span>                            stability <span class="op">=</span> <span class="va">stab_input</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;       complete differentiated        partial trait_specific   unclassified </span></span>
-<span><span class="co">#&gt;              1              5            402             30             59</span></span></code></pre></div>
+<span>                            stability <span class="op">=</span> <span class="va">stab</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <strong>complete</strong>: all 8 species form a clique – deeply
@@ -456,62 +498,36 @@ have a clique</li>
 <li>
 <strong>unclassified</strong>: no conservation signal detected</li>
 </ul>
+<p>The robustness ranking comes from combining density sweep survival
+with stability class. HOGs classified at a stricter density level with
+high stability class are the strongest findings:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Count how many density levels each HOG's edges survive</span></span>
+<span><span class="va">hog_edge_survival</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sweep_results</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">e</span> <span class="op">&lt;-</span> <span class="va">sweep_results</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">edges</span></span>
+<span>  <span class="va">conserved_hogs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">e</span><span class="op">$</span><span class="va">hog</span><span class="op">[</span><span class="va">e</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="va">result</span><span class="op">$</span><span class="va">hog</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">conserved_hogs</span></span>
+<span><span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/logical.html" class="external-link">logical</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">result</span><span class="op">$</span><span class="va">n_densities_survived</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/MatrixGenerics/man/rowSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">hog_edge_survival</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Show top-ranked HOGs per category</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">cls</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"complete"</span>, <span class="st">"partial"</span>, <span class="st">"differentiated"</span>, <span class="st">"trait_specific"</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">sub</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="va">cls</span>, <span class="op">]</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sub</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw">next</span></span>
+<span>  <span class="va">sort_q</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="st">"best_mean_q"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sub</span><span class="op">)</span><span class="op">)</span> <span class="va">sub</span><span class="op">$</span><span class="va">best_mean_q</span> <span class="kw">else</span> <span class="fl">0</span></span>
+<span>  <span class="va">sub</span> <span class="op">&lt;-</span> <span class="va">sub</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">sub</span><span class="op">$</span><span class="va">n_densities_survived</span>, <span class="va">sort_q</span><span class="op">)</span>, <span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n"</span>, <span class="fu"><a href="https://rdrr.io/r/base/chartr.html" class="external-link">toupper</a></span><span class="op">(</span><span class="va">cls</span><span class="op">)</span>, <span class="st">"- top 5:\n"</span><span class="op">)</span></span>
+<span>  <span class="va">show_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"hog"</span>, <span class="st">"n_species"</span>, <span class="st">"best_mean_q"</span>, <span class="st">"stability_class"</span>,</span>
+<span>                 <span class="st">"n_densities_survived"</span><span class="op">)</span></span>
+<span>  <span class="va">show_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">show_cols</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sub</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">sub</span><span class="op">[</span>, <span class="va">show_cols</span><span class="op">]</span>, <span class="fl">5</span><span class="op">)</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
 </h2>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; R version 4.5.3 (2026-03-11)</span></span>
-<span><span class="co">#&gt; Platform: x86_64-pc-linux-gnu</span></span>
-<span><span class="co">#&gt; Running under: Ubuntu 24.04.4 LTS</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Matrix products: default</span></span>
-<span><span class="co">#&gt; BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
-<span><span class="co">#&gt; LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; locale:</span></span>
-<span><span class="co">#&gt;  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       </span></span>
-<span><span class="co">#&gt;  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   </span></span>
-<span><span class="co">#&gt;  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          </span></span>
-<span><span class="co">#&gt; [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; time zone: UTC</span></span>
-<span><span class="co">#&gt; tzcode source: system (glibc)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; attached base packages:</span></span>
-<span><span class="co">#&gt; [1] stats4    stats     graphics  grDevices utils     datasets  methods  </span></span>
-<span><span class="co">#&gt; [8] base     </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt;  [1] SummarizedExperiment_1.40.0 Biobase_2.70.0             </span></span>
-<span><span class="co">#&gt;  [3] GenomicRanges_1.62.1        Seqinfo_1.0.0              </span></span>
-<span><span class="co">#&gt;  [5] IRanges_2.44.0              S4Vectors_0.48.0           </span></span>
-<span><span class="co">#&gt;  [7] BiocGenerics_0.56.0         generics_0.1.4             </span></span>
-<span><span class="co">#&gt;  [9] MatrixGenerics_1.22.0       matrixStats_1.5.0          </span></span>
-<span><span class="co">#&gt; [11] rcomplex_0.1.0             </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] sass_0.4.10           SparseArray_1.10.10   stringi_1.8.7        </span></span>
-<span><span class="co">#&gt;  [4] lattice_0.22-9        magrittr_2.0.4        digest_0.6.39        </span></span>
-<span><span class="co">#&gt;  [7] evaluate_1.0.5        grid_4.5.3            RColorBrewer_1.1-3   </span></span>
-<span><span class="co">#&gt; [10] fastmap_1.2.0         plyr_1.8.9            jsonlite_2.0.0       </span></span>
-<span><span class="co">#&gt; [13] Matrix_1.7-4          scales_1.4.0          textshaping_1.0.5    </span></span>
-<span><span class="co">#&gt; [16] jquerylib_0.1.4       abind_1.4-8           cli_3.6.5            </span></span>
-<span><span class="co">#&gt; [19] rlang_1.1.7           zigg_0.0.2            XVector_0.50.0       </span></span>
-<span><span class="co">#&gt; [22] splines_4.5.3         cachem_1.1.0          DelayedArray_0.36.0  </span></span>
-<span><span class="co">#&gt; [25] yaml_2.3.12           S4Arrays_1.10.1       tools_4.5.3          </span></span>
-<span><span class="co">#&gt; [28] reshape2_1.4.5        dplyr_1.2.0           ggplot2_4.0.2        </span></span>
-<span><span class="co">#&gt; [31] Rfast_2.1.5.2         vctrs_0.7.2           R6_2.6.1             </span></span>
-<span><span class="co">#&gt; [34] lifecycle_1.0.5       stringr_1.6.0         fs_2.0.1             </span></span>
-<span><span class="co">#&gt; [37] ragg_1.5.2            pkgconfig_2.0.3       desc_1.4.3           </span></span>
-<span><span class="co">#&gt; [40] pillar_1.11.1         pkgdown_2.2.0         RcppParallel_5.1.11-2</span></span>
-<span><span class="co">#&gt; [43] bslib_0.10.0          gtable_0.3.6          glue_1.8.0           </span></span>
-<span><span class="co">#&gt; [46] Rcpp_1.1.1            systemfonts_1.3.2     tidyselect_1.2.1     </span></span>
-<span><span class="co">#&gt; [49] tibble_3.3.1          xfun_0.57             qvalue_2.42.0        </span></span>
-<span><span class="co">#&gt; [52] knitr_1.51            farver_2.1.2          igraph_2.2.2         </span></span>
-<span><span class="co">#&gt; [55] htmltools_0.5.9       rmarkdown_2.31        compiler_4.5.3       </span></span>
-<span><span class="co">#&gt; [58] S7_0.2.1</span></span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
   </div>
 
