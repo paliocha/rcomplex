@@ -85,12 +85,15 @@ test_that("identify_module_hubs returns correct structure", {
   result <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
 
   expect_true(is.data.frame(result))
-  expect_true(all(c("gene", "module", "centrality", "global_degree",
+  expect_true(all(c("gene", "module", "degree", "betweenness", "eigenvector",
+                     "mean_edge_weight", "global_degree",
                      "rank", "is_hub", "hog") %in% names(result)))
   expect_equal(nrow(result), 20L)
   expect_type(result$gene, "character")
   expect_type(result$module, "integer")
-  expect_type(result$centrality, "double")
+  expect_type(result$degree, "double")
+  expect_type(result$betweenness, "double")
+  expect_type(result$eigenvector, "double")
   expect_type(result$rank, "integer")
   expect_type(result$is_hub, "logical")
   expect_type(result$hog, "character")
@@ -130,9 +133,9 @@ test_that("identify_module_hubs rank 1 has highest centrality", {
   result <- identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]])
   for (m in unique(result$module)) {
     mod_df <- result[result$module == m, ]
-    if (all(is.na(mod_df$centrality))) next
+    if (all(is.na(mod_df$degree))) next
     top <- mod_df[mod_df$rank == 1L, ]
-    expect_equal(top$centrality, max(mod_df$centrality))
+    expect_equal(top$degree, max(mod_df$degree))
   }
 })
 
@@ -166,7 +169,7 @@ test_that("identify_module_hubs supports all centrality methods", {
     expect_true(is.data.frame(result))
     expect_equal(nrow(result), 20L)
     # Centrality should be non-NA for modules >= min_module_size
-    non_tiny <- result[!is.na(result$centrality), ]
+    non_tiny <- result[!is.na(result$degree), ]
     expect_true(nrow(non_tiny) > 0)
   }
 })
@@ -206,8 +209,9 @@ test_that("identify_module_hubs global_degree is populated", {
 
   expect_true(all(!is.na(result$global_degree)))
   # Global degree should be >= within-module centrality for degree method
-  non_tiny <- result[!is.na(result$centrality), ]
-  expect_true(all(non_tiny$global_degree >= non_tiny$centrality - 1e-10))
+  non_tiny <- result[!is.na(result$degree), ]
+  # Global degree >= within-module degree (same or more edges in the full graph)
+  expect_true(all(non_tiny$global_degree >= non_tiny$degree - 1e-10))
 })
 
 
@@ -403,7 +407,9 @@ test_that("classify_hub_conservation handles empty hub_results", {
   trait <- c(SP_A = "annual", SP_B = "perennial")
   empty_hub <- data.frame(
     gene = character(0), module = integer(0),
-    centrality = numeric(0), rank = integer(0),
+    degree = numeric(0), betweenness = numeric(0), eigenvector = numeric(0),
+    mean_edge_weight = numeric(0), global_degree = numeric(0),
+    rank = integer(0),
     is_hub = logical(0), hog = character(0),
     stringsAsFactors = FALSE
   )
@@ -461,7 +467,7 @@ test_that("identify_module_hubs min_module_size filters tiny modules", {
   if (length(tiny_mods) > 0) {
     tiny_rows <- result[result$module %in% tiny_mods, ]
     expect_true(all(!tiny_rows$is_hub))
-    expect_true(all(is.na(tiny_rows$centrality)))
+    expect_true(all(is.na(tiny_rows$degree)))
   }
 })
 

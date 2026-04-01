@@ -1044,10 +1044,15 @@ classify_modules <- function(module_comparison,
 #'   \describe{
 #'     \item{gene}{Gene identifier}
 #'     \item{module}{Module ID (integer)}
-#'     \item{centrality}{Within-module centrality score}
+#'     \item{degree}{Within-module weighted degree (`igraph::strength`)}
+#'     \item{betweenness}{Within-module betweenness centrality}
+#'     \item{eigenvector}{Within-module eigenvector centrality}
+#'     \item{mean_edge_weight}{Mean weight of edges to other module members}
 #'     \item{global_degree}{Weighted degree in the full (thresholded) network}
-#'     \item{rank}{Rank within module (1 = highest centrality)}
-#'     \item{is_hub}{`TRUE` if the gene is in the top slice}
+#'     \item{rank}{Rank within module by primary centrality
+#'       (1 = highest; ties use `"min"`)}
+#'     \item{is_hub}{`TRUE` if the gene is in the top slice after the
+#'       6-tier tie-breaking cascade}
 #'     \item{hog}{HOG identifier (`NA` if `orthologs` not provided or gene
 #'       not in the ortholog table)}
 #'   }
@@ -1167,8 +1172,7 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
     if (n_genes < min_module_size) {
       rows[[i]] <- data.frame(
         gene = genes, module = as.integer(mod_id),
-        centrality = NA_real_,
-        alt_centrality = NA_real_,
+        degree = NA_real_, betweenness = NA_real_, eigenvector = NA_real_,
         mean_edge_weight = NA_real_,
         global_degree = global_str[genes],
         rank = NA_integer_, is_hub = FALSE,
@@ -1181,17 +1185,15 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
     w <- igraph::E(sub)$weight
     inv_w <- if (!is.null(w)) 1 / w else NULL
 
-    # Compute strength and betweenness once, reuse for primary/alt/mean_ew
+    # Compute all three centrality measures once
     sub_str <- igraph::strength(sub)
     sub_btw <- igraph::betweenness(sub, weights = inv_w)
+    sub_eig <- igraph::eigen_centrality(sub, weights = w)$vector
 
-    # Primary centrality (tier 1)
+    # Primary centrality for ranking/tie-breaking (tier 1)
     cent_vals <- switch(centrality,
-      degree = sub_str,
-      betweenness = sub_btw,
-      eigenvector = igraph::eigen_centrality(sub, weights = w)$vector
+      degree = sub_str, betweenness = sub_btw, eigenvector = sub_eig
     )
-
     # Alternative centrality (tier 3): betweenness if primary is degree,
     # degree otherwise — the most complementary pair
     alt_cent <- if (centrality == "degree") sub_btw else sub_str
@@ -1202,16 +1204,11 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
 
     rnk <- rank(-cent_vals, ties.method = "min")
 
-    hub_cutoff <- if (!is.null(top_n)) {
-      min(top_n, n_genes)
-    } else {
-      max(1L, ceiling(top_fraction * n_genes))
-    }
-
     rows[[i]] <- data.frame(
       gene = names(cent_vals), module = as.integer(mod_id),
-      centrality = as.numeric(cent_vals),
-      alt_centrality = as.numeric(alt_cent),
+      degree = as.numeric(sub_str),
+      betweenness = as.numeric(sub_btw),
+      eigenvector = as.numeric(sub_eig),
       mean_edge_weight = as.numeric(mean_ew),
       global_degree = as.numeric(global_str[genes]),
       rank = as.integer(rnk),
@@ -1242,26 +1239,28 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
     result$hog_q[!is.na(matched)] <- hog_min_q[matched[!is.na(matched)]]
   }
 
+  # Primary and alternative centrality column names for tie-breaking
+  primary_col <- centrality  # "degree", "betweenness", or "eigenvector"
+  alt_col <- if (centrality == "degree") "betweenness" else "degree"
+
   # Hub selection per module: tie-breaking cascade across all 6 tiers
   # Tiers 1-5 descending (higher = better), tier 6 ascending (lower = better)
-  mod_ids <- unique(result$module[!is.na(result$centrality)])
+  mod_ids <- unique(result$module[!is.na(result$degree)])
   for (m in mod_ids) {
-    idx <- which(result$module == m & !is.na(result$centrality))
+    idx <- which(result$module == m & !is.na(result$degree))
     n_mod <- length(idx)
     hub_cutoff <- if (!is.null(top_n)) {
       min(top_n, n_mod)
     } else {
       max(1L, ceiling(top_fraction * n_mod))
     }
-    ord <- order(-result$centrality[idx], -result$global_degree[idx],
-                 -result$alt_centrality[idx], -result$mean_edge_weight[idx],
+    ord <- order(-result[[primary_col]][idx], -result$global_degree[idx],
+                 -result[[alt_col]][idx], -result$mean_edge_weight[idx],
                  -result$conserv_eff[idx], result$hog_q[idx])
     result$is_hub[idx[ord[seq_len(hub_cutoff)]]] <- TRUE
   }
 
-  # Drop internal tie-breaking columns
-  result$alt_centrality <- NULL
-  result$mean_edge_weight <- NULL
+  # Drop internal tie-breaking columns (conservation lookups)
   result$conserv_eff <- NULL
   result$hog_q <- NULL
 
@@ -1360,7 +1359,7 @@ classify_hub_conservation <- function(hub_results, species_trait,
     stop("species_trait missing entries for: ",
          paste(missing_sp, collapse = ", "))
   }
-  req_cols <- c("gene", "module", "is_hub", "hog", "centrality")
+  req_cols <- c("gene", "module", "is_hub", "hog", "degree")
   for (sp in names(hub_results)) {
     if (!is.data.frame(hub_results[[sp]]) ||
           !all(req_cols %in% names(hub_results[[sp]]))) {
@@ -1402,11 +1401,11 @@ classify_hub_conservation <- function(hub_results, species_trait,
       any_hub <- any(df$is_hub)
       hub_mod <- if (any_hub) {
         hub_rows <- df[df$is_hub, , drop = FALSE]
-        hub_rows$module[which.max(hub_rows$centrality)]
+        hub_rows$module[which.max(hub_rows$degree)]
       } else {
         NA_integer_
       }
-      cent <- df$centrality[!is.na(df$centrality)]
+      cent <- df$degree[!is.na(df$degree)]
       data.frame(
         hog = df$hog[1], species = df$species[1],
         is_hub = any_hub, hub_module = hub_mod,

@@ -244,7 +244,12 @@ show_table(as.data.frame(table(classes$classification)),
 ### Hub genes and trait conservation
 
 Identify hub genes within each species' modules, then classify each HOG
-by whether it acts as a hub across trait groups:
+by whether it acts as a hub across trait groups. **Weighted degree** (the
+default) is the recommended primary centrality for co-expression networks
+-- it directly measures total co-expression strength to module neighbours,
+which is the standard definition of a hub gene. All three centrality
+measures (degree, betweenness, eigenvector) are reported regardless of
+which is chosen as primary:
 
 ```{r module-hubs}
 # Identify hubs (top 10% per module by weighted degree)

@@ -49,10 +49,15 @@ A data frame with one row per gene, ordered by module then rank:
 \describe{
 \item{gene}{Gene identifier}
 \item{module}{Module ID (integer)}
-\item{centrality}{Within-module centrality score}
+\item{degree}{Within-module weighted degree (\code{igraph::strength})}
+\item{betweenness}{Within-module betweenness centrality}
+\item{eigenvector}{Within-module eigenvector centrality}
+\item{mean_edge_weight}{Mean weight of edges to other module members}
 \item{global_degree}{Weighted degree in the full (thresholded) network}
-\item{rank}{Rank within module (1 = highest centrality)}
-\item{is_hub}{\code{TRUE} if the gene is in the top slice}
+\item{rank}{Rank within module by primary centrality
+(1 = highest; ties use \code{"min"})}
+\item{is_hub}{\code{TRUE} if the gene is in the top slice after the
+6-tier tie-breaking cascade}
 \item{hog}{HOG identifier (\code{NA} if \code{orthologs} not provided or gene
 not in the ortholog table)}
 }

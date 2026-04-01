@@ -273,6 +273,34 @@ single-resolution Leiden on dense graphs (Fortunato & Barthélemy, 2007).
 | Partially conserved | Best-match q < alpha AND Jaccard < threshold |
 | Species-specific | No significant match in the other species |
 
+### Hub identification
+
+`identify_module_hubs()` identifies hub genes within each species' modules
+and reports all three within-module centrality measures (weighted degree,
+betweenness, eigenvector), mean edge weight, and global degree. **Weighted
+degree is the recommended primary centrality** for co-expression networks:
+it directly measures the total co-expression strength to module neighbours,
+which is the standard definition of a hub in the co-expression literature.
+Betweenness identifies bridge genes between sub-clusters (a different
+property), while eigenvector centrality can be unstable on disconnected
+subgraphs.
+
+Hub selection uses a 6-tier biologically informed tie-breaking cascade
+when genes share the same primary centrality:
+
+1. Primary centrality (user-selected)
+2. Global weighted degree (importance beyond the module)
+3. Alternative centrality (betweenness if primary is degree; degree otherwise)
+4. Mean within-module edge weight (strong edges vs many weak edges)
+5. Per-gene conservation effect size (optional; from `summarize_comparison()`)
+6. Per-HOG minimum q-value (optional; lower = more conserved)
+
+`classify_hub_conservation()` then classifies each HOG by whether it acts
+as a hub across trait groups: **conserved_hub** (hub in both traits, in
+corresponding modules), **rewired_hub** (hub in both traits, in
+non-corresponding modules), **trait-specific** (hub in one trait only),
+**sporadic**, or **non_hub**.
+
 ### Clique detection
 
 `find_cliques()` uses a two-level decomposition to find conserved
