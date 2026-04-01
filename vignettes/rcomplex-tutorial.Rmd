@@ -12,8 +12,11 @@ has_se <- requireNamespace("SummarizedExperiment", quietly = TRUE)
 has_torch <- requireNamespace("torch", quietly = TRUE) &&
              torch::torch_is_installed() &&
              tryCatch({ torch::torch_randn(1); TRUE }, error = function(e) FALSE)
+has_tidy <- requireNamespace("purrr", quietly = TRUE) &&
+            requireNamespace("tibble", quietly = TRUE) &&
+            requireNamespace("stringr", quietly = TRUE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
-                      eval = has_se && has_torch)
+                      eval = has_se && has_torch && has_tidy)
 
 # Helper for interactive tables (sortable by one or multiple columns)
 show_table <- function(df, pageLength = 10, ...) {
@@ -110,9 +113,11 @@ species_data <- tribble(
     })
   )
 
-walk2(species_data$species, species_data$reduced, \(sp, r)
-  cat(sp, ":", r$n_original, "->", r$n_reduced, "genes",
-      "(", r$n_merged, "merged )\n"))
+species_data |>
+  select(species, reduced) |>
+  pwalk(\(species, reduced)
+    cat(species, ":", reduced$n_original, "->", reduced$n_reduced, "genes",
+        "(", reduced$n_merged, "merged )\n"))
 ```
 
 ### Network construction
@@ -126,9 +131,9 @@ species_data <- species_data |>
     compute_network(r$expr_matrix, norm_method = "MR", density = 0.03)))
 
 # Named lists for functions that expect them
-species  <- species_data$species
-trait_vec <- set_names(species_data$trait, species)
-networks <- set_names(species_data$network, species)
+species  <- pull(species_data, species)
+trait_vec <- deframe(select(species_data, species, trait))
+networks <- deframe(select(species_data, species, network))
 ```
 
 ### Ortholog extraction
@@ -194,17 +199,19 @@ The HOG-level q-values determine which edges are co-expressologs
 ```{r comparison}
 # Helper: build edges from raw comparison + HOG-level q-values
 build_perm_edges <- function(comp, hog_res, sp_a, sp_b, alpha = 0.05) {
-  hog_q <- hog_res$q.value[match(comp$hog, hog_res$hog)]
-  tibble(
-    gene1 = comp$Species1,
-    gene2 = comp$Species2,
-    species1 = sp_a,
-    species2 = sp_b,
-    hog = comp$hog,
-    q.value = hog_q,
-    effect_size = sqrt(comp$Species1.effect.size * comp$Species2.effect.size),
-    type = if_else(!is.na(hog_q) & hog_q < alpha, "conserved", "ns")
-  )
+  comp |>
+    as_tibble() |>
+    left_join(hog_res |> select(hog, q.value), by = "hog") |>
+    transmute(
+      gene1 = Species1,
+      gene2 = Species2,
+      species1 = sp_a,
+      species2 = sp_b,
+      hog,
+      q.value,
+      effect_size = sqrt(Species1.effect.size * Species2.effect.size),
+      type = if_else(!is.na(q.value) & q.value < alpha, "conserved", "ns")
+    )
 }
 
 n_cores <- min(4L, parallel::detectCores(logical = FALSE))
@@ -228,9 +235,8 @@ edges <- comparisons |>
   list_rbind()
 
 all_hog <- comparisons |>
-  transmute(hog_res = map2(hog_res, paste(sp1, sp2, sep = "-"), \(h, pair) {
-    h$pair <- pair; h
-  })) |>
+  transmute(hog_res = map2(hog_res, paste(sp1, sp2, sep = "-"), \(h, pair)
+    h |> as_tibble() |> mutate(pair = pair))) |>
   pull(hog_res) |>
   list_rbind()
 
@@ -263,8 +269,9 @@ mod_comp <- compare_modules(mod_bdis, mod_bsyl, orthologs,
                              method = "hypergeometric")
 classes <- classify_modules(mod_comp)
 
-show_table(as.data.frame(table(classes$classification)),
-           caption = "Module classification (BDIS vs BSYL)")
+classes |>
+  count(classification) |>
+  show_table(caption = "Module classification (BDIS vs BSYL)")
 ```
 
 ### Hub genes and trait conservation
@@ -323,7 +330,7 @@ ts_hubs <- hub_class |>
                                 "conserved_hub"))
 
 if (nrow(ts_hubs) > 0) {
-  candidate <- ts_hubs$hog[1]
+  candidate <- ts_hubs |> pull(hog) |> first()
   cat("Querying partners of", candidate, "\n\n")
 
   partners <- get_coexpressed_hogs(
@@ -344,8 +351,9 @@ if (nrow(ts_hubs) > 0) {
              stringr::str_detect(coexpressed_traits, ","))
     cat(nrow(cross_trait), "cross-trait partners\n")
 
-    show_table(head(partners, 20),
-               caption = paste("Top co-expression partners of", candidate))
+    partners |>
+      slice_head(n = 20) |>
+      show_table(caption = paste("Top co-expression partners of", candidate))
   }
 } else {
   cat("No trait-specific hubs found in BDIS vs BSYL comparison\n")
@@ -464,8 +472,9 @@ cat("Using", sum(robust_edges$type == "conserved"), "conserved edges at",
 cliques <- find_cliques(robust_edges, species, min_species = 2L)
 cat(nrow(cliques), "cliques\n")
 
-show_table(as.data.frame(table(n_species = cliques$n_species)),
-           pageLength = 10, caption = "Cliques by number of species")
+cliques |>
+  count(n_species) |>
+  show_table(pageLength = 10, caption = "Cliques by number of species")
 ```
 
 ```{r stability}
@@ -477,9 +486,10 @@ stab <- clique_stability(robust_edges, species, trait_vec,
                           max_k = max_k)
 cat("Trait-exclusive cliques:", length(stab$stability_class), "\n")
 
-stab_df <- as.data.frame(table(stability_class = factor(
-  stab$stability_class, levels = 0:max_k)))
-show_table(stab_df, pageLength = 10, caption = "Stability class distribution")
+tibble(stability_class = stab$stability_class) |>
+  mutate(stability_class = factor(stability_class, levels = 0:max_k)) |>
+  count(stability_class, .drop = FALSE) |>
+  show_table(pageLength = 10, caption = "Stability class distribution")
 ```
 
 ## 7. HOG classification with robustness ranking
@@ -493,8 +503,9 @@ result <- classify_cliques(robust_edges, species, trait_vec,
                             min_species = 2L,
                             stability = stab)
 
-show_table(as.data.frame(table(classification = result$classification)),
-           pageLength = 5, caption = "HOG classification summary")
+result |>
+  count(classification) |>
+  show_table(pageLength = 5, caption = "HOG classification summary")
 ```
 
 - **complete**: all 8 species form a clique -- deeply conserved across
@@ -513,13 +524,16 @@ with high stability class are the strongest findings:
 
 ```{r ranking}
 # Count how many density levels each HOG's edges survive
-conserved_per_level <- sweep |>
-  transmute(level = as.character(multiplier),
-            hogs = map(edges, \(e) unique(e$hog[e$type == "conserved"])))
+hog_survival <- sweep |>
+  transmute(multiplier,
+            hog = map(edges, \(e)
+              e |> filter(type == "conserved") |> distinct(hog) |> pull(hog))) |>
+  unnest(hog) |>
+  count(hog, name = "n_densities_survived")
 
 result <- result |>
-  mutate(n_densities_survived = map_int(hog, \(h)
-    sum(map_lgl(conserved_per_level$hogs, \(hogs) h %in% hogs))))
+  left_join(hog_survival, by = "hog") |>
+  mutate(n_densities_survived = replace_na(n_densities_survived, 0L))
 
 # Annotate trait composition from the best clique per HOG
 hog_traits <- cliques |>
