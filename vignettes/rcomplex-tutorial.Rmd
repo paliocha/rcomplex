@@ -13,6 +13,17 @@ has_torch <- requireNamespace("torch", quietly = TRUE) &&
              torch::torch_is_installed()
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
                       eval = has_se && has_torch)
+
+# Helper for interactive tables
+show_table <- function(df, pageLength = 10, ...) {
+  if (requireNamespace("DT", quietly = TRUE)) {
+    DT::datatable(df, rownames = FALSE,
+                  options = list(pageLength = pageLength, scrollX = TRUE),
+                  ...)
+  } else {
+    knitr::kable(df)
+  }
+}
 ```
 
 This vignette demonstrates a complete rcomplex analysis using expression
@@ -224,7 +235,9 @@ mod_bsyl <- detect_modules(networks$BSYL, method = "leiden", resolution = 1.0)
 mod_comp <- compare_modules(mod_bdis, mod_bsyl, orthologs,
                              method = "hypergeometric")
 classes <- classify_modules(mod_comp)
-print(table(classes$classification))
+
+show_table(as.data.frame(table(classes$classification)),
+           pageLength = 5, caption = "Module classification (BDIS vs BSYL)")
 ```
 
 ## 5. Edge robustness: density sweep
@@ -294,17 +307,15 @@ for (m in multipliers) {
     n_conserved = n_conserved)
 }
 
-# Edge survival across density levels (baseline = 3% at multiplier 1.0)
-cat("Multiplier | Eff. density | Conserved edges\n")
-cat("-----------|--------------|----------------\n")
-for (m in names(sweep_results)) {
-  r <- sweep_results[[m]]
-  label <- if (m == "1") " *baseline*" else ""
-  cat(sprintf("%-10s | %12s | %15d%s\n",
-              paste0(m, "x"),
-              sprintf("%.2f%%", r$eff_density * 100),
-              r$n_conserved, label))
-}
+# Edge survival across density levels
+sweep_df <- data.frame(
+  Multiplier = paste0(names(sweep_results), "x"),
+  Eff_density = sprintf("%.2f%%", vapply(sweep_results,
+    function(r) r$eff_density * 100, numeric(1))),
+  Conserved_edges = vapply(sweep_results, function(r) r$n_conserved, integer(1)),
+  Baseline = ifelse(names(sweep_results) == "1", "***", "")
+)
+show_table(sweep_df, pageLength = 11, caption = "Conserved edges across density levels")
 ```
 
 The edge count may not decrease monotonically because the permutation
@@ -345,17 +356,23 @@ cat("Using", sum(robust_edges$type == "conserved"), "conserved edges at",
 # Find cliques
 cliques <- find_cliques(robust_edges, species, min_species = 2L)
 cat(nrow(cliques), "cliques\n")
-print(table(cliques$n_species))
 
+show_table(as.data.frame(table(n_species = cliques$n_species)),
+           pageLength = 10, caption = "Cliques by number of species")
+```
+
+```{r stability}
 # Jackknife stability (all k from 1 to N-2)
 max_k <- length(species) - 2L
 stab <- clique_stability(robust_edges, species, trait,
                           all_species = species,
                           full_cliques = cliques,
                           max_k = max_k)
-cat("\nTrait-exclusive cliques:", length(stab$stability_class), "\n")
-cat("Stability class distribution:\n")
-print(table(factor(stab$stability_class, levels = 0:max_k)))
+cat("Trait-exclusive cliques:", length(stab$stability_class), "\n")
+
+stab_df <- as.data.frame(table(stability_class = factor(
+  stab$stability_class, levels = 0:max_k)))
+show_table(stab_df, pageLength = 10, caption = "Stability class distribution")
 ```
 
 ## 7. HOG classification with robustness ranking
@@ -368,7 +385,9 @@ class: complete > partial > differentiated > trait_specific > unclassified.
 result <- classify_cliques(robust_edges, species, trait,
                             min_species = 2L,
                             stability = stab)
-print(table(result$classification))
+
+show_table(as.data.frame(table(classification = result$classification)),
+           pageLength = 5, caption = "HOG classification summary")
 ```
 
 - **complete**: all 8 species form a clique -- deeply conserved across
@@ -409,18 +428,10 @@ for (i in seq_len(nrow(result))) {
   result$n_perennial[i] <- sum(trait[present_sp] == "perennial")
 }
 
-# Show top-ranked HOGs per category
-for (cls in c("complete", "partial", "differentiated", "trait_specific")) {
-  sub <- result[result$classification == cls, ]
-  if (nrow(sub) == 0) next
-  sort_q <- if ("best_mean_q" %in% names(sub)) sub$best_mean_q else 0
-  sub <- sub[order(-sub$n_densities_survived, sort_q), ]
-  cat("\n", toupper(cls), "- top 5:\n")
-  show_cols <- c("hog", "n_species", "n_annual", "n_perennial",
-                 "best_mean_q", "stability_class", "n_densities_survived")
-  show_cols <- intersect(show_cols, names(sub))
-  print(head(sub[, show_cols], 5), row.names = FALSE)
-}
+# Show ranked HOGs per category
+show_cols <- c("hog", "n_species", "n_annual", "n_perennial",
+               "best_mean_q", "stability_class", "n_densities_survived")
+show_cols <- intersect(show_cols, names(result))
 ```
 
 Note that `stability_class` is NA for partial and complete cliques --
@@ -429,6 +440,65 @@ jackknife stability test asks "does removing species break trait
 exclusivity?", which only applies to trait-exclusive cliques
 (differentiated and trait_specific). For cross-trait cliques, the
 `n_densities_survived` column is the relevant robustness measure.
+
+### {.tabset}
+
+```{r partial, results='asis'}
+sub <- result[result$classification == "partial", show_cols]
+sub <- sub[order(-sub$n_densities_survived,
+                 if ("best_mean_q" %in% names(sub)) sub$best_mean_q else 0), ]
+```
+
+#### Partial
+
+```{r partial-table}
+show_table(sub, pageLength = 10, caption = "Partial HOGs (cross-trait cliques)")
+```
+
+```{r trait-specific, results='asis'}
+sub_ts <- result[result$classification == "trait_specific", show_cols]
+sub_ts <- sub_ts[order(-sub_ts$n_densities_survived,
+                       if ("best_mean_q" %in% names(sub_ts)) sub_ts$best_mean_q else 0), ]
+```
+
+#### Trait-specific
+
+```{r trait-specific-table}
+show_table(sub_ts, pageLength = 10,
+           caption = "Trait-specific HOGs (one lineage only)")
+```
+
+```{r differentiated, results='asis'}
+sub_diff <- result[result$classification == "differentiated", show_cols]
+if (nrow(sub_diff) > 0) {
+  sub_diff <- sub_diff[order(-sub_diff$n_densities_survived,
+                             if ("best_mean_q" %in% names(sub_diff)) sub_diff$best_mean_q else 0), ]
+}
+```
+
+#### Differentiated
+
+```{r differentiated-table}
+show_table(sub_diff, pageLength = 10,
+           caption = "Differentiated HOGs (within-group conservation, cross-group divergence)")
+```
+
+```{r complete, results='asis'}
+sub_comp <- result[result$classification == "complete", show_cols]
+if (nrow(sub_comp) > 0) {
+  sub_comp <- sub_comp[order(-sub_comp$n_densities_survived,
+                             if ("best_mean_q" %in% names(sub_comp)) sub_comp$best_mean_q else 0), ]
+}
+```
+
+#### Complete
+
+```{r complete-table}
+show_table(sub_comp, pageLength = 10,
+           caption = "Complete HOGs (all 8 species)")
+```
+
+###
 
 ## Session info
 

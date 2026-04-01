@@ -38,6 +38,7 @@ URL: https://paliocha.github.io/rcomplex/,
     https://github.com/paliocha/rcomplex
 BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
+    DT,
     knitr,
     rmarkdown,
     S4Vectors,
