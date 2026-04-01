@@ -30,7 +30,7 @@ each containing one annual and one perennial species:
 | *Vulpia bromoides* | VBRO | Annual | Festuca/Vulpia |
 | *Festuca pratensis* | FPRA | Perennial | Festuca/Vulpia |
 
-The dataset is a 500-HOG subset of VST-normalized RNA-seq from the
+The dataset contains the 1500 most highly expressed HOGs from VST-normalized RNA-seq from the
 "Live or let die?" project, stored as SummarizedExperiment objects.
 
 ## 1. Data preparation
@@ -299,7 +299,7 @@ cat("Multiplier | Eff. density | Conserved edges\n")
 cat("-----------|--------------|----------------\n")
 for (m in names(sweep_results)) {
   r <- sweep_results[[m]]
-  label <- if (as.numeric(m) == 1) " *baseline*" else ""
+  label <- if (m == "1") " *baseline*" else ""
   cat(sprintf("%-10s | %12s | %15d%s\n",
               paste0(m, "x"),
               sprintf("%.2f%%", r$eff_density * 100),
@@ -331,7 +331,7 @@ sweep for publication-quality robustness assessment.
 
 ## 6. Clique detection and phylogenetic stability
 
-Using edges from a robust density level (1.02x), we find cliques and
+Using edges from the baseline density level (3%), we find cliques and
 test their phylogenetic stability via leave-k-out jackknife. The
 jackknife removes k species at a time and checks whether each
 trait-exclusive clique is preserved:
