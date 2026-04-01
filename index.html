@@ -389,6 +389,21 @@
 </table>
 </div>
 <div class="section level3">
+<h3 id="hub-identification">Hub identification<a class="anchor" aria-label="anchor" href="#hub-identification"></a>
+</h3>
+<p><code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code> identifies hub genes within each species’ modules and reports all three within-module centrality measures (weighted degree, betweenness, eigenvector), mean edge weight, and global degree. <strong>Weighted degree is the recommended primary centrality</strong> for co-expression networks: it directly measures the total co-expression strength to module neighbours, which is the standard definition of a hub in the co-expression literature. Betweenness identifies bridge genes between sub-clusters (a different property), while eigenvector centrality can be unstable on disconnected subgraphs.</p>
+<p>Hub selection uses a 6-tier biologically informed tie-breaking cascade when genes share the same primary centrality:</p>
+<ol style="list-style-type: decimal">
+<li>Primary centrality (user-selected)</li>
+<li>Global weighted degree (importance beyond the module)</li>
+<li>Alternative centrality (betweenness if primary is degree; degree otherwise)</li>
+<li>Mean within-module edge weight (strong edges vs many weak edges)</li>
+<li>Per-gene conservation effect size (optional; from <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>)</li>
+<li>Per-HOG minimum q-value (optional; lower = more conserved)</li>
+</ol>
+<p><code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code> then classifies each HOG by whether it acts as a hub across trait groups: <strong>conserved_hub</strong> (hub in both traits, in corresponding modules), <strong>rewired_hub</strong> (hub in both traits, in non-corresponding modules), <strong>trait-specific</strong> (hub in one trait only), <strong>sporadic</strong>, or <strong>non_hub</strong>.</p>
+</div>
+<div class="section level3">
 <h3 id="clique-detection">Clique detection<a class="anchor" aria-label="anchor" href="#clique-detection"></a>
 </h3>
 <p><code><a href="reference/find_cliques.html">find_cliques()</a></code> uses a two-level decomposition to find conserved cliques across species within each ortholog group:</p>

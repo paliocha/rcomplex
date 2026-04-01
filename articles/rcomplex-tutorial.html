@@ -346,7 +346,12 @@ compare across species:</p>
 <h3 id="hub-genes-and-trait-conservation">Hub genes and trait conservation<a class="anchor" aria-label="anchor" href="#hub-genes-and-trait-conservation"></a>
 </h3>
 <p>Identify hub genes within each species’ modules, then classify each
-HOG by whether it acts as a hub across trait groups:</p>
+HOG by whether it acts as a hub across trait groups. <strong>Weighted
+degree</strong> (the default) is the recommended primary centrality for
+co-expression networks – it directly measures total co-expression
+strength to module neighbours, which is the standard definition of a hub
+gene. All three centrality measures (degree, betweenness, eigenvector)
+are reported regardless of which is chosen as primary:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Identify hubs (top 10% per module by weighted degree)</span></span>
 <span><span class="va">hubs_bdis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod_bdis</span>, <span class="va">networks</span><span class="op">$</span><span class="va">BDIS</span>, <span class="va">orthologs</span>,</span>

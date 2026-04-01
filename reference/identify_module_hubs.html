@@ -132,17 +132,28 @@ as hubs (default 0.1).  Ignored when <code>top_n</code> is non-NULL.</p></dd>
 <dt>module</dt>
 <dd><p>Module ID (integer)</p></dd>
 
-<dt>centrality</dt>
-<dd><p>Within-module centrality score</p></dd>
+<dt>degree</dt>
+<dd><p>Within-module weighted degree (<code><a href="https://r.igraph.org/reference/strength.html" class="external-link">igraph::strength</a></code>)</p></dd>
+
+<dt>betweenness</dt>
+<dd><p>Within-module betweenness centrality</p></dd>
+
+<dt>eigenvector</dt>
+<dd><p>Within-module eigenvector centrality</p></dd>
+
+<dt>mean_edge_weight</dt>
+<dd><p>Mean weight of edges to other module members</p></dd>
 
 <dt>global_degree</dt>
 <dd><p>Weighted degree in the full (thresholded) network</p></dd>
 
 <dt>rank</dt>
-<dd><p>Rank within module (1 = highest centrality)</p></dd>
+<dd><p>Rank within module by primary centrality
+(1 = highest; ties use <code>"min"</code>)</p></dd>
 
 <dt>is_hub</dt>
-<dd><p><code>TRUE</code> if the gene is in the top slice</p></dd>
+<dd><p><code>TRUE</code> if the gene is in the top slice after the
+6-tier tie-breaking cascade</p></dd>
 
 <dt>hog</dt>
 <dd><p>HOG identifier (<code>NA</code> if <code>orthologs</code> not provided or gene
