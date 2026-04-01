@@ -73,7 +73,7 @@ correspond across traits (checked via \code{module_comparisons}).}
 changed regulatory context.}
 \item{multi_trait_hub}{Hub in multiple trait groups; module correspondence
 unknown (\code{module_comparisons} not provided).}
-\item{\link{trait}_specific_hub}{Hub in exactly one trait group (e.g.
+\item{\emph{trait}_specific_hub}{Hub in exactly one trait group (e.g.
 \code{"annual_specific_hub"}).}
 \item{sporadic_hub}{Hub in some species but does not reach
 \code{min_trait_fraction} in any trait group.}

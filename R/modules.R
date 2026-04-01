@@ -1293,7 +1293,7 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
 #'     changed regulatory context.}
 #'   \item{multi_trait_hub}{Hub in multiple trait groups; module correspondence
 #'     unknown (`module_comparisons` not provided).}
-#'   \item{[trait]_specific_hub}{Hub in exactly one trait group (e.g.
+#'   \item{\emph{trait}_specific_hub}{Hub in exactly one trait group (e.g.
 #'     `"annual_specific_hub"`).}
 #'   \item{sporadic_hub}{Hub in some species but does not reach
 #'     `min_trait_fraction` in any trait group.}

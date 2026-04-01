@@ -10,7 +10,8 @@ vignette: >
 ```{r setup, include = FALSE}
 has_se <- requireNamespace("SummarizedExperiment", quietly = TRUE)
 has_torch <- requireNamespace("torch", quietly = TRUE) &&
-             torch::torch_is_installed()
+             torch::torch_is_installed() &&
+             tryCatch({ torch::torch_randn(1); TRUE }, error = function(e) FALSE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
                       eval = has_se && has_torch)
 
