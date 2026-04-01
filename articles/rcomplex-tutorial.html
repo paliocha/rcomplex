@@ -373,6 +373,51 @@ are reported regardless of which is chosen as primary:</p>
 <span><span class="fu">show_table</span><span class="op">(</span><span class="va">hub_class</span><span class="op">[</span><span class="va">hub_class</span><span class="op">$</span><span class="va">classification</span> <span class="op">!=</span> <span class="st">"non_hub"</span>, <span class="op">]</span>,</span>
 <span>           caption <span class="op">=</span> <span class="st">"Hub conservation (BDIS vs BSYL)"</span><span class="op">)</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="co-expression-partners-of-hub-hogs">Co-expression partners of hub HOGs<a class="anchor" aria-label="anchor" href="#co-expression-partners-of-hub-hogs"></a>
+</h3>
+<p>After identifying trait-specific hubs, the natural question is:
+“Which other HOGs co-express with this hub across species?”
+<code><a href="../reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code> resolves a HOG to its gene(s) in
+each species, extracts co-expression neighbors from the network, maps
+them back to HOGs, and aggregates across species. The
+<code>coexpressed_traits</code> column makes trait-group filtering
+straightforward:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Pick a trait-specific hub (if any exist)</span></span>
+<span><span class="va">ts_hubs</span> <span class="op">&lt;-</span> <span class="va">hub_class</span><span class="op">[</span><span class="va">hub_class</span><span class="op">$</span><span class="va">classification</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span></span>
+<span>                       <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"trait_specific_hub"</span>, <span class="st">"rewired_hub"</span>,</span>
+<span>                         <span class="st">"conserved_hub"</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">ts_hubs</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">candidate</span> <span class="op">&lt;-</span> <span class="va">ts_hubs</span><span class="op">$</span><span class="va">hog</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Querying partners of"</span>, <span class="va">candidate</span>, <span class="st">"\n\n"</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">partners</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_coexpressed_hogs.html">get_coexpressed_hogs</a></span><span class="op">(</span></span>
+<span>    <span class="va">candidate</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>    species_trait <span class="op">=</span> <span class="va">trait</span>, min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>    edges <span class="op">=</span> <span class="va">edges</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">partners</span><span class="op">)</span>, <span class="st">"partner HOGs co-expressed in &gt;= 2 species\n"</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">partners</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Partners co-expressed only in annual species</span></span>
+<span>    <span class="va">annual_only</span> <span class="op">&lt;-</span> <span class="va">partners</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span><span class="op">)</span> <span class="op">&amp;</span></span>
+<span>                              <span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span> <span class="op">==</span> <span class="st">"annual"</span>, <span class="op">]</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">annual_only</span><span class="op">)</span>, <span class="st">"annual-only partners\n"</span><span class="op">)</span></span>
+<span></span>
+<span>    <span class="co"># Partners co-expressed across both trait groups</span></span>
+<span>    <span class="va">cross_trait</span> <span class="op">&lt;-</span> <span class="va">partners</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span><span class="op">)</span> <span class="op">&amp;</span></span>
+<span>                              <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grepl</a></span><span class="op">(</span><span class="st">","</span>, <span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span><span class="op">)</span>, <span class="op">]</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">cross_trait</span><span class="op">)</span>, <span class="st">"cross-trait partners\n"</span><span class="op">)</span></span>
+<span></span>
+<span>    <span class="fu">show_table</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">partners</span>, <span class="fl">20</span><span class="op">)</span>,</span>
+<span>               caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Top co-expression partners of"</span>, <span class="va">candidate</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"No trait-specific hubs found in BDIS vs BSYL comparison\n"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="edge-robustness-density-sweep">5. Edge robustness: density sweep<a class="anchor" aria-label="anchor" href="#edge-robustness-density-sweep"></a>
@@ -399,7 +444,7 @@ particular cutoff.</p>
 <p>The permutation pipeline is re-run at each level because network
 neighborhoods change with the threshold, altering the HOG-level
 q-values:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 11 levels: 5 looser + baseline + 5 tighter</span></span>
 <span><span class="va">multipliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.95</span>, <span class="fl">1.05</span>, by <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span>
 <span><span class="va">sweep_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
@@ -480,7 +525,7 @@ robustness assessment.</p>
 their phylogenetic stability via leave-k-out jackknife. The jackknife
 removes k species at a time and checks whether each trait-exclusive
 clique is preserved:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use the baseline (1.0x) edges for clique detection and stability</span></span>
 <span><span class="va">robust_edges</span> <span class="op">&lt;-</span> <span class="va">sweep_results</span><span class="op">[[</span><span class="st">"1"</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">edges</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Using"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">robust_edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges at"</span>,</span>
@@ -492,7 +537,7 @@ clique is preserved:</p>
 <span></span>
 <span><span class="fu">show_table</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span>n_species <span class="op">=</span> <span class="va">cliques</span><span class="op">$</span><span class="va">n_species</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>           pageLength <span class="op">=</span> <span class="fl">10</span>, caption <span class="op">=</span> <span class="st">"Cliques by number of species"</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Jackknife stability (all k from 1 to N-2)</span></span>
 <span><span class="va">max_k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span></span>
 <span><span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_stability.html">clique_stability</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
@@ -512,7 +557,7 @@ clique is preserved:</p>
 category by robustness. The waterfall assigns each HOG to exactly one
 class: complete &gt; partial &gt; differentiated &gt; trait_specific
 &gt; unclassified.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_cliques.html">classify_cliques</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, <span class="va">trait</span>,</span>
 <span>                            min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>                            stability <span class="op">=</span> <span class="va">stab</span><span class="op">)</span></span>
@@ -539,7 +584,7 @@ have a clique</li>
 <p>The robustness ranking comes from combining density sweep survival
 with stability class. HOGs classified at a stricter density level with
 high stability class are the strongest findings:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Count how many density levels each HOG's edges survive</span></span>
 <span><span class="va">hog_edge_survival</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sweep_results</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">e</span> <span class="op">&lt;-</span> <span class="va">sweep_results</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">edges</span></span>
@@ -576,7 +621,7 @@ the <code>n_densities_survived</code> column is the relevant robustness
 measure.</p>
 <div class="section level3 tabset">
 <h3 class="tabset" id="section"></h3>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sub</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"partial"</span>, <span class="va">show_cols</span><span class="op">]</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sub</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">sub</span> <span class="op">&lt;-</span> <span class="va">sub</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">sub</span><span class="op">$</span><span class="va">n_densities_survived</span>,</span>
@@ -585,9 +630,9 @@ measure.</p>
 <div class="section level4">
 <h4 id="partial">Partial<a class="anchor" aria-label="anchor" href="#partial"></a>
 </h4>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">sub</span>, pageLength <span class="op">=</span> <span class="fl">10</span>, caption <span class="op">=</span> <span class="st">"Partial HOGs (cross-trait cliques)"</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">sub</span>, pageLength <span class="op">=</span> <span class="fl">10</span>, caption <span class="op">=</span> <span class="st">"Partial HOGs (cross-trait cliques)"</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sub_ts</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"trait_specific"</span>, <span class="va">show_cols</span><span class="op">]</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sub_ts</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">sub_ts</span> <span class="op">&lt;-</span> <span class="va">sub_ts</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">sub_ts</span><span class="op">$</span><span class="va">n_densities_survived</span>,</span>
@@ -597,10 +642,10 @@ measure.</p>
 <div class="section level4">
 <h4 id="trait-specific">Trait-specific<a class="anchor" aria-label="anchor" href="#trait-specific"></a>
 </h4>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">sub_ts</span>, pageLength <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>           caption <span class="op">=</span> <span class="st">"Trait-specific HOGs (one lineage only)"</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sub_diff</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"differentiated"</span>, <span class="va">show_cols</span><span class="op">]</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sub_diff</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">sub_diff</span> <span class="op">&lt;-</span> <span class="va">sub_diff</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">sub_diff</span><span class="op">$</span><span class="va">n_densities_survived</span>,</span>
@@ -610,10 +655,10 @@ measure.</p>
 <div class="section level4">
 <h4 id="differentiated">Differentiated<a class="anchor" aria-label="anchor" href="#differentiated"></a>
 </h4>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">sub_diff</span>, pageLength <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>           caption <span class="op">=</span> <span class="st">"Differentiated HOGs (within-group conservation, cross-group divergence)"</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sub_comp</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"complete"</span>, <span class="va">show_cols</span><span class="op">]</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sub_comp</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">sub_comp</span> <span class="op">&lt;-</span> <span class="va">sub_comp</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">sub_comp</span><span class="op">$</span><span class="va">n_densities_survived</span>,</span>
@@ -623,7 +668,7 @@ measure.</p>
 <div class="section level4">
 <h4 id="complete">Complete<a class="anchor" aria-label="anchor" href="#complete"></a>
 </h4>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">sub_comp</span>, pageLength <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>           caption <span class="op">=</span> <span class="st">"Complete HOGs (all 8 species)"</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -635,7 +680,7 @@ measure.</p>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
 </h2>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
   </div>

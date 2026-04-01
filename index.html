@@ -159,7 +159,14 @@
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>SP_A <span class="op">=</span> <span class="va">hubs1</span>, SP_B <span class="op">=</span> <span class="va">hubs2</span><span class="op">)</span>, <span class="va">trait</span>,</span>
 <span>  module_comparisons <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"SP_A.SP_B"</span> <span class="op">=</span> <span class="va">comp</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">hub_class</span><span class="op">[</span><span class="va">hub_class</span><span class="op">$</span><span class="va">classification</span> <span class="op">!=</span> <span class="st">"non_hub"</span>, <span class="op">]</span></span></code></pre></div>
+<span><span class="va">hub_class</span><span class="op">[</span><span class="va">hub_class</span><span class="op">$</span><span class="va">classification</span> <span class="op">!=</span> <span class="st">"non_hub"</span>, <span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Query co-expression partners of a hub HOG across all species</span></span>
+<span><span class="va">partners</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs</a></span><span class="op">(</span><span class="st">"HOG42"</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>                                  species_trait <span class="op">=</span> <span class="va">trait</span>, min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>                                  edges <span class="op">=</span> <span class="va">edges</span><span class="op">)</span></span>
+<span><span class="va">partners</span><span class="op">[</span><span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span> <span class="op">==</span> <span class="st">"annual"</span>, <span class="op">]</span>      <span class="co"># annual-only partners</span></span>
+<span><span class="va">partners</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grepl</a></span><span class="op">(</span><span class="st">","</span>, <span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span><span class="op">)</span>, <span class="op">]</span>       <span class="co"># cross-trait partners</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="clique-level-analysis">Clique-level analysis<a class="anchor" aria-label="anchor" href="#clique-level-analysis"></a>
@@ -255,22 +262,26 @@
 <td>Hub conservation across traits (conserved / rewired / trait-specific)</td>
 </tr>
 <tr class="even">
+<td><code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code></td>
+<td>Query co-expression partners of a candidate HOG across species</td>
+</tr>
+<tr class="odd">
 <td><code><a href="reference/find_cliques.html">find_cliques()</a></code></td>
 <td>C++ clique detection via Bron-Kerbosch with Tomita pivoting</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/clique_stability.html">clique_stability()</a></code></td>
 <td>Leave-k-out jackknife stability for trait-exclusive cliques</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/clique_persistence.html">clique_persistence()</a></code></td>
 <td>Co-expressolog persistence scores (robustness to threshold tightening)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code></td>
 <td>Structural survival of cliques across stricter density thresholds</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/classify_cliques.html">classify_cliques()</a></code></td>
 <td>Waterfall HOG classification (complete/partial/differentiated/trait_specific)</td>
 </tr>
@@ -470,7 +481,7 @@
 <tr class="odd">
 <td><code>R/comparison.R</code></td>
 <td>
-<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, <code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code> – pair-level hypergeometric, edge conversion</td>
+<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, <code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code>, <code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code> – pair-level hypergeometric, edge conversion, HOG co-expression queries</td>
 </tr>
 <tr class="even">
 <td><code>R/summary.R</code></td>
