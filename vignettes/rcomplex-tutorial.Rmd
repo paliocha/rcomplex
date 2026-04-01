@@ -401,7 +401,9 @@ result$n_perennial <- NA_integer_
 for (i in seq_len(nrow(result))) {
   hog_cliques <- cliques[cliques$hog == result$hog[i], , drop = FALSE]
   if (nrow(hog_cliques) == 0) next
-  best <- hog_cliques[which.min(hog_cliques$mean_q), ]
+  idx <- which.min(hog_cliques$mean_q)
+  if (length(idx) == 0) next
+  best <- hog_cliques[idx, ]
   present_sp <- species[!is.na(best[, species])]
   result$n_annual[i] <- sum(trait[present_sp] == "annual")
   result$n_perennial[i] <- sum(trait[present_sp] == "perennial")
