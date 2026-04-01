@@ -312,7 +312,7 @@ sweep_df <- data.frame(
   Multiplier = paste0(names(sweep_results), "x"),
   Eff_density = sprintf("%.2f%%", vapply(sweep_results,
     function(r) r$eff_density * 100, numeric(1))),
-  Conserved_edges = vapply(sweep_results, function(r) r$n_conserved, integer(1)),
+  Conserved_edges = vapply(sweep_results, function(r) r$n_conserved, numeric(1)),
   Baseline = ifelse(names(sweep_results) == "1", "***", "")
 )
 show_table(sweep_df, pageLength = 11, caption = "Conserved edges across density levels")
@@ -445,8 +445,10 @@ exclusivity?", which only applies to trait-exclusive cliques
 
 ```{r partial, results='asis'}
 sub <- result[result$classification == "partial", show_cols]
-sub <- sub[order(-sub$n_densities_survived,
-                 if ("best_mean_q" %in% names(sub)) sub$best_mean_q else 0), ]
+if (nrow(sub) > 0) {
+  sub <- sub[order(-sub$n_densities_survived,
+                   if ("best_mean_q" %in% names(sub)) sub$best_mean_q else 0), ]
+}
 ```
 
 #### Partial
@@ -457,8 +459,10 @@ show_table(sub, pageLength = 10, caption = "Partial HOGs (cross-trait cliques)")
 
 ```{r trait-specific, results='asis'}
 sub_ts <- result[result$classification == "trait_specific", show_cols]
-sub_ts <- sub_ts[order(-sub_ts$n_densities_survived,
-                       if ("best_mean_q" %in% names(sub_ts)) sub_ts$best_mean_q else 0), ]
+if (nrow(sub_ts) > 0) {
+  sub_ts <- sub_ts[order(-sub_ts$n_densities_survived,
+                         if ("best_mean_q" %in% names(sub_ts)) sub_ts$best_mean_q else 0), ]
+}
 ```
 
 #### Trait-specific
