@@ -10,7 +10,8 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, comment = "#>",
-  eval = requireNamespace("SummarizedExperiment", quietly = TRUE)
+  eval = requireNamespace("SummarizedExperiment", quietly = TRUE) &&
+         requireNamespace("torch", quietly = TRUE)
 )
 ```
 
@@ -34,7 +35,7 @@ The dataset is a 500-HOG subset of VST-normalized RNA-seq from the
 
 ## 1. Data preparation
 
-```{r data}
+```{r data, message = FALSE}
 library(rcomplex)
 library(SummarizedExperiment)
 
@@ -90,7 +91,7 @@ GPU, reducing each permutation to fast table lookups.
 The HOG-level q-values determine which edges are co-expressologs
 (conserved co-expression relationships):
 
-```{r comparison, eval = requireNamespace("torch", quietly = TRUE)}
+```{r comparison}
 # Helper: build edges from raw comparison + HOG-level q-values
 build_perm_edges <- function(comp, hog_res, sp_a, sp_b, alpha = 0.05) {
   hog_q <- hog_res$q.value[match(comp$hog, hog_res$hog)]
@@ -120,7 +121,8 @@ for (pair in utils::combn(species, 2, simplify = FALSE)) {
 
   hog_res <- permutation_hog_test(
     networks[[sp_a]], networks[[sp_b]], comp,
-    n_cores = 4L, use_torch = TRUE
+    n_cores = min(4L, parallel::detectCores(logical = FALSE)),
+    use_torch = TRUE
   )
 
   idx <- idx + 1L
@@ -138,14 +140,14 @@ cat(nrow(all_hog), "HOG tests,",
     sum(all_hog$q.value < 0.05), "significant (q < 0.05)\n")
 ```
 
-For analyses without GPU or for quick exploration, `run_pairwise_comparisons()`
-provides a faster analytical path using pair-level Storey q-values:
+For quick exploration without GPU, `run_pairwise_comparisons()` provides
+a faster analytical path using pair-level Storey q-values (less
+statistically rigorous for multi-copy HOGs):
 
 ```{r analytical-edges}
 edges_analytical <- run_pairwise_comparisons(networks, orthologs)
-cat("Analytical path:", sum(edges_analytical$type == "conserved"),
-    "conserved edges (vs", sum(edges$type == "conserved"),
-    "from permutation)\n")
+cat("Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n")
+cat("Permutation:", sum(edges$type == "conserved"), "conserved edges\n")
 ```
 
 ## 4. Module-level analysis
@@ -163,67 +165,34 @@ classes <- classify_modules(mod_comp)
 print(table(classes$classification))
 ```
 
-## 5. Clique detection
+## 5. Edge robustness: density sweep
 
-Find fully connected subsets of ortholog groups across species:
+**Network density** controls how many edges are retained. At 3%
+density, only the top 3% of pairwise MR values pass the threshold.
+A co-expressolog edge that barely passes at 3% may be noise; one
+that survives at 1% density is a strong signal.
 
-```{r cliques, eval = requireNamespace("torch", quietly = TRUE)}
-# All cliques (at least 2 species), using permutation-validated edges
-cliques <- find_cliques(edges, species, min_species = 2L)
-cat(nrow(cliques), "cliques\n")
-print(table(cliques$n_species))
-```
+We sweep over tighter density percentiles, re-running the full
+permutation pipeline at each level (neighborhoods change with
+threshold, so permutation p-values must be recomputed):
 
-Analytical persistence scores measure how far above the detection
-threshold each clique's supporting edges are:
-
-```{r persistence, eval = requireNamespace("torch", quietly = TRUE)}
-cliques_p <- clique_persistence(cliques, species, networks, edges)
-cat("Median persistence:", round(median(cliques_p$persistence, na.rm = TRUE), 2), "\n")
-```
-
-## 6. Combined robustness analysis
-
-The strongest findings are cliques robust on two independent axes:
-
-- **Threshold robustness** -- the clique survives at stricter density
-  thresholds (the co-expression signal is strong, not marginal)
-- **Phylogenetic robustness** -- the clique survives species removal
-  (the conservation pattern is general, not taxon-dependent)
-
-**Network density** controls how many edges are retained in the
-co-expression network. At 3% density, only the top 3% of all
-pairwise MR values pass the threshold -- these are the strongest
-co-expression relationships. A gene pair that barely passes at 3%
-might not pass at 2.5%, while a truly co-expressed pair will survive
-much stricter cutoffs.
-
-We test robustness by sweeping over tighter density percentiles and
-running leave-k-out jackknife stability at each level:
-
-```{r robustness, eval = requireNamespace("torch", quietly = TRUE)}
-# The baseline density is 3%. Each multiplier tightens the MR threshold,
-# which corresponds to a lower effective density percentile.
+```{r density-sweep}
 multipliers <- c(1.01, 1.02, 1.03, 1.05)
-robustness <- list()
+sweep_results <- list()
 
 for (m in multipliers) {
-
-  # Re-threshold: only $network and $threshold are needed downstream
   tight_nets <- lapply(networks, function(net) {
     list(network = net$network, threshold = net$threshold * m)
   })
   names(tight_nets) <- species
 
-  # Compute effective density at this threshold
-  eff_densities <- vapply(species, function(sp) {
-    mat <- networks[[sp]]$network
-    vals <- mat[upper.tri(mat)]
+  # Effective density at this threshold
+  eff_density <- mean(vapply(species, function(sp) {
+    vals <- networks[[sp]]$network[upper.tri(networks[[sp]]$network)]
     mean(vals >= networks[[sp]]$threshold * m)
-  }, numeric(1))
+  }, numeric(1)))
 
-  # Re-run comparisons + permutation at the stricter threshold
-  # (neighborhoods change with threshold, so permutation must be re-run)
+  # Re-run comparisons + permutation at stricter threshold
   tight_pair_edges <- list()
   tidx <- 0L
   for (pair in utils::combn(species, 2, simplify = FALSE)) {
@@ -237,77 +206,64 @@ for (m in multipliers) {
     tidx <- tidx + 1L
     tight_pair_edges[[tidx]] <- build_perm_edges(comp, hog_res, sp_a, sp_b)
   }
-
   tight_edges <- if (tidx > 0) do.call(rbind, tight_pair_edges[seq_len(tidx)])
                  else edges[0, ]
 
-  # Find cliques at stricter threshold
-  tight_cliques <- find_cliques(tight_edges, species, min_species = 2L)
-
-  # Jackknife stability: test all k from 1 to max (N - 2 = 6)
-  if (nrow(tight_cliques) > 0) {
-    max_k <- length(species) - 2L
-    stab <- clique_stability(tight_edges, species, trait,
-                              all_species = species,
-                              full_cliques = tight_cliques,
-                              max_k = max_k)
-    robustness[[as.character(m)]] <- list(
-      cliques = tight_cliques,
-      n_cliques = nrow(tight_cliques),
-      n_exclusive = length(stab$stability_class),
-      stability_class = stab$stability_class,
-      mean_density = mean(eff_densities),
-      stability = stab
-    )
-  } else {
-    robustness[[as.character(m)]] <- list(
-      cliques = tight_cliques, n_cliques = 0L, n_exclusive = 0L,
-      stability_class = integer(0),
-      mean_density = mean(eff_densities))
-  }
+  n_conserved <- sum(tight_edges$type == "conserved")
+  sweep_results[[as.character(m)]] <- list(
+    edges = tight_edges, eff_density = eff_density,
+    n_conserved = n_conserved)
 }
 
-# Summary: cliques surviving at each density level with stability class
-# stability_class = highest k at which ALL species-removal subsets preserve
-# the clique's trait exclusivity. k=6 means the clique survives removal of
-# any 6 of 8 species (maximally robust).
-max_k <- length(species) - 2L
-header <- paste0("Density    | Cliques | Exclusive | ",
-                 paste(sprintf("k=%d", 0:max_k), collapse = " | "))
-cat(header, "\n")
-cat(paste(rep("-", nchar(header)), collapse = ""), "\n")
-for (m in names(robustness)) {
-  r <- robustness[[m]]
-  sc_tab <- table(factor(r$stability_class, levels = 0:max_k))
-  sc_str <- paste(sprintf("%3d", sc_tab), collapse = " | ")
-  cat(sprintf("%-10s | %7d | %9d | %s\n",
-              sprintf("%.2f%%", r$mean_density * 100),
-              r$n_cliques, r$n_exclusive, sc_str))
+# Edge survival across density levels
+cat("Density | Conserved edges\n")
+cat("--------|----------------\n")
+cat(sprintf("%-7s | %15d  (baseline)\n", "3.00%", sum(edges$type == "conserved")))
+for (m in names(sweep_results)) {
+  r <- sweep_results[[m]]
+  cat(sprintf("%-7s | %15d\n", sprintf("%.2f%%", r$eff_density * 100), r$n_conserved))
 }
 ```
 
-The stability class distribution is strikingly bimodal: cliques are either
-unstable (class 0) or maximally stable (class `r length(species) - 2L`).
-This makes biological sense -- with 4 species per trait group, a
-trait-exclusive clique either depends on a specific species combination
-(fragile) or reflects a genuinely conserved pattern that persists regardless
-of which species are removed (robust).
+## 6. Clique detection and phylogenetic stability
 
-Cliques that survive at tighter density AND have maximal stability class
-represent the strongest conservation signals in the dataset.
+Using edges from a robust density level (1.02x), we find cliques and
+test their phylogenetic stability via leave-k-out jackknife. The
+jackknife removes k species at a time and checks whether each
+trait-exclusive clique is preserved:
 
-## 7. HOG classification
+```{r cliques-stability}
+# Pick a density level where signal is robust but not too sparse
+robust_edges <- sweep_results[["1.02"]]$edges
+cat("Using", sum(robust_edges$type == "conserved"), "conserved edges at",
+    sprintf("%.2f%%", sweep_results[["1.02"]]$eff_density * 100), "density\n\n")
 
-Classify each HOG by its conservation pattern using the waterfall:
-complete > partial > differentiated > trait_specific > unclassified.
+# Find cliques
+cliques <- find_cliques(robust_edges, species, min_species = 2L)
+cat(nrow(cliques), "cliques\n")
+print(table(cliques$n_species))
 
-```{r classify, eval = requireNamespace("torch", quietly = TRUE)}
-# Use stability from the 1.02x level (NULL if no cliques survived)
-stab_input <- robustness[["1.02"]]$stability
+# Jackknife stability (all k from 1 to N-2)
+max_k <- length(species) - 2L
+stab <- clique_stability(robust_edges, species, trait,
+                          all_species = species,
+                          full_cliques = cliques,
+                          max_k = max_k)
+cat("\nTrait-exclusive cliques:", length(stab$stability_class), "\n")
+cat("Stability class distribution:\n")
+print(table(factor(stab$stability_class, levels = 0:max_k)))
+```
 
-result <- classify_cliques(edges, species, trait,
+## 7. HOG classification with robustness ranking
+
+Classify each HOG by its conservation pattern, then rank within each
+category by robustness. The waterfall assigns each HOG to exactly one
+class: complete > partial > differentiated > trait_specific > unclassified.
+
+```{r classify}
+result <- classify_cliques(robust_edges, species, trait,
                             min_species = 2L,
-                            stability = stab_input)
+                            stability = stab)
 print(table(result$classification))
 ```
 
@@ -320,6 +276,32 @@ print(table(result$classification))
   co-expression programs
 - **trait_specific**: only annuals or only perennials have a clique
 - **unclassified**: no conservation signal detected
+
+The robustness ranking comes from combining density sweep survival
+with stability class. HOGs classified at a stricter density level
+with high stability class are the strongest findings:
+
+```{r ranking}
+# Count how many density levels each HOG's edges survive
+hog_edge_survival <- vapply(names(sweep_results), function(m) {
+  e <- sweep_results[[m]]$edges
+  conserved_hogs <- unique(e$hog[e$type == "conserved"])
+  result$hog %in% conserved_hogs
+}, logical(nrow(result)))
+result$n_densities_survived <- rowSums(hog_edge_survival)
+
+# Show top-ranked HOGs per category
+for (cls in c("complete", "partial", "differentiated", "trait_specific")) {
+  sub <- result[result$classification == cls, ]
+  if (nrow(sub) == 0) next
+  sub <- sub[order(-sub$n_densities_survived, sub$best_mean_q), ]
+  cat("\n", toupper(cls), "- top 5:\n")
+  show_cols <- c("hog", "n_species", "best_mean_q", "stability_class",
+                 "n_densities_survived")
+  show_cols <- intersect(show_cols, names(sub))
+  print(head(sub[, show_cols], 5), row.names = FALSE)
+}
+```
 
 ## Session info
 
