@@ -276,6 +276,51 @@ show_table(hub_class[hub_class$classification != "non_hub", ],
            caption = "Hub conservation (BDIS vs BSYL)")
 ```
 
+### Co-expression partners of hub HOGs
+
+After identifying trait-specific hubs, the natural question is: "Which
+other HOGs co-express with this hub across species?"
+`get_coexpressed_hogs()` resolves a HOG to its gene(s) in each species,
+extracts co-expression neighbors from the network, maps them back to
+HOGs, and aggregates across species. The `coexpressed_traits` column
+makes trait-group filtering straightforward:
+
+```{r hub-partners}
+# Pick a trait-specific hub (if any exist)
+ts_hubs <- hub_class[hub_class$classification %in%
+                       c("trait_specific_hub", "rewired_hub",
+                         "conserved_hub"), ]
+if (nrow(ts_hubs) > 0) {
+  candidate <- ts_hubs$hog[1]
+  cat("Querying partners of", candidate, "\n\n")
+
+  partners <- get_coexpressed_hogs(
+    candidate, networks, orthologs,
+    species_trait = trait, min_species = 2L,
+    edges = edges
+  )
+
+  cat(nrow(partners), "partner HOGs co-expressed in >= 2 species\n")
+
+  if (nrow(partners) > 0) {
+    # Partners co-expressed only in annual species
+    annual_only <- partners[!is.na(partners$coexpressed_traits) &
+                              partners$coexpressed_traits == "annual", ]
+    cat(nrow(annual_only), "annual-only partners\n")
+
+    # Partners co-expressed across both trait groups
+    cross_trait <- partners[!is.na(partners$coexpressed_traits) &
+                              grepl(",", partners$coexpressed_traits), ]
+    cat(nrow(cross_trait), "cross-trait partners\n")
+
+    show_table(head(partners, 20),
+               caption = paste("Top co-expression partners of", candidate))
+  }
+} else {
+  cat("No trait-specific hubs found in BDIS vs BSYL comparison\n")
+}
+```
+
 ## 5. Edge robustness: density sweep
 
 **Network density** controls how many edges are retained in the

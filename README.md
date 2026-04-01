@@ -98,6 +98,13 @@ hub_class <- classify_hub_conservation(
   module_comparisons = list("SP_A.SP_B" = comp)
 )
 hub_class[hub_class$classification != "non_hub", ]
+
+# Query co-expression partners of a hub HOG across all species
+partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
+                                  species_trait = trait, min_species = 2L,
+                                  edges = edges)
+partners[partners$coexpressed_traits == "annual", ]      # annual-only partners
+partners[grepl(",", partners$coexpressed_traits), ]       # cross-trait partners
 ```
 
 ### Clique-level analysis
@@ -144,6 +151,7 @@ persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 | `classify_modules()` | Three-tier module conservation classification |
 | `identify_module_hubs()` | Within-module hub identification with 6-tier conservation-aware tie-breaking |
 | `classify_hub_conservation()` | Hub conservation across traits (conserved / rewired / trait-specific) |
+| `get_coexpressed_hogs()` | Query co-expression partners of a candidate HOG across species |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
@@ -360,7 +368,7 @@ would survive at stricter density thresholds.
 |------|---------|
 | `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
 | `R/network.R` | `compute_network()` -- S4 generic (matrix / SE), correlation, MR/CLR, density threshold |
-| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()` -- pair-level hypergeometric, edge conversion |
+| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `get_coexpressed_hogs()` -- pair-level hypergeometric, edge conversion, HOG co-expression queries |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()`, `identify_module_hubs()`, `classify_hub_conservation()` |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `classify_cliques()` |
