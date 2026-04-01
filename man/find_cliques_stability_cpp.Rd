@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{find_cliques_stability_cpp}
 \alias{find_cliques_stability_cpp}
-\title{Leave-k-out jackknife stability for trait-exclusive cliques}
+\title{Leave-k-out jackknife structural stability for cliques}
 \usage{
 find_cliques_stability_cpp(
   edge_hog,
@@ -15,7 +15,6 @@ find_cliques_stability_cpp(
   n_all_species,
   n_hogs,
   n_genes,
-  species_trait,
   is_target,
   full_cliques,
   max_k = 3L,
@@ -33,8 +32,6 @@ find_cliques_stability_cpp(
 
 \item{n_hogs, n_genes}{total HOGs and genes}
 
-\item{species_trait}{trait value per species (length n_all_species)}
-
 \item{is_target}{1/0 per species (length n_all_species): target membership}
 
 \item{full_cliques}{output of find_cliques_cpp on the full dataset}
@@ -45,6 +42,6 @@ find_cliques_stability_cpp(
 List with stability, clique_disruption, stability_class, novel_cliques
 }
 \description{
-Leave-k-out jackknife stability for trait-exclusive cliques
+Leave-k-out jackknife structural stability for cliques
 }
 \keyword{internal}
