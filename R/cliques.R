@@ -1214,7 +1214,7 @@ classify_cliques <- function(
       # determined by its best clique, so we take the most stable one.
       # Use max (optimistic) not min (conservative) — consistent with
       # best_per_hog() which picks the lowest-mean-q clique per HOG.
-      best_sc <- tapply(sc_vec, all_clique_hogs, max)
+      best_sc <- tapply(sc_vec[all_clique_idx], all_clique_hogs, max)
       idx <- match(out$hog, names(best_sc))
       out$stability_class[!is.na(idx)] <- as.integer(best_sc[idx[!is.na(idx)]])
     }

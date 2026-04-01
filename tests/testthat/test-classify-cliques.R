@@ -259,7 +259,9 @@ test_that("stability_class uses max across multi-clique HOGs", {
       sole_rep = c(FALSE, FALSE),
       stringsAsFactors = FALSE
     ),
-    stability_class = c(2L, 0L)  # first clique very stable, second not
+    # stability_class is positional (one per clique in full_cliques):
+    # clique 1 = not tested, clique 2 = very stable, clique 3 = not stable
+    stability_class = c(0L, 2L, 0L)
   )
 
   result <- classify_cliques(setup$edges, setup$target, setup$trait,

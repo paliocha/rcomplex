@@ -202,6 +202,18 @@ test_that("clique_disruption counts species removals correctly at k=1", {
   # Should have one row per species
   expect_equal(nrow(result$clique_disruption), 4)
   expect_setequal(result$clique_disruption$species, target)
+
+  # HOG1 (SP_A <-> SP_B) and HOG2 (SP_C <-> SP_D) are 2-species cliques:
+  #   removing a member -> untestable (1 species left), not disrupted
+  #   removing a non-member -> clique testable and stable -> no disruption
+  # HOG3 (4-species mixed): removing any member leaves a 3-species subclique
+  #   that should be found and matched -> no disruption
+  # So all species should have n_cliques_disrupted = 0
+  for (sp in target) {
+    row <- result$clique_disruption[result$clique_disruption$species == sp, ]
+    expect_equal(row$n_cliques_disrupted, 0L,
+                 info = paste("species", sp))
+  }
 })
 
 
