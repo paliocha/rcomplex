@@ -448,11 +448,12 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     nbr_hogs <- nbr_hogs[!is.na(nbr_hogs)]
     if (length(nbr_hogs) == 0L) next
 
-    # Per-partner-HOG mean weight
+    # Per-partner-HOG max weight across candidate genes
+    # Max avoids dilution when only one candidate copy co-expresses
     partner_hogs <- unique(nbr_hogs)
     weights <- vapply(partner_hogs, function(ph) {
       ph_genes <- names(nbr_hogs[nbr_hogs == ph])
-      mean(vapply(candidate_genes, function(cg) {
+      max(vapply(candidate_genes, function(cg) {
         mean(net_mat[cg, ph_genes])
       }, numeric(1)))
     }, numeric(1))
@@ -533,7 +534,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     }, numeric(1))
     partner_min_q <- vapply(agg$partner_hog, function(ph) {
       e <- edge_by_hog[[ph]]
-      if (is.null(e)) return(NA_real_)
+      if (is.null(e) || all(is.na(e$q.value))) return(NA_real_)
       min(e$q.value, na.rm = TRUE)
     }, numeric(1))
 

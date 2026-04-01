@@ -93,7 +93,7 @@ test_that("returns correct structure with coexpressed_species and coexpressed_tr
 })
 
 
-test_that("HOG2 appears with n_species = 3 and all species listed", {
+test_that("HOG2 appears with n_species = 3, correct species and weight", {
   d <- make_coexpr_test_data()
   result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
                                   min_species = 1L)
@@ -102,6 +102,12 @@ test_that("HOG2 appears with n_species = 3 and all species listed", {
   expect_equal(hog2$n_species, 3L)
   sp_list <- sort(strsplit(hog2$coexpressed_species, ",")[[1]])
   expect_equal(sp_list, c("SP_A", "SP_B", "SP_C"))
+  # mean of per-species max weights: (0.8 + 0.9 + 0.85) / 3
+  expect_equal(hog2$mean_weight, mean(c(0.8, 0.9, 0.85)))
+
+  # HOG4 in SP_A only, weight = 0.6
+  hog4 <- result[result$partner_hog == "HOG4", ]
+  expect_equal(hog4$mean_weight, 0.6)
 })
 
 
@@ -217,6 +223,11 @@ test_that("multi-copy HOG: union of neighbors", {
   expect_true("HOG6" %in% result$partner_hog)
   # HOG2 should still appear (from A1's neighbors)
   expect_true("HOG2" %in% result$partner_hog)
+
+  # Weight for HOG6 in SP_A: max across candidate genes
+  # A1 -> A6 = 0 (not a neighbor), A1b -> A6 = 0.7 -> max = 0.7
+  hog6 <- result[result$partner_hog == "HOG6", ]
+  expect_equal(hog6$mean_weight, 0.7)
 })
 
 
@@ -264,4 +275,16 @@ test_that("empty result when no partners meet threshold", {
   expect_equal(nrow(result), 0L)
   expect_true("partner_hog" %in% names(result))
   expect_true("coexpressed_traits" %in% names(result))
+})
+
+
+test_that("empty result with edges still has conservation columns", {
+  d <- make_coexpr_test_data()
+  result <- get_coexpressed_hogs("HOG5", d$networks, d$orthologs,
+                                  edges = d$edges, min_species = 1L)
+  expect_true(is.data.frame(result))
+  expect_equal(nrow(result), 0L)
+  expect_true("partner_conserved" %in% names(result))
+  expect_true("partner_mean_effect" %in% names(result))
+  expect_true("partner_min_q" %in% names(result))
 })
