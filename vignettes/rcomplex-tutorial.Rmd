@@ -174,7 +174,7 @@ that survives at 1% density is a strong signal.
 
 We sweep over tighter density percentiles, re-running the full
 permutation pipeline at each level (neighborhoods change with
-threshold, so permutation p-values must be recomputed):
+threshold, so permutation q-values must be recomputed):
 
 ```{r density-sweep}
 multipliers <- c(1.01, 1.02, 1.03, 1.05)
