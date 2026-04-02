@@ -406,57 +406,42 @@ resolutions and how consecutive partitions agree (ARI):</p>
 <div class="section level3">
 <h3 id="module-comparison-across-phylogenetic-pairs">Module comparison across phylogenetic pairs<a class="anchor" aria-label="anchor" href="#module-comparison-across-phylogenetic-pairs"></a>
 </h3>
-<p>We compare modules between the annual and perennial member of each of
-the four phylogenetic pairs using Jaccard permutation – the null
-shuffles the ortholog mapping (which sp1 gene maps to which sp2 gene)
-via Fisher-Yates, preserving module structure and ortholog count while
-breaking gene identity. This is more principled than the hypergeometric
-alternative, which assumes independent sampling and can be
-anti-conservative for multi-copy HOGs. <code><a href="../reference/classify_modules.html">classify_modules()</a></code>
-labels each module as conserved, partially conserved, or
-species-specific. Since sp1 = annual and sp2 = perennial in every pair,
-the <code>species</code> column directly tells us which trait group a
-species-specific module belongs to:</p>
+<p><code><a href="../reference/compare_modules_paired.html">compare_modules_paired()</a></code> wraps the full comparison
+pipeline into a single call: for each pair it runs Jaccard permutation
+(shuffling the ortholog mapping), classifies modules as conserved /
+species-specific, tags trait-specificity from the
+<code>species_trait</code> vector, and auto- coarsens the finer-grained
+partition when the module-count ratio exceeds 2-fold:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mod_comparisons</span> <span class="op">&lt;-</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
-<span>    mod_comp <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map2.html" class="external-link">map2</a></span><span class="op">(</span><span class="va">annual</span>, <span class="va">perennial</span>, \<span class="op">(</span><span class="va">a</span>, <span class="va">p</span><span class="op">)</span></span>
-<span>      <span class="fu"><a href="../reference/compare_modules.html">compare_modules</a></span><span class="op">(</span><span class="va">modules</span><span class="op">[[</span><span class="va">a</span><span class="op">]</span><span class="op">]</span>, <span class="va">modules</span><span class="op">[[</span><span class="va">p</span><span class="op">]</span><span class="op">]</span>, <span class="va">orthologs</span>,</span>
-<span>                      method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    classification <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map2.html" class="external-link">map2</a></span><span class="op">(</span><span class="va">mod_comp</span>, <span class="va">pair_name</span>, \<span class="op">(</span><span class="va">mc</span>, <span class="va">pn</span><span class="op">)</span> <span class="op">{</span></span>
-<span>      <span class="fu"><a href="../reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">mc</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>        <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
-<span>          pair <span class="op">=</span> <span class="va">pn</span>,</span>
-<span>          trait <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
-<span>            <span class="va">classification</span> <span class="op">!=</span> <span class="st">"species_specific"</span> <span class="op">~</span> <span class="st">"conserved"</span>,</span>
-<span>            <span class="va">species</span> <span class="op">==</span> <span class="st">"sp1"</span> <span class="op">~</span> <span class="st">"annual"</span>,</span>
-<span>            <span class="va">species</span> <span class="op">==</span> <span class="st">"sp2"</span> <span class="op">~</span> <span class="st">"perennial"</span></span>
-<span>          <span class="op">)</span></span>
-<span>        <span class="op">)</span></span>
-<span>    <span class="op">}</span><span class="op">)</span></span>
-<span>  <span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">mod_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_modules_paired.html">compare_modules_paired</a></span><span class="op">(</span></span>
+<span>  <span class="va">modules</span>, <span class="va">orthologs</span>,</span>
+<span>  pairs <span class="op">=</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>sp1 <span class="op">=</span> <span class="va">annual</span>, sp2 <span class="op">=</span> <span class="va">perennial</span>, <span class="va">pair_name</span><span class="op">)</span>,</span>
+<span>  species_trait <span class="op">=</span> <span class="va">trait_vec</span>,</span>
+<span>  matched_scale <span class="op">=</span> <span class="cn">TRUE</span>, coarsen_ratio <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">mod_comparisons</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span><span class="va">pair_name</span>, <span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/unnest.html" class="external-link">unnest</a></span><span class="op">(</span><span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">pair_name</span>, <span class="va">trait</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">pivot_wider</a></span><span class="op">(</span>names_from <span class="op">=</span> <span class="va">trait</span>, values_from <span class="op">=</span> <span class="va">n</span>, values_fill <span class="op">=</span> <span class="fl">0</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Module trait-specificity across phylogenetic pairs"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">show_table</span><span class="op">(</span><span class="va">mod_results</span><span class="op">$</span><span class="va">module_counts</span>,</span>
+<span>           caption <span class="op">=</span> <span class="st">"Module count ratio per pair"</span><span class="op">)</span></span>
+<span><span class="fu">show_table</span><span class="op">(</span><span class="va">mod_results</span><span class="op">$</span><span class="va">summary</span>,</span>
+<span>           caption <span class="op">=</span> <span class="st">"Module conservation: natural vs matched scale"</span><span class="op">)</span></span></code></pre></div>
 <p>Do any HOGs consistently land in annual-specific modules across
 independent lineages? That would be strong evidence for parallel re-use
-of regulatory programs. We extract the HOG content of annual-specific
-modules in each pair and count cross-pair recurrence:</p>
+of regulatory programs:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">annual_module_hogs</span> <span class="op">&lt;-</span> <span class="va">mod_comparisons</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://purrr.tidyverse.org/reference/pmap.html" class="external-link">pmap</a></span><span class="op">(</span>\<span class="op">(</span><span class="va">pair_name</span>, <span class="va">annual</span>, <span class="va">perennial</span>, <span class="va">mod_comp</span>, <span class="va">classification</span>, <span class="va">...</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">annual_mods</span> <span class="op">&lt;-</span> <span class="va">classification</span> <span class="op">|&gt;</span></span>
-<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">trait</span> <span class="op">==</span> <span class="st">"annual"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<code class="sourceCode R"><span><span class="va">annual_cls</span> <span class="op">&lt;-</span> <span class="va">mod_results</span><span class="op">$</span><span class="va">classification</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">trait</span> <span class="op">==</span> <span class="st">"annual"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">annual_module_hogs</span> <span class="op">&lt;-</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://purrr.tidyverse.org/reference/pmap.html" class="external-link">pmap</a></span><span class="op">(</span>\<span class="op">(</span><span class="va">pair_name</span>, <span class="va">annual</span>, <span class="va">...</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">mods_in_pair</span> <span class="op">&lt;-</span> <span class="va">annual_cls</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">pair_name</span> <span class="op">==</span> <span class="op">!</span><span class="op">!</span><span class="va">pair_name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">module</span><span class="op">)</span></span>
-<span>    <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">annual_mods</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0L</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>hog <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>, pair <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="va">annual_genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">modules</span><span class="op">[[</span><span class="va">annual</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">module_genes</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">annual_mods</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span>    <span class="co"># annual species was passed as modules1 (Species1 column in orthologs)</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">mods_in_pair</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0L</span><span class="op">)</span></span>
+<span>      <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>hog <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>, pair <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="va">genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">modules</span><span class="op">[[</span><span class="va">annual</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">module_genes</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">mods_in_pair</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
 <span>    <span class="va">orthologs</span> <span class="op">|&gt;</span></span>
-<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">Species1</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">annual_genes</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">Species1</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">genes</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/distinct.html" class="external-link">distinct</a></span><span class="op">(</span><span class="va">hog</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>pair <span class="op">=</span> <span class="va">pair_name</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -509,9 +494,7 @@ within-pair comparison for this:</p>
 <code class="sourceCode R"><span><span class="va">hub_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_hub_conservation.html">classify_hub_conservation</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/enframe.html" class="external-link">deframe</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">species_data</span>, <span class="va">species</span>, <span class="va">hubs</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  <span class="va">trait_vec</span>,</span>
-<span>  module_comparisons <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/enframe.html" class="external-link">deframe</a></span><span class="op">(</span></span>
-<span>    <span class="va">mod_comparisons</span> <span class="op">|&gt;</span></span>
-<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>key <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">annual</span>, <span class="va">perennial</span>, sep <span class="op">=</span> <span class="st">"."</span><span class="op">)</span>, <span class="va">mod_comp</span><span class="op">)</span><span class="op">)</span></span>
+<span>  module_comparisons <span class="op">=</span> <span class="va">mod_results</span><span class="op">$</span><span class="va">raw</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">hub_class</span> <span class="op">|&gt;</span></span>
