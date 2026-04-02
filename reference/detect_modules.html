@@ -190,7 +190,9 @@ Rand Index with the next resolution; NA for the last), and
 <dt>k1_test</dt>
 <dd><p>When <code>test_k1 = TRUE</code>, a list with components:
 <code>lambda_obs</code> (observed spectral norm), <code>lambda_null</code>
-(null distribution), <code>p_value</code>, and <code>has_structure</code>.</p></dd>
+(null distribution), <code>p_value</code>, <code>has_structure</code>, and
+<code>n_perm_completed</code> (actual permutations run; may be less
+than <code>n_perm_k1</code> due to early stopping).</p></dd>
 
 
 </dl><p>The <code>params</code> list includes <code>n_consensus_iterations</code>

@@ -349,19 +349,123 @@ multi-copy HOGs):</p>
 <div class="section level2">
 <h2 id="module-level-analysis">4. Module-level analysis<a class="anchor" aria-label="anchor" href="#module-level-analysis"></a>
 </h2>
-<p>Detect co-expression modules with Leiden community detection, then
-compare across species:</p>
+<p>To identify regulatory signatures of parallel life-cycle evolution,
+we detect modules in all eight species and compare across each of the
+four phylogenetic pairs. Module-level conservation reveals whether the
+same co-regulatory programs are used independently in annual
+lineages.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mod_bdis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">networks</span><span class="op">$</span><span class="va">BDIS</span>, method <span class="op">=</span> <span class="st">"leiden"</span>, resolution <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
-<span><span class="va">mod_bsyl</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">networks</span><span class="op">$</span><span class="va">BSYL</span>, method <span class="op">=</span> <span class="st">"leiden"</span>, resolution <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">phylo_pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tribble.html" class="external-link">tribble</a></span><span class="op">(</span></span>
+<span>  <span class="op">~</span><span class="va">pair_name</span>,        <span class="op">~</span><span class="va">annual</span>, <span class="op">~</span><span class="va">perennial</span>,</span>
+<span>  <span class="st">"Brachypodium"</span>,    <span class="st">"BDIS"</span>,  <span class="st">"BSYL"</span>,</span>
+<span>  <span class="st">"Hordeum"</span>,         <span class="st">"HVUL"</span>,  <span class="st">"HJUB"</span>,</span>
+<span>  <span class="st">"Briza"</span>,           <span class="st">"BMAX"</span>,  <span class="st">"BMED"</span>,</span>
+<span>  <span class="st">"Festuca/Vulpia"</span>,  <span class="st">"VBRO"</span>,  <span class="st">"FPRA"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="section level3">
+<h3 id="testing-for-community-structure-k-1-null">Testing for community structure (K = 1 null)<a class="anchor" aria-label="anchor" href="#testing-for-community-structure-k-1-null"></a>
+</h3>
+<p>Before partitioning, we test whether each network has significant
+community structure at all. Passing a vector of resolutions triggers
+multi-resolution consensus clustering (Jeub <em>et al.</em>, 2018) with
+a permutation-based K = 1 test: gene labels on a degree-preserving
+rewired null graph are shuffled and Leiden is re-run to build a null
+distribution of the spectral norm of the excess co-classification
+matrix. Early stopping terminates the permutation loop once the p-value
+is decisively above or below <code>alpha_k1</code>, so networks with
+clear structure typically complete in ~20 permutations rather than
+100:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">resolutions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.25</span>, <span class="fl">2.5</span>, by <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">mod_comp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_modules.html">compare_modules</a></span><span class="op">(</span><span class="va">mod_bdis</span>, <span class="va">mod_bsyl</span>, <span class="va">orthologs</span>,</span>
-<span>                             method <span class="op">=</span> <span class="st">"hypergeometric"</span><span class="op">)</span></span>
-<span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">mod_comp</span><span class="op">)</span></span>
+<span><span class="va">species_data</span> <span class="op">&lt;-</span> <span class="va">species_data</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>modules <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map</a></span><span class="op">(</span><span class="va">network</span>, \<span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="../reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">net</span>, method <span class="op">=</span> <span class="st">"leiden"</span>,</span>
+<span>                   resolution <span class="op">=</span> <span class="va">resolutions</span>,</span>
+<span>                   objective_function <span class="op">=</span> <span class="st">"modularity"</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
+<span>                   test_k1 <span class="op">=</span> <span class="cn">TRUE</span>, n_perm_k1 <span class="op">=</span> <span class="fl">100L</span>,</span>
+<span>                   max_consensus_iter <span class="op">=</span> <span class="fl">1000L</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">classes</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Module classification (BDIS vs BSYL)"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">modules</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/enframe.html" class="external-link">deframe</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">species_data</span>, <span class="va">species</span>, <span class="va">modules</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">species_data</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span></span>
+<span>    <span class="va">species</span>, <span class="va">trait</span>,</span>
+<span>    lambda_obs       <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_dbl</a></span><span class="op">(</span><span class="va">modules</span>, \<span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">k1_test</span><span class="op">$</span><span class="va">lambda_obs</span><span class="op">)</span>,</span>
+<span>    p_value          <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_dbl</a></span><span class="op">(</span><span class="va">modules</span>, \<span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">k1_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>,</span>
+<span>    has_structure    <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_lgl</a></span><span class="op">(</span><span class="va">modules</span>, \<span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">k1_test</span><span class="op">$</span><span class="va">has_structure</span><span class="op">)</span>,</span>
+<span>    n_perm_completed <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_int</a></span><span class="op">(</span><span class="va">modules</span>, \<span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">k1_test</span><span class="op">$</span><span class="va">n_perm_completed</span><span class="op">)</span>,</span>
+<span>    n_modules        <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_int</a></span><span class="op">(</span><span class="va">modules</span>, \<span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">n_modules</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"K = 1 community structure test (all species)"</span><span class="op">)</span></span></code></pre></div>
+<p>The resolution scan shows how partition granularity varies across
+resolutions and how consecutive partitions agree (ARI):</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">modules</span><span class="op">$</span><span class="va">BDIS</span><span class="op">$</span><span class="va">resolution_scan</span>, caption <span class="op">=</span> <span class="st">"Resolution scan (BDIS)"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="module-comparison-across-phylogenetic-pairs">Module comparison across phylogenetic pairs<a class="anchor" aria-label="anchor" href="#module-comparison-across-phylogenetic-pairs"></a>
+</h3>
+<p>We compare modules between the annual and perennial member of each of
+the four phylogenetic pairs using Jaccard permutation – the null
+shuffles the ortholog mapping (which sp1 gene maps to which sp2 gene)
+via Fisher-Yates, preserving module structure and ortholog count while
+breaking gene identity. This is more principled than the hypergeometric
+alternative, which assumes independent sampling and can be
+anti-conservative for multi-copy HOGs. <code><a href="../reference/classify_modules.html">classify_modules()</a></code>
+labels each module as conserved, partially conserved, or
+species-specific. Since sp1 = annual and sp2 = perennial in every pair,
+the <code>species</code> column directly tells us which trait group a
+species-specific module belongs to:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mod_comparisons</span> <span class="op">&lt;-</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>    mod_comp <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map2.html" class="external-link">map2</a></span><span class="op">(</span><span class="va">annual</span>, <span class="va">perennial</span>, \<span class="op">(</span><span class="va">a</span>, <span class="va">p</span><span class="op">)</span></span>
+<span>      <span class="fu"><a href="../reference/compare_modules.html">compare_modules</a></span><span class="op">(</span><span class="va">modules</span><span class="op">[[</span><span class="va">a</span><span class="op">]</span><span class="op">]</span>, <span class="va">modules</span><span class="op">[[</span><span class="va">p</span><span class="op">]</span><span class="op">]</span>, <span class="va">orthologs</span>,</span>
+<span>                      method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    classification <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map2.html" class="external-link">map2</a></span><span class="op">(</span><span class="va">mod_comp</span>, <span class="va">pair_name</span>, \<span class="op">(</span><span class="va">mc</span>, <span class="va">pn</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="fu"><a href="../reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">mc</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>        <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>          pair <span class="op">=</span> <span class="va">pn</span>,</span>
+<span>          trait <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
+<span>            <span class="va">classification</span> <span class="op">!=</span> <span class="st">"species_specific"</span> <span class="op">~</span> <span class="st">"conserved"</span>,</span>
+<span>            <span class="va">species</span> <span class="op">==</span> <span class="st">"sp1"</span> <span class="op">~</span> <span class="st">"annual"</span>,</span>
+<span>            <span class="va">species</span> <span class="op">==</span> <span class="st">"sp2"</span> <span class="op">~</span> <span class="st">"perennial"</span></span>
+<span>          <span class="op">)</span></span>
+<span>        <span class="op">)</span></span>
+<span>    <span class="op">}</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="va">mod_comparisons</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span><span class="va">pair_name</span>, <span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/unnest.html" class="external-link">unnest</a></span><span class="op">(</span><span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">pair_name</span>, <span class="va">trait</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">pivot_wider</a></span><span class="op">(</span>names_from <span class="op">=</span> <span class="va">trait</span>, values_from <span class="op">=</span> <span class="va">n</span>, values_fill <span class="op">=</span> <span class="fl">0</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Module trait-specificity across phylogenetic pairs"</span><span class="op">)</span></span></code></pre></div>
+<p>Do any HOGs consistently land in annual-specific modules across
+independent lineages? That would be strong evidence for parallel re-use
+of regulatory programs. We extract the HOG content of annual-specific
+modules in each pair and count cross-pair recurrence:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">annual_module_hogs</span> <span class="op">&lt;-</span> <span class="va">mod_comparisons</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://purrr.tidyverse.org/reference/pmap.html" class="external-link">pmap</a></span><span class="op">(</span>\<span class="op">(</span><span class="va">pair_name</span>, <span class="va">annual</span>, <span class="va">perennial</span>, <span class="va">mod_comp</span>, <span class="va">classification</span>, <span class="va">...</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">annual_mods</span> <span class="op">&lt;-</span> <span class="va">classification</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">trait</span> <span class="op">==</span> <span class="st">"annual"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">module</span><span class="op">)</span></span>
+<span>    <span class="va">annual_genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">modules</span><span class="op">[[</span><span class="va">annual</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">module_genes</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">annual_mods</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span>    <span class="va">sp_col</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/any.html" class="external-link">any</a></span><span class="op">(</span><span class="va">orthologs</span><span class="op">$</span><span class="va">Species1</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">annual_genes</span><span class="op">)</span><span class="op">)</span> <span class="st">"Species1"</span> <span class="kw">else</span> <span class="st">"Species2"</span></span>
+<span>    <span class="va">orthologs</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">.data</span><span class="op">[[</span><span class="va">sp_col</span><span class="op">]</span><span class="op">]</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">annual_genes</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/distinct.html" class="external-link">distinct</a></span><span class="op">(</span><span class="va">hog</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>pair <span class="op">=</span> <span class="va">pair_name</span><span class="op">)</span></span>
+<span>  <span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://purrr.tidyverse.org/reference/list_c.html" class="external-link">list_rbind</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">annual_module_hogs</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">hog</span>, name <span class="op">=</span> <span class="st">"n_pairs"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">n_pairs</span>, name <span class="op">=</span> <span class="st">"n_hogs"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"HOG recurrence in annual-specific modules across pairs"</span><span class="op">)</span></span></code></pre></div>
+</div>
 <div class="section level3">
 <h3 id="hub-genes-and-trait-conservation">Hub genes and trait conservation<a class="anchor" aria-label="anchor" href="#hub-genes-and-trait-conservation"></a>
 </h3>
@@ -371,33 +475,60 @@ degree</strong> (the default) is the recommended primary centrality for
 co-expression networks – it directly measures total co-expression
 strength to module neighbours, which is the standard definition of a hub
 gene. All three centrality measures (degree, betweenness, eigenvector)
-are reported regardless of which is chosen as primary:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Comparison result for BDIS vs BSYL (for conservation tie-breaking)</span></span>
-<span><span class="va">comp_bdis_bsyl</span> <span class="op">&lt;-</span> <span class="va">comparisons</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">sp1</span> <span class="op">==</span> <span class="st">"BDIS"</span>, <span class="va">sp2</span> <span class="op">==</span> <span class="st">"BSYL"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://purrr.tidyverse.org/reference/pluck.html" class="external-link">pluck</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+are reported regardless of which is chosen as primary.</p>
+<p>The <code>comparison</code> argument is used only as a late
+tie-breaker (tier 5 of 6) when two genes have identical centrality – the
+one with the lower HOG-level q-value wins. We use each species’
+within-pair comparison for this:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Pre-build a named list: species -&gt; within-pair comparison result</span></span>
+<span><span class="va">pair_comps</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
+<span>  <span class="va">phylo_pairs</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>sp <span class="op">=</span> <span class="va">annual</span>,    partner <span class="op">=</span> <span class="va">perennial</span><span class="op">)</span>,</span>
+<span>  <span class="va">phylo_pairs</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>sp <span class="op">=</span> <span class="va">perennial</span>, partner <span class="op">=</span> <span class="va">annual</span><span class="op">)</span></span>
+<span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>comp <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map2.html" class="external-link">map2</a></span><span class="op">(</span><span class="va">sp</span>, <span class="va">partner</span>, \<span class="op">(</span><span class="va">s</span>, <span class="va">p</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">row</span> <span class="op">&lt;-</span> <span class="va">comparisons</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">(</span><span class="va">sp1</span> <span class="op">==</span> <span class="va">s</span> <span class="op">&amp;</span> <span class="va">sp2</span> <span class="op">==</span> <span class="va">p</span><span class="op">)</span> <span class="op">|</span> <span class="op">(</span><span class="va">sp1</span> <span class="op">==</span> <span class="va">p</span> <span class="op">&amp;</span> <span class="va">sp2</span> <span class="op">==</span> <span class="va">s</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="va">row</span><span class="op">$</span><span class="va">comp</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
+<span>  <span class="op">}</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">sp</span>, <span class="va">comp</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/enframe.html" class="external-link">deframe</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Identify hubs (top 10% per module by weighted degree)</span></span>
-<span><span class="va">hubs_bdis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod_bdis</span>, <span class="va">networks</span><span class="op">$</span><span class="va">BDIS</span>, <span class="va">orthologs</span>,</span>
-<span>                                   comparison <span class="op">=</span> <span class="va">comp_bdis_bsyl</span><span class="op">)</span></span>
-<span><span class="va">hubs_bsyl</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod_bsyl</span>, <span class="va">networks</span><span class="op">$</span><span class="va">BSYL</span>, <span class="va">orthologs</span>,</span>
-<span>                                   comparison <span class="op">=</span> <span class="va">comp_bdis_bsyl</span><span class="op">)</span></span>
+<span><span class="va">species_data</span> <span class="op">&lt;-</span> <span class="va">species_data</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>hubs <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/pmap.html" class="external-link">pmap</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">species</span>, <span class="va">modules</span>, <span class="va">network</span><span class="op">)</span>, \<span class="op">(</span><span class="va">sp</span>, <span class="va">mod</span>, <span class="va">net</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="../reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod</span>, <span class="va">net</span>, <span class="va">orthologs</span>,</span>
+<span>                         comparison <span class="op">=</span> <span class="va">pair_comps</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">show_table</span><span class="op">(</span><span class="va">hubs_bdis</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">is_hub</span><span class="op">)</span>,</span>
-<span>           caption <span class="op">=</span> <span class="st">"Hub genes in BDIS modules"</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Classify hub conservation across traits</span></span>
-<span><span class="va">hub_trait</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>BDIS <span class="op">=</span> <span class="st">"annual"</span>, BSYL <span class="op">=</span> <span class="st">"perennial"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">hub_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_hub_conservation.html">classify_hub_conservation</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>BDIS <span class="op">=</span> <span class="va">hubs_bdis</span>, BSYL <span class="op">=</span> <span class="va">hubs_bsyl</span><span class="op">)</span>, <span class="va">hub_trait</span>,</span>
-<span>  module_comparisons <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"BDIS.BSYL"</span> <span class="op">=</span> <span class="va">mod_comp</span><span class="op">)</span></span>
+<span><span class="va">species_data</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span><span class="va">species</span>, <span class="va">trait</span>,</span>
+<span>            n_hubs  <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_int</a></span><span class="op">(</span><span class="va">hubs</span>, \<span class="op">(</span><span class="va">h</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">h</span><span class="op">$</span><span class="va">is_hub</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>            n_genes <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_int</a></span><span class="op">(</span><span class="va">hubs</span>, <span class="va">nrow</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Hub genes per species"</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">hub_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_hub_conservation.html">classify_hub_conservation</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/enframe.html" class="external-link">deframe</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">species_data</span>, <span class="va">species</span>, <span class="va">hubs</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="va">trait_vec</span>,</span>
+<span>  module_comparisons <span class="op">=</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/enframe.html" class="external-link">deframe</a></span><span class="op">(</span></span>
+<span>    <span class="va">mod_comparisons</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>key <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">annual</span>, <span class="va">perennial</span>, sep <span class="op">=</span> <span class="st">"."</span><span class="op">)</span>, <span class="va">mod_comp</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">show_table</span><span class="op">(</span><span class="va">hub_class</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">classification</span> <span class="op">!=</span> <span class="st">"non_hub"</span><span class="op">)</span>,</span>
-<span>           caption <span class="op">=</span> <span class="st">"Hub conservation (BDIS vs BSYL)"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">hub_class</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">classification</span> <span class="op">!=</span> <span class="st">"non_hub"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Hub conservation across all species"</span><span class="op">)</span></span></code></pre></div>
+<p>HOGs that are hubs specifically in annual (or perennial) species –
+the <code>annual_specific_hub</code>,
+<code>perennial_specific_hub</code>, and <code>rewired_hub</code>
+classes – are candidates for parallel regulatory evolution:</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">hub_class</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">classification</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"annual_specific_hub"</span>,</span>
+<span>                                <span class="st">"perennial_specific_hub"</span>,</span>
+<span>                                <span class="st">"rewired_hub"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">hog</span>, <span class="va">classification</span>, <span class="va">n_species_hub</span>, <span class="va">hub_trait_groups</span>,</span>
+<span>         <span class="va">n_corresponding</span>, <span class="va">max_centrality</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Trait-specific and rewired hubs (parallel evolution candidates)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="co-expression-partners-of-hub-hogs">Co-expression partners of hub HOGs<a class="anchor" aria-label="anchor" href="#co-expression-partners-of-hub-hogs"></a>
@@ -409,40 +540,30 @@ each species, extracts co-expression neighbors from the network, maps
 them back to HOGs, and aggregates across species. The
 <code>coexpressed_traits</code> column makes trait-group filtering
 straightforward:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Pick a trait-specific hub (if any exist)</span></span>
-<span><span class="va">ts_hubs</span> <span class="op">&lt;-</span> <span class="va">hub_class</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">classification</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"trait_specific_hub"</span>, <span class="st">"rewired_hub"</span>,</span>
-<span>                                <span class="st">"conserved_hub"</span><span class="op">)</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">candidate</span> <span class="op">&lt;-</span> <span class="va">hub_class</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">classification</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"annual_specific_hub"</span>,</span>
+<span>                                <span class="st">"perennial_specific_hub"</span>,</span>
+<span>                                <span class="st">"rewired_hub"</span>, <span class="st">"conserved_hub"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_max</a></span><span class="op">(</span><span class="va">n_species_hub</span>, n <span class="op">=</span> <span class="fl">1</span>, with_ties <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">hog</span><span class="op">)</span></span>
 <span></span>
-<span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">ts_hubs</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">candidate</span> <span class="op">&lt;-</span> <span class="va">ts_hubs</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">hog</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Querying partners of"</span>, <span class="va">candidate</span>, <span class="st">"\n\n"</span><span class="op">)</span></span>
-<span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">candidate</span><span class="op">)</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">partners</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_coexpressed_hogs.html">get_coexpressed_hogs</a></span><span class="op">(</span></span>
 <span>    <span class="va">candidate</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
 <span>    species_trait <span class="op">=</span> <span class="va">trait_vec</span>, min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>    edges <span class="op">=</span> <span class="va">edges</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">partners</span><span class="op">)</span>, <span class="st">"partner HOGs co-expressed in &gt;= 2 species\n"</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">candidate</span>, <span class="st">":"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">partners</span><span class="op">)</span>, <span class="st">"partner HOGs in &gt;= 2 species —"</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span> <span class="op">==</span> <span class="st">"annual"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="st">"annual-only,"</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grepl</a></span><span class="op">(</span><span class="st">","</span>, <span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span><span class="op">)</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="st">"cross-trait\n"</span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">partners</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">annual_only</span> <span class="op">&lt;-</span> <span class="va">partners</span> <span class="op">|&gt;</span></span>
-<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">coexpressed_traits</span><span class="op">)</span>, <span class="va">coexpressed_traits</span> <span class="op">==</span> <span class="st">"annual"</span><span class="op">)</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">annual_only</span><span class="op">)</span>, <span class="st">"annual-only partners\n"</span><span class="op">)</span></span>
-<span></span>
-<span>    <span class="va">cross_trait</span> <span class="op">&lt;-</span> <span class="va">partners</span> <span class="op">|&gt;</span></span>
-<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">coexpressed_traits</span><span class="op">)</span>,</span>
-<span>             <span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_detect.html" class="external-link">str_detect</a></span><span class="op">(</span><span class="va">coexpressed_traits</span>, <span class="st">","</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">cross_trait</span><span class="op">)</span>, <span class="st">"cross-trait partners\n"</span><span class="op">)</span></span>
-<span></span>
-<span>    <span class="va">partners</span> <span class="op">|&gt;</span></span>
-<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_head</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">20</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>      <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Top co-expression partners of"</span>, <span class="va">candidate</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="op">}</span></span>
+<span>  <span class="va">partners</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_head</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">20</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Top co-expression partners of"</span>, <span class="va">candidate</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"No trait-specific hubs found in BDIS vs BSYL comparison\n"</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"No trait-specific or conserved hubs found\n"</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </div>
 </div>
@@ -471,7 +592,7 @@ particular cutoff.</p>
 <p>The permutation pipeline is re-run at each level because network
 neighborhoods change with the threshold, altering the HOG-level
 q-values:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sweep</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>multiplier <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.95</span>, <span class="fl">1.05</span>, by <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>results <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map</a></span><span class="op">(</span><span class="va">multiplier</span>, \<span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="va">tight_nets</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map</a></span><span class="op">(</span><span class="va">networks</span>, \<span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
@@ -546,7 +667,7 @@ their structural stability via leave-k-out jackknife. The jackknife
 removes k species at a time and checks whether each clique’s gene
 assignments are preserved (purely structural, trait-agnostic). Trait
 annotations are added post-hoc:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use the baseline (1.0x) edges for clique detection and stability</span></span>
 <span><span class="va">robust_edges</span> <span class="op">&lt;-</span> <span class="va">sweep</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">multiplier</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/pluck.html" class="external-link">pluck</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Using"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">robust_edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges at"</span>,</span>
@@ -561,7 +682,7 @@ annotations are added post-hoc:</p>
 <span><span class="va">cliques</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">n_species</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu">show_table</span><span class="op">(</span>pageLength <span class="op">=</span> <span class="fl">10</span>, caption <span class="op">=</span> <span class="st">"Cliques by number of species"</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Jackknife stability (all k from 1 to N-2)</span></span>
 <span><span class="va">max_k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span></span>
 <span><span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_stability.html">clique_stability</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>,</span>
@@ -584,7 +705,7 @@ annotations are added post-hoc:</p>
 category by robustness. The waterfall assigns each HOG to exactly one
 class: complete &gt; partial &gt; differentiated &gt; trait_specific
 &gt; unclassified.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_cliques.html">classify_cliques</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, <span class="va">trait_vec</span>,</span>
 <span>                            min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>                            stability <span class="op">=</span> <span class="va">stab</span><span class="op">)</span></span>
@@ -612,7 +733,7 @@ have a clique</li>
 <p>The robustness ranking comes from combining density sweep survival
 with stability class. HOGs classified at a stricter density level with
 high stability class are the strongest findings:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Count how many density levels each HOG's edges survive</span></span>
 <span><span class="va">hog_survival</span> <span class="op">&lt;-</span> <span class="va">sweep</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span><span class="va">multiplier</span>,</span>
@@ -655,28 +776,28 @@ robust.</p>
 <div class="section level4">
 <h4 id="partial">Partial<a class="anchor" aria-label="anchor" href="#partial"></a>
 </h4>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"partial"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Partial HOGs (cross-trait cliques)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="trait-specific">Trait-specific<a class="anchor" aria-label="anchor" href="#trait-specific"></a>
 </h4>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"trait_specific"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Trait-specific HOGs (one lineage only)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="differentiated">Differentiated<a class="anchor" aria-label="anchor" href="#differentiated"></a>
 </h4>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"differentiated"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Differentiated HOGs (within-group conservation, cross-group divergence)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="complete">Complete<a class="anchor" aria-label="anchor" href="#complete"></a>
 </h4>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"complete"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Complete HOGs (all 8 species)"</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -688,7 +809,7 @@ robust.</p>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
 </h2>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
   </div>
