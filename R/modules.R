@@ -71,7 +71,9 @@
 #'       \code{expected_coclassification} (per-resolution expected scalar).}
 #'     \item{k1_test}{When \code{test_k1 = TRUE}, a list with components:
 #'       \code{lambda_obs} (observed spectral norm), \code{lambda_null}
-#'       (null distribution), \code{p_value}, and \code{has_structure}.}
+#'       (null distribution), \code{p_value}, \code{has_structure}, and
+#'       \code{n_perm_completed} (actual permutations run; may be less
+#'       than \code{n_perm_k1} due to early stopping).}
 #'   }
 #'   The \code{params} list includes \code{n_consensus_iterations}
 #'   (number of iterations until convergence; 0 for fixed threshold).
@@ -545,27 +547,47 @@ pick_best_partition <- function(memberships, graph) {
 #'
 #' Compares the leading eigenvalue of the sparse excess co-classification
 #' matrix against a null distribution from degree-preserving rewiring.
+#' Uses batch-based early stopping: once enough permutations have been
+#' completed without any exceedance (\code{ceil(1/alpha)} permutations
+#' with lambda_null < lambda_obs), the test concludes that structure is
+#' present without running all \code{n_perm} permutations.
+#'
+#' @section Performance:
+#' Three optimizations reduce runtime vs naive implementation:
+#' \enumerate{
+#'   \item Rewiring uses 5 * |E| swap attempts (sufficient for mixing;
+#'     Greenhill, 2015).
+#'   \item Null Leiden sweeps use \code{n_iterations = 1} (partitions need
+#'     not be optimal for the null distribution).
+#'   \item Batch early stopping: permutations run in batches of
+#'     \code{n_cores}. After each batch, if \code{ceil(1/alpha)}
+#'     permutations have completed with zero exceedances, the test stops
+#'     early (p < alpha is guaranteed). Similarly, if exceedances
+#'     accumulate such that p > alpha is certain, the test stops.
+#' }
+#'
 #' @noRd
 test_community_structure <- function(g, genes, resolutions, objective_function,
                                       n_iterations, memberships_obs,
                                       edge_list_0, n_perm = 100L,
                                       n_cores = 1L, alpha = 0.05) {
   n_genes <- length(genes)
+  n_edges <- igraph::ecount(g)
 
   lambda_obs <- sparse_excess_spectral_norm_cpp(memberships_obs, n_genes,
                                                  edge_list_0, n_cores)
 
   run_one_perm <- function(b) {
     g_perm <- igraph::rewire(g, igraph::keeping_degseq(
-      niter = 10L * igraph::ecount(g)))
+      niter = 5L * n_edges))
     igraph::E(g_perm)$weight <- igraph::E(g)$weight[
-      sample.int(igraph::ecount(g))]
+      sample.int(n_edges)]
 
     mems_perm <- lapply(resolutions, function(res) {
       comm <- igraph::cluster_leiden(
         g_perm, resolution = res,
         objective_function = objective_function,
-        n_iterations = as.integer(n_iterations)
+        n_iterations = 1L
       )
       mem <- igraph::membership(comm)
       names(mem) <- igraph::V(g_perm)$name
@@ -577,27 +599,57 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
   }
 
-  if (.Platform$OS.type == "unix" && n_cores > 1L) {
+  # Minimum permutations before early stopping can trigger (ceil(1/alpha))
+  min_for_sig <- as.integer(ceiling(1 / alpha))
+  # Exceedance count above which p > alpha is guaranteed
+  max_exceedances <- as.integer(floor(alpha * (n_perm + 1L)))
+
+  use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
+  batch_size <- if (use_mc) n_cores else 1L
+
+  if (use_mc) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
     on.exit({
       if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
       else Sys.setenv(OMP_NUM_THREADS = old_omp)
     }, add = TRUE)
-    lambda_null <- unlist(parallel::mclapply(
-      seq_len(n_perm), run_one_perm, mc.cores = n_cores
-    ))
-  } else {
-    lambda_null <- vapply(seq_len(n_perm), run_one_perm, numeric(1))
   }
 
-  p_value <- (1 + sum(lambda_null >= lambda_obs)) / (1 + n_perm)
+  lambda_null <- numeric(0L)
+  n_exceed <- 0L
+
+  for (batch_start in seq(1L, n_perm, by = batch_size)) {
+    batch_end <- min(batch_start + batch_size - 1L, n_perm)
+    batch_idx <- seq.int(batch_start, batch_end)
+
+    if (use_mc) {
+      batch_vals <- unlist(parallel::mclapply(
+        batch_idx, run_one_perm, mc.cores = n_cores
+      ))
+    } else {
+      batch_vals <- vapply(batch_idx, run_one_perm, numeric(1))
+    }
+
+    lambda_null <- c(lambda_null, batch_vals)
+    n_exceed <- n_exceed + sum(batch_vals >= lambda_obs)
+    n_done <- length(lambda_null)
+
+    # Early stop: clear structure (p < alpha guaranteed)
+    if (n_exceed == 0L && n_done >= min_for_sig) break
+    # Early stop: clearly no structure (enough exceedances)
+    if (n_exceed > max_exceedances) break
+  }
+
+  n_done <- length(lambda_null)
+  p_value <- (1 + n_exceed) / (1 + n_done)
 
   list(
     lambda_obs = lambda_obs,
     lambda_null = lambda_null,
     p_value = p_value,
-    has_structure = p_value < alpha
+    has_structure = p_value < alpha,
+    n_perm_completed = n_done
   )
 }
 
@@ -605,20 +657,26 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #' Compare co-expression modules across species
 #'
 #' Tests all pairs of modules between two species for significant overlap of
-#' ortholog-mapped genes, using either hypergeometric or Jaccard + permutation
+#' ortholog-mapped genes, using either Jaccard + permutation or hypergeometric
 #' tests.
 #'
-#' @section Hypergeometric method:
-#' For each (module_i, module_j) pair, maps module_i genes to species 2 via
-#' orthologs, then tests overlap with module_j using [stats::phyper()].
-#' Q-values are computed via [qvalue::qvalue()].
-#'
-#' @section Jaccard + permutation method:
+#' @section Jaccard + permutation method (recommended):
 #' Computes observed Jaccard index between ortholog-mapped module_i genes and
 #' module_j genes (restricted to ortholog-mappable genes). The null permutes
 #' the ortholog mapping (which sp1 genes map to which sp2 genes) using
 #' Besag-Clifford adaptive stopping. Q-values use the Liang (2016) discrete
 #' method via [DiscreteQvalue::DQ()].
+#'
+#' @section Hypergeometric method:
+#' For each (module_i, module_j) pair, maps module_i genes to species 2 via
+#' orthologs, then tests overlap with module_j using [stats::phyper()].
+#' Q-values are computed via [qvalue::qvalue()]. The hypergeometric assumes
+#' independent sampling, which is violated when orthologs have multi-copy
+#' HOGs (one sp1 gene mapping to multiple sp2 genes). This inflates
+#' overlap relative to the hypergeometric expectation, making the test
+#' **anti-conservative** for conserved modules. The Jaccard permutation
+#' null avoids this by preserving module structure and ortholog count
+#' while shuffling gene identity.
 #'
 #' @param modules1 Module detection result for species 1
 #'   (output of [detect_modules()]).
@@ -626,7 +684,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #'   (output of [detect_modules()]).
 #' @param orthologs Data frame with columns `Species1`, `Species2`, and
 #'   `hog` (output of [parse_orthologs()]).
-#' @param method Test method: `"hypergeometric"` (default) or `"jaccard"`.
+#' @param method Test method: `"jaccard"` (default) or `"hypergeometric"`.
 #' @param min_exceedances Besag-Clifford stopping parameter for Jaccard method
 #'   (default 50).
 #' @param max_permutations Maximum permutations for Jaccard method
@@ -650,7 +708,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #'
 #' @export
 compare_modules <- function(modules1, modules2, orthologs,
-                            method = c("hypergeometric", "jaccard"),
+                            method = c("jaccard", "hypergeometric"),
                             min_exceedances = 50L,
                             max_permutations = 10000L,
                             n_cores = 1L) {

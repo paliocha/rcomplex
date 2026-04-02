@@ -8,7 +8,7 @@ compare_modules(
   modules1,
   modules2,
   orthologs,
-  method = c("hypergeometric", "jaccard"),
+  method = c("jaccard", "hypergeometric"),
   min_exceedances = 50L,
   max_permutations = 10000L,
   n_cores = 1L
@@ -24,7 +24,7 @@ compare_modules(
 \item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, and
 \code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
 
-\item{method}{Test method: \code{"hypergeometric"} (default) or \code{"jaccard"}.}
+\item{method}{Test method: \code{"jaccard"} (default) or \code{"hypergeometric"}.}
 
 \item{min_exceedances}{Besag-Clifford stopping parameter for Jaccard method
 (default 50).}
@@ -46,23 +46,29 @@ A list with components:
 }
 \description{
 Tests all pairs of modules between two species for significant overlap of
-ortholog-mapped genes, using either hypergeometric or Jaccard + permutation
+ortholog-mapped genes, using either Jaccard + permutation or hypergeometric
 tests.
 }
-\section{Hypergeometric method}{
-
-For each (module_i, module_j) pair, maps module_i genes to species 2 via
-orthologs, then tests overlap with module_j using \code{\link[stats:Hypergeometric]{stats::phyper()}}.
-Q-values are computed via \code{\link[qvalue:qvalue]{qvalue::qvalue()}}.
-}
-
-\section{Jaccard + permutation method}{
+\section{Jaccard + permutation method (recommended)}{
 
 Computes observed Jaccard index between ortholog-mapped module_i genes and
 module_j genes (restricted to ortholog-mappable genes). The null permutes
 the ortholog mapping (which sp1 genes map to which sp2 genes) using
 Besag-Clifford adaptive stopping. Q-values use the Liang (2016) discrete
 method via \code{\link[DiscreteQvalue:DQ]{DiscreteQvalue::DQ()}}.
+}
+
+\section{Hypergeometric method}{
+
+For each (module_i, module_j) pair, maps module_i genes to species 2 via
+orthologs, then tests overlap with module_j using \code{\link[stats:Hypergeometric]{stats::phyper()}}.
+Q-values are computed via \code{\link[qvalue:qvalue]{qvalue::qvalue()}}. The hypergeometric assumes
+independent sampling, which is violated when orthologs have multi-copy
+HOGs (one sp1 gene mapping to multiple sp2 genes). This inflates
+overlap relative to the hypergeometric expectation, making the test
+\strong{anti-conservative} for conserved modules. The Jaccard permutation
+null avoids this by preserving module structure and ortholog count
+while shuffling gene identity.
 }
 
 \examples{

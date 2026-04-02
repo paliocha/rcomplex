@@ -88,7 +88,9 @@ Rand Index with the next resolution; NA for the last), and
 \code{expected_coclassification} (per-resolution expected scalar).}
 \item{k1_test}{When \code{test_k1 = TRUE}, a list with components:
 \code{lambda_obs} (observed spectral norm), \code{lambda_null}
-(null distribution), \code{p_value}, and \code{has_structure}.}
+(null distribution), \code{p_value}, \code{has_structure}, and
+\code{n_perm_completed} (actual permutations run; may be less
+than \code{n_perm_k1} due to early stopping).}
 }
 The \code{params} list includes \code{n_consensus_iterations}
 (number of iterations until convergence; 0 for fixed threshold).

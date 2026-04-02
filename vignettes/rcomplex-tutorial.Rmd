@@ -258,20 +258,130 @@ cat("Permutation:", sum(edges$type == "conserved"), "conserved edges\n")
 
 ## 4. Module-level analysis
 
-Detect co-expression modules with Leiden community detection, then
-compare across species:
+To identify regulatory signatures of parallel life-cycle evolution, we
+detect modules in all eight species and compare across each of the four
+phylogenetic pairs. Module-level conservation reveals whether the same
+co-regulatory programs are used independently in annual lineages.
 
-```{r modules}
-mod_bdis <- detect_modules(networks$BDIS, method = "leiden", resolution = 1.0)
-mod_bsyl <- detect_modules(networks$BSYL, method = "leiden", resolution = 1.0)
+```{r phylo-pairs}
+phylo_pairs <- tribble(
+  ~pair_name,        ~annual, ~perennial,
+  "Brachypodium",    "BDIS",  "BSYL",
+  "Hordeum",         "HVUL",  "HJUB",
+  "Briza",           "BMAX",  "BMED",
+  "Festuca/Vulpia",  "VBRO",  "FPRA"
+)
+```
 
-mod_comp <- compare_modules(mod_bdis, mod_bsyl, orthologs,
-                             method = "hypergeometric")
-classes <- classify_modules(mod_comp)
+### Testing for community structure (K = 1 null)
 
-classes |>
-  count(classification) |>
-  show_table(caption = "Module classification (BDIS vs BSYL)")
+Before partitioning, we test whether each network has significant
+community structure at all. Passing a vector of resolutions triggers
+multi-resolution consensus clustering (Jeub *et al.*, 2018) with a
+permutation-based K = 1 test: gene labels on a degree-preserving
+rewired null graph are shuffled and Leiden is re-run to build a null
+distribution of the spectral norm of the excess co-classification matrix.
+Early stopping terminates the permutation loop once the p-value
+is decisively above or below `alpha_k1`, so networks with clear
+structure typically complete in ~20 permutations rather than 100:
+
+```{r k1-test}
+resolutions <- seq(0.25, 2.5, by = 0.25)
+
+species_data <- species_data |>
+  mutate(modules = map(network, \(net)
+    detect_modules(net, method = "leiden",
+                   resolution = resolutions,
+                   objective_function = "modularity", seed = 42,
+                   test_k1 = TRUE, n_perm_k1 = 100L,
+                   max_consensus_iter = 1000L)))
+
+modules <- deframe(select(species_data, species, modules))
+
+species_data |>
+  transmute(
+    species, trait,
+    lambda_obs       = map_dbl(modules, \(m) m$k1_test$lambda_obs),
+    p_value          = map_dbl(modules, \(m) m$k1_test$p_value),
+    has_structure    = map_lgl(modules, \(m) m$k1_test$has_structure),
+    n_perm_completed = map_int(modules, \(m) m$k1_test$n_perm_completed),
+    n_modules        = map_int(modules, \(m) m$n_modules)
+  ) |>
+  show_table(caption = "K = 1 community structure test (all species)")
+```
+
+The resolution scan shows how partition granularity varies across
+resolutions and how consecutive partitions agree (ARI):
+
+```{r resolution-scan}
+show_table(modules$BDIS$resolution_scan, caption = "Resolution scan (BDIS)")
+```
+
+### Module comparison across phylogenetic pairs
+
+We compare modules between the annual and perennial member of each
+of the four phylogenetic pairs using Jaccard permutation -- the null
+shuffles the ortholog mapping (which sp1 gene maps to which sp2 gene)
+via Fisher-Yates, preserving module structure and ortholog count while
+breaking gene identity. This is more principled than the hypergeometric
+alternative, which assumes independent sampling and can be
+anti-conservative for multi-copy HOGs. `classify_modules()` labels
+each module as conserved, partially conserved, or species-specific.
+Since sp1 = annual and sp2 = perennial in every pair, the `species`
+column directly tells us which trait group a species-specific module
+belongs to:
+
+```{r module-comparison}
+mod_comparisons <- phylo_pairs |>
+  mutate(
+    mod_comp = map2(annual, perennial, \(a, p)
+      compare_modules(modules[[a]], modules[[p]], orthologs,
+                      method = "jaccard", n_cores = n_cores)),
+    classification = map2(mod_comp, pair_name, \(mc, pn) {
+      classify_modules(mc) |>
+        mutate(
+          pair = pn,
+          trait = case_when(
+            classification != "species_specific" ~ "conserved",
+            species == "sp1" ~ "annual",
+            species == "sp2" ~ "perennial"
+          )
+        )
+    })
+  )
+
+mod_comparisons |>
+  transmute(pair_name, classification) |>
+  unnest(classification) |>
+  count(pair_name, trait) |>
+  pivot_wider(names_from = trait, values_from = n, values_fill = 0) |>
+  show_table(caption = "Module trait-specificity across phylogenetic pairs")
+```
+
+Do any HOGs consistently land in annual-specific modules across
+independent lineages? That would be strong evidence for parallel
+re-use of regulatory programs. We extract the HOG content of
+annual-specific modules in each pair and count cross-pair recurrence:
+
+```{r module-parallel}
+annual_module_hogs <- mod_comparisons |>
+  pmap(\(pair_name, annual, perennial, mod_comp, classification, ...) {
+    annual_mods <- classification |>
+      filter(trait == "annual") |>
+      pull(module)
+    annual_genes <- unlist(modules[[annual]]$module_genes[as.character(annual_mods)])
+    sp_col <- if (any(orthologs$Species1 %in% annual_genes)) "Species1" else "Species2"
+    orthologs |>
+      filter(.data[[sp_col]] %in% annual_genes) |>
+      distinct(hog) |>
+      mutate(pair = pair_name)
+  }) |>
+  list_rbind()
+
+annual_module_hogs |>
+  count(hog, name = "n_pairs") |>
+  count(n_pairs, name = "n_hogs") |>
+  show_table(caption = "HOG recurrence in annual-specific modules across pairs")
 ```
 
 ### Hub genes and trait conservation
@@ -282,36 +392,66 @@ default) is the recommended primary centrality for co-expression networks
 -- it directly measures total co-expression strength to module neighbours,
 which is the standard definition of a hub gene. All three centrality
 measures (degree, betweenness, eigenvector) are reported regardless of
-which is chosen as primary:
+which is chosen as primary.
+
+The `comparison` argument is used only as a late tie-breaker (tier 5
+of 6) when two genes have identical centrality -- the one with the
+lower HOG-level q-value wins. We use each species' within-pair
+comparison for this:
 
 ```{r module-hubs}
-# Comparison result for BDIS vs BSYL (for conservation tie-breaking)
-comp_bdis_bsyl <- comparisons |>
-  filter(sp1 == "BDIS", sp2 == "BSYL") |>
-  pull(comp) |>
-  pluck(1)
+# Pre-build a named list: species -> within-pair comparison result
+pair_comps <- bind_rows(
+  phylo_pairs |> transmute(sp = annual,    partner = perennial),
+  phylo_pairs |> transmute(sp = perennial, partner = annual)
+) |>
+  mutate(comp = map2(sp, partner, \(s, p) {
+    row <- comparisons |>
+      filter((sp1 == s & sp2 == p) | (sp1 == p & sp2 == s))
+    row$comp[[1]]
+  })) |>
+  select(sp, comp) |>
+  deframe()
 
-# Identify hubs (top 10% per module by weighted degree)
-hubs_bdis <- identify_module_hubs(mod_bdis, networks$BDIS, orthologs,
-                                   comparison = comp_bdis_bsyl)
-hubs_bsyl <- identify_module_hubs(mod_bsyl, networks$BSYL, orthologs,
-                                   comparison = comp_bdis_bsyl)
+species_data <- species_data |>
+  mutate(hubs = pmap(list(species, modules, network), \(sp, mod, net)
+    identify_module_hubs(mod, net, orthologs,
+                         comparison = pair_comps[[sp]])))
 
-show_table(hubs_bdis |> filter(is_hub),
-           caption = "Hub genes in BDIS modules")
+species_data |>
+  transmute(species, trait,
+            n_hubs  = map_int(hubs, \(h) sum(h$is_hub)),
+            n_genes = map_int(hubs, nrow)) |>
+  show_table(caption = "Hub genes per species")
 ```
 
 ```{r hub-conservation}
-# Classify hub conservation across traits
-hub_trait <- c(BDIS = "annual", BSYL = "perennial")
-
 hub_class <- classify_hub_conservation(
-  list(BDIS = hubs_bdis, BSYL = hubs_bsyl), hub_trait,
-  module_comparisons = list("BDIS.BSYL" = mod_comp)
+  deframe(select(species_data, species, hubs)),
+  trait_vec,
+  module_comparisons = deframe(
+    mod_comparisons |>
+      transmute(key = paste(annual, perennial, sep = "."), mod_comp))
 )
 
-show_table(hub_class |> filter(classification != "non_hub"),
-           caption = "Hub conservation (BDIS vs BSYL)")
+hub_class |>
+  filter(classification != "non_hub") |>
+  count(classification) |>
+  show_table(caption = "Hub conservation across all species")
+```
+
+HOGs that are hubs specifically in annual (or perennial) species -- the
+`annual_specific_hub`, `perennial_specific_hub`, and `rewired_hub`
+classes -- are candidates for parallel regulatory evolution:
+
+```{r hub-trait-specific}
+hub_class |>
+  filter(classification %in% c("annual_specific_hub",
+                                "perennial_specific_hub",
+                                "rewired_hub")) |>
+  select(hog, classification, n_species_hub, hub_trait_groups,
+         n_corresponding, max_centrality) |>
+  show_table(caption = "Trait-specific and rewired hubs (parallel evolution candidates)")
 ```
 
 ### Co-expression partners of hub HOGs
@@ -324,39 +464,29 @@ HOGs, and aggregates across species. The `coexpressed_traits` column
 makes trait-group filtering straightforward:
 
 ```{r hub-partners}
-# Pick a trait-specific hub (if any exist)
-ts_hubs <- hub_class |>
-  filter(classification %in% c("trait_specific_hub", "rewired_hub",
-                                "conserved_hub"))
+candidate <- hub_class |>
+  filter(classification %in% c("annual_specific_hub",
+                                "perennial_specific_hub",
+                                "rewired_hub", "conserved_hub")) |>
+  slice_max(n_species_hub, n = 1, with_ties = FALSE) |>
+  pull(hog)
 
-if (nrow(ts_hubs) > 0) {
-  candidate <- ts_hubs |> pull(hog) |> first()
-  cat("Querying partners of", candidate, "\n\n")
-
+if (length(candidate) == 1) {
   partners <- get_coexpressed_hogs(
     candidate, networks, orthologs,
     species_trait = trait_vec, min_species = 2L,
     edges = edges
   )
 
-  cat(nrow(partners), "partner HOGs co-expressed in >= 2 species\n")
+  cat(candidate, ":", nrow(partners), "partner HOGs in >= 2 species —",
+      sum(partners$coexpressed_traits == "annual", na.rm = TRUE), "annual-only,",
+      sum(grepl(",", partners$coexpressed_traits), na.rm = TRUE), "cross-trait\n")
 
-  if (nrow(partners) > 0) {
-    annual_only <- partners |>
-      filter(!is.na(coexpressed_traits), coexpressed_traits == "annual")
-    cat(nrow(annual_only), "annual-only partners\n")
-
-    cross_trait <- partners |>
-      filter(!is.na(coexpressed_traits),
-             stringr::str_detect(coexpressed_traits, ","))
-    cat(nrow(cross_trait), "cross-trait partners\n")
-
-    partners |>
-      slice_head(n = 20) |>
-      show_table(caption = paste("Top co-expression partners of", candidate))
-  }
+  partners |>
+    slice_head(n = 20) |>
+    show_table(caption = paste("Top co-expression partners of", candidate))
 } else {
-  cat("No trait-specific hubs found in BDIS vs BSYL comparison\n")
+  cat("No trait-specific or conserved hubs found\n")
 }
 ```
 
