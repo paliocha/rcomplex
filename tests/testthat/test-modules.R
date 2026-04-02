@@ -1263,4 +1263,39 @@ test_that("compare_modules_paired validates inputs", {
       pairs = data.frame(x = "A", y = "B")),
     "sp1.*sp2"
   )
+
+  m2 <- detect_modules(td$net2, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  # group missing an entry for B
+  expect_error(
+    compare_modules_paired(list(A = m1, B = m2), td$orthologs,
+      pairs = data.frame(sp1 = "A", sp2 = "B"),
+      group = c(A = "annual")),
+    "group missing entries"
+  )
+})
+
+
+test_that("compare_modules_paired summary handles asymmetric group levels", {
+  td <- make_asymmetric_module_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden", resolution = 2.0,
+                        objective_function = "modularity", seed = 42)
+
+  # m1: 2 modules, m2: 4 modules → ratio = 2, coarsen_ratio = 1.5 triggers
+  result <- compare_modules_paired(
+    list(A = m1, B = m2), td$orthologs,
+    pairs = data.frame(sp1 = "A", sp2 = "B"),
+    group = c(A = "treated", B = "control"),
+    matched_scale = TRUE, coarsen_ratio = 1.5,
+    method = "hypergeometric"
+  )
+
+  expect_false(is.null(result$matched_classification))
+  expect_false(is.null(result$summary))
+  # Both scales should have the same columns (union filled with 0)
+  natural_row <- result$summary[result$summary$scale == "natural", ]
+  matched_row <- result$summary[result$summary$scale == "matched", ]
+  expect_equal(sort(names(natural_row)), sort(names(matched_row)))
 })
