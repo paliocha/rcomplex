@@ -909,11 +909,15 @@ test_that("K = 1 test rejects structure on Erdos-Renyi graph", {
   result <- detect_modules(net, method = "leiden",
                            resolution = seq(0.5, 2.0, by = 0.5),
                            objective_function = "modularity", seed = 42,
-                           test_k1 = TRUE, n_perm_k1 = 20L)
+                           test_k1 = TRUE, n_perm_k1 = 100L)
 
   expect_equal(result$n_modules, 1L)
   expect_true(!is.null(result$k1_test))
   expect_true(result$k1_test$p_value > 0.05)
+  # No-structure early stop: should stop before 100 perms
+  expect_true(result$k1_test$n_perm_completed < 100L)
+  expect_equal(length(result$k1_test$lambda_null),
+               result$k1_test$n_perm_completed)
 })
 
 

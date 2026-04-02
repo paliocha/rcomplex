@@ -637,12 +637,11 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     # Early stop: clear structure — p = 1/(n_done+1) < alpha
     if (n_exceed == 0L && n_done >= min_for_sig) break
     # Early stop: no structure — p = (n_exceed+1)/(n_done+1) > alpha
-    if (n_exceed > 0L && (n_exceed + 1L) / (n_done + 1L) > alpha) break
+    if (n_exceed > 0L && n_done >= min_for_sig &&
+        (n_exceed + 1L) / (n_done + 1L) > alpha) break
   }
 
   lambda_null <- lambda_null[seq_len(n_done)]
-
-  n_done <- length(lambda_null)
   p_value <- (1 + n_exceed) / (1 + n_done)
 
   list(
