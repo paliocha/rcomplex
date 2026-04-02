@@ -22,6 +22,7 @@
 <url><loc>/reference/compare_neighborhoods_cpp.html</loc></url>
 <url><loc>/reference/comparison_to_edges.html</loc></url>
 <url><loc>/reference/compute_network.html</loc></url>
+<url><loc>/reference/density_sweep.html</loc></url>
 <url><loc>/reference/density_threshold_cpp.html</loc></url>
 <url><loc>/reference/detect_modules.html</loc></url>
 <url><loc>/reference/extract_orthologs.html</loc></url>
@@ -29,6 +30,7 @@
 <url><loc>/reference/find_cliques.html</loc></url>
 <url><loc>/reference/find_cliques_cpp.html</loc></url>
 <url><loc>/reference/find_cliques_stability_cpp.html</loc></url>
+<url><loc>/reference/find_coexpressologs.html</loc></url>
 <url><loc>/reference/get_coexpressed_hogs.html</loc></url>
 <url><loc>/reference/hog_permutation_test_cpp.html</loc></url>
 <url><loc>/reference/identify_module_hubs.html</loc></url>
@@ -37,10 +39,10 @@
 <url><loc>/reference/mutual_rank_transform_cached_cpp.html</loc></url>
 <url><loc>/reference/parse_orthologs.html</loc></url>
 <url><loc>/reference/permutation_hog_test.html</loc></url>
+<url><loc>/reference/prepare_orthologs.html</loc></url>
 <url><loc>/reference/rcomplex-package.html</loc></url>
 <url><loc>/reference/reduce_orthogroups.html</loc></url>
 <url><loc>/reference/reduce_orthogroups_cpp.html</loc></url>
-<url><loc>/reference/run_pairwise_comparisons.html</loc></url>
 <url><loc>/reference/sparse_excess_spectral_norm_cpp.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
 </urlset>
