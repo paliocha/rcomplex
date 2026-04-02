@@ -409,14 +409,14 @@ resolutions and how consecutive partitions agree (ARI):</p>
 <p><code><a href="../reference/compare_modules_paired.html">compare_modules_paired()</a></code> wraps the full comparison
 pipeline into a single call: for each pair it runs Jaccard permutation
 (shuffling the ortholog mapping), classifies modules as conserved /
-species-specific, tags trait-specificity from the
-<code>species_trait</code> vector, and auto- coarsens the finer-grained
-partition when the module-count ratio exceeds 2-fold:</p>
+species-specific, tags group-specificity from the <code>group</code>
+vector, and auto-coarsens the finer-grained partition when the
+module-count ratio exceeds 2-fold:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_modules_paired.html">compare_modules_paired</a></span><span class="op">(</span></span>
 <span>  <span class="va">modules</span>, <span class="va">orthologs</span>,</span>
 <span>  pairs <span class="op">=</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>sp1 <span class="op">=</span> <span class="va">annual</span>, sp2 <span class="op">=</span> <span class="va">perennial</span>, <span class="va">pair_name</span><span class="op">)</span>,</span>
-<span>  species_trait <span class="op">=</span> <span class="va">trait_vec</span>,</span>
+<span>  group <span class="op">=</span> <span class="va">trait_vec</span>,</span>
 <span>  matched_scale <span class="op">=</span> <span class="cn">TRUE</span>, coarsen_ratio <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span></span>
 <span><span class="op">)</span></span>
@@ -430,7 +430,7 @@ independent lineages? That would be strong evidence for parallel re-use
 of regulatory programs:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">annual_cls</span> <span class="op">&lt;-</span> <span class="va">mod_results</span><span class="op">$</span><span class="va">classification</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">trait</span> <span class="op">==</span> <span class="st">"annual"</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">group</span> <span class="op">==</span> <span class="st">"annual"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">annual_module_hogs</span> <span class="op">&lt;-</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://purrr.tidyverse.org/reference/pmap.html" class="external-link">pmap</a></span><span class="op">(</span>\<span class="op">(</span><span class="va">pair_name</span>, <span class="va">annual</span>, <span class="va">...</span><span class="op">)</span> <span class="op">{</span></span>
