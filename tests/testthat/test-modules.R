@@ -924,11 +924,15 @@ test_that("K = 1 test accepts structure on planted partition", {
   result <- detect_modules(td$net1, method = "leiden",
                            resolution = seq(0.5, 2.0, by = 0.5),
                            objective_function = "modularity", seed = 42,
-                           test_k1 = TRUE, n_perm_k1 = 20L)
+                           test_k1 = TRUE, n_perm_k1 = 100L)
 
   expect_true(result$n_modules > 1)
   expect_true(!is.null(result$k1_test))
   expect_true(result$k1_test$p_value < 0.05)
+  # Early stopping: clear structure should stop at ceil(1/0.05) = 20 perms
+  expect_true(result$k1_test$n_perm_completed <= 20L)
+  expect_equal(length(result$k1_test$lambda_null),
+               result$k1_test$n_perm_completed)
 })
 
 

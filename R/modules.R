@@ -601,11 +601,9 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 
   # Minimum permutations before early stopping can trigger (ceil(1/alpha))
   min_for_sig <- as.integer(ceiling(1 / alpha))
-  # Exceedance count above which p > alpha is guaranteed
-  max_exceedances <- as.integer(floor(alpha * (n_perm + 1L)))
 
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
-  batch_size <- if (use_mc) n_cores else 1L
+  batch_size <- if (use_mc) n_cores else max(1L, min_for_sig)
 
   if (use_mc) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
@@ -616,8 +614,9 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     }, add = TRUE)
   }
 
-  lambda_null <- numeric(0L)
+  lambda_null <- numeric(n_perm)
   n_exceed <- 0L
+  n_done <- 0L
 
   for (batch_start in seq(1L, n_perm, by = batch_size)) {
     batch_end <- min(batch_start + batch_size - 1L, n_perm)
@@ -631,15 +630,17 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
       batch_vals <- vapply(batch_idx, run_one_perm, numeric(1))
     }
 
-    lambda_null <- c(lambda_null, batch_vals)
+    lambda_null[batch_idx] <- batch_vals
     n_exceed <- n_exceed + sum(batch_vals >= lambda_obs)
-    n_done <- length(lambda_null)
+    n_done <- batch_end
 
-    # Early stop: clear structure (p < alpha guaranteed)
+    # Early stop: clear structure — p = 1/(n_done+1) < alpha
     if (n_exceed == 0L && n_done >= min_for_sig) break
-    # Early stop: clearly no structure (enough exceedances)
-    if (n_exceed > max_exceedances) break
+    # Early stop: no structure — p = (n_exceed+1)/(n_done+1) > alpha
+    if (n_exceed > 0L && (n_exceed + 1L) / (n_done + 1L) > alpha) break
   }
+
+  lambda_null <- lambda_null[seq_len(n_done)]
 
   n_done <- length(lambda_null)
   p_value <- (1 + n_exceed) / (1 + n_done)

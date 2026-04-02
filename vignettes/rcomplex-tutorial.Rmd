@@ -369,10 +369,11 @@ annual_module_hogs <- mod_comparisons |>
     annual_mods <- classification |>
       filter(trait == "annual") |>
       pull(module)
+    if (length(annual_mods) == 0L) return(tibble(hog = character(0), pair = character(0)))
     annual_genes <- unlist(modules[[annual]]$module_genes[as.character(annual_mods)])
-    sp_col <- if (any(orthologs$Species1 %in% annual_genes)) "Species1" else "Species2"
+    # annual species was passed as modules1 (Species1 column in orthologs)
     orthologs |>
-      filter(.data[[sp_col]] %in% annual_genes) |>
+      filter(Species1 %in% annual_genes) |>
       distinct(hog) |>
       mutate(pair = pair_name)
   }) |>
