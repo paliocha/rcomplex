@@ -1166,7 +1166,7 @@ test_that("compare_modules_paired returns correct structure", {
 })
 
 
-test_that("compare_modules_paired tags traits when species_trait given", {
+test_that("compare_modules_paired tags groups when group given", {
   td <- make_module_test_data()
   m1 <- detect_modules(td$net1, method = "leiden",
                         objective_function = "modularity", seed = 42)
@@ -1176,13 +1176,13 @@ test_that("compare_modules_paired tags traits when species_trait given", {
   result <- compare_modules_paired(
     list(A = m1, B = m2), td$orthologs,
     pairs = data.frame(sp1 = "A", sp2 = "B"),
-    species_trait = c(A = "annual", B = "perennial"),
+    group = c(A = "annual", B = "perennial"),
     method = "hypergeometric"
   )
 
-  expect_true("trait" %in% names(result$classification))
-  traits <- unique(result$classification$trait)
-  expect_true(all(traits %in% c("annual", "perennial", "conserved")))
+  expect_true("group" %in% names(result$classification))
+  groups <- unique(result$classification$group)
+  expect_true(all(groups %in% c("annual", "perennial", "conserved")))
 })
 
 
@@ -1256,7 +1256,7 @@ test_that("compare_modules_paired validates inputs", {
   expect_error(
     compare_modules_paired(list(A = m1), td$orthologs,
       pairs = data.frame(sp1 = "A", sp2 = "MISSING")),
-    "species not found"
+    "not found in modules"
   )
   expect_error(
     compare_modules_paired(list(A = m1), td$orthologs,

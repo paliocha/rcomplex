@@ -322,15 +322,14 @@ show_table(modules$BDIS$resolution_scan, caption = "Resolution scan (BDIS)")
 `compare_modules_paired()` wraps the full comparison pipeline into a
 single call: for each pair it runs Jaccard permutation (shuffling the
 ortholog mapping), classifies modules as conserved / species-specific,
-tags trait-specificity from the `species_trait` vector, and auto-
-coarsens the finer-grained partition when the module-count ratio
-exceeds 2-fold:
+tags group-specificity from the `group` vector, and auto-coarsens the
+finer-grained partition when the module-count ratio exceeds 2-fold:
 
 ```{r module-comparison}
 mod_results <- compare_modules_paired(
   modules, orthologs,
   pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
-  species_trait = trait_vec,
+  group = trait_vec,
   matched_scale = TRUE, coarsen_ratio = 2,
   method = "jaccard", n_cores = n_cores
 )
@@ -347,7 +346,7 @@ re-use of regulatory programs:
 
 ```{r module-parallel}
 annual_cls <- mod_results$classification |>
-  filter(trait == "annual")
+  filter(group == "annual")
 
 annual_module_hogs <- phylo_pairs |>
   pmap(\(pair_name, annual, ...) {

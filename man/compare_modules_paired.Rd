@@ -2,13 +2,13 @@
 % Please edit documentation in R/modules.R
 \name{compare_modules_paired}
 \alias{compare_modules_paired}
-\title{Compare modules across multiple species pairs}
+\title{Compare modules across contrasting conditions}
 \usage{
 compare_modules_paired(
   modules,
   orthologs,
   pairs,
-  species_trait = NULL,
+  group = NULL,
   method = c("jaccard", "hypergeometric"),
   matched_scale = TRUE,
   coarsen_ratio = 2,
@@ -20,31 +20,36 @@ compare_modules_paired(
 )
 }
 \arguments{
-\item{modules}{Named list of \code{\link[=detect_modules]{detect_modules()}} outputs, keyed by
-species code.}
+\item{modules}{Named list of \code{\link[=detect_modules]{detect_modules()}} outputs. Names are
+sample/species/condition identifiers.}
 
 \item{orthologs}{Data frame with columns \code{Species1}, \code{Species2},
 and \code{hog}.}
 
-\item{pairs}{Data frame with columns \code{sp1} and \code{sp2} (species codes
-matching names of \code{modules}). An optional \code{pair_name} column is
-used for labelling; if absent, \code{"sp1.sp2"} is used.}
+\item{pairs}{Data frame defining contrasts. Must have columns \code{sp1}
+and \code{sp2} (identifiers matching names of \code{modules}). An optional
+\code{pair_name} column is used for labelling; if absent,
+\code{"sp1.sp2"} is generated.}
 
-\item{species_trait}{Optional named character vector mapping species
-codes to trait labels (e.g., \code{c(BDIS = "annual")}). When provided,
-species-specific modules are tagged with their species' trait.}
+\item{group}{Optional named character vector mapping identifiers to
+group labels (e.g., \code{c(BDIS = "annual", BSYL = "perennial")} for
+species, or \code{c(leaf = "source", root = "sink")} for tissues).
+When provided, species-specific modules are tagged with the group
+label of their side. All identifiers in \code{pairs} must have entries
+in this vector.}
 
 \item{method}{Comparison method passed to \code{\link[=compare_modules]{compare_modules()}}:
 \code{"jaccard"} (default) or \code{"hypergeometric"}.}
 
-\item{matched_scale}{Logical. If \code{TRUE} (default), pairs whose
+\item{matched_scale}{Logical. If \code{TRUE} (default), contrasts whose
 module-count ratio exceeds \code{coarsen_ratio} are re-compared at
 matched granularity via \code{\link[=coarsen_modules]{coarsen_modules()}}.}
 
 \item{coarsen_ratio}{Numeric threshold for triggering coarsening
 (default 2). Only used when \code{matched_scale = TRUE}.}
 
-\item{alpha}{Significance level for \code{\link[=classify_modules]{classify_modules()}} (default 0.05).}
+\item{alpha}{Significance level for \code{\link[=classify_modules]{classify_modules()}} (default
+0.05).}
 
 \item{jaccard_threshold}{Minimum Jaccard for a module to be called
 conserved (default 0.1).}
@@ -61,37 +66,43 @@ conserved (default 0.1).}
 A list with components:
 \describe{
 \item{classification}{Data frame with columns \code{pair_name},
-\code{module}, \code{species}, \code{classification}, \code{trait} (if
-\code{species_trait} provided), \code{best_match}, \code{best_jaccard},
-\code{best_q}, \code{n_significant}.}
+\code{module}, \code{species}, \code{classification}, \code{group} (if \code{group}
+provided), \code{best_match}, \code{best_jaccard}, \code{best_q},
+\code{n_significant}.}
 \item{matched_classification}{Same structure at matched scale,
-or \code{NULL} if no pair exceeds \code{coarsen_ratio}.}
-\item{summary}{Trait-aggregated counts per pair and scale,
-ready for display.}
+or \code{NULL} if no contrast exceeds \code{coarsen_ratio}.}
+\item{summary}{Group-aggregated counts per contrast and scale.}
 \item{module_counts}{Data frame with \code{pair_name}, \code{n_sp1},
 \code{n_sp2}, \code{ratio}.}
-\item{raw}{Named list of per-pair \code{\link[=compare_modules]{compare_modules()}} outputs,
-keyed as \code{"sp1.sp2"}. Compatible with
+\item{raw}{Named list of per-contrast \code{\link[=compare_modules]{compare_modules()}}
+outputs, keyed as \code{"sp1.sp2"}. Compatible with
 \link{classify_hub_conservation(module_comparisons=)}.}
 }
 }
 \description{
 Wraps \code{\link[=compare_modules]{compare_modules()}}, \code{\link[=classify_modules]{classify_modules()}}, and optionally
-\code{\link[=coarsen_modules]{coarsen_modules()}} into a single call that processes all species
-pairs, tags trait-specificity, and performs matched-scale comparison
-when module counts differ substantially.
+\code{\link[=coarsen_modules]{coarsen_modules()}} into a single call that processes all contrasts
+(species pairs, tissue pairs, condition pairs, etc.), tags group-
+specificity, and performs matched-scale comparison when module
+counts differ substantially.
 }
 \examples{
 \dontrun{
+# Species-pair contrasts with trait groups
 mod_results <- compare_modules_paired(
   modules, orthologs,
   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
                      sp2 = c("BSYL", "HJUB")),
-  species_trait = c(BDIS = "annual", BSYL = "perennial",
-                    HVUL = "annual", HJUB = "perennial"),
+  group = c(BDIS = "annual", BSYL = "perennial",
+            HVUL = "annual", HJUB = "perennial"),
   method = "jaccard", n_cores = 4L
 )
-mod_results$summary
+
+# Tissue contrasts (no trait grouping)
+mod_results <- compare_modules_paired(
+  modules, orthologs,
+  pairs = data.frame(sp1 = "leaf", sp2 = "root")
+)
 }
 
 }

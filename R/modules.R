@@ -1175,31 +1175,37 @@ coarsen_modules <- function(modules, target_n_modules) {
 }
 
 
-#' Compare modules across multiple species pairs
+#' Compare modules across contrasting conditions
 #'
 #' Wraps [compare_modules()], [classify_modules()], and optionally
-#' [coarsen_modules()] into a single call that processes all species
-#' pairs, tags trait-specificity, and performs matched-scale comparison
-#' when module counts differ substantially.
+#' [coarsen_modules()] into a single call that processes all contrasts
+#' (species pairs, tissue pairs, condition pairs, etc.), tags group-
+#' specificity, and performs matched-scale comparison when module
+#' counts differ substantially.
 #'
-#' @param modules Named list of [detect_modules()] outputs, keyed by
-#'   species code.
+#' @param modules Named list of [detect_modules()] outputs. Names are
+#'   sample/species/condition identifiers.
 #' @param orthologs Data frame with columns `Species1`, `Species2`,
 #'   and `hog`.
-#' @param pairs Data frame with columns `sp1` and `sp2` (species codes
-#'   matching names of `modules`). An optional `pair_name` column is
-#'   used for labelling; if absent, `"sp1.sp2"` is used.
-#' @param species_trait Optional named character vector mapping species
-#'   codes to trait labels (e.g., `c(BDIS = "annual")`). When provided,
-#'   species-specific modules are tagged with their species' trait.
+#' @param pairs Data frame defining contrasts. Must have columns `sp1`
+#'   and `sp2` (identifiers matching names of `modules`). An optional
+#'   `pair_name` column is used for labelling; if absent,
+#'   `"sp1.sp2"` is generated.
+#' @param group Optional named character vector mapping identifiers to
+#'   group labels (e.g., `c(BDIS = "annual", BSYL = "perennial")` for
+#'   species, or `c(leaf = "source", root = "sink")` for tissues).
+#'   When provided, species-specific modules are tagged with the group
+#'   label of their side. All identifiers in `pairs` must have entries
+#'   in this vector.
 #' @param method Comparison method passed to [compare_modules()]:
 #'   `"jaccard"` (default) or `"hypergeometric"`.
-#' @param matched_scale Logical. If `TRUE` (default), pairs whose
+#' @param matched_scale Logical. If `TRUE` (default), contrasts whose
 #'   module-count ratio exceeds `coarsen_ratio` are re-compared at
 #'   matched granularity via [coarsen_modules()].
 #' @param coarsen_ratio Numeric threshold for triggering coarsening
 #'   (default 2). Only used when `matched_scale = TRUE`.
-#' @param alpha Significance level for [classify_modules()] (default 0.05).
+#' @param alpha Significance level for [classify_modules()] (default
+#'   0.05).
 #' @param jaccard_threshold Minimum Jaccard for a module to be called
 #'   conserved (default 0.1).
 #' @param min_exceedances Besag-Clifford parameter for Jaccard method
@@ -1211,36 +1217,41 @@ coarsen_modules <- function(modules, target_n_modules) {
 #' @return A list with components:
 #'   \describe{
 #'     \item{classification}{Data frame with columns `pair_name`,
-#'       `module`, `species`, `classification`, `trait` (if
-#'       `species_trait` provided), `best_match`, `best_jaccard`,
-#'       `best_q`, `n_significant`.}
+#'       `module`, `species`, `classification`, `group` (if `group`
+#'       provided), `best_match`, `best_jaccard`, `best_q`,
+#'       `n_significant`.}
 #'     \item{matched_classification}{Same structure at matched scale,
-#'       or `NULL` if no pair exceeds `coarsen_ratio`.}
-#'     \item{summary}{Trait-aggregated counts per pair and scale,
-#'       ready for display.}
+#'       or `NULL` if no contrast exceeds `coarsen_ratio`.}
+#'     \item{summary}{Group-aggregated counts per contrast and scale.}
 #'     \item{module_counts}{Data frame with `pair_name`, `n_sp1`,
 #'       `n_sp2`, `ratio`.}
-#'     \item{raw}{Named list of per-pair [compare_modules()] outputs,
-#'       keyed as `"sp1.sp2"`. Compatible with
+#'     \item{raw}{Named list of per-contrast [compare_modules()]
+#'       outputs, keyed as `"sp1.sp2"`. Compatible with
 #'       [classify_hub_conservation(module_comparisons=)].}
 #'   }
 #'
 #' @examples
 #' \dontrun{
+#' # Species-pair contrasts with trait groups
 #' mod_results <- compare_modules_paired(
 #'   modules, orthologs,
 #'   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
 #'                      sp2 = c("BSYL", "HJUB")),
-#'   species_trait = c(BDIS = "annual", BSYL = "perennial",
-#'                     HVUL = "annual", HJUB = "perennial"),
+#'   group = c(BDIS = "annual", BSYL = "perennial",
+#'             HVUL = "annual", HJUB = "perennial"),
 #'   method = "jaccard", n_cores = 4L
 #' )
-#' mod_results$summary
+#'
+#' # Tissue contrasts (no trait grouping)
+#' mod_results <- compare_modules_paired(
+#'   modules, orthologs,
+#'   pairs = data.frame(sp1 = "leaf", sp2 = "root")
+#' )
 #' }
 #'
 #' @export
 compare_modules_paired <- function(modules, orthologs, pairs,
-                                   species_trait = NULL,
+                                   group = NULL,
                                    method = c("jaccard", "hypergeometric"),
                                    matched_scale = TRUE,
                                    coarsen_ratio = 2,
@@ -1251,32 +1262,38 @@ compare_modules_paired <- function(modules, orthologs, pairs,
                                    n_cores = 1L) {
   method <- match.arg(method)
   if (!is.list(modules) || is.null(names(modules)))
-    stop("modules must be a named list keyed by species")
+    stop("modules must be a named list keyed by identifier")
   if (!all(c("sp1", "sp2") %in% names(pairs)))
     stop("pairs must have columns 'sp1' and 'sp2'")
   missing_sp <- setdiff(c(pairs$sp1, pairs$sp2), names(modules))
   if (length(missing_sp))
-    stop("species not found in modules: ", paste(missing_sp, collapse = ", "))
+    stop("identifiers not found in modules: ",
+         paste(missing_sp, collapse = ", "))
 
   if (!"pair_name" %in% names(pairs))
     pairs$pair_name <- paste(pairs$sp1, pairs$sp2, sep = ".")
 
-  has_trait <- !is.null(species_trait)
+  has_group <- !is.null(group)
+  if (has_group) {
+    missing_grp <- setdiff(c(pairs$sp1, pairs$sp2), names(group))
+    if (length(missing_grp))
+      stop("group missing entries for: ",
+           paste(missing_grp, collapse = ", "))
+  }
 
-  # Tag one pair's classification with trait info
-  tag_classification <- function(cls, sp1, sp2, pair_name) {
+  # Tag one contrast's classification with group info
+  tag_classification <- function(cls, s1, s2, pair_name) {
     cls$pair_name <- pair_name
-    if (has_trait) {
-      cls$trait <- dplyr::case_when(
-        cls$classification != "species_specific" ~ "conserved",
-        cls$species == "sp1" ~ species_trait[sp1],
-        cls$species == "sp2" ~ species_trait[sp2]
+    if (has_group) {
+      cls$group <- ifelse(
+        cls$classification != "species_specific", "conserved",
+        ifelse(cls$species == "sp1", group[s1], group[s2])
       )
     }
     cls
   }
 
-  # Process each pair
+  # Process each contrast
   n_pairs <- nrow(pairs)
   raw_list <- vector("list", n_pairs)
   class_list <- vector("list", n_pairs)
@@ -1293,7 +1310,6 @@ compare_modules_paired <- function(modules, orthologs, pairs,
     n_sp1[p] <- m1$n_modules
     n_sp2[p] <- m2$n_modules
 
-    # Natural-scale comparison
     comp <- compare_modules(m1, m2, orthologs, method = method,
                             min_exceedances = min_exceedances,
                             max_permutations = max_permutations,
@@ -1305,7 +1321,6 @@ compare_modules_paired <- function(modules, orthologs, pairs,
       s1, s2, pn
     )
 
-    # Matched-scale comparison (if needed)
     ratio <- max(n_sp1[p], n_sp2[p]) / max(1L, min(n_sp1[p], n_sp2[p]))
     if (matched_scale && ratio > coarsen_ratio) {
       target <- min(n_sp1[p], n_sp2[p])
@@ -1331,7 +1346,7 @@ compare_modules_paired <- function(modules, orthologs, pairs,
     do.call(rbind, matched_list[matched_notnull])
   }
 
-  # Summary table
+  # Summary table (bind_rows-safe: union column sets, fill missing with 0)
   ratios <- pmax(n_sp1, n_sp2) / pmax(1L, pmin(n_sp1, n_sp2))
   module_counts <- data.frame(
     pair_name = pairs$pair_name,
@@ -1342,7 +1357,7 @@ compare_modules_paired <- function(modules, orthologs, pairs,
 
   build_summary <- function(cls, scale_label) {
     if (is.null(cls) || nrow(cls) == 0L) return(NULL)
-    count_col <- if (has_trait) "trait" else "classification"
+    count_col <- if (has_group) "group" else "classification"
     agg <- stats::aggregate(
       stats::as.formula(paste("module ~", "pair_name +", count_col)),
       data = cls, FUN = length
@@ -1356,12 +1371,23 @@ compare_modules_paired <- function(modules, orthologs, pairs,
     wide
   }
 
-  summary_parts <- list(
+  summary_parts <- Filter(Negate(is.null), list(
     build_summary(classification, "natural"),
     build_summary(matched_classification, "matched")
-  )
-  summary_df <- do.call(rbind, Filter(Negate(is.null), summary_parts))
-  if (!is.null(summary_df)) rownames(summary_df) <- NULL
+  ))
+  if (length(summary_parts) > 0L) {
+    # Union columns across scales (matched may lack some group levels)
+    all_cols <- unique(unlist(lapply(summary_parts, names)))
+    summary_parts <- lapply(summary_parts, function(df) {
+      missing <- setdiff(all_cols, names(df))
+      for (col in missing) df[[col]] <- 0L
+      df[all_cols]
+    })
+    summary_df <- do.call(rbind, summary_parts)
+    rownames(summary_df) <- NULL
+  } else {
+    summary_df <- NULL
+  }
 
   list(
     classification = classification,
