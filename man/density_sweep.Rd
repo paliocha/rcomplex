@@ -18,6 +18,7 @@ density_sweep(networks, ...)
   use_torch = FALSE,
   min_exceedances = 50L,
   max_permutations = 10000L,
+  species_pairs = NULL,
   ...
 )
 }
@@ -48,6 +49,10 @@ or \code{"analytical"}.}
 method (default 50).}
 
 \item{max_permutations}{Maximum permutations (default 10000).}
+
+\item{species_pairs}{Optional list of length-2 character vectors
+passed to \code{\link{find_coexpressologs}} at each threshold
+level. Defaults to all pairwise combinations.}
 }
 \value{
 A data frame with columns \code{multiplier},

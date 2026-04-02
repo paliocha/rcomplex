@@ -409,6 +409,9 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #' @param min_exceedances Besag-Clifford parameter for permutation
 #'   method (default 50).
 #' @param max_permutations Maximum permutations (default 10000).
+#' @param species_pairs Optional list of length-2 character vectors
+#'   passed to \code{\link{find_coexpressologs}} at each threshold
+#'   level. Defaults to all pairwise combinations.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, and \code{edges}
@@ -436,7 +439,8 @@ density_sweep.default <- function(networks, orthologs,
                            n_cores = 1L,
                            use_torch = FALSE,
                            min_exceedances = 50L,
-                           max_permutations = 10000L, ...) {
+                           max_permutations = 10000L,
+                           species_pairs = NULL, ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
@@ -487,6 +491,7 @@ density_sweep.default <- function(networks, orthologs,
     edges_df <- tryCatch(
       find_coexpressologs(
         tight_nets, orthologs,
+        species_pairs = species_pairs,
         method = method, alternative = alternative,
         alpha = alpha, n_cores = n_cores,
         use_torch = use_torch,

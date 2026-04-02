@@ -247,7 +247,8 @@ find_coexpressologs.rcomplex <- function(networks, ...) {
 #' @export
 density_sweep.rcomplex <- function(networks, ...) {
   x <- networks
-  x$sweep <- density_sweep.default(x$networks, x$orthologs, ...)
+  x$sweep <- density_sweep.default(x$networks, x$orthologs,
+                                    species_pairs = x$species_pairs, ...)
   x
 }
 
