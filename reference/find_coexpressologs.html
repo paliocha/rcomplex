@@ -64,7 +64,10 @@ the results into a single edge data frame ready for
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">find_coexpressologs</span><span class="op">(</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">find_coexpressologs</span><span class="op">(</span><span class="va">networks</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Default S3 method</span></span>
+<span><span class="fu">find_coexpressologs</span><span class="op">(</span></span>
 <span>  <span class="va">networks</span>,</span>
 <span>  <span class="va">orthologs</span>,</span>
 <span>  species_pairs <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -74,21 +77,11 @@ the results into a single edge data frame ready for
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  min_exceedances <span class="op">=</span> <span class="fl">50L</span>,</span>
-<span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span></span>
+<span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span>,</span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">run_pairwise_comparisons</span><span class="op">(</span></span>
-<span>  <span class="va">networks</span>,</span>
-<span>  <span class="va">orthologs</span>,</span>
-<span>  species_pairs <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"analytical"</span>, <span class="st">"permutation"</span><span class="op">)</span>,</span>
-<span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
-<span>  alpha <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  min_exceedances <span class="op">=</span> <span class="fl">50L</span>,</span>
-<span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">run_pairwise_comparisons</span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">

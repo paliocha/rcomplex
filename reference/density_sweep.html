@@ -64,7 +64,10 @@ choice of density cutoff.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">density_sweep</span><span class="op">(</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">density_sweep</span><span class="op">(</span><span class="va">networks</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Default S3 method</span></span>
+<span><span class="fu">density_sweep</span><span class="op">(</span></span>
 <span>  <span class="va">networks</span>,</span>
 <span>  <span class="va">orthologs</span>,</span>
 <span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.95</span>, <span class="fl">1.05</span>, by <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span>,</span>
@@ -74,7 +77,8 @@ choice of density cutoff.</p>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  min_exceedances <span class="op">=</span> <span class="fl">50L</span>,</span>
-<span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span></span>
+<span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span>,</span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 

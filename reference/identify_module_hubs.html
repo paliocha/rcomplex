@@ -64,7 +64,10 @@ downstream conservation analysis with <code><a href="classify_hub_conservation.h
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">identify_module_hubs</span><span class="op">(</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">identify_module_hubs</span><span class="op">(</span><span class="va">modules</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Default S3 method</span></span>
+<span><span class="fu">identify_module_hubs</span><span class="op">(</span></span>
 <span>  <span class="va">modules</span>,</span>
 <span>  <span class="va">net</span>,</span>
 <span>  orthologs <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -72,7 +75,8 @@ downstream conservation analysis with <code><a href="classify_hub_conservation.h
 <span>  centrality <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"degree"</span>, <span class="st">"betweenness"</span>, <span class="st">"eigenvector"</span><span class="op">)</span>,</span>
 <span>  top_n <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  top_fraction <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>  min_module_size <span class="op">=</span> <span class="fl">3L</span></span>
+<span>  min_module_size <span class="op">=</span> <span class="fl">3L</span>,</span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
