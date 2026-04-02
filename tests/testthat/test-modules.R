@@ -952,3 +952,164 @@ test_that("test_k1 = FALSE skips the K = 1 test", {
   expect_true(result$n_modules >= 1)
   expect_equal(result$method, "leiden_consensus")
 })
+
+
+# ---- coarsen_modules() tests ----
+
+# Helper: asymmetric module structure (sp1: 2 large, sp2: 4 small)
+make_asymmetric_module_data <- function() {
+  n <- 40
+  mat1 <- matrix(0, n, n)
+  mat2 <- matrix(0, n, n)
+  rownames(mat1) <- colnames(mat1) <- paste0("A", 1:n)
+  rownames(mat2) <- colnames(mat2) <- paste0("B", 1:n)
+
+  mat1[1:20, 1:20] <- 0.9
+  mat1[21:40, 21:40] <- 0.9
+
+  mat2[1:10, 1:10] <- 0.9
+  mat2[11:20, 11:20] <- 0.9
+  mat2[21:30, 21:30] <- 0.9
+  mat2[31:40, 31:40] <- 0.9
+  # Weak inter-module edges within parent groups (below intra but above threshold)
+  mat2[1:10, 11:20] <- mat2[11:20, 1:10] <- 0.35
+  mat2[21:30, 31:40] <- mat2[31:40, 21:30] <- 0.35
+
+  diag(mat1) <- diag(mat2) <- 1
+
+  net1 <- list(network = mat1, threshold = 0.5)
+  net2 <- list(network = mat2, threshold = 0.3)
+
+  orthologs <- data.frame(
+    Species1 = paste0("A", 1:40),
+    Species2 = paste0("B", 1:40),
+    hog = paste0("HOG", 1:40),
+    stringsAsFactors = FALSE
+  )
+
+  list(net1 = net1, net2 = net2, orthologs = orthologs)
+}
+
+
+test_that("coarsen_modules returns correct structure", {
+  td <- make_module_test_data()
+  mods <- detect_modules(td$net1, method = "leiden",
+                         objective_function = "modularity", seed = 42)
+  coarse <- coarsen_modules(mods, target_n_modules = 2L)
+
+  expect_type(coarse, "list")
+  expect_named(coarse, c("modules", "module_genes", "n_modules",
+                          "modularity", "graph", "method", "params",
+                          "merge_map", "merge_dendrogram"),
+               ignore.order = TRUE)
+  expect_true(igraph::is_igraph(coarse$graph))
+  expect_s3_class(coarse$merge_dendrogram, "hclust")
+  expect_true(is.data.frame(coarse$merge_map))
+  expect_true(all(c("original_module", "coarsened_module") %in%
+                    names(coarse$merge_map)))
+})
+
+
+test_that("coarsen_modules produces target number of modules", {
+  td <- make_module_test_data()
+  mods <- detect_modules(td$net1, method = "leiden",
+                         objective_function = "modularity", seed = 42)
+  for (target in c(2L, 1L)) {
+    coarse <- coarsen_modules(mods, target_n_modules = target)
+    expect_equal(coarse$n_modules, target)
+    expect_equal(length(coarse$module_genes), target)
+    expect_equal(length(unique(coarse$modules)), target)
+  }
+})
+
+
+test_that("coarsen_modules merges related modules first", {
+  td <- make_asymmetric_module_data()
+  # resolution = 2 needed to split the 4 sub-modules at this density
+  mods <- detect_modules(td$net2, method = "leiden", resolution = 2.0,
+                         objective_function = "modularity", seed = 42)
+  expect_true(mods$n_modules >= 3)
+
+  coarse <- coarsen_modules(mods, target_n_modules = 2L)
+
+  # Genes 1-20 should be in one module, 21-40 in the other
+  mods_1_20 <- coarse$modules[paste0("B", 1:20)]
+  mods_21_40 <- coarse$modules[paste0("B", 21:40)]
+  expect_equal(length(unique(mods_1_20)), 1)
+  expect_equal(length(unique(mods_21_40)), 1)
+  expect_true(unique(mods_1_20) != unique(mods_21_40))
+})
+
+
+test_that("coarsen_modules preserves all genes", {
+  td <- make_module_test_data()
+  mods <- detect_modules(td$net1, method = "leiden",
+                         objective_function = "modularity", seed = 42)
+  coarse <- coarsen_modules(mods, target_n_modules = 2L)
+
+  expect_equal(sort(names(coarse$modules)), sort(names(mods$modules)))
+  all_genes <- unlist(coarse$module_genes, use.names = FALSE)
+  expect_equal(sort(all_genes), sort(names(mods$modules)))
+})
+
+
+test_that("coarsen_modules output works with compare_modules", {
+  td <- make_asymmetric_module_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden", resolution = 2.0,
+                        objective_function = "modularity", seed = 42)
+  coarse2 <- coarsen_modules(m2, target_n_modules = m1$n_modules)
+
+  comp <- compare_modules(m1, coarse2, td$orthologs,
+                           method = "hypergeometric")
+  expect_true(is.data.frame(comp$pairs))
+  expect_true(nrow(comp$pairs) > 0)
+  expect_true(nrow(comp$best_matches) > 0)
+})
+
+
+test_that("coarsen_modules validates inputs", {
+  td <- make_module_test_data()
+  mods <- detect_modules(td$net1, method = "leiden",
+                         objective_function = "modularity", seed = 42)
+
+  expect_error(coarsen_modules(mods, target_n_modules = 0L),
+               "target_n_modules must be >= 1")
+  expect_error(coarsen_modules(list(x = 1), target_n_modules = 2L),
+               "modules must be output from detect_modules")
+})
+
+
+test_that("coarsen_modules is no-op when target equals current", {
+  td <- make_module_test_data()
+  mods <- detect_modules(td$net1, method = "leiden",
+                         objective_function = "modularity", seed = 42)
+  result <- coarsen_modules(mods, target_n_modules = mods$n_modules)
+  expect_identical(result, mods)
+})
+
+
+test_that("coarsening reduces false species-specific calls", {
+  td <- make_asymmetric_module_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden", resolution = 2.0,
+                        objective_function = "modularity", seed = 42)
+
+  # Natural scale: some sp2 modules appear species-specific
+  comp_natural <- compare_modules(m1, m2, td$orthologs,
+                                   method = "hypergeometric")
+  class_natural <- classify_modules(comp_natural)
+
+  # Matched scale: coarsen sp2 to match sp1
+  coarse2 <- coarsen_modules(m2, target_n_modules = m1$n_modules)
+  comp_matched <- compare_modules(m1, coarse2, td$orthologs,
+                                   method = "hypergeometric")
+  class_matched <- classify_modules(comp_matched)
+
+  # Matched scale should have fewer species-specific modules
+  n_ss_natural <- sum(class_natural$classification == "species_specific")
+  n_ss_matched <- sum(class_matched$classification == "species_specific")
+  expect_true(n_ss_matched <= n_ss_natural)
+})

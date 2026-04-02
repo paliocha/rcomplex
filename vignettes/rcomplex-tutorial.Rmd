@@ -385,6 +385,72 @@ annual_module_hogs |>
   show_table(caption = "HOG recurrence in annual-specific modules across pairs")
 ```
 
+### Matched-scale module comparison
+
+Species networks have intrinsically different modular structure --
+FPRA has `r modules$FPRA$n_modules` modules while VBRO has only
+`r modules$VBRO$n_modules`. When module counts differ by more than
+2-fold, the Jaccard comparison is biased: one large module in the
+coarser species may correspond to several fragments in the finer
+species, but only the best 1:1 match is used. `coarsen_modules()`
+merges modules in the finer-grained partition via hierarchical
+clustering on inter-module edge density, producing a matched-granularity
+comparison:
+
+```{r matched-scale}
+mod_ratios <- phylo_pairs |>
+  transmute(
+    pair_name,
+    n_annual    = map_int(annual, \(sp) modules[[sp]]$n_modules),
+    n_perennial = map_int(perennial, \(sp) modules[[sp]]$n_modules),
+    ratio       = pmax(n_annual, n_perennial) / pmin(n_annual, n_perennial)
+  )
+show_table(mod_ratios, caption = "Module count ratio per pair")
+```
+
+```{r matched-comparison}
+matched_comparisons <- phylo_pairs |>
+  mutate(
+    n_a = map_int(annual, \(sp) modules[[sp]]$n_modules),
+    n_p = map_int(perennial, \(sp) modules[[sp]]$n_modules),
+    target = pmin(n_a, n_p),
+    mod_a = map2(annual, target, \(sp, t)
+      if (modules[[sp]]$n_modules > t) coarsen_modules(modules[[sp]], t)
+      else modules[[sp]]),
+    mod_p = map2(perennial, target, \(sp, t)
+      if (modules[[sp]]$n_modules > t) coarsen_modules(modules[[sp]], t)
+      else modules[[sp]]),
+    matched_comp = map2(mod_a, mod_p, \(a, p)
+      compare_modules(a, p, orthologs, method = "jaccard",
+                      n_cores = n_cores)),
+    matched_class = map2(matched_comp, pair_name, \(mc, pn) {
+      classify_modules(mc) |>
+        mutate(pair = pn, trait = case_when(
+          classification != "species_specific" ~ "conserved",
+          species == "sp1" ~ "annual",
+          species == "sp2" ~ "perennial"
+        ))
+    })
+  )
+
+# Side-by-side: natural vs matched scale
+natural <- mod_comparisons |>
+  transmute(pair_name, classification) |> unnest(classification) |>
+  count(pair_name, trait) |>
+  pivot_wider(names_from = trait, values_from = n, values_fill = 0) |>
+  mutate(scale = "natural")
+
+matched <- matched_comparisons |>
+  transmute(pair_name, matched_class) |> unnest(matched_class) |>
+  count(pair_name, trait) |>
+  pivot_wider(names_from = trait, values_from = n, values_fill = 0) |>
+  mutate(scale = "matched")
+
+bind_rows(natural, matched) |>
+  relocate(scale, .after = pair_name) |>
+  show_table(caption = "Module conservation: natural vs matched scale")
+```
+
 ### Hub genes and trait conservation
 
 Identify hub genes within each species' modules, then classify each HOG

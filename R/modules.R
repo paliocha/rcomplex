@@ -1046,6 +1046,132 @@ classify_modules <- function(module_comparison,
 }
 
 
+#' Coarsen a module partition to fewer modules
+#'
+#' Merges modules in a fine-grained partition to a target count by
+#' hierarchical clustering on inter-module edge density. This produces
+#' matched-granularity partitions for fair cross-species comparison when
+#' species have intrinsically different modular structure.
+#'
+#' @section Algorithm:
+#' \enumerate{
+#'   \item Compute inter-module edge density for all module pairs:
+#'     \code{n_edges(i,j) / (size_i * size_j)}.
+#'   \item Hierarchical clustering (complete linkage) on distance
+#'     \code{1 - D / max(D)}.
+#'   \item Cut the dendrogram at \code{target_n_modules}.
+#'   \item Relabel module assignments contiguously and recompute
+#'     module gene lists, modularity, and sizes.
+#' }
+#'
+#' @param modules Output of [detect_modules()].
+#' @param target_n_modules Integer, desired number of modules after
+#'   coarsening. Must be at least 1 and less than the current number
+#'   of modules.
+#'
+#' @return A list compatible with [detect_modules()] output (usable
+#'   directly with [compare_modules()]), with additional components:
+#'   \describe{
+#'     \item{merge_map}{Data frame with columns \code{original_module}
+#'       and \code{coarsened_module} mapping old to new module IDs.}
+#'     \item{merge_dendrogram}{The [hclust] object used for merging.}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' mods <- detect_modules(net, resolution = seq(0.25, 2.5, by = 0.25))
+#' mods$n_modules  # 52
+#' coarse <- coarsen_modules(mods, target_n_modules = 15)
+#' coarse$n_modules  # 15
+#' }
+#'
+#' @export
+coarsen_modules <- function(modules, target_n_modules) {
+  if (!is.list(modules) || is.null(modules$modules) ||
+      is.null(modules$module_genes) || is.null(modules$graph)) {
+    stop("modules must be output from detect_modules()")
+  }
+
+  target_n_modules <- as.integer(target_n_modules)
+  if (target_n_modules < 1L) stop("target_n_modules must be >= 1")
+
+  n_current <- modules$n_modules
+  if (target_n_modules >= n_current) return(modules)
+
+  g <- modules$graph
+  mem <- modules$modules
+  mg <- modules$module_genes
+  mod_ids <- names(mg)
+  n_mod <- length(mod_ids)
+
+  # Module sizes
+  mod_sizes <- vapply(mg, length, integer(1))
+
+  # Inter-module edge density via vectorized tabulation
+  el <- igraph::as_edgelist(g, names = TRUE)
+  mod_idx <- stats::setNames(seq_len(n_mod), mod_ids)
+  i_mod <- mod_idx[as.character(mem[el[, 1]])]
+  j_mod <- mod_idx[as.character(mem[el[, 2]])]
+
+  # Keep only inter-module edges, count by (i, j) pair
+  inter <- i_mod != j_mod
+  counts <- tabulate(
+    (i_mod[inter] - 1L) * n_mod + j_mod[inter],
+    nbins = n_mod * n_mod
+  )
+  D <- matrix(counts, n_mod, n_mod)
+  D <- D + t(D)  # symmetrize (each undirected edge counted once)
+
+  # Normalize: edge density = n_edges / (size_i * size_j)
+  size_outer <- outer(mod_sizes, mod_sizes)
+  diag(size_outer) <- 1  # avoid division by zero on diagonal
+  D <- D / size_outer
+  diag(D) <- 0
+
+  # Hierarchical clustering (complete linkage on 1 - normalized density)
+  max_d <- max(D)
+  if (max_d == 0) {
+    warning("No inter-module edges; merging by module order")
+    dist_mat <- stats::dist(seq_len(n_mod))
+  } else {
+    dist_mat <- stats::as.dist(1 - D / max_d)
+  }
+  hc <- stats::hclust(dist_mat, method = "complete")
+  new_groups <- stats::cutree(hc, k = target_n_modules)
+
+  # Build merge map
+  merge_map <- data.frame(
+    original_module = mod_ids,
+    coarsened_module = as.integer(new_groups),
+    stringsAsFactors = FALSE
+  )
+
+  # Relabel gene-level membership
+  group_lookup <- stats::setNames(new_groups, mod_ids)
+  new_mem <- group_lookup[as.character(mem)]
+  names(new_mem) <- names(mem)
+  new_mem <- as.integer(new_mem)
+  names(new_mem) <- names(mem)
+
+  new_module_genes <- split(names(new_mem), new_mem)
+
+  list(
+    modules = new_mem,
+    module_genes = new_module_genes,
+    n_modules = length(new_module_genes),
+    modularity = igraph::modularity(g, new_mem),
+    graph = g,
+    method = paste0(modules$method, "_coarsened"),
+    params = c(modules$params, list(
+      coarsened_from = n_current,
+      target_n_modules = target_n_modules
+    )),
+    merge_map = merge_map,
+    merge_dendrogram = hc
+  )
+}
+
+
 #' Identify hub genes within co-expression modules
 #'
 #' Computes within-module centrality for each gene and flags the top-ranked
