@@ -507,6 +507,22 @@ test_that("find_coexpressologs with method='permutation' returns correct structu
 })
 
 
+test_that("find_coexpressologs alternative='less' produces 'diverged' labels", {
+  skip_on_cran()
+  fix <- make_coexpr_fixtures()
+
+  result_perm <- find_coexpressologs(fix$nets, fix$ortho,
+                                      method = "permutation",
+                                      alternative = "less")
+  expect_true(all(result_perm$type %in% c("diverged", "ns")))
+
+  result_anal <- find_coexpressologs(fix$nets, fix$ortho,
+                                      method = "analytical",
+                                      alternative = "less")
+  expect_true(all(result_anal$type %in% c("diverged", "ns")))
+})
+
+
 # --- Tests for density_sweep() ---
 
 test_that("density_sweep returns correct structure", {

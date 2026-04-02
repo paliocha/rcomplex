@@ -468,7 +468,7 @@ density_sweep <- function(networks, orthologs,
     message("Threshold sweep: multiplier ", m)
 
     tight_nets <- lapply(networks, function(net)
-      list(network = net$network, threshold = net$threshold * m))
+      modifyList(net, list(threshold = net$threshold * m)))
 
     densities <- vapply(tight_nets, function(net) {
       vals <- net$network[upper.tri(net$network)]
