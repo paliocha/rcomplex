@@ -2,15 +2,19 @@
 % Please edit documentation in R/cliques.R
 \name{find_cliques}
 \alias{find_cliques}
+\alias{find_cliques.default}
 \title{Find co-expression cliques using C++ two-level decomposition}
 \usage{
-find_cliques(
+find_cliques(edges, ...)
+
+\method{find_cliques}{default}(
   edges,
   target_species,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,
-  edge_type = "conserved"
+  edge_type = "conserved",
+  ...
 )
 }
 \arguments{

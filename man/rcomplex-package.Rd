@@ -3,7 +3,6 @@
 \docType{package}
 \name{rcomplex-package}
 \alias{rcomplex-package}
-\alias{rcomplex}
 \title{rcomplex: Comparative Co-Expression Network Analysis Across Species}
 \description{
 Compares gene co-expression networks across species by mapping orthologous

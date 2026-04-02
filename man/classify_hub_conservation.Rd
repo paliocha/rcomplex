@@ -2,16 +2,20 @@
 % Please edit documentation in R/modules.R
 \name{classify_hub_conservation}
 \alias{classify_hub_conservation}
+\alias{classify_hub_conservation.default}
 \title{Classify hub gene conservation across species and traits}
 \usage{
-classify_hub_conservation(
+classify_hub_conservation(hub_results, ...)
+
+\method{classify_hub_conservation}{default}(
   hub_results,
   species_trait,
   module_comparisons = NULL,
   alpha = 0.05,
   jaccard_threshold = 0.1,
   min_trait_fraction = 0.5,
-  correspondence_threshold = 0.5
+  correspondence_threshold = 0.5,
+  ...
 )
 }
 \arguments{

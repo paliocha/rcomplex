@@ -2,9 +2,12 @@
 % Please edit documentation in R/cliques.R
 \name{classify_cliques}
 \alias{classify_cliques}
+\alias{classify_cliques.default}
 \title{Classify HOGs by clique conservation pattern}
 \usage{
-classify_cliques(
+classify_cliques(edges, ...)
+
+\method{classify_cliques}{default}(
   edges,
   target_species,
   species_trait,
@@ -15,7 +18,8 @@ classify_cliques(
   stability = NULL,
   sweep = NULL,
   min_stability_class = 0L,
-  min_persistence = 1
+  min_persistence = 1,
+  ...
 )
 }
 \arguments{

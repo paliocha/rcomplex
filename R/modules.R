@@ -114,7 +114,11 @@
 #' }
 #'
 #' @export
-detect_modules <- function(net,
+detect_modules <- function(net, ...) UseMethod("detect_modules")
+
+#' @rdname detect_modules
+#' @export
+detect_modules.default <- function(net,
                            method = c("leiden", "infomap", "sbm"),
                            resolution = 1.0,
                            objective_function = c("CPM", "modularity"),
@@ -126,7 +130,7 @@ detect_modules <- function(net,
                            max_consensus_iter = 10L,
                            test_k1 = TRUE,
                            n_perm_k1 = 100L,
-                           alpha_k1 = 0.05) {
+                           alpha_k1 = 0.05, ...) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
 
@@ -1250,7 +1254,13 @@ coarsen_modules <- function(modules, target_n_modules) {
 #' }
 #'
 #' @export
-compare_modules_paired <- function(modules, orthologs, pairs,
+compare_modules_paired <- function(modules, ...) {
+  UseMethod("compare_modules_paired")
+}
+
+#' @rdname compare_modules_paired
+#' @export
+compare_modules_paired.default <- function(modules, orthologs, pairs,
                                    group = NULL,
                                    method = c("jaccard", "hypergeometric"),
                                    matched_scale = TRUE,
@@ -1259,7 +1269,7 @@ compare_modules_paired <- function(modules, orthologs, pairs,
                                    jaccard_threshold = 0.1,
                                    min_exceedances = 50L,
                                    max_permutations = 10000L,
-                                   n_cores = 1L) {
+                                   n_cores = 1L, ...) {
   method <- match.arg(method)
   if (!is.list(modules) || is.null(names(modules)))
     stop("modules must be a named list keyed by identifier")
@@ -1476,13 +1486,19 @@ compare_modules_paired <- function(modules, orthologs, pairs,
 #' }
 #'
 #' @export
-identify_module_hubs <- function(modules, net, orthologs = NULL,
+identify_module_hubs <- function(modules, ...) {
+  UseMethod("identify_module_hubs")
+}
+
+#' @rdname identify_module_hubs
+#' @export
+identify_module_hubs.default <- function(modules, net, orthologs = NULL,
                                  comparison = NULL,
                                  centrality = c("degree", "betweenness",
                                                 "eigenvector"),
                                  top_n = NULL,
                                  top_fraction = 0.1,
-                                 min_module_size = 3L) {
+                                 min_module_size = 3L, ...) {
   centrality <- match.arg(centrality)
 
   if (!is.list(modules) || is.null(modules$module_genes) ||
@@ -1757,12 +1773,18 @@ identify_module_hubs <- function(modules, net, orthologs = NULL,
 #' }
 #'
 #' @export
-classify_hub_conservation <- function(hub_results, species_trait,
+classify_hub_conservation <- function(hub_results, ...) {
+  UseMethod("classify_hub_conservation")
+}
+
+#' @rdname classify_hub_conservation
+#' @export
+classify_hub_conservation.default <- function(hub_results, species_trait,
                                       module_comparisons = NULL,
                                       alpha = 0.05,
                                       jaccard_threshold = 0.1,
                                       min_trait_fraction = 0.5,
-                                      correspondence_threshold = 0.5) {
+                                      correspondence_threshold = 0.5, ...) {
   # --- Validation ---
   if (!is.list(hub_results) || is.null(names(hub_results))) {
     stop("hub_results must be a named list keyed by species")

@@ -256,7 +256,11 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' }
 #'
 #' @export
-find_coexpressologs <- function(
+find_coexpressologs <- function(networks, ...) UseMethod("find_coexpressologs")
+
+#' @rdname find_coexpressologs
+#' @export
+find_coexpressologs.default <- function(
     networks, orthologs,
     species_pairs = NULL,
     method = c("analytical", "permutation"),
@@ -265,7 +269,7 @@ find_coexpressologs <- function(
     n_cores = 1L,
     use_torch = FALSE,
     min_exceedances = 50L,
-    max_permutations = 10000L) {
+    max_permutations = 10000L, ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
@@ -375,7 +379,7 @@ find_coexpressologs <- function(
 
 #' @rdname find_coexpressologs
 #' @export
-run_pairwise_comparisons <- find_coexpressologs
+run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 
 
 #' Sweep density thresholds for robustness assessment
@@ -420,7 +424,11 @@ run_pairwise_comparisons <- find_coexpressologs
 #' }
 #'
 #' @export
-density_sweep <- function(networks, orthologs,
+density_sweep <- function(networks, ...) UseMethod("density_sweep")
+
+#' @rdname density_sweep
+#' @export
+density_sweep.default <- function(networks, orthologs,
                            multipliers = seq(0.95, 1.05, by = 0.01),
                            method = c("permutation", "analytical"),
                            alternative = c("greater", "less"),
@@ -428,7 +436,7 @@ density_sweep <- function(networks, orthologs,
                            n_cores = 1L,
                            use_torch = FALSE,
                            min_exceedances = 50L,
-                           max_permutations = 10000L) {
+                           max_permutations = 10000L, ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)

@@ -30,7 +30,6 @@
 #'
 #' @docType package
 #' @name rcomplex-package
-#' @aliases rcomplex
 #' @keywords internal
 "_PACKAGE"
 

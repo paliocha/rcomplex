@@ -2,9 +2,12 @@
 % Please edit documentation in R/modules.R
 \name{detect_modules}
 \alias{detect_modules}
+\alias{detect_modules.default}
 \title{Detect co-expression modules in a network}
 \usage{
-detect_modules(
+detect_modules(net, ...)
+
+\method{detect_modules}{default}(
   net,
   method = c("leiden", "infomap", "sbm"),
   resolution = 1,
@@ -17,7 +20,8 @@ detect_modules(
   max_consensus_iter = 10L,
   test_k1 = TRUE,
   n_perm_k1 = 100L,
-  alpha_k1 = 0.05
+  alpha_k1 = 0.05,
+  ...
 )
 }
 \arguments{

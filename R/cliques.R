@@ -110,11 +110,15 @@ encode_clique_edges <- function(edges, target_species) {
 #' }
 #'
 #' @export
-find_cliques <- function(edges, target_species,
+find_cliques <- function(edges, ...) UseMethod("find_cliques")
+
+#' @rdname find_cliques
+#' @export
+find_cliques.default <- function(edges, target_species,
                          min_species = length(target_species),
                          max_genes_per_sp = 10L,
                          max_missing_edges = 0L,
-                         edge_type = "conserved") {
+                         edge_type = "conserved", ...) {
   # Validate inputs
   required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
                      "q.value", "effect_size")
@@ -301,14 +305,19 @@ find_cliques <- function(edges, target_species,
 #' }
 #'
 #' @export
-clique_stability <- function(edges, target_species, species_trait = NULL,
+clique_stability <- function(edges, ...) UseMethod("clique_stability")
+
+#' @rdname clique_stability
+#' @export
+clique_stability.default <- function(edges, target_species,
+                             species_trait = NULL,
                              all_species = target_species,
                              full_cliques = NULL,
                              min_species = length(target_species),
                              max_k = length(all_species) - 2L,
                              max_genes_per_sp = 10L,
                              jaccard_threshold = 0.8,
-                             edge_type = "conserved", n_cores = 1L) {
+                             edge_type = "conserved", n_cores = 1L, ...) {
   # Validate inputs
   required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
                      "q.value", "effect_size")
@@ -978,7 +987,11 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' }
 #'
 #' @export
-classify_cliques <- function(
+classify_cliques <- function(edges, ...) UseMethod("classify_cliques")
+
+#' @rdname classify_cliques
+#' @export
+classify_cliques.default <- function(
     edges, target_species, species_trait,
     min_species = 2L,
     max_genes_per_sp = 10L,
@@ -987,7 +1000,7 @@ classify_cliques <- function(
     stability = NULL,
     sweep = NULL,
     min_stability_class = 0L,
-    min_persistence = 1.0) {
+    min_persistence = 1.0, ...) {
 
   # --- Validation ---
   required_cols <- c("gene1", "gene2", "species1", "species2", "hog",

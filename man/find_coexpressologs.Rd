@@ -2,10 +2,13 @@
 % Please edit documentation in R/comparison.R
 \name{find_coexpressologs}
 \alias{find_coexpressologs}
+\alias{find_coexpressologs.default}
 \alias{run_pairwise_comparisons}
 \title{Find co-expressologs across all species pairs}
 \usage{
-find_coexpressologs(
+find_coexpressologs(networks, ...)
+
+\method{find_coexpressologs}{default}(
   networks,
   orthologs,
   species_pairs = NULL,
@@ -15,21 +18,11 @@ find_coexpressologs(
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,
-  max_permutations = 10000L
+  max_permutations = 10000L,
+  ...
 )
 
-run_pairwise_comparisons(
-  networks,
-  orthologs,
-  species_pairs = NULL,
-  method = c("analytical", "permutation"),
-  alternative = c("greater", "less"),
-  alpha = 0.05,
-  n_cores = 1L,
-  use_torch = FALSE,
-  min_exceedances = 50L,
-  max_permutations = 10000L
-)
+run_pairwise_comparisons(...)
 }
 \arguments{
 \item{networks}{Named list of \code{\link{compute_network}} outputs,

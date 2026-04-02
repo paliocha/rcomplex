@@ -2,9 +2,12 @@
 % Please edit documentation in R/modules.R
 \name{compare_modules_paired}
 \alias{compare_modules_paired}
+\alias{compare_modules_paired.default}
 \title{Compare modules across contrasting conditions}
 \usage{
-compare_modules_paired(
+compare_modules_paired(modules, ...)
+
+\method{compare_modules_paired}{default}(
   modules,
   orthologs,
   pairs,
@@ -16,7 +19,8 @@ compare_modules_paired(
   jaccard_threshold = 0.1,
   min_exceedances = 50L,
   max_permutations = 10000L,
-  n_cores = 1L
+  n_cores = 1L,
+  ...
 )
 }
 \arguments{

@@ -2,9 +2,12 @@
 % Please edit documentation in R/comparison.R
 \name{density_sweep}
 \alias{density_sweep}
+\alias{density_sweep.default}
 \title{Sweep density thresholds for robustness assessment}
 \usage{
-density_sweep(
+density_sweep(networks, ...)
+
+\method{density_sweep}{default}(
   networks,
   orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
@@ -14,7 +17,8 @@ density_sweep(
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,
-  max_permutations = 10000L
+  max_permutations = 10000L,
+  ...
 )
 }
 \arguments{

@@ -34,6 +34,7 @@ R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 | `R/modules.R` | `detect_modules()` (single + consensus), `compare_modules()`, `compare_modules_paired()`, `classify_modules()`, `coarsen_modules()` |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) — SummarizedExperiment helpers |
+| `R/rcomplex-class.R` | S3 `rcomplex` container: constructor, print/summary, `.rcomplex` methods for 9 pipeline functions |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
 
 ### C++ layer (src/, RcppArmadillo + OpenMP)

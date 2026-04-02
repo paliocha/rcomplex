@@ -2,9 +2,12 @@
 % Please edit documentation in R/modules.R
 \name{identify_module_hubs}
 \alias{identify_module_hubs}
+\alias{identify_module_hubs.default}
 \title{Identify hub genes within co-expression modules}
 \usage{
-identify_module_hubs(
+identify_module_hubs(modules, ...)
+
+\method{identify_module_hubs}{default}(
   modules,
   net,
   orthologs = NULL,
@@ -12,7 +15,8 @@ identify_module_hubs(
   centrality = c("degree", "betweenness", "eigenvector"),
   top_n = NULL,
   top_fraction = 0.1,
-  min_module_size = 3L
+  min_module_size = 3L,
+  ...
 )
 }
 \arguments{

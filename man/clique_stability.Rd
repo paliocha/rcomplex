@@ -2,9 +2,12 @@
 % Please edit documentation in R/cliques.R
 \name{clique_stability}
 \alias{clique_stability}
+\alias{clique_stability.default}
 \title{Leave-k-out jackknife structural stability for cliques}
 \usage{
-clique_stability(
+clique_stability(edges, ...)
+
+\method{clique_stability}{default}(
   edges,
   target_species,
   species_trait = NULL,
@@ -15,7 +18,8 @@ clique_stability(
   max_genes_per_sp = 10L,
   jaccard_threshold = 0.8,
   edge_type = "conserved",
-  n_cores = 1L
+  n_cores = 1L,
+  ...
 )
 }
 \arguments{
