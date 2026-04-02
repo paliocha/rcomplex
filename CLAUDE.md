@@ -27,9 +27,9 @@ R CMD check .                     # expect 1 WARNING from R_ext/Boolean.h
 ### R layer
 | File | Purpose |
 |------|---------|
-| `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
+| `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()`, `prepare_orthologs()` |
 | `R/network.R` | `compute_network()` — correlation, MR/CLR, density threshold, torch GPU |
-| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()` — pair-level hypergeometric, edge conversion |
+| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `find_coexpressologs()` (alias: `run_pairwise_comparisons()`), `density_sweep()`, `get_coexpressed_hogs()` |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, torch FE helpers |
 | `R/modules.R` | `detect_modules()` (single + consensus), `compare_modules()`, `compare_modules_paired()`, `classify_modules()`, `coarsen_modules()` |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `classify_cliques()` |

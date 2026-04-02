@@ -157,3 +157,92 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
     n_merged = result$n_merged
   )
 }
+
+
+#' Extract pairwise orthologs with paralog-reduced gene names
+#'
+#' Convenience wrapper that calls \code{\link{extract_orthologs}} for every
+#' species pair and maps gene names through the gene maps produced by
+#' \code{\link{reduce_orthogroups}}.  This replaces ~20 lines of boilerplate
+#' when combining SummarizedExperiment objects with paralog reduction outputs.
+#'
+#' @param se_list Named list of
+#'   \code{\link[SummarizedExperiment]{SummarizedExperiment}} objects, keyed
+#'   by species code.
+#' @param reductions Named list of \code{\link{reduce_orthogroups}} outputs,
+#'   keyed by the same species codes as \code{se_list}.
+#'   Each element must contain a \code{$gene_map} data frame with columns
+#'   \code{original} and \code{representative}.
+#' @param hog_col Column name in \code{rowData} containing HOG identifiers
+#'   (default \code{"hog"}).
+#'
+#' @return A data frame with columns \code{Species1}, \code{Species2}, and
+#'   \code{hog}, where gene names have been replaced by their reduced
+#'   representatives.  Duplicate rows (arising when multiple original genes
+#'   map to the same representative) are removed.
+#'
+#' @examples
+#' \dontrun{
+#' ortho <- prepare_orthologs(se_list, reductions)
+#' head(ortho)
+#' }
+#'
+#' @export
+prepare_orthologs <- function(se_list, reductions, hog_col = "hog") {
+  # --- validation ---
+  if (!is.list(se_list) || is.null(names(se_list))) {
+    stop("se_list must be a named list")
+  }
+  if (!is.list(reductions) || is.null(names(reductions))) {
+    stop("reductions must be a named list")
+  }
+  missing_sp <- setdiff(names(se_list), names(reductions))
+  if (length(missing_sp) > 0) {
+    stop("reductions missing species present in se_list: ",
+         paste(missing_sp, collapse = ", "))
+  }
+  for (sp in names(se_list)) {
+    if (is.null(reductions[[sp]]$gene_map)) {
+      stop("reductions[['", sp, "']] must have a $gene_map element")
+    }
+  }
+
+  sp_names <- names(se_list)
+  if (length(sp_names) < 2) {
+    stop("se_list must contain at least two species")
+  }
+
+  pairs <- utils::combn(sp_names, 2, simplify = FALSE)
+
+  result_list <- lapply(pairs, function(pair) {
+    sp1 <- pair[1]
+    sp2 <- pair[2]
+
+    ortho <- extract_orthologs(se_list[[sp1]], se_list[[sp2]],
+                               hog_col = hog_col)
+    if (nrow(ortho) == 0) return(ortho)
+
+    # Map Species1 through sp1 gene_map
+    gm1 <- reductions[[sp1]]$gene_map
+    idx1 <- match(ortho$Species1, gm1$original)
+    mapped1 <- gm1$representative[idx1]
+    ortho$Species1 <- ifelse(is.na(mapped1), ortho$Species1, mapped1)
+
+    # Map Species2 through sp2 gene_map
+    gm2 <- reductions[[sp2]]$gene_map
+    idx2 <- match(ortho$Species2, gm2$original)
+    mapped2 <- gm2$representative[idx2]
+    ortho$Species2 <- ifelse(is.na(mapped2), ortho$Species2, mapped2)
+
+    ortho
+  })
+
+  result <- do.call(rbind, result_list)
+  if (is.null(result) || nrow(result) == 0) {
+    return(data.frame(Species1 = character(0),
+                      Species2 = character(0),
+                      hog = character(0)))
+  }
+
+  unique(result)
+}

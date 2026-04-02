@@ -202,13 +202,22 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 }
 
 
-#' Run pairwise comparisons across all species pairs
+#' Find co-expressologs across all species pairs
 #'
-#' Convenience function that runs the full comparison pipeline
-#' (\code{\link{compare_neighborhoods}} -> \code{\link{summarize_comparison}}
-#' -> \code{\link{comparison_to_edges}}) for each species pair and combines
+#' Runs the full comparison pipeline for each species pair and combines
 #' the results into a single edge data frame ready for
 #' \code{\link{find_cliques}}.
+#'
+#' @section Methods:
+#' \describe{
+#'   \item{analytical}{Fast path: pair-level Storey q-values via
+#'     \code{\link{summarize_comparison}}. Appropriate when most HOGs
+#'     are single-copy.}
+#'   \item{permutation}{Rigorous path: gene-identity permutation via
+#'     \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
+#'     stopping and Liang discrete q-values. Required for multi-copy
+#'     HOGs where pair-level tests are correlated.}
+#' }
 #'
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
@@ -218,11 +227,18 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' @param species_pairs Optional list of length-2 character vectors
 #'   specifying which pairs to compare. Defaults to all
 #'   \code{combn(names(networks), 2)}.
-#' @param alternative Passed to \code{\link{summarize_comparison}}:
-#'   \code{"greater"} (conservation, default) or \code{"less"} (divergence).
+#' @param method Testing method: \code{"analytical"} (default, fast)
+#'   or \code{"permutation"} (rigorous).
+#' @param alternative \code{"greater"} (conservation, default) or
+#'   \code{"less"} (divergence).
 #' @param alpha Significance threshold (default 0.05).
-#' @param n_cores Cores for \code{\link{compare_neighborhoods}}
-#'   (default 1).
+#' @param n_cores Number of threads (default 1).
+#' @param use_torch Logical. Use GPU-accelerated fold-enrichment
+#'   precomputation for permutation method (default \code{FALSE}).
+#' @param min_exceedances Besag-Clifford stopping parameter for
+#'   permutation method (default 50).
+#' @param max_permutations Maximum permutations for permutation method
+#'   (default 10000).
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
@@ -231,21 +247,27 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'
 #' @examples
 #' \dontrun{
-#' edges <- run_pairwise_comparisons(
-#'   networks = list(SP_A = net_a, SP_B = net_b, SP_C = net_c),
-#'   orthologs = ortho
-#' )
-#' cliques <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+#' # Fast analytical path
+#' edges <- find_coexpressologs(networks, orthologs)
+#'
+#' # Rigorous permutation path with GPU
+#' edges <- find_coexpressologs(networks, orthologs,
+#'   method = "permutation", use_torch = TRUE, n_cores = 4L)
 #' }
 #'
 #' @export
-run_pairwise_comparisons <- function(
+find_coexpressologs <- function(
     networks, orthologs,
     species_pairs = NULL,
+    method = c("analytical", "permutation"),
     alternative = c("greater", "less"),
     alpha = 0.05,
-    n_cores = 1L) {
+    n_cores = 1L,
+    use_torch = FALSE,
+    min_exceedances = 50L,
+    max_permutations = 10000L) {
 
+  method <- match.arg(method)
   alternative <- match.arg(alternative)
 
   if (!is.list(networks) || is.null(names(networks))) {
@@ -262,6 +284,13 @@ run_pairwise_comparisons <- function(
     species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
   }
 
+  empty_result <- data.frame(
+    gene1 = character(0), gene2 = character(0),
+    species1 = character(0), species2 = character(0),
+    hog = character(0), q.value = numeric(0),
+    effect_size = numeric(0), type = character(0))
+
+  type_label <- if (alternative == "greater") "conserved" else "diverged"
   n_pairs <- length(species_pairs)
   pair_edges <- vector("list", n_pairs)
   idx <- 0L
@@ -287,31 +316,198 @@ run_pairwise_comparisons <- function(
     )
     if (is.null(comparison) || nrow(comparison) == 0) next
 
-    summary_res <- tryCatch(
-      summarize_comparison(comparison, alternative, alpha),
-      error = function(e) {
-        warning("Pair ", sp_a, "-", sp_b, " q-value computation failed: ",
-                conditionMessage(e))
-        NULL
-      }
-    )
-    if (is.null(summary_res) || nrow(summary_res$results) == 0) next
+    if (method == "analytical") {
+      summary_res <- tryCatch(
+        summarize_comparison(comparison, alternative, alpha),
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b,
+                  " q-value computation failed: ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(summary_res) || nrow(summary_res$results) == 0) next
+      edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
+                                       alternative, alpha)
+    } else {
+      # Permutation path: HOG-level permutation test
+      hog_res <- tryCatch(
+        permutation_hog_test(networks[[sp_a]], networks[[sp_b]],
+                             comparison, alternative,
+                             min_exceedances = min_exceedances,
+                             max_permutations = max_permutations,
+                             n_cores = n_cores,
+                             use_torch = use_torch),
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b,
+                  " permutation test failed: ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(hog_res) || nrow(hog_res) == 0) next
 
-    edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
-                                     alternative, alpha)
+      # Join HOG q-values onto pair-level comparison
+      hog_q <- stats::setNames(hog_res$q.value, hog_res$hog)
+      q_vals <- hog_q[comparison$hog]
+      eff <- sqrt(comparison$Species1.effect.size *
+                  comparison$Species2.effect.size)
+
+      edges_df <- data.frame(
+        gene1 = comparison$Species1,
+        gene2 = comparison$Species2,
+        species1 = sp_a,
+        species2 = sp_b,
+        hog = comparison$hog,
+        q.value = as.numeric(q_vals),
+        effect_size = eff,
+        type = ifelse(!is.na(q_vals) & q_vals < alpha,
+                      type_label, "ns")
+      )
+    }
+
     idx <- idx + 1L
     pair_edges[[idx]] <- edges_df
   }
 
-  if (idx == 0L) {
-    return(data.frame(
-      gene1 = character(0), gene2 = character(0),
-      species1 = character(0), species2 = character(0),
-      hog = character(0), q.value = numeric(0),
-      effect_size = numeric(0), type = character(0)))
+  if (idx == 0L) return(empty_result)
+  do.call(rbind, pair_edges[seq_len(idx)])
+}
+
+
+#' @rdname find_coexpressologs
+#' @export
+run_pairwise_comparisons <- find_coexpressologs
+
+
+#' Sweep density thresholds for robustness assessment
+#'
+#' Reruns the full pairwise comparison pipeline at multiple threshold
+#' multipliers to assess how sensitive conservation results are to the
+#' choice of density cutoff.
+#'
+#' For each multiplier, every network's threshold is scaled by
+#' \code{threshold * multiplier}, the effective density is recorded, and
+#' \code{\link{find_coexpressologs}} is called on the modified networks.
+#'
+#' @param networks Named list of \code{\link{compute_network}} outputs.
+#' @param orthologs Data frame with columns \code{Species1},
+#'   \code{Species2}, \code{hog}.
+#' @param multipliers Numeric vector of threshold multipliers
+#'   (default \code{seq(0.95, 1.05, by = 0.01)}).
+#' @param method Comparison method passed to
+#'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default)
+#'   or \code{"analytical"}.
+#' @param alternative \code{"greater"} (conservation, default) or
+#'   \code{"less"} (divergence).
+#' @param alpha Significance threshold (default 0.05).
+#' @param n_cores Number of threads (default 1).
+#' @param use_torch Logical; GPU acceleration for permutation method
+#'   (default \code{FALSE}).
+#' @param min_exceedances Besag-Clifford parameter for permutation
+#'   method (default 50).
+#' @param max_permutations Maximum permutations (default 10000).
+#'
+#' @return A data frame with columns \code{multiplier},
+#'   \code{eff_density}, \code{n_significant}, and \code{edges}
+#'   (list-column of edge data frames).
+#'
+#' @seealso \code{\link{find_coexpressologs}},
+#'   \code{\link{clique_persistence}}
+#'
+#' @examples
+#' \dontrun{
+#' sweep <- density_sweep(networks, orthologs,
+#'                         method = "permutation", use_torch = TRUE)
+#' }
+#'
+#' @export
+density_sweep <- function(networks, orthologs,
+                           multipliers = seq(0.95, 1.05, by = 0.01),
+                           method = c("permutation", "analytical"),
+                           alternative = c("greater", "less"),
+                           alpha = 0.05,
+                           n_cores = 1L,
+                           use_torch = FALSE,
+                           min_exceedances = 50L,
+                           max_permutations = 10000L) {
+
+  method <- match.arg(method)
+  alternative <- match.arg(alternative)
+
+  if (!is.list(networks) || is.null(names(networks)))
+    stop("networks must be a named list keyed by species")
+  if (length(networks) < 2L)
+    stop("networks must contain at least 2 species")
+  for (sp in names(networks)) {
+    net <- networks[[sp]]
+    if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
+      stop("each network must have 'network' and 'threshold' elements")
+  }
+  if (!is.numeric(multipliers) || length(multipliers) == 0L)
+    stop("multipliers must be a non-empty numeric vector")
+  if (any(multipliers <= 0))
+    stop("all multipliers must be positive")
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs)))
+    stop("orthologs must have columns: Species1, Species2, hog")
+
+  type_label <- if (alternative == "greater") "conserved" else "diverged"
+
+  n_mult <- length(multipliers)
+  res_eff_density <- numeric(n_mult)
+  res_n_significant <- integer(n_mult)
+  res_edges <- vector("list", n_mult)
+
+  empty_edges <- data.frame(
+    gene1 = character(0), gene2 = character(0),
+    species1 = character(0), species2 = character(0),
+    hog = character(0), q.value = numeric(0),
+    effect_size = numeric(0), type = character(0)
+  )
+
+  for (i in seq_len(n_mult)) {
+    m <- multipliers[i]
+    message("Threshold sweep: multiplier ", m)
+
+    tight_nets <- lapply(networks, function(net)
+      list(network = net$network, threshold = net$threshold * m))
+
+    densities <- vapply(tight_nets, function(net) {
+      vals <- net$network[upper.tri(net$network)]
+      mean(vals >= net$threshold)
+    }, numeric(1))
+    res_eff_density[i] <- mean(densities)
+
+    edges_df <- tryCatch(
+      find_coexpressologs(
+        tight_nets, orthologs,
+        method = method, alternative = alternative,
+        alpha = alpha, n_cores = n_cores,
+        use_torch = use_torch,
+        min_exceedances = min_exceedances,
+        max_permutations = max_permutations
+      ),
+      error = function(e) {
+        warning("density_sweep: multiplier ", m, " failed: ",
+                conditionMessage(e))
+        NULL
+      }
+    )
+
+    if (is.null(edges_df) || nrow(edges_df) == 0L) {
+      edges_df <- empty_edges
+      res_n_significant[i] <- 0L
+    } else {
+      res_n_significant[i] <- sum(edges_df$type == type_label, na.rm = TRUE)
+    }
+    res_edges[[i]] <- edges_df
   }
 
-  do.call(rbind, pair_edges[seq_len(idx)])
+  out <- data.frame(
+    multiplier = multipliers,
+    eff_density = res_eff_density,
+    n_significant = res_n_significant
+  )
+  out$edges <- res_edges
+  out
 }
 
 
@@ -449,10 +645,10 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     if (length(nbr_hogs) == 0L) next
 
     # Per-partner-HOG max weight across candidate genes
-    # Max avoids dilution when only one candidate copy co-expresses
-    partner_hogs <- unique(nbr_hogs)
+    nbr_by_hog <- split(names(nbr_hogs), nbr_hogs)
+    partner_hogs <- names(nbr_by_hog)
     weights <- vapply(partner_hogs, function(ph) {
-      ph_genes <- names(nbr_hogs[nbr_hogs == ph])
+      ph_genes <- nbr_by_hog[[ph]]
       max(vapply(candidate_genes, function(cg) {
         mean(net_mat[cg, ph_genes])
       }, numeric(1)))
@@ -461,8 +657,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     records[[sp]] <- data.frame(
       partner_hog = partner_hogs,
       species = sp,
-      weight = weights,
-      stringsAsFactors = FALSE
+      weight = weights
     )
   }
 
@@ -472,7 +667,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     out <- data.frame(
       partner_hog = character(0), n_species = integer(0),
       coexpressed_species = character(0), coexpressed_traits = character(0),
-      mean_weight = numeric(0), stringsAsFactors = FALSE
+      mean_weight = numeric(0)
     )
     if (!is.null(edges)) {
       out$partner_conserved <- logical(0)
@@ -498,8 +693,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
       n_species = length(sp_list),
       coexpressed_species = paste(sp_list, collapse = ","),
       coexpressed_traits = traits_val,
-      mean_weight = mean(df$weight),
-      stringsAsFactors = FALSE
+      mean_weight = mean(df$weight)
     )
   }))
 

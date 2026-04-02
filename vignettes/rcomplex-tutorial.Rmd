@@ -13,8 +13,7 @@ has_torch <- requireNamespace("torch", quietly = TRUE) &&
              torch::torch_is_installed() &&
              tryCatch({ torch::torch_randn(1); TRUE }, error = function(e) FALSE)
 has_tidy <- requireNamespace("purrr", quietly = TRUE) &&
-            requireNamespace("tibble", quietly = TRUE) &&
-            requireNamespace("stringr", quietly = TRUE)
+            requireNamespace("tibble", quietly = TRUE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
                       eval = has_se && has_torch && has_tidy)
 
@@ -140,41 +139,15 @@ networks <- deframe(select(species_data, species, network))
 
 Extract ortholog pairs from HOG annotations in rowData. After
 paralog reduction, gene names may have changed (merged representatives),
-so we map through each species' reduction via joins. Gene IDs are
-species-unique (genome-specific identifiers), so each species' map
-is applied only to the column containing that species' genes:
+so `prepare_orthologs()` maps gene names through each species'
+reduction and deduplicates:
 
 ```{r orthologs}
-# All species pairs as a tibble
-pairs <- combn(species, 2, simplify = FALSE) |>
-  map(\(p) tibble(sp1 = p[1], sp2 = p[2])) |>
-  list_rbind()
-
-# Extract orthologs for every pair, then map gene names through reduction
-gene_maps <- species_data |>
-  transmute(species, gm = map(reduced, "gene_map")) |>
-  unnest(gm) |>
-  select(species, original, representative)
-
-orthologs <- pairs |>
-  mutate(data = map2(sp1, sp2, \(a, b)
-    extract_orthologs(se_list[[a]], se_list[[b]]))) |>
-  unnest(data) |>
-  # Map Species1 genes via sp1's reduction
-  left_join(gene_maps |> select(sp1 = species,
-                                 Species1 = original, rep1 = representative),
-            by = c("sp1", "Species1")) |>
-  mutate(Species1 = coalesce(rep1, Species1)) |>
-  # Map Species2 genes via sp2's reduction
-  left_join(gene_maps |> select(sp2 = species,
-                                 Species2 = original, rep2 = representative),
-            by = c("sp2", "Species2")) |>
-  mutate(Species2 = coalesce(rep2, Species2)) |>
-  select(-sp1, -sp2, -rep1, -rep2) |>
-  distinct()
+reductions <- deframe(select(species_data, species, reduced))
+orthologs <- prepare_orthologs(se_list, reductions)
 
 cat(nrow(orthologs), "ortholog pairs across",
-    nrow(pairs), "species pairs\n")
+    length(utils::combn(species, 2, simplify = FALSE)), "species pairs\n")
 ```
 
 ## 2. Pairwise comparison and HOG-level testing
@@ -197,66 +170,27 @@ The HOG-level q-values determine which edges are co-expressologs
 (conserved co-expression relationships):
 
 ```{r comparison}
-# Helper: build edges from raw comparison + HOG-level q-values
-build_perm_edges <- function(comp, hog_res, sp_a, sp_b, alpha = 0.05) {
-  comp |>
-    as_tibble() |>
-    left_join(hog_res |> select(hog, q.value), by = "hog") |>
-    transmute(
-      gene1 = Species1,
-      gene2 = Species2,
-      species1 = sp_a,
-      species2 = sp_b,
-      hog,
-      q.value,
-      effect_size = sqrt(Species1.effect.size * Species2.effect.size),
-      type = if_else(!is.na(q.value) & q.value < alpha, "conserved", "ns")
-    )
-}
-
 n_cores <- min(4L, parallel::detectCores(logical = FALSE))
 
-# Run all 28 pairs: nested tibble with comp + hog_res as list-columns
-comparisons <- pairs |>
-  mutate(
-    comp = map2(sp1, sp2, \(a, b)
-      compare_neighborhoods(networks[[a]], networks[[b]], orthologs)),
-    hog_res = pmap(list(sp1, sp2, comp), \(a, b, c) {
-      if (nrow(c) == 0) return(NULL)
-      permutation_hog_test(networks[[a]], networks[[b]], c,
-                           n_cores = n_cores, use_torch = TRUE)
-    })
-  ) |>
-  filter(map_int(comp, nrow) > 0)
-
-edges <- comparisons |>
-  pmap(\(sp1, sp2, comp, hog_res, ...)
-    build_perm_edges(comp, hog_res, sp1, sp2)) |>
-  list_rbind()
-
-all_hog <- comparisons |>
-  transmute(hog_res = map2(hog_res, paste(sp1, sp2, sep = "-"), \(h, pair)
-    h |> as_tibble() |> mutate(pair = pair))) |>
-  pull(hog_res) |>
-  list_rbind()
+edges <- find_coexpressologs(networks, orthologs,
+  method = "permutation", use_torch = TRUE, n_cores = n_cores)
 
 cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
     sum(edges$type == "ns"), "non-significant\n")
-cat(nrow(all_hog), "HOG tests,",
-    sum(all_hog$q.value < 0.05), "significant (q < 0.05)\n")
 ```
 
-For quick exploration without GPU, `run_pairwise_comparisons()` provides
-a faster analytical path using pair-level Storey q-values (less
-statistically rigorous for multi-copy HOGs):
+For quick exploration without GPU, the `"analytical"` method uses
+pair-level Storey q-values (less statistically rigorous for multi-copy
+HOGs, but much faster):
 
 ```{r analytical-edges}
-edges_analytical <- run_pairwise_comparisons(networks, orthologs)
+edges_analytical <- find_coexpressologs(networks, orthologs,
+  method = "analytical")
 cat("Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n")
 cat("Permutation:", sum(edges$type == "conserved"), "conserved edges\n")
 ```
 
-## 4. Module-level analysis
+## 3. Module-level analysis
 
 To identify regulatory signatures of parallel life-cycle evolution, we
 detect modules in all eight species and compare across each of the four
@@ -379,29 +313,10 @@ which is the standard definition of a hub gene. All three centrality
 measures (degree, betweenness, eigenvector) are reported regardless of
 which is chosen as primary.
 
-The `comparison` argument is used only as a late tie-breaker (tier 5
-of 6) when two genes have identical centrality -- the one with the
-lower HOG-level q-value wins. We use each species' within-pair
-comparison for this:
-
 ```{r module-hubs}
-# Pre-build a named list: species -> within-pair comparison result
-pair_comps <- bind_rows(
-  phylo_pairs |> transmute(sp = annual,    partner = perennial),
-  phylo_pairs |> transmute(sp = perennial, partner = annual)
-) |>
-  mutate(comp = map2(sp, partner, \(s, p) {
-    row <- comparisons |>
-      filter((sp1 == s & sp2 == p) | (sp1 == p & sp2 == s))
-    row$comp[[1]]
-  })) |>
-  select(sp, comp) |>
-  deframe()
-
 species_data <- species_data |>
   mutate(hubs = pmap(list(species, modules, network), \(sp, mod, net)
-    identify_module_hubs(mod, net, orthologs,
-                         comparison = pair_comps[[sp]])))
+    identify_module_hubs(mod, net, orthologs)))
 
 species_data |>
   transmute(species, trait,
@@ -473,7 +388,7 @@ if (length(candidate) == 1) {
 }
 ```
 
-## 5. Edge robustness: density sweep
+## 4. Edge robustness: density sweep
 
 **Network density** controls how many edges are retained in the
 co-expression network. At 3% density, only the top 3% of all
@@ -499,46 +414,16 @@ neighborhoods change with the threshold, altering the HOG-level
 q-values:
 
 ```{r density-sweep}
-sweep <- tibble(multiplier = seq(0.95, 1.05, by = 0.01)) |>
-  mutate(results = map(multiplier, \(m) {
-    tight_nets <- map(networks, \(net)
-      list(network = net$network, threshold = net$threshold * m))
-
-    eff_density <- mean(map_dbl(networks, \(net) {
-      vals <- net$network[upper.tri(net$network)]
-      mean(vals >= net$threshold * m)
-    }))
-
-    tight_edges <- pairs |>
-      mutate(edges = map2(sp1, sp2, \(a, b) {
-        comp <- tryCatch(
-          compare_neighborhoods(tight_nets[[a]], tight_nets[[b]], orthologs),
-          error = \(e) NULL)
-        if (is.null(comp) || nrow(comp) == 0) return(NULL)
-        hog_res <- permutation_hog_test(
-          tight_nets[[a]], tight_nets[[b]], comp,
-          n_cores = n_cores, use_torch = TRUE)
-        build_perm_edges(comp, hog_res, a, b)
-      })) |>
-      pull(edges) |>
-      compact() |>
-      list_rbind()
-
-    if (is.null(tight_edges) || nrow(tight_edges) == 0) {
-      tight_edges <- edges[0, ]
-    }
-
-    list(edges = tight_edges, eff_density = eff_density,
-         n_conserved = sum(tight_edges$type == "conserved"))
-  })) |>
-  unnest_wider(results)
+sweep <- density_sweep(networks, orthologs,
+  multipliers = seq(0.95, 1.05, by = 0.01),
+  method = "permutation", use_torch = TRUE, n_cores = n_cores)
 
 # Edge survival across density levels
 sweep |>
   transmute(
     Multiplier = paste0(multiplier, "x"),
     Eff_density = sprintf("%.2f%%", eff_density * 100),
-    Conserved_edges = n_conserved,
+    Conserved_edges = n_significant,
     Baseline = if_else(multiplier == 1, "***", "")
   ) |>
   show_table(caption = "Conserved edges across density levels")
@@ -566,7 +451,7 @@ may form from HOGs that become significant at stricter thresholds.
 Use persistence for screening or when GPU is unavailable; use the full
 sweep for publication-quality robustness assessment.
 
-## 6. Clique detection and structural stability
+## 5. Clique detection and structural stability
 
 Using edges from the baseline density level, we find cliques and
 test their structural stability via leave-k-out jackknife. The
@@ -608,7 +493,7 @@ tibble(stability_class = stab$stability_class) |>
   show_table(pageLength = 10, caption = "Stability class distribution")
 ```
 
-## 7. HOG classification with robustness ranking
+## 6. HOG classification with robustness ranking
 
 Classify each HOG by its conservation pattern, then rank within each
 category by robustness. The waterfall assigns each HOG to exactly one

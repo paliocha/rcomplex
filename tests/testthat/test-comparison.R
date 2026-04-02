@@ -11,8 +11,7 @@ test_that("compare_neighborhoods returns correct structure", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
     Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    hog = 1:30,
-    stringsAsFactors = FALSE
+    hog = 1:30
   )
 
   result <- compare_neighborhoods(net1, net2, ortho)
@@ -42,8 +41,7 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
     Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    hog = 1:30,
-    stringsAsFactors = FALSE
+    hog = 1:30
   )
 
   result <- compare_neighborhoods(net1, net2, ortho)
@@ -77,8 +75,7 @@ test_that("C++ comparison matches R reference", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
     Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    hog = 1:30,
-    stringsAsFactors = FALSE
+    hog = 1:30
   )
 
   cpp_result <- compare_neighborhoods(net1, net2, ortho)
@@ -150,8 +147,7 @@ test_that("multicopy orthologs handled correctly", {
   ortho <- data.frame(
     Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
     Species2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
-    hog = c(1:30, 1),
-    stringsAsFactors = FALSE
+    hog = c(1:30, 1)
   )
 
   result <- compare_neighborhoods(net1, net2, ortho)
@@ -176,8 +172,7 @@ test_that("orthologs not in network are filtered", {
   ortho <- data.frame(
     Species1 = c("A_001", "A_002", "A_999"),
     Species2 = c("B_001", "B_002", "B_999"),
-    hog = 1:3,
-    stringsAsFactors = FALSE
+    hog = 1:3
   )
 
   result <- compare_neighborhoods(net1, net2, ortho)
@@ -227,8 +222,7 @@ test_that("divergence p-values detect disjoint neighborhoods", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:n)),
     Species2 = paste0("B_", sprintf("%03d", 1:n)),
-    hog = 1:n,
-    stringsAsFactors = FALSE
+    hog = 1:n
   )
 
   result <- compare_neighborhoods(net1, net2, ortho)
@@ -263,8 +257,7 @@ test_that("identical neighborhoods give high divergence p-value", {
   ortho <- data.frame(
     Species1 = paste0("G_", sprintf("%03d", 1:n)),
     Species2 = paste0("H_", sprintf("%03d", 1:n)),
-    hog = 1:n,
-    stringsAsFactors = FALSE
+    hog = 1:n
   )
 
   result <- compare_neighborhoods(net1, net2, ortho)
@@ -300,8 +293,7 @@ test_that("effect size < 1 when overlap is less than expected", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:n)),
     Species2 = paste0("B_", sprintf("%03d", 1:n)),
-    hog = 1:n,
-    stringsAsFactors = FALSE
+    hog = 1:n
   )
 
   result <- compare_neighborhoods(net1, net2, ortho)
@@ -380,8 +372,7 @@ test_that("run_pairwise_comparisons returns combined edges for 2 species", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
     Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    hog = paste0("HOG", 1:30),
-    stringsAsFactors = FALSE
+    hog = paste0("HOG", 1:30)
   )
 
   result <- run_pairwise_comparisons(
@@ -414,8 +405,7 @@ test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
     Species2 = c(paste0("B_", sprintf("%03d", 1:20)),
                  paste0("C_", sprintf("%03d", 1:20)),
                  paste0("C_", sprintf("%03d", 1:20))),
-    hog = rep(paste0("HOG", 1:20), 3),
-    stringsAsFactors = FALSE
+    hog = rep(paste0("HOG", 1:20), 3)
   )
 
   result <- run_pairwise_comparisons(nets, ortho)
@@ -458,8 +448,7 @@ test_that("run_pairwise_comparisons with custom species_pairs", {
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:20)),
     Species2 = paste0("B_", sprintf("%03d", 1:20)),
-    hog = paste0("HOG", 1:20),
-    stringsAsFactors = FALSE
+    hog = paste0("HOG", 1:20)
   )
 
   # Only compare A vs B, skip A-C and B-C
@@ -469,4 +458,135 @@ test_that("run_pairwise_comparisons with custom species_pairs", {
   if (nrow(result) > 0) {
     expect_true(all(result$species1 == "SP_A" & result$species2 == "SP_B"))
   }
+})
+
+
+# --- Shared fixtures for find_coexpressologs / density_sweep ---
+
+make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
+                                  density = 0.1) {
+  set.seed(42)
+  expr1 <- matrix(rnorm(n1 * 10), nrow = n1, ncol = 10)
+  rownames(expr1) <- paste0("A_", sprintf("%03d", seq_len(n1)))
+  expr2 <- matrix(rnorm(n2 * 10), nrow = n2, ncol = 10)
+  rownames(expr2) <- paste0("B_", sprintf("%03d", seq_len(n2)))
+
+  net1 <- compute_network(expr1, density = density, mr_log_transform = FALSE)
+  net2 <- compute_network(expr2, density = density, mr_log_transform = FALSE)
+
+  ortho <- data.frame(
+    Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+    Species2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+    hog = paste0("HOG", seq_len(n_ortho))
+  )
+
+  list(nets = list(SP_A = net1, SP_B = net2), ortho = ortho)
+}
+
+
+test_that("find_coexpressologs default method is analytical", {
+  skip_on_cran()
+  fix <- make_coexpr_fixtures()
+  result_default <- find_coexpressologs(fix$nets, fix$ortho)
+  result_explicit <- find_coexpressologs(fix$nets, fix$ortho,
+                                          method = "analytical")
+  expect_identical(result_default, result_explicit)
+})
+
+
+test_that("find_coexpressologs with method='permutation' returns correct structure", {
+  skip_on_cran()
+  fix <- make_coexpr_fixtures()
+  result <- find_coexpressologs(fix$nets, fix$ortho, method = "permutation")
+
+  expect_true(is.data.frame(result))
+  expect_true(all(c("gene1", "gene2", "species1", "species2",
+                     "hog", "q.value", "effect_size", "type")
+                  %in% names(result)))
+  expect_true(all(result$type %in% c("conserved", "ns")))
+})
+
+
+# --- Tests for density_sweep() ---
+
+test_that("density_sweep returns correct structure", {
+  fix <- make_coexpr_fixtures()
+  mults <- c(0.98, 1.0, 1.02)
+
+  result <- suppressMessages(density_sweep(
+    networks = fix$nets, orthologs = fix$ortho, multipliers = mults
+  ))
+
+  expect_s3_class(result, "data.frame")
+  expect_equal(nrow(result), 3)
+  expect_true(all(c("multiplier", "eff_density", "n_significant", "edges")
+                   %in% names(result)))
+  expect_equal(result$multiplier, mults)
+  expect_true(is.numeric(result$eff_density))
+  expect_true(is.integer(result$n_significant))
+  expect_true(is.list(result$edges))
+  for (j in seq_len(nrow(result))) {
+    expect_s3_class(result$edges[[j]], "data.frame")
+  }
+})
+
+
+test_that("density_sweep at multiplier=1 matches find_coexpressologs", {
+  fix <- make_coexpr_fixtures()
+
+  result <- suppressMessages(density_sweep(
+    networks = fix$nets, orthologs = fix$ortho,
+    multipliers = 1.0, method = "analytical"
+  ))
+
+  expect_equal(nrow(result), 1)
+  expect_equal(result$multiplier, 1.0)
+
+  direct <- find_coexpressologs(
+    networks = fix$nets, orthologs = fix$ortho, method = "analytical"
+  )
+
+  sweep_edges <- result$edges[[1]]
+  sweep_edges <- sweep_edges[order(sweep_edges$gene1, sweep_edges$gene2), ]
+  direct <- direct[order(direct$gene1, direct$gene2), ]
+  rownames(sweep_edges) <- rownames(direct) <- NULL
+  expect_identical(sweep_edges, direct)
+})
+
+
+test_that("density_sweep validates inputs", {
+  dummy_ortho <- data.frame(Species1 = "A", Species2 = "B", hog = "H1")
+
+  expect_error(
+    density_sweep(c(a = 1, b = 2), dummy_ortho),
+    "networks must be a named list"
+  )
+  expect_error(
+    density_sweep(list(A = list(network = matrix(0), threshold = 1)),
+                   dummy_ortho),
+    "networks must contain at least 2 species"
+  )
+  expect_error(
+    density_sweep(list(A = list(network = matrix(0)),
+                        B = list(network = matrix(0), threshold = 1)),
+                   dummy_ortho),
+    "each network must have 'network' and 'threshold' elements"
+  )
+
+  net_a <- list(network = matrix(0, 2, 2), threshold = 1)
+  net_b <- list(network = matrix(0, 2, 2), threshold = 1)
+  expect_error(
+    density_sweep(list(A = net_a, B = net_b), dummy_ortho,
+                   multipliers = character(0)),
+    "multipliers must be a non-empty numeric vector"
+  )
+  expect_error(
+    density_sweep(list(A = net_a, B = net_b), dummy_ortho,
+                   multipliers = -1),
+    "all multipliers must be positive"
+  )
+  expect_error(
+    density_sweep(list(A = net_a, B = net_b), data.frame(x = 1)),
+    "orthologs must have columns"
+  )
 })
