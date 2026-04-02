@@ -1075,9 +1075,32 @@ test_that("coarsen_modules validates inputs", {
                          objective_function = "modularity", seed = 42)
 
   expect_error(coarsen_modules(mods, target_n_modules = 0L),
-               "target_n_modules must be >= 1")
+               "target_n_modules must be")
+  expect_error(coarsen_modules(mods, target_n_modules = NA),
+               "target_n_modules must be")
+  expect_error(coarsen_modules(mods, target_n_modules = Inf),
+               "target_n_modules must be")
   expect_error(coarsen_modules(list(x = 1), target_n_modules = 2L),
                "modules must be output from detect_modules")
+})
+
+
+test_that("coarsen_modules warns on zero inter-module edges", {
+  # Block-diagonal: two completely disconnected modules
+  n <- 20
+  mat <- matrix(0, n, n)
+  rownames(mat) <- colnames(mat) <- paste0("G", 1:n)
+  mat[1:10, 1:10] <- 0.9
+  mat[11:20, 11:20] <- 0.9
+  diag(mat) <- 1
+  net <- list(network = mat, threshold = 0.5)
+
+  mods <- detect_modules(net, method = "leiden", resolution = 2.0,
+                         objective_function = "modularity", seed = 42)
+  expect_true(mods$n_modules >= 2)
+
+  expect_warning(coarsen_modules(mods, target_n_modules = 1L),
+                 "No inter-module edges")
 })
 
 
@@ -1112,4 +1135,132 @@ test_that("coarsening reduces false species-specific calls", {
   n_ss_natural <- sum(class_natural$classification == "species_specific")
   n_ss_matched <- sum(class_matched$classification == "species_specific")
   expect_true(n_ss_matched <= n_ss_natural)
+})
+
+
+# ---- compare_modules_paired() tests ----
+
+test_that("compare_modules_paired returns correct structure", {
+  td <- make_module_test_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+
+  result <- compare_modules_paired(
+    modules = list(A = m1, B = m2),
+    orthologs = td$orthologs,
+    pairs = data.frame(sp1 = "A", sp2 = "B"),
+    method = "hypergeometric"
+  )
+
+  expect_type(result, "list")
+  expect_named(result, c("classification", "matched_classification",
+                          "summary", "module_counts", "raw"),
+               ignore.order = TRUE)
+  expect_true(is.data.frame(result$classification))
+  expect_true(all(c("pair_name", "module", "species", "classification")
+                  %in% names(result$classification)))
+  expect_true(is.data.frame(result$module_counts))
+  expect_true(is.list(result$raw))
+})
+
+
+test_that("compare_modules_paired tags traits when species_trait given", {
+  td <- make_module_test_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+
+  result <- compare_modules_paired(
+    list(A = m1, B = m2), td$orthologs,
+    pairs = data.frame(sp1 = "A", sp2 = "B"),
+    species_trait = c(A = "annual", B = "perennial"),
+    method = "hypergeometric"
+  )
+
+  expect_true("trait" %in% names(result$classification))
+  traits <- unique(result$classification$trait)
+  expect_true(all(traits %in% c("annual", "perennial", "conserved")))
+})
+
+
+test_that("compare_modules_paired matched_scale triggers on ratio", {
+  td <- make_asymmetric_module_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden", resolution = 2.0,
+                        objective_function = "modularity", seed = 42)
+
+  # m1 has 2 modules, m2 has 4 → ratio = 2.0
+  result <- compare_modules_paired(
+    list(A = m1, B = m2), td$orthologs,
+    pairs = data.frame(sp1 = "A", sp2 = "B"),
+    matched_scale = TRUE, coarsen_ratio = 1.5,
+    method = "hypergeometric"
+  )
+  expect_false(is.null(result$matched_classification))
+
+  # With higher threshold, no coarsening
+  result2 <- compare_modules_paired(
+    list(A = m1, B = m2), td$orthologs,
+    pairs = data.frame(sp1 = "A", sp2 = "B"),
+    matched_scale = TRUE, coarsen_ratio = 5,
+    method = "hypergeometric"
+  )
+  expect_null(result2$matched_classification)
+})
+
+
+test_that("compare_modules_paired matched_scale=FALSE skips coarsening", {
+  td <- make_asymmetric_module_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden", resolution = 2.0,
+                        objective_function = "modularity", seed = 42)
+
+  result <- compare_modules_paired(
+    list(A = m1, B = m2), td$orthologs,
+    pairs = data.frame(sp1 = "A", sp2 = "B"),
+    matched_scale = FALSE, method = "hypergeometric"
+  )
+  expect_null(result$matched_classification)
+})
+
+
+test_that("compare_modules_paired raw is compatible with classify_hub_conservation", {
+  td <- make_module_test_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+  m2 <- detect_modules(td$net2, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+
+  result <- compare_modules_paired(
+    list(A = m1, B = m2), td$orthologs,
+    pairs = data.frame(sp1 = "A", sp2 = "B"),
+    method = "hypergeometric"
+  )
+
+  # $raw should be a named list usable as module_comparisons
+  expect_equal(names(result$raw), "A.B")
+  expect_true(all(c("pairs", "best_matches") %in% names(result$raw[[1]])))
+})
+
+
+test_that("compare_modules_paired validates inputs", {
+  td <- make_module_test_data()
+  m1 <- detect_modules(td$net1, method = "leiden",
+                        objective_function = "modularity", seed = 42)
+
+  expect_error(
+    compare_modules_paired(list(A = m1), td$orthologs,
+      pairs = data.frame(sp1 = "A", sp2 = "MISSING")),
+    "species not found"
+  )
+  expect_error(
+    compare_modules_paired(list(A = m1), td$orthologs,
+      pairs = data.frame(x = "A", y = "B")),
+    "sp1.*sp2"
+  )
 })

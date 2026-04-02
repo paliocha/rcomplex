@@ -319,61 +319,46 @@ show_table(modules$BDIS$resolution_scan, caption = "Resolution scan (BDIS)")
 
 ### Module comparison across phylogenetic pairs
 
-We compare modules between the annual and perennial member of each
-of the four phylogenetic pairs using Jaccard permutation -- the null
-shuffles the ortholog mapping (which sp1 gene maps to which sp2 gene)
-via Fisher-Yates, preserving module structure and ortholog count while
-breaking gene identity. This is more principled than the hypergeometric
-alternative, which assumes independent sampling and can be
-anti-conservative for multi-copy HOGs. `classify_modules()` labels
-each module as conserved, partially conserved, or species-specific.
-Since sp1 = annual and sp2 = perennial in every pair, the `species`
-column directly tells us which trait group a species-specific module
-belongs to:
+`compare_modules_paired()` wraps the full comparison pipeline into a
+single call: for each pair it runs Jaccard permutation (shuffling the
+ortholog mapping), classifies modules as conserved / species-specific,
+tags trait-specificity from the `species_trait` vector, and auto-
+coarsens the finer-grained partition when the module-count ratio
+exceeds 2-fold:
 
 ```{r module-comparison}
-mod_comparisons <- phylo_pairs |>
-  mutate(
-    mod_comp = map2(annual, perennial, \(a, p)
-      compare_modules(modules[[a]], modules[[p]], orthologs,
-                      method = "jaccard", n_cores = n_cores)),
-    classification = map2(mod_comp, pair_name, \(mc, pn) {
-      classify_modules(mc) |>
-        mutate(
-          pair = pn,
-          trait = case_when(
-            classification != "species_specific" ~ "conserved",
-            species == "sp1" ~ "annual",
-            species == "sp2" ~ "perennial"
-          )
-        )
-    })
-  )
+mod_results <- compare_modules_paired(
+  modules, orthologs,
+  pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
+  species_trait = trait_vec,
+  matched_scale = TRUE, coarsen_ratio = 2,
+  method = "jaccard", n_cores = n_cores
+)
 
-mod_comparisons |>
-  transmute(pair_name, classification) |>
-  unnest(classification) |>
-  count(pair_name, trait) |>
-  pivot_wider(names_from = trait, values_from = n, values_fill = 0) |>
-  show_table(caption = "Module trait-specificity across phylogenetic pairs")
+show_table(mod_results$module_counts,
+           caption = "Module count ratio per pair")
+show_table(mod_results$summary,
+           caption = "Module conservation: natural vs matched scale")
 ```
 
 Do any HOGs consistently land in annual-specific modules across
 independent lineages? That would be strong evidence for parallel
-re-use of regulatory programs. We extract the HOG content of
-annual-specific modules in each pair and count cross-pair recurrence:
+re-use of regulatory programs:
 
 ```{r module-parallel}
-annual_module_hogs <- mod_comparisons |>
-  pmap(\(pair_name, annual, perennial, mod_comp, classification, ...) {
-    annual_mods <- classification |>
-      filter(trait == "annual") |>
+annual_cls <- mod_results$classification |>
+  filter(trait == "annual")
+
+annual_module_hogs <- phylo_pairs |>
+  pmap(\(pair_name, annual, ...) {
+    mods_in_pair <- annual_cls |>
+      filter(pair_name == !!pair_name) |>
       pull(module)
-    if (length(annual_mods) == 0L) return(tibble(hog = character(0), pair = character(0)))
-    annual_genes <- unlist(modules[[annual]]$module_genes[as.character(annual_mods)])
-    # annual species was passed as modules1 (Species1 column in orthologs)
+    if (length(mods_in_pair) == 0L)
+      return(tibble(hog = character(0), pair = character(0)))
+    genes <- unlist(modules[[annual]]$module_genes[as.character(mods_in_pair)])
     orthologs |>
-      filter(Species1 %in% annual_genes) |>
+      filter(Species1 %in% genes) |>
       distinct(hog) |>
       mutate(pair = pair_name)
   }) |>
@@ -383,72 +368,6 @@ annual_module_hogs |>
   count(hog, name = "n_pairs") |>
   count(n_pairs, name = "n_hogs") |>
   show_table(caption = "HOG recurrence in annual-specific modules across pairs")
-```
-
-### Matched-scale module comparison
-
-Species networks have intrinsically different modular structure --
-FPRA has `r modules$FPRA$n_modules` modules while VBRO has only
-`r modules$VBRO$n_modules`. When module counts differ by more than
-2-fold, the Jaccard comparison is biased: one large module in the
-coarser species may correspond to several fragments in the finer
-species, but only the best 1:1 match is used. `coarsen_modules()`
-merges modules in the finer-grained partition via hierarchical
-clustering on inter-module edge density, producing a matched-granularity
-comparison:
-
-```{r matched-scale}
-mod_ratios <- phylo_pairs |>
-  transmute(
-    pair_name,
-    n_annual    = map_int(annual, \(sp) modules[[sp]]$n_modules),
-    n_perennial = map_int(perennial, \(sp) modules[[sp]]$n_modules),
-    ratio       = pmax(n_annual, n_perennial) / pmin(n_annual, n_perennial)
-  )
-show_table(mod_ratios, caption = "Module count ratio per pair")
-```
-
-```{r matched-comparison}
-matched_comparisons <- phylo_pairs |>
-  mutate(
-    n_a = map_int(annual, \(sp) modules[[sp]]$n_modules),
-    n_p = map_int(perennial, \(sp) modules[[sp]]$n_modules),
-    target = pmin(n_a, n_p),
-    mod_a = map2(annual, target, \(sp, t)
-      if (modules[[sp]]$n_modules > t) coarsen_modules(modules[[sp]], t)
-      else modules[[sp]]),
-    mod_p = map2(perennial, target, \(sp, t)
-      if (modules[[sp]]$n_modules > t) coarsen_modules(modules[[sp]], t)
-      else modules[[sp]]),
-    matched_comp = map2(mod_a, mod_p, \(a, p)
-      compare_modules(a, p, orthologs, method = "jaccard",
-                      n_cores = n_cores)),
-    matched_class = map2(matched_comp, pair_name, \(mc, pn) {
-      classify_modules(mc) |>
-        mutate(pair = pn, trait = case_when(
-          classification != "species_specific" ~ "conserved",
-          species == "sp1" ~ "annual",
-          species == "sp2" ~ "perennial"
-        ))
-    })
-  )
-
-# Side-by-side: natural vs matched scale
-natural <- mod_comparisons |>
-  transmute(pair_name, classification) |> unnest(classification) |>
-  count(pair_name, trait) |>
-  pivot_wider(names_from = trait, values_from = n, values_fill = 0) |>
-  mutate(scale = "natural")
-
-matched <- matched_comparisons |>
-  transmute(pair_name, matched_class) |> unnest(matched_class) |>
-  count(pair_name, trait) |>
-  pivot_wider(names_from = trait, values_from = n, values_fill = 0) |>
-  mutate(scale = "matched")
-
-bind_rows(natural, matched) |>
-  relocate(scale, .after = pair_name) |>
-  show_table(caption = "Module conservation: natural vs matched scale")
 ```
 
 ### Hub genes and trait conservation
@@ -496,9 +415,7 @@ species_data |>
 hub_class <- classify_hub_conservation(
   deframe(select(species_data, species, hubs)),
   trait_vec,
-  module_comparisons = deframe(
-    mod_comparisons |>
-      transmute(key = paste(annual, perennial, sep = "."), mod_comp))
+  module_comparisons = mod_results$raw
 )
 
 hub_class |>

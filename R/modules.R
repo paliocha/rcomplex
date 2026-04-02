@@ -1093,7 +1093,8 @@ coarsen_modules <- function(modules, target_n_modules) {
   }
 
   target_n_modules <- as.integer(target_n_modules)
-  if (target_n_modules < 1L) stop("target_n_modules must be >= 1")
+  if (is.na(target_n_modules) || target_n_modules < 1L)
+    stop("target_n_modules must be a finite integer >= 1")
 
   n_current <- modules$n_modules
   if (target_n_modules >= n_current) return(modules)
@@ -1113,7 +1114,9 @@ coarsen_modules <- function(modules, target_n_modules) {
   i_mod <- mod_idx[as.character(mem[el[, 1]])]
   j_mod <- mod_idx[as.character(mem[el[, 2]])]
 
-  # Keep only inter-module edges, count by (i, j) pair
+  # Keep only inter-module edges, count by (i, j) pair.
+  # Row-major linear index; matrix() fills column-major so D is
+  # transposed, but D + t(D) symmetrizes immediately after.
   inter <- i_mod != j_mod
   counts <- tabulate(
     (i_mod[inter] - 1L) * n_mod + j_mod[inter],
@@ -1168,6 +1171,204 @@ coarsen_modules <- function(modules, target_n_modules) {
     )),
     merge_map = merge_map,
     merge_dendrogram = hc
+  )
+}
+
+
+#' Compare modules across multiple species pairs
+#'
+#' Wraps [compare_modules()], [classify_modules()], and optionally
+#' [coarsen_modules()] into a single call that processes all species
+#' pairs, tags trait-specificity, and performs matched-scale comparison
+#' when module counts differ substantially.
+#'
+#' @param modules Named list of [detect_modules()] outputs, keyed by
+#'   species code.
+#' @param orthologs Data frame with columns `Species1`, `Species2`,
+#'   and `hog`.
+#' @param pairs Data frame with columns `sp1` and `sp2` (species codes
+#'   matching names of `modules`). An optional `pair_name` column is
+#'   used for labelling; if absent, `"sp1.sp2"` is used.
+#' @param species_trait Optional named character vector mapping species
+#'   codes to trait labels (e.g., `c(BDIS = "annual")`). When provided,
+#'   species-specific modules are tagged with their species' trait.
+#' @param method Comparison method passed to [compare_modules()]:
+#'   `"jaccard"` (default) or `"hypergeometric"`.
+#' @param matched_scale Logical. If `TRUE` (default), pairs whose
+#'   module-count ratio exceeds `coarsen_ratio` are re-compared at
+#'   matched granularity via [coarsen_modules()].
+#' @param coarsen_ratio Numeric threshold for triggering coarsening
+#'   (default 2). Only used when `matched_scale = TRUE`.
+#' @param alpha Significance level for [classify_modules()] (default 0.05).
+#' @param jaccard_threshold Minimum Jaccard for a module to be called
+#'   conserved (default 0.1).
+#' @param min_exceedances Besag-Clifford parameter for Jaccard method
+#'   (default 50).
+#' @param max_permutations Maximum permutations for Jaccard method
+#'   (default 10000).
+#' @param n_cores Number of threads (default 1).
+#'
+#' @return A list with components:
+#'   \describe{
+#'     \item{classification}{Data frame with columns `pair_name`,
+#'       `module`, `species`, `classification`, `trait` (if
+#'       `species_trait` provided), `best_match`, `best_jaccard`,
+#'       `best_q`, `n_significant`.}
+#'     \item{matched_classification}{Same structure at matched scale,
+#'       or `NULL` if no pair exceeds `coarsen_ratio`.}
+#'     \item{summary}{Trait-aggregated counts per pair and scale,
+#'       ready for display.}
+#'     \item{module_counts}{Data frame with `pair_name`, `n_sp1`,
+#'       `n_sp2`, `ratio`.}
+#'     \item{raw}{Named list of per-pair [compare_modules()] outputs,
+#'       keyed as `"sp1.sp2"`. Compatible with
+#'       [classify_hub_conservation(module_comparisons=)].}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' mod_results <- compare_modules_paired(
+#'   modules, orthologs,
+#'   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
+#'                      sp2 = c("BSYL", "HJUB")),
+#'   species_trait = c(BDIS = "annual", BSYL = "perennial",
+#'                     HVUL = "annual", HJUB = "perennial"),
+#'   method = "jaccard", n_cores = 4L
+#' )
+#' mod_results$summary
+#' }
+#'
+#' @export
+compare_modules_paired <- function(modules, orthologs, pairs,
+                                   species_trait = NULL,
+                                   method = c("jaccard", "hypergeometric"),
+                                   matched_scale = TRUE,
+                                   coarsen_ratio = 2,
+                                   alpha = 0.05,
+                                   jaccard_threshold = 0.1,
+                                   min_exceedances = 50L,
+                                   max_permutations = 10000L,
+                                   n_cores = 1L) {
+  method <- match.arg(method)
+  if (!is.list(modules) || is.null(names(modules)))
+    stop("modules must be a named list keyed by species")
+  if (!all(c("sp1", "sp2") %in% names(pairs)))
+    stop("pairs must have columns 'sp1' and 'sp2'")
+  missing_sp <- setdiff(c(pairs$sp1, pairs$sp2), names(modules))
+  if (length(missing_sp))
+    stop("species not found in modules: ", paste(missing_sp, collapse = ", "))
+
+  if (!"pair_name" %in% names(pairs))
+    pairs$pair_name <- paste(pairs$sp1, pairs$sp2, sep = ".")
+
+  has_trait <- !is.null(species_trait)
+
+  # Tag one pair's classification with trait info
+  tag_classification <- function(cls, sp1, sp2, pair_name) {
+    cls$pair_name <- pair_name
+    if (has_trait) {
+      cls$trait <- dplyr::case_when(
+        cls$classification != "species_specific" ~ "conserved",
+        cls$species == "sp1" ~ species_trait[sp1],
+        cls$species == "sp2" ~ species_trait[sp2]
+      )
+    }
+    cls
+  }
+
+  # Process each pair
+  n_pairs <- nrow(pairs)
+  raw_list <- vector("list", n_pairs)
+  class_list <- vector("list", n_pairs)
+  matched_list <- vector("list", n_pairs)
+  n_sp1 <- integer(n_pairs)
+  n_sp2 <- integer(n_pairs)
+
+  for (p in seq_len(n_pairs)) {
+    s1 <- pairs$sp1[p]
+    s2 <- pairs$sp2[p]
+    pn <- pairs$pair_name[p]
+    m1 <- modules[[s1]]
+    m2 <- modules[[s2]]
+    n_sp1[p] <- m1$n_modules
+    n_sp2[p] <- m2$n_modules
+
+    # Natural-scale comparison
+    comp <- compare_modules(m1, m2, orthologs, method = method,
+                            min_exceedances = min_exceedances,
+                            max_permutations = max_permutations,
+                            n_cores = n_cores)
+    raw_list[[p]] <- comp
+    class_list[[p]] <- tag_classification(
+      classify_modules(comp, alpha = alpha,
+                       jaccard_threshold = jaccard_threshold),
+      s1, s2, pn
+    )
+
+    # Matched-scale comparison (if needed)
+    ratio <- max(n_sp1[p], n_sp2[p]) / max(1L, min(n_sp1[p], n_sp2[p]))
+    if (matched_scale && ratio > coarsen_ratio) {
+      target <- min(n_sp1[p], n_sp2[p])
+      cm1 <- if (m1$n_modules > target) coarsen_modules(m1, target) else m1
+      cm2 <- if (m2$n_modules > target) coarsen_modules(m2, target) else m2
+      comp_m <- compare_modules(cm1, cm2, orthologs, method = method,
+                                min_exceedances = min_exceedances,
+                                max_permutations = max_permutations,
+                                n_cores = n_cores)
+      matched_list[[p]] <- tag_classification(
+        classify_modules(comp_m, alpha = alpha,
+                         jaccard_threshold = jaccard_threshold),
+        s1, s2, pn
+      )
+    }
+  }
+
+  names(raw_list) <- paste(pairs$sp1, pairs$sp2, sep = ".")
+  classification <- do.call(rbind, class_list)
+
+  matched_notnull <- !vapply(matched_list, is.null, logical(1))
+  matched_classification <- if (any(matched_notnull)) {
+    do.call(rbind, matched_list[matched_notnull])
+  }
+
+  # Summary table
+  ratios <- pmax(n_sp1, n_sp2) / pmax(1L, pmin(n_sp1, n_sp2))
+  module_counts <- data.frame(
+    pair_name = pairs$pair_name,
+    n_sp1 = n_sp1, n_sp2 = n_sp2,
+    ratio = round(ratios, 1),
+    stringsAsFactors = FALSE
+  )
+
+  build_summary <- function(cls, scale_label) {
+    if (is.null(cls) || nrow(cls) == 0L) return(NULL)
+    count_col <- if (has_trait) "trait" else "classification"
+    agg <- stats::aggregate(
+      stats::as.formula(paste("module ~", "pair_name +", count_col)),
+      data = cls, FUN = length
+    )
+    names(agg)[3] <- "n"
+    wide <- stats::reshape(agg, idvar = "pair_name",
+                           timevar = count_col, direction = "wide")
+    names(wide) <- sub("^n\\.", "", names(wide))
+    wide[is.na(wide)] <- 0L
+    wide$scale <- scale_label
+    wide
+  }
+
+  summary_parts <- list(
+    build_summary(classification, "natural"),
+    build_summary(matched_classification, "matched")
+  )
+  summary_df <- do.call(rbind, Filter(Negate(is.null), summary_parts))
+  if (!is.null(summary_df)) rownames(summary_df) <- NULL
+
+  list(
+    classification = classification,
+    matched_classification = matched_classification,
+    summary = summary_df,
+    module_counts = module_counts,
+    raw = raw_list
   )
 }
 
