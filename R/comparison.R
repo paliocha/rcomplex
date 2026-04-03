@@ -255,6 +255,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   method = "permutation", use_torch = TRUE, n_cores = 4L)
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 find_coexpressologs <- function(networks, ...) UseMethod("find_coexpressologs")
 
@@ -426,6 +427,7 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'                         method = "permutation", use_torch = TRUE)
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 density_sweep <- function(networks, ...) UseMethod("density_sweep")
 

@@ -27,6 +27,8 @@ detect_modules(net, ...)
 \arguments{
 \item{net}{Network object from \code{\link[=compute_network]{compute_network()}}.}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{method}{Community detection method: \code{"leiden"} (default), \code{"infomap"},
 or \code{"sbm"}.}
 

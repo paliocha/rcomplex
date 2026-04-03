@@ -25,6 +25,8 @@ density_sweep(networks, ...)
 \arguments{
 \item{networks}{Named list of \code{\link{compute_network}} outputs.}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{orthologs}{Data frame with columns \code{Species1},
 \code{Species2}, \code{hog}.}
 

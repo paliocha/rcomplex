@@ -109,6 +109,7 @@ encode_clique_edges <- function(edges, target_species) {
 #' tolerant <- find_cliques(edges, target_species, max_missing_edges = 1L)
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 find_cliques <- function(edges, ...) UseMethod("find_cliques")
 
@@ -304,6 +305,7 @@ find_cliques.default <- function(edges, target_species,
 #' deeply_stable <- which(stab$stability_class >= 2)
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 clique_stability <- function(edges, ...) UseMethod("clique_stability")
 
@@ -986,6 +988,7 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' table(result$classification)
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 classify_cliques <- function(edges, ...) UseMethod("classify_cliques")
 

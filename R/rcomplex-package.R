@@ -39,6 +39,6 @@
 #' @importFrom methods setGeneric setMethod is new
 #' @importFrom rlang .data .env
 #' @importFrom stats setNames
-#' @importFrom utils read.delim
+#' @importFrom utils read.delim modifyList
 ## usethis namespace: end
 NULL

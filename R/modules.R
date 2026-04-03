@@ -113,6 +113,7 @@
 #'                                  n_cores = 4L)
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 detect_modules <- function(net, ...) UseMethod("detect_modules")
 
@@ -1231,7 +1232,7 @@ coarsen_modules <- function(modules, target_n_modules) {
 #'       `n_sp2`, `ratio`.}
 #'     \item{raw}{Named list of per-contrast [compare_modules()]
 #'       outputs, keyed as `"sp1.sp2"`. Compatible with
-#'       [classify_hub_conservation(module_comparisons=)].}
+#'       \code{\link{classify_hub_conservation}}.}
 #'   }
 #'
 #' @examples
@@ -1253,6 +1254,7 @@ coarsen_modules <- function(modules, target_n_modules) {
 #' )
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 compare_modules_paired <- function(modules, ...) {
   UseMethod("compare_modules_paired")
@@ -1485,6 +1487,7 @@ compare_modules_paired.default <- function(modules, orthologs, pairs,
 #' hubs[hubs$is_hub, ]
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 identify_module_hubs <- function(modules, ...) {
   UseMethod("identify_module_hubs")
@@ -1772,6 +1775,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #' classify_hub_conservation(hub_list, trait)
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
 classify_hub_conservation <- function(hub_results, ...) {
   UseMethod("classify_hub_conservation")

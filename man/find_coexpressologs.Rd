@@ -28,6 +28,8 @@ run_pairwise_comparisons(...)
 \item{networks}{Named list of \code{\link{compute_network}} outputs,
 keyed by species abbreviation.}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{orthologs}{Data frame with columns \code{Species1},
 \code{Species2}, \code{hog} (from \code{\link{parse_orthologs}} or
 \code{\link{extract_orthologs}}).}

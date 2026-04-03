@@ -22,6 +22,8 @@ identify_module_hubs(modules, ...)
 \arguments{
 \item{modules}{Output of \code{\link[=detect_modules]{detect_modules()}}.}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{net}{Output of \code{\link[=compute_network]{compute_network()}}.}
 
 \item{orthologs}{Optional data frame from \code{\link[=parse_orthologs]{parse_orthologs()}} with columns

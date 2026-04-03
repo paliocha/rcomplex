@@ -30,6 +30,8 @@ find_cliques(edges, ...)
 }
 Optionally includes a \code{type} column for filtering.}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{target_species}{Character vector of species abbreviations.}
 
 \item{min_species}{Minimum number of species per clique

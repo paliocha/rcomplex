@@ -30,6 +30,8 @@ classify_cliques(edges, ...)
 differentiated check needs to verify absence of cross-group
 conserved edges.}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{target_species}{Character vector of all species.}
 
 \item{species_trait}{Named character or factor vector mapping each

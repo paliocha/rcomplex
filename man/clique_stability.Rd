@@ -25,6 +25,8 @@ clique_stability(edges, ...)
 \arguments{
 \item{edges}{Data frame (same format as \code{\link{find_cliques}}).}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{target_species}{Character vector of species that define clique
 membership.}
 

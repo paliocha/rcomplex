@@ -27,6 +27,8 @@ compare_modules_paired(modules, ...)
 \item{modules}{Named list of \code{\link[=detect_modules]{detect_modules()}} outputs. Names are
 sample/species/condition identifiers.}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{orthologs}{Data frame with columns \code{Species1}, \code{Species2},
 and \code{hog}.}
 
@@ -80,7 +82,7 @@ or \code{NULL} if no contrast exceeds \code{coarsen_ratio}.}
 \code{n_sp2}, \code{ratio}.}
 \item{raw}{Named list of per-contrast \code{\link[=compare_modules]{compare_modules()}}
 outputs, keyed as \code{"sp1.sp2"}. Compatible with
-\link{classify_hub_conservation(module_comparisons=)}.}
+\code{\link{classify_hub_conservation}}.}
 }
 }
 \description{

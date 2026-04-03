@@ -23,6 +23,8 @@ classify_hub_conservation(hub_results, ...)
 data frame output of \code{\link[=identify_module_hubs]{identify_module_hubs()}} (with \code{orthologs}
 provided so the \code{hog} column is populated).}
 
+\item{...}{Additional arguments passed to the default method.}
+
 \item{species_trait}{Named character or factor vector mapping species to
 trait groups, e.g. \code{c(SP_A = "annual", SP_B = "annual", SP_C = "perennial", SP_D = "perennial")}.}
 
