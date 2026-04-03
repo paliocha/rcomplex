@@ -32,6 +32,8 @@ testing conservation at gene, module, and clique levels.
 \item{\code{\link[=clique_persistence]{clique_persistence()}}}{Co-expressolog persistence scores}
 \item{\code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}}{Threshold sweep (convenience wrapper)}
 \item{\code{\link[=classify_cliques]{classify_cliques()}}}{HOG classification (convenience wrapper)}
+\item{\code{\link[=characterize_hubs]{characterize_hubs()}}}{Regulatory potential metrics for hub genes}
+\item{\code{\link[=tag_permutation]{tag_permutation()}}}{Permutation test for trait-specific module recurrence}
 }
 }
 

@@ -58,8 +58,10 @@ level. Defaults to all pairwise combinations.}
 }
 \value{
 A data frame with columns \code{multiplier},
-\code{eff_density}, \code{n_significant}, and \code{edges}
-(list-column of edge data frames).
+\code{eff_density}, \code{n_significant}, \code{edges}
+(list-column of edge data frames), and \code{species_densities}
+(list-column of named numeric vectors giving the effective
+density per species at each threshold level).
 }
 \description{
 Reruns the full pairwise comparison pipeline at multiple threshold

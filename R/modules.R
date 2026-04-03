@@ -2006,3 +2006,130 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   rownames(result) <- NULL
   result
 }
+
+
+#' Characterize hub genes by regulatory potential
+#'
+#' Enriches the output of \code{\link{identify_module_hubs}} with
+#' metrics that help distinguish regulatory hubs (transcription
+#' factors, signalling genes) from downstream effectors.
+#'
+#' @section Metrics:
+#' \describe{
+#'   \item{bridge_fraction}{Fraction of a gene's weighted co-expression
+#'     connections that reach genes in \emph{other} modules. Values
+#'     near 0 indicate a gene embedded within its own module;
+#'     values above ~0.3 suggest a regulatory coordinator.
+#'     Computed as \code{1 - degree / global_degree}.}
+#'   \item{bt_degree_ratio}{Betweenness centrality divided by
+#'     within-module weighted degree. A high ratio indicates
+#'     importance for information flow (path bridging) relative to
+#'     raw connectivity --- a signature of regulatory hubs. A low
+#'     ratio indicates a well-connected but non-bridging gene,
+#'     typical of housekeeping or effector roles.}
+#'   \item{cv}{Coefficient of variation of expression across samples.
+#'     Regulators often show higher expression variability than their
+#'     targets because they \emph{drive} transcriptional changes.
+#'     Only computed when \code{expr} is provided.}
+#' }
+#'
+#' @param hub_result Data frame from \code{\link{identify_module_hubs}}.
+#'   Must contain columns \code{gene}, \code{module}, \code{degree},
+#'   \code{global_degree}, \code{betweenness}.
+#' @param modules Output of \code{\link{detect_modules}}.
+#' @param expr Optional expression matrix (genes as rows, samples as
+#'   columns) with rownames matching gene identifiers. When provided,
+#'   a \code{cv} column is appended.
+#' @param annotations Optional data frame with a \code{gene} column
+#'   and any additional annotation columns (e.g., \code{is_tf},
+#'   \code{domain}, \code{family}). Left-joined onto the result.
+#'
+#' @return The input data frame with additional columns:
+#'   \code{bridge_fraction}, \code{bt_degree_ratio}, and optionally
+#'   \code{cv} and annotation columns.
+#'
+#' @examples
+#' \dontrun{
+#' hubs <- identify_module_hubs(mods, net, orthologs)
+#' hubs <- characterize_hubs(hubs, mods)
+#'
+#' # With expression variability
+#' hubs <- characterize_hubs(hubs, mods, expr = expr_matrix)
+#'
+#' # With TF annotations
+#' tf_db <- data.frame(gene = c("AT1G01010", "AT2G02020"),
+#'                     is_tf = c(TRUE, TRUE),
+#'                     family = c("MYB", "WRKY"))
+#' hubs <- characterize_hubs(hubs, mods, annotations = tf_db)
+#' }
+#'
+#' @export
+characterize_hubs <- function(hub_result, modules,
+                              expr = NULL, annotations = NULL) {
+  # --- Validation ---
+  if (!is.data.frame(hub_result)) {
+    stop("hub_result must be a data frame from identify_module_hubs()")
+  }
+  req_cols <- c("gene", "module", "degree", "global_degree", "betweenness")
+  missing <- setdiff(req_cols, names(hub_result))
+  if (length(missing) > 0L) {
+    stop("hub_result missing required columns: ",
+         paste(missing, collapse = ", "))
+  }
+  if (!is.list(modules) || is.null(modules$modules)) {
+    stop("modules must be output of detect_modules()")
+  }
+  if (!is.null(expr)) {
+    if (!is.matrix(expr) || is.null(rownames(expr))) {
+      stop("expr must be a matrix with gene names as rownames")
+    }
+  }
+  if (!is.null(annotations)) {
+    if (!is.data.frame(annotations) || !"gene" %in% names(annotations)) {
+      stop("annotations must be a data frame with a 'gene' column")
+    }
+  }
+
+  n <- nrow(hub_result)
+
+  # --- Bridge fraction ---
+  gd <- hub_result$global_degree
+  wd <- hub_result$degree
+  bridge_fraction <- ifelse(gd > 0, 1 - wd / gd, NA_real_)
+  bridge_fraction <- pmin(pmax(bridge_fraction, 0), 1)
+  hub_result$bridge_fraction <- bridge_fraction
+
+  # --- Betweenness / degree ratio ---
+  hub_result$bt_degree_ratio <- ifelse(
+    wd > 0, hub_result$betweenness / wd, NA_real_
+  )
+
+  # --- Expression variability (CV) ---
+  if (!is.null(expr)) {
+    cv_vec <- rep(NA_real_, n)
+    matched <- hub_result$gene %in% rownames(expr)
+    if (any(matched)) {
+      matched_genes <- hub_result$gene[matched]
+      expr_sub <- expr[matched_genes, , drop = FALSE]
+      cv_vals <- apply(expr_sub, 1L, function(x) {
+        m <- mean(x)
+        if (abs(m) < .Machine$double.eps) NA_real_ else stats::sd(x) / abs(m)
+      })
+      cv_vec[matched] <- cv_vals
+    }
+    hub_result$cv <- cv_vec
+  }
+
+  # --- Annotation join ---
+  if (!is.null(annotations)) {
+    orig_order <- hub_result$gene
+    hub_result <- merge(hub_result, annotations, by = "gene",
+                        all.x = TRUE, sort = FALSE)
+    # Restore original row order
+    hub_result <- hub_result[match(orig_order, hub_result$gene), ,
+                             drop = FALSE]
+    rownames(hub_result) <- NULL
+  }
+
+  hub_result
+}

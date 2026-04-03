@@ -26,6 +26,8 @@
 #'   \item{[clique_persistence()]}{Co-expressolog persistence scores}
 #'   \item{[clique_threshold_sweep()]}{Threshold sweep (convenience wrapper)}
 #'   \item{[classify_cliques()]}{HOG classification (convenience wrapper)}
+#'   \item{[characterize_hubs()]}{Regulatory potential metrics for hub genes}
+#'   \item{[tag_permutation()]}{Permutation test for trait-specific module recurrence}
 #' }
 #'
 #' @docType package

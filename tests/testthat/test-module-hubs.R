@@ -628,3 +628,126 @@ test_that("identify_module_hubs comparison parameter enables conservation tie-br
                              result_no_comp$is_hub, ]
   expect_false("G10" %in% hub_no$gene)
 })
+
+
+# ---- characterize_hubs() tests ----
+
+test_that("characterize_hubs returns correct structure", {
+  td <- make_hub_test_data()
+  sp <- "SP_A"
+  ortho <- do.call(rbind, td$orthologs)
+  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+  result <- characterize_hubs(hubs, td$mods[[sp]])
+
+  expect_true(all(names(hubs) %in% names(result)))
+  expect_true("bridge_fraction" %in% names(result))
+  expect_true("bt_degree_ratio" %in% names(result))
+  expect_equal(nrow(result), nrow(hubs))
+  expect_false("cv" %in% names(result))
+})
+
+
+test_that("bridge_fraction in [0, 1]", {
+  td <- make_hub_test_data()
+  sp <- "SP_A"
+  ortho <- do.call(rbind, td$orthologs)
+  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+  result <- characterize_hubs(hubs, td$mods[[sp]])
+
+  bf <- result$bridge_fraction[!is.na(result$bridge_fraction)]
+  expect_true(all(bf >= 0 & bf <= 1))
+})
+
+
+test_that("bridge_fraction distinguishes intra- vs inter-module genes", {
+  td <- make_hub_test_data()
+  sp <- "SP_A"
+  ortho <- do.call(rbind, td$orthologs)
+  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+  result <- characterize_hubs(hubs, td$mods[[sp]])
+
+  # Gene A1 is a super-hub within module 1 (0.95 edges to module-mates)
+  # It should have lower bridge_fraction than a gene with cross-module edges
+  bf_a1 <- result$bridge_fraction[result$gene == "A1"]
+  expect_true(!is.na(bf_a1))
+  # In the test fixture, A1 has strong intra-module connections,
+  # so bridge_fraction should be moderate (not 0, because threshold
+  # lets some cross-module edges through)
+  expect_true(bf_a1 < 0.8)
+})
+
+
+test_that("bt_degree_ratio is non-negative", {
+  td <- make_hub_test_data()
+  sp <- "SP_A"
+  ortho <- do.call(rbind, td$orthologs)
+  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+  result <- characterize_hubs(hubs, td$mods[[sp]])
+
+  btr <- result$bt_degree_ratio[!is.na(result$bt_degree_ratio)]
+  expect_true(all(btr >= 0))
+})
+
+
+test_that("characterize_hubs computes cv when expr provided", {
+  td <- make_hub_test_data()
+  sp <- "SP_A"
+  ortho <- do.call(rbind, td$orthologs)
+  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+
+  # Synthetic expression matrix: 20 genes x 5 samples
+  genes <- paste0("A", 1:20)
+  expr <- matrix(rnorm(100, mean = 10, sd = 2), nrow = 20,
+                 dimnames = list(genes, paste0("S", 1:5)))
+
+  result <- characterize_hubs(hubs, td$mods[[sp]], expr = expr)
+  expect_true("cv" %in% names(result))
+  cv_vals <- result$cv[!is.na(result$cv)]
+  expect_true(length(cv_vals) > 0)
+  expect_true(all(cv_vals >= 0))
+})
+
+
+test_that("characterize_hubs joins annotations", {
+  td <- make_hub_test_data()
+  sp <- "SP_A"
+  ortho <- do.call(rbind, td$orthologs)
+  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+
+  annot <- data.frame(gene = c("A1", "A5"),
+                      is_tf = c(TRUE, FALSE),
+                      family = c("MYB", NA),
+                      stringsAsFactors = FALSE)
+  result <- characterize_hubs(hubs, td$mods[[sp]], annotations = annot)
+
+  expect_true("is_tf" %in% names(result))
+  expect_true("family" %in% names(result))
+  expect_true(result$is_tf[result$gene == "A1"])
+  expect_true(is.na(result$is_tf[result$gene == "A2"]))
+  expect_equal(nrow(result), nrow(hubs))
+})
+
+
+test_that("characterize_hubs validates inputs", {
+  td <- make_hub_test_data()
+  sp <- "SP_A"
+  ortho <- do.call(rbind, td$orthologs)
+  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+
+  expect_error(
+    characterize_hubs(hubs[, -1], td$mods[[sp]]),
+    "missing required columns"
+  )
+  expect_error(
+    characterize_hubs(hubs, list(no_modules = TRUE)),
+    "detect_modules"
+  )
+  expect_error(
+    characterize_hubs(hubs, td$mods[[sp]], expr = "not_a_matrix"),
+    "matrix"
+  )
+  expect_error(
+    characterize_hubs(hubs, td$mods[[sp]], annotations = data.frame(x = 1)),
+    "gene"
+  )
+})

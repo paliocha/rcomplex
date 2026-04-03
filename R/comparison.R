@@ -415,8 +415,10 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   level. Defaults to all pairwise combinations.
 #'
 #' @return A data frame with columns \code{multiplier},
-#'   \code{eff_density}, \code{n_significant}, and \code{edges}
-#'   (list-column of edge data frames).
+#'   \code{eff_density}, \code{n_significant}, \code{edges}
+#'   (list-column of edge data frames), and \code{species_densities}
+#'   (list-column of named numeric vectors giving the effective
+#'   density per species at each threshold level).
 #'
 #' @seealso \code{\link{find_coexpressologs}},
 #'   \code{\link{clique_persistence}}
@@ -469,6 +471,7 @@ density_sweep.default <- function(networks, orthologs,
   res_eff_density <- numeric(n_mult)
   res_n_significant <- integer(n_mult)
   res_edges <- vector("list", n_mult)
+  res_species_densities <- vector("list", n_mult)
 
   empty_edges <- data.frame(
     gene1 = character(0), gene2 = character(0),
@@ -489,6 +492,7 @@ density_sweep.default <- function(networks, orthologs,
       mean(vals >= net$threshold)
     }, numeric(1))
     res_eff_density[i] <- mean(densities)
+    res_species_densities[[i]] <- densities
 
     edges_df <- tryCatch(
       find_coexpressologs(
@@ -522,6 +526,7 @@ density_sweep.default <- function(networks, orthologs,
     n_significant = res_n_significant
   )
   out$edges <- res_edges
+  out$species_densities <- res_species_densities
   out
 }
 

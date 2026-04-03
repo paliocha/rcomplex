@@ -535,8 +535,8 @@ test_that("density_sweep returns correct structure", {
 
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 3)
-  expect_true(all(c("multiplier", "eff_density", "n_significant", "edges")
-                   %in% names(result)))
+  expect_true(all(c("multiplier", "eff_density", "n_significant", "edges",
+                     "species_densities") %in% names(result)))
   expect_equal(result$multiplier, mults)
   expect_true(is.numeric(result$eff_density))
   expect_true(is.integer(result$n_significant))
@@ -544,6 +544,10 @@ test_that("density_sweep returns correct structure", {
   for (j in seq_len(nrow(result))) {
     expect_s3_class(result$edges[[j]], "data.frame")
   }
+  # Per-species densities
+  expect_true(is.list(result$species_densities))
+  expect_true(is.numeric(result$species_densities[[1]]))
+  expect_equal(length(result$species_densities[[1]]), length(fix$nets))
 })
 
 
