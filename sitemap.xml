@@ -9,6 +9,7 @@
 <url><loc>/reference/apply_clr_to_cor_cpp.html</loc></url>
 <url><loc>/reference/build_coclassification_cpp.html</loc></url>
 <url><loc>/reference/build_sparse_coclassification_cpp.html</loc></url>
+<url><loc>/reference/characterize_hubs.html</loc></url>
 <url><loc>/reference/classify_cliques.html</loc></url>
 <url><loc>/reference/classify_hub_conservation.html</loc></url>
 <url><loc>/reference/classify_modules.html</loc></url>
@@ -46,5 +47,6 @@
 <url><loc>/reference/reduce_orthogroups_cpp.html</loc></url>
 <url><loc>/reference/sparse_excess_spectral_norm_cpp.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
+<url><loc>/reference/tag_permutation.html</loc></url>
 </urlset>
 
