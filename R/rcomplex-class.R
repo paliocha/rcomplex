@@ -364,7 +364,7 @@ clique_perturbation_test.rcomplex <- function(cliques, ...) {
     stop("run find_coexpressologs() first")
   if (is.null(x$cliques))
     stop("run find_cliques() first")
-  x$perturbation <- clique_perturbation_test.default(
+  x$perturbation_test <- clique_perturbation_test.default(
     x$cliques, x$species, x$networks, x$orthologs,
     ...
   )

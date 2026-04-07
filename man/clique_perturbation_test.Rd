@@ -72,11 +72,13 @@ Data frame with columns:
 \describe{
 \item{clique_idx}{1-based index into baseline cliques}
 \item{hog}{HOG identifier}
-\item{survival_rate}{Fraction of bootstrap iterations where clique
-survived}
+\item{survival_rate}{Fraction of total bootstrap iterations where
+clique survived (Jaccard >= threshold)}
 \item{mean_jaccard}{Mean Jaccard similarity to best-matching
-perturbed clique}
-\item{n_boot}{Number of iterations run}
+perturbed clique, over matched iterations only (NA if no matches)}
+\item{n_boot}{Total number of bootstrap iterations run}
+\item{n_matched}{Number of iterations where the clique's HOG
+produced a matching clique (Jaccard > 0)}
 }
 }
 \description{

@@ -1103,11 +1103,13 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #'   \describe{
 #'     \item{clique_idx}{1-based index into baseline cliques}
 #'     \item{hog}{HOG identifier}
-#'     \item{survival_rate}{Fraction of bootstrap iterations where clique
-#'       survived}
+#'     \item{survival_rate}{Fraction of total bootstrap iterations where
+#'       clique survived (Jaccard >= threshold)}
 #'     \item{mean_jaccard}{Mean Jaccard similarity to best-matching
-#'       perturbed clique}
-#'     \item{n_boot}{Number of iterations run}
+#'       perturbed clique, over matched iterations only (NA if no matches)}
+#'     \item{n_boot}{Total number of bootstrap iterations run}
+#'     \item{n_matched}{Number of iterations where the clique's HOG
+#'       produced a matching clique (Jaccard > 0)}
 #'   }
 #'
 #' @examples
@@ -1150,6 +1152,7 @@ clique_perturbation_test.default <- function(
     survival_rate = numeric(0),
     mean_jaccard = numeric(0),
     n_boot = integer(0),
+    n_matched = integer(0),
     stringsAsFactors = FALSE
   )
 
@@ -1193,6 +1196,7 @@ clique_perturbation_test.default <- function(
 
   # Accumulators: per-clique survival count and Jaccard sum
   n_survived <- integer(n_cliques)
+  n_matched <- integer(n_cliques)
   sum_jaccard <- numeric(n_cliques)
 
   for (b in seq_len(n_boot)) {
@@ -1255,18 +1259,20 @@ clique_perturbation_test.default <- function(
         n_survived[i] <- n_survived[i] + 1L
       }
       if (!is.na(best_jaccard)) {
+        n_matched[i] <- n_matched[i] + 1L
         sum_jaccard[i] <- sum_jaccard[i] + best_jaccard
       }
     }
   }
 
-  # Build output
+  # Build output — mean_jaccard over matched iterations only
   data.frame(
     clique_idx = seq_len(n_cliques),
     hog = cliques$hog,
     survival_rate = n_survived / n_boot,
-    mean_jaccard = sum_jaccard / n_boot,
+    mean_jaccard = ifelse(n_matched > 0L, sum_jaccard / n_matched, NA_real_),
     n_boot = rep(n_boot, n_cliques),
+    n_matched = n_matched,
     stringsAsFactors = FALSE
   )
 }
@@ -1276,10 +1282,13 @@ clique_perturbation_test.default <- function(
 #'
 #' Permutes the ortholog mapping and builds a null distribution of
 #' clique intensity. The null model shuffles \code{Species2} genes
-#' globally across all HOGs (not within-HOG), destroying the specific
-#' ortholog mapping while preserving network topology and species
-#' structure. This tests whether the observed gene-to-gene correspondence
-#' produces stronger co-expression conservation than random mappings.
+#' globally across all rows of the ortholog table (not within-HOG),
+#' destroying both the specific ortholog mapping and the within-HOG
+#' gene grouping. Network topology (per-species adjacency matrices)
+#' is preserved, but species structure within the ortholog table is
+#' not — a gene originally in one HOG/species-pair may land in another.
+#' This tests whether the observed gene-to-gene correspondence produces
+#' stronger co-expression conservation than random mappings.
 #'
 #' P-values are empirical over matched permutations only (permutations
 #' where the clique's HOG produced a clique with Jaccard > 0 to the

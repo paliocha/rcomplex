@@ -90,7 +90,8 @@ test_that("output has correct structure", {
 
   expect_true(is.data.frame(result))
   expect_true(all(c("clique_idx", "hog", "survival_rate",
-                     "mean_jaccard", "n_boot") %in% names(result)))
+                     "mean_jaccard", "n_boot", "n_matched") %in%
+                    names(result)))
 
   # One row per baseline clique
 
@@ -145,7 +146,8 @@ test_that("empty cliques returns 0-row dataframe", {
   expect_true(is.data.frame(result))
   expect_equal(nrow(result), 0)
   expect_true(all(c("clique_idx", "hog", "survival_rate",
-                     "mean_jaccard", "n_boot") %in% names(result)))
+                     "mean_jaccard", "n_boot", "n_matched") %in%
+                    names(result)))
 })
 
 

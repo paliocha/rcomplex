@@ -81,10 +81,13 @@ matching HOG with Jaccard > 0}
 \description{
 Permutes the ortholog mapping and builds a null distribution of
 clique intensity. The null model shuffles \code{Species2} genes
-globally across all HOGs (not within-HOG), destroying the specific
-ortholog mapping while preserving network topology and species
-structure. This tests whether the observed gene-to-gene correspondence
-produces stronger co-expression conservation than random mappings.
+globally across all rows of the ortholog table (not within-HOG),
+destroying both the specific ortholog mapping and the within-HOG
+gene grouping. Network topology (per-species adjacency matrices)
+is preserved, but species structure within the ortholog table is
+not — a gene originally in one HOG/species-pair may land in another.
+This tests whether the observed gene-to-gene correspondence produces
+stronger co-expression conservation than random mappings.
 }
 \details{
 P-values are empirical over matched permutations only (permutations
