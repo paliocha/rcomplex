@@ -76,7 +76,9 @@
 <span>  max_k <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  jaccard_threshold <span class="op">=</span> <span class="fl">0.8</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="fl">1L</span></span>
+<span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  w_q <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  w_eff <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -110,6 +112,14 @@
 
 <dt id="arg-max-k-max-genes-per-sp-jaccard-threshold-n-cores">max_k, max_genes_per_sp, jaccard_threshold, n_cores<a class="anchor" aria-label="anchor" href="#arg-max-k-max-genes-per-sp-jaccard-threshold-n-cores"></a></dt>
 <dd><p>tuning parameters</p></dd>
+
+
+<dt id="arg-w-q">w_q<a class="anchor" aria-label="anchor" href="#arg-w-q"></a></dt>
+<dd><p>Weight for mean q-value in composite cost (default 1.0)</p></dd>
+
+
+<dt id="arg-w-eff">w_eff<a class="anchor" aria-label="anchor" href="#arg-w-eff"></a></dt>
+<dd><p>Weight for mean effect size in composite cost (default 0.0)</p></dd>
 
 </dl></div>
     <div id="value">

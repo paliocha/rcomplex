@@ -73,7 +73,9 @@
 <span>  <span class="va">n_hogs</span>,</span>
 <span>  <span class="va">n_genes</span>,</span>
 <span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span>,</span>
-<span>  max_missing_edges <span class="op">=</span> <span class="fl">0L</span></span>
+<span>  max_missing_edges <span class="op">=</span> <span class="fl">0L</span>,</span>
+<span>  w_q <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  w_eff <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -131,6 +133,14 @@
 
 <dt id="arg-max-missing-edges">max_missing_edges<a class="anchor" aria-label="anchor" href="#arg-max-missing-edges"></a></dt>
 <dd><p>Maximum missing edges tolerated (default 0)</p></dd>
+
+
+<dt id="arg-w-q">w_q<a class="anchor" aria-label="anchor" href="#arg-w-q"></a></dt>
+<dd><p>Weight for mean q-value in composite cost (default 1.0)</p></dd>
+
+
+<dt id="arg-w-eff">w_eff<a class="anchor" aria-label="anchor" href="#arg-w-eff"></a></dt>
+<dd><p>Weight for mean effect size in composite cost (default 0.0)</p></dd>
 
 </dl></div>
     <div id="value">

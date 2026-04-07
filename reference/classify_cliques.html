@@ -177,8 +177,11 @@ cliques (NA for complete/partial/unclassified)</p></dd>
 provided)</p></dd>
 
 <dt>persistence</dt>
-<dd><p>Highest multiplier at which the HOG's
-clique survived (NA if not provided)</p></dd>
+<dd><p>Birth/death persistence of the HOG's
+best clique (<code>death - birth</code>) from
+<code><a href="clique_threshold_sweep.html">clique_threshold_sweep</a></code>; falls back to highest
+survived multiplier for legacy sweep output (NA if not
+provided)</p></dd>
 
 <dt>robust</dt>
 <dd><p>Logical: passes both stability and persistence

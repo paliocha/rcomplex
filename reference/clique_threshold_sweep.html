@@ -164,9 +164,10 @@ for a clique to count as "survived" (default 0.5).</p></dd>
     <h2>Value</h2>
     <p>A list with components:</p><dl><dt>survival</dt>
 <dd><p>Data frame with one row per (baseline clique,
-multiplier): <code>clique_idx</code> (1-based), <code>hog</code>,
-<code>multiplier</code>, <code>survived</code> (logical), <code>jaccard</code>,
-<code>n_species_orig</code>, <code>n_species_new</code>.</p></dd>
+multiplier), including <code>multiplier = 1.0</code> baseline rows
+where all cliques trivially survive: <code>clique_idx</code> (1-based),
+<code>hog</code>, <code>multiplier</code>, <code>survived</code> (logical),
+<code>jaccard</code>, <code>n_species_orig</code>, <code>n_species_new</code>.</p></dd>
 
 <dt>sweep_cliques</dt>
 <dd><p>Named list of <code><a href="find_cliques.html">find_cliques()</a></code> outputs
@@ -175,6 +176,15 @@ keyed by multiplier.</p></dd>
 <dt>sweep_edges</dt>
 <dd><p>Named list of combined edge data frames keyed
 by multiplier.</p></dd>
+
+<dt>persistence</dt>
+<dd><p>Data frame with one row per baseline clique:
+<code>clique_idx</code>, <code>hog</code>, <code>birth</code> (lowest multiplier
+where the clique exists; 1.0 for all baseline cliques),
+<code>death</code> (first multiplier above birth where the clique is
+lost; <code>NA</code> if it survives all tested multipliers),
+<code>persistence</code> (<code>death - birth</code>; <code>NA</code> if death
+is <code>NA</code>).</p></dd>
 
 
 </dl></div>

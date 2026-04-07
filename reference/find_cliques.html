@@ -76,6 +76,7 @@ cliques, then backtracking to assign the best gene per species
 <span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  max_missing_edges <span class="op">=</span> <span class="fl">0L</span>,</span>
 <span>  edge_type <span class="op">=</span> <span class="st">"conserved"</span>,</span>
+<span>  cost_weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>q <span class="op">=</span> <span class="fl">1</span>, effect <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -139,6 +140,14 @@ uses subset enumeration instead of Bron-Kerbosch. Practical limit:
 <dd><p>If <code>edges</code> has a <code>type</code> column, keep only
 edges with <code>type %in% edge_type</code> (default <code>"conserved"</code>).</p></dd>
 
+
+<dt id="arg-cost-weights">cost_weights<a class="anchor" aria-label="anchor" href="#arg-cost-weights"></a></dt>
+<dd><p>Named numeric vector with elements <code>"q"</code> and
+<code>"effect"</code> controlling the composite cost used for gene-assignment
+ranking. The cost is <code>q * mean_q - effect * mean_effect</code>
+(lower is better). Default <code>c(q = 1, effect = 0)</code> reproduces
+the original mean-q-only ranking.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
@@ -166,6 +175,18 @@ edges with <code>type %in% edge_type</code> (default <code>"conserved"</code>).<
 <dt>n_missing</dt>
 <dd><p>Number of missing edges (0 when
 <code>max_missing_edges = 0</code>)</p></dd>
+
+<dt>intensity</dt>
+<dd><p>Onnela intensity: geometric mean of <code>1 - q.value</code>
+across present edges (higher = stronger conservation)</p></dd>
+
+<dt>coherence</dt>
+<dd><p>Onnela coherence: intensity / arithmetic mean of
+<code>1 - q.value</code> (1 when all edge weights are equal)</p></dd>
+
+<dt>min_effect_size</dt>
+<dd><p>Minimum effect size across present edges
+(bottleneck enrichment)</p></dd>
 
 
 </dl></div>

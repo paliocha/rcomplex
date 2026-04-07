@@ -129,6 +129,11 @@ classification: <code>"greater"</code> (conservation, default) or
 <dt>effect_size</dt>
 <dd><p>Geometric mean of directional effect sizes</p></dd>
 
+<dt>jaccard</dt>
+<dd><p>Geometric mean of directional Jaccard indices
+(<code>sqrt(Species1.jaccard * Species2.jaccard)</code>). Range
+\([0, 1]\): 1 = identical neighborhoods, 0 = disjoint.</p></dd>
+
 <dt>type</dt>
 <dd><p><code>"conserved"</code> or <code>"diverged"</code> if
 <code>q.value &lt; alpha</code>; <code>"ns"</code> otherwise</p></dd>

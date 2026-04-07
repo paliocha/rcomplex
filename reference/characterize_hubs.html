@@ -64,7 +64,7 @@ factors, signalling genes) from downstream effectors.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">characterize_hubs</span><span class="op">(</span><span class="va">hub_result</span>, <span class="va">modules</span>, expr <span class="op">=</span> <span class="cn">NULL</span>, annotations <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">characterize_hubs</span><span class="op">(</span><span class="va">hub_result</span>, modules <span class="op">=</span> <span class="cn">NULL</span>, expr <span class="op">=</span> <span class="cn">NULL</span>, annotations <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -78,7 +78,8 @@ Must contain columns <code>gene</code>, <code>module</code>, <code>degree</code>
 
 
 <dt id="arg-modules">modules<a class="anchor" aria-label="anchor" href="#arg-modules"></a></dt>
-<dd><p>Output of <code><a href="detect_modules.html">detect_modules</a></code>.</p></dd>
+<dd><p>Optional output of <code><a href="detect_modules.html">detect_modules</a></code>.
+Currently unused; reserved for future module-aware metrics.</p></dd>
 
 
 <dt id="arg-expr">expr<a class="anchor" aria-label="anchor" href="#arg-expr"></a></dt>
