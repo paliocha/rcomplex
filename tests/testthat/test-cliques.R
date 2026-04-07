@@ -892,4 +892,13 @@ test_that("cost_weights affects edge deduplication for duplicate gene pairs", {
                          cost_weights = c(q = 0, effect = 1))
   expect_equal(nrow(r_eff), 1)
   expect_equal(r_eff$mean_effect_size, 10.0, tolerance = 1e-10)
+
+  # Mixed weights: cost = 1*q - 1*effect
+  # Edge 1: 1*0.01 - 1*1.0  = -0.99
+  # Edge 2: 1*0.02 - 1*10.0 = -9.98  <- lower cost, wins
+  r_mix <- find_cliques(edges, sp, min_species = 2L,
+                         cost_weights = c(q = 1, effect = 1))
+  expect_equal(nrow(r_mix), 1)
+  expect_equal(r_mix$mean_effect_size, 10.0, tolerance = 1e-10)
+  expect_equal(r_mix$mean_q, 0.02, tolerance = 1e-10)
 })
