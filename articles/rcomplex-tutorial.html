@@ -281,13 +281,11 @@ multi-copy HOGs, but much faster):</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Permutation:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="module-level-analysis">3. Module-level analysis<a class="anchor" aria-label="anchor" href="#module-level-analysis"></a>
+<h2 id="module-level-analysis-deferred">3. Module-level analysis (deferred)<a class="anchor" aria-label="anchor" href="#module-level-analysis-deferred"></a>
 </h2>
-<p>To identify regulatory signatures of parallel life-cycle evolution,
-we detect modules in all eight species and compare across each of the
-four phylogenetic pairs. Module-level conservation reveals whether the
-same co-regulatory programs are used independently in annual
-lineages.</p>
+<p>Module detection, hub identification, and parallel signal testing are
+deferred to a separate analysis. The sections below are preserved for
+reference but not evaluated.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">phylo_pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tribble.html" class="external-link">tribble</a></span><span class="op">(</span></span>
 <span>  <span class="op">~</span><span class="va">pair_name</span>,        <span class="op">~</span><span class="va">annual</span>, <span class="op">~</span><span class="va">perennial</span>,</span>
@@ -913,10 +911,7 @@ evidence:</p>
 <span>    <span class="va">n_differentiated</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Trait-specific (one lineage only):"</span>, <span class="va">n_trait_specific</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Robust candidates (&gt;= 50% density survival + stability &gt;= 1):"</span>,</span>
-<span>    <span class="va">n_robust</span>, <span class="st">"\n\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Parallel module signal: "</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">observed</span>,</span>
-<span>    <span class="st">" HOGs recur in annual-specific modules across &gt;= 2 pairs (p = "</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>, <span class="st">")\n"</span>, sep <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span></code></pre></div>
+<span>    <span class="va">n_robust</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Differentiated HOGs</strong> are the strongest candidates for
 regulatory divergence: the same ortholog group has co-expression
 relationships in both annuals and perennials, but these programs are
@@ -924,26 +919,15 @@ incompatible (no cross-group clique). This pattern is consistent with a
 shared ancestral regulatory architecture that has been independently
 remodelled in each annual lineage.</p>
 <p><strong>Trait-specific HOGs</strong> (annual-only or perennial-only
-cliques) may encode lineage-specific regulatory modules. The formal
-permutation test above addresses whether annual-specific modules share
-HOGs across independent lineages more than expected by chance. A
-significant result supports the hypothesis that annuality draws on a
-shared regulatory toolkit rather than arising from independent <em>de
-novo</em> rewiring in each lineage.</p>
+cliques) may encode lineage-specific regulatory programs. Module-level
+analysis (deferred) can address whether annual-specific modules share
+HOGs across independent lineages more than expected by chance.</p>
 <p><strong>Robustness ranking</strong> combines density sweep survival
 with jackknife stability class. HOGs classified at tighter density
 levels with high stability represent the strongest findings for
-experimental follow-up.</p>
-<p><strong>Regulatory characterization</strong> helps prioritize among
-hub candidates. Hubs with high <code>bridge_fraction</code> connect
-across modules, a hallmark of regulatory coordinators (TFs, signalling
-genes). High <code>bt_degree_ratio</code> indicates importance for
-information flow relative to raw connectivity. High expression
-<code>cv</code> suggests the gene drives transcriptional changes rather
-than passively responding. Candidates scoring high on all three metrics
-are the strongest regulatory hub candidates, especially when they also
-carry known DNA-binding or signalling domains (testable via an
-annotation overlay with PlantTFDB or InterPro).</p>
+experimental follow-up. The new edge-weight diagnostics (intensity,
+coherence, perturbation survival, intensity Z-score) provide
+complementary evidence at the clique level.</p>
 <p><strong>Caveats.</strong> Co-expression conservation is necessary but
 not sufficient evidence for regulatory conservation. Shared
 co-expression could reflect shared ancestry (phylogenetic inertia)
