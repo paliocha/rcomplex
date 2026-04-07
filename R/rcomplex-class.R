@@ -355,3 +355,33 @@ classify_cliques.rcomplex <- function(edges, ...) {
   )
   x
 }
+
+
+#' @export
+clique_perturbation_test.rcomplex <- function(cliques, ...) {
+  x <- cliques
+  if (is.null(x$edges))
+    stop("run find_coexpressologs() first")
+  if (is.null(x$cliques))
+    stop("run find_cliques() first")
+  x$perturbation <- clique_perturbation_test.default(
+    x$cliques, x$species, x$networks, x$orthologs,
+    ...
+  )
+  x
+}
+
+
+#' @export
+clique_intensity_test.rcomplex <- function(cliques, ...) {
+  x <- cliques
+  if (is.null(x$edges))
+    stop("run find_coexpressologs() first")
+  if (is.null(x$cliques))
+    stop("run find_cliques() first")
+  x$intensity_test <- clique_intensity_test.default(
+    x$cliques, x$species, x$networks, x$orthologs,
+    ...
+  )
+  x
+}

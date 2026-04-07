@@ -1274,9 +1274,16 @@ clique_perturbation_test.default <- function(
 
 #' Test clique intensity against a permutation null
 #'
-#' Permutes the ortholog mapping (Fisher-Yates on sp2 side), re-runs
-#' the comparison-to-cliques pipeline, and builds a null distribution
-#' of clique intensity. Reports Z-score of observed vs. null.
+#' Permutes the ortholog mapping and builds a null distribution of
+#' clique intensity. The null model shuffles \code{Species2} genes
+#' globally across all HOGs (not within-HOG), destroying the specific
+#' ortholog mapping while preserving network topology and species
+#' structure. This tests whether the observed gene-to-gene correspondence
+#' produces stronger co-expression conservation than random mappings.
+#'
+#' P-values are empirical over matched permutations only (permutations
+#' where the clique's HOG produced a clique with Jaccard > 0 to the
+#' baseline). Unmatched permutations are excluded, not counted as zeros.
 #'
 #' @param cliques Output from \code{\link{find_cliques}}.
 #' @param target_species Character vector of target species names.
@@ -1288,7 +1295,9 @@ clique_perturbation_test.default <- function(
 #'   specifying which pairs to compare. Defaults to all pairwise
 #'   combinations of \code{target_species}.
 #' @param n_perm Number of permutations (default 500).
-#' @param alternative Direction of test (default \code{"greater"}).
+#' @param alternative Direction of test: \code{"greater"} (default) tests
+#'   whether observed intensity exceeds the null; \code{"less"} tests
+#'   whether it is below the null.
 #' @param alpha Significance threshold (default 0.05).
 #' @param min_species Minimum species per clique.
 #' @param max_genes_per_sp Maximum genes per species per HOG.
@@ -1303,11 +1312,14 @@ clique_perturbation_test.default <- function(
 #'     \item{clique_idx}{1-based index into baseline cliques}
 #'     \item{hog}{HOG identifier}
 #'     \item{observed_intensity}{Intensity from baseline cliques}
-#'     \item{null_mean}{Mean intensity under null}
-#'     \item{null_sd}{SD of intensity under null}
+#'     \item{null_mean}{Mean intensity over matched permutations}
+#'     \item{null_sd}{SD of intensity over matched permutations}
 #'     \item{z_score}{(observed - null_mean) / null_sd}
-#'     \item{p_value}{One-sided p-value from normal approximation}
-#'     \item{n_perm}{Number of permutations run}
+#'     \item{p_value}{Empirical one-sided p-value over matched
+#'       permutations (direction determined by \code{alternative})}
+#'     \item{n_perm}{Total number of permutations run}
+#'     \item{n_matched}{Number of permutations where clique had a
+#'       matching HOG with Jaccard > 0}
 #'   }
 #'
 #' @export
@@ -1338,6 +1350,7 @@ clique_intensity_test.default <- function(
     observed_intensity = numeric(0), null_mean = numeric(0),
     null_sd = numeric(0), z_score = numeric(0),
     p_value = numeric(0), n_perm = integer(0),
+    n_matched = integer(0),
     stringsAsFactors = FALSE
   )
 
@@ -1375,9 +1388,13 @@ clique_intensity_test.default <- function(
   observed_intensity <- obs_stats$intensity
   n_cliques <- nrow(cliques)
 
-  null_intensities <- matrix(0, nrow = n_perm, ncol = n_cliques)
+  # Track null intensities and which entries are real matches
+  # (not structural zeros from absent cliques)
+  null_intensities <- matrix(NA_real_, nrow = n_perm, ncol = n_cliques)
 
   for (p in seq_len(n_perm)) {
+    # Global shuffle of Species2 genes across all HOGs — destroys the
+    # specific ortholog mapping while preserving network topology
     shuffled_orthologs <- orthologs
     shuffled_orthologs$Species2 <- sample(shuffled_orthologs$Species2)
 
@@ -1406,7 +1423,7 @@ clique_intensity_test.default <- function(
     for (i in seq_len(n_cliques)) {
       candidates <- which(cliques_p$hog == cliques$hog[i])
       best_jaccard <- -1
-      best_intensity <- 0
+      best_intensity <- NA_real_
       for (j in candidates) {
         jac <- jaccard_clique_match(cliques[i, ], cliques_p[j, ],
                                      target_species)
@@ -1415,20 +1432,42 @@ clique_intensity_test.default <- function(
           best_intensity <- stats_p$intensity[j]
         }
       }
-      if (best_jaccard > 0)
-        null_intensities[p, i] <- if (is.na(best_intensity)) 0 else
-          best_intensity
+      if (best_jaccard > 0 && !is.na(best_intensity))
+        null_intensities[p, i] <- best_intensity
+      # Unmatched permutations stay NA (not counted in statistics)
     }
   }
 
-  null_mean <- colMeans(null_intensities)
-  null_sd <- apply(null_intensities, 2, stats::sd)
-  z_score <- ifelse(null_sd > 0,
+  # Compute statistics over matched permutations only (exclude NAs)
+  n_matched <- as.integer(colSums(!is.na(null_intensities)))
+  null_mean <- vapply(seq_len(n_cliques), function(i) {
+    vals <- null_intensities[, i]
+    vals <- vals[!is.na(vals)]
+    if (length(vals) == 0L) NA_real_ else mean(vals)
+  }, numeric(1))
+  null_sd <- vapply(seq_len(n_cliques), function(i) {
+    vals <- null_intensities[, i]
+    vals <- vals[!is.na(vals)]
+    if (length(vals) < 2L) NA_real_ else stats::sd(vals)
+  }, numeric(1))
+
+  z_score <- ifelse(!is.na(null_sd) & null_sd > 0,
                     (observed_intensity - null_mean) / null_sd,
                     NA_real_)
-  p_value <- ifelse(!is.na(z_score),
-                    stats::pnorm(z_score, lower.tail = FALSE),
-                    NA_real_)
+
+  # Empirical p-value over matched permutations
+  upper_tail <- alternative == "greater"
+  p_value <- vapply(seq_len(n_cliques), function(i) {
+    vals <- null_intensities[, i]
+    vals <- vals[!is.na(vals)]
+    n_m <- length(vals)
+    if (n_m == 0L || is.na(observed_intensity[i])) return(NA_real_)
+    if (upper_tail) {
+      (sum(vals >= observed_intensity[i]) + 1) / (n_m + 1)
+    } else {
+      (sum(vals <= observed_intensity[i]) + 1) / (n_m + 1)
+    }
+  }, numeric(1))
 
   data.frame(
     clique_idx = seq_len(n_cliques), hog = cliques$hog,
@@ -1436,6 +1475,7 @@ clique_intensity_test.default <- function(
     null_mean = null_mean, null_sd = null_sd,
     z_score = z_score, p_value = p_value,
     n_perm = rep(n_perm, n_cliques),
+    n_matched = n_matched,
     stringsAsFactors = FALSE
   )
 }

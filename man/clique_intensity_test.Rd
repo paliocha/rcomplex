@@ -44,7 +44,9 @@ combinations of \code{target_species}.}
 
 \item{n_perm}{Number of permutations (default 500).}
 
-\item{alternative}{Direction of test (default \code{"greater"}).}
+\item{alternative}{Direction of test: \code{"greater"} (default) tests
+whether observed intensity exceeds the null; \code{"less"} tests
+whether it is below the null.}
 
 \item{alpha}{Significance threshold (default 0.05).}
 
@@ -66,15 +68,26 @@ Data frame with columns:
 \item{clique_idx}{1-based index into baseline cliques}
 \item{hog}{HOG identifier}
 \item{observed_intensity}{Intensity from baseline cliques}
-\item{null_mean}{Mean intensity under null}
-\item{null_sd}{SD of intensity under null}
+\item{null_mean}{Mean intensity over matched permutations}
+\item{null_sd}{SD of intensity over matched permutations}
 \item{z_score}{(observed - null_mean) / null_sd}
-\item{p_value}{One-sided p-value from normal approximation}
-\item{n_perm}{Number of permutations run}
+\item{p_value}{Empirical one-sided p-value over matched
+permutations (direction determined by \code{alternative})}
+\item{n_perm}{Total number of permutations run}
+\item{n_matched}{Number of permutations where clique had a
+matching HOG with Jaccard > 0}
 }
 }
 \description{
-Permutes the ortholog mapping (Fisher-Yates on sp2 side), re-runs
-the comparison-to-cliques pipeline, and builds a null distribution
-of clique intensity. Reports Z-score of observed vs. null.
+Permutes the ortholog mapping and builds a null distribution of
+clique intensity. The null model shuffles \code{Species2} genes
+globally across all HOGs (not within-HOG), destroying the specific
+ortholog mapping while preserving network topology and species
+structure. This tests whether the observed gene-to-gene correspondence
+produces stronger co-expression conservation than random mappings.
+}
+\details{
+P-values are empirical over matched permutations only (permutations
+where the clique's HOG produced a clique with Jaccard > 0 to the
+baseline). Unmatched permutations are excluded, not counted as zeros.
 }
