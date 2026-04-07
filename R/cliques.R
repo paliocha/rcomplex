@@ -1093,6 +1093,8 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' @param alpha Significance threshold (default 0.05).
 #' @param min_species Minimum species per clique.
 #' @param max_genes_per_sp Maximum genes per species per HOG.
+#' @param max_missing_edges Maximum missing species-pair edges per clique
+#'   (default 0). Passed to \code{\link{find_cliques}}.
 #' @param edge_type Edge type filter.
 #' @param jaccard_threshold Minimum Jaccard for clique matching (default 0.5).
 #' @param n_cores Number of parallel cores.
@@ -1138,6 +1140,7 @@ clique_perturbation_test.default <- function(
     alpha = 0.05,
     min_species = length(target_species),
     max_genes_per_sp = 10L,
+    max_missing_edges = 0L,
     edge_type = "conserved",
     jaccard_threshold = 0.5,
     n_cores = 1L,
@@ -1234,6 +1237,7 @@ clique_perturbation_test.default <- function(
       find_cliques(edges_b, target_species,
                     min_species = min_species,
                     max_genes_per_sp = max_genes_per_sp,
+                    max_missing_edges = max_missing_edges,
                     edge_type = edge_type,
                     cost_weights = cost_weights),
       error = function(e) NULL
@@ -1308,6 +1312,8 @@ clique_perturbation_test.default <- function(
 #' @param alpha Significance threshold (default 0.05).
 #' @param min_species Minimum species per clique.
 #' @param max_genes_per_sp Maximum genes per species per HOG.
+#' @param max_missing_edges Maximum missing species-pair edges per clique
+#'   (default 0). Passed to \code{\link{find_cliques}}.
 #' @param edge_type Edge type filter.
 #' @param n_cores Number of parallel cores.
 #' @param seed Random seed for reproducibility.
@@ -1348,6 +1354,7 @@ clique_intensity_test.default <- function(
     alpha = 0.05,
     min_species = length(target_species),
     max_genes_per_sp = 10L,
+    max_missing_edges = 0L,
     edge_type = "conserved",
     n_cores = 1L,
     seed = NULL,
@@ -1426,6 +1433,7 @@ clique_intensity_test.default <- function(
       find_cliques(edges_p, target_species,
                     min_species = min_species,
                     max_genes_per_sp = max_genes_per_sp,
+                    max_missing_edges = max_missing_edges,
                     edge_type = edge_type,
                     cost_weights = cost_weights),
       error = function(e) NULL

@@ -1,59 +1,9 @@
 # Tests for clique_perturbation_test()
-
-# Helper: build 2-species test setup with strong conservation so cliques
-# survive perturbation at noise_sd=0.
-# 20 genes per species, dense neighborhoods for HOG1 (A1-B1).
-make_perturbation_setup <- function() {
-  n <- 20
-  ga <- paste0("A", seq_len(n))
-  gb <- paste0("B", seq_len(n))
-
-  # SP_A network: A1 strongly connected to A2..A10
-  mat_a <- matrix(0, n, n, dimnames = list(ga, ga))
-  for (i in 2:10) {
-    mat_a[1, i] <- mat_a[i, 1] <- 10
-  }
-  mat_a[1, 11] <- mat_a[11, 1] <- 3
-  for (i in 13:15) {
-    mat_a[12, i] <- mat_a[i, 12] <- 4
-  }
-
-  # SP_B network: mirror structure
-  mat_b <- matrix(0, n, n, dimnames = list(gb, gb))
-  for (i in 2:10) {
-    mat_b[1, i] <- mat_b[i, 1] <- 10
-  }
-  mat_b[1, 11] <- mat_b[11, 1] <- 3
-  for (i in 13:15) {
-    mat_b[12, i] <- mat_b[i, 12] <- 4
-  }
-
-  networks <- list(
-    SP_A = list(network = mat_a, threshold = 2.0),
-    SP_B = list(network = mat_b, threshold = 2.0)
-  )
-
-  # 1:1 orthologs
-  orthologs <- data.frame(
-    Species1 = ga, Species2 = gb,
-    hog = paste0("HOG", seq_len(n)),
-    stringsAsFactors = FALSE
-  )
-
-  # Run baseline pipeline
-  comparison <- compare_neighborhoods(networks$SP_A, networks$SP_B, orthologs)
-  summary <- summarize_comparison(comparison)
-  edges <- comparison_to_edges(summary$results, "SP_A", "SP_B")
-  baseline <- find_cliques(edges, c("SP_A", "SP_B"), min_species = 2L)
-
-  list(networks = networks, orthologs = orthologs,
-       cliques = baseline, target_species = c("SP_A", "SP_B"),
-       edges = edges)
-}
+# Fixture: make_clique_fixture() from helper-clique-fixtures.R
 
 
 test_that("zero noise gives 100% survival and jaccard = 1.0", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_perturbation_test(
@@ -67,7 +17,7 @@ test_that("zero noise gives 100% survival and jaccard = 1.0", {
 
 
 test_that("large noise reduces survival rate", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   # noise_sd=100 on networks with values ~3-10 destroys signal;
@@ -81,7 +31,7 @@ test_that("large noise reduces survival rate", {
 
 
 test_that("output has correct structure", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_perturbation_test(
@@ -122,7 +72,7 @@ test_that("output has correct structure", {
 
 
 test_that("seed gives reproducible results", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   r1 <- clique_perturbation_test(
@@ -139,7 +89,7 @@ test_that("seed gives reproducible results", {
 
 
 test_that("empty cliques returns 0-row dataframe", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
   empty <- setup$cliques[0, , drop = FALSE]
 
   result <- clique_perturbation_test(
@@ -155,7 +105,7 @@ test_that("empty cliques returns 0-row dataframe", {
 
 
 test_that("n_boot = 0 returns 0-row dataframe", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_perturbation_test(
@@ -168,7 +118,7 @@ test_that("n_boot = 0 returns 0-row dataframe", {
 
 
 test_that("input validation: bad cliques", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
 
   expect_error(
     clique_perturbation_test("bad", setup$target_species, setup$networks,
@@ -183,7 +133,7 @@ test_that("input validation: bad cliques", {
 
 
 test_that("input validation: bad target_species", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
 
   expect_error(
     clique_perturbation_test(setup$cliques, c("SP_A"), setup$networks,
@@ -193,7 +143,7 @@ test_that("input validation: bad target_species", {
 
 
 test_that("input validation: bad networks", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
 
   expect_error(
     clique_perturbation_test(setup$cliques, setup$target_species, list(),
@@ -215,7 +165,7 @@ test_that("input validation: bad networks", {
 
 
 test_that("input validation: bad orthologs", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
 
   expect_error(
     clique_perturbation_test(setup$cliques, setup$target_species,
@@ -225,7 +175,7 @@ test_that("input validation: bad orthologs", {
 
 
 test_that("input validation: bad noise_sd", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
 
   expect_error(
     clique_perturbation_test(setup$cliques, setup$target_species,
@@ -248,7 +198,7 @@ test_that("input validation: bad noise_sd", {
 
 
 test_that("hog column matches baseline cliques", {
-  setup <- make_perturbation_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_perturbation_test(

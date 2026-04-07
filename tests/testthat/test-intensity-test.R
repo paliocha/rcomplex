@@ -1,91 +1,10 @@
 # Tests for clique_intensity_test()
-
-# Helper: build 2-species test setup with enough genes for significant results.
-make_intensity_setup <- function() {
-  n <- 20
-  ga <- paste0("A", seq_len(n))
-  gb <- paste0("B", seq_len(n))
-
-  # SP_A network: A1 strongly connected to A2..A10
-  mat_a <- matrix(0, n, n, dimnames = list(ga, ga))
-  for (i in 2:10) {
-    mat_a[1, i] <- mat_a[i, 1] <- 10  # strong
-  }
-  mat_a[1, 11] <- mat_a[11, 1] <- 3   # moderate
-  for (i in 13:15) {
-    mat_a[12, i] <- mat_a[i, 12] <- 4
-  }
-
-  # SP_B network: mirror structure
-  mat_b <- matrix(0, n, n, dimnames = list(gb, gb))
-  for (i in 2:10) {
-    mat_b[1, i] <- mat_b[i, 1] <- 10
-  }
-  mat_b[1, 11] <- mat_b[11, 1] <- 3
-  for (i in 13:15) {
-    mat_b[12, i] <- mat_b[i, 12] <- 4
-  }
-
-  networks <- list(
-    SP_A = list(network = mat_a, threshold = 2.0),
-    SP_B = list(network = mat_b, threshold = 2.0)
-  )
-
-  # 1:1 orthologs
-  orthologs <- data.frame(
-    Species1 = ga, Species2 = gb,
-    hog = paste0("HOG", seq_len(n)),
-    stringsAsFactors = FALSE
-  )
-
-  edges <- find_coexpressologs(networks, orthologs, method = "analytical")
-  baseline <- find_cliques(edges, c("SP_A", "SP_B"), min_species = 2L)
-
-  list(networks = networks, orthologs = orthologs,
-       cliques = baseline, target_species = c("SP_A", "SP_B"),
-       edges = edges)
-}
-
-# Helper: 3-species setup
-make_intensity_setup_3sp <- function() {
-  n <- 15
-  ga <- paste0("A", seq_len(n))
-  gb <- paste0("B", seq_len(n))
-  gc <- paste0("C", seq_len(n))
-
-  make_net <- function(genes) {
-    mat <- matrix(0, n, n, dimnames = list(genes, genes))
-    for (i in 2:8) mat[1, i] <- mat[i, 1] <- 10
-    mat[1, 9] <- mat[9, 1] <- 3
-    mat
-  }
-
-  networks <- list(
-    SP_A = list(network = make_net(ga), threshold = 2.0),
-    SP_B = list(network = make_net(gb), threshold = 2.0),
-    SP_C = list(network = make_net(gc), threshold = 2.0)
-  )
-
-  orthologs <- rbind(
-    data.frame(Species1 = ga, Species2 = gb,
-               hog = paste0("HOG", seq_len(n)), stringsAsFactors = FALSE),
-    data.frame(Species1 = ga, Species2 = gc,
-               hog = paste0("HOG", seq_len(n)), stringsAsFactors = FALSE),
-    data.frame(Species1 = gb, Species2 = gc,
-               hog = paste0("HOG", seq_len(n)), stringsAsFactors = FALSE)
-  )
-
-  target <- c("SP_A", "SP_B", "SP_C")
-  edges <- find_coexpressologs(networks, orthologs, method = "analytical")
-  baseline <- find_cliques(edges, target, min_species = 2L)
-
-  list(networks = networks, orthologs = orthologs,
-       cliques = baseline, target_species = target, edges = edges)
-}
+# Fixtures: make_clique_fixture() and make_clique_fixture_3sp()
+# from helper-clique-fixtures.R
 
 
 test_that("clique_intensity_test output has correct structure", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_intensity_test(
@@ -108,7 +27,7 @@ test_that("clique_intensity_test output has correct structure", {
 
 
 test_that("clique_intensity_test seed produces reproducible results", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   r1 <- clique_intensity_test(
@@ -127,7 +46,7 @@ test_that("clique_intensity_test seed produces reproducible results", {
 
 
 test_that("clique_intensity_test empty cliques returns 0-row dataframe", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
   empty_cliques <- setup$cliques[0, , drop = FALSE]
   result <- clique_intensity_test(
     empty_cliques, setup$target_species, setup$networks,
@@ -139,7 +58,7 @@ test_that("clique_intensity_test empty cliques returns 0-row dataframe", {
 
 
 test_that("clique_intensity_test n_perm = 1 gives valid output", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_intensity_test(
@@ -154,7 +73,7 @@ test_that("clique_intensity_test n_perm = 1 gives valid output", {
 
 
 test_that("clique_intensity_test n_perm = 0 returns empty", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_intensity_test(
@@ -165,7 +84,7 @@ test_that("clique_intensity_test n_perm = 0 returns empty", {
 
 
 test_that("clique_intensity_test observed_intensity matches compute_clique_edge_stats", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   result <- clique_intensity_test(
@@ -178,7 +97,7 @@ test_that("clique_intensity_test observed_intensity matches compute_clique_edge_
 
 
 test_that("alternative = 'less' runs without error and returns valid p-values", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
   r_less <- clique_intensity_test(
@@ -197,7 +116,7 @@ test_that("alternative = 'less' runs without error and returns valid p-values", 
 
 
 test_that("clique_intensity_test works with 3+ species", {
-  setup <- make_intensity_setup_3sp()
+  setup <- make_clique_fixture_3sp()
   if (nrow(setup$cliques) == 0) skip("No 3-species cliques found")
 
   result <- clique_intensity_test(
@@ -211,7 +130,7 @@ test_that("clique_intensity_test works with 3+ species", {
 
 
 test_that("clique_intensity_test validates inputs", {
-  setup <- make_intensity_setup()
+  setup <- make_clique_fixture()
 
   expect_error(clique_intensity_test("not_df", setup$target_species,
                setup$networks, setup$orthologs),

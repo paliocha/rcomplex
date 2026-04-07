@@ -863,3 +863,33 @@ test_that("cost_weights validation rejects bad input", {
   expect_error(find_cliques(edges, sp, cost_weights = c(q = -1, effect = 0)),
                "cost_weights values must be >= 0")
 })
+
+
+test_that("cost_weights affects edge deduplication for duplicate gene pairs", {
+  # HOG with 2 species. Two edges between the same gene pair A1-B1:
+  # Edge 1: q=0.01, effect=1.0 (low q, low effect)
+  # Edge 2: q=0.02, effect=10.0 (higher q, much higher effect)
+  edges <- data.frame(
+    gene1 = c("A1", "A1"),
+    gene2 = c("B1", "B1"),
+    species1 = c("SP_A", "SP_A"),
+    species2 = c("SP_B", "SP_B"),
+    hog = c("HOG1", "HOG1"),
+    type = c("conserved", "conserved"),
+    q.value = c(0.01, 0.02),
+    effect_size = c(1.0, 10.0),
+    stringsAsFactors = FALSE
+  )
+  sp <- c("SP_A", "SP_B")
+
+  # Default (q-only): should keep q=0.01 edge
+  r_default <- find_cliques(edges, sp, min_species = 2L)
+  expect_equal(nrow(r_default), 1)
+  expect_equal(r_default$mean_q, 0.01, tolerance = 1e-10)
+
+  # Effect-only: should keep effect=10.0 edge (q=0.02)
+  r_eff <- find_cliques(edges, sp, min_species = 2L,
+                         cost_weights = c(q = 0, effect = 1))
+  expect_equal(nrow(r_eff), 1)
+  expect_equal(r_eff$mean_effect_size, 10.0, tolerance = 1e-10)
+})

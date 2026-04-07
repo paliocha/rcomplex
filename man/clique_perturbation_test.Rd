@@ -19,6 +19,7 @@ clique_perturbation_test(cliques, ...)
   alpha = 0.05,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
+  max_missing_edges = 0L,
   edge_type = "conserved",
   jaccard_threshold = 0.5,
   n_cores = 1L,
@@ -55,6 +56,9 @@ combinations of \code{target_species}.}
 \item{min_species}{Minimum species per clique.}
 
 \item{max_genes_per_sp}{Maximum genes per species per HOG.}
+
+\item{max_missing_edges}{Maximum missing species-pair edges per clique
+(default 0). Passed to \code{\link{find_cliques}}.}
 
 \item{edge_type}{Edge type filter.}
 

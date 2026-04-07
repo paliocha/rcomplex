@@ -18,6 +18,7 @@ clique_intensity_test(cliques, ...)
   alpha = 0.05,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
+  max_missing_edges = 0L,
   edge_type = "conserved",
   n_cores = 1L,
   seed = NULL,
@@ -54,6 +55,9 @@ whether it is below the null.}
 \item{min_species}{Minimum species per clique.}
 
 \item{max_genes_per_sp}{Maximum genes per species per HOG.}
+
+\item{max_missing_edges}{Maximum missing species-pair edges per clique
+(default 0). Passed to \code{\link{find_cliques}}.}
 
 \item{edge_type}{Edge type filter.}
 

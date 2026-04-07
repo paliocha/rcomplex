@@ -328,8 +328,11 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
             qval_sorted.push_back({key, qv});
             eff_sorted.push_back({key, eff});
         } else {
-            // Duplicate key: keep the entry with smaller q-value
-            if (qv < qval_sorted.back().second) {
+            // Duplicate key: keep entry with lower composite cost
+            double old_cost = w_q * qval_sorted.back().second
+                            - w_eff * eff_sorted.back().second;
+            double new_cost = w_q * qv - w_eff * eff;
+            if (new_cost < old_cost) {
                 qval_sorted.back().second = qv;
                 eff_sorted.back().second = eff;
             }
