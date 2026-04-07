@@ -81,6 +81,7 @@ without recomputing correlations from scratch.</p>
 <span>  alpha <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  min_species <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">target_species</span><span class="op">)</span>,</span>
 <span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  max_missing_edges <span class="op">=</span> <span class="fl">0L</span>,</span>
 <span>  edge_type <span class="op">=</span> <span class="st">"conserved"</span>,</span>
 <span>  jaccard_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
@@ -146,6 +147,11 @@ combinations of <code>target_species</code>.</p></dd>
 <dd><p>Maximum genes per species per HOG.</p></dd>
 
 
+<dt id="arg-max-missing-edges">max_missing_edges<a class="anchor" aria-label="anchor" href="#arg-max-missing-edges"></a></dt>
+<dd><p>Maximum missing species-pair edges per clique
+(default 0). Passed to <code><a href="find_cliques.html">find_cliques</a></code>.</p></dd>
+
+
 <dt id="arg-edge-type">edge_type<a class="anchor" aria-label="anchor" href="#arg-edge-type"></a></dt>
 <dd><p>Edge type filter.</p></dd>
 
@@ -176,15 +182,19 @@ combinations of <code>target_species</code>.</p></dd>
 <dd><p>HOG identifier</p></dd>
 
 <dt>survival_rate</dt>
-<dd><p>Fraction of bootstrap iterations where clique
-survived</p></dd>
+<dd><p>Fraction of total bootstrap iterations where
+clique survived (Jaccard &gt;= threshold)</p></dd>
 
 <dt>mean_jaccard</dt>
 <dd><p>Mean Jaccard similarity to best-matching
-perturbed clique</p></dd>
+perturbed clique, over matched iterations only (NA if no matches)</p></dd>
 
 <dt>n_boot</dt>
-<dd><p>Number of iterations run</p></dd>
+<dd><p>Total number of bootstrap iterations run</p></dd>
+
+<dt>n_matched</dt>
+<dd><p>Number of iterations where the clique's HOG
+produced a matching clique (Jaccard &gt; 0)</p></dd>
 
 
 </dl></div>
