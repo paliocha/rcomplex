@@ -484,7 +484,7 @@
 </ul>
 <p><code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code> returns a <code>$persistence</code> element with <code>birth</code>, <code>death</code>, and <code>persistence</code> per clique (persistence-diagram compatible), quantifying the range of density thresholds over which each clique exists.</p>
 <p><code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code> assesses noise robustness by adding Gaussian noise to MR scores, re-running network thresholding and clique detection, and measuring survival of original cliques across bootstrap replicates.</p>
-<p><code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code> builds a permutation null for clique intensity by shuffling ortholog assignments, re-running neighborhood comparison and clique detection, and reporting a Z-score for each clique’s observed intensity relative to the null distribution.</p>
+<p><code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code> tests whether each clique’s edge-weight intensity is significantly stronger than expected under a null model where ortholog mappings are randomized (global shuffle of Species2 genes). For each permutation, neighborhood comparison and clique detection are re-run, and the best-matching clique’s intensity is recorded. Empirical p-values use the Phipson &amp; Smyth (2010) correction (<code>(b + 1) / (m + 1)</code>, where b = exceedances and m = matched permutations) to avoid zero p-values.</p>
 </div>
 </div>
 <div class="section level2">
@@ -643,6 +643,8 @@
 <li>Traag, V. A., Waltman, L. &amp; van Eck, N. J. (2019). From Louvain to Leiden: guaranteeing well-connected communities. <em>Scientific Reports</em>, 9, 5233. <a href="https://doi.org/10.1038/s41598-019-41695-z" class="external-link">doi:10.1038/s41598-019-41695-z</a>
 </li>
 <li>Rosvall, M. &amp; Bergstrom, C. T. (2008). Maps of random walks on complex networks reveal community structure. <em>PNAS</em>, 105(4), 1118–1123. <a href="https://doi.org/10.1073/pnas.0706851105" class="external-link">doi:10.1073/pnas.0706851105</a>
+</li>
+<li>Phipson, B. &amp; Smyth, G. K. (2010). Permutation p-values should never be zero: calculating exact p-values when permutations are randomly drawn. <em>Statistical Applications in Genetics and Molecular Biology</em>, 9(1), Article 39. <a href="https://doi.org/10.2202/1544-6115.1585" class="external-link">doi:10.2202/1544-6115.1585</a>
 </li>
 </ul>
 </div>
