@@ -2036,7 +2036,8 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 #' @param hub_result Data frame from \code{\link{identify_module_hubs}}.
 #'   Must contain columns \code{gene}, \code{module}, \code{degree},
 #'   \code{global_degree}, \code{betweenness}.
-#' @param modules Output of \code{\link{detect_modules}}.
+#' @param modules Optional output of \code{\link{detect_modules}}.
+#'   Currently unused; reserved for future module-aware metrics.
 #' @param expr Optional expression matrix (genes as rows, samples as
 #'   columns) with rownames matching gene identifiers. When provided,
 #'   a \code{cv} column is appended.
@@ -2064,7 +2065,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 #' }
 #'
 #' @export
-characterize_hubs <- function(hub_result, modules,
+characterize_hubs <- function(hub_result, modules = NULL,
                               expr = NULL, annotations = NULL) {
   # --- Validation ---
   if (!is.data.frame(hub_result)) {
@@ -2076,8 +2077,8 @@ characterize_hubs <- function(hub_result, modules,
     stop("hub_result missing required columns: ",
          paste(missing, collapse = ", "))
   }
-  if (!is.list(modules) || is.null(modules$modules)) {
-    stop("modules must be output of detect_modules()")
+  if (!is.null(modules) && (!is.list(modules) || is.null(modules$modules))) {
+    stop("modules must be output of detect_modules() or NULL")
   }
   if (!is.null(expr)) {
     if (!is.matrix(expr) || is.null(rownames(expr))) {
@@ -2122,6 +2123,12 @@ characterize_hubs <- function(hub_result, modules,
 
   # --- Annotation join ---
   if (!is.null(annotations)) {
+    dup_genes <- duplicated(annotations$gene)
+    if (any(dup_genes)) {
+      warning("annotations contains duplicate gene entries; ",
+              "keeping first occurrence for each gene")
+      annotations <- annotations[!dup_genes, , drop = FALSE]
+    }
     orig_order <- hub_result$gene
     hub_result <- merge(hub_result, annotations, by = "gene",
                         all.x = TRUE, sort = FALSE)

@@ -33,6 +33,8 @@ using namespace Rcpp;
 //' @param n_genes Total number of distinct genes
 //' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
 //' @param max_missing_edges Maximum missing edges tolerated (default 0)
+//' @param w_q Weight for mean q-value in composite cost (default 1.0)
+//' @param w_eff Weight for mean effect size in composite cost (default 0.0)
 //' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
 //'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing
 //' @keywords internal
@@ -50,7 +52,9 @@ Rcpp::List find_cliques_cpp(
     int n_hogs,
     int n_genes,
     int max_genes_per_sp = 10,
-    int max_missing_edges = 0)
+    int max_missing_edges = 0,
+    double w_q = 1.0,
+    double w_eff = 0.0)
 {
     if (n_target_species > 64)
         Rcpp::stop("n_target_species must be <= 64");
@@ -97,7 +101,7 @@ Rcpp::List find_cliques_cpp(
             h, hog_edges[h],
             g1_ptr, g2_ptr, sp1_ptr, sp2_ptr, qval_ptr, eff_ptr,
             full_mask, n_target_species, min_species, max_genes_per_sp,
-            max_missing_edges, seen_genes);
+            max_missing_edges, seen_genes, 2000000, w_q, w_eff);
 
         // Collect results
         for (auto& cr : cliques) {

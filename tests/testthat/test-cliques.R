@@ -379,6 +379,126 @@ test_that("max_missing_edges n_missing output is 0 when all edges present", {
 })
 
 
+# --- Tests for intensity, coherence, and min_effect_size ---
+
+test_that("uniform q-values give coherence = 1.0", {
+  edges <- data.frame(
+    gene1 = c("A1", "A1", "B1"),
+    gene2 = c("B1", "C1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C"),
+    hog = rep("HOG1", 3),
+    type = rep("conserved", 3),
+    q.value = c(0.01, 0.01, 0.01),
+    effect_size = c(2.0, 3.0, 4.0),
+    stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+
+  expect_equal(nrow(result), 1)
+  # weights = 1 - 0.01 = 0.99 (all identical)
+  # intensity = geometric mean = 0.99
+  expect_equal(result$intensity, 0.99, tolerance = 1e-10)
+  # coherence = GM / AM = 1.0 when all equal
+
+  expect_equal(result$coherence, 1.0, tolerance = 1e-10)
+  # min_effect_size = min(2.0, 3.0, 4.0) = 2.0
+  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-10)
+})
+
+
+test_that("varying q-values give correct intensity and coherence", {
+  edges <- data.frame(
+    gene1 = c("A1", "A1", "B1"),
+    gene2 = c("B1", "C1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C"),
+    hog = rep("HOG1", 3),
+    type = rep("conserved", 3),
+    q.value = c(0.01, 0.04, 0.07),
+    effect_size = c(2.0, 6.0, 4.0),
+    stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+
+  weights <- c(0.99, 0.96, 0.93)
+  expected_gm <- exp(mean(log(weights)))
+  expected_am <- mean(weights)
+  expected_coherence <- expected_gm / expected_am
+
+  expect_equal(result$intensity, expected_gm, tolerance = 1e-10)
+  expect_equal(result$coherence, expected_coherence, tolerance = 1e-10)
+  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-10)
+})
+
+
+test_that("min_effect_size returns minimum of effect sizes", {
+  edges <- data.frame(
+    gene1 = c("A1", "A1", "B1"),
+    gene2 = c("B1", "C1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C"),
+    hog = rep("HOG1", 3),
+    type = rep("conserved", 3),
+    q.value = c(0.01, 0.02, 0.03),
+    effect_size = c(5.0, 1.5, 3.0),
+    stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+
+  expect_equal(result$min_effect_size, 1.5, tolerance = 1e-10)
+})
+
+
+test_that("empty cliques have intensity/coherence/min_effect_size columns", {
+  edges <- data.frame(
+    gene1 = character(0), gene2 = character(0),
+    species1 = character(0), species2 = character(0),
+    hog = character(0), q.value = numeric(0),
+    effect_size = numeric(0), stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
+
+  expect_true("intensity" %in% names(result))
+  expect_true("coherence" %in% names(result))
+  expect_true("min_effect_size" %in% names(result))
+  expect_equal(nrow(result), 0)
+  expect_true(is.numeric(result$intensity))
+  expect_true(is.numeric(result$coherence))
+  expect_true(is.numeric(result$min_effect_size))
+})
+
+
+test_that("intensity clamps q=1 weights to machine epsilon", {
+  # Edge with q.value = 1.0 should not cause log(0)
+  edges <- data.frame(
+    gene1 = "A1",
+    gene2 = "B1",
+    species1 = "SP_A",
+    species2 = "SP_B",
+    hog = "HOG1",
+    type = "conserved",
+    q.value = 1.0,
+    effect_size = 2.0,
+    stringsAsFactors = FALSE
+  )
+
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
+
+  expect_equal(nrow(result), 1)
+  expect_false(is.na(result$intensity))
+  expect_false(is.nan(result$intensity))
+  expect_true(result$intensity > 0)
+  # intensity = .Machine$double.eps (clamped), coherence = 1 (single edge)
+  expect_equal(result$intensity, .Machine$double.eps, tolerance = 1e-10)
+  expect_equal(result$coherence, 1.0, tolerance = 1e-10)
+})
+
+
 # --- Tests for clique_persistence() ---
 
 test_that("clique_persistence uses co-expressologs not full neighbourhood", {
@@ -634,4 +754,112 @@ test_that("clique_persistence validates inputs", {
                        c("A", "B"), list(A = list(), B = list()),
                        data.frame(x = 1)),
     "edges missing required columns")
+})
+
+
+# --- Tests for cost_weights (composite backtracking cost) ---
+
+test_that("cost_weights default produces identical output to current behavior", {
+  # Regression test: default cost_weights = c(q=1, effect=0) must give the
+
+  # same result as the original mean-q-only ranking
+  edges <- data.frame(
+    gene1 = c("A1", "A1", "B1", "A2", "A2"),
+    gene2 = c("B1", "C1", "C1", "B1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_A"),
+    species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_C"),
+    hog = rep("HOG1", 5),
+    type = rep("conserved", 5),
+    q.value = c(0.01, 0.01, 0.01, 0.5, 0.5),
+    effect_size = c(3.0, 3.0, 3.0, 1.0, 1.0),
+    stringsAsFactors = FALSE
+  )
+
+  result_default <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result_explicit <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
+                                  cost_weights = c(q = 1.0, effect = 0.0))
+
+  expect_identical(result_default, result_explicit)
+  expect_equal(result_default$SP_A, "A1")  # lower q wins
+})
+
+
+test_that("cost_weights effect-only selects paralog with higher effect", {
+  # Two paralogs in SP_A:
+  #   A1 has lower q but lower effect
+  #   A2 has higher q but higher effect
+  # With cost_weights = c(q=0, effect=1), A2 should win (higher effect)
+  edges <- data.frame(
+    gene1 = c("A1", "A1", "B1", "A2", "A2"),
+    gene2 = c("B1", "C1", "C1", "B1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_A"),
+    species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_C"),
+    hog = rep("HOG1", 5),
+    type = rep("conserved", 5),
+    q.value = c(0.01, 0.01, 0.01, 0.05, 0.05),
+    effect_size = c(1.0, 1.0, 1.0, 5.0, 5.0),
+    stringsAsFactors = FALSE
+  )
+
+  # Default: A1 wins (lower q)
+  result_q <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  expect_equal(result_q$SP_A, "A1")
+
+  # Effect-only: A2 wins (higher effect => lower cost = 0 - 1*mean_eff)
+  result_eff <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
+                             cost_weights = c(q = 0, effect = 1))
+  expect_equal(result_eff$SP_A, "A2")
+})
+
+
+test_that("cost_weights does not affect single-copy HOGs", {
+  edges <- data.frame(
+    gene1 = c("A1", "A1", "B1"),
+    gene2 = c("B1", "C1", "C1"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C"),
+    hog = rep("HOG1", 3),
+    type = rep("conserved", 3),
+    q.value = c(0.01, 0.02, 0.03),
+    effect_size = c(2.0, 3.0, 4.0),
+    stringsAsFactors = FALSE
+  )
+
+  result_default <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  result_weighted <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
+                                  cost_weights = c(q = 0.5, effect = 2.0))
+
+  expect_equal(result_default$SP_A, result_weighted$SP_A)
+  expect_equal(result_default$SP_B, result_weighted$SP_B)
+  expect_equal(result_default$SP_C, result_weighted$SP_C)
+  expect_equal(result_default$mean_q, result_weighted$mean_q)
+  expect_equal(result_default$mean_effect_size, result_weighted$mean_effect_size)
+})
+
+
+test_that("cost_weights validation rejects bad input", {
+  edges <- data.frame(
+    gene1 = c("A1"), gene2 = c("B1"),
+    species1 = c("SP_A"), species2 = c("SP_B"),
+    hog = "HOG1", type = "conserved",
+    q.value = 0.01, effect_size = 2.0,
+    stringsAsFactors = FALSE
+  )
+  sp <- c("SP_A", "SP_B")
+
+  # Not numeric
+  expect_error(find_cliques(edges, sp, cost_weights = c("a", "b")),
+               "cost_weights must be a named numeric")
+  # Wrong length
+  expect_error(find_cliques(edges, sp, cost_weights = c(q = 1)),
+               "cost_weights must be a named numeric vector of length 2")
+  # Missing names
+  expect_error(find_cliques(edges, sp, cost_weights = c(1, 0)),
+               "cost_weights must have names")
+  # Wrong names
+  expect_error(find_cliques(edges, sp, cost_weights = c(x = 1, y = 0)),
+               "cost_weights must have names 'q' and 'effect'")
+  # Negative value
+  expect_error(find_cliques(edges, sp, cost_weights = c(q = -1, effect = 0)),
+               "cost_weights values must be >= 0")
 })

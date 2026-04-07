@@ -17,7 +17,9 @@ find_cliques_cpp(
   n_hogs,
   n_genes,
   max_genes_per_sp = 10L,
-  max_missing_edges = 0L
+  max_missing_edges = 0L,
+  w_q = 1,
+  w_eff = 0
 )
 }
 \arguments{
@@ -46,6 +48,10 @@ find_cliques_cpp(
 \item{max_genes_per_sp}{Maximum genes per species per HOG (default 10)}
 
 \item{max_missing_edges}{Maximum missing edges tolerated (default 0)}
+
+\item{w_q}{Weight for mean q-value in composite cost (default 1.0)}
+
+\item{w_eff}{Weight for mean effect size in composite cost (default 0.0)}
 }
 \value{
 List with: hog_idx (0-based), genes (matrix, 0-based or NA),

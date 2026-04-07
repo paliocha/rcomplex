@@ -111,10 +111,13 @@ inline void bron_kerbosch(
 // Gene assignment backtracking
 // ---------------------------------------------------------------------------
 // For a given species-level clique, finds the gene assignment (one gene per
-// species) with the lowest mean FDR across all present edges.
+// species) with the lowest composite cost across all present edges.
 // When max_missing == 0 (default): prunes if ANY edge is missing.
 // When max_missing > 0: tolerates up to max_missing missing edges,
-// preferring assignments with fewer missing edges, then lower mean q-value.
+// preferring assignments with fewer missing edges, then lower composite cost.
+//
+// Composite cost = w_q * mean_q - w_eff * mean_effect  (lower is better).
+// Default w_q=1.0, w_eff=0.0 reproduces the original mean-q-only ranking.
 //
 // Uses sorted vectors + binary search instead of std::unordered_map.
 inline void assign_bt(
@@ -132,7 +135,9 @@ inline void assign_bt(
     int max_missing,
     AssignResult& best,
     int& iterations,
-    int max_iterations)
+    int max_iterations,
+    double w_q = 1.0,
+    double w_eff = 0.0)
 {
     if (++iterations > max_iterations) return;
 
@@ -140,16 +145,19 @@ inline void assign_bt(
         int total_possible = k * (k - 1) / 2;
         int present_edges = total_possible - cur_missing;
         if (present_edges == 0) return;  // no edges at all — skip
-        double mean_q = cur_sum_q / present_edges;
-        // Prefer fewer missing edges first, then lower mean q-value
+        // Composite score: lower is better
+        // w_q * mean_q - w_eff * mean_effect (effect is reward, so subtracted)
         bool is_better = false;
         if (!best.found) {
             is_better = true;
         } else if (cur_missing < best.n_missing) {
             is_better = true;
         } else if (cur_missing == best.n_missing) {
-            double best_mean = best.sum_q / best.n_edges;
-            is_better = (mean_q < best_mean);
+            double score = w_q * (cur_sum_q / present_edges)
+                         - w_eff * (cur_sum_eff / present_edges);
+            double best_score = w_q * (best.sum_q / best.n_edges)
+                              - w_eff * (best.sum_effect / best.n_edges);
+            is_better = (score < best_score);
         }
         if (is_better) {
             best.genes = current;
@@ -192,7 +200,7 @@ inline void assign_bt(
         assign_bt(depth + 1, k, sp_order, sp_genes, qval_sorted, eff_sorted,
                   current, new_sum_q, new_max_q, new_sum_eff,
                   new_missing, max_missing,
-                  best, iterations, max_iterations);
+                  best, iterations, max_iterations, w_q, w_eff);
 
         if (iterations > max_iterations) return;
     }
@@ -239,7 +247,9 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     int max_genes_per_sp,
     int max_missing_edges,
     std::vector<bool>& seen_genes,   // caller-provided, size n_genes
-    int max_iterations = 2000000)
+    int max_iterations = 2000000,
+    double w_q = 1.0,
+    double w_eff = 0.0)
 {
     std::vector<CliqueResult> results;
 
@@ -490,7 +500,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
 
         assign_bt(0, k, global_sp, sp_genes, qval_sorted, eff_sorted,
                   current, 0.0, 0.0, 0.0, 0, max_missing_edges,
-                  best, iterations, max_iterations);
+                  best, iterations, max_iterations, w_q, w_eff);
 
         if (best.found) {
             CliqueResult cr;

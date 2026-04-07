@@ -128,6 +128,12 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   names(g1) <- c("gene", "hog")
   names(g2) <- c("gene", "hog")
   gene_hog_df <- unique(rbind(g1, g2))
+  multi_hog <- duplicated(gene_hog_df$gene)
+  if (any(multi_hog)) {
+    n_multi <- length(unique(gene_hog_df$gene[multi_hog]))
+    warning(n_multi, " gene(s) map to multiple HOGs; ",
+            "keeping first occurrence for each gene")
+  }
   gene_hog_df <- gene_hog_df[!duplicated(gene_hog_df$gene), , drop = FALSE]
   gene_to_hog <- stats::setNames(gene_hog_df$hog, gene_hog_df$gene)
 

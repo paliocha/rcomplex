@@ -60,8 +60,8 @@ permutation method (default 50).}
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2}, \code{hog}, \code{q.value},
-\code{effect_size}, \code{type}. Ready for \code{\link{find_cliques}}
-or \code{\link{classify_cliques}}.
+\code{effect_size}, \code{jaccard}, \code{type}. Ready for
+\code{\link{find_cliques}} or \code{\link{classify_cliques}}.
 }
 \description{
 Runs the full comparison pipeline for each species pair and combines

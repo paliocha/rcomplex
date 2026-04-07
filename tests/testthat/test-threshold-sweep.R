@@ -61,14 +61,15 @@ test_that("clique_threshold_sweep returns correct structure", {
     setup$orthologs, multipliers = c(2, 5))
 
   expect_true(is.list(result))
-  expect_true(all(c("survival", "sweep_cliques", "sweep_edges") %in%
-                    names(result)))
+  expect_true(all(c("survival", "sweep_cliques", "sweep_edges",
+                     "persistence") %in% names(result)))
 
   surv <- result$survival
   expect_true(all(c("clique_idx", "hog", "multiplier", "survived",
                      "jaccard", "n_species_orig", "n_species_new") %in%
                     names(surv)))
-  expect_equal(nrow(surv), nrow(setup$cliques) * 2)
+  # +1 for the injected multiplier=1.0 baseline rows
+  expect_equal(nrow(surv), nrow(setup$cliques) * 3)
   # clique_idx should be 1-based
   expect_true(all(surv$clique_idx >= 1L))
 })
@@ -112,6 +113,9 @@ test_that("clique_threshold_sweep with empty cliques returns empty", {
     setup$orthologs, multipliers = c(2))
 
   expect_equal(nrow(result$survival), 0)
+  expect_equal(nrow(result$persistence), 0)
+  expect_true(all(c("clique_idx", "hog", "birth", "death", "persistence") %in%
+                    names(result$persistence)))
 })
 
 
@@ -125,6 +129,7 @@ test_that("clique_threshold_sweep with empty multipliers returns empty", {
 
   expect_equal(nrow(result$survival), 0)
   expect_equal(length(result$sweep_cliques), 0)
+  expect_equal(nrow(result$persistence), 0)
 })
 
 
@@ -169,4 +174,118 @@ test_that("jaccard_clique_match computes per-species-slot Jaccard", {
   jac2 <- rcomplex:::jaccard_clique_match(row1, row1,
                                            c("SP_A", "SP_B", "SP_C"))
   expect_equal(jac2, 1.0)
+})
+
+
+test_that("persistence dataframe has correct columns and structure", {
+  setup <- make_sweep_setup()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+
+  result <- clique_threshold_sweep(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, multipliers = c(2, 5))
+
+  persist <- result$persistence
+  expect_true(is.data.frame(persist))
+  expect_true(all(c("clique_idx", "hog", "birth", "death", "persistence") %in%
+                    names(persist)))
+  # One row per baseline clique
+  expect_equal(nrow(persist), nrow(setup$cliques))
+  # clique_idx should be 1-based and cover all baseline cliques
+  expect_equal(sort(persist$clique_idx), seq_len(nrow(setup$cliques)))
+})
+
+
+test_that("persistence birth = 1.0 for all baseline cliques", {
+  setup <- make_sweep_setup()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+
+  result <- clique_threshold_sweep(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, multipliers = c(2, 5))
+
+  persist <- result$persistence
+  # All baseline cliques exist at multiplier=1.0, so birth = 1.0
+  expect_true(all(persist$birth == 1.0))
+})
+
+
+test_that("persistence = death - birth where death is not NA", {
+  setup <- make_sweep_setup()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+
+  result <- clique_threshold_sweep(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, multipliers = c(1.5, 2, 5, 100))
+
+  persist <- result$persistence
+  has_death <- !is.na(persist$death)
+  if (any(has_death)) {
+    expect_equal(persist$persistence[has_death],
+                 persist$death[has_death] - persist$birth[has_death])
+  }
+  # Where death is NA, persistence should also be NA
+  no_death <- is.na(persist$death)
+  if (any(no_death)) {
+    expect_true(all(is.na(persist$persistence[no_death])))
+  }
+})
+
+
+test_that("survival dataframe includes multiplier=1.0 baseline rows", {
+  setup <- make_sweep_setup()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+
+  result <- clique_threshold_sweep(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, multipliers = c(2, 5))
+
+  surv <- result$survival
+  baseline <- surv[surv$multiplier == 1.0, , drop = FALSE]
+  # One baseline row per clique
+
+  expect_equal(nrow(baseline), nrow(setup$cliques))
+  # All baseline rows survived with jaccard = 1.0
+  expect_true(all(baseline$survived))
+  expect_true(all(baseline$jaccard == 1.0))
+})
+
+
+test_that("cliques surviving all multipliers have death = NA, persistence = NA", {
+  setup <- make_sweep_setup()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+
+  # Use mild multiplier to maximize survival
+  result <- clique_threshold_sweep(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, multipliers = c(1.5))
+
+  persist <- result$persistence
+  surv <- result$survival
+  # Check cliques that survived at all tested multipliers (1.0 and 1.5)
+  for (i in seq_len(nrow(persist))) {
+    ci_surv <- surv[surv$clique_idx == persist$clique_idx[i], , drop = FALSE]
+    if (all(ci_surv$survived)) {
+      expect_true(is.na(persist$death[i]))
+      expect_true(is.na(persist$persistence[i]))
+    }
+  }
+})
+
+
+test_that("cliques dying early have smaller persistence than long-lived ones", {
+  setup <- make_sweep_setup()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+
+  result <- clique_threshold_sweep(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, multipliers = c(1.5, 2, 5, 100))
+
+  persist <- result$persistence
+  # Among cliques with finite persistence, death should be > birth
+  has_death <- !is.na(persist$death)
+  if (any(has_death)) {
+    expect_true(all(persist$death[has_death] > persist$birth[has_death]))
+    expect_true(all(persist$persistence[has_death] > 0))
+  }
 })

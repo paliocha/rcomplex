@@ -68,13 +68,21 @@ for a clique to count as "survived" (default 0.5).}
 A list with components:
 \describe{
 \item{survival}{Data frame with one row per (baseline clique,
-multiplier): \code{clique_idx} (1-based), \code{hog},
-\code{multiplier}, \code{survived} (logical), \code{jaccard},
-\code{n_species_orig}, \code{n_species_new}.}
+multiplier), including \code{multiplier = 1.0} baseline rows
+where all cliques trivially survive: \code{clique_idx} (1-based),
+\code{hog}, \code{multiplier}, \code{survived} (logical),
+\code{jaccard}, \code{n_species_orig}, \code{n_species_new}.}
 \item{sweep_cliques}{Named list of \code{find_cliques()} outputs
 keyed by multiplier.}
 \item{sweep_edges}{Named list of combined edge data frames keyed
 by multiplier.}
+\item{persistence}{Data frame with one row per baseline clique:
+\code{clique_idx}, \code{hog}, \code{birth} (lowest multiplier
+where the clique exists; 1.0 for all baseline cliques),
+\code{death} (first multiplier above birth where the clique is
+lost; \code{NA} if it survives all tested multipliers),
+\code{persistence} (\code{death - birth}; \code{NA} if death
+is \code{NA}).}
 }
 }
 \description{

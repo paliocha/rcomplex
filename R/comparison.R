@@ -50,6 +50,11 @@
 #'       divergence (direction 2)}
 #'     \item{Species2.effect.size}{Fold enrichment (direction 2). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
+#'     \item{Species1.jaccard}{Jaccard index of neighborhood overlap
+#'       (direction 1): intersection / union of anchor and ortholog-mapped
+#'       neighbors. Range \eqn{[0, 1]}.}
+#'     \item{Species2.jaccard}{Jaccard index of neighborhood overlap
+#'       (direction 2).}
 #'   }
 #'
 #' @examples
@@ -148,6 +153,9 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'     \item{hog}{Ortholog group identifier}
 #'     \item{q.value}{Minimum of the two directional q-values}
 #'     \item{effect_size}{Geometric mean of directional effect sizes}
+#'     \item{jaccard}{Geometric mean of directional Jaccard indices
+#'       (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
+#'       \eqn{[0, 1]}: 1 = identical neighborhoods, 0 = disjoint.}
 #'     \item{type}{\code{"conserved"} or \code{"diverged"} if
 #'       \code{q.value < alpha}; \code{"ns"} otherwise}
 #'   }
@@ -186,6 +194,14 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   eff_geo <- sqrt(comparison$Species1.effect.size *
                   comparison$Species2.effect.size)
 
+  has_jaccard <- all(c("Species1.jaccard", "Species2.jaccard") %in%
+                     names(comparison))
+  jacc_geo <- if (has_jaccard) {
+    sqrt(comparison$Species1.jaccard * comparison$Species2.jaccard)
+  } else {
+    rep(NA_real_, nrow(comparison))
+  }
+
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   type <- ifelse(q_min < alpha, type_label, "ns")
 
@@ -197,6 +213,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     hog = comparison$hog,
     q.value = q_min,
     effect_size = eff_geo,
+    jaccard = jacc_geo,
     type = type
   )
 }
@@ -242,8 +259,8 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
-#'   \code{effect_size}, \code{type}. Ready for \code{\link{find_cliques}}
-#'   or \code{\link{classify_cliques}}.
+#'   \code{effect_size}, \code{jaccard}, \code{type}. Ready for
+#'   \code{\link{find_cliques}} or \code{\link{classify_cliques}}.
 #'
 #' @examples
 #' \dontrun{
@@ -293,7 +310,8 @@ find_coexpressologs.default <- function(
     gene1 = character(0), gene2 = character(0),
     species1 = character(0), species2 = character(0),
     hog = character(0), q.value = numeric(0),
-    effect_size = numeric(0), type = character(0))
+    effect_size = numeric(0), jaccard = numeric(0),
+    type = character(0))
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   n_pairs <- length(species_pairs)
@@ -355,6 +373,8 @@ find_coexpressologs.default <- function(
       q_vals <- hog_q[comparison$hog]
       eff <- sqrt(comparison$Species1.effect.size *
                   comparison$Species2.effect.size)
+      jacc <- sqrt(comparison$Species1.jaccard *
+                   comparison$Species2.jaccard)
 
       edges_df <- data.frame(
         gene1 = comparison$Species1,
@@ -364,6 +384,7 @@ find_coexpressologs.default <- function(
         hog = comparison$hog,
         q.value = as.numeric(q_vals),
         effect_size = eff,
+        jaccard = jacc,
         type = ifelse(!is.na(q_vals) & q_vals < alpha,
                       type_label, "ns")
       )
@@ -477,7 +498,8 @@ density_sweep.default <- function(networks, orthologs,
     gene1 = character(0), gene2 = character(0),
     species1 = character(0), species2 = character(0),
     hog = character(0), q.value = numeric(0),
-    effect_size = numeric(0), type = character(0)
+    effect_size = numeric(0), jaccard = numeric(0),
+    type = character(0)
   )
 
   for (i in seq_len(n_mult)) {

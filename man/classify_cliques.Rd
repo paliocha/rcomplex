@@ -75,8 +75,11 @@ unclassified)}
 cliques (NA for complete/partial/unclassified)}
 \item{stability_class}{From stability results (NA if not
 provided)}
-\item{persistence}{Highest multiplier at which the HOG's
-clique survived (NA if not provided)}
+\item{persistence}{Birth/death persistence of the HOG's
+best clique (\code{death - birth}) from
+\code{\link{clique_threshold_sweep}}; falls back to highest
+survived multiplier for legacy sweep output (NA if not
+provided)}
 \item{robust}{Logical: passes both stability and persistence
 thresholds (NA if neither provided)}
 }

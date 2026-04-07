@@ -32,6 +32,7 @@ struct DirectionResult {
     double pval_con = 1.0;
     double pval_div = 1.0;
     double effect_size = 1.0;
+    double jaccard = 0.0;
 };
 
 // Compute one direction of the neighborhood comparison.
@@ -77,6 +78,9 @@ static DirectionResult compute_direction(
         r.effect_size = (static_cast<double>(x) / k) / (static_cast<double>(m) / N);
         r.pval_div = R::phyper(x, m, N - m, k, 1, 0);
     }
+
+    int union_size = r.neigh + r.ortho_neigh - r.overlap;
+    r.jaccard = (union_size > 0) ? static_cast<double>(r.overlap) / union_size : 0.0;
 
     return r;
 }
@@ -160,13 +164,14 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         }
     }
 
-    // Output vectors (6 per direction)
+    // Output vectors (7 per direction)
     Rcpp::IntegerVector sp1_neigh(n_pairs),  sp2_neigh(n_pairs);
     Rcpp::IntegerVector sp1_ortho_neigh(n_pairs), sp2_ortho_neigh(n_pairs);
     Rcpp::IntegerVector sp1_overlap(n_pairs), sp2_overlap(n_pairs);
     Rcpp::NumericVector sp1_pval(n_pairs),   sp2_pval(n_pairs);
     Rcpp::NumericVector sp1_pval_div(n_pairs), sp2_pval_div(n_pairs);
     Rcpp::NumericVector sp1_effect(n_pairs), sp2_effect(n_pairs);
+    Rcpp::NumericVector sp1_jaccard(n_pairs), sp2_jaccard(n_pairs);
 
     // Pre-allocate per-thread scratch flags (cleared by compute_direction)
     int max_threads = 1;
@@ -187,8 +192,10 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         if (g1_idx < 0 || g1_idx >= n1 || g2_idx < 0 || g2_idx >= n2) {
             sp1_neigh[p] = 0; sp1_ortho_neigh[p] = 0; sp1_overlap[p] = 0;
             sp1_pval[p] = 1.0; sp1_pval_div[p] = 1.0; sp1_effect[p] = 1.0;
+            sp1_jaccard[p] = 0.0;
             sp2_neigh[p] = 0; sp2_ortho_neigh[p] = 0; sp2_overlap[p] = 0;
             sp2_pval[p] = 1.0; sp2_pval_div[p] = 1.0; sp2_effect[p] = 1.0;
+            sp2_jaccard[p] = 0.0;
             continue;
         }
 
@@ -204,6 +211,7 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         sp1_neigh[p] = d1.neigh;   sp1_ortho_neigh[p] = d1.ortho_neigh;
         sp1_overlap[p] = d1.overlap; sp1_pval[p] = d1.pval_con;
         sp1_pval_div[p] = d1.pval_div; sp1_effect[p] = d1.effect_size;
+        sp1_jaccard[p] = d1.jaccard;
 
         // Direction 2: Species 2 -> Species 1
         DirectionResult d2 = compute_direction(
@@ -212,6 +220,7 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         sp2_neigh[p] = d2.neigh;   sp2_ortho_neigh[p] = d2.ortho_neigh;
         sp2_overlap[p] = d2.overlap; sp2_pval[p] = d2.pval_con;
         sp2_pval_div[p] = d2.pval_div; sp2_effect[p] = d2.effect_size;
+        sp2_jaccard[p] = d2.jaccard;
     }
 
     return Rcpp::DataFrame::create(
@@ -221,11 +230,13 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         Rcpp::Named("Species1.p.val.con") = sp1_pval,
         Rcpp::Named("Species1.p.val.div") = sp1_pval_div,
         Rcpp::Named("Species1.effect.size") = sp1_effect,
+        Rcpp::Named("Species1.jaccard") = sp1_jaccard,
         Rcpp::Named("Species2.neigh") = sp2_neigh,
         Rcpp::Named("Species2.ortho.neigh") = sp2_ortho_neigh,
         Rcpp::Named("Species2.neigh.overlap") = sp2_overlap,
         Rcpp::Named("Species2.p.val.con") = sp2_pval,
         Rcpp::Named("Species2.p.val.div") = sp2_pval_div,
-        Rcpp::Named("Species2.effect.size") = sp2_effect
+        Rcpp::Named("Species2.effect.size") = sp2_effect,
+        Rcpp::Named("Species2.jaccard") = sp2_jaccard
     );
 }

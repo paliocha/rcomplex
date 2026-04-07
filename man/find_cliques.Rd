@@ -14,6 +14,7 @@ find_cliques(edges, ...)
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,
   edge_type = "conserved",
+  cost_weights = c(q = 1, effect = 0),
   ...
 )
 }
@@ -47,6 +48,12 @@ uses subset enumeration instead of Bron-Kerbosch. Practical limit:
 
 \item{edge_type}{If \code{edges} has a \code{type} column, keep only
 edges with \code{type \%in\% edge_type} (default \code{"conserved"}).}
+
+\item{cost_weights}{Named numeric vector with elements \code{"q"} and
+\code{"effect"} controlling the composite cost used for gene-assignment
+ranking. The cost is \code{q * mean_q - effect * mean_effect}
+(lower is better). Default \code{c(q = 1, effect = 0)} reproduces
+the original mean-q-only ranking.}
 }
 \value{
 A data frame with one row per clique:
@@ -60,6 +67,12 @@ A data frame with one row per clique:
 \item{n_edges}{Number of present edges}
 \item{n_missing}{Number of missing edges (0 when
 \code{max_missing_edges = 0})}
+\item{intensity}{Onnela intensity: geometric mean of \code{1 - q.value}
+across present edges (higher = stronger conservation)}
+\item{coherence}{Onnela coherence: intensity / arithmetic mean of
+\code{1 - q.value} (1 when all edge weights are equal)}
+\item{min_effect_size}{Minimum effect size across present edges
+(bottleneck enrichment)}
 }
 }
 \description{

@@ -22,9 +22,11 @@ test_that("compare_neighborhoods returns correct structure", {
                      "Species1.neigh", "Species1.ortho.neigh",
                      "Species1.neigh.overlap", "Species1.p.val.con",
                      "Species1.p.val.div", "Species1.effect.size",
+                     "Species1.jaccard",
                      "Species2.neigh", "Species2.ortho.neigh",
                      "Species2.neigh.overlap", "Species2.p.val.con",
-                     "Species2.p.val.div", "Species2.effect.size")
+                     "Species2.p.val.div", "Species2.effect.size",
+                     "Species2.jaccard")
   expect_true(all(expected_cols %in% names(result)))
 })
 
@@ -60,6 +62,10 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
   ))
   expect_true(all(result$Species1.effect.size >= 0))
   expect_true(all(result$Species2.effect.size >= 0))
+
+  # Jaccard in [0, 1]
+  expect_true(all(result$Species1.jaccard >= 0 & result$Species1.jaccard <= 1))
+  expect_true(all(result$Species2.jaccard >= 0 & result$Species2.jaccard <= 1))
 })
 
 test_that("C++ comparison matches R reference", {
@@ -129,6 +135,14 @@ test_that("C++ comparison matches R reference", {
     expect_equal(
       cpp_result$Species2.effect.size[i],
       ref$Species2.effect.size, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species1.jaccard[i],
+      ref$Species1.jaccard, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species2.jaccard[i],
+      ref$Species2.jaccard, tolerance = 1e-12
     )
   }
 })
@@ -306,6 +320,96 @@ test_that("effect size < 1 when overlap is less than expected", {
 })
 
 
+# --- Tests for Jaccard overlap ---
+
+test_that("Jaccard = 1 for identical neighborhoods", {
+  n <- 20
+  net_mat <- matrix(0, n, n)
+  rownames(net_mat) <- colnames(net_mat) <- paste0("G_", sprintf("%03d", 1:n))
+  for (j in 2:6) {
+    net_mat[1, j] <- 10
+    net_mat[j, 1] <- 10
+  }
+
+  net1 <- list(network = net_mat, threshold = 5)
+  net2_mat <- net_mat
+  rownames(net2_mat) <- colnames(net2_mat) <- paste0("H_", sprintf("%03d", 1:n))
+  net2 <- list(network = net2_mat, threshold = 5)
+
+  ortho <- data.frame(
+    Species1 = paste0("G_", sprintf("%03d", 1:n)),
+    Species2 = paste0("H_", sprintf("%03d", 1:n)),
+    hog = 1:n
+  )
+
+  result <- compare_neighborhoods(net1, net2, ortho)
+  row1 <- result[result$Species1 == "G_001" & result$Species2 == "H_001", ]
+
+  # Identical neighborhoods -> Jaccard = 1
+  expect_equal(row1$Species1.jaccard, 1.0)
+  expect_equal(row1$Species2.jaccard, 1.0)
+})
+
+test_that("Jaccard = 0 for disjoint neighborhoods", {
+  n <- 30
+  net1_mat <- matrix(0, n, n)
+  rownames(net1_mat) <- colnames(net1_mat) <- paste0("A_", sprintf("%03d", 1:n))
+  for (j in 2:11) {
+    net1_mat[1, j] <- 10
+    net1_mat[j, 1] <- 10
+  }
+
+  net2_mat <- matrix(0, n, n)
+  rownames(net2_mat) <- colnames(net2_mat) <- paste0("B_", sprintf("%03d", 1:n))
+  for (j in 21:30) {
+    net2_mat[1, j] <- 10
+    net2_mat[j, 1] <- 10
+  }
+
+  net1 <- list(network = net1_mat, threshold = 5)
+  net2 <- list(network = net2_mat, threshold = 5)
+
+  ortho <- data.frame(
+    Species1 = paste0("A_", sprintf("%03d", 1:n)),
+    Species2 = paste0("B_", sprintf("%03d", 1:n)),
+    hog = 1:n
+  )
+
+  result <- compare_neighborhoods(net1, net2, ortho)
+  row1 <- result[result$Species1 == "A_001" & result$Species2 == "B_001", ]
+
+  # Disjoint neighborhoods -> Jaccard = 0
+  expect_equal(row1$Species1.jaccard, 0.0)
+})
+
+test_that("Jaccard = 0 (not NaN) when both neighborhoods are empty", {
+  n <- 10
+  # All-zero networks: no edges above threshold
+  net1_mat <- matrix(0, n, n)
+  rownames(net1_mat) <- colnames(net1_mat) <- paste0("A_", sprintf("%03d", 1:n))
+  net2_mat <- matrix(0, n, n)
+  rownames(net2_mat) <- colnames(net2_mat) <- paste0("B_", sprintf("%03d", 1:n))
+
+  net1 <- list(network = net1_mat, threshold = 5)
+  net2 <- list(network = net2_mat, threshold = 5)
+
+  ortho <- data.frame(
+    Species1 = paste0("A_", sprintf("%03d", 1:n)),
+    Species2 = paste0("B_", sprintf("%03d", 1:n)),
+    hog = 1:n
+  )
+
+  result <- compare_neighborhoods(net1, net2, ortho)
+
+  # Both directions: empty neighborhoods -> neigh=0, ortho_neigh=0, union=0 -> jaccard=0
+
+  expect_true(all(result$Species1.jaccard == 0.0))
+  expect_true(all(result$Species2.jaccard == 0.0))
+  expect_true(all(!is.nan(result$Species1.jaccard)))
+  expect_true(all(!is.nan(result$Species2.jaccard)))
+})
+
+
 # --- Tests for comparison_to_edges() ---
 
 test_that("comparison_to_edges produces correct edge format", {
@@ -315,6 +419,8 @@ test_that("comparison_to_edges produces correct edge format", {
     hog = c(1L, 2L),
     Species1.effect.size = c(4.0, 1.0),
     Species2.effect.size = c(9.0, 1.0),
+    Species1.jaccard = c(0.8, 0.0),
+    Species2.jaccard = c(0.5, 0.0),
     Species1.q.val.con = c(0.01, 0.80),
     Species2.q.val.con = c(0.03, 0.90)
   )
@@ -322,7 +428,8 @@ test_that("comparison_to_edges produces correct edge format", {
   edges <- comparison_to_edges(comp, "SP_A", "SP_B")
 
   expect_equal(names(edges), c("gene1", "gene2", "species1", "species2",
-                                "hog", "q.value", "effect_size", "type"))
+                                "hog", "q.value", "effect_size", "jaccard",
+                                "type"))
   expect_equal(edges$gene1, c("A1", "A2"))
   expect_equal(edges$species1, c("SP_A", "SP_A"))
   expect_equal(edges$species2, c("SP_B", "SP_B"))
@@ -330,6 +437,8 @@ test_that("comparison_to_edges produces correct edge format", {
   expect_equal(edges$q.value, c(0.01, 0.80))
   # effect_size = geometric mean
   expect_equal(edges$effect_size, c(sqrt(4 * 9), sqrt(1 * 1)))
+  # jaccard = geometric mean of directional Jaccards
+  expect_equal(edges$jaccard, c(sqrt(0.8 * 0.5), sqrt(0.0 * 0.0)))
   # type classification
   expect_equal(edges$type, c("conserved", "ns"))
 })
@@ -339,6 +448,7 @@ test_that("comparison_to_edges handles alternative='less'", {
   comp <- data.frame(
     Species1 = "A1", Species2 = "B1", hog = 1L,
     Species1.effect.size = 0.2, Species2.effect.size = 0.3,
+    Species1.jaccard = 0.1, Species2.jaccard = 0.2,
     Species1.q.val.div = 0.01, Species2.q.val.div = 0.02
   )
 

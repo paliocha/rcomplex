@@ -19,6 +19,7 @@ clique_stability(edges, ...)
   jaccard_threshold = 0.8,
   edge_type = "conserved",
   n_cores = 1L,
+  cost_weights = c(q = 1, effect = 0),
   ...
 )
 }

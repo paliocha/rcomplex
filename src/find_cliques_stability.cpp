@@ -32,6 +32,8 @@ using namespace Rcpp;
 //' @param is_target 1/0 per species (length n_all_species): target membership
 //' @param full_cliques output of find_cliques_cpp on the full dataset
 //' @param max_k,max_genes_per_sp,jaccard_threshold,n_cores tuning parameters
+//' @param w_q Weight for mean q-value in composite cost (default 1.0)
+//' @param w_eff Weight for mean effect size in composite cost (default 0.0)
 //' @return List with stability, clique_disruption, stability_class, novel_cliques
 //' @keywords internal
 // [[Rcpp::export]]
@@ -43,7 +45,8 @@ Rcpp::List find_cliques_stability_cpp(
     IntegerVector is_target,
     Rcpp::List full_cliques,
     int max_k = 3, int max_genes_per_sp = 10,
-    double jaccard_threshold = 0.8, int n_cores = 1)
+    double jaccard_threshold = 0.8, int n_cores = 1,
+    double w_q = 1.0, double w_eff = 0.0)
 {
     // ---- Validation ----
     if (n_all_species > 64)
@@ -207,7 +210,8 @@ Rcpp::List find_cliques_stability_cpp(
                 auto reduced = find_cliques_for_hog(
                     h, hog_edges[h], g1_ptr, g2_ptr, sp1_ptr, sp2_ptr,
                     qval_ptr, eff_ptr, active_target, n_all_species,
-                    2, max_genes_per_sp, 0, thread_seen[tid]);
+                    2, max_genes_per_sp, 0, thread_seen[tid],
+                    2000000, w_q, w_eff);
 
                 std::vector<char> rc_matched(reduced.size(), 0);
 

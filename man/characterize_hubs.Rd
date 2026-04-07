@@ -4,14 +4,15 @@
 \alias{characterize_hubs}
 \title{Characterize hub genes by regulatory potential}
 \usage{
-characterize_hubs(hub_result, modules, expr = NULL, annotations = NULL)
+characterize_hubs(hub_result, modules = NULL, expr = NULL, annotations = NULL)
 }
 \arguments{
 \item{hub_result}{Data frame from \code{\link{identify_module_hubs}}.
 Must contain columns \code{gene}, \code{module}, \code{degree},
 \code{global_degree}, \code{betweenness}.}
 
-\item{modules}{Output of \code{\link{detect_modules}}.}
+\item{modules}{Optional output of \code{\link{detect_modules}}.
+Currently unused; reserved for future module-aware metrics.}
 
 \item{expr}{Optional expression matrix (genes as rows, samples as
 columns) with rownames matching gene identifiers. When provided,

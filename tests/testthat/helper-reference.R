@@ -75,6 +75,12 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
     p_val_div2 <- phyper(x2, m2, n_genes2 - m2, k2, lower.tail = TRUE)
   }
 
+  union1 <- m + k - x
+  jaccard1 <- if (union1 > 0) x / union1 else 0
+
+  union2 <- m2 + k2 - x2
+  jaccard2 <- if (union2 > 0) x2 / union2 else 0
+
   data.frame(
     Species1.neigh = m,
     Species1.ortho.neigh = k,
@@ -82,11 +88,13 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
     Species1.p.val.con = p_val_con1,
     Species1.p.val.div = p_val_div1,
     Species1.effect.size = effect1,
+    Species1.jaccard = jaccard1,
     Species2.neigh = m2,
     Species2.ortho.neigh = k2,
     Species2.neigh.overlap = x2,
     Species2.p.val.con = p_val_con2,
     Species2.p.val.div = p_val_div2,
-    Species2.effect.size = effect2
+    Species2.effect.size = effect2,
+    Species2.jaccard = jaccard2
   )
 }

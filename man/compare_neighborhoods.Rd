@@ -42,6 +42,11 @@ conservation (direction 2)}
 divergence (direction 2)}
 \item{Species2.effect.size}{Fold enrichment (direction 2). Values > 1
 indicate conservation, < 1 indicate divergence.}
+\item{Species1.jaccard}{Jaccard index of neighborhood overlap
+(direction 1): intersection / union of anchor and ortholog-mapped
+neighbors. Range \eqn{[0, 1]}.}
+\item{Species2.jaccard}{Jaccard index of neighborhood overlap
+(direction 2).}
 }
 }
 \description{
