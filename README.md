@@ -400,10 +400,14 @@ Gaussian noise to MR scores, re-running network thresholding and clique
 detection, and measuring survival of original cliques across bootstrap
 replicates.
 
-`clique_intensity_test()` builds a permutation null for clique intensity
-by shuffling ortholog assignments, re-running neighborhood comparison
-and clique detection, and reporting a Z-score for each clique's observed
-intensity relative to the null distribution.
+`clique_intensity_test()` tests whether each clique's edge-weight
+intensity is significantly stronger than expected under a null model
+where ortholog mappings are randomized (global shuffle of Species2
+genes). For each permutation, neighborhood comparison and clique
+detection are re-run, and the best-matching clique's intensity is
+recorded. Empirical p-values use the Phipson & Smyth (2010) correction
+(`(b + 1) / (m + 1)`, where b = exceedances and m = matched
+permutations) to avoid zero p-values.
 
 ## Architecture
 
@@ -485,6 +489,11 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Rosvall, M. & Bergstrom, C. T. (2008). Maps of random walks on complex
   networks reveal community structure. *PNAS*, 105(4), 1118--1123.
   [doi:10.1073/pnas.0706851105](https://doi.org/10.1073/pnas.0706851105)
+- Phipson, B. & Smyth, G. K. (2010). Permutation p-values should never
+  be zero: calculating exact p-values when permutations are randomly
+  drawn. *Statistical Applications in Genetics and Molecular Biology*,
+  9(1), Article 39.
+  [doi:10.2202/1544-6115.1585](https://doi.org/10.2202/1544-6115.1585)
 
 ## License
 
