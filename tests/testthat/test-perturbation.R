@@ -62,6 +62,7 @@ test_that("zero noise gives 100% survival and jaccard = 1.0", {
 
   expect_true(all(result$survival_rate == 1.0))
   expect_true(all(result$mean_jaccard == 1.0))
+  expect_true(all(result$n_matched == result$n_boot))
 })
 
 
@@ -103,6 +104,7 @@ test_that("output has correct structure", {
   expect_type(result$survival_rate, "double")
   expect_type(result$mean_jaccard, "double")
   expect_type(result$n_boot, "integer")
+  expect_type(result$n_matched, "integer")
 
   # clique_idx is 1-based sequential
   expect_equal(result$clique_idx, seq_len(nrow(setup$cliques)))
@@ -110,11 +112,13 @@ test_that("output has correct structure", {
   # survival_rate in [0, 1]
   expect_true(all(result$survival_rate >= 0 & result$survival_rate <= 1))
 
-  # mean_jaccard in [0, 1]
-  expect_true(all(result$mean_jaccard >= 0 & result$mean_jaccard <= 1))
+  # mean_jaccard in [0, 1] or NA (when n_matched == 0)
+  expect_true(all(is.na(result$mean_jaccard) |
+                  (result$mean_jaccard >= 0 & result$mean_jaccard <= 1)))
 
-  # n_boot matches input
+  # n_boot matches input; n_matched <= n_boot
   expect_true(all(result$n_boot == 3L))
+  expect_true(all(result$n_matched <= result$n_boot))
 })
 
 
