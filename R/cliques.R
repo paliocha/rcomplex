@@ -1002,6 +1002,7 @@ clique_threshold_sweep <- function(
   all_multipliers <- sort(unique(survival$multiplier))
 
   if (nrow(survival) > 0 && nrow(cliques) > 0) {
+    # Safe: baseline_rows guarantees every clique_idx 1..nrow(cliques) exists
     surv_split <- split(survival, survival$clique_idx)
     persist_list <- vector("list", nrow(cliques))
     for (i in seq_len(nrow(cliques))) {
@@ -1254,7 +1255,8 @@ clique_perturbation_test.default <- function(
         if (jac > best_jaccard) best_jaccard <- jac
       }
 
-      if (best_jaccard > 0) {
+      if (best_jaccard >= 0) {
+        # Candidate found (sentinel is -1; Jaccard >= 0 means a HOG match)
         n_matched[i] <- n_matched[i] + 1L
         sum_jaccard[i] <- sum_jaccard[i] + best_jaccard
         if (best_jaccard >= jaccard_threshold)
@@ -1454,9 +1456,9 @@ clique_intensity_test.default <- function(
           best_intensity <- stats_p$intensity[j]
         }
       }
-      if (best_jaccard > 0 && !is.na(best_intensity))
+      if (best_jaccard >= 0 && !is.na(best_intensity))
         null_intensities[p, i] <- best_intensity
-      # Unmatched permutations stay NA (not counted in statistics)
+      # Unmatched permutations (sentinel -1) stay NA
     }
   }
 
