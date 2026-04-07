@@ -22,6 +22,7 @@ clique_intensity_test(cliques, ...)
   n_cores = 1L,
   seed = NULL,
   cost_weights = c(q = 1, effect = 0),
+  edges = NULL,
   ...
 )
 }
@@ -61,6 +62,11 @@ whether it is below the null.}
 \item{seed}{Random seed for reproducibility.}
 
 \item{cost_weights}{Cost weights for \code{\link{find_cliques}}.}
+
+\item{edges}{Optional edge data frame (output of
+\code{\link{find_coexpressologs}}). When provided, skips the
+baseline edge recomputation. When \code{NULL} (default), edges
+are computed internally.}
 }
 \value{
 Data frame with columns:

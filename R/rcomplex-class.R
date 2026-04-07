@@ -381,7 +381,7 @@ clique_intensity_test.rcomplex <- function(cliques, ...) {
     stop("run find_cliques() first")
   x$intensity_test <- clique_intensity_test.default(
     x$cliques, x$species, x$networks, x$orthologs,
-    ...
+    edges = x$edges, ...
   )
   x
 }

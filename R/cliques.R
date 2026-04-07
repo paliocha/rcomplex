@@ -922,7 +922,8 @@ clique_threshold_sweep <- function(
         gene1 = character(0), gene2 = character(0),
         species1 = character(0), species2 = character(0),
         hog = character(0), q.value = numeric(0),
-        effect_size = numeric(0), type = character(0))
+        effect_size = numeric(0), jaccard = numeric(0),
+        type = character(0))
     } else {
       all_edges <- do.call(rbind, pair_edges)
     }
@@ -1001,9 +1002,10 @@ clique_threshold_sweep <- function(
   all_multipliers <- sort(unique(survival$multiplier))
 
   if (nrow(survival) > 0 && nrow(cliques) > 0) {
+    surv_split <- split(survival, survival$clique_idx)
     persist_list <- vector("list", nrow(cliques))
     for (i in seq_len(nrow(cliques))) {
-      ci_surv <- survival[survival$clique_idx == i, , drop = FALSE]
+      ci_surv <- surv_split[[as.character(i)]]
       survived_at <- ci_surv$multiplier[ci_surv$survived]
       birth <- if (length(survived_at) > 0) min(survived_at) else NA_real_
 
@@ -1205,17 +1207,15 @@ clique_perturbation_test.default <- function(
     for (sp in target_species) {
       net_mat <- networks[[sp]]$network
       n <- nrow(net_mat)
-      noise <- matrix(stats::rnorm(n * n, 0, noise_sd), n, n)
-      noise <- (noise + t(noise)) / 2  # symmetrize
-      diag(noise) <- 0
-      perturbed <- net_mat + noise
-      perturbed[perturbed < 0] <- 0  # clamp negatives
+      perturbed <- net_mat
+      ut <- which(upper.tri(perturbed))
+      perturbed[ut] <- perturbed[ut] + stats::rnorm(length(ut), 0, noise_sd)
+      perturbed[lower.tri(perturbed)] <- t(perturbed)[lower.tri(perturbed)]
+      perturbed[perturbed < 0] <- 0
       perturbed_networks[[sp]] <- list(
         network = perturbed,
         threshold = networks[[sp]]$threshold
       )
-      # Preserve dimnames
-      dimnames(perturbed_networks[[sp]]$network) <- dimnames(net_mat)
     }
 
     # 2. Re-run comparison pipeline (analytical = fast)
@@ -1242,28 +1242,26 @@ clique_perturbation_test.default <- function(
 
     # 4. Match baseline cliques to perturbed cliques
     for (i in seq_len(n_cliques)) {
-      baseline_hog <- cliques$hog[i]
-      best_jaccard <- NA_real_
-
-      candidates <- which(cliques_b$hog == baseline_hog)
+      best_jaccard <- -1
+      candidates <- which(cliques_b$hog == cliques$hog[i])
       for (j in candidates) {
         jac <- jaccard_clique_match(cliques[i, ], cliques_b[j, ],
                                      target_species)
-        if (is.na(best_jaccard) || jac > best_jaccard) {
-          best_jaccard <- jac
-        }
+        if (jac > best_jaccard) best_jaccard <- jac
       }
 
-      survived <- !is.na(best_jaccard) && best_jaccard >= jaccard_threshold
-      if (survived) {
-        n_survived[i] <- n_survived[i] + 1L
-      }
-      if (!is.na(best_jaccard)) {
+      if (best_jaccard > 0) {
         n_matched[i] <- n_matched[i] + 1L
         sum_jaccard[i] <- sum_jaccard[i] + best_jaccard
+        if (best_jaccard >= jaccard_threshold)
+          n_survived[i] <- n_survived[i] + 1L
       }
     }
   }
+
+  if (all(n_matched == 0L) && n_boot > 0L)
+    warning("no bootstrap iteration produced matching cliques; ",
+            "check networks/orthologs compatibility")
 
   # Build output — mean_jaccard over matched iterations only
   data.frame(
@@ -1314,6 +1312,10 @@ clique_perturbation_test.default <- function(
 #' @param n_cores Number of parallel cores.
 #' @param seed Random seed for reproducibility.
 #' @param cost_weights Cost weights for \code{\link{find_cliques}}.
+#' @param edges Optional edge data frame (output of
+#'   \code{\link{find_coexpressologs}}). When provided, skips the
+#'   baseline edge recomputation. When \code{NULL} (default), edges
+#'   are computed internally.
 #' @param ... Additional arguments passed to the default method.
 #'
 #' @return Data frame with columns:
@@ -1349,7 +1351,8 @@ clique_intensity_test.default <- function(
     edge_type = "conserved",
     n_cores = 1L,
     seed = NULL,
-    cost_weights = c(q = 1.0, effect = 0.0), ...) {
+    cost_weights = c(q = 1.0, effect = 0.0),
+    edges = NULL, ...) {
 
   alternative <- match.arg(alternative)
   n_perm <- as.integer(n_perm)
@@ -1387,12 +1390,14 @@ clique_intensity_test.default <- function(
     species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
 
   # Compute baseline intensity
-  baseline_edges <- find_coexpressologs(networks, orthologs,
-                                         species_pairs = species_pairs,
-                                         method = "analytical",
-                                         alternative = alternative,
-                                         alpha = alpha, n_cores = n_cores)
-  obs_stats <- compute_clique_edge_stats(cliques, baseline_edges,
+  if (is.null(edges)) {
+    edges <- find_coexpressologs(networks, orthologs,
+                                  species_pairs = species_pairs,
+                                  method = "analytical",
+                                  alternative = alternative,
+                                  alpha = alpha, n_cores = n_cores)
+  }
+  obs_stats <- compute_clique_edge_stats(cliques, edges,
                                           target_species)
   observed_intensity <- obs_stats$intensity
   n_cliques <- nrow(cliques)

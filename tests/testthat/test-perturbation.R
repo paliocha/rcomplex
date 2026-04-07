@@ -70,12 +70,11 @@ test_that("large noise reduces survival rate", {
   setup <- make_perturbation_setup()
   if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
 
-  result <- clique_perturbation_test(
+  # noise_sd=100 on networks with values ~3-10 destroys signal;
+  # may trigger "no matching cliques" warning (expected)
+  result <- suppressWarnings(clique_perturbation_test(
     setup$cliques, setup$target_species, setup$networks,
-    setup$orthologs, n_boot = 10L, noise_sd = 100, seed = 42L)
-
-  # With noise_sd=100 on networks with values ~3-10, most cliques should
-  # be disrupted. At least one clique should have survival < 1.
+    setup$orthologs, n_boot = 10L, noise_sd = 100, seed = 42L))
 
   expect_true(any(result$survival_rate < 1.0))
 })
