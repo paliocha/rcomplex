@@ -313,6 +313,9 @@ find_cliques.default <- function(edges, target_species,
 #'   reduced-dataset cliques to full-dataset cliques (default 0.8).
 #' @param edge_type Edge type filter (default \code{"conserved"}).
 #' @param n_cores Number of OpenMP threads (default 1).
+#' @param cost_weights Cost weights for gene-assignment ranking
+#'   (same as in \code{\link{find_cliques}}).
+#'   Default \code{c(q = 1, effect = 0)}.
 #'
 #' @return A list with components:
 #'   \describe{

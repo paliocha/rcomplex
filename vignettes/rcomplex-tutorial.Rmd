@@ -704,6 +704,132 @@ show_classification(result, "complete", show_cols,
 
 ###
 
+### Clique robustness diagnostics
+
+The density sweep and jackknife stability above assess whether cliques
+survive threshold changes and species removal. Several additional
+diagnostics quantify clique quality at a finer grain.
+
+**Edge-level quality metrics.** `find_cliques()` now returns three
+columns alongside each clique: `intensity` (Onnela intensity -- the
+geometric mean of `1 - q.value` across present edges), `coherence`
+(intensity divided by the arithmetic mean, equal to 1 when all edge
+weights are equal), and `min_effect_size` (the bottleneck enrichment
+across present edges). High intensity with high coherence indicates
+uniformly strong conservation; high intensity with low coherence
+flags cliques carried by one or two dominant edges. The
+`cost_weights` parameter controls gene-assignment ranking: the
+default `c(q = 1, effect = 0)` minimises mean q-value, while
+`c(q = 1, effect = 1)` uses a composite cost
+`q * mean_q - effect * mean_effect` that also rewards large
+effect sizes:
+
+```{r intensity-coherence, eval = FALSE}
+# Intensity and coherence are already in cliques from find_cliques()
+cliques |>
+  select(hog, n_species, mean_q, intensity, coherence, min_effect_size) |>
+  filter(n_species >= 3) |>
+  arrange(desc(intensity)) |>
+  head(20) |>
+  show_table(caption = "Top cliques by Onnela intensity (>= 3 species)")
+
+# Composite cost: rank gene assignments by both q-value and effect size
+cliques_composite <- find_cliques(robust_edges, species, min_species = 2L,
+                                   cost_weights = c(q = 1, effect = 0.5))
+```
+
+**Jaccard overlap in edge output.** `comparison_to_edges()` (and
+therefore `find_coexpressologs()`) now includes a `jaccard` column:
+the geometric mean of the two directional Jaccard indices of
+neighborhood overlap. This complements the hypergeometric q-value
+with a non-parametric measure of neighborhood similarity (range
+0--1). Large effect size with low Jaccard suggests enrichment driven
+by a small shared subset rather than broad neighborhood overlap:
+
+```{r edge-jaccard, eval = FALSE}
+robust_edges |>
+  filter(type == "conserved") |>
+  select(hog, gene1, gene2, species1, species2, q.value, effect_size, jaccard) |>
+  arrange(desc(jaccard)) |>
+  head(20) |>
+  show_table(caption = "Top conserved edges by Jaccard overlap")
+```
+
+**Birth/death persistence.** `clique_threshold_sweep()` returns a
+`$persistence` element with one row per baseline clique. Each row
+records the `birth` (lowest multiplier where the clique exists),
+`death` (first multiplier above birth where it disappears), and
+`persistence` (death minus birth). A persistence of `NA` means the
+clique survived all tested multipliers. Unlike the density sweep
+survival count, persistence captures the continuous range of
+thresholds over which each clique lives:
+
+```{r birth-death, eval = FALSE}
+sweep_result <- clique_threshold_sweep(
+  cliques, species, networks, orthologs,
+  multipliers = c(1.5, 2, 3, 5, 10),
+  min_species = 2L, n_cores = n_cores
+)
+
+sweep_result$persistence |>
+  arrange(desc(persistence)) |>
+  head(20) |>
+  show_table(caption = "Clique birth/death persistence")
+```
+
+**Perturbation test.** `clique_perturbation_test()` adds Gaussian
+noise to MR scores in each species network, re-thresholds, re-runs
+the comparison-to-cliques pipeline, and measures how often each
+baseline clique survives (Jaccard >= threshold to its perturbed
+counterpart). This tests robustness to measurement noise without
+recomputing correlations from scratch. Cliques with high
+`survival_rate` are insensitive to small perturbations in edge
+weights:
+
+```{r perturbation, eval = FALSE}
+pert <- clique_perturbation_test(
+  cliques, species, networks, orthologs,
+  n_boot = 100, noise_sd = 0.1,
+  min_species = 2L, jaccard_threshold = 0.5,
+  n_cores = n_cores, seed = 42
+)
+
+pert |>
+  arrange(desc(survival_rate)) |>
+  head(20) |>
+  show_table(caption = "Clique perturbation survival (100 bootstrap iterations)")
+```
+
+**Intensity Z-score.** `clique_intensity_test()` builds a null
+distribution by permuting the ortholog mapping (globally shuffling
+Species2 genes across all rows, destroying both the specific mapping
+and within-HOG gene grouping). For each permutation, cliques are
+re-detected and the intensity of the best-matching clique (by
+Jaccard) is recorded. The Z-score and empirical p-value test whether
+the observed gene-to-gene correspondence produces stronger
+co-expression conservation than random mappings:
+
+```{r intensity-test, eval = FALSE}
+intens <- clique_intensity_test(
+  cliques, species, networks, orthologs,
+  n_perm = 500, min_species = 2L,
+  n_cores = n_cores, seed = 42, edges = robust_edges
+)
+
+intens |>
+  filter(p_value < 0.05) |>
+  arrange(desc(z_score)) |>
+  head(20) |>
+  show_table(caption = "Cliques with significantly elevated intensity (p < 0.05)")
+```
+
+Together, these diagnostics address complementary robustness
+questions: density sweep tests threshold sensitivity, jackknife
+tests species-removal stability, perturbation tests measurement
+noise, and the intensity Z-score tests whether the ortholog mapping
+itself drives the signal. Cliques passing all four are the strongest
+candidates for biologically meaningful co-expression conservation.
+
 ## 7. Biological interpretation
 
 The central question is whether independent annual Pooideae lineages

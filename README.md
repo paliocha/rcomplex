@@ -132,6 +132,18 @@ stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1], ]
 # Co-expressolog persistence (robustness to threshold tightening)
 persist <- clique_persistence(cliques, annual_sp, networks, edges)
 persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
+
+# Edge-weight robustness metrics (already in find_cliques output)
+cliques$intensity   # Onnela geometric mean of (1 - q)
+cliques$coherence   # edge weight homogeneity (1 = all equal)
+
+# Bootstrap perturbation test (noise robustness)
+pert <- clique_perturbation_test(cliques, annual_sp, networks, orthologs,
+                                  n_boot = 100, noise_sd = 0.1)
+
+# Permutation null for clique intensity
+z_test <- clique_intensity_test(cliques, annual_sp, networks, orthologs,
+                                 edges = edges, n_perm = 500)
 ```
 
 ## Main functions
@@ -156,6 +168,8 @@ persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
 | `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |
+| `clique_perturbation_test()` | Bootstrap noise robustness for clique edge weights |
+| `clique_intensity_test()` | Permutation null model for clique intensity (Z-score) |
 | `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific) |
 
 ## Ortholog file format
@@ -319,8 +333,11 @@ cliques across species within each ortholog group:
    all maximal species cliques. The pivot is chosen as the vertex in
    P ∪ X maximising |N(u) ∩ P|, giving worst-case O(3^(n/3)) time.
 2. **Gene-level**: Backtracking search assigns one gene per species,
-   minimising mean q-value across all C(k, 2) edges. Early pruning
-   rejects partial assignments where any required edge is missing.
+   minimising a composite cost across all C(k, 2) edges. By default
+   cost is the mean q-value; the `cost_weights = c(q = 1, effect = 0)`
+   argument lets users blend in effect size to favour paralogs with
+   stronger enrichment. Early pruning rejects partial assignments where
+   any required edge is missing.
 
 This avoids the combinatorial explosion of enumerating cliques directly
 on the gene-level graph when HOGs contain many paralogs.
@@ -360,6 +377,34 @@ A persistence of 1.0 means the weakest supporting edge is exactly at
 threshold (marginal). Values above 1.0 indicate the conservation signal
 would survive at stricter density thresholds.
 
+### Clique edge-weight robustness
+
+`find_cliques()` returns three per-clique edge-weight summary statistics
+following Onnela *et al.* (2005):
+
+- **Intensity**: geometric mean of (1 - q) across all clique edges.
+  Higher values indicate uniformly strong conservation signal.
+- **Coherence**: ratio of geometric mean to arithmetic mean of (1 - q),
+  equal to 1.0 when all edge weights are identical. Low coherence flags
+  cliques with a mix of strong and weak edges.
+- **min_effect_size**: minimum fold-enrichment across clique edges,
+  identifying the bottleneck enrichment.
+
+`clique_threshold_sweep()` returns a `$persistence` element with
+`birth`, `death`, and `persistence` per clique (persistence-diagram
+compatible), quantifying the range of density thresholds over which each
+clique exists.
+
+`clique_perturbation_test()` assesses noise robustness by adding
+Gaussian noise to MR scores, re-running network thresholding and clique
+detection, and measuring survival of original cliques across bootstrap
+replicates.
+
+`clique_intensity_test()` builds a permutation null for clique intensity
+by shuffling ortholog assignments, re-running neighborhood comparison
+and clique detection, and reporting a Z-score for each clique's observed
+intensity relative to the null distribution.
+
 ## Architecture
 
 ### R layer
@@ -371,7 +416,7 @@ would survive at stricter density thresholds.
 | `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `get_coexpressed_hogs()` -- pair-level hypergeometric, edge conversion, HOG co-expression queries |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()`, `identify_module_hubs()`, `classify_hub_conservation()` |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `classify_cliques()` |
+| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
 
 ### C++ layer (RcppArmadillo + OpenMP)
@@ -426,6 +471,9 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Bron, C. & Kerbosch, J. (1973). Algorithm 457: finding all cliques of
   an undirected graph. *Communications of the ACM*, 16(9), 575--577.
   [doi:10.1145/362342.362367](https://doi.org/10.1145/362342.362367)
+- Onnela, J.-P. *et al.* (2005). Intensity and coherence of motifs in
+  weighted complex networks. *Physical Review E*, 71, 065103.
+  [doi:10.1103/PhysRevE.71.065103](https://doi.org/10.1103/PhysRevE.71.065103)
 - Tomita, E., Tanaka, A. & Takahashi, H. (2006). The worst-case time
   complexity for generating all maximal cliques and computational
   experiments. *Theoretical Computer Science*, 363(1), 28--42.

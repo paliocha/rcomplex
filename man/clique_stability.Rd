@@ -63,6 +63,10 @@ reduced-dataset cliques to full-dataset cliques (default 0.8).}
 \item{edge_type}{Edge type filter (default \code{"conserved"}).}
 
 \item{n_cores}{Number of OpenMP threads (default 1).}
+
+\item{cost_weights}{Cost weights for gene-assignment ranking
+(same as in \code{\link{find_cliques}}).
+Default \code{c(q = 1, effect = 0)}.}
 }
 \value{
 A list with components:
