@@ -770,6 +770,122 @@ robust.</p>
 <div class="section level3">
 <h3 id="section-1"></h3>
 </div>
+<div class="section level3">
+<h3 id="clique-robustness-diagnostics">Clique robustness diagnostics<a class="anchor" aria-label="anchor" href="#clique-robustness-diagnostics"></a>
+</h3>
+<p>The density sweep and jackknife stability above assess whether
+cliques survive threshold changes and species removal. Several
+additional diagnostics quantify clique quality at a finer grain.</p>
+<p><strong>Edge-level quality metrics.</strong>
+<code><a href="../reference/find_cliques.html">find_cliques()</a></code> now returns three columns alongside each
+clique: <code>intensity</code> (Onnela intensity – the geometric mean of
+<code>1 - q.value</code> across present edges), <code>coherence</code>
+(intensity divided by the arithmetic mean, equal to 1 when all edge
+weights are equal), and <code>min_effect_size</code> (the bottleneck
+enrichment across present edges). High intensity with high coherence
+indicates uniformly strong conservation; high intensity with low
+coherence flags cliques carried by one or two dominant edges. The
+<code>cost_weights</code> parameter controls gene-assignment ranking:
+the default <code>c(q = 1, effect = 0)</code> minimises mean q-value,
+while <code>c(q = 1, effect = 1)</code> uses a composite cost
+<code>q * mean_q - effect * mean_effect</code> that also rewards large
+effect sizes:</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Intensity and coherence are already in cliques from find_cliques()</span></span>
+<span><span class="va">cliques</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">hog</span>, <span class="va">n_species</span>, <span class="va">mean_q</span>, <span class="va">intensity</span>, <span class="va">coherence</span>, <span class="va">min_effect_size</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">n_species</span> <span class="op">&gt;=</span> <span class="fl">3</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">intensity</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Top cliques by Onnela intensity (&gt;= 3 species)"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Composite cost: rank gene assignments by both q-value and effect size</span></span>
+<span><span class="va">cliques_composite</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_cliques.html">find_cliques</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>                                   cost_weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>q <span class="op">=</span> <span class="fl">1</span>, effect <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><strong>Jaccard overlap in edge output.</strong>
+<code><a href="../reference/comparison_to_edges.html">comparison_to_edges()</a></code> (and therefore
+<code><a href="../reference/find_coexpressologs.html">find_coexpressologs()</a></code>) now includes a <code>jaccard</code>
+column: the geometric mean of the two directional Jaccard indices of
+neighborhood overlap. This complements the hypergeometric q-value with a
+non-parametric measure of neighborhood similarity (range 0–1). Large
+effect size with low Jaccard suggests enrichment driven by a small
+shared subset rather than broad neighborhood overlap:</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">robust_edges</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">hog</span>, <span class="va">gene1</span>, <span class="va">gene2</span>, <span class="va">species1</span>, <span class="va">species2</span>, <span class="va">q.value</span>, <span class="va">effect_size</span>, <span class="va">jaccard</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">jaccard</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Top conserved edges by Jaccard overlap"</span><span class="op">)</span></span></code></pre></div>
+<p><strong>Birth/death persistence.</strong>
+<code><a href="../reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code> returns a
+<code>$persistence</code> element with one row per baseline clique. Each
+row records the <code>birth</code> (lowest multiplier where the clique
+exists), <code>death</code> (first multiplier above birth where it
+disappears), and <code>persistence</code> (death minus birth). A
+persistence of <code>NA</code> means the clique survived all tested
+multipliers. Unlike the density sweep survival count, persistence
+captures the continuous range of thresholds over which each clique
+lives:</p>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sweep_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_threshold_sweep.html">clique_threshold_sweep</a></span><span class="op">(</span></span>
+<span>  <span class="va">cliques</span>, <span class="va">species</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">5</span>, <span class="fl">10</span><span class="op">)</span>,</span>
+<span>  min_species <span class="op">=</span> <span class="fl">2L</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">sweep_result</span><span class="op">$</span><span class="va">persistence</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">persistence</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Clique birth/death persistence"</span><span class="op">)</span></span></code></pre></div>
+<p><strong>Perturbation test.</strong>
+<code><a href="../reference/clique_perturbation_test.html">clique_perturbation_test()</a></code> adds Gaussian noise to MR scores
+in each species network, re-thresholds, re-runs the
+comparison-to-cliques pipeline, and measures how often each baseline
+clique survives (Jaccard &gt;= threshold to its perturbed counterpart).
+This tests robustness to measurement noise without recomputing
+correlations from scratch. Cliques with high <code>survival_rate</code>
+are insensitive to small perturbations in edge weights:</p>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pert</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_perturbation_test.html">clique_perturbation_test</a></span><span class="op">(</span></span>
+<span>  <span class="va">cliques</span>, <span class="va">species</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>  n_boot <span class="op">=</span> <span class="fl">100</span>, noise_sd <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>  min_species <span class="op">=</span> <span class="fl">2L</span>, jaccard_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="va">n_cores</span>, seed <span class="op">=</span> <span class="fl">42</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">pert</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">survival_rate</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Clique perturbation survival (100 bootstrap iterations)"</span><span class="op">)</span></span></code></pre></div>
+<p><strong>Intensity Z-score.</strong>
+<code><a href="../reference/clique_intensity_test.html">clique_intensity_test()</a></code> builds a null distribution by
+permuting the ortholog mapping (globally shuffling Species2 genes across
+all rows, destroying both the specific mapping and within-HOG gene
+grouping). For each permutation, cliques are re-detected and the
+intensity of the best-matching clique (by Jaccard) is recorded. The
+Z-score and empirical p-value test whether the observed gene-to-gene
+correspondence produces stronger co-expression conservation than random
+mappings:</p>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">intens</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_intensity_test.html">clique_intensity_test</a></span><span class="op">(</span></span>
+<span>  <span class="va">cliques</span>, <span class="va">species</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>  n_perm <span class="op">=</span> <span class="fl">500</span>, min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="va">n_cores</span>, seed <span class="op">=</span> <span class="fl">42</span>, edges <span class="op">=</span> <span class="va">robust_edges</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">intens</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">p_value</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">z_score</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Cliques with significantly elevated intensity (p &lt; 0.05)"</span><span class="op">)</span></span></code></pre></div>
+<p>Together, these diagnostics address complementary robustness
+questions: density sweep tests threshold sensitivity, jackknife tests
+species-removal stability, perturbation tests measurement noise, and the
+intensity Z-score tests whether the ortholog mapping itself drives the
+signal. Cliques passing all four are the strongest candidates for
+biologically meaningful co-expression conservation.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="biological-interpretation">7. Biological interpretation<a class="anchor" aria-label="anchor" href="#biological-interpretation"></a>
@@ -778,7 +894,7 @@ robust.</p>
 draw on a shared, latent regulatory architecture inherited from
 perennial ancestors. The analyses above provide several lines of
 evidence:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_complete</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"complete"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">n_partial</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"partial"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">n_differentiated</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"differentiated"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -843,7 +959,7 @@ data.</p>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
 </h2>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
   </div>

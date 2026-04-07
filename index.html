@@ -193,7 +193,19 @@
 <span></span>
 <span><span class="co"># Co-expressolog persistence (robustness to threshold tightening)</span></span>
 <span><span class="va">persist</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/clique_persistence.html">clique_persistence</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">annual_sp</span>, <span class="va">networks</span>, <span class="va">edges</span><span class="op">)</span></span>
-<span><span class="va">persist</span><span class="op">[</span><span class="va">persist</span><span class="op">$</span><span class="va">persistence</span> <span class="op">&gt;</span> <span class="fl">2.0</span>, <span class="op">]</span>  <span class="co"># survive 2x stricter thresholds</span></span></code></pre></div>
+<span><span class="va">persist</span><span class="op">[</span><span class="va">persist</span><span class="op">$</span><span class="va">persistence</span> <span class="op">&gt;</span> <span class="fl">2.0</span>, <span class="op">]</span>  <span class="co"># survive 2x stricter thresholds</span></span>
+<span></span>
+<span><span class="co"># Edge-weight robustness metrics (already in find_cliques output)</span></span>
+<span><span class="va">cliques</span><span class="op">$</span><span class="va">intensity</span>   <span class="co"># Onnela geometric mean of (1 - q)</span></span>
+<span><span class="va">cliques</span><span class="op">$</span><span class="va">coherence</span>   <span class="co"># edge weight homogeneity (1 = all equal)</span></span>
+<span></span>
+<span><span class="co"># Bootstrap perturbation test (noise robustness)</span></span>
+<span><span class="va">pert</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/clique_perturbation_test.html">clique_perturbation_test</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">annual_sp</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>                                  n_boot <span class="op">=</span> <span class="fl">100</span>, noise_sd <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Permutation null for clique intensity</span></span>
+<span><span class="va">z_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/clique_intensity_test.html">clique_intensity_test</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">annual_sp</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>                                 edges <span class="op">=</span> <span class="va">edges</span>, n_perm <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -280,6 +292,14 @@
 <tr class="even">
 <td><code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code></td>
 <td>Structural survival of cliques across stricter density thresholds</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code></td>
+<td>Bootstrap noise robustness for clique edge weights</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code></td>
+<td>Permutation null model for clique intensity (Z-score)</td>
 </tr>
 <tr class="odd">
 <td><code><a href="reference/classify_cliques.html">classify_cliques()</a></code></td>
@@ -426,7 +446,7 @@
 </ol>
 </li>
 <li>
-<strong>Gene-level</strong>: Backtracking search assigns one gene per species, minimising mean q-value across all C(k, 2) edges. Early pruning rejects partial assignments where any required edge is missing.</li>
+<strong>Gene-level</strong>: Backtracking search assigns one gene per species, minimising a composite cost across all C(k, 2) edges. By default cost is the mean q-value; the <code>cost_weights = c(q = 1, effect = 0)</code> argument lets users blend in effect size to favour paralogs with stronger enrichment. Early pruning rejects partial assignments where any required edge is missing.</li>
 </ol>
 <p>This avoids the combinatorial explosion of enumerating cliques directly on the gene-level graph when HOGs contain many paralogs.</p>
 </div>
@@ -449,6 +469,22 @@
 </h3>
 <p><code><a href="reference/clique_persistence.html">clique_persistence()</a></code> measures how robust each clique’s conservation signal is to threshold tightening. For each clique edge (species pair), it identifies co-expressologs – genes that are co-expression neighbours of the clique gene in both species – and computes the ratio of the weakest co-expressolog edge’s MR value to the species’ density threshold.</p>
 <p>A persistence of 1.0 means the weakest supporting edge is exactly at threshold (marginal). Values above 1.0 indicate the conservation signal would survive at stricter density thresholds.</p>
+</div>
+<div class="section level3">
+<h3 id="clique-edge-weight-robustness">Clique edge-weight robustness<a class="anchor" aria-label="anchor" href="#clique-edge-weight-robustness"></a>
+</h3>
+<p><code><a href="reference/find_cliques.html">find_cliques()</a></code> returns three per-clique edge-weight summary statistics following Onnela <em>et al.</em> (2005):</p>
+<ul>
+<li>
+<strong>Intensity</strong>: geometric mean of (1 - q) across all clique edges. Higher values indicate uniformly strong conservation signal.</li>
+<li>
+<strong>Coherence</strong>: ratio of geometric mean to arithmetic mean of (1 - q), equal to 1.0 when all edge weights are identical. Low coherence flags cliques with a mix of strong and weak edges.</li>
+<li>
+<strong>min_effect_size</strong>: minimum fold-enrichment across clique edges, identifying the bottleneck enrichment.</li>
+</ul>
+<p><code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code> returns a <code>$persistence</code> element with <code>birth</code>, <code>death</code>, and <code>persistence</code> per clique (persistence-diagram compatible), quantifying the range of density thresholds over which each clique exists.</p>
+<p><code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code> assesses noise robustness by adding Gaussian noise to MR scores, re-running network thresholding and clique detection, and measuring survival of original cliques across bootstrap replicates.</p>
+<p><code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code> builds a permutation null for clique intensity by shuffling ortholog assignments, re-running neighborhood comparison and clique detection, and reporting a Z-score for each clique’s observed intensity relative to the null distribution.</p>
 </div>
 </div>
 <div class="section level2">
@@ -497,7 +533,7 @@
 <tr class="even">
 <td><code>R/cliques.R</code></td>
 <td>
-<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>, <code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code>, <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>
+<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>, <code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code>, <code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code>, <code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code>, <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>
 </td>
 </tr>
 <tr class="odd">
@@ -599,6 +635,8 @@
 <li>Fortunato, S. &amp; Barthélemy, M. (2007). Resolution limit in community detection. <em>PNAS</em>, 104(1), 36–41. <a href="https://doi.org/10.1073/pnas.0605965104" class="external-link">doi:10.1073/pnas.0605965104</a>
 </li>
 <li>Bron, C. &amp; Kerbosch, J. (1973). Algorithm 457: finding all cliques of an undirected graph. <em>Communications of the ACM</em>, 16(9), 575–577. <a href="https://doi.org/10.1145/362342.362367" class="external-link">doi:10.1145/362342.362367</a>
+</li>
+<li>Onnela, J.-P. <em>et al.</em> (2005). Intensity and coherence of motifs in weighted complex networks. <em>Physical Review E</em>, 71, 065103. <a href="https://doi.org/10.1103/PhysRevE.71.065103" class="external-link">doi:10.1103/PhysRevE.71.065103</a>
 </li>
 <li>Tomita, E., Tanaka, A. &amp; Takahashi, H. (2006). The worst-case time complexity for generating all maximal cliques and computational experiments. <em>Theoretical Computer Science</em>, 363(1), 28–42. <a href="https://doi.org/10.1016/j.tcs.2006.06.015" class="external-link">doi:10.1016/j.tcs.2006.06.015</a>
 </li>
