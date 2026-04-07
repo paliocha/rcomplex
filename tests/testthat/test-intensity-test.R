@@ -148,3 +148,16 @@ test_that("clique_intensity_test validates inputs", {
                setup$networks, data.frame(x = 1)),
                "Species1, Species2, hog")
 })
+
+
+test_that("max_missing_edges is forwarded to find_cliques", {
+  setup <- make_clique_fixture()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+
+  result <- clique_intensity_test(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, n_perm = 2L, seed = 1L,
+    max_missing_edges = 1L)
+  expect_true(is.data.frame(result))
+  expect_equal(nrow(result), nrow(setup$cliques))
+})

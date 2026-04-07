@@ -303,8 +303,8 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     // If no edges passed the filter, return empty
     if (qval_pairs.empty()) return results;
 
-    // --- Deduplicate edge maps: sort by key, keep min-FDR entry ---
-    // We need FDR and effect paired, so sort by permuted index.
+    // --- Deduplicate edge maps: sort by key, keep lowest-cost entry ---
+    // We need q-value and effect paired, so sort by permuted index.
     int n_edges_raw = static_cast<int>(qval_pairs.size());
     std::vector<int> order(n_edges_raw);
     std::iota(order.begin(), order.end(), 0);
@@ -312,7 +312,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         return qval_pairs[a].first < qval_pairs[b].first;
     });
 
-    // Build deduplicated sorted vectors: keep min FDR and its associated effect
+    // Build deduplicated sorted vectors: keep entry with lowest composite cost
     std::vector<std::pair<int64_t, double>> qval_sorted;
     std::vector<std::pair<int64_t, double>> eff_sorted;
     qval_sorted.reserve(n_edges_raw);
