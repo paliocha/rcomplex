@@ -856,10 +856,12 @@ cat("Differentiated (independent annual + perennial cliques):",
     n_differentiated, "\n")
 cat("Trait-specific (one lineage only):", n_trait_specific, "\n")
 cat("Robust candidates (>= 50% density survival + stability >= 1):",
-    n_robust, "\n\n")
-cat("Parallel module signal: ", parallel_test$observed,
-    " HOGs recur in annual-specific modules across >= 2 pairs (p = ",
-    sprintf("%.4f", parallel_test$p_value), ")\n", sep = "")
+    n_robust, "\n")
+if (exists("parallel_test")) {
+  cat("\nParallel module signal: ", parallel_test$observed,
+      " HOGs recur in annual-specific modules across >= 2 pairs (p = ",
+      sprintf("%.4f", parallel_test$p_value), ")\n", sep = "")
+}
 ```
 
 **Differentiated HOGs** are the strongest candidates for regulatory
