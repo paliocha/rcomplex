@@ -913,10 +913,12 @@ evidence:</p>
 <span>    <span class="va">n_differentiated</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Trait-specific (one lineage only):"</span>, <span class="va">n_trait_specific</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Robust candidates (&gt;= 50% density survival + stability &gt;= 1):"</span>,</span>
-<span>    <span class="va">n_robust</span>, <span class="st">"\n\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Parallel module signal: "</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">observed</span>,</span>
-<span>    <span class="st">" HOGs recur in annual-specific modules across &gt;= 2 pairs (p = "</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>, <span class="st">")\n"</span>, sep <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span></code></pre></div>
+<span>    <span class="va">n_robust</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/exists.html" class="external-link">exists</a></span><span class="op">(</span><span class="st">"parallel_test"</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nParallel module signal: "</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">observed</span>,</span>
+<span>      <span class="st">" HOGs recur in annual-specific modules across &gt;= 2 pairs (p = "</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>, <span class="st">")\n"</span>, sep <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
 <p><strong>Differentiated HOGs</strong> are the strongest candidates for
 regulatory divergence: the same ortholog group has co-expression
 relationships in both annuals and perennials, but these programs are
