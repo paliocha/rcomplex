@@ -190,11 +190,12 @@ cat("Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n
 cat("Permutation:", sum(edges$type == "conserved"), "conserved edges\n")
 ```
 
-## 3. Module-level analysis (deferred)
+## 3. Module-level analysis
 
-Module detection, hub identification, and parallel signal testing are
-deferred to a separate analysis. The sections below are preserved for
-reference but not evaluated.
+To identify regulatory signatures of parallel life-cycle evolution, we
+detect modules in all eight species and compare across each of the four
+phylogenetic pairs. Module-level conservation reveals whether the same
+co-regulatory programs are used independently in annual lineages.
 
 ```{r phylo-pairs}
 phylo_pairs <- tribble(
@@ -218,7 +219,7 @@ Early stopping terminates the permutation loop once the p-value
 is decisively above or below `alpha_k1`, so networks with clear
 structure typically complete in ~20 permutations rather than 100:
 
-```{r k1-test, eval = FALSE}
+```{r k1-test}
 resolutions <- seq(0.25, 2.5, by = 0.25)
 
 species_data <- species_data |>
@@ -246,7 +247,7 @@ species_data |>
 The resolution scan shows how partition granularity varies across
 resolutions and how consecutive partitions agree (ARI):
 
-```{r resolution-scan, eval = FALSE}
+```{r resolution-scan}
 show_table(modules$BDIS$resolution_scan, caption = "Resolution scan (BDIS)")
 ```
 
@@ -258,7 +259,7 @@ ortholog mapping), classifies modules as conserved / species-specific,
 tags group-specificity from the `group` vector, and auto-coarsens the
 finer-grained partition when the module-count ratio exceeds 2-fold:
 
-```{r module-comparison, eval = FALSE}
+```{r module-comparison}
 mod_results <- compare_modules_paired(
   modules, orthologs,
   pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
@@ -282,7 +283,7 @@ each permuted labelling. A pair contributes HOGs only when exactly
 one of its species carries the target trait, so the null correctly
 accounts for the paired design:
 
-```{r module-parallel, eval = FALSE}
+```{r module-parallel}
 parallel_test <- tag_permutation(
   mod_results$classification, modules, orthologs,
   pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
@@ -319,7 +320,7 @@ When an expression matrix is provided, it also computes the
 expression variability than their targets because they drive
 transcriptional changes.
 
-```{r module-hubs, eval = FALSE}
+```{r module-hubs}
 species_data <- species_data |>
   mutate(hubs = pmap(list(species, modules, network, reduced),
     \(sp, mod, net, red)
@@ -333,7 +334,7 @@ species_data |>
   show_table(caption = "Hub genes per species")
 ```
 
-```{r hub-conservation, eval = FALSE}
+```{r hub-conservation}
 hub_class <- classify_hub_conservation(
   deframe(select(species_data, species, hubs)),
   trait_vec,
@@ -350,7 +351,7 @@ The regulatory characterization helps separate potential regulators
 from highly-connected effectors. We aggregate `bridge_fraction`,
 `bt_degree_ratio`, and expression `cv` to the HOG level:
 
-```{r hub-regulatory, eval = FALSE}
+```{r hub-regulatory}
 hub_regulatory <- species_data |>
   select(species, trait, hubs) |>
   unnest(hubs) |>
@@ -377,7 +378,7 @@ classes -- are candidates for parallel regulatory evolution. Ranking
 by `bridge_fraction` and `bt_degree_ratio` prioritizes those most
 likely to be true regulators:
 
-```{r hub-trait-specific, eval = FALSE}
+```{r hub-trait-specific}
 hub_class |>
   filter(classification %in% c("annual_specific_hub",
                                 "perennial_specific_hub",
@@ -398,7 +399,7 @@ extracts co-expression neighbors from the network, maps them back to
 HOGs, and aggregates across species. The `coexpressed_traits` column
 makes trait-group filtering straightforward:
 
-```{r hub-partners, eval = FALSE}
+```{r hub-partners}
 candidate <- hub_class |>
   filter(classification %in% c("annual_specific_hub",
                                 "perennial_specific_hub",
@@ -723,7 +724,7 @@ default `c(q = 1, effect = 0)` minimises mean q-value, while
 `q * mean_q - effect * mean_effect` that also rewards large
 effect sizes:
 
-```{r intensity-coherence}
+```{r intensity-coherence, eval = FALSE}
 # Intensity and coherence are already in cliques from find_cliques()
 cliques |>
   select(hog, n_species, mean_q, intensity, coherence, min_effect_size) |>
@@ -745,7 +746,7 @@ with a non-parametric measure of neighborhood similarity (range
 0--1). Large effect size with low Jaccard suggests enrichment driven
 by a small shared subset rather than broad neighborhood overlap:
 
-```{r edge-jaccard}
+```{r edge-jaccard, eval = FALSE}
 robust_edges |>
   filter(type == "conserved") |>
   select(hog, gene1, gene2, species1, species2, q.value, effect_size, jaccard) |>
@@ -855,7 +856,10 @@ cat("Differentiated (independent annual + perennial cliques):",
     n_differentiated, "\n")
 cat("Trait-specific (one lineage only):", n_trait_specific, "\n")
 cat("Robust candidates (>= 50% density survival + stability >= 1):",
-    n_robust, "\n")
+    n_robust, "\n\n")
+cat("Parallel module signal: ", parallel_test$observed,
+    " HOGs recur in annual-specific modules across >= 2 pairs (p = ",
+    sprintf("%.4f", parallel_test$p_value), ")\n", sep = "")
 ```
 
 **Differentiated HOGs** are the strongest candidates for regulatory
@@ -866,16 +870,27 @@ regulatory architecture that has been independently remodelled in each
 annual lineage.
 
 **Trait-specific HOGs** (annual-only or perennial-only cliques) may
-encode lineage-specific regulatory programs. Module-level analysis
-(deferred) can address whether annual-specific modules share HOGs
-across independent lineages more than expected by chance.
+encode lineage-specific regulatory modules. The formal permutation
+test above addresses whether annual-specific modules share HOGs
+across independent lineages more than expected by chance. A significant
+result supports the hypothesis that annuality draws on a shared
+regulatory toolkit rather than arising from independent *de novo*
+rewiring in each lineage.
 
 **Robustness ranking** combines density sweep survival with jackknife
 stability class. HOGs classified at tighter density levels with high
 stability represent the strongest findings for experimental follow-up.
-The new edge-weight diagnostics (intensity, coherence, perturbation
-survival, intensity Z-score) provide complementary evidence at the
-clique level.
+
+**Regulatory characterization** helps prioritize among hub
+candidates. Hubs with high `bridge_fraction` connect across modules,
+a hallmark of regulatory coordinators (TFs, signalling genes). High
+`bt_degree_ratio` indicates importance for information flow relative
+to raw connectivity. High expression `cv` suggests the gene drives
+transcriptional changes rather than passively responding. Candidates
+scoring high on all three metrics are the strongest regulatory hub
+candidates, especially when they also carry known DNA-binding or
+signalling domains (testable via an annotation overlay with
+PlantTFDB or InterPro).
 
 **Caveats.** Co-expression conservation is necessary but not sufficient
 evidence for regulatory conservation. Shared co-expression could
