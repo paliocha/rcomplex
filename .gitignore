@@ -14,5 +14,5 @@ vignettes/*.R
 /doc/
 /Meta/
 PLAN-*.md
-prepare_data/data/
+prepare_data/
 docs/superpowers/
