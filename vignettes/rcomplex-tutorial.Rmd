@@ -433,13 +433,14 @@ co-expression network. At 3% density, only the top 3% of all
 pairwise MR values pass the threshold -- these are the strongest
 co-expression relationships.
 
-We sweep over 15 density levels from 0.8x to 1.5x the baseline
-threshold, testing both directions:
+We sweep 11 density levels from 0.5x to 1.5x the baseline threshold,
+corresponding to effective densities of approximately 1.5%--4.5% with
+the 3% midpoint:
 
-- **Tighter** (0.8x--0.95x, effective density ~2.4%--2.85%): does
-  the signal survive a 5--20% reduction in edges? Surviving
-  co-expressologs are strong, not marginal.
-- **Looser** (1.05x--1.5x, effective density ~3.15%--4.5%): is the
+- **Tighter** (0.5x--0.9x, effective density ~1.5%--2.7%): does the
+  signal survive substantial edge removal? Surviving co-expressologs
+  are strong, not marginal.
+- **Looser** (1.1x--1.5x, effective density ~3.3%--4.5%): is the
   signal specific to this density range, or does it persist as new
   edges are added? Cliques that only appear at very loose thresholds
   are likely noise from extra edges.
@@ -455,7 +456,7 @@ q-values:
 
 ```{r density-sweep}
 sweep <- density_sweep(networks, orthologs,
-  multipliers = seq(0.8, 1.5, by = 0.05),
+  multipliers = seq(0.5, 1.5, by = 0.1),
   method = "permutation", use_torch = TRUE, n_cores = n_cores)
 
 # Edge survival across density levels
