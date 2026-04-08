@@ -227,6 +227,39 @@ comparison <- compare_neighborhoods(net1, net2, orthologs)
 
 ## Statistical methods
 
+### Network normalization (Mutual Rank)
+
+Raw correlation values aren't comparable across genes. A hub gene that
+participates in many pathways will show moderate correlation with hundreds
+of partners; a narrowly expressed gene might correlate strongly with just
+a few. A single correlation cutoff ends up selecting hubs and missing the
+specific relationships.
+
+Mutual Rank (Obayashi & Kinoshita, 2009) turns correlations into per-gene
+ranks instead. Each gene's partners are ranked from strongest to weakest
+(rank 1 = best partner). The MR between two genes is the geometric mean
+of their reciprocal ranks: MR(*i*,*j*) = sqrt(rank\_*i*(*j*) x
+rank\_*j*(*i*)). Two genes that both rank each other near the top get a
+high MR. But if gene A considers B a top partner while B has hundreds of
+stronger associations and ranks A somewhere in the middle, the geometric
+mean pulls the score down. So MR favours mutual, specific co-expression
+over one-sided associations with hubs.
+
+`compute_network()` supports two MR modes via `mr_log_transform`:
+
+- **`mr_log_transform = TRUE`** (Obayashi 2009 formula): Computes
+  `S(i,j) = 1 - log(MR(i,j)) / log(n)`. Values are in [0, 1] with
+  1 = strongest co-expression. The log compression reduces the dynamic
+  range, making the threshold less sensitive to outlier correlations.
+  This is the recommended mode for density-thresholded networks.
+
+- **`mr_log_transform = FALSE`** (raw mutual rank): Returns `MR(i,j)`
+  directly. Values range from 1 to n. Useful when downstream analysis
+  needs the raw rank scale.
+
+Both modes produce the same pair ordering for density thresholding --
+the top-k% edges are identical regardless of the transform.
+
 ### Neighborhood comparison
 
 For each ortholog pair, the co-expression neighborhood in species 1 is
@@ -448,6 +481,10 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 
 ## References
 
+- Obayashi, T. & Kinoshita, K. (2009). Rank of correlation coefficient as
+  a comparable measure for biological significance of gene coexpression.
+  *DNA Research*, 16(5), 249--260.
+  [doi:10.1093/dnares/dsp016](https://doi.org/10.1093/dnares/dsp016)
 - Netotea, S. *et al.* (2014). ComPlEx: conservation and divergence of
   co-expression networks in *A. thaliana*, *Populus* and *O. sativa*.
   *BMC Genomics*, 15, 106.
