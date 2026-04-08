@@ -362,6 +362,18 @@
 <h2 id="statistical-methods">Statistical methods<a class="anchor" aria-label="anchor" href="#statistical-methods"></a>
 </h2>
 <div class="section level3">
+<h3 id="network-normalization-mutual-rank">Network normalization (Mutual Rank)<a class="anchor" aria-label="anchor" href="#network-normalization-mutual-rank"></a>
+</h3>
+<p>Raw correlation values aren’t comparable across genes. A hub gene that participates in many pathways will show moderate correlation with hundreds of partners; a narrowly expressed gene might correlate strongly with just a few. A single correlation cutoff ends up selecting hubs and missing the specific relationships.</p>
+<p>Mutual Rank (Obayashi &amp; Kinoshita, 2009) turns correlations into per-gene ranks instead. Each gene’s partners are ranked from strongest to weakest (rank 1 = best partner). The MR between two genes is the geometric mean of their reciprocal ranks: MR(<em>i</em>,<em>j</em>) = sqrt(rank_<em>i</em>(<em>j</em>) x rank_<em>j</em>(<em>i</em>)). Two genes that both rank each other near the top get a high MR. But if gene A considers B a top partner while B has hundreds of stronger associations and ranks A somewhere in the middle, the geometric mean pulls the score down. So MR favours mutual, specific co-expression over one-sided associations with hubs.</p>
+<p><code><a href="reference/compute_network.html">compute_network()</a></code> supports two MR modes via <code>mr_log_transform</code>:</p>
+<ul>
+<li><p><strong><code>mr_log_transform = TRUE</code></strong> (Obayashi 2009 formula): Computes <code>S(i,j) = 1 - log(MR(i,j)) / log(n)</code>. Values are in [0, 1] with 1 = strongest co-expression. The log compression reduces the dynamic range, making the threshold less sensitive to outlier correlations. This is the recommended mode for density-thresholded networks.</p></li>
+<li><p><strong><code>mr_log_transform = FALSE</code></strong> (raw mutual rank): Returns <code>MR(i,j)</code> directly. Values range from 1 to n. Useful when downstream analysis needs the raw rank scale.</p></li>
+</ul>
+<p>Both modes produce the same pair ordering for density thresholding – the top-k% edges are identical regardless of the transform.</p>
+</div>
+<div class="section level3">
 <h3 id="neighborhood-comparison">Neighborhood comparison<a class="anchor" aria-label="anchor" href="#neighborhood-comparison"></a>
 </h3>
 <p>For each ortholog pair, the co-expression neighborhood in species 1 is mapped to species 2 through the ortholog table and tested for significant overlap with the species-2 neighborhood using <code><a href="https://rdrr.io/r/stats/Hypergeometric.html" class="external-link">phyper()</a></code>. The test is performed in both directions. Effect sizes are fold-enrichments over the hypergeometric expectation.</p>
@@ -618,6 +630,8 @@
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <ul>
+<li>Obayashi, T. &amp; Kinoshita, K. (2009). Rank of correlation coefficient as a comparable measure for biological significance of gene coexpression. <em>DNA Research</em>, 16(5), 249–260. <a href="https://doi.org/10.1093/dnares/dsp016" class="external-link">doi:10.1093/dnares/dsp016</a>
+</li>
 <li>Netotea, S. <em>et al.</em> (2014). ComPlEx: conservation and divergence of co-expression networks in <em>A. thaliana</em>, <em>Populus</em> and <em>O. sativa</em>. <em>BMC Genomics</em>, 15, 106. <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">doi:10.1186/1471-2164-15-106</a>
 </li>
 <li>Besag, J. &amp; Clifford, P. (1991). Sequential Monte Carlo p-values. <em>Biometrika</em>, 78(2), 301–304. <a href="https://doi.org/10.1093/biomet/78.2.301" class="external-link">doi:10.1093/biomet/78.2.301</a>
