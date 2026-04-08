@@ -509,15 +509,16 @@ straightforward:</p>
 in the co-expression network. At 3% density, only the top 3% of all
 pairwise MR values pass the threshold – these are the strongest
 co-expression relationships.</p>
-<p>We sweep over 15 density levels from 0.8x to 1.5x the baseline
-threshold, testing both directions:</p>
+<p>We sweep 11 density levels from 0.5x to 1.5x the baseline threshold,
+corresponding to effective densities of approximately 1.5%–4.5% with the
+3% midpoint:</p>
 <ul>
 <li>
-<strong>Tighter</strong> (0.8x–0.95x, effective density
-~2.4%–2.85%): does the signal survive a 5–20% reduction in edges?
-Surviving co-expressologs are strong, not marginal.</li>
+<strong>Tighter</strong> (0.5x–0.9x, effective density ~1.5%–2.7%):
+does the signal survive substantial edge removal? Surviving
+co-expressologs are strong, not marginal.</li>
 <li>
-<strong>Looser</strong> (1.05x–1.5x, effective density ~3.15%–4.5%):
+<strong>Looser</strong> (1.1x–1.5x, effective density ~3.3%–4.5%):
 is the signal specific to this density range, or does it persist as new
 edges are added? Cliques that only appear at very loose thresholds are
 likely noise from extra edges.</li>
@@ -531,7 +532,7 @@ neighborhoods change with the threshold, altering the HOG-level
 q-values:</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sweep</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/density_sweep.html">density_sweep</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
-<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.8</span>, <span class="fl">1.5</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"permutation"</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Edge survival across density levels</span></span>
