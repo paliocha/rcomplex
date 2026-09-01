@@ -22,7 +22,8 @@ fixture_inputs <- c("sp1_expr.tsv", "sp2_expr.tsv", "ortho_pairs.tsv")
 
 skip_if_no_fixture <- function() {
   skip_if_not(all(file.exists(fx(c("expected_calls.tsv", "ortho_pairs.tsv",
-                                   "sp1_expr.tsv", "sp2_expr.tsv")))))
+                                   "sp1_expr.tsv", "sp2_expr.tsv",
+                                   "make_fixture.R")))))
 }
 
 load_complex_py <- function() {
@@ -74,6 +75,7 @@ test_that("co-expressolog calls match canonical ComPlEx", {
 })
 
 test_that("make_fixture.R reproduces the committed fixture inputs", {
+  skip_if_not_installed("withr")
   skip_if_no_fixture()
   script <- normalizePath(fx("make_fixture.R"))
   committed <- normalizePath(fx(fixture_inputs))
