@@ -28,11 +28,12 @@ analysis.
 
 ## Validation
 
-rcomplex reproduces canonical ComPlEx (Hvidsten's `RComPlEx.Rmd`,
-natstreet's [ComPlEx_python](https://github.com/natstreet/ComPlEx_python))
-exactly on a seeded fixture under the ortholog-restricted gene universe:
-identical density thresholds, neighborhood overlaps, and BH-adjusted
-co-expressolog calls (`tests/testthat/test-equivalence.R`).
+rcomplex reproduces natstreet's
+[ComPlEx_python](https://github.com/natstreet/ComPlEx_python) (itself
+validated against Hvidsten's `RComPlEx.Rmd`) exactly on a seeded fixture
+under the ortholog-restricted gene universe: identical neighborhood overlaps
+and BH-adjusted co-expressolog calls (149 pairs) under matched density
+thresholds (`tests/testthat/test-equivalence.R`).
 
 ## Installation
 
