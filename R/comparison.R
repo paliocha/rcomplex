@@ -157,6 +157,11 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold for the \code{type} column
 #'   (default 0.05).
+#' @param pval_combine How the two directional q-values are combined into
+#'   \code{q.value}: \code{"min"} (default; a pair is called when either
+#'   direction is significant) or \code{"max"} (both directions must be
+#'   significant, as in the canonical ComPlEx implementations). A missing
+#'   directional q-value is ignored in either case.
 #'
 #' @return Data frame with columns:
 #'   \describe{
@@ -165,7 +170,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'     \item{species1}{Species abbreviation for gene1 (\code{sp1})}
 #'     \item{species2}{Species abbreviation for gene2 (\code{sp2})}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{q.value}{Minimum of the two directional q-values}
+#'     \item{q.value}{Minimum (or maximum, see \code{pval_combine}) of the
+#'       two directional q-values}
 #'     \item{effect_size}{Geometric mean of directional effect sizes}
 #'     \item{jaccard}{Geometric mean of directional Jaccard indices
 #'       (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
@@ -186,8 +192,10 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' @export
 comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
-                                alpha = 0.05) {
+                                alpha = 0.05,
+                                pval_combine = c("min", "max")) {
   alternative <- match.arg(alternative)
+  pval_combine <- match.arg(pval_combine)
 
   suffix <- if (alternative == "greater") "con" else "div"
   q1_col <- paste0("Species1.q.val.", suffix)
@@ -203,8 +211,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
          ". Did you pass summarize_comparison()$results?")
   }
 
-  q_min <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
-  q_min[is.infinite(q_min)] <- NA_real_
+  combine <- if (pval_combine == "min") pmin else pmax
+  q_comb <- combine(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
+  q_comb[is.infinite(q_comb)] <- NA_real_
   eff_geo <- sqrt(comparison$Species1.effect.size *
                   comparison$Species2.effect.size)
 
@@ -217,7 +226,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   }
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
-  type <- ifelse(q_min < alpha, type_label, "ns")
+  type <- ifelse(q_comb < alpha, type_label, "ns")
 
   data.frame(
     gene1 = comparison$Species1,
@@ -225,7 +234,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     species1 = sp1,
     species2 = sp2,
     hog = comparison$hog,
-    q.value = q_min,
+    q.value = q_comb,
     effect_size = eff_geo,
     jaccard = jacc_geo,
     type = type
@@ -270,6 +279,15 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   permutation method (default 50).
 #' @param max_permutations Maximum permutations for permutation method
 #'   (default 10000).
+#' @param pi0_method Analytical method only: how pi0 is estimated for the
+#'   pair-level Storey q-values, passed to
+#'   \code{\link{summarize_comparison}}: \code{"randomized"} (default),
+#'   \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
+#'   draws from the global RNG; call \code{set.seed()} first for
+#'   reproducible calls.
+#' @param pval_combine Analytical method only: how the two directional
+#'   q-values are combined, passed to \code{\link{comparison_to_edges}}:
+#'   \code{"min"} (default) or \code{"max"}.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
@@ -279,7 +297,12 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' @examples
 #' \dontrun{
 #' # Fast analytical path
+#' set.seed(1)
 #' edges <- find_coexpressologs(networks, orthologs)
+#'
+#' # Canonical ComPlEx calls: both directions significant, plain BH
+#' edges <- find_coexpressologs(networks, orthologs,
+#'   pval_combine = "max", pi0_method = "none")
 #'
 #' # Rigorous permutation path with GPU
 #' edges <- find_coexpressologs(networks, orthologs,
@@ -301,10 +324,14 @@ find_coexpressologs.default <- function(
     n_cores = 1L,
     use_torch = FALSE,
     min_exceedances = 50L,
-    max_permutations = 10000L, ...) {
+    max_permutations = 10000L,
+    pi0_method = c("randomized", "storey", "none"),
+    pval_combine = c("min", "max"), ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
+  pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
 
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
@@ -355,7 +382,8 @@ find_coexpressologs.default <- function(
 
     if (method == "analytical") {
       summary_res <- tryCatch(
-        summarize_comparison(comparison, alternative, alpha),
+        summarize_comparison(comparison, alternative, alpha,
+                             pi0_method = pi0_method),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b,
                   " q-value computation failed: ", conditionMessage(e))
@@ -364,7 +392,8 @@ find_coexpressologs.default <- function(
       )
       if (is.null(summary_res) || nrow(summary_res$results) == 0) next
       edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
-                                       alternative, alpha)
+                                       alternative, alpha,
+                                       pval_combine = pval_combine)
     } else {
       # Permutation path: HOG-level permutation test
       hog_res <- tryCatch(

@@ -116,6 +116,9 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   above), `"storey"` (from the exact p-values) or `"none"` (pi0 = 1,
 #'   Benjamini-Hochberg).
 #' @param B Number of randomized-p draws averaged for pi0 (default 20).
+#' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
+#'   \code{sp1} and \code{sp2} are given: \code{"min"} (default) or
+#'   \code{"max"}.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -158,9 +161,11 @@ summarize_comparison <- function(comparison,
                                  sp1 = NULL, sp2 = NULL,
                                  pi0_method = c("randomized", "storey",
                                                 "none"),
-                                 B = 20L) {
+                                 B = 20L,
+                                 pval_combine = c("min", "max")) {
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
 
   if (xor(is.null(sp1), is.null(sp2))) {
     stop("Both sp1 and sp2 must be provided, or neither.")
@@ -283,7 +288,8 @@ summarize_comparison <- function(comparison,
   )
 
   if (!is.null(sp1) && !is.null(sp2)) {
-    out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha)
+    out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha,
+                                     pval_combine = pval_combine)
   }
 
   out
