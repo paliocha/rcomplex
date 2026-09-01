@@ -1,5 +1,5 @@
 # make_fixture.R - synthetic 8-module data, seed 20260901
-set.seed(20260901)
+set.seed(20260901, kind = "Mersenne-Twister", normal.kind = "Inversion", sample.kind = "Rejection")
 n_mod <- 8; n_samp <- 30; n_extra <- 60
 make_sp <- function(prefix, per_mod) {
   latent <- matrix(rnorm(n_mod * n_samp), n_mod, n_samp)
