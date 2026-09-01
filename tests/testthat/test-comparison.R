@@ -707,7 +707,10 @@ make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
 test_that("find_coexpressologs default method is analytical", {
   skip_on_cran()
   fix <- make_coexpr_fixtures()
+  # randomized pi0 (the default) draws from the global RNG
+  set.seed(1)
   result_default <- find_coexpressologs(fix$nets, fix$ortho)
+  set.seed(1)
   result_explicit <- find_coexpressologs(fix$nets, fix$ortho,
                                           method = "analytical")
   expect_identical(result_default, result_explicit)
@@ -774,6 +777,7 @@ test_that("density_sweep returns correct structure", {
 test_that("density_sweep at multiplier=1 matches find_coexpressologs", {
   fix <- make_coexpr_fixtures()
 
+  set.seed(1)
   result <- suppressMessages(density_sweep(
     networks = fix$nets, orthologs = fix$ortho,
     multipliers = 1.0, method = "analytical"
@@ -782,6 +786,7 @@ test_that("density_sweep at multiplier=1 matches find_coexpressologs", {
   expect_equal(nrow(result), 1)
   expect_equal(result$multiplier, 1.0)
 
+  set.seed(1)
   direct <- find_coexpressologs(
     networks = fix$nets, orthologs = fix$ortho, method = "analytical"
   )
@@ -1143,7 +1148,9 @@ test_that("find_coexpressologs (analytical) equals dense with sparse networks", 
   nets_d <- list(A = td$net1, B = td$net2)
   nets_s <- list(A = sparse_net(td$net1), B = sparse_net(td$net2))
 
+  set.seed(1)
   res_d <- find_coexpressologs(nets_d, td$ortho, method = "analytical")
+  set.seed(1)
   res_s <- find_coexpressologs(nets_s, td$ortho, method = "analytical")
   expect_equal(res_s, res_d)
   expect_gt(nrow(res_d), 0L)
