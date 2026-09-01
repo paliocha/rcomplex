@@ -14,7 +14,6 @@ Description: Compares gene co-expression networks across species by mapping
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends:
     R (>= 4.1.0)
 Imports:
@@ -55,3 +54,4 @@ Suggests:
     pkgdown
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0

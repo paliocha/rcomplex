@@ -176,11 +176,17 @@ test_that("min_var=NULL disables filtering", {
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
-  expr[1, ] <- 5.0  # constant gene
 
   result <- compute_network(expr, density = 0.1, min_var = NULL)
   expect_equal(result$n_removed, 0L)
   expect_equal(result$n_genes, 20)
+
+  # A constant gene is removed under the default min_var = 0 but kept with
+  # min_var = NULL; its NaN correlations then hit the in-place MR guard
+  # (previously ranked silently via undefined behaviour).
+  expr[1, ] <- 5.0
+  expect_equal(compute_network(expr, density = 0.1)$n_removed, 1L)
+  expect_error(compute_network(expr, density = 0.1, min_var = NULL), "NaN")
 })
 
 test_that("min_var errors when too few genes remain", {
@@ -249,4 +255,78 @@ test_that("torch backend matches Rfast (Spearman)", {
   tol <- if (torch::backends_mps_is_available()) 1.0 else 1e-10
   expect_equal(torch_result$network, rfast_result$network, tolerance = tol)
   expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = tol)
+})
+
+test_that("mutual_rank_inplace_cpp matches cached reference (ties, all modes)", {
+  # Symmetric matrix with exact ties, values beyond [-1, 1] (clamping creates
+  # further ties) and sign-symmetric pairs (abs() creates ties).
+  m <- matrix(c(
+     1.0,  0.5,  0.5, -0.2,  1.2,  0.3,
+     0.5,  1.0, -0.5,  0.5, -1.3,  0.3,
+     0.5, -0.5,  1.0,  0.5,  0.0, -0.3,
+    -0.2,  0.5,  0.5,  1.0,  0.5,  0.7,
+     1.2, -1.3,  0.0,  0.5,  1.0,  0.5,
+     0.3,  0.3, -0.3,  0.7,  0.5,  1.0), nrow = 6, byrow = TRUE)
+  expect_identical(m, t(m))
+
+  for (log_transform in c(FALSE, TRUE)) {
+    for (abs_cor in c(FALSE, TRUE)) {
+      ref_in <- pmin(pmax(m, -1), 1)
+      if (abs_cor) ref_in <- abs(ref_in)
+      ref <- mutual_rank_transform_cached_cpp(ref_in,
+                                              log_transform = log_transform,
+                                              n_cores = 1L)
+      # compute_network() zeroes the diagonal after the cached call
+      diag(ref) <- 0
+
+      x <- m + 0  # fresh copy; mutated in place below
+      mutual_rank_inplace_cpp(x, log_transform, abs_cor, 1L)
+      expect_identical(x, ref)
+
+      x2 <- m + 0
+      mutual_rank_inplace_cpp(x2, log_transform, abs_cor, 2L)
+      expect_identical(x2, ref)
+    }
+  }
+})
+
+test_that("mutual_rank_inplace_cpp rejects NaN input", {
+  # std::ranges::sort on NaN is UB (breaks strict weak ordering); the C++
+  # guard must error rather than silently rank the NaN cell. Symmetric
+  # 4 x 4 double matrix with one NaN pair.
+  m <- matrix(c(
+    1.0, 0.5, 0.2, 0.1,
+    0.5, 1.0, NaN, 0.3,
+    0.2, NaN, 1.0, 0.4,
+    0.1, 0.3, 0.4, 1.0), nrow = 4, byrow = TRUE)
+  expect_error(mutual_rank_inplace_cpp(m, FALSE, FALSE, 1L), "NaN")
+  expect_error(mutual_rank_inplace_cpp(m + 0, TRUE, TRUE, 2L), "NaN")
+
+  # NA_real_ is a NaN payload: same guard (cor() yields NA, Rfast NaN)
+  m_na <- m
+  m_na[is.nan(m_na)] <- NA_real_
+  expect_error(mutual_rank_inplace_cpp(m_na, FALSE, FALSE, 1L), "NaN")
+})
+
+test_that("mutual_rank_inplace_cpp rejects non-double input (in-place contract)", {
+  # NumericMatrix would coerce an integer matrix to a fresh copy and the
+  # in-place result would be lost silently; must error instead and leave
+  # the caller's matrix untouched.
+  mi <- matrix(c(1L, 0L, 0L, 1L), nrow = 2L)
+  expect_error(mutual_rank_inplace_cpp(mi, FALSE, FALSE, 1L), "double")
+  expect_identical(mi, matrix(c(1L, 0L, 0L, 1L), nrow = 2L))
+})
+
+test_that("compute_network abs_cor MR matches R reference on |cor|", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr, cor_method = "pearson",
+                            norm_method = "MR", abs_cor = TRUE,
+                            density = 0.05)
+  ref_net <- reference_mr_raw(abs(cor(t(expr), method = "pearson")))
+
+  expect_equal(result$network, ref_net, tolerance = 1e-10,
+               ignore_attr = TRUE)
 })

@@ -229,6 +229,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// mutual_rank_inplace_cpp
+void mutual_rank_inplace_cpp(SEXP sim, bool log_transform, bool abs_cor, int n_cores);
+RcppExport SEXP _rcomplex_mutual_rank_inplace_cpp(SEXP simSEXP, SEXP log_transformSEXP, SEXP abs_corSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type sim(simSEXP);
+    Rcpp::traits::input_parameter< bool >::type log_transform(log_transformSEXP);
+    Rcpp::traits::input_parameter< bool >::type abs_cor(abs_corSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    mutual_rank_inplace_cpp(sim, log_transform, abs_cor, n_cores);
+    return R_NilValue;
+END_RCPP
+}
 // compare_neighborhoods_cpp
 Rcpp::DataFrame compare_neighborhoods_cpp(const arma::mat& net1, const arma::mat& net2, double thr1, double thr2, const Rcpp::IntegerVector& pair_sp1_idx, const Rcpp::IntegerVector& pair_sp2_idx, const Rcpp::IntegerVector& ortho_sp1_idx, const Rcpp::IntegerVector& ortho_sp2_idx, int n_cores);
 RcppExport SEXP _rcomplex_compare_neighborhoods_cpp(SEXP net1SEXP, SEXP net2SEXP, SEXP thr1SEXP, SEXP thr2SEXP, SEXP pair_sp1_idxSEXP, SEXP pair_sp2_idxSEXP, SEXP ortho_sp1_idxSEXP, SEXP ortho_sp2_idxSEXP, SEXP n_coresSEXP) {
@@ -299,6 +312,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_hog_permutation_test_sparse_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_sparse_cpp, 16},
     {"_rcomplex_module_jaccard_permutation_cpp", (DL_FUNC) &_rcomplex_module_jaccard_permutation_cpp, 12},
     {"_rcomplex_mutual_rank_transform_cached_cpp", (DL_FUNC) &_rcomplex_mutual_rank_transform_cached_cpp, 3},
+    {"_rcomplex_mutual_rank_inplace_cpp", (DL_FUNC) &_rcomplex_mutual_rank_inplace_cpp, 4},
     {"_rcomplex_compare_neighborhoods_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_cpp, 9},
     {"_rcomplex_compare_neighborhoods_sparse_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_sparse_cpp, 13},
     {"_rcomplex_reduce_orthogroups_cpp", (DL_FUNC) &_rcomplex_reduce_orthogroups_cpp, 4},

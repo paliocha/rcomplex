@@ -49,5 +49,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Martin Paliocha \email{martin.paliocha@nmbu.no}
 
+Authors:
+\itemize{
+  \item Martin Paliocha \email{martin.paliocha@nmbu.no}
+}
+
 }
 \keyword{internal}
