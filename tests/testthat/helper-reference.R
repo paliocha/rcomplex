@@ -98,3 +98,70 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
     Species2.jaccard = jaccard2
   )
 }
+
+
+# ---- shared network fixtures for sparse (dgCMatrix) dispatch tests ----
+
+#' Sparse (dgCMatrix) copy of a dense network object
+#'
+#' Converts at `thr` (default: the network's own threshold) and records it as
+#' `store_threshold`, as compute_network(sparse = TRUE) does.
+sparse_net <- function(net, thr = net$threshold) {
+  modifyList(net, list(network = dense_to_dgc(net$network, thr),
+                       store_threshold = thr))
+}
+
+#' Random compute_network() pair (50 x 10 and 40 x 10, density 0.1) with a
+#' 1:1 ortholog table plus one paralog row
+make_cmp_nets <- function() {
+  set.seed(42)
+  expr1 <- matrix(rnorm(500), nrow = 50, ncol = 10)
+  rownames(expr1) <- paste0("A_", sprintf("%03d", 1:50))
+  expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
+  rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
+
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+
+  ortho <- data.frame(
+    Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
+    Species2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
+    hog = c(1:30, 1)
+  )
+  list(net1 = net1, net2 = net2, ortho = ortho)
+}
+
+#' Graded-weight network pair for tighter-than-stored threshold tests
+#'
+#' Weight tiers 10 / 7 / 4: a store built at threshold 5 keeps tiers 10 and
+#' 7, an analysis threshold of 8 keeps tier 10 only, so the cut provably
+#' drops some stored, overlapping edges and keeps others independent of RNG.
+#' 30 genes per species, 1:1 orthologs, 10 HOGs of 3. HOG1 (genes 1-3) hubs
+#' have conserved neighbourhoods; HOG7 (genes 19-21) connect to different
+#' genes in each species (zero overlap); genes 28-30 are isolated.
+make_graded_nets <- function() {
+  n <- 30
+  build <- function(prefix, far) {
+    m <- matrix(0, n, n)
+    rownames(m) <- colnames(m) <- paste0(prefix, sprintf("%02d", 1:n))
+    for (g in 1:3) {
+      m[g, 4:9]   <- m[4:9, g]   <- 10   # kept at thr 8
+      m[g, 10:15] <- m[10:15, g] <- 7    # stored at 5, dropped at 8
+      m[g, 16:18] <- m[16:18, g] <- 4    # below the store threshold
+    }
+    for (g in 19:21) {
+      m[g, far] <- m[far, g] <- 10
+    }
+    diag(m) <- 10
+    m
+  }
+  net1 <- list(network = build("A", far = 22:24), threshold = 5)
+  net2 <- list(network = build("B", far = 25:27), threshold = 5)
+  ortho <- data.frame(
+    Species1 = paste0("A", sprintf("%02d", 1:n)),
+    Species2 = paste0("B", sprintf("%02d", 1:n)),
+    hog = rep(paste0("HOG", 1:10), each = 3),
+    stringsAsFactors = FALSE
+  )
+  list(net1 = net1, net2 = net2, ortho = ortho)
+}

@@ -339,12 +339,6 @@ test_that("torch backend p-value formula is correct", {
 
 # ---- sparse (dgCMatrix) network dispatch ----
 
-sparse_net <- function(net, thr = net$threshold) {
-  modifyList(net, list(network = dense_to_dgc(net$network, thr),
-                       store_threshold = thr))
-}
-
-
 test_that("sparse permutation_hog_test equals dense (seeded)", {
   td <- make_test_nets()
   net1_s <- sparse_net(td$net1)
@@ -378,36 +372,19 @@ test_that("sparse permutation_hog_test equals dense (seeded)", {
 
 
 test_that("sparse permutation_hog_test with tighter threshold equals dense", {
-  set.seed(42)
-  expr1 <- matrix(rnorm(500), nrow = 50, ncol = 10)
-  rownames(expr1) <- paste0("A_", sprintf("%03d", 1:50))
-  expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
-  rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  # graded weights 10 / 7 / 4 (see make_graded_nets()): store threshold 5,
+  # analysis threshold 8 keeps tier 10 and drops the stored tier 7, so
+  # T_obs > 0 for the conserved hub HOG is structural, not seed-dependent
+  td <- make_graded_nets()
+  comparison <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  thr <- 8
+  net1_s <- modifyList(sparse_net(td$net1), list(threshold = thr))
+  net2_s <- modifyList(sparse_net(td$net2), list(threshold = thr))
+  net1_d <- modifyList(td$net1, list(threshold = thr))
+  net2_d <- modifyList(td$net2, list(threshold = thr))
 
-  ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:30)),
-    Species2 = paste0("B_", sprintf("%03d", 1:30)),
-    hog = rep(paste0("HOG", 1:10), each = 3)
-  )
-  comparison <- compare_neighborhoods(net1, net2, ortho)
-
-  net1_s <- sparse_net(net1)
-  net2_s <- sparse_net(net2)
-
-  # analysis threshold tighter than stored but inside the stored range (raw MR
-  # maxes at n - 1, so threshold * 1.2 would leave T_obs = 0 for every HOG and
-  # skip all permutations)
-  thr1 <- unname(stats::quantile(net1_s$network@x, 0.5))
-  thr2 <- unname(stats::quantile(net2_s$network@x, 0.5))
-  net1_s <- modifyList(net1_s, list(threshold = thr1))
-  net2_s <- modifyList(net2_s, list(threshold = thr2))
-  net1_d <- modifyList(net1, list(threshold = thr1))
-  net2_d <- modifyList(net2, list(threshold = thr2))
-
-  expect_gt(sum(net1_s$network@x >= thr1), 0L)
-  expect_lt(sum(net1_s$network@x >= thr1), length(net1_s$network@x))
+  expect_gt(sum(net1_s$network@x >= thr), 0L)
+  expect_lt(sum(net1_s$network@x >= thr), length(net1_s$network@x))
 
   set.seed(11)
   res_d <- permutation_hog_test(
@@ -422,7 +399,8 @@ test_that("sparse permutation_hog_test with tighter threshold equals dense", {
   expect_equal(res_s, res_d)
 
   # partially filtered store must actually be exercised
-  expect_gt(sum(res_d$T_obs > 0), 0L)
+  expect_gt(res_d$T_obs[res_d$hog == "HOG1"], 0)
+  expect_equal(res_d$T_obs[res_d$hog == "HOG4"], 0)
   expect_gt(sum(res_d$n_perm), 0L)
 })
 
@@ -463,4 +441,84 @@ test_that("torch backend accepts sparse networks and matches dense", {
     max_permutations = 100L, min_exceedances = 10L, use_torch = TRUE
   )
   expect_equal(res_s, res_d)
+})
+
+
+test_that(".adj_edges gives identical edges for dense and sparse input", {
+  td <- make_graded_nets()
+  m <- td$net1$network
+  n <- nrow(m)
+  thr <- 8
+
+  # every non-zero entry stored, including the diagonal (10) and the tiers
+  # below thr (7, 4): both the rows != cols and the @x >= thr filters bite
+  ij <- which(m != 0, arr.ind = TRUE)
+  s <- Matrix::sparseMatrix(i = ij[, 1L], j = ij[, 2L], x = m[ij],
+                            dims = dim(m), dimnames = dimnames(m))
+  expect_s4_class(s, "dgCMatrix")
+  expect_equal(unname(Matrix::diag(s)), rep(10, n))
+  expect_gt(sum(s@x < thr), 0L)
+
+  e_d <- .adj_edges(m, thr)
+  e_s <- .adj_edges(s, thr)
+  ref <- which((m >= thr) & (row(m) != col(m)), arr.ind = TRUE)
+  expect_equal(e_d, list(rows = unname(ref[, 1L]), cols = unname(ref[, 2L])))
+  expect_equal(e_s, e_d)
+  expect_type(e_s$rows, "integer")
+  expect_type(e_s$cols, "integer")
+  expect_gt(length(e_d$rows), 0L)
+
+  # empty store
+  expect_equal(.adj_edges(dense_to_dgc(m, 100), thr),
+               list(rows = integer(0), cols = integer(0)))
+})
+
+
+test_that("permutation_hog_test rejects mixed dense/sparse inputs", {
+  td <- make_test_nets()
+  expect_error(
+    permutation_hog_test(sparse_net(td$net1), td$net2, td$comparison),
+    "both dense or both sparse"
+  )
+  expect_error(
+    permutation_hog_test(td$net1, sparse_net(td$net2), td$comparison),
+    "both dense or both sparse"
+  )
+})
+
+
+test_that("torch backend with tighter threshold: sparse equals dense", {
+  skip_if_not_installed("torch")
+  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
+              "torch backend (Lantern) not available")
+  td <- make_graded_nets()
+  comparison <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  thr <- 8
+  net1_s <- modifyList(sparse_net(td$net1), list(threshold = thr))
+  net2_s <- modifyList(sparse_net(td$net2), list(threshold = thr))
+  net1_d <- modifyList(td$net1, list(threshold = thr))
+  net2_d <- modifyList(td$net2, list(threshold = thr))
+
+  set.seed(11)
+  res_d <- permutation_hog_test(
+    net1_d, net2_d, comparison,
+    max_permutations = 200L, min_exceedances = 10L
+  )
+  set.seed(11)
+  res_td <- permutation_hog_test(
+    net1_d, net2_d, comparison,
+    max_permutations = 200L, min_exceedances = 10L, use_torch = TRUE
+  )
+  set.seed(11)
+  res_ts <- permutation_hog_test(
+    net1_s, net2_s, comparison,
+    max_permutations = 200L, min_exceedances = 10L, use_torch = TRUE
+  )
+
+  # sparse store filtered on the GPU path (adj_to_gpu) equals the dense path
+  expect_equal(res_ts, res_td)
+  # and the torch statistic agrees with the C++ backend (float32 on MPS)
+  expect_equal(res_ts$T_obs[order(res_ts$hog)], res_d$T_obs[order(res_d$hog)],
+               tolerance = 1e-5)
+  expect_gt(res_ts$T_obs[res_ts$hog == "HOG1"], 0)
 })

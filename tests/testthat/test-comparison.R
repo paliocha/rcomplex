@@ -724,30 +724,6 @@ test_that("density_sweep validates inputs", {
 
 # --- Tests for sparse (dgCMatrix) network dispatch ---
 
-make_sparse_net <- function(net, thr = net$threshold) {
-  modifyList(net, list(network = dense_to_dgc(net$network, thr),
-                       store_threshold = thr))
-}
-
-make_cmp_nets <- function() {
-  set.seed(42)
-  expr1 <- matrix(rnorm(500), nrow = 50, ncol = 10)
-  rownames(expr1) <- paste0("A_", sprintf("%03d", 1:50))
-  expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
-  rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
-
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
-
-  ortho <- data.frame(
-    Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
-    Species2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
-    hog = c(1:30, 1)
-  )
-  list(net1 = net1, net2 = net2, ortho = ortho)
-}
-
-
 test_that("dense_to_dgc builds a dgCMatrix with off-diagonal entries >= thr", {
   m <- matrix(0, 4, 4)
   dimnames(m) <- list(letters[1:4], letters[1:4])
@@ -775,8 +751,8 @@ test_that("dense_to_dgc builds a dgCMatrix with off-diagonal entries >= thr", {
 
 test_that("sparse compare_neighborhoods equals dense (compute_network nets)", {
   td <- make_cmp_nets()
-  net1_s <- make_sparse_net(td$net1)
-  net2_s <- make_sparse_net(td$net2)
+  net1_s <- sparse_net(td$net1)
+  net2_s <- sparse_net(td$net2)
 
   expect_true(.net_is_sparse(net1_s))
   expect_false(.net_is_sparse(td$net1))
@@ -818,38 +794,39 @@ test_that("sparse compare_neighborhoods equals dense (hand-built nets)", {
   )
 
   res_d <- compare_neighborhoods(net1, net2, ortho)
-  res_s <- compare_neighborhoods(make_sparse_net(net1), make_sparse_net(net2),
+  res_s <- compare_neighborhoods(sparse_net(net1), sparse_net(net2),
                                  ortho)
   expect_equal(res_s, res_d)
 })
 
 
 test_that("sparse compare_neighborhoods with tighter threshold equals dense", {
-  td <- make_cmp_nets()
-  net1_s <- make_sparse_net(td$net1)
-  net2_s <- make_sparse_net(td$net2)
+  # graded weights 10 / 7 / 4 (see make_graded_nets()): store threshold 5,
+  # analysis threshold 8 keeps tier 10 and drops the stored tier 7, so the
+  # cut provably removes some overlapping edges and keeps others
+  td <- make_graded_nets()
+  thr <- 8
+  net1_s <- modifyList(sparse_net(td$net1), list(threshold = thr))
+  net2_s <- modifyList(sparse_net(td$net2), list(threshold = thr))
+  net1_d <- modifyList(td$net1, list(threshold = thr))
+  net2_d <- modifyList(td$net2, list(threshold = thr))
 
-  # sparse stores entries >= original threshold; analysis threshold is tighter
-  # but inside the stored range (raw MR maxes at n - 1, so threshold * 1.2
-  # would drop every stored edge and compare two empty results)
-  thr1 <- unname(stats::quantile(net1_s$network@x, 0.5))
-  thr2 <- unname(stats::quantile(net2_s$network@x, 0.5))
-  net1_s <- modifyList(net1_s, list(threshold = thr1))
-  net2_s <- modifyList(net2_s, list(threshold = thr2))
-  net1_d <- modifyList(td$net1, list(threshold = thr1))
-  net2_d <- modifyList(td$net2, list(threshold = thr2))
-
-  # tighter threshold must drop some stored entries and keep others
-  expect_gt(sum(net1_s$network@x >= thr1), 0L)
-  expect_lt(sum(net1_s$network@x >= thr1), length(net1_s$network@x))
+  expect_setequal(unique(net1_s$network@x), c(10, 7))
+  expect_gt(sum(net1_s$network@x >= thr), 0L)
+  expect_lt(sum(net1_s$network@x >= thr), length(net1_s$network@x))
 
   res_d <- compare_neighborhoods(net1_d, net2_d, td$ortho)
   res_s <- compare_neighborhoods(net1_s, net2_s, td$ortho)
   expect_equal(res_s, res_d)
-  expect_gt(sum(res_d$Species1.neigh), 0L)
 
+  # overlapping edges survive the cut, and the cut removed some
   res_base <- compare_neighborhoods(td$net1, td$net2, td$ortho)
-  expect_false(isTRUE(all.equal(res_base$Species1.neigh, res_d$Species1.neigh)))
+  expect_gt(sum(res_d$Species1.neigh.overlap), 0L)
+  expect_gt(sum(res_d$Species2.neigh.overlap), 0L)
+  expect_lt(sum(res_d$Species1.neigh.overlap),
+            sum(res_base$Species1.neigh.overlap))
+  expect_lt(sum(res_d$Species2.neigh.overlap),
+            sum(res_base$Species2.neigh.overlap))
 })
 
 
@@ -869,7 +846,7 @@ test_that("compare_neighborhoods rejects non-dgCMatrix Matrix classes", {
   )
   expect_s4_class(net_dgt$network, "dgTMatrix")
 
-  net2_s <- make_sparse_net(td$net2)
+  net2_s <- sparse_net(td$net2)
   ortho <- data.frame(Species1 = "A_001", Species2 = "B_001", hog = 1)
   ortho_rev <- data.frame(Species1 = "B_001", Species2 = "A_001", hog = 1)
 
@@ -884,8 +861,8 @@ test_that("compare_neighborhoods rejects non-dgCMatrix Matrix classes", {
 
 test_that("compare_neighborhoods rejects mixed dense/sparse inputs", {
   td <- make_cmp_nets()
-  net1_s <- make_sparse_net(td$net1)
-  net2_s <- make_sparse_net(td$net2)
+  net1_s <- sparse_net(td$net1)
+  net2_s <- sparse_net(td$net2)
   expect_error(compare_neighborhoods(net1_s, td$net2, td$ortho),
                "both dense or both sparse")
   expect_error(compare_neighborhoods(td$net1, net2_s, td$ortho),
@@ -895,8 +872,8 @@ test_that("compare_neighborhoods rejects mixed dense/sparse inputs", {
 
 test_that("store guard errors when threshold is below store_threshold", {
   td <- make_cmp_nets()
-  net1_s <- make_sparse_net(td$net1)
-  net2_s <- make_sparse_net(td$net2)
+  net1_s <- sparse_net(td$net1)
+  net2_s <- sparse_net(td$net2)
 
   # no store_threshold -> fallback guard on the smallest stored value
   net1_s$store_threshold <- NULL
@@ -932,8 +909,8 @@ test_that("store guard errors when threshold is below store_threshold", {
 
 test_that("sparse compare_neighborhoods rejects malformed dgCMatrix slots", {
   td <- make_cmp_nets()
-  net2_s <- make_sparse_net(td$net2)
-  good <- make_sparse_net(td$net1)$network
+  net2_s <- sparse_net(td$net2)
+  good <- sparse_net(td$net1)$network
   n <- ncol(good)
   with_net <- function(m) modifyList(td$net1, list(network = m))
 
@@ -1003,8 +980,8 @@ test_that("sparse compare_neighborhoods edge cases equal dense", {
     Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n), hog = 1:n
   )
 
-  net1_s <- make_sparse_net(net1, thr_store)
-  net2_s <- make_sparse_net(net2, thr_store)
+  net1_s <- sparse_net(net1, thr_store)
+  net2_s <- sparse_net(net2, thr_store)
 
   # store exercised: sub-threshold entry kept, diagonal dropped, empty column
   expect_gt(length(net1_s$network@x), sum(net1_s$network@x >= thr))
@@ -1023,8 +1000,8 @@ test_that("sparse compare_neighborhoods edge cases equal dense", {
 
 test_that("sparse networks must be square with identical row/col names", {
   td <- make_cmp_nets()
-  net2_s <- make_sparse_net(td$net2)
-  good <- make_sparse_net(td$net1)$network
+  net2_s <- sparse_net(td$net2)
+  good <- sparse_net(td$net1)$network
   with_net <- function(m) modifyList(td$net1, list(network = m))
 
   # non-square (extra column), row names intact
@@ -1048,4 +1025,16 @@ test_that("sparse networks must be square with identical row/col names", {
   dimnames(m) <- list(rownames(good), rev(colnames(good)))
   expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
                "row and column names")
+})
+
+
+test_that("find_coexpressologs (analytical) equals dense with sparse networks", {
+  td <- make_cmp_nets()
+  nets_d <- list(A = td$net1, B = td$net2)
+  nets_s <- list(A = sparse_net(td$net1), B = sparse_net(td$net2))
+
+  res_d <- find_coexpressologs(nets_d, td$ortho, method = "analytical")
+  res_s <- find_coexpressologs(nets_s, td$ortho, method = "analytical")
+  expect_equal(res_s, res_d)
+  expect_gt(nrow(res_d), 0L)
 })
