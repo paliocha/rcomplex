@@ -58,19 +58,13 @@ export(tag_permutation)
 exportMethods(compute_network)
 importClassesFrom(Matrix,dgCMatrix)
 importFrom(Rcpp,sourceCpp)
-importFrom(methods,
-  is,
-  new,
-  setGeneric,
-  setMethod
-)
-importFrom(rlang,
-  .data,
-  .env
-)
+importFrom(methods,is)
+importFrom(methods,new)
+importFrom(methods,setGeneric)
+importFrom(methods,setMethod)
+importFrom(rlang,.data)
+importFrom(rlang,.env)
 importFrom(stats,setNames)
-importFrom(utils,
-  modifyList,
-  read.delim
-)
+importFrom(utils,modifyList)
+importFrom(utils,read.delim)
 useDynLib(rcomplex, .registration = TRUE)

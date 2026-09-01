@@ -36,7 +36,7 @@ conserved edges.}
 
 \item{species_trait}{Named character or factor vector mapping each
 species to a trait value (e.g., \code{c(SP_A = "annual",
-SP_B = "perennial")}).}
+  SP_B = "perennial")}).}
 
 \item{min_species}{Minimum species for a partial or within-group
 clique (default 2).}
