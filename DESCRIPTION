@@ -51,6 +51,7 @@ Suggests:
     torch,
     testthat (>= 3.0.0),
     lintr,
+    withr,
     pkgdown
 VignetteBuilder: knitr
 Config/testthat/edition: 3

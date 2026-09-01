@@ -18,8 +18,15 @@ read_expr <- function(file) {
   x
 }
 
+fixture_inputs <- c("sp1_expr.tsv", "sp2_expr.tsv", "ortho_pairs.tsv")
+
+skip_if_no_fixture <- function() {
+  skip_if_not(all(file.exists(fx(c("expected_calls.tsv", "ortho_pairs.tsv",
+                                   "sp1_expr.tsv", "sp2_expr.tsv")))))
+}
+
 load_complex_py <- function() {
-  skip_if_not(file.exists(fx("expected_calls.tsv")))
+  skip_if_no_fixture()
   ortho <- read.delim(fx("ortho_pairs.tsv"), stringsAsFactors = FALSE)
   expected <- read.delim(fx("expected_calls.tsv"), stringsAsFactors = FALSE)
   x1 <- read_expr(fx("sp1_expr.tsv"))
@@ -64,4 +71,17 @@ test_that("co-expressolog calls match canonical ComPlEx", {
   expect_lt(max(abs(maxbh[idx] - expected$Max.p.val)), 1e-12)
   expect_equal(cmp$Species1.neigh.overlap[idx], expected$Species1.neigh.overlap)
   expect_equal(cmp$Species2.neigh.overlap[idx], expected$Species2.neigh.overlap)
+})
+
+test_that("make_fixture.R reproduces the committed fixture inputs", {
+  skip_if_no_fixture()
+  script <- normalizePath(fx("make_fixture.R"))
+  committed <- normalizePath(fx(fixture_inputs))
+  withr::local_preserve_seed()
+  tmp <- withr::local_tempdir()
+  withr::with_dir(tmp, source(script, local = new.env()))
+  for (i in seq_along(fixture_inputs)) {
+    expect_identical(readLines(file.path(tmp, fixture_inputs[i])),
+                     readLines(committed[i]))
+  }
 })
