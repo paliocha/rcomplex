@@ -335,3 +335,120 @@ test_that("torch backend p-value formula is correct", {
     expect_equal(result$p.value[i], expected_p, tolerance = 1e-10)
   }
 })
+
+
+# ---- sparse (dgCMatrix) network dispatch ----
+
+sparse_net <- function(net, thr = net$threshold) {
+  modifyList(net, list(network = dense_to_dgc(net$network, thr)))
+}
+
+
+test_that("sparse permutation_hog_test equals dense (seeded)", {
+  td <- make_test_nets()
+  net1_s <- sparse_net(td$net1)
+  net2_s <- sparse_net(td$net2)
+
+  set.seed(42)
+  res_d <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 200L, min_exceedances = 10L
+  )
+  set.seed(42)
+  res_s <- permutation_hog_test(
+    net1_s, net2_s, td$comparison,
+    max_permutations = 200L, min_exceedances = 10L
+  )
+  expect_equal(res_s, res_d)
+
+  # divergence direction too
+  set.seed(7)
+  res_d <- permutation_hog_test(
+    td$net1, td$net2, td$comparison, alternative = "less",
+    max_permutations = 200L, min_exceedances = 10L
+  )
+  set.seed(7)
+  res_s <- permutation_hog_test(
+    net1_s, net2_s, td$comparison, alternative = "less",
+    max_permutations = 200L, min_exceedances = 10L
+  )
+  expect_equal(res_s, res_d)
+})
+
+
+test_that("sparse permutation_hog_test with tighter threshold equals dense", {
+  set.seed(42)
+  expr1 <- matrix(rnorm(500), nrow = 50, ncol = 10)
+  rownames(expr1) <- paste0("A_", sprintf("%03d", 1:50))
+  expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
+  rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+
+  ortho <- data.frame(
+    Species1 = paste0("A_", sprintf("%03d", 1:30)),
+    Species2 = paste0("B_", sprintf("%03d", 1:30)),
+    hog = rep(paste0("HOG", 1:10), each = 3)
+  )
+  comparison <- compare_neighborhoods(net1, net2, ortho)
+
+  thr1 <- net1$threshold * 1.2
+  thr2 <- net2$threshold * 1.2
+  net1_s <- modifyList(sparse_net(net1), list(threshold = thr1))
+  net2_s <- modifyList(sparse_net(net2), list(threshold = thr2))
+  net1_d <- modifyList(net1, list(threshold = thr1))
+  net2_d <- modifyList(net2, list(threshold = thr2))
+
+  expect_lt(sum(net1_s$network@x >= thr1), length(net1_s$network@x))
+
+  set.seed(11)
+  res_d <- permutation_hog_test(
+    net1_d, net2_d, comparison,
+    max_permutations = 200L, min_exceedances = 10L
+  )
+  set.seed(11)
+  res_s <- permutation_hog_test(
+    net1_s, net2_s, comparison,
+    max_permutations = 200L, min_exceedances = 10L
+  )
+  expect_equal(res_s, res_d)
+})
+
+
+test_that("permutation_hog_test rejects non-dgCMatrix Matrix classes", {
+  td <- make_test_nets()
+  net1_bad <- modifyList(td$net1, list(
+    network = Matrix::Matrix(td$net1$network, sparse = TRUE)
+  ))
+  expect_s4_class(net1_bad$network, "dsCMatrix")
+  expect_error(
+    permutation_hog_test(net1_bad, sparse_net(td$net2), td$comparison),
+    "network must be a dgCMatrix"
+  )
+  expect_error(
+    permutation_hog_test(sparse_net(td$net1), net1_bad, td$comparison),
+    "network must be a dgCMatrix"
+  )
+})
+
+
+test_that("torch backend accepts sparse networks and matches dense", {
+  skip_if_not_installed("torch")
+  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
+              "torch backend (Lantern) not available")
+  td <- make_test_nets()
+  net1_s <- sparse_net(td$net1)
+  net2_s <- sparse_net(td$net2)
+
+  set.seed(42)
+  res_d <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 100L, min_exceedances = 10L, use_torch = TRUE
+  )
+  set.seed(42)
+  res_s <- permutation_hog_test(
+    net1_s, net2_s, td$comparison,
+    max_permutations = 100L, min_exceedances = 10L, use_torch = TRUE
+  )
+  expect_equal(res_s, res_d)
+})
