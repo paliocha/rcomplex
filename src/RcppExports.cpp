@@ -168,6 +168,32 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// hog_permutation_test_sparse_cpp
+Rcpp::DataFrame hog_permutation_test_sparse_cpp(const Rcpp::IntegerVector& p1, const Rcpp::IntegerVector& i1, const Rcpp::NumericVector& x1, double thr1, const Rcpp::IntegerVector& p2, const Rcpp::IntegerVector& i2, const Rcpp::NumericVector& x2, double thr2, const Rcpp::IntegerVector& ortho_sp1_idx, const Rcpp::IntegerVector& ortho_sp2_idx, const Rcpp::List& hog_sp1_list, const Rcpp::List& hog_sp2_list, bool test_greater, int min_exceedances, int max_permutations, int n_cores);
+RcppExport SEXP _rcomplex_hog_permutation_test_sparse_cpp(SEXP p1SEXP, SEXP i1SEXP, SEXP x1SEXP, SEXP thr1SEXP, SEXP p2SEXP, SEXP i2SEXP, SEXP x2SEXP, SEXP thr2SEXP, SEXP ortho_sp1_idxSEXP, SEXP ortho_sp2_idxSEXP, SEXP hog_sp1_listSEXP, SEXP hog_sp2_listSEXP, SEXP test_greaterSEXP, SEXP min_exceedancesSEXP, SEXP max_permutationsSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type p1(p1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type i1(i1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type x1(x1SEXP);
+    Rcpp::traits::input_parameter< double >::type thr1(thr1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type p2(p2SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type i2(i2SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type x2(x2SEXP);
+    Rcpp::traits::input_parameter< double >::type thr2(thr2SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type ortho_sp1_idx(ortho_sp1_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type ortho_sp2_idx(ortho_sp2_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type hog_sp1_list(hog_sp1_listSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type hog_sp2_list(hog_sp2_listSEXP);
+    Rcpp::traits::input_parameter< bool >::type test_greater(test_greaterSEXP);
+    Rcpp::traits::input_parameter< int >::type min_exceedances(min_exceedancesSEXP);
+    Rcpp::traits::input_parameter< int >::type max_permutations(max_permutationsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(hog_permutation_test_sparse_cpp(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 // module_jaccard_permutation_cpp
 Rcpp::DataFrame module_jaccard_permutation_cpp(const Rcpp::IntegerVector& ortho_sp1_gene, const Rcpp::IntegerVector& ortho_sp2_gene, int n_sp1_unique, int n_sp2_universe, const Rcpp::List& mod1_sp1_genes, const Rcpp::List& mod_sp2_sets, const Rcpp::IntegerVector& mod_i_idx, const Rcpp::IntegerVector& mod_j_idx, const Rcpp::NumericVector& obs_jaccard, int min_exceedances, int max_permutations, int n_cores);
 RcppExport SEXP _rcomplex_module_jaccard_permutation_cpp(SEXP ortho_sp1_geneSEXP, SEXP ortho_sp2_geneSEXP, SEXP n_sp1_uniqueSEXP, SEXP n_sp2_universeSEXP, SEXP mod1_sp1_genesSEXP, SEXP mod_sp2_setsSEXP, SEXP mod_i_idxSEXP, SEXP mod_j_idxSEXP, SEXP obs_jaccardSEXP, SEXP min_exceedancesSEXP, SEXP max_permutationsSEXP, SEXP n_coresSEXP) {
@@ -222,6 +248,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// compare_neighborhoods_sparse_cpp
+Rcpp::DataFrame compare_neighborhoods_sparse_cpp(const Rcpp::IntegerVector& p1, const Rcpp::IntegerVector& i1, const Rcpp::NumericVector& x1, double thr1, const Rcpp::IntegerVector& p2, const Rcpp::IntegerVector& i2, const Rcpp::NumericVector& x2, double thr2, const Rcpp::IntegerVector& pair_sp1_idx, const Rcpp::IntegerVector& pair_sp2_idx, const Rcpp::IntegerVector& ortho_sp1_idx, const Rcpp::IntegerVector& ortho_sp2_idx, int n_cores);
+RcppExport SEXP _rcomplex_compare_neighborhoods_sparse_cpp(SEXP p1SEXP, SEXP i1SEXP, SEXP x1SEXP, SEXP thr1SEXP, SEXP p2SEXP, SEXP i2SEXP, SEXP x2SEXP, SEXP thr2SEXP, SEXP pair_sp1_idxSEXP, SEXP pair_sp2_idxSEXP, SEXP ortho_sp1_idxSEXP, SEXP ortho_sp2_idxSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type p1(p1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type i1(i1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type x1(x1SEXP);
+    Rcpp::traits::input_parameter< double >::type thr1(thr1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type p2(p2SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type i2(i2SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type x2(x2SEXP);
+    Rcpp::traits::input_parameter< double >::type thr2(thr2SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_sp1_idx(pair_sp1_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_sp2_idx(pair_sp2_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type ortho_sp1_idx(ortho_sp1_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type ortho_sp2_idx(ortho_sp2_idxSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(compare_neighborhoods_sparse_cpp(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 // reduce_orthogroups_cpp
 List reduce_orthogroups_cpp(const arma::mat& expr, const List& hog_members, const IntegerVector& non_hog_idx, double cor_threshold);
 RcppExport SEXP _rcomplex_reduce_orthogroups_cpp(SEXP exprSEXP, SEXP hog_membersSEXP, SEXP non_hog_idxSEXP, SEXP cor_thresholdSEXP) {
@@ -247,9 +296,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_find_cliques_cpp", (DL_FUNC) &_rcomplex_find_cliques_cpp, 15},
     {"_rcomplex_find_cliques_stability_cpp", (DL_FUNC) &_rcomplex_find_cliques_stability_cpp, 18},
     {"_rcomplex_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_cpp, 12},
+    {"_rcomplex_hog_permutation_test_sparse_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_sparse_cpp, 16},
     {"_rcomplex_module_jaccard_permutation_cpp", (DL_FUNC) &_rcomplex_module_jaccard_permutation_cpp, 12},
     {"_rcomplex_mutual_rank_transform_cached_cpp", (DL_FUNC) &_rcomplex_mutual_rank_transform_cached_cpp, 3},
     {"_rcomplex_compare_neighborhoods_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_cpp, 9},
+    {"_rcomplex_compare_neighborhoods_sparse_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_sparse_cpp, 13},
     {"_rcomplex_reduce_orthogroups_cpp", (DL_FUNC) &_rcomplex_reduce_orthogroups_cpp, 4},
     {NULL, NULL, 0}
 };

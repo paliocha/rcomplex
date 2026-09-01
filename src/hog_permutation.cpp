@@ -39,6 +39,7 @@
 #include <omp.h>
 #endif
 
+#include "neighbor_lists.h"
 #include "sample_k_distinct.h"
 
 using namespace Rcpp;
@@ -183,32 +184,12 @@ static double compute_T_flags(
 }
 
 
-//' Permutation-based HOG-level conservation test
-//'
-//' Tests each HOG for co-expression conservation using a gene-identity
-//' permutation null with adaptive stopping (Besag & Clifford, 1991).
-//'
-//' @param net1 Co-expression network matrix for species 1 (n1 x n1)
-//' @param net2 Co-expression network matrix for species 2 (n2 x n2)
-//' @param thr1 Co-expression threshold for species 1
-//' @param thr2 Co-expression threshold for species 2
-//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
-//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
-//' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
-//' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
-//' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
-//' @param min_exceedances Besag-Clifford stopping parameter (default 50)
-//' @param max_permutations Maximum permutations per HOG (default 10000)
-//' @param n_cores Number of OpenMP threads (default 1)
-//' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
-//'
-//' @keywords internal
-// [[Rcpp::export]]
-Rcpp::DataFrame hog_permutation_test_cpp(
-    const arma::mat& net1,
-    const arma::mat& net2,
-    double thr1,
-    double thr2,
+// Shared body for both entry points: everything after neighbour-list
+// construction. neighbors1[i] / neighbors2[j] are ascending 0-based lists
+// (see neighbor_lists.h).
+static Rcpp::DataFrame hog_permutation_test_core(
+    const std::vector<std::vector<int>>& neighbors1,
+    const std::vector<std::vector<int>>& neighbors2,
     const Rcpp::IntegerVector& ortho_sp1_idx,
     const Rcpp::IntegerVector& ortho_sp2_idx,
     const Rcpp::List& hog_sp1_list,
@@ -218,8 +199,8 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     int max_permutations,
     int n_cores
 ) {
-    const int n1 = static_cast<int>(net1.n_rows);
-    const int n2 = static_cast<int>(net2.n_rows);
+    const int n1 = static_cast<int>(neighbors1.size());
+    const int n2 = static_cast<int>(neighbors2.size());
     const int n_ortho = ortho_sp1_idx.size();
     const int n_hogs = hog_sp1_list.size();
 
@@ -233,36 +214,6 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         if (s1 >= 0 && s1 < n1 && s2 >= 0 && s2 < n2) {
             sp2_to_sp1[s2].push_back(s1);
             sp1_to_sp2[s1].push_back(s2);
-        }
-    }
-
-    // ---- Compute neighbor lists ----
-    // Column access is sequential in Armadillo's column-major layout;
-    // since the matrices are symmetric, col(i) == row(i) in value.
-    std::vector<std::vector<int>> neighbors1(n1);
-    std::vector<std::vector<int>> neighbors2(n2);
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
-#endif
-    for (int i = 0; i < n1; ++i) {
-        const double* col_i = net1.colptr(i);
-        for (int j = 0; j < n1; ++j) {
-            if (i != j && col_i[j] >= thr1) {
-                neighbors1[i].push_back(j);
-            }
-        }
-    }
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
-#endif
-    for (int i = 0; i < n2; ++i) {
-        const double* col_i = net2.colptr(i);
-        for (int j = 0; j < n2; ++j) {
-            if (i != j && col_i[j] >= thr2) {
-                neighbors2[i].push_back(j);
-            }
         }
     }
 
@@ -475,4 +426,99 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         Rcpp::Named("n_exceed") = out_n_exceed,
         Rcpp::Named("p_value") = out_p_value
     );
+}
+
+
+//' Permutation-based HOG-level conservation test
+//'
+//' Tests each HOG for co-expression conservation using a gene-identity
+//' permutation null with adaptive stopping (Besag & Clifford, 1991).
+//'
+//' @param net1 Co-expression network matrix for species 1 (n1 x n1)
+//' @param net2 Co-expression network matrix for species 2 (n2 x n2)
+//' @param thr1 Co-expression threshold for species 1
+//' @param thr2 Co-expression threshold for species 2
+//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+//' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
+//' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
+//' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
+//' @param min_exceedances Besag-Clifford stopping parameter (default 50)
+//' @param max_permutations Maximum permutations per HOG (default 10000)
+//' @param n_cores Number of OpenMP threads (default 1)
+//' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+//'
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::DataFrame hog_permutation_test_cpp(
+    const arma::mat& net1,
+    const arma::mat& net2,
+    double thr1,
+    double thr2,
+    const Rcpp::IntegerVector& ortho_sp1_idx,
+    const Rcpp::IntegerVector& ortho_sp2_idx,
+    const Rcpp::List& hog_sp1_list,
+    const Rcpp::List& hog_sp2_list,
+    bool test_greater,
+    int min_exceedances,
+    int max_permutations,
+    int n_cores
+) {
+    return hog_permutation_test_core(
+        neighbor_lists_dense(net1, thr1, n_cores),
+        neighbor_lists_dense(net2, thr2, n_cores),
+        ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list,
+        test_greater, min_exceedances, max_permutations, n_cores);
+}
+
+
+//' Permutation-based HOG-level conservation test (sparse networks)
+//'
+//' Same as [hog_permutation_test_cpp()] but takes the slots of a
+//' `dgCMatrix` (column-compressed, both triangles stored) for each network
+//' instead of a dense matrix. Column j lists the neighbours of gene j.
+//'
+//' @param p1 `@p` slot of net1 (column pointers, length n1 + 1)
+//' @param i1 `@i` slot of net1 (0-based row indices)
+//' @param x1 `@x` slot of net1 (stored values)
+//' @param thr1 Co-expression threshold for species 1
+//' @param p2 `@p` slot of net2
+//' @param i2 `@i` slot of net2
+//' @param x2 `@x` slot of net2
+//' @param thr2 Co-expression threshold for species 2
+//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+//' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
+//' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
+//' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
+//' @param min_exceedances Besag-Clifford stopping parameter (default 50)
+//' @param max_permutations Maximum permutations per HOG (default 10000)
+//' @param n_cores Number of OpenMP threads (default 1)
+//' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+//'
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::DataFrame hog_permutation_test_sparse_cpp(
+    const Rcpp::IntegerVector& p1,
+    const Rcpp::IntegerVector& i1,
+    const Rcpp::NumericVector& x1,
+    double thr1,
+    const Rcpp::IntegerVector& p2,
+    const Rcpp::IntegerVector& i2,
+    const Rcpp::NumericVector& x2,
+    double thr2,
+    const Rcpp::IntegerVector& ortho_sp1_idx,
+    const Rcpp::IntegerVector& ortho_sp2_idx,
+    const Rcpp::List& hog_sp1_list,
+    const Rcpp::List& hog_sp2_list,
+    bool test_greater,
+    int min_exceedances,
+    int max_permutations,
+    int n_cores
+) {
+    return hog_permutation_test_core(
+        neighbor_lists_sparse(p1, i1, x1, thr1, n_cores),
+        neighbor_lists_sparse(p2, i2, x2, thr2, n_cores),
+        ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list,
+        test_greater, min_exceedances, max_permutations, n_cores);
 }
