@@ -24,22 +24,26 @@ A data frame with columns:
 \item{hog}{Ortholog group identifier}
 \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
 \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
-from net2}
+from net2, excluding the Species1 gene itself}
 \item{Species1.neigh.overlap}{Intersection size}
 \item{Species1.p.val.con}{Upper-tail hypergeometric p-value for
-conservation (direction 1)}
+conservation (direction 1); 1 when the overlap is 0 or 1}
 \item{Species1.p.val.div}{Lower-tail hypergeometric p-value for
 divergence (direction 1)}
+\item{Species1.p.val.gt}{\eqn{P(X > x)}, ungated (direction 1)}
+\item{Species1.p.val.eq}{\eqn{P(X = x)} (direction 1)}
 \item{Species1.effect.size}{Fold enrichment (direction 1). Values > 1
 indicate conservation, < 1 indicate divergence.}
 \item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
 \item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
-from net1}
+from net1, excluding the Species2 gene itself}
 \item{Species2.neigh.overlap}{Intersection size}
 \item{Species2.p.val.con}{Upper-tail hypergeometric p-value for
-conservation (direction 2)}
+conservation (direction 2); 1 when the overlap is 0 or 1}
 \item{Species2.p.val.div}{Lower-tail hypergeometric p-value for
 divergence (direction 2)}
+\item{Species2.p.val.gt}{\eqn{P(X > x)}, ungated (direction 2)}
+\item{Species2.p.val.eq}{\eqn{P(X = x)} (direction 2)}
 \item{Species2.effect.size}{Fold enrichment (direction 2). Values > 1
 indicate conservation, < 1 indicate divergence.}
 \item{Species1.jaccard}{Jaccard index of neighborhood overlap
@@ -52,6 +56,22 @@ neighbors. Range \eqn{[0, 1]}.}
 \description{
 For each ortholog pair, tests whether co-expression neighborhoods are
 conserved between species using hypergeometric tests in both directions.
+}
+\details{
+For an ortholog pair (A in species 1, B in species 2) and direction 1
+(anchor A), the neighbourhood of A in net1 (size \eqn{m}) is tested
+against the set of species-1 orthologs of B's neighbours in net2 (size
+\eqn{k}); \eqn{x} is their intersection. The urn excludes the anchor
+gene: A is never its own neighbour, it is dropped from the mapped set,
+and the hypergeometric population is the other \eqn{N - 1} network
+genes. \code{Species1.p.val.con} is \eqn{P(X \ge x)} and keeps the gate of
+the original RComPlEx R Markdown (not the paper): it is reported as 1
+when \eqn{x \le 1}. \code{Species1.p.val.gt} (\eqn{P(X > x)}) and
+\code{Species1.p.val.eq} (\eqn{P(X = x)}) are ungated so that
+\code{p.val.gt + U * p.val.eq} is a randomized p-value, exactly uniform under
+the null (used by \code{\link[=summarize_comparison]{summarize_comparison()}} to estimate pi0). The effect
+size \eqn{(x / k) / (m / (N - 1))} is computed for every \eqn{x}
+(1 when \eqn{m = 0} or \eqn{k = 0}). Direction 2 is symmetric.
 }
 \section{Ortholog preparation for de novo transcriptomes}{
 
@@ -71,6 +91,18 @@ Recommended workflow:
 \item Apply maximum-paralogs filter on the reduced ortholog table
 \item Compute networks and run comparison
 }
+}
+
+\section{Gene universe}{
+
+Networks are built on all supplied genes and \eqn{N} is the number of
+genes in the anchor network, as in Netotea et al. (2014). The canonical
+ComPlEx implementations (\code{RComPlEx.Rmd}, \code{ComPlEx_python}) instead
+restrict the expression tables to genes with an ortholog before building
+the networks, which changes neighbourhoods, thresholds and therefore the
+calls. rcomplex reproduces those implementations only when the
+expression matrices are restricted the same way before
+\code{\link[=compute_network]{compute_network()}} (\code{tests/testthat/test-equivalence.R}).
 }
 
 \examples{

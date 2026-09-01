@@ -36,7 +36,10 @@ compare_neighborhoods_cpp(
 \item{n_cores}{Number of OpenMP threads (default: 1)}
 }
 \value{
-DataFrame with comparison results for each ortholog pair
+DataFrame with comparison results for each ortholog pair. The
+hypergeometric urn excludes the anchor gene (population n - 1, anchor
+dropped from the ortholog-mapped set); \verb{*.p.val.gt} / \verb{*.p.val.eq}
+are the ungated upper tail P(X > x) and point mass P(X = x).
 }
 \description{
 For each ortholog pair, tests the overlap of co-expression neighborhoods

@@ -9,7 +9,8 @@ comparison_to_edges(
   sp1,
   sp2,
   alternative = c("greater", "less"),
-  alpha = 0.05
+  alpha = 0.05,
+  pval_combine = c("min", "max")
 )
 }
 \arguments{
@@ -29,6 +30,12 @@ classification: \code{"greater"} (conservation, default) or
 
 \item{alpha}{Significance threshold for the \code{type} column
 (default 0.05).}
+
+\item{pval_combine}{How the two directional q-values are combined into
+\code{q.value}: \code{"min"} (default; a pair is called when either
+direction is significant) or \code{"max"} (both directions must be
+significant, as in the canonical ComPlEx implementations). A missing
+directional q-value is ignored in either case.}
 }
 \value{
 Data frame with columns:
@@ -38,7 +45,8 @@ Data frame with columns:
 \item{species1}{Species abbreviation for gene1 (\code{sp1})}
 \item{species2}{Species abbreviation for gene2 (\code{sp2})}
 \item{hog}{Ortholog group identifier}
-\item{q.value}{Minimum of the two directional q-values}
+\item{q.value}{Minimum (or maximum, see \code{pval_combine}) of the
+two directional q-values}
 \item{effect_size}{Geometric mean of directional effect sizes}
 \item{jaccard}{Geometric mean of directional Jaccard indices
 (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range

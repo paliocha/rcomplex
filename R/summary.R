@@ -475,9 +475,12 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #'
 #' For each permutation, M random species-1 genes and N random species-2 genes
 #' are drawn (matching the HOG's gene counts), and the sum-of-fold-enrichments
-#' statistic T is computed over all M x N pair x direction combinations. The
-#' permutation p-value is the fraction of permuted T values that exceed (or
-#' fall below, for divergence) the observed T.
+#' statistic T is computed over all M x N pair x direction combinations. Each
+#' fold enrichment is \eqn{x / E} with \eqn{E = m k / (n - 1)}: the anchor
+#' gene leaves the ortholog-reachable set (\eqn{k}) and the population
+#' (\eqn{n - 1}), as in [compare_neighborhoods()]. The permutation p-value is
+#' the fraction of permuted T values that exceed (or fall below, for
+#' divergence) the observed T.
 #'
 #' The Besag & Clifford (1991) sequential stopping rule terminates permutations
 #' early once `min_exceedances` permutation statistics exceed T_obs,

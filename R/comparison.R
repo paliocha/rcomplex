@@ -19,6 +19,32 @@
 #' 3. Apply maximum-paralogs filter on the reduced ortholog table
 #' 4. Compute networks and run comparison
 #'
+#' @details
+#' For an ortholog pair (A in species 1, B in species 2) and direction 1
+#' (anchor A), the neighbourhood of A in net1 (size \eqn{m}) is tested
+#' against the set of species-1 orthologs of B's neighbours in net2 (size
+#' \eqn{k}); \eqn{x} is their intersection. The urn excludes the anchor
+#' gene: A is never its own neighbour, it is dropped from the mapped set,
+#' and the hypergeometric population is the other \eqn{N - 1} network
+#' genes. `Species1.p.val.con` is \eqn{P(X \ge x)} and keeps the gate of
+#' the original RComPlEx R Markdown (not the paper): it is reported as 1
+#' when \eqn{x \le 1}. `Species1.p.val.gt` (\eqn{P(X > x)}) and
+#' `Species1.p.val.eq` (\eqn{P(X = x)}) are ungated so that
+#' `p.val.gt + U * p.val.eq` is a randomized p-value, exactly uniform under
+#' the null (used by [summarize_comparison()] to estimate pi0). The effect
+#' size \eqn{(x / k) / (m / (N - 1))} is computed for every \eqn{x}
+#' (1 when \eqn{m = 0} or \eqn{k = 0}). Direction 2 is symmetric.
+#'
+#' @section Gene universe:
+#' Networks are built on all supplied genes and \eqn{N} is the number of
+#' genes in the anchor network, as in Netotea et al. (2014). The canonical
+#' ComPlEx implementations (`RComPlEx.Rmd`, `ComPlEx_python`) instead
+#' restrict the expression tables to genes with an ortholog before building
+#' the networks, which changes neighbourhoods, thresholds and therefore the
+#' calls. rcomplex reproduces those implementations only when the
+#' expression matrices are restricted the same way before
+#' [compute_network()] (`tests/testthat/test-equivalence.R`).
+#'
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
 #' @param orthologs Data frame with columns `Species1`, `Species2`, and
@@ -32,22 +58,26 @@
 #'     \item{hog}{Ortholog group identifier}
 #'     \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
 #'     \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net2}
+#'       from net2, excluding the Species1 gene itself}
 #'     \item{Species1.neigh.overlap}{Intersection size}
 #'     \item{Species1.p.val.con}{Upper-tail hypergeometric p-value for
-#'       conservation (direction 1)}
+#'       conservation (direction 1); 1 when the overlap is 0 or 1}
 #'     \item{Species1.p.val.div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 1)}
+#'     \item{Species1.p.val.gt}{\eqn{P(X > x)}, ungated (direction 1)}
+#'     \item{Species1.p.val.eq}{\eqn{P(X = x)} (direction 1)}
 #'     \item{Species1.effect.size}{Fold enrichment (direction 1). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
 #'     \item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
 #'     \item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net1}
+#'       from net1, excluding the Species2 gene itself}
 #'     \item{Species2.neigh.overlap}{Intersection size}
 #'     \item{Species2.p.val.con}{Upper-tail hypergeometric p-value for
-#'       conservation (direction 2)}
+#'       conservation (direction 2); 1 when the overlap is 0 or 1}
 #'     \item{Species2.p.val.div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 2)}
+#'     \item{Species2.p.val.gt}{\eqn{P(X > x)}, ungated (direction 2)}
+#'     \item{Species2.p.val.eq}{\eqn{P(X = x)} (direction 2)}
 #'     \item{Species2.effect.size}{Fold enrichment (direction 2). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
 #'     \item{Species1.jaccard}{Jaccard index of neighborhood overlap
@@ -258,6 +288,15 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'     stopping and Liang discrete q-values. Required for multi-copy
 #'     HOGs where pair-level tests are correlated.}
 #' }
+#'
+#' @section Gene universe:
+#' Each network is built on all genes supplied to
+#' \code{\link{compute_network}} and the hypergeometric population is the
+#' whole network (Netotea et al. 2014). Canonical ComPlEx implementations
+#' restrict expression to ortholog genes before building the networks;
+#' that changes neighbourhoods and calls, so rcomplex matches them only
+#' when the expression matrices are restricted the same way beforehand
+#' (see \code{\link{compare_neighborhoods}}).
 #'
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
