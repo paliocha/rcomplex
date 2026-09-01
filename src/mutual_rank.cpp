@@ -14,6 +14,7 @@
 
 #include <RcppArmadillo.h>
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <ranges>
 #include <vector>
@@ -126,4 +127,116 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
     }
 
     return result;
+}
+
+// In-place average ranks of one column; same tie handling as
+// compute_ranks_impl. `indices` is a caller-owned buffer of size n (reused
+// across columns). Overwriting col[] while walking the sorted order is safe:
+// every position is written exactly once, only after every comparison that
+// reads it has been made (tie groups are contiguous in `indices`).
+static void rank_column_inplace(double* col, const R_xlen_t n,
+                                const bool ascending,
+                                std::vector<R_xlen_t>& indices) {
+    std::iota(indices.begin(), indices.end(), R_xlen_t{0});
+
+    auto proj = [col](R_xlen_t i) { return col[i]; };
+    if (ascending) {
+        std::ranges::sort(indices, std::ranges::less{}, proj);
+    } else {
+        std::ranges::sort(indices, std::ranges::greater{}, proj);
+    }
+
+    R_xlen_t i = 0;
+    while (i < n) {
+        R_xlen_t j = i;
+        while (j < n - 1 && col[indices[j]] == col[indices[j + 1]]) {
+            ++j;
+        }
+        const double avg_rank = static_cast<double>(i + j + 2) / 2.0;
+        for (R_xlen_t k = i; k <= j; ++k) {
+            col[indices[k]] = avg_rank;
+        }
+        i = j + 1;
+    }
+}
+
+//' In-place mutual rank transformation
+//'
+//' Overwrites `sim` with its mutual rank transform without allocating any
+//' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally takes
+//' absolute values, and replaces the column by its average ranks. Pass 2
+//' replaces each pair (i, j) by sqrt(R_ij * R_ji) (log-normalized when
+//' `log_transform`) and sets the diagonal to 0. Same formulas and tie
+//' handling as [mutual_rank_transform_cached_cpp()], which is kept as the
+//' reference implementation.
+//'
+//' @param sim Symmetric correlation/similarity matrix (n x n). Modified in
+//'   place: must be a fresh allocation not shared with any other R object.
+//' @param log_transform If FALSE, raw mutual rank with ascending ranks
+//'   (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
+//'   log-normalized formula with descending ranks (values in 0 to 1 range).
+//' @param abs_cor If TRUE, take absolute values before ranking.
+//' @param n_cores Number of OpenMP threads
+//' @return Invisible `NULL`; `sim` is modified in place.
+//'
+//' @keywords internal
+// [[Rcpp::export]]
+void mutual_rank_inplace_cpp(Rcpp::NumericMatrix sim, bool log_transform,
+                             bool abs_cor, int n_cores) {
+    const R_xlen_t n = sim.nrow();
+
+    if (n != sim.ncol()) {
+        stop("sim must be a square matrix");
+    }
+    if (n < 2) {
+        stop("Matrix must have at least 2 rows/columns");
+    }
+
+    const double log_n = std::log(static_cast<double>(n));
+    const bool ascending = !log_transform;
+    double* const data = sim.begin();
+
+    int max_threads = 1;
+#ifdef _OPENMP
+    if (n_cores > 1) max_threads = n_cores;
+#endif
+    std::vector<std::vector<R_xlen_t>> thread_indices(
+        max_threads, std::vector<R_xlen_t>(n));
+
+    // Pass 1: clamp, abs, rank each column in place. Column ranks depend
+    // only on that column, so columns are independent.
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
+#endif
+    for (R_xlen_t c = 0; c < n; ++c) {
+        int tid = 0;
+#ifdef _OPENMP
+        tid = omp_get_thread_num();
+#endif
+        double* const col = data + c * n;
+        for (R_xlen_t r = 0; r < n; ++r) {
+            const double v = std::clamp(col[r], -1.0, 1.0);
+            col[r] = abs_cor ? std::fabs(v) : v;
+        }
+        rank_column_inplace(col, n, ascending, thread_indices[tid]);
+    }
+
+    // Pass 2: mutual ranks. Cells (i, j) and (j, i) for j > i are read and
+    // written only by iteration i -> race-free across threads.
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(static, 1) num_threads(n_cores) if(n_cores > 1)
+#endif
+    for (R_xlen_t i = 0; i < n; ++i) {
+        for (R_xlen_t j = i + 1; j < n; ++j) {
+            double* const lower = data + i * n + j;  // sim(j, i)
+            double* const upper = data + j * n + i;  // sim(i, j)
+            double v = std::sqrt(*lower * *upper);
+            if (log_transform) {
+                v = std::clamp(1.0 - std::log(v) / log_n, 0.0, 1.0);
+            }
+            *lower = v;
+            *upper = v;
+        }
+        data[i * n + i] = 0.0;
+    }
 }

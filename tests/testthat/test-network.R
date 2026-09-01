@@ -250,3 +250,50 @@ test_that("torch backend matches Rfast (Spearman)", {
   expect_equal(torch_result$network, rfast_result$network, tolerance = tol)
   expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = tol)
 })
+
+test_that("mutual_rank_inplace_cpp matches cached reference (ties, all modes)", {
+  # Symmetric matrix with exact ties, values beyond [-1, 1] (clamping creates
+  # further ties) and sign-symmetric pairs (abs() creates ties).
+  m <- matrix(c(
+     1.0,  0.5,  0.5, -0.2,  1.2,  0.3,
+     0.5,  1.0, -0.5,  0.5, -1.3,  0.3,
+     0.5, -0.5,  1.0,  0.5,  0.0, -0.3,
+    -0.2,  0.5,  0.5,  1.0,  0.5,  0.7,
+     1.2, -1.3,  0.0,  0.5,  1.0,  0.5,
+     0.3,  0.3, -0.3,  0.7,  0.5,  1.0), nrow = 6, byrow = TRUE)
+  expect_identical(m, t(m))
+
+  for (log_transform in c(FALSE, TRUE)) {
+    for (abs_cor in c(FALSE, TRUE)) {
+      ref_in <- pmin(pmax(m, -1), 1)
+      if (abs_cor) ref_in <- abs(ref_in)
+      ref <- mutual_rank_transform_cached_cpp(ref_in,
+                                              log_transform = log_transform,
+                                              n_cores = 1L)
+      # compute_network() zeroes the diagonal after the cached call
+      diag(ref) <- 0
+
+      x <- m + 0  # fresh copy; mutated in place below
+      mutual_rank_inplace_cpp(x, log_transform, abs_cor, 1L)
+      expect_identical(x, ref)
+
+      x2 <- m + 0
+      mutual_rank_inplace_cpp(x2, log_transform, abs_cor, 2L)
+      expect_identical(x2, ref)
+    }
+  }
+})
+
+test_that("compute_network abs_cor MR matches R reference on |cor|", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr, cor_method = "pearson",
+                            norm_method = "MR", abs_cor = TRUE,
+                            density = 0.05)
+  ref_net <- reference_mr_raw(abs(cor(t(expr), method = "pearson")))
+
+  expect_equal(result$network, ref_net, tolerance = 1e-10,
+               ignore_attr = TRUE)
+})

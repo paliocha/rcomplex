@@ -203,25 +203,26 @@ setMethod("compute_network", "matrix", function(x,
   net <- cor_fn(x, method = cor_method)
   if (use_torch) .gpu_gc()
 
-  # Clip to [-1, 1]
-  net[net > 1] <- 1
-  net[net < -1] <- -1
-
-  if (abs_cor) {
-    net <- abs(net)
-  }
-
   # Normalization
   if (norm_method == "MR") {
-    net <- mutual_rank_transform_cached_cpp(net,
-                                            log_transform = mr_log_transform,
-                                            n_cores = n_cores)
+    # Clip to [-1, 1], abs() (if abs_cor), MR ranks and zero diagonal are all
+    # done in C++ directly on `net`, which is freshly allocated by cor_fn
+    # (refcount 1): in-place mutation is intentional (no n x n temporaries).
+    mutual_rank_inplace_cpp(net, mr_log_transform, abs_cor, n_cores)
   } else {
-    net <- apply_clr_to_cor_cpp(net, n_cores = n_cores)
-  }
+    # Clip to [-1, 1]
+    net[net > 1] <- 1
+    net[net < -1] <- -1
 
-  # Set diagonal to 0
-  diag(net) <- 0
+    if (abs_cor) {
+      net <- abs(net)
+    }
+
+    net <- apply_clr_to_cor_cpp(net, n_cores = n_cores)
+
+    # Set diagonal to 0
+    diag(net) <- 0
+  }
 
   # Assign gene names
   dimnames(net) <- list(gene_names, gene_names)
