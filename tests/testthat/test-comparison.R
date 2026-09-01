@@ -144,6 +144,116 @@ test_that("C++ comparison matches R reference", {
       cpp_result$Species2.jaccard[i],
       ref$Species2.jaccard, tolerance = 1e-12
     )
+    expect_equal(
+      cpp_result$Species1.p.val.gt[i],
+      ref$Species1.p.val.gt, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species1.p.val.eq[i],
+      ref$Species1.p.val.eq, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species2.p.val.gt[i],
+      ref$Species2.p.val.gt, tolerance = 1e-12
+    )
+    expect_equal(
+      cpp_result$Species2.p.val.eq[i],
+      ref$Species2.p.val.eq, tolerance = 1e-12
+    )
+  }
+})
+
+
+test_that("self-excluded urn: anchor leaves the mapped set and the population", {
+  # A1 has two orthologs (B1, B2). For the pair (A1, B1), B1's neighbour B2
+  # maps back to the anchor A1, which must be dropped from the mapped set;
+  # the population is the other N - 1 genes in both directions.
+  n <- 10
+  mk <- function(prefix) {
+    m <- matrix(0, n, n)
+    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
+    m
+  }
+  link <- function(m, i, j) {
+    m[i, j] <- m[j, i] <- 1
+    m
+  }
+  a <- mk("A")
+  for (j in 2:4) a <- link(a, 1, j)          # N1(A1) = {A2, A3, A4}
+  b <- mk("B")
+  for (j in c(2:4, 7)) b <- link(b, 1, j)    # N2(B1) = {B2, B3, B4, B7}
+  net1 <- list(network = a, threshold = 0.5)
+  net2 <- list(network = b, threshold = 0.5)
+  ortho <- data.frame(
+    Species1 = c("A1", "A1", "A2", "A3", "A4", "A5"),
+    Species2 = c("B1", "B2", "B3", "B4", "B5", "B6"),
+    hog = c("H1", "H1", "H2", "H3", "H4", "H5"),
+    stringsAsFactors = FALSE
+  )
+
+  res <- compare_neighborhoods(net1, net2, ortho)
+  r <- res[res$Species1 == "A1" & res$Species2 == "B1", ]
+
+  # direction 1: m = 3; mapped {A1 (anchor, dropped), A2, A3} -> k = 2;
+  # x = 2; population 9
+  expect_equal(r$Species1.neigh, 3L)
+  expect_equal(r$Species1.ortho.neigh, 2L)
+  expect_equal(r$Species1.neigh.overlap, 2L)
+  expect_equal(r$Species1.p.val.con, phyper(1, 3, 6, 2, lower.tail = FALSE))
+  expect_equal(r$Species1.p.val.gt, phyper(2, 3, 6, 2, lower.tail = FALSE))
+  expect_equal(r$Species1.p.val.eq, dhyper(2, 3, 6, 2))
+  expect_equal(r$Species1.p.val.div, phyper(2, 3, 6, 2))
+  expect_equal(r$Species1.effect.size, (2 / 2) / (3 / 9))
+  expect_equal(r$Species1.jaccard, 2 / 3)
+
+  # direction 2: anchor B1 is not in the mapped set {B3, B4, B5}; m = 4,
+  # k = 3, x = 2; population 9 (the old urn would use 10)
+  expect_equal(r$Species2.neigh, 4L)
+  expect_equal(r$Species2.ortho.neigh, 3L)
+  expect_equal(r$Species2.neigh.overlap, 2L)
+  expect_equal(r$Species2.p.val.con, phyper(1, 4, 5, 3, lower.tail = FALSE))
+  expect_equal(r$Species2.p.val.gt, phyper(2, 4, 5, 3, lower.tail = FALSE))
+  expect_equal(r$Species2.p.val.eq, dhyper(2, 4, 5, 3))
+  expect_equal(r$Species2.p.val.div, phyper(2, 4, 5, 3))
+  expect_equal(r$Species2.effect.size, (2 / 3) / (4 / 9))
+
+  # (A1, B2): B2's only neighbour maps back to the anchor -> empty mapped
+  # set; p.val.gt / p.val.eq still form a proper randomized p-value
+  r2 <- res[res$Species1 == "A1" & res$Species2 == "B2", ]
+  expect_equal(r2$Species1.ortho.neigh, 0L)
+  expect_equal(r2$Species1.neigh.overlap, 0L)
+  expect_equal(r2$Species1.p.val.con, 1)
+  expect_equal(r2$Species1.p.val.div, 1)
+  expect_equal(r2$Species1.effect.size, 1)
+  expect_equal(r2$Species1.p.val.gt, 0)
+  expect_equal(r2$Species1.p.val.eq, 1)
+
+  # pure-R oracle and sparse path agree
+  ref <- reference_compare_pair(a, b, 0.5, 0.5, ortho, "A1", "B1")
+  got <- r[names(ref)]
+  rownames(got) <- NULL
+  expect_equal(got, ref)
+  res_s <- compare_neighborhoods(sparse_net(net1), sparse_net(net2), ortho)
+  expect_equal(res_s, res)
+})
+
+
+test_that("p.val.gt / p.val.eq decompose the exact hypergeometric tail", {
+  td <- make_graded_nets()
+  res <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  for (sp in c("Species1", "Species2")) {
+    gt <- res[[paste0(sp, ".p.val.gt")]]
+    eq <- res[[paste0(sp, ".p.val.eq")]]
+    con <- res[[paste0(sp, ".p.val.con")]]
+    div <- res[[paste0(sp, ".p.val.div")]]
+    x <- res[[paste0(sp, ".neigh.overlap")]]
+    expect_gt(sum(x > 1), 0L)
+    expect_true(all(gt >= 0 & eq >= 0 & gt + eq <= 1 + 1e-12))
+    # reported conservation p-value keeps the x > 1 gate
+    expect_equal(con[x > 1], (gt + eq)[x > 1])
+    expect_equal(con[x <= 1], rep(1, sum(x <= 1)))
+    # lower tail contains the point mass
+    expect_true(all(div - eq >= -1e-12))
   }
 })
 

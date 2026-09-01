@@ -522,3 +522,52 @@ test_that("torch backend with tighter threshold: sparse equals dense", {
                tolerance = 1e-5)
   expect_gt(res_ts$T_obs[res_ts$hog == "HOG1"], 0)
 })
+
+
+# ---- self-excluded urn (D5) ----
+
+test_that("T_obs uses the self-excluded urn and matches the R oracle", {
+  # HOG1 members (1-3) are co-expressed with each other and with 4-6, so
+  # for anchor A1 and HOG-mate B2 the anchor is itself ortholog-reachable
+  # from B2's neighbours and must leave the reachable set; the population
+  # is N - 1 in both directions.
+  n <- 12
+  build <- function(prefix) {
+    m <- matrix(0, n, n)
+    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
+    for (g in 1:3) for (h in 1:6) if (g != h) m[g, h] <- m[h, g] <- 0.9
+    diag(m) <- 1
+    m
+  }
+  net1 <- list(network = build("A"), threshold = 0.5)
+  net2 <- list(network = build("B"), threshold = 0.5)
+  ortho <- data.frame(
+    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n),
+    hog = c(rep("HOG1", 3), paste0("HOG", 2:(n - 2))),
+    stringsAsFactors = FALSE
+  )
+  comparison <- compare_neighborhoods(net1, net2, ortho)
+  sp1 <- paste0("A", 1:3)
+  sp2 <- paste0("B", 1:3)
+
+  set.seed(3)
+  res <- permutation_hog_test(net1, net2, comparison,
+                              max_permutations = 50L, min_exceedances = 5L)
+  t_hog1 <- res$T_obs[res$hog == "HOG1"]
+  expected <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
+                              sp1, sp2)
+  expect_equal(t_hog1, expected, tolerance = 1e-12)
+
+  # the exclusion is exercised: the pre-0.2.0 urn (k, N) gives a
+  # different statistic
+  old <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
+                         sp1, sp2, self_exclude = FALSE)
+  expect_false(isTRUE(all.equal(t_hog1, old)))
+
+  # sparse path identical
+  set.seed(3)
+  res_s <- permutation_hog_test(sparse_net(net1), sparse_net(net2),
+                                comparison,
+                                max_permutations = 50L, min_exceedances = 5L)
+  expect_equal(res_s, res)
+})

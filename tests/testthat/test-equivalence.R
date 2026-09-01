@@ -65,11 +65,22 @@ test_that("co-expressolog calls match canonical ComPlEx", {
   key <- paste(cmp$Species1, cmp$Species2)
   key_expected <- paste(expected$Species1, expected$Species2)
   expect_equal(nrow(expected), 149L)
-  expect_true(setequal(key[maxbh < 0.05], key_expected))
 
   idx <- match(key_expected, key)
   expect_false(anyNA(idx))
-  expect_lt(max(abs(maxbh[idx] - expected$Max.p.val)), 1e-12)
+
+  # The self-excluded urn (D5, rcomplex >= 0.2.0) shifts p-values by
+  # O(1/N) relative to canonical ComPlEx: the call sets are identical, or
+  # differ only by pairs whose combined BH value sits within 1e-3 of alpha.
+  called <- key[maxbh < 0.05]
+  flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
+  if (length(flipped) > 0L) {
+    p_rc <- maxbh[match(flipped, key)]
+    p_py <- expected$Max.p.val[match(flipped, key_expected)]
+    expect_true(all(abs(p_rc - 0.05) < 1e-3))
+    expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
+  }
+  expect_equal(maxbh[idx], expected$Max.p.val, tolerance = 1e-3)
   expect_equal(cmp$Species1.neigh.overlap[idx], expected$Species1.neigh.overlap)
   expect_equal(cmp$Species2.neigh.overlap[idx], expected$Species2.neigh.overlap)
 })

@@ -27,23 +27,30 @@ reference_density_threshold <- function(net, density) {
 }
 
 #' Reference neighborhood comparison for a single pair
-#' Direct port of RComPlEx.Rmd lines 217-276
+#' Direct port of RComPlEx.Rmd lines 217-276, with the self-excluded urn
+#' (D5): the anchor gene is never its own neighbour, leaves the
+#' ortholog-mapped set, and the hypergeometric population is the other
+#' N - 1 genes. Also returns the ungated upper tail P(X > x) and the point
+#' mass P(X = x) used for randomized p-values (D4).
 reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
   # Direction 1: sp1 -> sp2
   neigh <- net1[g1, ]
-  neigh <- names(neigh[neigh >= thr1])
+  neigh <- setdiff(names(neigh[neigh >= thr1]), g1)
 
   ortho_neigh <- net2[g2, ]
-  ortho_neigh <- names(ortho_neigh[ortho_neigh >= thr2])
+  ortho_neigh <- setdiff(names(ortho_neigh[ortho_neigh >= thr2]), g2)
   ortho_neigh <- unique(ortho$Species1[ortho$Species2 %in% ortho_neigh])
+  ortho_neigh <- setdiff(ortho_neigh, g1)
 
-  n_genes <- nrow(net1)
+  n_genes <- nrow(net1) - 1
   m <- length(neigh)
   k <- length(ortho_neigh)
   x <- length(intersect(neigh, ortho_neigh))
   p_val_con1 <- 1
   p_val_div1 <- 1
   effect1 <- 1
+  p_gt1 <- phyper(x, m, n_genes - m, k, lower.tail = FALSE)
+  p_eq1 <- dhyper(x, m, n_genes - m, k)
   if (x > 1) {
     p_val_con1 <- phyper(x - 1, m, n_genes - m, k, lower.tail = FALSE)
   }
@@ -54,19 +61,22 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
 
   # Direction 2: sp2 -> sp1
   neigh2 <- net2[g2, ]
-  neigh2 <- names(neigh2[neigh2 >= thr2])
+  neigh2 <- setdiff(names(neigh2[neigh2 >= thr2]), g2)
 
   ortho_neigh2 <- net1[g1, ]
-  ortho_neigh2 <- names(ortho_neigh2[ortho_neigh2 >= thr1])
+  ortho_neigh2 <- setdiff(names(ortho_neigh2[ortho_neigh2 >= thr1]), g1)
   ortho_neigh2 <- unique(ortho$Species2[ortho$Species1 %in% ortho_neigh2])
+  ortho_neigh2 <- setdiff(ortho_neigh2, g2)
 
-  n_genes2 <- nrow(net2)
+  n_genes2 <- nrow(net2) - 1
   m2 <- length(neigh2)
   k2 <- length(ortho_neigh2)
   x2 <- length(intersect(neigh2, ortho_neigh2))
   p_val_con2 <- 1
   p_val_div2 <- 1
   effect2 <- 1
+  p_gt2 <- phyper(x2, m2, n_genes2 - m2, k2, lower.tail = FALSE)
+  p_eq2 <- dhyper(x2, m2, n_genes2 - m2, k2)
   if (x2 > 1) {
     p_val_con2 <- phyper(x2 - 1, m2, n_genes2 - m2, k2, lower.tail = FALSE)
   }
@@ -87,6 +97,8 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
     Species1.neigh.overlap = x,
     Species1.p.val.con = p_val_con1,
     Species1.p.val.div = p_val_div1,
+    Species1.p.val.gt = p_gt1,
+    Species1.p.val.eq = p_eq1,
     Species1.effect.size = effect1,
     Species1.jaccard = jaccard1,
     Species2.neigh = m2,
@@ -94,9 +106,47 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
     Species2.neigh.overlap = x2,
     Species2.p.val.con = p_val_con2,
     Species2.p.val.div = p_val_div2,
+    Species2.p.val.gt = p_gt2,
+    Species2.p.val.eq = p_eq2,
     Species2.effect.size = effect2,
     Species2.jaccard = jaccard2
   )
+}
+
+
+#' Reference sum-of-fold-enrichments statistic T for one HOG
+#'
+#' T = sum over (a in sp1_genes) x (b in sp2_genes) of x1 / E1 + x2 / E2,
+#' with E = m * k / (N - 1) under the self-excluded urn: the anchor gene
+#' leaves the ortholog-reachable set (k) and the population (N - 1).
+#' `self_exclude = FALSE` gives the pre-0.2.0 urn (k, N) for contrast.
+reference_T_obs <- function(net1, net2, thr1, thr2, ortho,
+                            sp1_genes, sp2_genes, self_exclude = TRUE) {
+  nb <- function(net, thr, g) setdiff(names(which(net[g, ] >= thr)), g)
+  n1 <- nrow(net1) - self_exclude
+  n2 <- nrow(net2) - self_exclude
+  T <- 0
+  for (b in sp2_genes) {
+    reach1 <- unique(ortho$Species1[ortho$Species2 %in% nb(net2, thr2, b)])
+    for (a in sp1_genes) {
+      n1a <- nb(net1, thr1, a)
+      m1 <- length(n1a)
+      k1 <- length(if (self_exclude) setdiff(reach1, a) else reach1)
+      if (m1 == 0 || k1 == 0) next
+      T <- T + length(intersect(n1a, reach1)) / (m1 * k1 / n1)
+    }
+  }
+  for (a in sp1_genes) {
+    reach2 <- unique(ortho$Species2[ortho$Species1 %in% nb(net1, thr1, a)])
+    for (b in sp2_genes) {
+      n2b <- nb(net2, thr2, b)
+      m2 <- length(n2b)
+      k2 <- length(if (self_exclude) setdiff(reach2, b) else reach2)
+      if (m2 == 0 || k2 == 0) next
+      T <- T + length(intersect(n2b, reach2)) / (m2 * k2 / n2)
+    }
+  }
+  T
 }
 
 
