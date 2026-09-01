@@ -340,7 +340,8 @@ test_that("torch backend p-value formula is correct", {
 # ---- sparse (dgCMatrix) network dispatch ----
 
 sparse_net <- function(net, thr = net$threshold) {
-  modifyList(net, list(network = dense_to_dgc(net$network, thr)))
+  modifyList(net, list(network = dense_to_dgc(net$network, thr),
+                       store_threshold = thr))
 }
 
 

@@ -725,7 +725,8 @@ test_that("density_sweep validates inputs", {
 # --- Tests for sparse (dgCMatrix) network dispatch ---
 
 make_sparse_net <- function(net, thr = net$threshold) {
-  modifyList(net, list(network = dense_to_dgc(net$network, thr)))
+  modifyList(net, list(network = dense_to_dgc(net$network, thr),
+                       store_threshold = thr))
 }
 
 make_cmp_nets <- function() {
@@ -897,16 +898,30 @@ test_that("store guard errors when threshold is below store_threshold", {
   net1_s <- make_sparse_net(td$net1)
   net2_s <- make_sparse_net(td$net2)
 
-  # no store_threshold -> not guarded
+  # no store_threshold -> fallback guard on the smallest stored value
+  net1_s$store_threshold <- NULL
   net1_loose <- modifyList(net1_s, list(threshold = td$net1$threshold * 0.5))
-  expect_silent(compare_neighborhoods(net1_loose, net2_s, td$ortho))
+  expect_error(compare_neighborhoods(net1_loose, net2_s, td$ortho),
+               "below the smallest stored value")
+
+  # exact equality with the smallest stored value passes
+  thr_min <- min(net1_s$network@x)
+  net1_min_s <- modifyList(net1_s, list(threshold = thr_min))
+  net1_min_d <- modifyList(td$net1, list(threshold = thr_min))
+  expect_equal(compare_neighborhoods(net1_min_s, net2_s, td$ortho),
+               compare_neighborhoods(net1_min_d, td$net2, td$ortho))
 
   net1_guarded <- modifyList(net1_s, list(
     store_threshold = td$net1$threshold, store_density = 0.1,
     threshold = td$net1$threshold * 0.5
   ))
   expect_error(compare_neighborhoods(net1_guarded, net2_s, td$ortho),
-               "store_density")
+               "\\(store_density = 0.1\\); recompute")
+
+  # store_density absent -> no parenthetical in the message
+  net1_guarded$store_density <- NULL
+  expect_error(compare_neighborhoods(net1_guarded, net2_s, td$ortho),
+               "stored threshold [^(]*; recompute")
 
   # threshold at or above store_threshold passes
   net1_ok <- modifyList(net1_guarded, list(threshold = td$net1$threshold))
@@ -1003,4 +1018,34 @@ test_that("sparse compare_neighborhoods edge cases equal dense", {
 
   expect_equal(res_d$Species1.neigh, c(2, 2, 2, 0, 1, 1, 0, 0))
   expect_equal(res_d$Species2.neigh, c(2, 3, 2, 1, 1, 1, 0, 0))
+})
+
+
+test_that("sparse networks must be square with identical row/col names", {
+  td <- make_cmp_nets()
+  net2_s <- make_sparse_net(td$net2)
+  good <- make_sparse_net(td$net1)$network
+  with_net <- function(m) modifyList(td$net1, list(network = m))
+
+  # non-square (extra column), row names intact
+  wide <- Matrix::sparseMatrix(
+    i = good@i + 1L, j = rep.int(seq_len(ncol(good)), diff(good@p)),
+    x = good@x, dims = c(nrow(good), ncol(good) + 1L),
+    dimnames = list(rownames(good), c(colnames(good), "extra"))
+  )
+  expect_s4_class(wide, "dgCMatrix")
+  expect_error(compare_neighborhoods(with_net(wide), net2_s, td$ortho),
+               "square")
+
+  # missing column names
+  m <- good
+  dimnames(m) <- list(rownames(good), NULL)
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "row and column names")
+
+  # row/col names differ
+  m <- good
+  dimnames(m) <- list(rownames(good), rev(colnames(good)))
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "row and column names")
 })

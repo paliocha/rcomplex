@@ -16,10 +16,13 @@
 #'
 #' Accepts a dense numeric matrix or a `dgCMatrix`. Any other `Matrix` class
 #' (e.g. the `dsCMatrix` returned by `Matrix::Matrix(m, sparse = TRUE)` for
-#' symmetric input) is rejected. For sparse networks that carry a
-#' `store_threshold`, analysing at a threshold below it would silently miss
-#' discarded edges, so that is an error. Hand-built sparse networks without
-#' `store_threshold` are not guarded.
+#' symmetric input) is rejected. A sparse network must be square with
+#' identical, non-NULL row and column names (column j = neighbours of gene
+#' j; the R wrappers map gene names to indices through the row names).
+#' Analysing at a threshold below what the store holds would silently miss
+#' discarded edges, so that is an error: against `store_threshold` when the
+#' network carries one, otherwise against the smallest stored value
+#' (hand-built sparse networks). Exact equality passes.
 #'
 #' @param net Network object.
 #' @param thr Analysis threshold.
@@ -28,10 +31,30 @@
 .net_check <- function(net, thr) {
   m <- net$network
   if (.net_is_sparse(net)) {
-    if (!is.null(net$store_threshold) && thr < net$store_threshold) {
-      stop("threshold ", thr, " is below the stored threshold ",
-           net$store_threshold, " (store_density = ", net$store_density,
-           "); recompute with a larger store_density")
+    if (nrow(m) != ncol(m)) {
+      stop("network must be a square dgCMatrix (got ", nrow(m), " x ",
+           ncol(m), "); see as_sparse_network()")
+    }
+    dn <- dimnames(m)
+    if (is.null(dn[[1L]]) || is.null(dn[[2L]]) ||
+        !identical(dn[[1L]], dn[[2L]])) {
+      stop("network must have identical, non-NULL row and column names; ",
+           "see as_sparse_network()")
+    }
+    if (!is.null(net$store_threshold)) {
+      if (thr < net$store_threshold) {
+        stop("threshold ", thr, " is below the stored threshold ",
+             net$store_threshold,
+             if (!is.null(net$store_density)) {
+               paste0(" (store_density = ", net$store_density, ")")
+             },
+             "; recompute with a larger store_density")
+      }
+    } else if (length(m@x) > 0L && thr < min(m@x)) {
+      stop("threshold ", thr, " is below the smallest stored value ",
+           min(m@x), "; the sparse network cannot represent this density ",
+           "(use threshold >= that value or rebuild with a larger ",
+           "store_density)")
     }
   } else if (methods::is(m, "Matrix")) {
     stop("network must be a dgCMatrix; see as_sparse_network()")
