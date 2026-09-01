@@ -821,7 +821,7 @@ compare_modules_hypergeometric <- function(mg1, mg2, sp1_to_sp2, sp2_mappable) {
 
   n_pairs <- nrow(pairs)
   pairs$q.value <- if (n_pairs < 2L) pairs$p.value else {
-    compute_qvalues(pairs$p.value)
+    compute_qvalues(pairs$p.value, pi0_method = "storey")$qvalues
   }
   pairs
 }

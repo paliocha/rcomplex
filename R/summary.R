@@ -1,17 +1,60 @@
 #' Compute q-values from a vector of p-values
 #'
-#' Wrapper around [qvalue::qvalue()] that handles edge cases (fewer than
-#' 2 p-values).
+#' Wrapper around [qvalue::qvalue()] with a choice of pi0 estimator.
+#'
+#' `"randomized"`: Storey's [qvalue::pi0est()] is run on `B` draws of
+#' randomized p-values from `p_rand_fn()` and averaged, then
+#' `qvalue(pvals, pi0 = pi0)` applies that pi0 to the exact p-values.
+#' Discrete hypergeometric p-values pile up at 1 (small expected overlaps,
+#' the `x > 1` gate), which drives Storey's estimator on them to 1; the
+#' randomized p-value `P(X > x) + U * P(X = x)` is exactly U(0, 1) under
+#' H0 (Dickhaus et al. 2012), so pi0 estimated on it is unbiased.
+#' `"storey"`: `qvalue(pvals)` (pre-0.2.0 behaviour). `"none"`: pi0 = 1,
+#' i.e. Benjamini-Hochberg.
+#'
+#' A failing `pi0est()` (e.g. every randomized p-value below the lambda
+#' range) counts as pi0 = 1 for that draw; a failing `qvalue()` fit falls
+#' back to pi0 = 1. Uses the global RNG: `set.seed()` before calling for a
+#' reproducible randomized pi0.
 #'
 #' @param pvals Numeric vector of p-values.
-#' @return Numeric vector of q-values, same length as `pvals`.
+#' @param p_rand_fn Function of no arguments returning one draw of
+#'   randomized p-values (same length as `pvals`). Required for
+#'   `pi0_method = "randomized"`, ignored otherwise.
+#' @param pi0_method `"randomized"` (default), `"storey"` or `"none"`.
+#' @param B Number of randomized draws averaged for pi0 (default 20).
+#' @return `list(qvalues = , pi0 = )`. With fewer than 2 p-values the
+#'   p-values are returned unchanged and `pi0` is `NA`.
 #' @noRd
-compute_qvalues <- function(pvals) {
-  if (length(pvals) < 2L) return(pvals)
-  tryCatch(
-    qvalue::qvalue(pvals)$qvalues,
-    error = function(e) qvalue::qvalue(pvals, pi0 = 1)$qvalues
-  )
+compute_qvalues <- function(pvals, p_rand_fn = NULL,
+                            pi0_method = c("randomized", "storey", "none"),
+                            B = 20L) {
+  pi0_method <- match.arg(pi0_method)
+  if (length(pvals) < 2L) return(list(qvalues = pvals, pi0 = NA_real_))
+
+  fit_bh <- function() qvalue::qvalue(pvals, pi0 = 1)
+
+  fit <- if (pi0_method == "randomized") {
+    if (!is.function(p_rand_fn)) {
+      stop("p_rand_fn must be a function returning randomized p-values ",
+           "when pi0_method = 'randomized'")
+    }
+    B <- as.integer(B)
+    if (length(B) != 1L || is.na(B) || B < 1L) {
+      stop("B must be a positive integer")
+    }
+    pi0_draws <- vapply(seq_len(B), function(b) {
+      p_rand <- pmin(1, pmax(0, p_rand_fn()))
+      tryCatch(qvalue::pi0est(p_rand)$pi0, error = function(e) 1)
+    }, numeric(1))
+    pi0 <- mean(pi0_draws)
+    tryCatch(qvalue::qvalue(pvals, pi0 = pi0), error = function(e) fit_bh())
+  } else if (pi0_method == "storey") {
+    tryCatch(qvalue::qvalue(pvals), error = function(e) fit_bh())
+  } else {
+    fit_bh()
+  }
+  list(qvalues = fit$qvalues, pi0 = fit$pi0)
 }
 
 
@@ -38,6 +81,24 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' Computes q-values (Storey & Tibshirani, 2003), filters results, and computes summary
 #' statistics at gene-pair, gene, and ortholog-group levels.
 #'
+#' @section Multiple testing correction:
+#' Q-values are Storey q-values, i.e. Benjamini-Hochberg values scaled by
+#' the estimated proportion of true null hypotheses pi0. The exact
+#' hypergeometric p-values are discrete and pile up at 1 (pairs with a
+#' small expected overlap, and the canonical `x > 1` gate that reports
+#' p = 1 for overlaps of 0 or 1), which drives Storey's estimator on them
+#' to pi0 = 1 -- no gain over BH. With `pi0_method = "randomized"`
+#' (default) pi0 is instead estimated on randomized p-values
+#' `P(X > x) + U * P(X = x)` (`U ~ Uniform(0, 1)`; lower tail
+#' `P(X < x) + U * P(X = x)` for `alternative = "less"`), which are exactly
+#' uniform under the null for any \eqn{(m, k, N)} (Dickhaus et al. 2012),
+#' averaged over `B` draws of `U`, and applied to the exact p-values via
+#' `qvalue::qvalue(p, pi0 = pi0)`. The columns `Species*.p.val.gt` /
+#' `.p.val.eq` from [compare_neighborhoods()] supply the two terms.
+#' `"storey"` estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
+#' `"none"` fixes pi0 = 1 (BH). The randomized estimate uses the global
+#' RNG: call `set.seed()` first for reproducible q-values.
+#'
 #' @param comparison Data frame from [compare_neighborhoods()].
 #' @param alternative Which tail to test: `"greater"` (default) for
 #'   conservation (upper-tail, uses `.p.val.con` columns) or `"less"` for
@@ -50,6 +111,11 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   is returned as a third list element \code{$edges}. This avoids a
 #'   separate \code{comparison_to_edges()} call when preparing input for
 #'   \code{\link{find_cliques}}.
+#' @param pi0_method How pi0 is estimated for the Storey q-values:
+#'   `"randomized"` (default; from randomized p-values, see the section
+#'   above), `"storey"` (from the exact p-values) or `"none"` (pi0 = 1,
+#'   Benjamini-Hochberg).
+#' @param B Number of randomized-p draws averaged for pi0 (default 20).
 #'
 #' @return A list with components:
 #'   \describe{
@@ -57,7 +123,9 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'       q-value columns (`.q.val.con` or `.q.val.div`) added.
 #'       Rows are filtered according to `filter_zero`.}
 #'     \item{summary}{List of summary statistics at gene-pair, gene, and
-#'       ortholog-group levels, thresholded on q-values.}
+#'       ortholog-group levels, thresholded on q-values, plus `pi0`, the
+#'       estimated null proportion per direction (`c(sp1 = , sp2 = )`;
+#'       `NA` when fewer than 2 rows remain).}
 #'     \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
 #'       Edge-format data frame from \code{comparison_to_edges()}.}
 #'   }
@@ -67,11 +135,19 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' genomewide studies. \emph{Proceedings of the National Academy of Sciences},
 #' 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
 #'
+#' Dickhaus, T., Strassburger, K., Schunk, D., Morcillo-Suarez, C., Illig,
+#' T. & Navarro, A. (2012). How to analyze many contingency tables
+#' simultaneously in genetic association studies. \emph{Statistical
+#' Applications in Genetics and Molecular Biology}, 11(4), Article 12.
+#' \doi{10.1515/1544-6115.1776}
+#'
 #' @examples
 #' \dontrun{
+#' set.seed(1)  # reproducible randomized pi0
 #' summary <- summarize_comparison(comparison, alternative = "greater")
 #' sig <- summary$results[summary$results$Species1.q.val.con < 0.05, ]
 #' summary$summary$gene_pairs$reciprocal
+#' summary$summary$pi0
 #' }
 #'
 #' @export
@@ -79,8 +155,12 @@ summarize_comparison <- function(comparison,
                                  alternative = c("greater", "less"),
                                  alpha = 0.05,
                                  filter_zero = NULL,
-                                 sp1 = NULL, sp2 = NULL) {
+                                 sp1 = NULL, sp2 = NULL,
+                                 pi0_method = c("randomized", "storey",
+                                                "none"),
+                                 B = 20L) {
   alternative <- match.arg(alternative)
+  pi0_method <- match.arg(pi0_method)
 
   if (xor(is.null(sp1), is.null(sp2))) {
     stop("Both sp1 and sp2 must be provided, or neither.")
@@ -97,6 +177,15 @@ summarize_comparison <- function(comparison,
              "Species2.neigh.overlap") %in%
              names(comparison))) {
     stop("comparison must be output from compare_neighborhoods()")
+  }
+  if (pi0_method == "randomized" &&
+      !all(c("Species1.p.val.gt", "Species1.p.val.eq",
+             "Species2.p.val.gt", "Species2.p.val.eq") %in%
+             names(comparison))) {
+    stop("pi0_method = 'randomized' needs the Species1/Species2.p.val.gt ",
+         "and .p.val.eq columns written by compare_neighborhoods() in ",
+         "rcomplex >= 0.2.0; rerun compare_neighborhoods() or use ",
+         "pi0_method = 'storey' or 'none'")
   }
 
   # Select p-value columns based on alternative
@@ -124,7 +213,8 @@ summarize_comparison <- function(comparison,
           sp1 = 0L, sp2 = 0L,
           reciprocal_sp1 = 0L, reciprocal_sp2 = 0L
         ),
-        orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L)
+        orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
+        pi0 = c(sp1 = NA_real_, sp2 = NA_real_)
       )
     )
     if (!is.null(sp1) && !is.null(sp2)) {
@@ -138,11 +228,25 @@ summarize_comparison <- function(comparison,
     return(out)
   }
 
-  # Compute q-values on selected p-value columns
+  # Compute q-values on selected p-value columns. Randomized p-value for
+  # pi0: upper tail P(X > x) + U * P(X = x), or lower tail
+  # P(X < x) + U * P(X = x) = (p.val.div - p.val.eq) + U * p.val.eq.
   q1_col <- sub("p\\.val", "q.val", sp1_col)
   q2_col <- sub("p\\.val", "q.val", sp2_col)
-  res[[q1_col]] <- compute_qvalues(res[[sp1_col]])
-  res[[q2_col]] <- compute_qvalues(res[[sp2_col]])
+  rand_fn <- function(sp) {
+    if (pi0_method != "randomized") return(NULL)
+    eq <- res[[paste0(sp, ".p.val.eq")]]
+    base <- if (alternative == "greater") {
+      res[[paste0(sp, ".p.val.gt")]]
+    } else {
+      res[[paste0(sp, ".p.val.div")]] - eq
+    }
+    function() base + stats::runif(length(base)) * eq
+  }
+  qv1 <- compute_qvalues(res[[sp1_col]], rand_fn("Species1"), pi0_method, B)
+  qv2 <- compute_qvalues(res[[sp2_col]], rand_fn("Species2"), pi0_method, B)
+  res[[q1_col]] <- qv1$qvalues
+  res[[q2_col]] <- qv2$qvalues
 
   # Helper: count groups where the best (min) q-value is significant
   count_sig <- function(qvals, groups) {
@@ -173,7 +277,8 @@ summarize_comparison <- function(comparison,
         sp2 = count_sig(q2, res$hog),
         reciprocal = count_sig(max_q, res$hog),
         total = length(unique(res$hog))
-      )
+      ),
+      pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0)
     )
   )
 
