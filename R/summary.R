@@ -193,7 +193,7 @@ summarize_comparison <- function(comparison,
 #' to GPU, avoiding a full dense n x n copy. At 3 percent density this is
 #' ~125 MB of int64 indices vs ~4 GB dense float32.
 #'
-#' @param net_mat Co-expression matrix (n x n).
+#' @param net_mat Co-expression matrix (n x n), dense or `dgCMatrix`.
 #' @param thr Co-expression threshold.
 #' @param dtype Torch dtype for the result.
 #' @param device Torch device string.
@@ -201,15 +201,31 @@ summarize_comparison <- function(comparison,
 #' @noRd
 adj_to_gpu <- function(net_mat, thr, dtype, device) {
   n <- nrow(net_mat)
-  edges <- which(net_mat >= thr & row(net_mat) != col(net_mat), arr.ind = TRUE)
+  if (inherits(net_mat, "dgCMatrix")) {
+    # Stored entries only: rows from @i, columns expanded from @p (1-based)
+    rows <- net_mat@i + 1L
+    cols <- rep.int(seq_len(n), diff(net_mat@p))
+    keep <- net_mat@x >= thr & rows != cols
+    rows <- rows[keep]
+    cols <- cols[keep]
+  } else {
+    # Self-edges dropped by index (O(nnz)) rather than via row()/col()
+    # (two n x n integer allocations); hand-built networks may store diag = 1
+    edges <- which(net_mat >= thr, arr.ind = TRUE)
+    keep <- edges[, 1L] != edges[, 2L]
+    rows <- edges[keep, 1L]
+    cols <- edges[keep, 2L]
+    rm(edges)
+  }
   adj <- torch::torch_zeros(n, n, dtype = dtype, device = device)
-  if (nrow(edges) > 0L) {
-    rows_t <- torch::torch_tensor(edges[, 1L], dtype = torch::torch_long(),
+  if (length(rows) > 0L) {
+    rows_t <- torch::torch_tensor(rows, dtype = torch::torch_long(),
                                   device = device)
-    cols_t <- torch::torch_tensor(edges[, 2L], dtype = torch::torch_long(),
+    cols_t <- torch::torch_tensor(cols, dtype = torch::torch_long(),
                                   device = device)
     adj$index_put_(list(rows_t, cols_t),
-                   torch::torch_ones(nrow(edges), dtype = dtype, device = device))
+                   torch::torch_ones(length(rows), dtype = dtype,
+                                     device = device))
     rm(rows_t, cols_t)
   }
   adj
