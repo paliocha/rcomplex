@@ -26,6 +26,14 @@ consensus modules (Jeub *et al.*, 2018), C++ clique detection with
 Bron-Kerbosch / Tomita pivoting, and leave-k-out jackknife stability
 analysis.
 
+## Validation
+
+rcomplex reproduces canonical ComPlEx (Hvidsten's `RComPlEx.Rmd`,
+natstreet's [ComPlEx_python](https://github.com/natstreet/ComPlEx_python))
+exactly on a seeded fixture under the ortholog-restricted gene universe:
+identical density thresholds, neighborhood overlaps, and BH-adjusted
+co-expressolog calls (`tests/testthat/test-equivalence.R`).
+
 ## Installation
 
 ```r
