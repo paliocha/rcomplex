@@ -232,7 +232,11 @@ mutual_rank_transform_cached_cpp <- function(sim, log_transform = FALSE, n_cores
 #' reference implementation.
 #'
 #' @param sim Symmetric correlation/similarity matrix (n x n). Modified in
-#'   place: must be a fresh allocation not shared with any other R object.
+#'   place: must be a fresh allocation not shared with any other R object,
+#'   and must be stored as double (`REALSXP`); any other storage type is an
+#'   error, since coercion would silently operate on a copy. Must not
+#'   contain `NaN`/`NA` (ranking would be undefined); an error is raised
+#'   and the contents of `sim` are then unspecified.
 #' @param log_transform If FALSE, raw mutual rank with ascending ranks
 #'   (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
 #'   log-normalized formula with descending ranks (values in 0 to 1 range).

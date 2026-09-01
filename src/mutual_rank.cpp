@@ -171,7 +171,11 @@ static void rank_column_inplace(double* col, const R_xlen_t n,
 //' reference implementation.
 //'
 //' @param sim Symmetric correlation/similarity matrix (n x n). Modified in
-//'   place: must be a fresh allocation not shared with any other R object.
+//'   place: must be a fresh allocation not shared with any other R object,
+//'   and must be stored as double (`REALSXP`); any other storage type is an
+//'   error, since coercion would silently operate on a copy. Must not
+//'   contain `NaN`/`NA` (ranking would be undefined); an error is raised
+//'   and the contents of `sim` are then unspecified.
 //' @param log_transform If FALSE, raw mutual rank with ascending ranks
 //'   (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
 //'   log-normalized formula with descending ranks (values in 0 to 1 range).
@@ -181,11 +185,17 @@ static void rank_column_inplace(double* col, const R_xlen_t n,
 //'
 //' @keywords internal
 // [[Rcpp::export]]
-void mutual_rank_inplace_cpp(Rcpp::NumericMatrix sim, bool log_transform,
+void mutual_rank_inplace_cpp(SEXP sim, bool log_transform,
                              bool abs_cor, int n_cores) {
-    const R_xlen_t n = sim.nrow();
+    // In-place contract: NumericMatrix would coerce a non-double input to a
+    // fresh copy and the mutation would be lost silently.
+    if (TYPEOF(sim) != REALSXP) {
+        stop("sim must be a double matrix (modified in place)");
+    }
+    Rcpp::NumericMatrix sim_mat(sim);
+    const R_xlen_t n = sim_mat.nrow();
 
-    if (n != sim.ncol()) {
+    if (n != sim_mat.ncol()) {
         stop("sim must be a square matrix");
     }
     if (n < 2) {
@@ -194,7 +204,7 @@ void mutual_rank_inplace_cpp(Rcpp::NumericMatrix sim, bool log_transform,
 
     const double log_n = std::log(static_cast<double>(n));
     const bool ascending = !log_transform;
-    double* const data = sim.begin();
+    double* const data = sim_mat.begin();
 
     int max_threads = 1;
 #ifdef _OPENMP
@@ -202,6 +212,10 @@ void mutual_rank_inplace_cpp(Rcpp::NumericMatrix sim, bool log_transform,
 #endif
     std::vector<std::vector<R_xlen_t>> thread_indices(
         max_threads, std::vector<R_xlen_t>(n));
+    // Per-thread NaN flag: stop() must not be called inside the OpenMP
+    // region, and sorting a column containing NaN is UB (no strict weak
+    // ordering), so a NaN column is left unranked and reported afterwards.
+    std::vector<char> nan_seen(max_threads, 0);
 
     // Pass 1: clamp, abs, rank each column in place. Column ranks depend
     // only on that column, so columns are independent.
@@ -214,11 +228,25 @@ void mutual_rank_inplace_cpp(Rcpp::NumericMatrix sim, bool log_transform,
         tid = omp_get_thread_num();
 #endif
         double* const col = data + c * n;
+        bool col_has_nan = false;
         for (R_xlen_t r = 0; r < n; ++r) {
+            if (std::isnan(col[r])) {
+                col_has_nan = true;
+                break;
+            }
             const double v = std::clamp(col[r], -1.0, 1.0);
             col[r] = abs_cor ? std::fabs(v) : v;
         }
+        if (col_has_nan) {
+            nan_seen[tid] = 1;
+            continue;
+        }
         rank_column_inplace(col, n, ascending, thread_indices[tid]);
+    }
+
+    if (std::any_of(nan_seen.begin(), nan_seen.end(),
+                    [](char b) { return b != 0; })) {
+        stop("sim contains NaN");
     }
 
     // Pass 2: mutual ranks. Cells (i, j) and (j, i) for j > i are read and

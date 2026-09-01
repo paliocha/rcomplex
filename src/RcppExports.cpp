@@ -204,11 +204,11 @@ BEGIN_RCPP
 END_RCPP
 }
 // mutual_rank_inplace_cpp
-void mutual_rank_inplace_cpp(Rcpp::NumericMatrix sim, bool log_transform, bool abs_cor, int n_cores);
+void mutual_rank_inplace_cpp(SEXP sim, bool log_transform, bool abs_cor, int n_cores);
 RcppExport SEXP _rcomplex_mutual_rank_inplace_cpp(SEXP simSEXP, SEXP log_transformSEXP, SEXP abs_corSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type sim(simSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sim(simSEXP);
     Rcpp::traits::input_parameter< bool >::type log_transform(log_transformSEXP);
     Rcpp::traits::input_parameter< bool >::type abs_cor(abs_corSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);

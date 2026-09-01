@@ -8,7 +8,11 @@ mutual_rank_inplace_cpp(sim, log_transform, abs_cor, n_cores)
 }
 \arguments{
 \item{sim}{Symmetric correlation/similarity matrix (n x n). Modified in
-place: must be a fresh allocation not shared with any other R object.}
+place: must be a fresh allocation not shared with any other R object,
+and must be stored as double (\code{REALSXP}); any other storage type is an
+error, since coercion would silently operate on a copy. Must not
+contain \code{NaN}/\code{NA} (ranking would be undefined); an error is raised
+and the contents of \code{sim} are then unspecified.}
 
 \item{log_transform}{If FALSE, raw mutual rank with ascending ranks
 (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
