@@ -38,6 +38,7 @@
 ## usethis namespace: start
 #' @useDynLib rcomplex, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
+#' @importClassesFrom Matrix dgCMatrix
 #' @importFrom methods setGeneric setMethod is new
 #' @importFrom rlang .data .env
 #' @importFrom stats setNames

@@ -526,28 +526,6 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
 }
 
 // ---------------------------------------------------------------------------
-// Trait annotation: check if all active species in a clique share a trait value
-// ---------------------------------------------------------------------------
-// Returns the common trait value if all active species with genes share it,
-// or -1 if the trait is not exclusive (mixed values among present species).
-inline int annotate_trait(
-    const std::vector<int>& genes,
-    const int* species_trait,
-    uint64_t active_mask,
-    int n_target_species)
-{
-    int first_trait = -1;
-    for (int s = 0; s < n_target_species; ++s) {
-        if (!((active_mask >> s) & 1)) continue;
-        if (genes[s] < 0) continue;
-        int t = species_trait[s];
-        if (first_trait < 0) first_trait = t;
-        else if (t != first_trait) return -1;
-    }
-    return first_trait;
-}
-
-// ---------------------------------------------------------------------------
 // Jaccard similarity on genes from non-removed species
 // ---------------------------------------------------------------------------
 // Compares two gene assignments, ignoring species whose bit is set in

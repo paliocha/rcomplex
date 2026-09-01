@@ -193,7 +193,7 @@ summarize_comparison <- function(comparison,
 #' to GPU, avoiding a full dense n x n copy. At 3 percent density this is
 #' ~125 MB of int64 indices vs ~4 GB dense float32.
 #'
-#' @param net_mat Co-expression matrix (n x n).
+#' @param net_mat Co-expression matrix (n x n), dense or `dgCMatrix`.
 #' @param thr Co-expression threshold.
 #' @param dtype Torch dtype for the result.
 #' @param device Torch device string.
@@ -201,15 +201,31 @@ summarize_comparison <- function(comparison,
 #' @noRd
 adj_to_gpu <- function(net_mat, thr, dtype, device) {
   n <- nrow(net_mat)
-  edges <- which(net_mat >= thr & row(net_mat) != col(net_mat), arr.ind = TRUE)
+  if (inherits(net_mat, "dgCMatrix")) {
+    # Stored entries only: rows from @i, columns expanded from @p (1-based)
+    rows <- net_mat@i + 1L
+    cols <- rep.int(seq_len(n), diff(net_mat@p))
+    keep <- net_mat@x >= thr & rows != cols
+    rows <- rows[keep]
+    cols <- cols[keep]
+  } else {
+    # Self-edges dropped by index (O(nnz)) rather than via row()/col()
+    # (two n x n integer allocations); hand-built networks may store diag = 1
+    edges <- which(net_mat >= thr, arr.ind = TRUE)
+    keep <- edges[, 1L] != edges[, 2L]
+    rows <- edges[keep, 1L]
+    cols <- edges[keep, 2L]
+    rm(edges)
+  }
   adj <- torch::torch_zeros(n, n, dtype = dtype, device = device)
-  if (nrow(edges) > 0L) {
-    rows_t <- torch::torch_tensor(edges[, 1L], dtype = torch::torch_long(),
+  if (length(rows) > 0L) {
+    rows_t <- torch::torch_tensor(rows, dtype = torch::torch_long(),
                                   device = device)
-    cols_t <- torch::torch_tensor(edges[, 2L], dtype = torch::torch_long(),
+    cols_t <- torch::torch_tensor(cols, dtype = torch::torch_long(),
                                   device = device)
     adj$index_put_(list(rows_t, cols_t),
-                   torch::torch_ones(nrow(edges), dtype = dtype, device = device))
+                   torch::torch_ones(length(rows), dtype = dtype,
+                                     device = device))
     rm(rows_t, cols_t)
   }
   adj
@@ -485,6 +501,11 @@ permutation_hog_test <- function(net1, net2, comparison,
   net1_genes <- rownames(net1_mat)
   net2_genes <- rownames(net2_mat)
 
+  # Storage class validation + store guard for both backends
+  .net_check(net1, thr1)
+  .net_check(net2, thr2)
+  sparse <- .net_pair_sparse(net1, net2)
+
   idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
   idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
 
@@ -530,6 +551,21 @@ permutation_hog_test <- function(net1, net2, comparison,
     }, add = TRUE)
     perm_result <- fe_hog_permutation_test_cpp(
       combined = combined,
+      hog_sp1_list = hog_sp1_list,
+      hog_sp2_list = hog_sp2_list,
+      test_greater = (alternative == "greater"),
+      min_exceedances = min_exceedances,
+      max_permutations = max_permutations,
+      n_cores = n_cores
+    )
+  } else if (sparse) {
+    a1 <- .net_cpp_args(net1, thr1)
+    a2 <- .net_cpp_args(net2, thr2)
+    perm_result <- hog_permutation_test_sparse_cpp(
+      p1 = a1$p, i1 = a1$i, x1 = a1$x, thr1 = a1$thr,
+      p2 = a2$p, i2 = a2$i, x2 = a2$x, thr2 = a2$thr,
+      ortho_sp1_idx = ortho_sp1_idx,
+      ortho_sp2_idx = ortho_sp2_idx,
       hog_sp1_list = hog_sp1_list,
       hog_sp2_list = hog_sp2_list,
       test_greater = (alternative == "greater"),

@@ -21,6 +21,8 @@
 #include <omp.h>
 #endif
 
+#include "neighbor_lists.h"
+
 using namespace Rcpp;
 
 
@@ -86,39 +88,21 @@ static DirectionResult compute_direction(
 }
 
 
-//' Compare co-expression neighborhoods across species (integer-indexed)
-//'
-//' For each ortholog pair, tests the overlap of co-expression neighborhoods
-//' in both directions (sp1->sp2 and sp2->sp1) using hypergeometric tests.
-//' All gene identifiers are 0-based integer indices (string mapping done in R).
-//'
-//' @param net1 Co-expression network for species 1 (n1 x n1 matrix)
-//' @param net2 Co-expression network for species 2 (n2 x n2 matrix)
-//' @param thr1 Co-expression threshold for species 1
-//' @param thr2 Co-expression threshold for species 2
-//' @param pair_sp1_idx 0-based index into net1 for each ortholog pair
-//' @param pair_sp2_idx 0-based index into net2 for each ortholog pair
-//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
-//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
-//' @param n_cores Number of OpenMP threads (default: 1)
-//' @return DataFrame with comparison results for each ortholog pair
-//'
-//' @keywords internal
-// [[Rcpp::export]]
-Rcpp::DataFrame compare_neighborhoods_cpp(
-    const arma::mat& net1,
-    const arma::mat& net2,
-    double thr1,
-    double thr2,
+// Shared body for both entry points: everything after neighbour-list
+// construction. neighbors1[i] / neighbors2[j] are ascending 0-based lists
+// (see neighbor_lists.h).
+static Rcpp::DataFrame compare_neighborhoods_core(
+    const std::vector<std::vector<int>>& neighbors1,
+    const std::vector<std::vector<int>>& neighbors2,
     const Rcpp::IntegerVector& pair_sp1_idx,
     const Rcpp::IntegerVector& pair_sp2_idx,
     const Rcpp::IntegerVector& ortho_sp1_idx,
     const Rcpp::IntegerVector& ortho_sp2_idx,
-    int n_cores = 1
+    int n_cores
 ) {
     const int n_pairs = pair_sp1_idx.size();
-    const int n1 = static_cast<int>(net1.n_rows);
-    const int n2 = static_cast<int>(net2.n_rows);
+    const int n1 = static_cast<int>(neighbors1.size());
+    const int n2 = static_cast<int>(neighbors2.size());
     const int n_ortho = ortho_sp1_idx.size();
 
     // Build ortholog mapping: sp2 idx -> vector of sp1 indices, and vice versa
@@ -132,35 +116,6 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         if (s1 >= 0 && s1 < n1 && s2 >= 0 && s2 < n2) {
             sp2_to_sp1[s2].push_back(s1);
             sp1_to_sp2[s1].push_back(s2);
-        }
-    }
-
-    // Precompute neighbor lists using column-major access (cache-friendly on
-    // symmetric Armadillo matrices: col(i) == row(i) in value)
-    std::vector<std::vector<int>> neighbors1(n1);
-    std::vector<std::vector<int>> neighbors2(n2);
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
-#endif
-    for (int i = 0; i < n1; ++i) {
-        const double* col_i = net1.colptr(i);
-        for (int j = 0; j < n1; ++j) {
-            if (i != j && col_i[j] >= thr1) {
-                neighbors1[i].push_back(j);
-            }
-        }
-    }
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
-#endif
-    for (int i = 0; i < n2; ++i) {
-        const double* col_i = net2.colptr(i);
-        for (int j = 0; j < n2; ++j) {
-            if (i != j && col_i[j] >= thr2) {
-                neighbors2[i].push_back(j);
-            }
         }
     }
 
@@ -239,4 +194,86 @@ Rcpp::DataFrame compare_neighborhoods_cpp(
         Rcpp::Named("Species2.effect.size") = sp2_effect,
         Rcpp::Named("Species2.jaccard") = sp2_jaccard
     );
+}
+
+
+//' Compare co-expression neighborhoods across species (integer-indexed)
+//'
+//' For each ortholog pair, tests the overlap of co-expression neighborhoods
+//' in both directions (sp1->sp2 and sp2->sp1) using hypergeometric tests.
+//' All gene identifiers are 0-based integer indices (string mapping done in R).
+//'
+//' @param net1 Co-expression network for species 1 (n1 x n1 matrix)
+//' @param net2 Co-expression network for species 2 (n2 x n2 matrix)
+//' @param thr1 Co-expression threshold for species 1
+//' @param thr2 Co-expression threshold for species 2
+//' @param pair_sp1_idx 0-based index into net1 for each ortholog pair
+//' @param pair_sp2_idx 0-based index into net2 for each ortholog pair
+//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+//' @param n_cores Number of OpenMP threads (default: 1)
+//' @return DataFrame with comparison results for each ortholog pair
+//'
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::DataFrame compare_neighborhoods_cpp(
+    const arma::mat& net1,
+    const arma::mat& net2,
+    double thr1,
+    double thr2,
+    const Rcpp::IntegerVector& pair_sp1_idx,
+    const Rcpp::IntegerVector& pair_sp2_idx,
+    const Rcpp::IntegerVector& ortho_sp1_idx,
+    const Rcpp::IntegerVector& ortho_sp2_idx,
+    int n_cores = 1
+) {
+    return compare_neighborhoods_core(
+        neighbor_lists_dense(net1, thr1, n_cores),
+        neighbor_lists_dense(net2, thr2, n_cores),
+        pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores);
+}
+
+
+//' Compare co-expression neighborhoods across species (sparse networks)
+//'
+//' Same as [compare_neighborhoods_cpp()] but takes the slots of a
+//' `dgCMatrix` (column-compressed, both triangles stored) for each network
+//' instead of a dense matrix. Column j lists the neighbours of gene j.
+//'
+//' @param p1 `@p` slot of net1 (column pointers, length n1 + 1)
+//' @param i1 `@i` slot of net1 (0-based row indices)
+//' @param x1 `@x` slot of net1 (stored values)
+//' @param thr1 Co-expression threshold for species 1
+//' @param p2 `@p` slot of net2
+//' @param i2 `@i` slot of net2
+//' @param x2 `@x` slot of net2
+//' @param thr2 Co-expression threshold for species 2
+//' @param pair_sp1_idx 0-based index into net1 for each ortholog pair
+//' @param pair_sp2_idx 0-based index into net2 for each ortholog pair
+//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+//' @param n_cores Number of OpenMP threads (default: 1)
+//' @return DataFrame with comparison results for each ortholog pair
+//'
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::DataFrame compare_neighborhoods_sparse_cpp(
+    const Rcpp::IntegerVector& p1,
+    const Rcpp::IntegerVector& i1,
+    const Rcpp::NumericVector& x1,
+    double thr1,
+    const Rcpp::IntegerVector& p2,
+    const Rcpp::IntegerVector& i2,
+    const Rcpp::NumericVector& x2,
+    double thr2,
+    const Rcpp::IntegerVector& pair_sp1_idx,
+    const Rcpp::IntegerVector& pair_sp2_idx,
+    const Rcpp::IntegerVector& ortho_sp1_idx,
+    const Rcpp::IntegerVector& ortho_sp2_idx,
+    int n_cores = 1
+) {
+    return compare_neighborhoods_core(
+        neighbor_lists_sparse(p1, i1, x1, thr1, n_cores),
+        neighbor_lists_sparse(p2, i2, x2, thr2, n_cores),
+        pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores);
 }
