@@ -1155,3 +1155,81 @@ test_that("find_coexpressologs (analytical) equals dense with sparse networks", 
   expect_equal(res_s, res_d)
   expect_gt(nrow(res_d), 0L)
 })
+
+
+# ---- pi0_method / pval_combine pass-through (D4, D2) ----
+
+test_that("find_coexpressologs passes pi0_method through to summarize_comparison", {
+  td <- make_graded_nets()
+  nets <- list(A = td$net1, B = td$net2)
+  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
+  cmp <- cmp[pool, ]
+  bh <- pmin(p.adjust(cmp$Species1.p.val.con, "BH"),
+             p.adjust(cmp$Species2.p.val.con, "BH"))
+
+  edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
+  idx <- match(paste(cmp$Species1, cmp$Species2),
+               paste(edges$gene1, edges$gene2))
+  expect_false(anyNA(idx))
+  expect_equal(edges$q.value[idx], bh)
+
+  # pi0_method = "none" leaves the RNG untouched
+  set.seed(9)
+  u <- runif(1)
+  set.seed(9)
+  invisible(find_coexpressologs(nets, td$ortho, pi0_method = "none"))
+  expect_identical(runif(1), u)
+})
+
+
+test_that("comparison_to_edges combines directional q-values by min or max", {
+  comp <- data.frame(
+    Species1 = c("A1", "A2", "A3"), Species2 = c("B1", "B2", "B3"),
+    hog = 1:3,
+    Species1.effect.size = c(4, 1, 2), Species2.effect.size = c(9, 1, 2),
+    Species1.jaccard = c(0.8, 0, 0.5), Species2.jaccard = c(0.5, 0, 0.5),
+    Species1.q.val.con = c(0.01, 0.80, 0.03),
+    Species2.q.val.con = c(0.03, 0.90, 0.20)
+  )
+  e_min <- comparison_to_edges(comp, "SP_A", "SP_B")
+  e_def <- comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "min")
+  e_max <- comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "max")
+  expect_identical(e_min, e_def)
+  expect_equal(e_min$q.value, c(0.01, 0.80, 0.03))
+  expect_equal(e_max$q.value, c(0.03, 0.90, 0.20))
+  expect_equal(e_min$type, c("conserved", "ns", "conserved"))
+  expect_equal(e_max$type, c("conserved", "ns", "ns"))
+  expect_error(comparison_to_edges(comp, "SP_A", "SP_B",
+                                   pval_combine = "mean"))
+
+  # NA in one direction: the other direction's value is used either way
+  comp$Species2.q.val.con[1] <- NA
+  expect_equal(comparison_to_edges(comp, "SP_A", "SP_B",
+                                   pval_combine = "max")$q.value[1], 0.01)
+  expect_equal(comparison_to_edges(comp, "SP_A", "SP_B",
+                                   pval_combine = "min")$q.value[1], 0.01)
+})
+
+
+test_that("summarize_comparison and find_coexpressologs pass pval_combine through", {
+  td <- make_graded_nets()
+  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  s <- summarize_comparison(cmp, sp1 = "A", sp2 = "B", pi0_method = "none",
+                            pval_combine = "max")
+  expect_equal(s$edges,
+               comparison_to_edges(s$results, "A", "B", pval_combine = "max"))
+  expect_equal(s$edges$q.value,
+               pmax(s$results$Species1.q.val.con, s$results$Species2.q.val.con))
+
+  nets <- list(A = td$net1, B = td$net2)
+  e_min <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
+  e_max <- find_coexpressologs(nets, td$ortho, pi0_method = "none",
+                               pval_combine = "max")
+  expect_equal(e_max$q.value, s$edges$q.value)
+  expect_true(all(e_max$q.value >= e_min$q.value))
+  called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
+  called_max <- paste(e_max$gene1, e_max$gene2)[e_max$type == "conserved"]
+  expect_gt(length(called_max), 0L)
+  expect_true(all(called_max %in% called_min))
+})

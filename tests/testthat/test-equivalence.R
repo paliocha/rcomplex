@@ -100,3 +100,33 @@ test_that("make_fixture.R reproduces the committed fixture inputs", {
                      readLines(committed[i]))
   }
 })
+
+test_that("find_coexpressologs(pval_combine = 'max', pi0_method = 'none') reproduces the canonical calls", {
+  d <- load_complex_py()
+  nets <- list(sp1 = d$n1, sp2 = d$n2)
+  e_max <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
+                               pval_combine = "max", pi0_method = "none")
+  e_min <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
+                               pval_combine = "min", pi0_method = "none")
+
+  key_expected <- paste(d$expected$Species1, d$expected$Species2)
+  key_max <- paste(e_max$gene1, e_max$gene2)
+  called <- key_max[e_max$type == "conserved"]
+
+  # same boundary rule as the canonical-calls test above
+  flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
+  if (length(flipped) > 0L) {
+    p_rc <- e_max$q.value[match(flipped, key_max)]
+    p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
+    expect_true(all(abs(p_rc - 0.05) < 1e-3))
+    expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
+  }
+  idx <- match(key_expected, key_max)
+  expect_false(anyNA(idx))
+  expect_equal(e_max$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
+
+  # "min" (default) calls are a superset of "max" calls
+  called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
+  expect_true(all(called %in% called_min))
+  expect_gte(length(called_min), length(called))
+})
