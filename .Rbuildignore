@@ -11,6 +11,5 @@
 ^docs$
 ^doc$
 ^Meta$
-^NOTES_robustness_suite\.md$
-^NOTES_memsmart_recompute\.md$
-^PLAN_sparse_network\.md$
+^NOTES_.*\.md$
+^PLAN_.*\.md$
