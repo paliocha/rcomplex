@@ -33,6 +33,8 @@ struct DirectionResult {
     int overlap = 0;
     double pval_con = 1.0;
     double pval_div = 1.0;
+    double pval_gt = 1.0;   // P(X > x), ungated
+    double pval_eq = 0.0;   // P(X = x)
     double effect_size = 1.0;
     double jaccard = 0.0;
 };
@@ -42,12 +44,20 @@ struct DirectionResult {
 //   other_neigh:   neighbors of the paired gene in the other network
 //   mapping:       other-network index -> vector of anchor-network indices
 //   N:             total genes in the anchor network
+//   anchor:        index of the anchor gene in its own network
 //   anchor_flags:  scratch boolean vector (size N), must be pre-cleared
+//
+// Self-excluded urn: the anchor gene is never its own neighbour, so it
+// leaves the ortholog-mapped set (k) and the hypergeometric population is
+// the other N - 1 genes. The reported conservation p-value keeps the
+// canonical x > 1 gate; pval_gt / pval_eq are ungated so that
+// pval_gt + U * pval_eq is exactly uniform under H0 (randomized p-value).
 static DirectionResult compute_direction(
     const std::vector<int>& anchor_neigh,
     const std::vector<int>& other_neigh,
     const std::vector<std::vector<int>>& mapping,
     int N,
+    int anchor,
     std::vector<char>& anchor_flags
 ) {
     DirectionResult r{.neigh = static_cast<int>(anchor_neigh.size())};
@@ -55,6 +65,7 @@ static DirectionResult compute_direction(
     // Map other-network neighbors back to anchor-network via orthologs
     for (int nb : other_neigh) {
         for (int idx : mapping[nb]) {
+            if (idx == anchor) continue;
             if (anchor_flags[idx] == 0) {
                 anchor_flags[idx] = 1;
                 ++r.ortho_neigh;
@@ -67,18 +78,21 @@ static DirectionResult compute_direction(
         if (anchor_flags[nb] != 0) ++r.overlap;
     }
 
-    // Clear flags for reuse
+    // Clear flags for reuse (the anchor flag was never set)
     for (int nb : other_neigh) {
         for (int idx : mapping[nb]) anchor_flags[idx] = 0;
     }
 
-    int m = r.neigh, k = r.ortho_neigh, x = r.overlap;
+    const int m = r.neigh, k = r.ortho_neigh, x = r.overlap;
+    const int Np = N - 1;   // population without the anchor gene
+    r.pval_gt = R::phyper(x, m, Np - m, k, 0, 0);
+    r.pval_eq = R::dhyper(x, m, Np - m, k, 0);
     if (x > 1) {
-        r.pval_con = R::phyper(x - 1, m, N - m, k, 0, 0);
+        r.pval_con = R::phyper(x - 1, m, Np - m, k, 0, 0);
     }
     if (k > 0 && m > 0) {
-        r.effect_size = (static_cast<double>(x) / k) / (static_cast<double>(m) / N);
-        r.pval_div = R::phyper(x, m, N - m, k, 1, 0);
+        r.effect_size = (static_cast<double>(x) / k) / (static_cast<double>(m) / Np);
+        r.pval_div = R::phyper(x, m, Np - m, k, 1, 0);
     }
 
     int union_size = r.neigh + r.ortho_neigh - r.overlap;
@@ -119,12 +133,14 @@ static Rcpp::DataFrame compare_neighborhoods_core(
         }
     }
 
-    // Output vectors (7 per direction)
+    // Output vectors (9 per direction)
     Rcpp::IntegerVector sp1_neigh(n_pairs),  sp2_neigh(n_pairs);
     Rcpp::IntegerVector sp1_ortho_neigh(n_pairs), sp2_ortho_neigh(n_pairs);
     Rcpp::IntegerVector sp1_overlap(n_pairs), sp2_overlap(n_pairs);
     Rcpp::NumericVector sp1_pval(n_pairs),   sp2_pval(n_pairs);
     Rcpp::NumericVector sp1_pval_div(n_pairs), sp2_pval_div(n_pairs);
+    Rcpp::NumericVector sp1_pval_gt(n_pairs), sp2_pval_gt(n_pairs);
+    Rcpp::NumericVector sp1_pval_eq(n_pairs), sp2_pval_eq(n_pairs);
     Rcpp::NumericVector sp1_effect(n_pairs), sp2_effect(n_pairs);
     Rcpp::NumericVector sp1_jaccard(n_pairs), sp2_jaccard(n_pairs);
 
@@ -147,9 +163,11 @@ static Rcpp::DataFrame compare_neighborhoods_core(
         if (g1_idx < 0 || g1_idx >= n1 || g2_idx < 0 || g2_idx >= n2) {
             sp1_neigh[p] = 0; sp1_ortho_neigh[p] = 0; sp1_overlap[p] = 0;
             sp1_pval[p] = 1.0; sp1_pval_div[p] = 1.0; sp1_effect[p] = 1.0;
+            sp1_pval_gt[p] = 1.0; sp1_pval_eq[p] = 0.0;
             sp1_jaccard[p] = 0.0;
             sp2_neigh[p] = 0; sp2_ortho_neigh[p] = 0; sp2_overlap[p] = 0;
             sp2_pval[p] = 1.0; sp2_pval_div[p] = 1.0; sp2_effect[p] = 1.0;
+            sp2_pval_gt[p] = 1.0; sp2_pval_eq[p] = 0.0;
             sp2_jaccard[p] = 0.0;
             continue;
         }
@@ -161,20 +179,22 @@ static Rcpp::DataFrame compare_neighborhoods_core(
 
         // Direction 1: Species 1 -> Species 2
         DirectionResult d1 = compute_direction(
-            neighbors1[g1_idx], neighbors2[g2_idx], sp2_to_sp1, n1,
+            neighbors1[g1_idx], neighbors2[g2_idx], sp2_to_sp1, n1, g1_idx,
             thread_flags1[tid]);
         sp1_neigh[p] = d1.neigh;   sp1_ortho_neigh[p] = d1.ortho_neigh;
         sp1_overlap[p] = d1.overlap; sp1_pval[p] = d1.pval_con;
         sp1_pval_div[p] = d1.pval_div; sp1_effect[p] = d1.effect_size;
+        sp1_pval_gt[p] = d1.pval_gt; sp1_pval_eq[p] = d1.pval_eq;
         sp1_jaccard[p] = d1.jaccard;
 
         // Direction 2: Species 2 -> Species 1
         DirectionResult d2 = compute_direction(
-            neighbors2[g2_idx], neighbors1[g1_idx], sp1_to_sp2, n2,
+            neighbors2[g2_idx], neighbors1[g1_idx], sp1_to_sp2, n2, g2_idx,
             thread_flags2[tid]);
         sp2_neigh[p] = d2.neigh;   sp2_ortho_neigh[p] = d2.ortho_neigh;
         sp2_overlap[p] = d2.overlap; sp2_pval[p] = d2.pval_con;
         sp2_pval_div[p] = d2.pval_div; sp2_effect[p] = d2.effect_size;
+        sp2_pval_gt[p] = d2.pval_gt; sp2_pval_eq[p] = d2.pval_eq;
         sp2_jaccard[p] = d2.jaccard;
     }
 
@@ -184,6 +204,8 @@ static Rcpp::DataFrame compare_neighborhoods_core(
         Rcpp::Named("Species1.neigh.overlap") = sp1_overlap,
         Rcpp::Named("Species1.p.val.con") = sp1_pval,
         Rcpp::Named("Species1.p.val.div") = sp1_pval_div,
+        Rcpp::Named("Species1.p.val.gt") = sp1_pval_gt,
+        Rcpp::Named("Species1.p.val.eq") = sp1_pval_eq,
         Rcpp::Named("Species1.effect.size") = sp1_effect,
         Rcpp::Named("Species1.jaccard") = sp1_jaccard,
         Rcpp::Named("Species2.neigh") = sp2_neigh,
@@ -191,6 +213,8 @@ static Rcpp::DataFrame compare_neighborhoods_core(
         Rcpp::Named("Species2.neigh.overlap") = sp2_overlap,
         Rcpp::Named("Species2.p.val.con") = sp2_pval,
         Rcpp::Named("Species2.p.val.div") = sp2_pval_div,
+        Rcpp::Named("Species2.p.val.gt") = sp2_pval_gt,
+        Rcpp::Named("Species2.p.val.eq") = sp2_pval_eq,
         Rcpp::Named("Species2.effect.size") = sp2_effect,
         Rcpp::Named("Species2.jaccard") = sp2_jaccard
     );
@@ -212,7 +236,10 @@ static Rcpp::DataFrame compare_neighborhoods_core(
 //' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
 //' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
 //' @param n_cores Number of OpenMP threads (default: 1)
-//' @return DataFrame with comparison results for each ortholog pair
+//' @return DataFrame with comparison results for each ortholog pair. The
+//'   hypergeometric urn excludes the anchor gene (population n - 1, anchor
+//'   dropped from the ortholog-mapped set); `*.p.val.gt` / `*.p.val.eq`
+//'   are the ungated upper tail P(X > x) and point mass P(X = x).
 //'
 //' @keywords internal
 // [[Rcpp::export]]

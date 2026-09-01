@@ -293,7 +293,10 @@ mutual_rank_inplace_cpp <- function(sim, log_transform, abs_cor, n_cores) {
 #' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
 #' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
 #' @param n_cores Number of OpenMP threads (default: 1)
-#' @return DataFrame with comparison results for each ortholog pair
+#' @return DataFrame with comparison results for each ortholog pair. The
+#'   hypergeometric urn excludes the anchor gene (population n - 1, anchor
+#'   dropped from the ortholog-mapped set); `*.p.val.gt` / `*.p.val.eq`
+#'   are the ungated upper tail P(X > x) and point mass P(X = x).
 #'
 #' @keywords internal
 compare_neighborhoods_cpp <- function(net1, net2, thr1, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores = 1L) {

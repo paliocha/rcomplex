@@ -4,6 +4,8 @@
 // Takes a precomputed combined FE matrix where combined[a, b] sums the
 // fold-enrichments from both network directions:
 //   combined[a, b] = |N1(a) ∩ R1(b)| / E1(a,b) + |N2(b) ∩ R2(a)| / E2(a,b)
+// with E1(a,b) = |N1(a)| * |R1(b) \ {a}| / (n1 - 1) (self-excluded urn,
+// see build_combined_fe_torch() in R/summary.R), and E2 symmetrically.
 //
 // Each permutation reduces to a submatrix sum — O(M×N) per permutation
 // instead of O(M×N×n_words) with bit-vector intersections. The FE matrix

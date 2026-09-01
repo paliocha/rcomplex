@@ -10,7 +10,9 @@
 //
 // Test statistic: Sum of fold-enrichments across all pair x direction
 //   T = sum_{i,j} [x1_ij/E1_ij + x2_ij/E2_ij]
-// where x is the observed overlap and E is the hypergeometric expectation.
+// where x is the observed overlap and E = m * k / (n - 1) is the
+// hypergeometric expectation under the self-excluded urn: the anchor gene
+// leaves the ortholog-reachable set (k) and the population (n - 1).
 //
 // Intersection modes:
 // - Bit-vector with popcount when max(n1, n2) <= 100,000
@@ -89,30 +91,36 @@ static double compute_T_bitvec(
 ) {
     double T = 0.0;
 
-    // Direction 1: anchor = net1
+    // Direction 1: anchor = net1. The anchor a leaves the reachable set
+    // (k1 drops by one when a is reachable) and the population (n1 - 1);
+    // the overlap is unaffected because a is never its own neighbour.
     for (int b : sp2_genes) {
-        int k1 = reach1_sz[b];
-        if (k1 == 0) continue;
+        int k1_all = reach1_sz[b];
+        if (k1_all == 0) continue;
         auto r1 = bv_row(reach1_bv, b, n1w);
         for (int a : sp1_genes) {
             int m1 = neigh1_sz[a];
             if (m1 == 0) continue;
+            int k1 = k1_all - static_cast<int>((r1[a >> 6] >> (a & 63)) & 1ULL);
+            if (k1 == 0) continue;
             int x1 = bv_and_popcount(bv_row(neigh1_bv, a, n1w), r1);
-            double E1 = static_cast<double>(m1) * k1 / n1;
+            double E1 = static_cast<double>(m1) * k1 / (n1 - 1);
             T += x1 / E1;
         }
     }
 
     // Direction 2: anchor = net2
     for (int a : sp1_genes) {
-        int k2 = reach2_sz[a];
-        if (k2 == 0) continue;
+        int k2_all = reach2_sz[a];
+        if (k2_all == 0) continue;
         auto r2 = bv_row(reach2_bv, a, n2w);
         for (int b : sp2_genes) {
             int m2 = neigh2_sz[b];
             if (m2 == 0) continue;
+            int k2 = k2_all - static_cast<int>((r2[b >> 6] >> (b & 63)) & 1ULL);
+            if (k2 == 0) continue;
             int x2 = bv_and_popcount(bv_row(neigh2_bv, b, n2w), r2);
-            double E2 = static_cast<double>(m2) * k2 / n2;
+            double E2 = static_cast<double>(m2) * k2 / (n2 - 1);
             T += x2 / E2;
         }
     }
@@ -136,22 +144,24 @@ static double compute_T_flags(
 ) {
     double T = 0.0;
 
-    // Direction 1: anchor = net1
+    // Direction 1: anchor = net1 (self-excluded urn, see compute_T_bitvec)
     for (int b : sp2_genes) {
         const auto& r1 = reachable1[b];
-        int k1 = static_cast<int>(r1.size());
-        if (k1 == 0) continue;
+        int k1_all = static_cast<int>(r1.size());
+        if (k1_all == 0) continue;
 
         for (int x : r1) flags1[x] = 1;
 
         for (int a : sp1_genes) {
             int m1 = static_cast<int>(neighbors1[a].size());
             if (m1 == 0) continue;
+            int k1 = k1_all - (flags1[a] ? 1 : 0);
+            if (k1 == 0) continue;
             int x1 = 0;
             for (int x : neighbors1[a]) {
                 if (flags1[x]) ++x1;
             }
-            double E1 = static_cast<double>(m1) * k1 / n1;
+            double E1 = static_cast<double>(m1) * k1 / (n1 - 1);
             T += x1 / E1;
         }
 
@@ -161,19 +171,21 @@ static double compute_T_flags(
     // Direction 2: anchor = net2
     for (int a : sp1_genes) {
         const auto& r2 = reachable2[a];
-        int k2 = static_cast<int>(r2.size());
-        if (k2 == 0) continue;
+        int k2_all = static_cast<int>(r2.size());
+        if (k2_all == 0) continue;
 
         for (int x : r2) flags2[x] = 1;
 
         for (int b : sp2_genes) {
             int m2 = static_cast<int>(neighbors2[b].size());
             if (m2 == 0) continue;
+            int k2 = k2_all - (flags2[b] ? 1 : 0);
+            if (k2 == 0) continue;
             int x2 = 0;
             for (int x : neighbors2[b]) {
                 if (flags2[x]) ++x2;
             }
-            double E2 = static_cast<double>(m2) * k2 / n2;
+            double E2 = static_cast<double>(m2) * k2 / (n2 - 1);
             T += x2 / E2;
         }
 

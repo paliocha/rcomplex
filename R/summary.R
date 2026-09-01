@@ -298,9 +298,13 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
       rm(adj2_tile)
       overlap <- reach$mm(adj1)
       reach_sz <- reach$sum(dim = 2L)
-      rm(reach)
 
-      E <- reach_sz$unsqueeze(2L) * neigh1_sz$unsqueeze(1L) / n1
+      # Self-excluded urn: gene a leaves the reachable set of b (k drops by
+      # one where reach[b, a] = 1) and the population (n1 - 1). When a is
+      # the only reachable gene E = 0 -> clamp; overlap is 0 there anyway.
+      E <- (reach_sz$unsqueeze(2L) - reach) * neigh1_sz$unsqueeze(1L) /
+        (n1 - 1)
+      rm(reach)
       FE_tile <- overlap / E$clamp(min = 1e-30)
       rm(overlap, E, reach_sz)
 
@@ -325,9 +329,10 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
       rm(adj1_tile)
       overlap <- reach$mm(adj2)
       reach_sz <- reach$sum(dim = 2L)
-      rm(reach)
 
-      E <- reach_sz$unsqueeze(2L) * neigh2_sz$unsqueeze(1L) / n2
+      E <- (reach_sz$unsqueeze(2L) - reach) * neigh2_sz$unsqueeze(1L) /
+        (n2 - 1)
+      rm(reach)
       FE_tile <- overlap / E$clamp(min = 1e-30)
       rm(overlap, E, reach_sz)
 
