@@ -825,21 +825,27 @@ test_that("sparse compare_neighborhoods equals dense (hand-built nets)", {
 
 test_that("sparse compare_neighborhoods with tighter threshold equals dense", {
   td <- make_cmp_nets()
-  thr1 <- td$net1$threshold * 1.2
-  thr2 <- td$net2$threshold * 1.2
+  net1_s <- make_sparse_net(td$net1)
+  net2_s <- make_sparse_net(td$net2)
 
   # sparse stores entries >= original threshold; analysis threshold is tighter
-  net1_s <- modifyList(make_sparse_net(td$net1), list(threshold = thr1))
-  net2_s <- modifyList(make_sparse_net(td$net2), list(threshold = thr2))
+  # but inside the stored range (raw MR maxes at n - 1, so threshold * 1.2
+  # would drop every stored edge and compare two empty results)
+  thr1 <- unname(stats::quantile(net1_s$network@x, 0.5))
+  thr2 <- unname(stats::quantile(net2_s$network@x, 0.5))
+  net1_s <- modifyList(net1_s, list(threshold = thr1))
+  net2_s <- modifyList(net2_s, list(threshold = thr2))
   net1_d <- modifyList(td$net1, list(threshold = thr1))
   net2_d <- modifyList(td$net2, list(threshold = thr2))
 
-  # tighter threshold must actually drop stored entries
+  # tighter threshold must drop some stored entries and keep others
+  expect_gt(sum(net1_s$network@x >= thr1), 0L)
   expect_lt(sum(net1_s$network@x >= thr1), length(net1_s$network@x))
 
   res_d <- compare_neighborhoods(net1_d, net2_d, td$ortho)
   res_s <- compare_neighborhoods(net1_s, net2_s, td$ortho)
   expect_equal(res_s, res_d)
+  expect_gt(sum(res_d$Species1.neigh), 0L)
 
   res_base <- compare_neighborhoods(td$net1, td$net2, td$ortho)
   expect_false(isTRUE(all.equal(res_base$Species1.neigh, res_d$Species1.neigh)))

@@ -392,13 +392,20 @@ test_that("sparse permutation_hog_test with tighter threshold equals dense", {
   )
   comparison <- compare_neighborhoods(net1, net2, ortho)
 
-  thr1 <- net1$threshold * 1.2
-  thr2 <- net2$threshold * 1.2
-  net1_s <- modifyList(sparse_net(net1), list(threshold = thr1))
-  net2_s <- modifyList(sparse_net(net2), list(threshold = thr2))
+  net1_s <- sparse_net(net1)
+  net2_s <- sparse_net(net2)
+
+  # analysis threshold tighter than stored but inside the stored range (raw MR
+  # maxes at n - 1, so threshold * 1.2 would leave T_obs = 0 for every HOG and
+  # skip all permutations)
+  thr1 <- unname(stats::quantile(net1_s$network@x, 0.5))
+  thr2 <- unname(stats::quantile(net2_s$network@x, 0.5))
+  net1_s <- modifyList(net1_s, list(threshold = thr1))
+  net2_s <- modifyList(net2_s, list(threshold = thr2))
   net1_d <- modifyList(net1, list(threshold = thr1))
   net2_d <- modifyList(net2, list(threshold = thr2))
 
+  expect_gt(sum(net1_s$network@x >= thr1), 0L)
   expect_lt(sum(net1_s$network@x >= thr1), length(net1_s$network@x))
 
   set.seed(11)
@@ -412,6 +419,10 @@ test_that("sparse permutation_hog_test with tighter threshold equals dense", {
     max_permutations = 200L, min_exceedances = 10L
   )
   expect_equal(res_s, res_d)
+
+  # partially filtered store must actually be exercised
+  expect_gt(sum(res_d$T_obs > 0), 0L)
+  expect_gt(sum(res_d$n_perm), 0L)
 })
 
 
