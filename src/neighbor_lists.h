@@ -10,7 +10,8 @@
 // Both keep entries with value >= thr and row != col, and return one
 // ascending-sorted vector per column. Column j of a symmetric network lists
 // the neighbours of gene j. Sparse lists inherit their order from the
-// dgCMatrix invariant (row indices sorted within each column).
+// dgCMatrix invariant (row indices sorted within each column), which
+// neighbor_lists_sparse() enforces in a serial validation pre-pass.
 //
 // Header-only. No std::unordered_map (Homebrew clang ABI issue).
 
@@ -51,7 +52,42 @@ inline std::vector<std::vector<int>> neighbor_lists_sparse(
     double thr,
     int n_cores
 ) {
+    // Serial validation pre-pass. Runs before the parallel region so that
+    // Rcpp::stop() is never called from inside it. Rejects slots the loop
+    // below would otherwise read out of bounds or silently miscount: empty
+    // p, p not starting at 0, p / i / x length mismatch, non-monotone p, and
+    // row indices that are not strictly increasing within a column or not in
+    // [0, n) (duplicates, out-of-range rows, non-square input).
+    if (p.size() < 1) {
+        Rcpp::stop("dgCMatrix slot p must have length >= 1 (got 0)");
+    }
     const int n = static_cast<int>(p.size()) - 1;
+    if (p[0] != 0) {
+        Rcpp::stop("dgCMatrix slot p must start at 0 (got %d)", p[0]);
+    }
+    if (static_cast<R_xlen_t>(p[n]) != x.size() || i.size() != x.size()) {
+        Rcpp::stop("dgCMatrix slots are inconsistent: p[n] = %d, "
+                   "length(i) = %d, length(x) = %d",
+                   p[n], static_cast<int>(i.size()),
+                   static_cast<int>(x.size()));
+    }
+    for (int c = 0; c < n; ++c) {
+        if (p[c] > p[c + 1]) {
+            Rcpp::stop("dgCMatrix slot p must be non-decreasing (column %d)",
+                       c + 1);
+        }
+        int prev = -1;
+        for (int k = p[c]; k < p[c + 1]; ++k) {
+            const int r = i[k];
+            if (r <= prev || r >= n) {
+                Rcpp::stop("dgCMatrix row indices must be strictly increasing "
+                           "within each column and in [0, n) (column %d)",
+                           c + 1);
+            }
+            prev = r;
+        }
+    }
+
     std::vector<std::vector<int>> neighbors(n);
 
     // Raw pointers: no R API calls inside the parallel region
