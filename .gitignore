@@ -16,3 +16,5 @@ vignettes/*.R
 PLAN-*.md
 prepare_data/
 docs/superpowers/
+NOTES_*.md
+PLAN_*.md
