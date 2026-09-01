@@ -485,6 +485,11 @@ permutation_hog_test <- function(net1, net2, comparison,
   net1_genes <- rownames(net1_mat)
   net2_genes <- rownames(net2_mat)
 
+  # Storage class validation + store guard for both backends
+  .net_check(net1, thr1)
+  .net_check(net2, thr2)
+  sparse <- .net_pair_sparse(net1, net2)
+
   idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
   idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
 
@@ -530,6 +535,21 @@ permutation_hog_test <- function(net1, net2, comparison,
     }, add = TRUE)
     perm_result <- fe_hog_permutation_test_cpp(
       combined = combined,
+      hog_sp1_list = hog_sp1_list,
+      hog_sp2_list = hog_sp2_list,
+      test_greater = (alternative == "greater"),
+      min_exceedances = min_exceedances,
+      max_permutations = max_permutations,
+      n_cores = n_cores
+    )
+  } else if (sparse) {
+    a1 <- .net_cpp_args(net1, thr1)
+    a2 <- .net_cpp_args(net2, thr2)
+    perm_result <- hog_permutation_test_sparse_cpp(
+      p1 = a1$p, i1 = a1$i, x1 = a1$x, thr1 = a1$thr,
+      p2 = a2$p, i2 = a2$i, x2 = a2$x, thr2 = a2$thr,
+      ortho_sp1_idx = ortho_sp1_idx,
+      ortho_sp2_idx = ortho_sp2_idx,
       hog_sp1_list = hog_sp1_list,
       hog_sp2_list = hog_sp2_list,
       test_greater = (alternative == "greater"),

@@ -853,19 +853,24 @@ test_that("compare_neighborhoods rejects non-dgCMatrix Matrix classes", {
   rownames(m) <- colnames(m) <- paste0("A_", sprintf("%03d", 1:n))
   m[1, 2] <- m[2, 1] <- 10
 
+  # symmetric input -> dsCMatrix; general triplet form -> dgTMatrix
   net_dsc <- list(network = Matrix::Matrix(m, sparse = TRUE), threshold = 5)
   expect_s4_class(net_dsc$network, "dsCMatrix")
-  net_dgt <- list(network = methods::as(m, "TsparseMatrix"), threshold = 5)
+  net_dgt <- list(
+    network = methods::as(methods::as(m, "generalMatrix"), "TsparseMatrix"),
+    threshold = 5
+  )
   expect_s4_class(net_dgt$network, "dgTMatrix")
 
   net2_s <- make_sparse_net(td$net2)
   ortho <- data.frame(Species1 = "A_001", Species2 = "B_001", hog = 1)
+  ortho_rev <- data.frame(Species1 = "B_001", Species2 = "A_001", hog = 1)
 
   expect_error(compare_neighborhoods(net_dsc, net2_s, ortho),
                "network must be a dgCMatrix")
   expect_error(compare_neighborhoods(net_dgt, net2_s, ortho),
                "network must be a dgCMatrix")
-  expect_error(compare_neighborhoods(net2_s, net_dsc, ortho),
+  expect_error(compare_neighborhoods(net2_s, net_dsc, ortho_rev),
                "network must be a dgCMatrix")
 })
 
@@ -873,9 +878,10 @@ test_that("compare_neighborhoods rejects non-dgCMatrix Matrix classes", {
 test_that("compare_neighborhoods rejects mixed dense/sparse inputs", {
   td <- make_cmp_nets()
   net1_s <- make_sparse_net(td$net1)
+  net2_s <- make_sparse_net(td$net2)
   expect_error(compare_neighborhoods(net1_s, td$net2, td$ortho),
                "both dense or both sparse")
-  expect_error(compare_neighborhoods(td$net1, net1_s, td$ortho),
+  expect_error(compare_neighborhoods(td$net1, net2_s, td$ortho),
                "both dense or both sparse")
 })
 

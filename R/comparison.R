@@ -103,18 +103,32 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   sp1_idx <- as.integer(idx1[orthologs$Species1])
   sp2_idx <- as.integer(idx2[orthologs$Species2])
 
-  # Call C++
-  result <- compare_neighborhoods_cpp(
-    net1 = net1_mat,
-    net2 = net2_mat,
-    thr1 = thr1,
-    thr2 = thr2,
-    pair_sp1_idx = sp1_idx,
-    pair_sp2_idx = sp2_idx,
-    ortho_sp1_idx = sp1_idx,
-    ortho_sp2_idx = sp2_idx,
-    n_cores = n_cores
-  )
+  # Call C++ (dense or sparse entry point, chosen by storage class)
+  a1 <- .net_cpp_args(net1, thr1)
+  a2 <- .net_cpp_args(net2, thr2)
+  result <- if (.net_pair_sparse(net1, net2)) {
+    compare_neighborhoods_sparse_cpp(
+      p1 = a1$p, i1 = a1$i, x1 = a1$x, thr1 = a1$thr,
+      p2 = a2$p, i2 = a2$i, x2 = a2$x, thr2 = a2$thr,
+      pair_sp1_idx = sp1_idx,
+      pair_sp2_idx = sp2_idx,
+      ortho_sp1_idx = sp1_idx,
+      ortho_sp2_idx = sp2_idx,
+      n_cores = n_cores
+    )
+  } else {
+    compare_neighborhoods_cpp(
+      net1 = a1$net,
+      net2 = a2$net,
+      thr1 = a1$thr,
+      thr2 = a2$thr,
+      pair_sp1_idx = sp1_idx,
+      pair_sp2_idx = sp2_idx,
+      ortho_sp1_idx = sp1_idx,
+      ortho_sp2_idx = sp2_idx,
+      n_cores = n_cores
+    )
+  }
 
   # Combine with ortholog info
   cbind(

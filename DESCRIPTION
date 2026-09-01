@@ -23,6 +23,7 @@ Imports:
     Rfast,
     dplyr (>= 1.1.0),
     igraph,
+    Matrix,
     DiscreteQvalue,
     qvalue,
     tidyr (>= 1.3.0),
