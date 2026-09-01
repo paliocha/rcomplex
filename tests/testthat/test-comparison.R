@@ -913,3 +913,94 @@ test_that("store guard errors when threshold is below store_threshold", {
   expect_equal(compare_neighborhoods(net1_ok, net2_s, td$ortho),
                compare_neighborhoods(td$net1, td$net2, td$ortho))
 })
+
+
+test_that("sparse compare_neighborhoods rejects malformed dgCMatrix slots", {
+  td <- make_cmp_nets()
+  net2_s <- make_sparse_net(td$net2)
+  good <- make_sparse_net(td$net1)$network
+  n <- ncol(good)
+  with_net <- function(m) modifyList(td$net1, list(network = m))
+
+  # empty p
+  m <- good
+  m@p <- integer(0)
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "slot p must have length >= 1")
+
+  # p[n] != length(x)
+  m <- good
+  m@p[n + 1L] <- m@p[n + 1L] - 1L
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "p\\[n\\] = .* length\\(x\\) = ")
+
+  # length(i) != length(x)
+  m <- good
+  m@i <- m@i[-1L]
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "length\\(i\\) = ")
+
+  # duplicate row indices within a column (sparseMatrix(check = FALSE) sums
+  # duplicates in Matrix >= 1.5, so build them by slot assignment)
+  m <- good
+  first_col <- which(diff(m@p) >= 2L)[1L]
+  k <- m@p[first_col] + 1L
+  m@i[k + 1L] <- m@i[k]
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "strictly increasing")
+
+  # row index out of range
+  m <- good
+  m@i[length(m@i)] <- n
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "strictly increasing")
+
+  # a well-formed network still passes
+  expect_equal(compare_neighborhoods(with_net(good), net2_s, td$ortho),
+               compare_neighborhoods(td$net1, td$net2, td$ortho))
+})
+
+
+test_that("sparse compare_neighborhoods edge cases equal dense", {
+  # diagonal = 1, values exactly at thr (>= boundary), a stored entry below
+  # thr (store threshold < analysis threshold), an isolated gene, and an
+  # entry below the store threshold
+  thr <- 0.5
+  thr_store <- 0.3
+  n <- 8
+  build <- function(prefix, extra = NULL) {
+    m <- matrix(0, n, n)
+    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
+    set <- function(a, b, v) m[a, b] <<- m[b, a] <<- v
+    set(1, 2, 0.9)
+    set(1, 3, 0.5)   # exactly at thr
+    set(1, 4, 0.4)   # stored (>= thr_store) but below thr
+    set(2, 3, 0.9)
+    set(5, 6, 0.5)   # exactly at thr
+    set(5, 8, 0.2)   # below thr_store: never stored
+    if (!is.null(extra)) set(extra[1], extra[2], extra[3])
+    diag(m) <- 1     # gene 7 isolated
+    m
+  }
+  net1 <- list(network = build("A"), threshold = thr)
+  net2 <- list(network = build("B", extra = c(2, 4, 0.5)), threshold = thr)
+  ortho <- data.frame(
+    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n), hog = 1:n
+  )
+
+  net1_s <- make_sparse_net(net1, thr_store)
+  net2_s <- make_sparse_net(net2, thr_store)
+
+  # store exercised: sub-threshold entry kept, diagonal dropped, empty column
+  expect_gt(length(net1_s$network@x), sum(net1_s$network@x >= thr))
+  expect_equal(min(net1_s$network@x), 0.4)
+  expect_equal(diff(net1_s$network@p)[7L], 0L)
+  expect_equal(unname(Matrix::diag(net1_s$network)), rep(0, n))
+
+  res_d <- compare_neighborhoods(net1, net2, ortho)
+  res_s <- compare_neighborhoods(net1_s, net2_s, ortho)
+  expect_equal(res_s, res_d)
+
+  expect_equal(res_d$Species1.neigh, c(2, 2, 2, 0, 1, 1, 0, 0))
+  expect_equal(res_d$Species2.neigh, c(2, 3, 2, 1, 1, 1, 0, 0))
+})
