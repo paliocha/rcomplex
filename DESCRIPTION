@@ -1,6 +1,6 @@
 Package: rcomplex
 Title: Comparative Co-Expression Network Analysis Across Species
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Martin", "Paliocha", , "martin.paliocha@nmbu.no", role = c("aut", "cre"))
 Description: Compares gene co-expression networks across species by mapping
