@@ -118,6 +118,11 @@ test_that("as_sparse_network validates its input", {
   hs <- as_sparse_network(hand, 0.2)
   expect_s4_class(hs$network, "dgCMatrix")
   expect_equal(hs$store_density, 0.2)
+
+  # ... unless the store threshold lands ABOVE the analysis threshold:
+  # that store would drop analysis edges, so it must fail here (naming
+  # store_density), not one call later in .net_check()
+  expect_error(as_sparse_network(hand, 0.01), "store_density 0.01")
 })
 
 

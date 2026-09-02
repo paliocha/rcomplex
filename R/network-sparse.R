@@ -185,6 +185,15 @@ as_sparse_network <- function(net, store_density = 0.05) {
   }
 
   store_thr <- density_threshold_cpp(m, store_density)
+  # Hand-built nets without params$density skip the density comparison
+  # above; catch a store that would drop analysis edges here, where the
+  # message can name store_density, instead of one call later in
+  # .net_check() with a message about a parameter of a different function.
+  if (store_thr > net$threshold) {
+    stop("store_density ", store_density, " keeps fewer edges than the ",
+         "network's analysis threshold (store threshold ", store_thr,
+         " > threshold ", net$threshold, "); use a larger store_density")
+  }
   slots <- extract_sparse_cpp(m, store_thr, 1L)
   spnet <- methods::new(
     "dgCMatrix", i = slots$i, p = slots$p, x = slots$x,
