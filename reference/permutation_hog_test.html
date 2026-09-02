@@ -19,7 +19,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
       </span>
     </div>
 
@@ -37,6 +37,9 @@
       <a href="../articles/rcomplex-tutorial.html">Comparative co-expression analysis with rcomplex</a>
     </li>
   </ul></li>
+<li>
+  <a href="../news/index.html">Changelog</a>
+</li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/paliocha/rcomplex/" class="external-link">
     <span class="fab fa-github fa-lg"></span>
@@ -164,13 +167,21 @@ randomly chosen genes from the same networks would yield equally large
 neighborhood overlap.</p>
 <p>For each permutation, M random species-1 genes and N random species-2 genes
 are drawn (matching the HOG's gene counts), and the sum-of-fold-enrichments
-statistic T is computed over all M x N pair x direction combinations. The
-permutation p-value is the fraction of permuted T values that exceed (or
-fall below, for divergence) the observed T.</p>
+statistic T is computed over all M x N pair x direction combinations. Each
+fold enrichment is \(x / E\) with \(E = m k / (n - 1)\): the anchor
+gene leaves the ortholog-reachable set (\(k\)) and the population
+(\(n - 1\)), as in <code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code>. The permutation p-value is
+the fraction of permuted T values that exceed (or fall below, for
+divergence) the observed T.</p>
 <p>The Besag &amp; Clifford (1991) sequential stopping rule terminates permutations
 early once <code>min_exceedances</code> permutation statistics exceed T_obs,
 providing efficient computation without sacrificing accuracy for clearly
 significant or non-significant HOGs.</p>
+<p>The internal option <code>options(rcomplex.force_flag_vector = TRUE)</code> forces
+the C++ backends into the flag-vector intersection mode normally reserved
+for networks with more than 100,000 genes (testing hook; results are
+identical to the default bit-vector mode). It has no effect when
+<code>use_torch = TRUE</code>.</p>
     </div>
     <div id="why-not-fisher-s-method">
     <h2>Why not Fisher's method</h2>
@@ -247,7 +258,7 @@ homogeneous discrete p-values. <em>Biometrics</em>, 72(2), 639–648.
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
       </footer></div>

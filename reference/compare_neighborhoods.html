@@ -18,7 +18,7 @@ conserved between species using hypergeometric tests in both directions."><!-- m
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
       </span>
     </div>
 
@@ -36,6 +36,9 @@ conserved between species using hypergeometric tests in both directions."><!-- m
       <a href="../articles/rcomplex-tutorial.html">Comparative co-expression analysis with rcomplex</a>
     </li>
   </ul></li>
+<li>
+  <a href="../news/index.html">Changelog</a>
+</li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/paliocha/rcomplex/" class="external-link">
     <span class="fab fa-github fa-lg"></span>
@@ -102,18 +105,24 @@ conserved between species using hypergeometric tests in both directions.</p>
 
 <dt>Species1.ortho.neigh</dt>
 <dd><p>Number of ortholog-mapped neighbors
-from net2</p></dd>
+from net2, excluding the Species1 gene itself</p></dd>
 
 <dt>Species1.neigh.overlap</dt>
 <dd><p>Intersection size</p></dd>
 
 <dt>Species1.p.val.con</dt>
 <dd><p>Upper-tail hypergeometric p-value for
-conservation (direction 1)</p></dd>
+conservation (direction 1); 1 when the overlap is 0 or 1</p></dd>
 
 <dt>Species1.p.val.div</dt>
 <dd><p>Lower-tail hypergeometric p-value for
 divergence (direction 1)</p></dd>
+
+<dt>Species1.p.val.gt</dt>
+<dd><p>\(P(X &gt; x)\), ungated (direction 1)</p></dd>
+
+<dt>Species1.p.val.eq</dt>
+<dd><p>\(P(X = x)\) (direction 1)</p></dd>
 
 <dt>Species1.effect.size</dt>
 <dd><p>Fold enrichment (direction 1). Values &gt; 1
@@ -124,18 +133,24 @@ indicate conservation, &lt; 1 indicate divergence.</p></dd>
 
 <dt>Species2.ortho.neigh</dt>
 <dd><p>Number of ortholog-mapped neighbors
-from net1</p></dd>
+from net1, excluding the Species2 gene itself</p></dd>
 
 <dt>Species2.neigh.overlap</dt>
 <dd><p>Intersection size</p></dd>
 
 <dt>Species2.p.val.con</dt>
 <dd><p>Upper-tail hypergeometric p-value for
-conservation (direction 2)</p></dd>
+conservation (direction 2); 1 when the overlap is 0 or 1</p></dd>
 
 <dt>Species2.p.val.div</dt>
 <dd><p>Lower-tail hypergeometric p-value for
 divergence (direction 2)</p></dd>
+
+<dt>Species2.p.val.gt</dt>
+<dd><p>\(P(X &gt; x)\), ungated (direction 2)</p></dd>
+
+<dt>Species2.p.val.eq</dt>
+<dd><p>\(P(X = x)\) (direction 2)</p></dd>
 
 <dt>Species2.effect.size</dt>
 <dd><p>Fold enrichment (direction 2). Values &gt; 1
@@ -152,6 +167,23 @@ neighbors. Range \([0, 1]\).</p></dd>
 
 
 </dl></div>
+    <div id="details">
+    <h2>Details</h2>
+    <p>For an ortholog pair (A in species 1, B in species 2) and direction 1
+(anchor A), the neighbourhood of A in net1 (size \(m\)) is tested
+against the set of species-1 orthologs of B's neighbours in net2 (size
+\(k\)); \(x\) is their intersection. The urn excludes the anchor
+gene: A is never its own neighbour, it is dropped from the mapped set,
+and the hypergeometric population is the other \(N - 1\) network
+genes. <code>Species1.p.val.con</code> is \(P(X \ge x)\) and keeps the gate of
+the original RComPlEx R Markdown (not the paper): it is reported as 1
+when \(x \le 1\). <code>Species1.p.val.gt</code> (\(P(X &gt; x)\)) and
+<code>Species1.p.val.eq</code> (\(P(X = x)\)) are ungated so that
+<code>p.val.gt + U * p.val.eq</code> is a randomized p-value, exactly uniform under
+the null (used by <code><a href="summarize_comparison.html">summarize_comparison()</a></code> to estimate pi0). The effect
+size \((x / k) / (m / (N - 1))\) is computed for every \(x\)
+(1 when \(m = 0\) or \(k = 0\)). Direction 2 is symmetric.</p>
+    </div>
     <div id="ortholog-preparation-for-de-novo-transcriptomes">
     <h2>Ortholog preparation for de novo transcriptomes</h2>
 
@@ -169,6 +201,19 @@ and eliminate all statistical power from the hypergeometric test.</p>
 <li><p>Apply maximum-paralogs filter on the reduced ortholog table</p></li>
 <li><p>Compute networks and run comparison</p></li>
 </ol></div>
+    <div id="gene-universe">
+    <h2>Gene universe</h2>
+
+
+<p>Networks are built on all supplied genes and \(N\) is the number of
+genes in the anchor network, as in Netotea et al. (2014). The canonical
+ComPlEx implementations (<code>RComPlEx.Rmd</code>, <code>ComPlEx_python</code>) instead
+restrict the expression tables to genes with an ortholog before building
+the networks, which changes neighbourhoods, thresholds and therefore the
+calls. rcomplex reproduces those implementations only when the
+expression matrices are restricted the same way before
+<code><a href="compute_network.html">compute_network()</a></code> (<code>tests/testthat/test-equivalence.R</code>).</p>
+    </div>
 
     <div id="ref-examples">
     <h2>Examples</h2>
@@ -192,7 +237,7 @@ and eliminate all statistical power from the hypergeometric test.</p>
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
       </footer></div>

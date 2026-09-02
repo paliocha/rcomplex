@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
       </span>
     </div>
 
@@ -35,6 +35,9 @@
       <a href="articles/rcomplex-tutorial.html">Comparative co-expression analysis with rcomplex</a>
     </li>
   </ul></li>
+<li>
+  <a href="news/index.html">Changelog</a>
+</li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/paliocha/rcomplex/" class="external-link">
     <span class="fab fa-github fa-lg"></span>
@@ -60,9 +63,9 @@
 <h2 id="project-overview">Project Overview<a class="anchor" aria-label="anchor" href="#project-overview"></a></h2>
 <p>rcomplex is an R package for comparative co-expression network analysis across species. It maps orthologous genes (via ortholog groups / HOGs from OrthoFinder, FastOMA, PLAZA, etc.), builds co-expression networks independently per species, then tests conservation at three levels:</p>
 <ul><li>
-<strong>Gene / HOG-level</strong>: Hypergeometric tests with q-value correction (<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> + <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>) and gene-identity permutation with adaptive stopping (<code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>)</li>
+<strong>Gene / HOG-level</strong>: Hypergeometric tests with q-value correction (<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> + <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>), gene-identity permutation with adaptive stopping (<code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>), batch orchestration (<code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code>, <code><a href="reference/density_sweep.html">density_sweep()</a></code>), degree-preserving edge-swap null (<code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code>)</li>
 <li>
-<strong>Module-level</strong>: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests</li>
+<strong>Module-level</strong>: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests, module hubs + conservation</li>
 <li>
 <strong>Clique-level</strong>: C++ Bron-Kerbosch / Tomita clique detection, leave-k-out jackknife stability for trait-exclusive cliques, threshold sweep, HOG conservation classification</li>
 </ul><p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
@@ -73,7 +76,8 @@
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::document()'</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="ex">R</span> CMD INSTALL .</span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span></span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">R</span> CMD check .                     <span class="co"># expect 1 </span><span class="al">WARNING</span><span class="co"> from R_ext/Boolean.h</span></span></code></pre></div>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">R</span> CMD build . <span class="kw">&amp;&amp;</span> <span class="ex">R</span> CMD check <span class="at">--no-manual</span> rcomplex_0.2.0.tar.gz   <span class="co"># expect "Status: OK"</span></span></code></pre></div>
+<p>Check the built tarball, not the source directory — <code>Authors@R</code> only expands at build time, so <code>R CMD check .</code> fails with “Author/Maintainer missing”. <code>--no-manual</code> avoids needing pdflatex. The historical <code>R_ext/Boolean.h</code> warning no longer appears with clang 22.</p>
 </div>
 <div class="section level2">
 <h2 id="package-architecture">Package Architecture<a class="anchor" aria-label="anchor" href="#package-architecture"></a></h2>
@@ -87,21 +91,33 @@
 </td>
 </tr><tr class="even"><td><code>R/network.R</code></td>
 <td>
-<code><a href="reference/compute_network.html">compute_network()</a></code> — correlation, MR/CLR, density threshold, torch GPU</td>
+<code><a href="reference/compute_network.html">compute_network()</a></code> — correlation, MR/CLR, density threshold, sparse extraction, torch GPU</td>
+</tr><tr class="odd"><td><code>R/network-sparse.R</code></td>
+<td>Sparse dispatch: <code>.net_is_sparse()</code>, <code>.net_check()</code>, <code>.net_cpp_args()</code> (store guard), <code><a href="reference/as_sparse_network.html">as_sparse_network()</a></code>, <code>dense_to_dgc()</code>
+</td>
+</tr><tr class="even"><td><code>R/mr_block.R</code></td>
+<td>
+<code><a href="reference/mr_block.html">mr_block()</a></code> — exact local MR reconstruction for gene subsets (incl. sub-store entries)</td>
 </tr><tr class="odd"><td><code>R/comparison.R</code></td>
 <td>
 <code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, <code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code>, <code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code> (alias: <code><a href="reference/find_coexpressologs.html">run_pairwise_comparisons()</a></code>), <code><a href="reference/density_sweep.html">density_sweep()</a></code>, <code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code>
 </td>
-</tr><tr class="even"><td><code>R/summary.R</code></td>
+</tr><tr class="even"><td><code>R/coexpressolog_null.R</code></td>
 <td>
-<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, torch FE helpers</td>
-</tr><tr class="odd"><td><code>R/modules.R</code></td>
+<code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code> — degree-preserving edge-swap null</td>
+</tr><tr class="odd"><td><code>R/summary.R</code></td>
 <td>
-<code><a href="reference/detect_modules.html">detect_modules()</a></code> (single + consensus), <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/compare_modules_paired.html">compare_modules_paired()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>, <code><a href="reference/coarsen_modules.html">coarsen_modules()</a></code>
+<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, <code>compute_qvalues()</code> (randomized-p pi0), torch FE helpers</td>
+</tr><tr class="even"><td><code>R/modules.R</code></td>
+<td>
+<code><a href="reference/detect_modules.html">detect_modules()</a></code> (single + consensus), <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/compare_modules_paired.html">compare_modules_paired()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>, <code><a href="reference/coarsen_modules.html">coarsen_modules()</a></code>, <code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>, <code><a href="reference/characterize_hubs.html">characterize_hubs()</a></code>
 </td>
+</tr><tr class="odd"><td><code>R/tag_permutation.R</code></td>
+<td>
+<code><a href="reference/tag_permutation.html">tag_permutation()</a></code> — trait-specific module recurrence test</td>
 </tr><tr class="even"><td><code>R/cliques.R</code></td>
 <td>
-<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>, <code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code>, <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>
+<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>, <code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code>, <code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code>, <code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code>, <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>
 </td>
 </tr><tr class="odd"><td><code>R/se_methods.R</code></td>
 <td>
@@ -116,15 +132,19 @@
 <table class="table"><colgroup><col width="40%"><col width="60%"></colgroup><thead><tr class="header"><th>File</th>
 <th>Purpose</th>
 </tr></thead><tbody><tr class="odd"><td><code>src/mutual_rank.cpp</code></td>
-<td>MR normalization with column-major access</td>
+<td>MR normalization with column-major access; in-place kernel (<code>mutual_rank_inplace_cpp</code>) + cached reference</td>
 </tr><tr class="even"><td><code>src/clr.cpp</code></td>
 <td>CLR normalization</td>
 </tr><tr class="odd"><td><code>src/density_threshold.cpp</code></td>
 <td>Quantile-based density thresholding</td>
+</tr><tr class="even"><td><code>src/sparse_extract.cpp</code></td>
+<td>Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix</td>
+</tr><tr class="odd"><td><code>src/neighbor_lists.h</code></td>
+<td>Shared neighbour-list construction: dense <code>arma::mat</code> or validated dgCMatrix slots</td>
 </tr><tr class="even"><td><code>src/neighborhood_comparison.cpp</code></td>
-<td>Pairwise neighborhood overlap (hypergeometric)</td>
+<td>Pairwise neighborhood overlap (hypergeometric, self-excluded urn); dense + sparse entry points</td>
 </tr><tr class="odd"><td><code>src/hog_permutation.cpp</code></td>
-<td>HOG permutation engine (bit-vector/flag-vector, Besag &amp; Clifford)</td>
+<td>HOG permutation engine (bit-vector/flag-vector, Besag &amp; Clifford); dense + sparse entry points</td>
 </tr><tr class="even"><td><code>src/fe_permutation.cpp</code></td>
 <td>GPU-precomputed FE permutation engine</td>
 </tr><tr class="odd"><td><code>src/module_jaccard_permutation.cpp</code></td>
@@ -147,36 +167,82 @@
 <table class="table"><colgroup><col width="42%"><col width="57%"></colgroup><thead><tr class="header"><th>File</th>
 <th>Covers</th>
 </tr></thead><tbody><tr class="odd"><td><code>tests/testthat/test-network.R</code></td>
-<td>Network construction, MR/CLR, density threshold, torch</td>
+<td>Network construction, MR/CLR, density threshold, in-place MR, torch</td>
+</tr><tr class="even"><td><code>tests/testthat/test-network-sparse.R</code></td>
+<td>Sparse network object: dense-vs-sparse equality across all consumers, store guard</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-equivalence.R</code></td>
+<td>Equivalence against canonical ComPlEx (seeded fixture, 149 calls)</td>
 </tr><tr class="even"><td><code>tests/testthat/test-comparison.R</code></td>
-<td>Neighborhood comparison, effect sizes</td>
+<td>Neighborhood comparison, effect sizes, sparse dispatch, pval_combine</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-summary.R</code></td>
 <td>Pair-level q-value correction</td>
-</tr><tr class="even"><td><code>tests/testthat/test-permutation.R</code></td>
-<td>HOG permutation (correctness, adaptive stopping, torch)</td>
+</tr><tr class="even"><td><code>tests/testthat/test-pi0.R</code></td>
+<td>Randomized-p pi0 estimation (simulation vs truth, Storey, BH)</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-permutation.R</code></td>
+<td>HOG permutation (correctness, adaptive stopping, sparse, torch)</td>
+</tr><tr class="even"><td><code>tests/testthat/test-mr-block.R</code></td>
+<td>
+<code><a href="reference/mr_block.html">mr_block()</a></code> exact reconstruction vs dense network</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-coexpressolog-null.R</code></td>
+<td>Edge-swap null (seeded, parallel reproducibility)</td>
+</tr><tr class="even"><td><code>tests/testthat/test-coexpressed-hogs.R</code></td>
+<td>
+<code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code> cross-species partner queries</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-modules.R</code></td>
 <td>Module detection, comparison, classification, consensus</td>
+</tr><tr class="even"><td><code>tests/testthat/test-module-hubs.R</code></td>
+<td>Hub identification, tie-breaking, hub conservation</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-tag-permutation.R</code></td>
+<td>Trait-specific module recurrence test</td>
 </tr><tr class="even"><td><code>tests/testthat/test-cliques.R</code></td>
 <td>Clique detection (igraph + C++ backends)</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-stability.R</code></td>
 <td>Leave-k-out jackknife stability</td>
 </tr><tr class="even"><td><code>tests/testthat/test-threshold-sweep.R</code></td>
 <td>Threshold sweep structural survival</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-perturbation.R</code></td>
+<td>Clique perturbation (noise robustness)</td>
+</tr><tr class="even"><td><code>tests/testthat/test-intensity-test.R</code></td>
+<td>Clique intensity permutation null</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-classify-cliques.R</code></td>
 <td>HOG classification waterfall pipeline</td>
 </tr><tr class="even"><td><code>tests/testthat/test-reduce-orthogroups.R</code></td>
 <td>Paralog reduction</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-se.R</code></td>
 <td>SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network)</td>
-</tr><tr class="even"><td><code>tests/testthat/helper-reference.R</code></td>
-<td>Pure-R reference implementations</td>
+</tr><tr class="even"><td><code>tests/testthat/test-rcomplex-class.R</code></td>
+<td>S3 container construction, printing, method pass-through</td>
+</tr><tr class="odd"><td><code>tests/testthat/helper-reference.R</code></td>
+<td>Pure-R reference implementations + shared net helpers (<code>sparse_net()</code>, …)</td>
+</tr><tr class="even"><td><code>tests/testthat/helper-clique-fixtures.R</code></td>
+<td>Shared clique test fixtures</td>
 </tr></tbody></table></div>
 </div>
 <div class="section level2">
 <h2 id="key-design-decisions">Key Design Decisions<a class="anchor" aria-label="anchor" href="#key-design-decisions"></a></h2>
 <div class="section level3">
+<h3 id="sparse-network-object-dgcmatrix--store_density">Sparse network object (dgCMatrix + store_density)<a class="anchor" aria-label="anchor" href="#sparse-network-object-dgcmatrix--store_density"></a></h3>
+<p><code>compute_network(sparse = TRUE)</code> (default since 0.2.0) stores a <code>dgCMatrix</code> with both triangles of entries at or above the <code>store_density</code> quantile (default <code>max(density, 0.05)</code>); the analysis <code>threshold</code> is still computed from the full dense MR, so dense and sparse results are identical. <code>.net_cpp_args()</code> / <code>.net_check()</code> in <code>R/network-sparse.R</code> are the single choke points: every consumer validates there, and a threshold below <code>store_threshold</code> errors (the sparse object cannot represent that density). Sub-store values are reconstructible exactly via <code><a href="reference/mr_block.html">mr_block()</a></code>.</p>
+</div>
+<div class="section level3">
+<h3 id="membership-only-consumers">Membership-only consumers<a class="anchor" aria-label="anchor" href="#membership-only-consumers"></a></h3>
+<p>Rewired null networks from <code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code> are binary (<code>threshold = 1</code>, <code>store_threshold = 1</code>): only membership-based consumers (neighborhood comparison, HOG permutation, adjacency extraction) are valid downstream — nothing that reads edge weights (density_sweep multipliers &lt; 1, perturbation, module weights).</p>
+</div>
+<div class="section level3">
+<h3 id="self-excluded-urn">Self-excluded urn<a class="anchor" aria-label="anchor" href="#self-excluded-urn"></a></h3>
+<p>The anchor gene is never its own neighbour, so it leaves the ortholog-mapped set (k) and the hypergeometric population (N - 1) in <code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, both permutation engines, and the torch FE matrix. O(1/N) p-value shift vs canonical ComPlEx; the reported <code>*.p.val.con</code> keeps the canonical <code>x &gt; 1</code> gate.</p>
+</div>
+<div class="section level3">
+<h3 id="randomized-p-pi0-pair-level">Randomized-p pi0 (pair level)<a class="anchor" aria-label="anchor" href="#randomized-p-pi0-pair-level"></a></h3>
+<p>Exact hypergeometric p-values pile up at 1 and force Storey’s pi0 to 1. <code>summarize_comparison(pi0_method = "randomized")</code> (default) estimates pi0 on draws of <code>p.val.gt + U * p.val.eq</code> (exactly uniform under H0) and applies it to the exact p-values. Draws use the global RNG — <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> for reproducible q-values. HOG-level q-values stay <code>DiscreteQvalue::DQ(method = "Liang")</code> (Besag–Clifford p-values have discrete support).</p>
+</div>
+<div class="section level3">
+<h3 id="pval_combine-default-max">pval_combine default “max”<a class="anchor" aria-label="anchor" href="#pval_combine-default-max"></a></h3>
+<p><code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code> / <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code> / <code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code> / <code><a href="reference/density_sweep.html">density_sweep()</a></code> combine directional q-values with <code>pmax</code> by default: both directions must be significant (reciprocal criterion of Netotea et al. 2014, the <code>Max.p.val</code> filter). <code>"min"</code> is the permissive either-direction option (pre-0.2.0 behaviour).</p>
+</div>
+<div class="section level3">
 <h3 id="column-major-memory-access">Column-major memory access<a class="anchor" aria-label="anchor" href="#column-major-memory-access"></a></h3>
-<p>Armadillo stores matrices column-major. All hot loops use <code>colptr()</code> for sequential reads. ~3x speedup on MR normalization and neighbor list extraction.</p>
+<p>Armadillo stores matrices column-major. All hot loops use <code>colptr()</code> for sequential reads. ~3x speedup on MR normalization and neighbor list extraction. MR normalization runs in place on the correlation matrix (<code><a href="reference/mutual_rank_inplace_cpp.html">mutual_rank_inplace_cpp()</a></code>), holding the <code><a href="reference/compute_network.html">compute_network()</a></code> peak transient at ~1.5 n^2 doubles.</p>
 </div>
 <div class="section level3">
 <h3 id="integer-indices-in-c-string-mapping-in-r">Integer indices in C++, string mapping in R<a class="anchor" aria-label="anchor" href="#integer-indices-in-c-string-mapping-in-r"></a></h3>
@@ -199,7 +265,7 @@
 </div>
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>
-<p><strong>Imports</strong>: methods, Rcpp, Rfast, dplyr, igraph, DiscreteQvalue, qvalue, tidyr, parallel, rlang, stats, utils <strong>Suggests</strong>: S4Vectors, sbm, SummarizedExperiment, torch, testthat, lintr, pkgdown <strong>LinkingTo</strong>: Rcpp, RcppArmadillo <strong>System</strong>: GNU make, C++23, OpenMP (optional)</p>
+<p><strong>Imports</strong>: methods, Rcpp, Rfast, dplyr, igraph, Matrix (&gt;= 1.5-0), DiscreteQvalue, qvalue, tidyr, parallel, rlang, stats, utils <strong>Suggests</strong>: DT, knitr, purrr, rmarkdown, S4Vectors, sbm, stringr, SummarizedExperiment, tibble, torch, testthat, lintr, withr, pkgdown <strong>LinkingTo</strong>: Rcpp, RcppArmadillo <strong>System</strong>: GNU make, C++23, OpenMP (optional)</p>
 </div>
 </div>
 
@@ -218,7 +284,7 @@
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
       </footer></div>

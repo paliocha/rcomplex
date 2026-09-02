@@ -20,7 +20,7 @@ SummarizedExperiment."><!-- mathjax --><script src="https://cdnjs.cloudflare.com
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
       </span>
     </div>
 
@@ -38,6 +38,9 @@ SummarizedExperiment."><!-- mathjax --><script src="https://cdnjs.cloudflare.com
       <a href="../articles/rcomplex-tutorial.html">Comparative co-expression analysis with rcomplex</a>
     </li>
   </ul></li>
+<li>
+  <a href="../news/index.html">Changelog</a>
+</li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/paliocha/rcomplex/" class="external-link">
     <span class="fab fa-github fa-lg"></span>
@@ -77,6 +80,8 @@ a numeric matrix or a
 <span>  abs_cor <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mr_log_transform <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  min_var <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  sparse <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  store_density <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
@@ -131,6 +136,22 @@ to also remove near-invariant genes that produce noisy correlations.
 Set to <code>NULL</code> to disable filtering entirely.</p></dd>
 
 
+<dt id="arg-sparse">sparse<a class="anchor" aria-label="anchor" href="#arg-sparse"></a></dt>
+<dd><p>If <code>TRUE</code> (default), return the network as a sparse
+<code>Matrix::dgCMatrix</code> holding both triangles of the thresholded
+co-expression matrix (entries below <code>store_threshold</code> are discarded;
+the dense n x n matrix never leaves this function). If <code>FALSE</code>,
+return the dense matrix as in rcomplex &lt; 0.2.0.</p></dd>
+
+
+<dt id="arg-store-density">store_density<a class="anchor" aria-label="anchor" href="#arg-store-density"></a></dt>
+<dd><p>Fraction of top edges to keep in the sparse store
+(default <code>NULL</code> = <code>max(density, 0.05)</code>). Must satisfy
+<code>density &lt;= store_density &lt; 1</code>; the margin above <code>density</code> lets
+downstream sweeps loosen the threshold (e.g. <code><a href="density_sweep.html">density_sweep()</a></code>)
+without recomputing the network. Only valid with <code>sparse = TRUE</code>.</p></dd>
+
+
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
 <dd><p>Number of threads for parallel computation (default 1).</p></dd>
 
@@ -157,10 +178,14 @@ SummarizedExperiment (default 1). Requires the
     <h2>Value</h2>
     <p>A list with components:</p><dl><dt>network</dt>
 <dd><p>Named symmetric matrix (genes x genes) with normalized
-co-expression values. Diagonal is set to 0.</p></dd>
+co-expression values. A <code>dgCMatrix</code> storing both triangles of the
+entries at or above <code>store_threshold</code> (diagonal absent) when
+<code>sparse = TRUE</code>; a dense matrix with zero diagonal when
+<code>sparse = FALSE</code>.</p></dd>
 
 <dt>threshold</dt>
-<dd><p>The co-expression threshold at the given density.</p></dd>
+<dd><p>The co-expression threshold at the given density
+(computed from the full dense matrix in either mode).</p></dd>
 
 <dt>n_genes</dt>
 <dd><p>Number of genes in the network.</p></dd>
@@ -172,8 +197,37 @@ co-expression values. Diagonal is set to 0.</p></dd>
 <dt>params</dt>
 <dd><p>List of parameters used.</p></dd>
 
+<dt>store_density, store_threshold</dt>
+<dd><p>Sparse networks only: the
+stored edge fraction and the value cutoff of the store. Analyses
+at thresholds below <code>store_threshold</code> are refused (see
+<code><a href="as_sparse_network.html">as_sparse_network()</a></code>).</p></dd>
+
 
 </dl></div>
+    <div id="gene-universe">
+    <h2>Gene universe</h2>
+
+
+<p>Networks are built on all supplied genes and downstream tests use the
+whole network as the hypergeometric population (Netotea et al. 2014).
+The canonical ComPlEx implementations restrict the expression tables to
+genes with an ortholog before building the networks, which changes
+neighbourhoods, thresholds and calls; rcomplex reproduces them only when
+the expression matrices are restricted the same way first (see
+<code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code>).</p>
+    </div>
+    <div id="reconstructing-sub-threshold-values">
+    <h2>Reconstructing sub-threshold values</h2>
+
+
+<p>A sparse network (<code>sparse = TRUE</code>) discards values below
+<code>store_threshold</code>, so visualisations of a gene subset (e.g. module
+heatmaps) cannot read them back from <code>net$network</code>. <code><a href="mr_block.html">mr_block()</a></code>
+reconstructs the exact mutual-rank values for a gene subset from the
+expression matrix and the network's parameters, without rebuilding the
+dense n x n matrix.</p>
+    </div>
 
     <div id="ref-examples">
     <h2>Examples</h2>
@@ -200,7 +254,7 @@ co-expression values. Diagonal is set to 0.</p></dd>
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
       </footer></div>

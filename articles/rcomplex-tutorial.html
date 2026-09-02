@@ -32,7 +32,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
       </span>
     </div>
 
@@ -52,6 +52,9 @@
       <a href="../articles/rcomplex-tutorial.html">Comparative co-expression analysis with rcomplex</a>
     </li>
   </ul>
+</li>
+<li>
+  <a href="../news/index.html">Changelog</a>
 </li>
       </ul>
 <ul class="nav navbar-nav navbar-right">
@@ -215,11 +218,15 @@ distinct expression programs are preserved:</p>
 <h3 id="network-construction">Network construction<a class="anchor" aria-label="anchor" href="#network-construction"></a>
 </h3>
 <p>Build co-expression networks from the reduced expression matrices
-using Mutual Rank (MR) normalization at 3% density:</p>
+using Mutual Rank (MR) normalization at 3% density. The sparse store is
+built at 6% (<code>store_density = 0.06</code>) to leave headroom for
+the density sweep in section 4, which loosens the networks below the
+default 5% store:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">species_data</span> <span class="op">&lt;-</span> <span class="va">species_data</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>network <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map</a></span><span class="op">(</span><span class="va">reduced</span>, \<span class="op">(</span><span class="va">r</span><span class="op">)</span></span>
-<span>    <span class="fu"><a href="../reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">expr_matrix</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="../reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">expr_matrix</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span>,</span>
+<span>                    store_density <span class="op">=</span> <span class="fl">0.06</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Named lists for functions that expect them</span></span>
 <span><span class="va">species</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">species_data</span>, <span class="va">species</span><span class="op">)</span></span>
@@ -273,9 +280,13 @@ precomputed on GPU, reducing each permutation to fast table lookups.</p>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"ns"</span><span class="op">)</span>, <span class="st">"non-significant\n"</span><span class="op">)</span></span></code></pre></div>
 <p>For quick exploration without GPU, the <code>"analytical"</code>
 method uses pair-level Storey q-values (less statistically rigorous for
-multi-copy HOGs, but much faster):</p>
+multi-copy HOGs, but much faster). Since v0.2.0 its default
+<code>pi0_method = "randomized"</code> estimates the null proportion pi0
+from randomized p-values drawn from the global RNG, so call
+<code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> first for reproducible q-values:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">edges_analytical</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_coexpressologs.html">find_coexpressologs</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">edges_analytical</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_coexpressologs.html">find_coexpressologs</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"analytical"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Analytical:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges_analytical</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Permutation:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span><span class="op">)</span></span></code></pre></div>
@@ -509,30 +520,42 @@ straightforward:</p>
 in the co-expression network. At 3% density, only the top 3% of all
 pairwise MR values pass the threshold – these are the strongest
 co-expression relationships.</p>
-<p>We sweep 11 density levels from 0.5x to 1.5x the baseline threshold,
-corresponding to effective densities of approximately 1.5%–4.5% with the
-3% midpoint:</p>
+<p>Networks keep edges at or <em>above</em> the threshold, so
+multipliers above 1 tighten the network and multipliers below 1 loosen
+it. Raw MR values are tightly compressed near the top of the
+distribution, so small multipliers move the effective density a lot: on
+this dataset 1.025x already cuts the density to ~1.5% and 0.975x loosens
+it to ~4.7%. We sweep 11 levels from 0.975x to 1.025x the baseline
+threshold, corresponding to effective densities of approximately
+4.7%–1.5% around the 3% midpoint:</p>
 <ul>
 <li>
-<strong>Tighter</strong> (0.5x–0.9x, effective density ~1.5%–2.7%):
-does the signal survive substantial edge removal? Surviving
+<strong>Tighter</strong> (1.005x–1.025x, effective density
+~2.7%–1.5%): does the signal survive substantial edge removal? Surviving
 co-expressologs are strong, not marginal.</li>
 <li>
-<strong>Looser</strong> (1.1x–1.5x, effective density ~3.3%–4.5%):
-is the signal specific to this density range, or does it persist as new
-edges are added? Cliques that only appear at very loose thresholds are
-likely noise from extra edges.</li>
+<strong>Looser</strong> (0.995x–0.975x, effective density
+~3.3%–4.7%): is the signal specific to this density range, or does it
+persist as new edges are added? Cliques that only appear at very loose
+thresholds are likely noise from extra edges.</li>
 </ul>
-<p>The 3% density choice is somewhat arbitrary. Sweeping a wide range
-around it reveals sensitivity to that choice – a truly robust
-co-expressolog should be present across a range of densities, not just
-at one particular cutoff.</p>
+<p>The 3% density choice is somewhat arbitrary. Sweeping a range around
+it reveals sensitivity to that choice – a truly robust co-expressolog
+should be present across a range of densities, not just at one
+particular cutoff.</p>
+<p>Since networks are stored sparsely (v0.2.0), the loosest multiplier
+must stay within the stored edge superset, and the sweep errors if a
+multiplier falls below the store. The networks in section 1 were built
+with <code>store_density = 0.06</code>, so the loosest level (0.975x,
+~4.7%) keeps a comfortable margin to the store (a 6% store corresponds
+to a ~0.96x multiplier on this dataset; the default 5% store would sit
+at ~0.975x, i.e. exactly at the loosest level).</p>
 <p>The permutation pipeline is re-run at each level because network
 neighborhoods change with the threshold, altering the HOG-level
 q-values:</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sweep</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/density_sweep.html">density_sweep</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
-<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>,</span>
+<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="fl">1.025</span>, by <span class="op">=</span> <span class="fl">0.005</span><span class="op">)</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"permutation"</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Edge survival across density levels</span></span>
@@ -982,7 +1005,7 @@ data.</p>
 
 <div class="pkgdown">
   <p></p>
-<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
       </footer>
