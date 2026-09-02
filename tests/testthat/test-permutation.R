@@ -571,3 +571,152 @@ test_that("T_obs uses the self-excluded urn and matches the R oracle", {
                                 max_permutations = 50L, min_exceedances = 5L)
   expect_equal(res_s, res)
 })
+
+
+# ---- forced flag-vector mode (internal hook) ----
+
+# The flag-vector engine (the max(n1, n2) > 100000 path) shares loop order,
+# skip conditions, and RNG consumption with the bit-vector engine, so a
+# seeded forced run must be IDENTICAL to the bit-vector run — not merely
+# close. The forced engine announces itself on stderr; asserting on that
+# marker guards these tests against passing vacuously on the bit-vector
+# path.
+
+test_that("forced flag-vector engine equals bit-vector engine (seeded)", {
+  skip_if_not_installed("withr")
+  td <- make_test_nets()
+
+  set.seed(42)
+  res_bv <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 500L, min_exceedances = 20L
+  )
+  set.seed(7)
+  res_bv_less <- permutation_hog_test(
+    td$net1, td$net2, td$comparison, alternative = "less",
+    max_permutations = 500L, min_exceedances = 20L
+  )
+
+  withr::local_options(rcomplex.force_flag_vector = TRUE)
+  set.seed(42)
+  msgs <- capture.output(
+    res_fl <- permutation_hog_test(
+      td$net1, td$net2, td$comparison,
+      max_permutations = 500L, min_exceedances = 20L
+    ),
+    type = "message"
+  )
+  expect_true(any(grepl("flag-vector", msgs)))
+  expect_equal(res_fl, res_bv)
+
+  # divergence direction too
+  set.seed(7)
+  msgs <- capture.output(
+    res_fl_less <- permutation_hog_test(
+      td$net1, td$net2, td$comparison, alternative = "less",
+      max_permutations = 500L, min_exceedances = 20L
+    ),
+    type = "message"
+  )
+  expect_true(any(grepl("flag-vector", msgs)))
+  expect_equal(res_fl_less, res_bv_less)
+})
+
+
+test_that("forced flag-vector T_obs matches the self-excluded R oracle", {
+  skip_if_not_installed("withr")
+  # Same construction as the bit-vector D5 test above: HOG1 members (1-3)
+  # are co-expressed with each other, so the anchor is itself
+  # ortholog-reachable and compute_T_flags must drop it from the urn
+  # (k - 1, population N - 1).
+  n <- 12
+  build <- function(prefix) {
+    m <- matrix(0, n, n)
+    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
+    for (g in 1:3) for (h in 1:6) if (g != h) m[g, h] <- m[h, g] <- 0.9
+    diag(m) <- 1
+    m
+  }
+  net1 <- list(network = build("A"), threshold = 0.5)
+  net2 <- list(network = build("B"), threshold = 0.5)
+  ortho <- data.frame(
+    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n),
+    hog = c(rep("HOG1", 3), paste0("HOG", 2:(n - 2))),
+    stringsAsFactors = FALSE
+  )
+  comparison <- compare_neighborhoods(net1, net2, ortho)
+
+  withr::local_options(rcomplex.force_flag_vector = TRUE)
+  set.seed(3)
+  msgs <- capture.output(
+    res <- permutation_hog_test(net1, net2, comparison,
+                                max_permutations = 50L,
+                                min_exceedances = 5L),
+    type = "message"
+  )
+  expect_true(any(grepl("flag-vector", msgs)))
+
+  t_hog1 <- res$T_obs[res$hog == "HOG1"]
+  expected <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
+                              paste0("A", 1:3), paste0("B", 1:3))
+  expect_equal(t_hog1, expected, tolerance = 1e-12)
+
+  # the exclusion is exercised: the pre-0.2.0 urn (k, N) differs
+  old <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
+                         paste0("A", 1:3), paste0("B", 1:3),
+                         self_exclude = FALSE)
+  expect_false(isTRUE(all.equal(t_hog1, old)))
+})
+
+
+test_that("forced flag-vector mode: sparse equals dense (seeded)", {
+  skip_if_not_installed("withr")
+  td <- make_test_nets()
+  net1_s <- sparse_net(td$net1)
+  net2_s <- sparse_net(td$net2)
+
+  withr::local_options(rcomplex.force_flag_vector = TRUE)
+  set.seed(42)
+  msgs_d <- capture.output(
+    res_d <- permutation_hog_test(
+      td$net1, td$net2, td$comparison,
+      max_permutations = 200L, min_exceedances = 10L
+    ),
+    type = "message"
+  )
+  set.seed(42)
+  msgs_s <- capture.output(
+    res_s <- permutation_hog_test(
+      net1_s, net2_s, td$comparison,
+      max_permutations = 200L, min_exceedances = 10L
+    ),
+    type = "message"
+  )
+  expect_true(any(grepl("flag-vector", msgs_d)))
+  expect_true(any(grepl("flag-vector", msgs_s)))
+  expect_equal(res_s, res_d)
+})
+
+
+test_that("without the option the bit-vector path is used unchanged", {
+  skip_if_not_installed("withr")
+  td <- make_test_nets()
+
+  set.seed(42)
+  res_plain <- permutation_hog_test(
+    td$net1, td$net2, td$comparison,
+    max_permutations = 200L, min_exceedances = 10L
+  )
+
+  withr::local_options(rcomplex.force_flag_vector = NULL)
+  set.seed(42)
+  msgs <- capture.output(
+    res_unset <- permutation_hog_test(
+      td$net1, td$net2, td$comparison,
+      max_permutations = 200L, min_exceedances = 10L
+    ),
+    type = "message"
+  )
+  expect_false(any(grepl("flag-vector", msgs)))
+  expect_equal(res_unset, res_plain)
+})
