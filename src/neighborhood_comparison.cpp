@@ -33,8 +33,11 @@ struct DirectionResult {
     int overlap = 0;
     double pval_con = 1.0;
     double pval_div = 1.0;
-    double pval_gt = 1.0;   // P(X > x), ungated
-    double pval_eq = 0.0;   // P(X = x)
+    double pval_gt = 0.0;   // P(X > x), ungated
+    double pval_eq = 1.0;   // P(X = x); gt = 0, eq = 1 encodes p = 1 with a
+                            // valid randomized-p decomposition (gt + U * eq
+                            // is U at 1), matching compute_direction's
+                            // degenerate m = k = x = 0 case
     double effect_size = 1.0;
     double jaccard = 0.0;
 };
@@ -161,13 +164,15 @@ static Rcpp::DataFrame compare_neighborhoods_core(
         int g2_idx = pair_sp2_idx[p];
 
         if (g1_idx < 0 || g1_idx >= n1 || g2_idx < 0 || g2_idx >= n2) {
+            // unreachable from R (the wrapper filters unmapped genes);
+            // gt = 0, eq = 1 keeps the randomized-p decomposition valid
             sp1_neigh[p] = 0; sp1_ortho_neigh[p] = 0; sp1_overlap[p] = 0;
             sp1_pval[p] = 1.0; sp1_pval_div[p] = 1.0; sp1_effect[p] = 1.0;
-            sp1_pval_gt[p] = 1.0; sp1_pval_eq[p] = 0.0;
+            sp1_pval_gt[p] = 0.0; sp1_pval_eq[p] = 1.0;
             sp1_jaccard[p] = 0.0;
             sp2_neigh[p] = 0; sp2_ortho_neigh[p] = 0; sp2_overlap[p] = 0;
             sp2_pval[p] = 1.0; sp2_pval_div[p] = 1.0; sp2_effect[p] = 1.0;
-            sp2_pval_gt[p] = 1.0; sp2_pval_eq[p] = 0.0;
+            sp2_pval_gt[p] = 0.0; sp2_pval_eq[p] = 1.0;
             sp2_jaccard[p] = 0.0;
             continue;
         }
