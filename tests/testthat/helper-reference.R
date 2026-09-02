@@ -189,6 +189,10 @@ make_cmp_nets <- function() {
 #' 30 genes per species, 1:1 orthologs, 10 HOGs of 3. HOG1 (genes 1-3) hubs
 #' have conserved neighbourhoods; HOG7 (genes 19-21) connect to different
 #' genes in each species (zero overlap); genes 28-30 are isolated.
+#' The HOG1 copies are asymmetric towards HOG6: gene 1 -> gene 16 and
+#' gene 2 -> gene 17 at tier 10, while the cross entries (1, 17) and
+#' (2, 16) stay at the sub-store tier 4 -- a statistic that reads entries
+#' below a copy's own threshold diverges dense vs sparse here.
 make_graded_nets <- function() {
   n <- 30
   build <- function(prefix, far) {
@@ -199,6 +203,8 @@ make_graded_nets <- function() {
       m[g, 10:15] <- m[10:15, g] <- 7    # stored at 5, dropped at 8
       m[g, 16:18] <- m[16:18, g] <- 4    # below the store threshold
     }
+    m[1, 16] <- m[16, 1] <- 10  # copy 1's own HOG6 neighbour
+    m[2, 17] <- m[17, 2] <- 10  # copy 2's own HOG6 neighbour
     for (g in 19:21) {
       m[g, far] <- m[far, g] <- 10
     }

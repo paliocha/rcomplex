@@ -205,6 +205,17 @@ test_that("get_coexpressed_hogs is identical dense vs sparse", {
   r_d <- get_coexpressed_hogs("HOG1", nets_d, ortho, min_species = 2L)
   r_s <- get_coexpressed_hogs("HOG1", nets_s, ortho, min_species = 2L)
   expect_true(nrow(r_d) > 0)
+
+  # asymmetric HOG1 copies (see make_graded_nets()): gene 1 -> gene 16 and
+  # gene 2 -> gene 17 at tier 10, cross entries at the sub-store tier 4.
+  # The per-copy weight must average only edges of the copy's own
+  # neighbourhood (values >= threshold, hence always stored), so HOG6 gets
+  # mean_weight 10 regardless of storage; a union-of-copies mean would read
+  # the tier-4 cross entry from the dense matrix but an implicit 0 from the
+  # dgCMatrix.
+  expect_true("HOG6" %in% r_d$partner_hog)
+  expect_equal(r_d$mean_weight[r_d$partner_hog == "HOG6"], 10)
+  expect_equal(r_s$mean_weight[r_s$partner_hog == "HOG6"], 10)
   expect_equal(r_s, r_d)
 })
 
