@@ -298,6 +298,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// extract_sparse_cpp
+List extract_sparse_cpp(const arma::mat& m, double thr, int n_cores);
+RcppExport SEXP _rcomplex_extract_sparse_cpp(SEXP mSEXP, SEXP thrSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type m(mSEXP);
+    Rcpp::traits::input_parameter< double >::type thr(thrSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(extract_sparse_cpp(m, thr, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_apply_clr_to_cor_cpp", (DL_FUNC) &_rcomplex_apply_clr_to_cor_cpp, 2},
@@ -316,6 +329,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_compare_neighborhoods_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_cpp, 9},
     {"_rcomplex_compare_neighborhoods_sparse_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_sparse_cpp, 13},
     {"_rcomplex_reduce_orthogroups_cpp", (DL_FUNC) &_rcomplex_reduce_orthogroups_cpp, 4},
+    {"_rcomplex_extract_sparse_cpp", (DL_FUNC) &_rcomplex_extract_sparse_cpp, 3},
     {NULL, NULL, 0}
 };
 

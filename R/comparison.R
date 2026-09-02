@@ -571,6 +571,7 @@ density_sweep.default <- function(networks, orthologs,
     net <- networks[[sp]]
     if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
       stop("each network must have 'network' and 'threshold' elements")
+    .net_check(net, net$threshold)
   }
   if (!is.numeric(multipliers) || length(multipliers) == 0L)
     stop("multipliers must be a non-empty numeric vector")
@@ -603,8 +604,17 @@ density_sweep.default <- function(networks, orthologs,
       modifyList(net, list(threshold = net$threshold * m)))
 
     densities <- vapply(tight_nets, function(net) {
-      vals <- net$network[upper.tri(net$network)]
-      mean(vals >= net$threshold)
+      # .net_check() also fires the store guard: a multiplier below the
+      # sparse store errors here instead of silently missing edges
+      mat <- .net_check(net, net$threshold)
+      if (.net_is_sparse(net)) {
+        # both triangles stored, no diagonal (asserted by .net_check)
+        n <- nrow(mat)
+        sum(mat@x >= net$threshold) / (n * (n - 1))
+      } else {
+        vals <- mat[upper.tri(mat)]
+        mean(vals >= net$threshold)
+      }
     }, numeric(1))
     res_eff_density[i] <- mean(densities)
     res_species_densities[[i]] <- densities
@@ -748,6 +758,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
   # For each species, find genes in the network that belong to each HOG
   hog_genes_by_sp <- list()
   for (sp in species) {
+    .net_check(networks[[sp]], networks[[sp]]$threshold)
     net_genes <- rownames(networks[[sp]]$network)
     mapped <- gene_to_hog[intersect(names(gene_to_hog), net_genes)]
     hog_genes_by_sp[[sp]] <- split(names(mapped), mapped)
@@ -768,8 +779,10 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     # Union of neighbors across all candidate genes (multi-copy)
     all_neighbors <- character(0)
     for (cg in candidate_genes) {
-      row_vals <- net_mat[cg, ]
-      nbrs <- names(row_vals[row_vals >= thr])
+      # column access: named numeric for both dense and dgCMatrix networks
+      # (the matrix is symmetric)
+      col_vals <- net_mat[, cg]
+      nbrs <- names(col_vals[col_vals >= thr])
       # Exclude self
       nbrs <- setdiff(nbrs, candidate_genes)
       all_neighbors <- union(all_neighbors, nbrs)
@@ -787,7 +800,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     weights <- vapply(partner_hogs, function(ph) {
       ph_genes <- nbr_by_hog[[ph]]
       max(vapply(candidate_genes, function(cg) {
-        mean(net_mat[cg, ph_genes])
+        mean(net_mat[ph_genes, cg])
       }, numeric(1)))
     }, numeric(1))
 

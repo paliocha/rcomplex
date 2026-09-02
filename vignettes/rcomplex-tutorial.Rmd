@@ -450,6 +450,12 @@ around it reveals sensitivity to that choice -- a truly robust
 co-expressolog should be present across a range of densities, not
 just at one particular cutoff.
 
+Since networks are stored sparsely (v0.2.0), the loosest multiplier
+must stay within the stored edge superset: the default
+`store_density = 0.05` in `compute_network()` covers this 0.5x--1.5x
+sweep (max effective density ~4.5%), and the sweep errors if a
+multiplier falls below the store.
+
 The permutation pipeline is re-run at each level because network
 neighborhoods change with the threshold, altering the HOG-level
 q-values:

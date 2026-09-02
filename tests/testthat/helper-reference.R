@@ -170,8 +170,8 @@ make_cmp_nets <- function() {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
 
   ortho <- data.frame(
     Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),

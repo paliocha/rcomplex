@@ -3,7 +3,7 @@ test_that("compute_network returns correct structure", {
   expr <- matrix(rnorm(100), nrow = 10, ncol = 10)
   rownames(expr) <- paste0("gene", 1:10)
 
-  result <- compute_network(expr, density = 0.1)
+  result <- compute_network(expr, density = 0.1, sparse = FALSE)
 
   expect_type(result, "list")
   expect_named(result, c(
@@ -22,7 +22,7 @@ test_that("network is symmetric with zero diagonal", {
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
-  result <- compute_network(expr, density = 0.05)
+  result <- compute_network(expr, density = 0.05, sparse = FALSE)
 
   expect_equal(result$network, t(result$network))
   expect_equal(unname(diag(result$network)), rep(0, 20))
@@ -34,7 +34,7 @@ test_that("MR log_transform produces values in [0,1]", {
   rownames(expr) <- paste0("gene", 1:20)
 
   result <- compute_network(expr, norm_method = "MR",
-                            mr_log_transform = TRUE, density = 0.05)
+                            mr_log_transform = TRUE, density = 0.05, sparse = FALSE)
   vals <- result$network[upper.tri(result$network)]
   expect_true(all(vals >= 0))
   expect_true(all(vals <= 1))
@@ -48,7 +48,7 @@ test_that("MR raw mode matches R reference", {
   # Compute via package (raw MR mode)
   result <- compute_network(expr, cor_method = "pearson",
                             norm_method = "MR", mr_log_transform = FALSE,
-                            density = 0.05)
+                            density = 0.05, sparse = FALSE)
 
   # Compute via R reference
   cor_mat <- cor(t(expr), method = "pearson")
@@ -64,7 +64,7 @@ test_that("CLR normalization produces non-negative values", {
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
-  result <- compute_network(expr, norm_method = "CLR", density = 0.05)
+  result <- compute_network(expr, norm_method = "CLR", density = 0.05, sparse = FALSE)
   vals <- result$network[upper.tri(result$network)]
   expect_true(all(vals >= 0))
 })
@@ -75,7 +75,7 @@ test_that("CLR matches R reference", {
   rownames(expr) <- paste0("gene", 1:20)
 
   result <- compute_network(expr, cor_method = "pearson",
-                            norm_method = "CLR", density = 0.05)
+                            norm_method = "CLR", density = 0.05, sparse = FALSE)
 
   cor_mat <- cor(t(expr), method = "pearson")
   ref_net <- reference_clr(cor_mat)
@@ -89,7 +89,7 @@ test_that("density threshold is in valid range", {
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
-  result <- compute_network(expr, density = 0.05)
+  result <- compute_network(expr, density = 0.05, sparse = FALSE)
   vals <- result$network[upper.tri(result$network)]
 
   expect_true(result$threshold >= min(vals))
@@ -102,7 +102,7 @@ test_that("density threshold matches R reference", {
   rownames(expr) <- paste0("gene", 1:20)
 
   result <- compute_network(expr, norm_method = "MR",
-                            mr_log_transform = FALSE, density = 0.05)
+                            mr_log_transform = FALSE, density = 0.05, sparse = FALSE)
 
   ref_thr <- reference_density_threshold(result$network, 0.05)
 
@@ -114,7 +114,7 @@ test_that("spearman correlation method works", {
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
-  result <- compute_network(expr, cor_method = "spearman", density = 0.05)
+  result <- compute_network(expr, cor_method = "spearman", density = 0.05, sparse = FALSE)
   expect_true(is.matrix(result$network))
   expect_equal(result$params$cor_method, "spearman")
 })
@@ -124,7 +124,7 @@ test_that("abs_cor option works", {
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
-  result <- compute_network(expr, abs_cor = TRUE, density = 0.05)
+  result <- compute_network(expr, abs_cor = TRUE, density = 0.05, sparse = FALSE)
   expect_true(result$params$abs_cor)
 })
 
@@ -225,9 +225,9 @@ test_that("torch backend matches Rfast (Pearson)", {
   rownames(expr) <- paste0("gene", 1:20)
 
   rfast_result <- compute_network(expr, cor_method = "pearson",
-                                  density = 0.05, use_torch = FALSE)
+                                  density = 0.05, use_torch = FALSE, sparse = FALSE)
   torch_result <- compute_network(expr, cor_method = "pearson",
-                                  density = 0.05, use_torch = TRUE)
+                                  density = 0.05, use_torch = TRUE, sparse = FALSE)
 
   expect_equal(torch_result$network, rfast_result$network, tolerance = 1e-10)
   expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = 1e-10)
@@ -242,9 +242,9 @@ test_that("torch backend matches Rfast (Spearman)", {
   rownames(expr) <- paste0("gene", 1:20)
 
   rfast_result <- compute_network(expr, cor_method = "spearman",
-                                  density = 0.05, use_torch = FALSE)
+                                  density = 0.05, use_torch = FALSE, sparse = FALSE)
   torch_result <- compute_network(expr, cor_method = "spearman",
-                                  density = 0.05, use_torch = TRUE)
+                                  density = 0.05, use_torch = TRUE, sparse = FALSE)
 
   # MPS (Apple Silicon) uses float32. Spearman correlations have ~1e-7
   # per-element error, but MR normalization is rank-based: swapping two
@@ -324,7 +324,7 @@ test_that("compute_network abs_cor MR matches R reference on |cor|", {
 
   result <- compute_network(expr, cor_method = "pearson",
                             norm_method = "MR", abs_cor = TRUE,
-                            density = 0.05)
+                            density = 0.05, sparse = FALSE)
   ref_net <- reference_mr_raw(abs(cor(t(expr), method = "pearson")))
 
   expect_equal(result$network, ref_net, tolerance = 1e-10,

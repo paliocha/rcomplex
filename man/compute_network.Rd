@@ -16,6 +16,8 @@ compute_network(x, ...)
   abs_cor = FALSE,
   mr_log_transform = FALSE,
   min_var = 0,
+  sparse = TRUE,
+  store_density = NULL,
   n_cores = 1L,
   use_torch = FALSE
 )
@@ -49,6 +51,18 @@ only constant genes (zero variance). Set to a positive value (e.g. \code{1e-3})
 to also remove near-invariant genes that produce noisy correlations.
 Set to \code{NULL} to disable filtering entirely.}
 
+\item{sparse}{If \code{TRUE} (default), return the network as a sparse
+\code{Matrix::dgCMatrix} holding both triangles of the thresholded
+co-expression matrix (entries below \code{store_threshold} are discarded;
+the dense n x n matrix never leaves this function). If \code{FALSE},
+return the dense matrix as in rcomplex < 0.2.0.}
+
+\item{store_density}{Fraction of top edges to keep in the sparse store
+(default \code{NULL} = \code{max(density, 0.05)}). Must satisfy
+\verb{density <= store_density < 1}; the margin above \code{density} lets
+downstream sweeps loosen the threshold (e.g. \code{\link[=density_sweep]{density_sweep()}})
+without recomputing the network. Only valid with \code{sparse = TRUE}.}
+
 \item{n_cores}{Number of threads for parallel computation (default 1).}
 
 \item{use_torch}{If \code{TRUE}, use torch for GPU-accelerated correlation
@@ -69,12 +83,20 @@ SummarizedExperiment (default 1). Requires the
 A list with components:
 \describe{
 \item{network}{Named symmetric matrix (genes x genes) with normalized
-co-expression values. Diagonal is set to 0.}
-\item{threshold}{The co-expression threshold at the given density.}
+co-expression values. A \code{dgCMatrix} storing both triangles of the
+entries at or above \code{store_threshold} (diagonal absent) when
+\code{sparse = TRUE}; a dense matrix with zero diagonal when
+\code{sparse = FALSE}.}
+\item{threshold}{The co-expression threshold at the given density
+(computed from the full dense matrix in either mode).}
 \item{n_genes}{Number of genes in the network.}
 \item{n_removed}{Number of genes removed by variance filter (0 if
 \code{min_var} is \code{NULL}).}
 \item{params}{List of parameters used.}
+\item{store_density, store_threshold}{Sparse networks only: the
+stored edge fraction and the value cutoff of the store. Analyses
+at thresholds below \code{store_threshold} are refused (see
+\code{\link[=as_sparse_network]{as_sparse_network()}}).}
 }
 }
 \description{
@@ -83,6 +105,17 @@ and determines a density-based co-expression threshold. Accepts either
 a numeric matrix or a
 \code{\link[SummarizedExperiment]{SummarizedExperiment}}.
 }
+\section{Gene universe}{
+
+Networks are built on all supplied genes and downstream tests use the
+whole network as the hypergeometric population (Netotea et al. 2014).
+The canonical ComPlEx implementations restrict the expression tables to
+genes with an ortholog before building the networks, which changes
+neighbourhoods, thresholds and calls; rcomplex reproduces them only when
+the expression matrices are restricted the same way first (see
+\code{\link[=compare_neighborhoods]{compare_neighborhoods()}}).
+}
+
 \examples{
 \dontrun{
 # From a matrix:

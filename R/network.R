@@ -119,6 +119,16 @@ cor_rfast <- function(x, method = "pearson") {
 #'   only constant genes (zero variance). Set to a positive value (e.g. `1e-3`)
 #'   to also remove near-invariant genes that produce noisy correlations.
 #'   Set to `NULL` to disable filtering entirely.
+#' @param sparse If `TRUE` (default), return the network as a sparse
+#'   `Matrix::dgCMatrix` holding both triangles of the thresholded
+#'   co-expression matrix (entries below `store_threshold` are discarded;
+#'   the dense n x n matrix never leaves this function). If `FALSE`,
+#'   return the dense matrix as in rcomplex < 0.2.0.
+#' @param store_density Fraction of top edges to keep in the sparse store
+#'   (default `NULL` = `max(density, 0.05)`). Must satisfy
+#'   `density <= store_density < 1`; the margin above `density` lets
+#'   downstream sweeps loosen the threshold (e.g. [density_sweep()])
+#'   without recomputing the network. Only valid with `sparse = TRUE`.
 #' @param n_cores Number of threads for parallel computation (default 1).
 #' @param use_torch If `TRUE`, use torch for GPU-accelerated correlation
 #'   (CUDA, MPS, or CPU fallback). Requires the
@@ -133,13 +143,30 @@ cor_rfast <- function(x, method = "pearson") {
 #' @return A list with components:
 #'   \describe{
 #'     \item{network}{Named symmetric matrix (genes x genes) with normalized
-#'       co-expression values. Diagonal is set to 0.}
-#'     \item{threshold}{The co-expression threshold at the given density.}
+#'       co-expression values. A `dgCMatrix` storing both triangles of the
+#'       entries at or above `store_threshold` (diagonal absent) when
+#'       `sparse = TRUE`; a dense matrix with zero diagonal when
+#'       `sparse = FALSE`.}
+#'     \item{threshold}{The co-expression threshold at the given density
+#'       (computed from the full dense matrix in either mode).}
 #'     \item{n_genes}{Number of genes in the network.}
 #'     \item{n_removed}{Number of genes removed by variance filter (0 if
 #'       `min_var` is `NULL`).}
 #'     \item{params}{List of parameters used.}
+#'     \item{store_density, store_threshold}{Sparse networks only: the
+#'       stored edge fraction and the value cutoff of the store. Analyses
+#'       at thresholds below `store_threshold` are refused (see
+#'       [as_sparse_network()]).}
 #'   }
+#'
+#' @section Gene universe:
+#' Networks are built on all supplied genes and downstream tests use the
+#' whole network as the hypergeometric population (Netotea et al. 2014).
+#' The canonical ComPlEx implementations restrict the expression tables to
+#' genes with an ortholog before building the networks, which changes
+#' neighbourhoods, thresholds and calls; rcomplex reproduces them only when
+#' the expression matrices are restricted the same way first (see
+#' [compare_neighborhoods()]).
 #'
 #' @examples
 #' \dontrun{
@@ -164,6 +191,8 @@ setMethod("compute_network", "matrix", function(x,
                             abs_cor = FALSE,
                             mr_log_transform = FALSE,
                             min_var = 0,
+                            sparse = TRUE,
+                            store_density = NULL,
                             n_cores = 1L,
                             use_torch = FALSE) {
   cor_method <- match.arg(cor_method)
@@ -173,6 +202,18 @@ setMethod("compute_network", "matrix", function(x,
   }
   if (density <= 0 || density >= 1) {
     stop("density must be between 0 and 1 (exclusive)")
+  }
+  if (sparse) {
+    if (is.null(store_density)) {
+      store_density <- max(density, 0.05)
+    }
+    if (!is.numeric(store_density) || length(store_density) != 1L ||
+        store_density < density || store_density >= 1) {
+      stop("store_density must satisfy density <= store_density < 1 (got ",
+           store_density, " with density = ", density, ")")
+    }
+  } else if (!is.null(store_density)) {
+    stop("store_density requires sparse = TRUE")
   }
   if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
     stop("use_torch = TRUE requires the torch package ",
@@ -227,22 +268,47 @@ setMethod("compute_network", "matrix", function(x,
   # Assign gene names
   dimnames(net) <- list(gene_names, gene_names)
 
-  # Compute density threshold
+  # Compute density threshold (always from the full dense matrix)
   thr <- density_threshold_cpp(net, density)
 
+  params <- list(
+    cor_method = cor_method,
+    norm_method = norm_method,
+    density = density,
+    abs_cor = abs_cor,
+    mr_log_transform = mr_log_transform,
+    min_var = min_var
+  )
+
+  if (!sparse) {
+    return(list(
+      network = net,
+      threshold = thr,
+      n_genes = n_genes,
+      n_removed = n_removed,
+      params = params
+    ))
+  }
+
+  # Sparse store: threshold the dense matrix at store_density, repack the
+  # surviving entries as dgCMatrix slots, and free the dense matrix. Field
+  # order matches as_sparse_network() so both constructions are identical.
+  store_thr <- density_threshold_cpp(net, store_density)
+  slots <- extract_sparse_cpp(net, store_thr, n_cores)
+  rm(net)
+  spnet <- methods::new(
+    "dgCMatrix", i = slots$i, p = slots$p, x = slots$x,
+    Dim = c(n_genes, n_genes),
+    Dimnames = list(gene_names, gene_names)
+  )
   list(
-    network = net,
+    network = spnet,
     threshold = thr,
     n_genes = n_genes,
     n_removed = n_removed,
-    params = list(
-      cor_method = cor_method,
-      norm_method = norm_method,
-      density = density,
-      abs_cor = abs_cor,
-      mr_log_transform = mr_log_transform,
-      min_var = min_var
-    )
+    params = c(params, list(store_density = store_density)),
+    store_density = store_density,
+    store_threshold = store_thr
   )
 })
 

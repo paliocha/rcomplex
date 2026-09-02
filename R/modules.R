@@ -153,15 +153,24 @@ detect_modules.default <- function(net,
     stop("net must be a network object from compute_network()")
   }
 
-  mat <- net$network
+  mat <- .net_check(net, net$threshold)
   thr <- net$threshold
   genes <- rownames(mat)
 
-  # Build thresholded adjacency
-  adj <- mat
-  adj[adj < thr] <- 0
+  # Build thresholded adjacency (sparse stays sparse; igraph accepts a
+  # dgCMatrix directly)
+  if (.net_is_sparse(net)) {
+    adj <- mat
+    adj@x[adj@x < thr] <- 0
+    adj <- Matrix::drop0(adj)
+    has_edges <- length(adj@x) > 0L
+  } else {
+    adj <- mat
+    adj[adj < thr] <- 0
+    has_edges <- any(adj[upper.tri(adj)] > 0)
+  }
 
-  if (!any(adj[upper.tri(adj)] > 0)) {
+  if (!has_edges) {
     stop("No edges above threshold; cannot detect modules")
   }
 
@@ -171,6 +180,11 @@ detect_modules.default <- function(net,
     if (!requireNamespace("sbm", quietly = TRUE)) {
       stop("Package 'sbm' is required for method = \"sbm\". ",
            "Install it with install.packages(\"sbm\")")
+    }
+
+    if (.net_is_sparse(net)) {
+      warning("SBM requires a dense matrix; densifying")
+      adj <- as.matrix(adj)
     }
 
     fit <- sbm::estimateSimpleSBM(
@@ -263,14 +277,23 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     stop("net must be a network object from compute_network()")
   }
 
-  genes <- rownames(net$network)
+  mat <- .net_check(net, net$threshold)
+  genes <- rownames(mat)
   n_genes <- length(genes)
 
-  # Build thresholded adjacency
-  adj <- net$network
-  adj[adj < net$threshold] <- 0
+  # Build thresholded adjacency (sparse stays sparse)
+  if (.net_is_sparse(net)) {
+    adj <- mat
+    adj@x[adj@x < net$threshold] <- 0
+    adj <- Matrix::drop0(adj)
+    has_edges <- length(adj@x) > 0L
+  } else {
+    adj <- mat
+    adj[adj < net$threshold] <- 0
+    has_edges <- any(adj[upper.tri(adj)] > 0)
+  }
 
-  if (!any(adj[upper.tri(adj)] > 0)) {
+  if (!has_edges) {
     stop("No edges above threshold; cannot detect modules")
   }
 
@@ -1511,6 +1534,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   if (!is.list(net) || is.null(net$network)) {
     stop("net must be output from compute_network()")
   }
+  .net_check(net, net$threshold)
   if (!is.null(top_n)) {
     top_n <- as.integer(top_n)
     if (top_n < 1L) stop("top_n must be >= 1")

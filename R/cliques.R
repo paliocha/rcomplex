@@ -606,7 +606,8 @@ clique_stability.default <- function(edges, target_species,
 #'   \code{cliques} and names in \code{networks}.
 #' @param networks Named list of \code{\link{compute_network}} outputs
 #'   keyed by species abbreviation. Each element must have \code{$network}
-#'   (named numeric matrix) and \code{$threshold} (scalar).
+#'   (named numeric matrix or \code{dgCMatrix}) and \code{$threshold}
+#'   (scalar).
 #' @param edges Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2} (same format as
 #'   \code{\link{find_cliques}} input). Used solely as the ortholog
@@ -650,6 +651,9 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
   if (length(missing_net) > 0) {
     stop("networks missing entries for species: ",
          paste(missing_net, collapse = ", "))
+  }
+  for (sp in target_species) {
+    .net_check(networks[[sp]], networks[[sp]]$threshold)
   }
   ortho_cols <- c("gene1", "gene2", "species1", "species2")
   missing_cols <- setdiff(ortho_cols, names(edges))
@@ -706,12 +710,15 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
         thr_b <- networks[[sp_b]]$threshold
         if (!g_a %in% rownames(net_a) || !g_b %in% rownames(net_b)) next
 
-        # Neighbours (excluding self)
-        mr_a <- net_a[g_a, colnames(net_a) != g_a]
+        # Neighbours (excluding self); column access returns a named
+        # numeric vector for both dense and dgCMatrix networks
+        mr_a <- net_a[, g_a]
+        mr_a <- mr_a[names(mr_a) != g_a]
         neigh_a <- names(mr_a[mr_a >= thr_a])
         if (length(neigh_a) == 0L) next
 
-        mr_b <- net_b[g_b, colnames(net_b) != g_b]
+        mr_b <- net_b[, g_b]
+        mr_b <- mr_b[names(mr_b) != g_b]
         neigh_b <- names(mr_b[mr_b >= thr_b])
         if (length(neigh_b) == 0L) next
 
@@ -853,6 +860,9 @@ clique_threshold_sweep <- function(
     stop("networks missing entries for: ",
          paste(missing_net, collapse = ", "))
   }
+  for (sp in target_species) {
+    .net_check(networks[[sp]], networks[[sp]]$threshold)
+  }
   if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
     stop("orthologs must have columns: Species1, Species2, hog")
   }
@@ -884,9 +894,10 @@ clique_threshold_sweep <- function(
     m_key <- as.character(m)
     message("Threshold sweep: multiplier ", m)
 
-    # Re-threshold all networks (shallow copy, R COW avoids matrix dup)
+    # Re-threshold all networks (shallow copy, R COW avoids matrix dup;
+    # modifyList carries store_threshold etc. so the sparse guard works)
     tight_nets <- lapply(networks[target_species], function(net) {
-      list(network = net$network, threshold = net$threshold * m)
+      modifyList(net, list(threshold = net$threshold * m))
     })
     names(tight_nets) <- target_species
 
@@ -1087,6 +1098,12 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' baseline cliques survive. This tests robustness to measurement noise
 #' without recomputing correlations from scratch.
 #'
+#' For sparse networks only the stored entries are perturbed: edges
+#' discarded below the store threshold can never be promoted back above
+#' the analysis threshold, and the RNG stream differs from the dense path
+#' (one draw per stored entry instead of one per upper-triangle cell), so
+#' seeded results are not comparable between the two storage classes.
+#'
 #' @param cliques Output from \code{\link{find_cliques}}.
 #' @param target_species Character vector of target species names.
 #' @param networks Named list of network objects (each with \code{$network}
@@ -1192,6 +1209,7 @@ clique_perturbation_test.default <- function(
     net <- networks[[sp]]
     if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
       stop("each network must have 'network' and 'threshold' elements")
+    .net_check(net, net$threshold)
   }
   if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
     stop("orthologs must have columns: Species1, Species2, hog")
@@ -1217,17 +1235,24 @@ clique_perturbation_test.default <- function(
     # 1. Perturb each species network
     perturbed_networks <- networks
     for (sp in target_species) {
-      net_mat <- networks[[sp]]$network
-      n <- nrow(net_mat)
-      perturbed <- net_mat
-      ut <- which(upper.tri(perturbed))
-      perturbed[ut] <- perturbed[ut] + stats::rnorm(length(ut), 0, noise_sd)
-      perturbed[lower.tri(perturbed)] <- t(perturbed)[lower.tri(perturbed)]
-      perturbed[perturbed < 0] <- 0
-      perturbed_networks[[sp]] <- list(
-        network = perturbed,
-        threshold = networks[[sp]]$threshold
-      )
+      net <- networks[[sp]]
+      if (.net_is_sparse(net)) {
+        # Perturb the stored entries only: edges discarded below the store
+        # threshold can never be promoted back. One rnorm draw per stored
+        # upper-triangle entry, so the RNG stream differs from the dense
+        # path (one draw per upper-triangle cell).
+        u <- Matrix::triu(net$network)
+        u@x <- pmax(0, u@x + stats::rnorm(length(u@x), 0, noise_sd))
+        perturbed <- methods::as(u + Matrix::t(u), "generalMatrix")
+      } else {
+        perturbed <- net$network
+        ut <- which(upper.tri(perturbed))
+        perturbed[ut] <- perturbed[ut] +
+          stats::rnorm(length(ut), 0, noise_sd)
+        perturbed[lower.tri(perturbed)] <- t(perturbed)[lower.tri(perturbed)]
+        perturbed[perturbed < 0] <- 0
+      }
+      perturbed_networks[[sp]] <- modifyList(net, list(network = perturbed))
     }
 
     # 2. Re-run comparison pipeline (analytical = fast)
@@ -1398,6 +1423,7 @@ clique_intensity_test.default <- function(
     net <- networks[[sp]]
     if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
       stop("each network must have 'network' and 'threshold' elements")
+    .net_check(net, net$threshold)
   }
   if (!all(c("Species1", "Species2", "hog") %in% names(orthologs)))
     stop("orthologs must have columns: Species1, Species2, hog")

@@ -35,8 +35,8 @@ load_complex_py <- function() {
   x1 <- x1[rownames(x1) %in% ortho$Species1, ]
   x2 <- x2[rownames(x2) %in% ortho$Species2, ]
   list(ortho = ortho, expected = expected,
-       n1 = compute_network(x1, density = 0.03),
-       n2 = compute_network(x2, density = 0.03))
+       n1 = compute_network(x1, density = 0.03, sparse = FALSE),
+       n2 = compute_network(x2, density = 0.03, sparse = FALSE))
 }
 
 test_that("density thresholds are stable and match pure-R reference", {

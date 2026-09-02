@@ -5,8 +5,8 @@ test_that("compare_neighborhoods returns correct structure", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -37,8 +37,8 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -75,8 +75,8 @@ test_that("C++ comparison matches R reference", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -264,8 +264,8 @@ test_that("multicopy orthologs handled correctly", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
 
   # 1:N mapping: A_001 maps to B_001 and B_031
   ortho <- data.frame(
@@ -289,8 +289,8 @@ test_that("orthologs not in network are filtered", {
   expr2 <- matrix(rnorm(80), nrow = 8, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:8))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
 
   # Include orthologs that aren't in the networks
   ortho <- data.frame(
@@ -586,8 +586,8 @@ test_that("run_pairwise_comparisons returns combined edges for 2 species", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -613,7 +613,7 @@ test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
   make_net <- function(prefix, n = 30) {
     expr <- matrix(rnorm(n * 10), nrow = n)
     rownames(expr) <- paste0(prefix, "_", sprintf("%03d", seq_len(n)))
-    compute_network(expr, density = 0.1, mr_log_transform = FALSE)
+    compute_network(expr, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
   }
 
   nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
@@ -660,7 +660,7 @@ test_that("run_pairwise_comparisons with custom species_pairs", {
   make_net <- function(prefix, n = 30) {
     expr <- matrix(rnorm(n * 10), nrow = n)
     rownames(expr) <- paste0(prefix, "_", sprintf("%03d", seq_len(n)))
-    compute_network(expr, density = 0.1, mr_log_transform = FALSE)
+    compute_network(expr, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
   }
 
   nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
@@ -691,8 +691,8 @@ make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
   expr2 <- matrix(rnorm(n2 * 10), nrow = n2, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", seq_len(n2)))
 
-  net1 <- compute_network(expr1, density = density, mr_log_transform = FALSE)
-  net2 <- compute_network(expr2, density = density, mr_log_transform = FALSE)
+  net1 <- compute_network(expr1, density = density, mr_log_transform = FALSE, sparse = FALSE)
+  net2 <- compute_network(expr2, density = density, mr_log_transform = FALSE, sparse = FALSE)
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),

@@ -350,3 +350,20 @@ reduce_orthogroups_cpp <- function(expr, hog_members, non_hog_idx, cor_threshold
     .Call(`_rcomplex_reduce_orthogroups_cpp`, expr, hog_members, non_hog_idx, cor_threshold)
 }
 
+#' Extract dgCMatrix slots from a dense matrix at a store threshold
+#'
+#' Keeps the off-diagonal entries `>= thr` of both triangles and returns
+#' the column-compressed slots of the corresponding `dgCMatrix`: 0-based
+#' row indices `i` (ascending within each column), column pointers `p`
+#' (length n + 1) and values `x`.
+#'
+#' @param m Dense numeric matrix (n x n)
+#' @param thr Store threshold; entries below it are discarded
+#' @param n_cores Number of threads for parallel computation (default 1)
+#' @return List with integer vectors `i` and `p` and numeric vector `x`
+#'
+#' @keywords internal
+extract_sparse_cpp <- function(m, thr, n_cores = 1L) {
+    .Call(`_rcomplex_extract_sparse_cpp`, m, thr, n_cores)
+}
+

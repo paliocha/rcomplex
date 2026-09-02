@@ -91,6 +91,13 @@ re-runs the comparison-to-cliques pipeline, and measures how often
 baseline cliques survive. This tests robustness to measurement noise
 without recomputing correlations from scratch.
 }
+\details{
+For sparse networks only the stored entries are perturbed: edges
+discarded below the store threshold can never be promoted back above
+the analysis threshold, and the RNG stream differs from the dense path
+(one draw per stored entry instead of one per upper-triangle cell), so
+seeded results are not comparable between the two storage classes.
+}
 \examples{
 \dontrun{
 pert <- clique_perturbation_test(cliques, target_species, networks,

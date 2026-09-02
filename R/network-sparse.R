@@ -18,7 +18,9 @@
 #' (e.g. the `dsCMatrix` returned by `Matrix::Matrix(m, sparse = TRUE)` for
 #' symmetric input) is rejected. A sparse network must be square with
 #' identical, non-NULL row and column names (column j = neighbours of gene
-#' j; the R wrappers map gene names to indices through the row names).
+#' j; the R wrappers map gene names to indices through the row names) and
+#' must not store diagonal entries (the sparse effective-density formula
+#' counts every stored entry).
 #' Analysing at a threshold below what the store holds would silently miss
 #' discarded edges, so that is an error: against `store_threshold` when the
 #' network carries one, otherwise against the smallest stored value
@@ -39,6 +41,16 @@
     if (is.null(dn[[1L]]) || is.null(dn[[2L]]) ||
         !identical(dn[[1L]], dn[[2L]])) {
       stop("network must have identical, non-NULL row and column names; ",
+           "see as_sparse_network()")
+    }
+    dp <- diff(m@p)
+    if (length(m@x) > 0L && length(dp) == ncol(m) && all(dp >= 0L) &&
+        m@p[1L] == 0L && m@p[length(m@p)] == length(m@i) &&
+        length(m@i) == length(m@x) &&
+        any(m@i == rep.int(seq_len(ncol(m)) - 1L, dp))) {
+      # malformed slots skip this check and fall through to the C++
+      # validator in neighbor_lists_sparse() (canonical error messages)
+      stop("network must not store diagonal entries; ",
            "see as_sparse_network()")
     }
     if (!is.null(net$store_threshold)) {
@@ -117,4 +129,85 @@ dense_to_dgc <- function(m, thr) {
     i = ij[, 1L], j = ij[, 2L], x = m[ij],
     dims = dim(m), dimnames = dimnames(m)
   )
+}
+
+
+#' Convert a dense network object to the sparse representation
+#'
+#' Thresholds the dense co-expression matrix at the `store_density`
+#' quantile and repacks the surviving off-diagonal entries (both
+#' triangles) as a `Matrix::dgCMatrix`, exactly as
+#' `compute_network(sparse = TRUE)` does. All other fields of `net` are
+#' carried over; `store_density`, `store_threshold` and
+#' `params$store_density` are added. Values below `store_threshold` are
+#' discarded, so downstream analyses at a threshold below it are refused.
+#'
+#' @param net Dense network object: output of
+#'   `compute_network(sparse = FALSE)`, or a hand-built
+#'   `list(network = <matrix>, threshold = )` with gene dimnames.
+#' @param store_density Fraction of top edges to keep in the store
+#'   (default 0.05). Must be in (0, 1) and, when the network records its
+#'   density in `params$density`, at least that density (the store must
+#'   contain every analysis edge).
+#' @return The network object with `network` as a `dgCMatrix` plus
+#'   `store_density` and `store_threshold` fields.
+#'
+#' @examples
+#' \dontrun{
+#' net <- compute_network(x, density = 0.03, sparse = FALSE)
+#' net_sparse <- as_sparse_network(net, store_density = 0.05)
+#' }
+#'
+#' @export
+as_sparse_network <- function(net, store_density = 0.05) {
+  if (!is.list(net) || is.null(net$network) || is.null(net$threshold)) {
+    stop("net must be a network object from compute_network()")
+  }
+  if (.net_is_sparse(net)) {
+    stop("net is already sparse")
+  }
+  m <- net$network
+  if (!is.matrix(m) || !is.numeric(m)) {
+    stop("network must be a dense numeric matrix; got ",
+         paste(class(m), collapse = "/"))
+  }
+  if (nrow(m) != ncol(m) || is.null(rownames(m))) {
+    stop("network must be a square matrix with gene names")
+  }
+  if (!is.numeric(store_density) || length(store_density) != 1L ||
+      store_density <= 0 || store_density >= 1) {
+    stop("store_density must be a single number in (0, 1) (exclusive)")
+  }
+  d <- net$params$density
+  if (!is.null(d) && store_density < d) {
+    stop("store_density (", store_density, ") must be >= the network's ",
+         "density (", d, "); the store must contain every analysis edge")
+  }
+
+  store_thr <- density_threshold_cpp(m, store_density)
+  slots <- extract_sparse_cpp(m, store_thr, 1L)
+  spnet <- methods::new(
+    "dgCMatrix", i = slots$i, p = slots$p, x = slots$x,
+    Dim = dim(m), Dimnames = dimnames(m)
+  )
+  modifyList(net, list(
+    network = spnet,
+    params = c(net$params, list(store_density = store_density)),
+    store_density = store_density,
+    store_threshold = store_thr
+  ))
+}
+
+
+#' One-line storage description of a network object (for print methods)
+#' @noRd
+.net_describe <- function(net) {
+  if (.net_is_sparse(net)) {
+    paste0("dgCMatrix, ", length(net$network@x), " stored entries",
+           if (!is.null(net$store_density)) {
+             paste0(", store_density = ", net$store_density)
+           })
+  } else {
+    paste0("dense matrix, ", nrow(net$network), " x ", ncol(net$network))
+  }
 }
