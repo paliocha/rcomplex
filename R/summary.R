@@ -19,7 +19,9 @@
 #'
 #' @param pvals Numeric vector of p-values.
 #' @param p_rand_fn Function of no arguments returning one draw of
-#'   randomized p-values (same length as `pvals`). Required for
+#'   randomized p-values. Need not match the length of `pvals`: pi0 is
+#'   estimated on the draws and applied to `pvals` (e.g. draws over an
+#'   unfiltered superset of the tested rows). Required for
 #'   `pi0_method = "randomized"`, ignored otherwise.
 #' @param pi0_method `"randomized"` (default), `"storey"` or `"none"`.
 #' @param B Number of randomized draws averaged for pi0 (default 20).
@@ -93,7 +95,12 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' `P(X < x) + U * P(X = x)` for `alternative = "less"`), which are exactly
 #' uniform under the null for any \eqn{(m, k, N)} (Dickhaus et al. 2012),
 #' averaged over `B` draws of `U`, and applied to the exact p-values via
-#' `qvalue::qvalue(p, pi0 = pi0)`. The columns `Species*.p.val.gt` /
+#' `qvalue::qvalue(p, pi0 = pi0)`. The randomized draws run over ALL rows
+#' of `comparison`, before the `filter_zero` filter: uniformity holds only
+#' unconditionally, so pi0 refers to the full ortholog-pair set
+#' (conditioning the draw on overlap > 0 truncates the null distribution
+#' and deflates pi0), while the q-values themselves are computed on the
+#' filtered rows. The columns `Species*.p.val.gt` /
 #' `.p.val.eq` from [compare_neighborhoods()] supply the two terms.
 #' `"storey"` estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
 #' `"none"` fixes pi0 = 1 (BH). The randomized estimate uses the global
@@ -129,6 +136,8 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'     \item{summary}{List of summary statistics at gene-pair, gene, and
 #'       ortholog-group levels, thresholded on q-values, plus `pi0`, the
 #'       estimated null proportion per direction (`c(sp1 = , sp2 = )`;
+#'       for `pi0_method = "randomized"` it is estimated from the
+#'       unfiltered comparison rows, i.e. the full ortholog-pair set;
 #'       `NA` when fewer than 2 rows remain).}
 #'     \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
 #'       Edge-format data frame from \code{comparison_to_edges()}.}
@@ -237,15 +246,20 @@ summarize_comparison <- function(comparison,
   # Compute q-values on selected p-value columns. Randomized p-value for
   # pi0: upper tail P(X > x) + U * P(X = x), or lower tail
   # P(X < x) + U * P(X = x) = (p.val.div - p.val.eq) + U * p.val.eq.
+  # The draw runs over the UNFILTERED comparison rows: uniformity under
+  # H0 holds only unconditionally, and conditioning on overlap > 0
+  # (filter_zero) truncates the null to [0, P(X > 0)) and deflates pi0
+  # (anti-conservative q-values). pi0 therefore refers to the full
+  # ortholog-pair set; the q-values are computed on the filtered rows.
   q1_col <- sub("p\\.val", "q.val", sp1_col)
   q2_col <- sub("p\\.val", "q.val", sp2_col)
   rand_fn <- function(sp) {
     if (pi0_method != "randomized") return(NULL)
-    eq <- res[[paste0(sp, ".p.val.eq")]]
+    eq <- comparison[[paste0(sp, ".p.val.eq")]]
     base <- if (alternative == "greater") {
-      res[[paste0(sp, ".p.val.gt")]]
+      comparison[[paste0(sp, ".p.val.gt")]]
     } else {
-      res[[paste0(sp, ".p.val.div")]] - eq
+      comparison[[paste0(sp, ".p.val.div")]] - eq
     }
     function() base + stats::runif(length(base)) * eq
   }
