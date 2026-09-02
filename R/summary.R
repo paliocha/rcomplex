@@ -117,8 +117,9 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   Benjamini-Hochberg).
 #' @param B Number of randomized-p draws averaged for pi0 (default 20).
 #' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
-#'   \code{sp1} and \code{sp2} are given: \code{"min"} (default) or
-#'   \code{"max"}.
+#'   \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+#'   directions significant -- the reciprocal criterion of Netotea et
+#'   al. (2014)) or \code{"min"} (either direction).
 #'
 #' @return A list with components:
 #'   \describe{
@@ -162,7 +163,7 @@ summarize_comparison <- function(comparison,
                                  pi0_method = c("randomized", "storey",
                                                 "none"),
                                  B = 20L,
-                                 pval_combine = c("min", "max")) {
+                                 pval_combine = c("max", "min")) {
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)

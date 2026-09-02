@@ -13,7 +13,7 @@ summarize_comparison(
   sp2 = NULL,
   pi0_method = c("randomized", "storey", "none"),
   B = 20L,
-  pval_combine = c("min", "max")
+  pval_combine = c("max", "min")
 )
 }
 \arguments{
@@ -42,8 +42,9 @@ Benjamini-Hochberg).}
 \item{B}{Number of randomized-p draws averaged for pi0 (default 20).}
 
 \item{pval_combine}{Passed to \code{\link{comparison_to_edges}} when
-\code{sp1} and \code{sp2} are given: \code{"min"} (default) or
-\code{"max"}.}
+\code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+directions significant -- the reciprocal criterion of Netotea et
+al. (2014)) or \code{"min"} (either direction).}
 }
 \value{
 A list with components:

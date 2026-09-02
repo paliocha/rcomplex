@@ -188,10 +188,12 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' @param alpha Significance threshold for the \code{type} column
 #'   (default 0.05).
 #' @param pval_combine How the two directional q-values are combined into
-#'   \code{q.value}: \code{"min"} (default; a pair is called when either
-#'   direction is significant) or \code{"max"} (both directions must be
-#'   significant, as in the canonical ComPlEx implementations). A missing
-#'   directional q-value is ignored in either case.
+#'   \code{q.value}: \code{"max"} (default; both directions must be
+#'   significant -- the reciprocal criterion of Netotea et al. (2014),
+#'   the \code{Max.p.val} filter of the original ComPlEx) or \code{"min"}
+#'   (permissive; a pair is called when either direction is significant,
+#'   yielding a denser edge supply for \code{\link{find_cliques}}). A
+#'   missing directional q-value is ignored in either case.
 #'
 #' @return Data frame with columns:
 #'   \describe{
@@ -200,7 +202,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'     \item{species1}{Species abbreviation for gene1 (\code{sp1})}
 #'     \item{species2}{Species abbreviation for gene2 (\code{sp2})}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{q.value}{Minimum (or maximum, see \code{pval_combine}) of the
+#'     \item{q.value}{Maximum (or minimum, see \code{pval_combine}) of the
 #'       two directional q-values}
 #'     \item{effect_size}{Geometric mean of directional effect sizes}
 #'     \item{jaccard}{Geometric mean of directional Jaccard indices
@@ -223,7 +225,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
                                 alpha = 0.05,
-                                pval_combine = c("min", "max")) {
+                                pval_combine = c("max", "min")) {
   alternative <- match.arg(alternative)
   pval_combine <- match.arg(pval_combine)
 
@@ -326,7 +328,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   reproducible calls.
 #' @param pval_combine Analytical method only: how the two directional
 #'   q-values are combined, passed to \code{\link{comparison_to_edges}}:
-#'   \code{"min"} (default) or \code{"max"}.
+#'   \code{"max"} (default; both directions significant -- the reciprocal
+#'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
+#'   the original ComPlEx) or \code{"min"} (permissive; either direction,
+#'   denser edge supply for \code{\link{find_cliques}}).
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
@@ -339,9 +344,11 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' set.seed(1)
 #' edges <- find_coexpressologs(networks, orthologs)
 #'
-#' # Canonical ComPlEx calls: both directions significant, plain BH
-#' edges <- find_coexpressologs(networks, orthologs,
-#'   pval_combine = "max", pi0_method = "none")
+#' # Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
+#' edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
+#'
+#' # Permissive either-direction calls (denser clique input)
+#' edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 #'
 #' # Rigorous permutation path with GPU
 #' edges <- find_coexpressologs(networks, orthologs,
@@ -365,7 +372,7 @@ find_coexpressologs.default <- function(
     min_exceedances = 50L,
     max_permutations = 10000L,
     pi0_method = c("randomized", "storey", "none"),
-    pval_combine = c("min", "max"), ...) {
+    pval_combine = c("max", "min"), ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
@@ -521,8 +528,9 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   \code{"storey"} or \code{"none"}. The default draws from the
 #'   global RNG; call \code{set.seed()} first for reproducible q-values.
 #' @param pval_combine Passed to \code{\link{find_coexpressologs}}:
-#'   \code{"min"} (default) calls a pair when either direction is
-#'   significant; \code{"max"} requires both.
+#'   \code{"max"} (default) requires both directions to be significant
+#'   (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
+#'   calls a pair when either direction is significant.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -556,7 +564,7 @@ density_sweep.default <- function(networks, orthologs,
                            max_permutations = 10000L,
                            species_pairs = NULL,
                            pi0_method = c("randomized", "storey", "none"),
-                           pval_combine = c("min", "max"), ...) {
+                           pval_combine = c("max", "min"), ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
