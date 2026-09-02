@@ -691,7 +691,11 @@ density_sweep.default <- function(networks, orthologs,
 #'     \item{coexpressed_traits}{Comma-separated unique trait values of
 #'       those species (sorted); \code{NA} if \code{species_trait} is
 #'       \code{NULL}}
-#'     \item{mean_weight}{Mean co-expression weight across species}
+#'     \item{mean_weight}{Mean co-expression weight across species. Per
+#'       species, the maximum over candidate-HOG copies of the mean edge
+#'       weight from a copy to the partner-HOG genes in that copy's own
+#'       neighborhood (edge values at or above the network threshold), so
+#'       the value is identical for dense and sparse networks}
 #'   }
 #'   When \code{edges} is provided, three additional columns are appended:
 #'   \describe{
@@ -776,7 +780,9 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     net_mat <- networks[[sp]]$network
     thr <- networks[[sp]]$threshold
 
-    # Union of neighbors across all candidate genes (multi-copy)
+    # Per-copy neighbor sets and their union (multi-copy)
+    nbrs_by_cg <- vector("list", length(candidate_genes))
+    names(nbrs_by_cg) <- candidate_genes
     all_neighbors <- character(0)
     for (cg in candidate_genes) {
       # column access: named numeric for both dense and dgCMatrix networks
@@ -785,6 +791,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
       nbrs <- names(col_vals[col_vals >= thr])
       # Exclude self
       nbrs <- setdiff(nbrs, candidate_genes)
+      nbrs_by_cg[[cg]] <- nbrs
       all_neighbors <- union(all_neighbors, nbrs)
     }
     if (length(all_neighbors) == 0L) next
@@ -794,13 +801,20 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     nbr_hogs <- nbr_hogs[!is.na(nbr_hogs)]
     if (length(nbr_hogs) == 0L) next
 
-    # Per-partner-HOG max weight across candidate genes
+    # Per-partner-HOG max weight across candidate genes. Each copy's mean
+    # runs only over partner genes in that copy's own neighborhood (values
+    # >= thr, hence always stored): identical for dense and sparse
+    # networks. Copies with no neighbor in the partner HOG do not
+    # contribute; every partner HOG has at least one contributing copy by
+    # construction of all_neighbors.
     nbr_by_hog <- split(names(nbr_hogs), nbr_hogs)
     partner_hogs <- names(nbr_by_hog)
     weights <- vapply(partner_hogs, function(ph) {
       ph_genes <- nbr_by_hog[[ph]]
       max(vapply(candidate_genes, function(cg) {
-        mean(net_mat[ph_genes, cg])
+        own <- intersect(ph_genes, nbrs_by_cg[[cg]])
+        if (length(own) == 0L) return(-Inf)
+        mean(net_mat[own, cg])
       }, numeric(1)))
     }, numeric(1))
 

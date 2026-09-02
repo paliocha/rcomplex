@@ -48,7 +48,11 @@ A data frame with columns:
 \item{coexpressed_traits}{Comma-separated unique trait values of
 those species (sorted); \code{NA} if \code{species_trait} is
 \code{NULL}}
-\item{mean_weight}{Mean co-expression weight across species}
+\item{mean_weight}{Mean co-expression weight across species. Per
+species, the maximum over candidate-HOG copies of the mean edge
+weight from a copy to the partner-HOG genes in that copy's own
+neighborhood (edge values at or above the network threshold), so
+the value is identical for dense and sparse networks}
 }
 When \code{edges} is provided, three additional columns are appended:
 \describe{
