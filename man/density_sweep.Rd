@@ -20,7 +20,7 @@ density_sweep(networks, ...)
   max_permutations = 10000L,
   species_pairs = NULL,
   pi0_method = c("randomized", "storey", "none"),
-  pval_combine = c("min", "max"),
+  pval_combine = c("max", "min"),
   ...
 )
 }
@@ -64,8 +64,9 @@ by the analytical method): \code{"randomized"} (default),
 global RNG; call \code{set.seed()} first for reproducible q-values.}
 
 \item{pval_combine}{Passed to \code{\link{find_coexpressologs}}:
-\code{"min"} (default) calls a pair when either direction is
-significant; \code{"max"} requires both.}
+\code{"max"} (default) requires both directions to be significant
+(the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
+calls a pair when either direction is significant.}
 }
 \value{
 A data frame with columns \code{multiplier},

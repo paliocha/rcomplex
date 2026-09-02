@@ -20,7 +20,7 @@ find_coexpressologs(networks, ...)
   min_exceedances = 50L,
   max_permutations = 10000L,
   pi0_method = c("randomized", "storey", "none"),
-  pval_combine = c("min", "max"),
+  pval_combine = c("max", "min"),
   ...
 )
 
@@ -68,7 +68,10 @@ reproducible calls.}
 
 \item{pval_combine}{Analytical method only: how the two directional
 q-values are combined, passed to \code{\link{comparison_to_edges}}:
-\code{"min"} (default) or \code{"max"}.}
+\code{"max"} (default; both directions significant -- the reciprocal
+criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
+the original ComPlEx) or \code{"min"} (permissive; either direction,
+denser edge supply for \code{\link{find_cliques}}).}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
@@ -111,9 +114,11 @@ when the expression matrices are restricted the same way beforehand
 set.seed(1)
 edges <- find_coexpressologs(networks, orthologs)
 
-# Canonical ComPlEx calls: both directions significant, plain BH
-edges <- find_coexpressologs(networks, orthologs,
-  pval_combine = "max", pi0_method = "none")
+# Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
+edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
+
+# Permissive either-direction calls (denser clique input)
+edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 
 # Rigorous permutation path with GPU
 edges <- find_coexpressologs(networks, orthologs,
