@@ -289,3 +289,25 @@ test_that("cliques dying early have smaller persistence than long-lived ones", {
     expect_true(all(persist$persistence[has_death] > 0))
   }
 })
+
+
+test_that("clique_threshold_sweep q-values are pinned to pi0_method = 'storey'", {
+  setup <- make_sweep_setup()
+
+  # the sweep must not consume the global RNG (pre-0.2.0 determinism)
+  set.seed(9)
+  u <- runif(1)
+  set.seed(9)
+  res <- suppressWarnings(suppressMessages(clique_threshold_sweep(
+    setup$cliques, setup$target_species, setup$networks, setup$orthologs,
+    multipliers = 1.5)))
+  expect_identical(runif(1), u)
+
+  # edges match a manual pipeline with pi0_method = "storey"
+  tight <- lapply(setup$networks, function(net)
+    list(network = net$network, threshold = net$threshold * 1.5))
+  cmp <- compare_neighborhoods(tight$SP_A, tight$SP_B, setup$orthologs)
+  s <- summarize_comparison(cmp, pi0_method = "storey")
+  man <- comparison_to_edges(s$results, "SP_A", "SP_B")
+  expect_equal(res$sweep_edges[["1.5"]], man)
+})

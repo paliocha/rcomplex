@@ -1233,3 +1233,55 @@ test_that("summarize_comparison and find_coexpressologs pass pval_combine throug
   expect_gt(length(called_max), 0L)
   expect_true(all(called_max %in% called_min))
 })
+
+
+test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
+  # Asymmetric network sizes: N differs per direction, so the two
+  # directional q-values (and hence min vs max combine) differ.
+  n_a <- 40
+  n_b <- 25
+  ga <- paste0("A", seq_len(n_a))
+  gb <- paste0("B", seq_len(n_b))
+  mat_a <- matrix(0, n_a, n_a, dimnames = list(ga, ga))
+  mat_a[1:12, 1:12] <- 10
+  diag(mat_a) <- 0
+  mat_b <- matrix(0, n_b, n_b, dimnames = list(gb, gb))
+  mat_b[1:8, 1:8] <- 10
+  diag(mat_b) <- 0
+  nets <- list(SP_A = list(network = mat_a, threshold = 5),
+               SP_B = list(network = mat_b, threshold = 5))
+  ortho <- data.frame(Species1 = paste0("A", 1:25),
+                      Species2 = paste0("B", 1:25),
+                      hog = paste0("HOG", 1:25),
+                      stringsAsFactors = FALSE)
+
+  # unknown values must error, not vanish into `...`
+  expect_error(suppressMessages(density_sweep(
+    nets, ortho, multipliers = 1.0, pi0_method = "bogus")))
+  expect_error(suppressMessages(density_sweep(
+    nets, ortho, multipliers = 1.0, pval_combine = "mean")))
+
+  sw_min <- suppressMessages(density_sweep(
+    nets, ortho, multipliers = 1.0, method = "analytical",
+    pi0_method = "none"))
+  sw_max <- suppressMessages(density_sweep(
+    nets, ortho, multipliers = 1.0, method = "analytical",
+    pi0_method = "none", pval_combine = "max"))
+  e_min <- find_coexpressologs(nets, ortho, pi0_method = "none")
+  e_max <- find_coexpressologs(nets, ortho, pi0_method = "none",
+                               pval_combine = "max")
+  expect_equal(sw_min$edges[[1]], e_min)
+  expect_equal(sw_max$edges[[1]], e_max)
+  expect_true(any(sw_max$edges[[1]]$q.value != sw_min$edges[[1]]$q.value))
+  expect_equal(sw_min$n_significant, sum(e_min$type == "conserved"))
+  expect_equal(sw_max$n_significant, sum(e_max$type == "conserved"))
+
+  # pi0_method = "none" must leave the global RNG untouched
+  set.seed(9)
+  u <- runif(1)
+  set.seed(9)
+  invisible(suppressMessages(density_sweep(
+    nets, ortho, multipliers = 1.0, method = "analytical",
+    pi0_method = "none")))
+  expect_identical(runif(1), u)
+})
