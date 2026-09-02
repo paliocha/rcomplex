@@ -30,10 +30,13 @@ analysis.
 
 rcomplex reproduces natstreet's
 [ComPlEx_python](https://github.com/natstreet/ComPlEx_python) (itself
-validated against Hvidsten's `RComPlEx.Rmd`) exactly on a seeded fixture
+validated against Hvidsten's `RComPlEx.Rmd`) on a seeded fixture
 under the ortholog-restricted gene universe: identical neighborhood overlaps
 and BH-adjusted co-expressolog calls (149 pairs) under matched density
-thresholds (`tests/testthat/test-equivalence.R`).
+thresholds (`tests/testthat/test-equivalence.R`). Since v0.2.0 the
+hypergeometric urn excludes the anchor gene (see `NEWS.md`), shifting
+p-values by O(1/N) relative to canonical ComPlEx: the fixture call set is
+unchanged and the combined BH values agree within 5e-3.
 
 ## Installation
 
@@ -52,7 +55,9 @@ library(rcomplex)
 # 1. Parse ortholog groups (tab-delimited, see format below)
 orthologs <- parse_orthologs("orthogroups.txt", "species1", "species2")
 
-# 2. Build co-expression networks (accepts matrix or SummarizedExperiment)
+# 2. Build co-expression networks (accepts matrix or SummarizedExperiment).
+#    Networks are stored sparsely since v0.2.0 (see below);
+#    sparse = FALSE restores the dense object.
 net1 <- compute_network(expr1, norm_method = "MR", density = 0.03)
 net2 <- compute_network(expr2, norm_method = "MR", density = 0.03)
 
@@ -65,7 +70,12 @@ From here, three analysis paths are available.
 ### Gene / HOG-level analysis
 
 ```r
-# Pair-level q-values (Storey & Tibshirani, 2003)
+# Pair-level q-values (Storey & Tibshirani, 2003). pi0 is estimated from
+# randomized p-values, which draw from the global RNG: seed first for
+# reproducible q-values. Directional q-values are combined with
+# pval_combine = "max" by default (both directions must be significant --
+# the reciprocal criterion of Netotea et al., 2014).
+set.seed(1)
 summary <- summarize_comparison(comparison)
 
 # Convert to edge format for clique analysis (multi-species)
@@ -73,6 +83,12 @@ edges_AB <- comparison_to_edges(summary$results, "SP_A", "SP_B")
 
 # HOG-level permutation test (recommended for multi-copy gene families)
 hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
+
+# Degree-preserving edge-swap null: are there more conserved calls than
+# expected for these degree sequences? (requires sparse networks)
+networks <- list(SP_A = net1, SP_B = net2)
+null <- coexpressolog_null(networks, orthologs, n_perm = 100L, seed = 1L)
+null[null$statistic == "total", ]
 ```
 
 ### Module-level analysis
@@ -156,6 +172,32 @@ z_test <- clique_intensity_test(cliques, annual_sp, networks, orthologs,
                                  edges = edges, n_perm = 500)
 ```
 
+## Sparse network storage (v0.2.0)
+
+`compute_network()` returns the network as a sparse `dgCMatrix` by
+default: only entries at or above the `store_density` quantile (default
+`max(density, 0.05)`) are stored (both triangles, diagonal absent),
+extracted in C++ so the dense n x n matrix never leaves the function.
+The analysis `threshold` is unchanged -- still computed from the full
+dense MR matrix -- and every downstream statistic is identical to the
+dense path. Approximate network object sizes:
+
+| Genes  | Dense object | Sparse object (`store_density = 0.05`) |
+|--------|--------------|----------------------------------------|
+| 5,000  | 191 MB (measured) | 15 MB (measured) |
+| 30,000 | 7.2 GB | ~0.5 GB |
+
+The `compute_network()` peak transient also dropped from ~4 n^2 to
+~1.5 n^2 doubles (in-place MR normalization): ~11 GB instead of ~29 GB
+at 30,000 genes.
+
+Edge weights below the stored superset can be reconstructed exactly for
+any gene subset (e.g. a module heatmap) with `mr_block(x, genes, net)`.
+`as_sparse_network()` converts a dense network object;
+`compute_network(sparse = FALSE)` keeps the dense path. Analyses that
+would need entries below the store (e.g. `density_sweep()` with a loose
+multiplier) error with a message asking for a larger `store_density`.
+
 ## Main functions
 
 | Function | Purpose |
@@ -163,11 +205,16 @@ z_test <- clique_intensity_test(cliques, annual_sp, networks, orthologs,
 | `parse_orthologs()` | Parse ortholog group files (tab-delimited) |
 | `reduce_orthogroups()` | Merge correlated paralogs within HOGs (Ward.D2 clustering) |
 | `extract_orthologs()` | Derive ortholog pairs from two SummarizedExperiment objects by HOG |
-| `compute_network()` | Correlation + MR/CLR normalization + density threshold (S4 generic: matrix or SE) |
+| `compute_network()` | Correlation + MR/CLR normalization + density threshold (S4 generic: matrix or SE); sparse storage by default |
+| `as_sparse_network()` | Convert a dense network object to the sparse representation |
+| `mr_block()` | Exact local reconstruction of MR values for a gene subset (incl. sub-store entries) |
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
-| `summarize_comparison()` | Storey q-values and summary statistics |
+| `summarize_comparison()` | Storey q-values (randomized-p pi0) and summary statistics |
 | `comparison_to_edges()` | Convert comparison results to edge format for clique analysis |
 | `permutation_hog_test()` | Permutation-based HOG-level conservation test |
+| `find_coexpressologs()` | Batch co-expressolog calling across all species pairs (alias: `run_pairwise_comparisons()`) |
+| `density_sweep()` | Re-run the co-expressolog pipeline across density multipliers |
+| `coexpressolog_null()` | Degree-preserving edge-swap null for co-expressolog statistics |
 | `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
 | `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
 | `classify_modules()` | Three-tier module conservation classification |
@@ -276,6 +323,17 @@ mapped to species 2 through the ortholog table and tested for significant
 overlap with the species-2 neighborhood using `phyper()`. The test is
 performed in both directions. Effect sizes are fold-enrichments over the
 hypergeometric expectation.
+
+The anchor gene is excluded from the urn since v0.2.0 (it can never be
+its own neighbour): the population is the other N - 1 network genes and
+the mapped set drops the anchor. Directional q-values are combined with
+`pval_combine = "max"` by default -- a co-expressolog is called only when
+both directions are significant, the reciprocal criterion of Netotea
+*et al.* (2014) -- with `"min"` as the permissive either-direction
+option. Storey's pi0 is estimated from randomized p-values
+`P(X > x) + U * P(X = x)`, which are exactly uniform under the null for
+discrete hypergeometric tests; the exact p-values pile up at 1 and would
+otherwise force pi0 = 1 (no gain over BH).
 
 ### HOG-level permutation test
 
@@ -460,7 +518,10 @@ permutations) to avoid zero p-values.
 |------|---------|
 | `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
 | `R/network.R` | `compute_network()` -- S4 generic (matrix / SE), correlation, MR/CLR, density threshold |
-| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `get_coexpressed_hogs()` -- pair-level hypergeometric, edge conversion, HOG co-expression queries |
+| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `find_coexpressologs()`, `density_sweep()`, `get_coexpressed_hogs()` -- pair-level hypergeometric, edge conversion, batch orchestration |
+| `R/network-sparse.R` | Sparse network dispatch: validation, store-threshold guard, `as_sparse_network()` |
+| `R/mr_block.R` | `mr_block()` -- exact local MR reconstruction for gene subsets |
+| `R/coexpressolog_null.R` | `coexpressolog_null()` -- degree-preserving edge-swap null |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()`, `identify_module_hubs()`, `classify_hub_conservation()` |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
@@ -472,9 +533,11 @@ permutations) to avoid zero p-values.
 |------|---------|
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging engine |
 | `src/coclassification.cpp` | Dense and sparse co-classification with per-pair null subtraction; spectral norm for K=1 test |
-| `src/mutual_rank.cpp` | MR normalization with column-major access |
+| `src/mutual_rank.cpp` | MR normalization with column-major access (in-place kernel + cached reference) |
 | `src/clr.cpp` | CLR normalization |
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
+| `src/sparse_extract.cpp` | Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix |
+| `src/neighbor_lists.h` | Shared neighbour-list construction (dense matrix or validated dgCMatrix slots) |
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
