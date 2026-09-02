@@ -125,8 +125,34 @@ test_that("find_coexpressologs(pval_combine = 'max', pi0_method = 'none') reprod
   expect_false(anyNA(idx))
   expect_equal(e_max$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
 
-  # "min" (default) calls are a superset of "max" calls
+  # "min" (permissive) calls are a superset of "max" calls
   called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
   expect_true(all(called %in% called_min))
   expect_gte(length(called_min), length(called))
+})
+
+
+test_that("find_coexpressologs default pval_combine reproduces the canonical calls (D2)", {
+  d <- load_complex_py()
+  nets <- list(sp1 = d$n1, sp2 = d$n2)
+  e_def <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
+                               pi0_method = "none")
+  e_max <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
+                               pval_combine = "max", pi0_method = "none")
+  expect_identical(e_def, e_max)
+
+  # default = BH + pmax: the fixture's Max.p.val criterion holds by default
+  key_expected <- paste(d$expected$Species1, d$expected$Species2)
+  key_def <- paste(e_def$gene1, e_def$gene2)
+  called <- key_def[e_def$type == "conserved"]
+  flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
+  if (length(flipped) > 0L) {
+    p_rc <- e_def$q.value[match(flipped, key_def)]
+    p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
+    expect_true(all(abs(p_rc - 0.05) < 1e-3))
+    expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
+  }
+  idx <- match(key_expected, key_def)
+  expect_false(anyNA(idx))
+  expect_equal(e_def$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
 })

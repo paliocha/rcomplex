@@ -543,8 +543,8 @@ test_that("comparison_to_edges produces correct edge format", {
   expect_equal(edges$gene1, c("A1", "A2"))
   expect_equal(edges$species1, c("SP_A", "SP_A"))
   expect_equal(edges$species2, c("SP_B", "SP_B"))
-  # q.value = min of two directions
-  expect_equal(edges$q.value, c(0.01, 0.80))
+  # q.value = max of two directions (default reciprocal combine, D2)
+  expect_equal(edges$q.value, c(0.03, 0.90))
   # effect_size = geometric mean
   expect_equal(edges$effect_size, c(sqrt(4 * 9), sqrt(1 * 1)))
   # jaccard = geometric mean of directional Jaccards
@@ -564,7 +564,7 @@ test_that("comparison_to_edges handles alternative='less'", {
 
   edges <- comparison_to_edges(comp, "SP_A", "SP_B", alternative = "less")
 
-  expect_equal(edges$q.value, 0.01)
+  expect_equal(edges$q.value, 0.02)
   expect_equal(edges$type, "diverged")
 })
 
@@ -1165,7 +1165,8 @@ test_that("find_coexpressologs passes pi0_method through to summarize_comparison
   cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
   pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
   cmp <- cmp[pool, ]
-  bh <- pmin(p.adjust(cmp$Species1.p.val.con, "BH"),
+  # default combine is "max" (D2, reciprocal criterion)
+  bh <- pmax(p.adjust(cmp$Species1.p.val.con, "BH"),
              p.adjust(cmp$Species2.p.val.con, "BH"))
 
   edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
@@ -1192,10 +1193,10 @@ test_that("comparison_to_edges combines directional q-values by min or max", {
     Species1.q.val.con = c(0.01, 0.80, 0.03),
     Species2.q.val.con = c(0.03, 0.90, 0.20)
   )
-  e_min <- comparison_to_edges(comp, "SP_A", "SP_B")
-  e_def <- comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "min")
+  e_min <- comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "min")
+  e_def <- comparison_to_edges(comp, "SP_A", "SP_B")
   e_max <- comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "max")
-  expect_identical(e_min, e_def)
+  expect_identical(e_max, e_def)
   expect_equal(e_min$q.value, c(0.01, 0.80, 0.03))
   expect_equal(e_max$q.value, c(0.03, 0.90, 0.20))
   expect_equal(e_min$type, c("conserved", "ns", "conserved"))
@@ -1223,7 +1224,8 @@ test_that("summarize_comparison and find_coexpressologs pass pval_combine throug
                pmax(s$results$Species1.q.val.con, s$results$Species2.q.val.con))
 
   nets <- list(A = td$net1, B = td$net2)
-  e_min <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
+  e_min <- find_coexpressologs(nets, td$ortho, pi0_method = "none",
+                               pval_combine = "min")
   e_max <- find_coexpressologs(nets, td$ortho, pi0_method = "none",
                                pval_combine = "max")
   expect_equal(e_max$q.value, s$edges$q.value)
@@ -1263,11 +1265,12 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
 
   sw_min <- suppressMessages(density_sweep(
     nets, ortho, multipliers = 1.0, method = "analytical",
-    pi0_method = "none"))
+    pi0_method = "none", pval_combine = "min"))
   sw_max <- suppressMessages(density_sweep(
     nets, ortho, multipliers = 1.0, method = "analytical",
     pi0_method = "none", pval_combine = "max"))
-  e_min <- find_coexpressologs(nets, ortho, pi0_method = "none")
+  e_min <- find_coexpressologs(nets, ortho, pi0_method = "none",
+                               pval_combine = "min")
   e_max <- find_coexpressologs(nets, ortho, pi0_method = "none",
                                pval_combine = "max")
   expect_equal(sw_min$edges[[1]], e_min)
@@ -1284,4 +1287,56 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
     nets, ortho, multipliers = 1.0, method = "analytical",
     pi0_method = "none")))
   expect_identical(runif(1), u)
+})
+
+
+test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
+  comp <- data.frame(
+    Species1 = c("A1", "A2"), Species2 = c("B1", "B2"), hog = 1:2,
+    Species1.effect.size = c(4, 2), Species2.effect.size = c(9, 2),
+    Species1.jaccard = c(0.8, 0.5), Species2.jaccard = c(0.5, 0.5),
+    Species1.q.val.con = c(0.01, 0.03),
+    Species2.q.val.con = c(0.03, 0.20)
+  )
+  expect_identical(
+    comparison_to_edges(comp, "SP_A", "SP_B"),
+    comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "max"))
+
+  # asymmetric network sizes so the two directional q-values differ
+  n_a <- 40
+  n_b <- 25
+  ga <- paste0("A", seq_len(n_a))
+  gb <- paste0("B", seq_len(n_b))
+  mat_a <- matrix(0, n_a, n_a, dimnames = list(ga, ga))
+  mat_a[1:12, 1:12] <- 10
+  diag(mat_a) <- 0
+  mat_b <- matrix(0, n_b, n_b, dimnames = list(gb, gb))
+  mat_b[1:8, 1:8] <- 10
+  diag(mat_b) <- 0
+  nets <- list(SP_A = list(network = mat_a, threshold = 5),
+               SP_B = list(network = mat_b, threshold = 5))
+  ortho <- data.frame(Species1 = paste0("A", 1:25),
+                      Species2 = paste0("B", 1:25),
+                      hog = paste0("HOG", 1:25),
+                      stringsAsFactors = FALSE)
+
+  cmp <- compare_neighborhoods(nets$SP_A, nets$SP_B, ortho)
+  s_def <- summarize_comparison(cmp, sp1 = "SP_A", sp2 = "SP_B",
+                                pi0_method = "none")
+  s_max <- summarize_comparison(cmp, sp1 = "SP_A", sp2 = "SP_B",
+                                pi0_method = "none", pval_combine = "max")
+  expect_identical(s_def$edges, s_max$edges)
+
+  e_def <- find_coexpressologs(nets, ortho, pi0_method = "none")
+  e_max <- find_coexpressologs(nets, ortho, pi0_method = "none",
+                               pval_combine = "max")
+  e_min <- find_coexpressologs(nets, ortho, pi0_method = "none",
+                               pval_combine = "min")
+  expect_identical(e_def, e_max)
+  expect_true(any(e_def$q.value != e_min$q.value))
+
+  sw_def <- suppressMessages(density_sweep(
+    nets, ortho, multipliers = 1.0, method = "analytical",
+    pi0_method = "none"))
+  expect_equal(sw_def$edges[[1]], e_max)
 })
