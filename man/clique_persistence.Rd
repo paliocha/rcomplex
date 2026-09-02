@@ -15,7 +15,8 @@ clique_persistence(cliques, target_species, networks, edges)
 
 \item{networks}{Named list of \code{\link{compute_network}} outputs
 keyed by species abbreviation. Each element must have \code{$network}
-(named numeric matrix) and \code{$threshold} (scalar).}
+(named numeric matrix or \code{dgCMatrix}) and \code{$threshold}
+(scalar).}
 
 \item{edges}{Data frame with columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2} (same format as

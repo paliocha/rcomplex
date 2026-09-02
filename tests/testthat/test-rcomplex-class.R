@@ -12,7 +12,8 @@ make_rcx_fixtures <- function(n_sp = 3) {
   networks <- stats::setNames(lapply(sp, function(s) {
     expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
     rownames(expr) <- paste0(s, "_G", 1:20)
-    compute_network(expr, density = 0.1, mr_log_transform = FALSE)
+    compute_network(expr, density = 0.1, mr_log_transform = FALSE,
+                    store_density = 0.2)
   }), sp)
 
   # Orthologs: first 15 genes of each pair share HOGs

@@ -94,7 +94,9 @@ individual functions directly.
 }
 \details{
 No permutations are involved -- all tests are analytical
-(hypergeometric + Storey q-values).
+(hypergeometric + Storey q-values; the pi0 method is pinned to
+\code{"storey"}, so the sweep is deterministic and does not consume
+the global RNG).
 }
 \examples{
 \dontrun{

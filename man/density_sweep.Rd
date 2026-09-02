@@ -19,6 +19,8 @@ density_sweep(networks, ...)
   min_exceedances = 50L,
   max_permutations = 10000L,
   species_pairs = NULL,
+  pi0_method = c("randomized", "storey", "none"),
+  pval_combine = c("max", "min"),
   ...
 )
 }
@@ -55,6 +57,16 @@ method (default 50).}
 \item{species_pairs}{Optional list of length-2 character vectors
 passed to \code{\link{find_coexpressologs}} at each threshold
 level. Defaults to all pairwise combinations.}
+
+\item{pi0_method}{Passed to \code{\link{find_coexpressologs}} (used
+by the analytical method): \code{"randomized"} (default),
+\code{"storey"} or \code{"none"}. The default draws from the
+global RNG; call \code{set.seed()} first for reproducible q-values.}
+
+\item{pval_combine}{Passed to \code{\link{find_coexpressologs}}:
+\code{"max"} (default) requires both directions to be significant
+(the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
+calls a pair when either direction is significant.}
 }
 \value{
 A data frame with columns \code{multiplier},

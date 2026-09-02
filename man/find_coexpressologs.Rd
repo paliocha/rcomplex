@@ -19,6 +19,8 @@ find_coexpressologs(networks, ...)
   use_torch = FALSE,
   min_exceedances = 50L,
   max_permutations = 10000L,
+  pi0_method = c("randomized", "storey", "none"),
+  pval_combine = c("max", "min"),
   ...
 )
 
@@ -56,6 +58,20 @@ permutation method (default 50).}
 
 \item{max_permutations}{Maximum permutations for permutation method
 (default 10000).}
+
+\item{pi0_method}{Analytical method only: how pi0 is estimated for the
+pair-level Storey q-values, passed to
+\code{\link{summarize_comparison}}: \code{"randomized"} (default),
+\code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
+draws from the global RNG; call \code{set.seed()} first for
+reproducible calls.}
+
+\item{pval_combine}{Analytical method only: how the two directional
+q-values are combined, passed to \code{\link{comparison_to_edges}}:
+\code{"max"} (default; both directions significant -- the reciprocal
+criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
+the original ComPlEx) or \code{"min"} (permissive; either direction,
+denser edge supply for \code{\link{find_cliques}}).}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
@@ -81,10 +97,28 @@ HOGs where pair-level tests are correlated.}
 }
 }
 
+\section{Gene universe}{
+
+Each network is built on all genes supplied to
+\code{\link{compute_network}} and the hypergeometric population is the
+whole network (Netotea et al. 2014). Canonical ComPlEx implementations
+restrict expression to ortholog genes before building the networks;
+that changes neighbourhoods and calls, so rcomplex matches them only
+when the expression matrices are restricted the same way beforehand
+(see \code{\link{compare_neighborhoods}}).
+}
+
 \examples{
 \dontrun{
 # Fast analytical path
+set.seed(1)
 edges <- find_coexpressologs(networks, orthologs)
+
+# Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
+edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
+
+# Permissive either-direction calls (denser clique input)
+edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 
 # Rigorous permutation path with GPU
 edges <- find_coexpressologs(networks, orthologs,

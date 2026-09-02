@@ -24,6 +24,8 @@ clique_intensity_test(cliques, ...)
   seed = NULL,
   cost_weights = c(q = 1, effect = 0),
   edges = NULL,
+  pval_combine = c("max", "min"),
+  pi0_method = c("storey", "randomized", "none"),
   ...
 )
 }
@@ -71,6 +73,22 @@ whether it is below the null.}
 \code{\link{find_coexpressologs}}). When provided, skips the
 baseline edge recomputation. When \code{NULL} (default), edges
 are computed internally.}
+
+\item{pval_combine}{Directional q-value combination for the edge
+calls in the baseline recomputation (when \code{edges = NULL}) and
+in every permutation rerun, passed to
+\code{\link{find_coexpressologs}}. Set it to whatever built the
+baseline \code{cliques}/\code{edges} (default \code{"max"}): a null
+built under a stricter criterion than the observed edges is
+anti-conservative.}
+
+\item{pi0_method}{pi0 estimation for the baseline recomputation and
+every permutation rerun, passed to
+\code{\link{find_coexpressologs}}. Default \code{"storey"} is
+deterministic across permutations (\code{"randomized"} adds
+per-permutation Monte Carlo noise), matching
+\code{\link{clique_threshold_sweep}}. Set it to whatever built the
+baseline \code{cliques}/\code{edges}.}
 }
 \value{
 Data frame with columns:

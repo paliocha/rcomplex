@@ -11,3 +11,5 @@
 ^docs$
 ^doc$
 ^Meta$
+^NOTES_.*\.md$
+^PLAN_.*\.md$

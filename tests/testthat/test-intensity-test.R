@@ -161,3 +161,23 @@ test_that("max_missing_edges is forwarded to find_cliques", {
   expect_true(is.data.frame(result))
   expect_equal(nrow(result), nrow(setup$cliques))
 })
+
+
+test_that("pval_combine/pi0_method reach the baseline and null reruns", {
+  # Baseline cliques built with pval_combine = "min" (one conserved edge);
+  # with edges = NULL the internal baseline rerun must reproduce that edge
+  # supply, so the observed intensity matches the min-built edges. Under
+  # the find_coexpressologs() defaults ("max") the (A1, B1) q-value is 1
+  # and the intensity collapses.
+  setup <- make_asym_clique_fixture()
+  expect_equal(nrow(setup$cliques), 1L)
+
+  result <- clique_intensity_test(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, n_perm = 2L, seed = 7L,
+    pval_combine = "min", pi0_method = "none")
+
+  stats_min <- rcomplex:::compute_clique_edge_stats(
+    setup$cliques, setup$edges_min, setup$target_species)
+  expect_equal(result$observed_intensity, stats_min$intensity)
+})

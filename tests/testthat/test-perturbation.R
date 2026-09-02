@@ -220,3 +220,23 @@ test_that("max_missing_edges is forwarded to find_cliques", {
   expect_true(is.data.frame(result))
   expect_equal(nrow(result), nrow(setup$cliques))
 })
+
+
+test_that("pval_combine/pi0_method reach the internal reruns (min-built baseline, zero noise)", {
+  # Fixture where "min" and "max" call DIFFERENT edges: the baseline built
+  # with pval_combine = "min" has one conserved edge / one clique, under
+  # the find_coexpressologs() defaults it has none. With noise_sd = 0 the
+  # rerun sees identical networks, so survival < 1 can only come from a
+  # criterion mismatch between the baseline and the internal rerun.
+  setup <- make_asym_clique_fixture()
+  expect_equal(nrow(setup$cliques), 1L)
+
+  result <- clique_perturbation_test(
+    setup$cliques, setup$target_species, setup$networks,
+    setup$orthologs, n_boot = 3L, noise_sd = 0, seed = 1L,
+    pval_combine = "min", pi0_method = "none")
+
+  expect_equal(result$survival_rate, 1)
+  expect_equal(result$mean_jaccard, 1)
+  expect_equal(result$n_matched, result$n_boot)
+})

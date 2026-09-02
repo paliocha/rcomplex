@@ -163,11 +163,44 @@ find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edg
 #' @param min_exceedances Besag-Clifford stopping parameter (default 50)
 #' @param max_permutations Maximum permutations per HOG (default 10000)
 #' @param n_cores Number of OpenMP threads (default 1)
+#' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+#'   regardless of network size (internal testing hook; default FALSE)
 #' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
 #'
 #' @keywords internal
-hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores) {
-    .Call(`_rcomplex_hog_permutation_test_cpp`, net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores)
+hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
+    .Call(`_rcomplex_hog_permutation_test_cpp`, net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
+}
+
+#' Permutation-based HOG-level conservation test (sparse networks)
+#'
+#' Same as [hog_permutation_test_cpp()] but takes the slots of a
+#' `dgCMatrix` (column-compressed, both triangles stored) for each network
+#' instead of a dense matrix. Column j lists the neighbours of gene j.
+#'
+#' @param p1 `@p` slot of net1 (column pointers, length n1 + 1)
+#' @param i1 `@i` slot of net1 (0-based row indices)
+#' @param x1 `@x` slot of net1 (stored values)
+#' @param thr1 Co-expression threshold for species 1
+#' @param p2 `@p` slot of net2
+#' @param i2 `@i` slot of net2
+#' @param x2 `@x` slot of net2
+#' @param thr2 Co-expression threshold for species 2
+#' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+#' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+#' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
+#' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
+#' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
+#' @param min_exceedances Besag-Clifford stopping parameter (default 50)
+#' @param max_permutations Maximum permutations per HOG (default 10000)
+#' @param n_cores Number of OpenMP threads (default 1)
+#' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+#'   regardless of network size (internal testing hook; default FALSE)
+#' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+#'
+#' @keywords internal
+hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
+    .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
 }
 
 #' Permutation-based Jaccard test for module comparison (batched)
@@ -221,6 +254,34 @@ mutual_rank_transform_cached_cpp <- function(sim, log_transform = FALSE, n_cores
     .Call(`_rcomplex_mutual_rank_transform_cached_cpp`, sim, log_transform, n_cores)
 }
 
+#' In-place mutual rank transformation
+#'
+#' Overwrites `sim` with its mutual rank transform without allocating any
+#' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally takes
+#' absolute values, and replaces the column by its average ranks. Pass 2
+#' replaces each pair (i, j) by sqrt(R_ij * R_ji) (log-normalized when
+#' `log_transform`) and sets the diagonal to 0. Same formulas and tie
+#' handling as [mutual_rank_transform_cached_cpp()], which is kept as the
+#' reference implementation.
+#'
+#' @param sim Symmetric correlation/similarity matrix (n x n). Modified in
+#'   place: must be a fresh allocation not shared with any other R object,
+#'   and must be stored as double (`REALSXP`); any other storage type is an
+#'   error, since coercion would silently operate on a copy. Must not
+#'   contain `NaN`/`NA` (ranking would be undefined); an error is raised
+#'   and the contents of `sim` are then unspecified.
+#' @param log_transform If FALSE, raw mutual rank with ascending ranks
+#'   (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
+#'   log-normalized formula with descending ranks (values in 0 to 1 range).
+#' @param abs_cor If TRUE, take absolute values before ranking.
+#' @param n_cores Number of OpenMP threads
+#' @return Invisible `NULL`; `sim` is modified in place.
+#'
+#' @keywords internal
+mutual_rank_inplace_cpp <- function(sim, log_transform, abs_cor, n_cores) {
+    invisible(.Call(`_rcomplex_mutual_rank_inplace_cpp`, sim, log_transform, abs_cor, n_cores))
+}
+
 #' Compare co-expression neighborhoods across species (integer-indexed)
 #'
 #' For each ortholog pair, tests the overlap of co-expression neighborhoods
@@ -236,11 +297,40 @@ mutual_rank_transform_cached_cpp <- function(sim, log_transform = FALSE, n_cores
 #' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
 #' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
 #' @param n_cores Number of OpenMP threads (default: 1)
-#' @return DataFrame with comparison results for each ortholog pair
+#' @return DataFrame with comparison results for each ortholog pair. The
+#'   hypergeometric urn excludes the anchor gene (population n - 1, anchor
+#'   dropped from the ortholog-mapped set); `*.p.val.gt` / `*.p.val.eq`
+#'   are the ungated upper tail P(X > x) and point mass P(X = x).
 #'
 #' @keywords internal
 compare_neighborhoods_cpp <- function(net1, net2, thr1, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores = 1L) {
     .Call(`_rcomplex_compare_neighborhoods_cpp`, net1, net2, thr1, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores)
+}
+
+#' Compare co-expression neighborhoods across species (sparse networks)
+#'
+#' Same as [compare_neighborhoods_cpp()] but takes the slots of a
+#' `dgCMatrix` (column-compressed, both triangles stored) for each network
+#' instead of a dense matrix. Column j lists the neighbours of gene j.
+#'
+#' @param p1 `@p` slot of net1 (column pointers, length n1 + 1)
+#' @param i1 `@i` slot of net1 (0-based row indices)
+#' @param x1 `@x` slot of net1 (stored values)
+#' @param thr1 Co-expression threshold for species 1
+#' @param p2 `@p` slot of net2
+#' @param i2 `@i` slot of net2
+#' @param x2 `@x` slot of net2
+#' @param thr2 Co-expression threshold for species 2
+#' @param pair_sp1_idx 0-based index into net1 for each ortholog pair
+#' @param pair_sp2_idx 0-based index into net2 for each ortholog pair
+#' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+#' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+#' @param n_cores Number of OpenMP threads (default: 1)
+#' @return DataFrame with comparison results for each ortholog pair
+#'
+#' @keywords internal
+compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores = 1L) {
+    .Call(`_rcomplex_compare_neighborhoods_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores)
 }
 
 #' Reduce orthogroups by merging correlated paralogs
@@ -262,5 +352,22 @@ compare_neighborhoods_cpp <- function(net1, net2, thr1, thr2, pair_sp1_idx, pair
 #' @keywords internal
 reduce_orthogroups_cpp <- function(expr, hog_members, non_hog_idx, cor_threshold) {
     .Call(`_rcomplex_reduce_orthogroups_cpp`, expr, hog_members, non_hog_idx, cor_threshold)
+}
+
+#' Extract dgCMatrix slots from a dense matrix at a store threshold
+#'
+#' Keeps the off-diagonal entries `>= thr` of both triangles and returns
+#' the column-compressed slots of the corresponding `dgCMatrix`: 0-based
+#' row indices `i` (ascending within each column), column pointers `p`
+#' (length n + 1) and values `x`.
+#'
+#' @param m Dense numeric matrix (n x n)
+#' @param thr Store threshold; entries below it are discarded
+#' @param n_cores Number of threads for parallel computation (default 1)
+#' @return List with integer vectors `i` and `p` and numeric vector `x`
+#'
+#' @keywords internal
+extract_sparse_cpp <- function(m, thr, n_cores = 1L) {
+    .Call(`_rcomplex_extract_sparse_cpp`, m, thr, n_cores)
 }
 

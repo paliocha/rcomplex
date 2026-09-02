@@ -61,7 +61,7 @@ method via \code{\link[DiscreteQvalue:DQ]{DiscreteQvalue::DQ()}}.
 \section{Hypergeometric method}{
 
 For each (module_i, module_j) pair, maps module_i genes to species 2 via
-orthologs, then tests overlap with module_j using \code{\link[stats:Hypergeometric]{stats::phyper()}}.
+orthologs, then tests overlap with module_j using \code{\link[stats:phyper]{stats::phyper()}}.
 Q-values are computed via \code{\link[qvalue:qvalue]{qvalue::qvalue()}}. The hypergeometric assumes
 independent sampling, which is violated when orthologs have multi-copy
 HOGs (one sp1 gene mapping to multiple sp2 genes). This inflates

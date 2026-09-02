@@ -25,6 +25,8 @@ clique_perturbation_test(cliques, ...)
   n_cores = 1L,
   seed = NULL,
   cost_weights = c(q = 1, effect = 0),
+  pval_combine = c("max", "min"),
+  pi0_method = c("storey", "randomized", "none"),
   ...
 )
 }
@@ -70,6 +72,19 @@ combinations of \code{target_species}.}
 
 \item{cost_weights}{Cost weights for \code{\link{find_cliques}}
 (default \code{c(q = 1, effect = 0)}).}
+
+\item{pval_combine}{Directional q-value combination for the edge calls
+in every internal rerun, passed to
+\code{\link{find_coexpressologs}}. Set it to whatever built the
+baseline \code{cliques} (default \code{"max"}): a mismatch deflates
+survival rates by the criterion change rather than by noise.}
+
+\item{pi0_method}{pi0 estimation for every internal rerun, passed to
+\code{\link{find_coexpressologs}}. Default \code{"storey"} is
+deterministic across bootstrap iterations (\code{"randomized"} adds
+per-iteration Monte Carlo noise unrelated to \code{noise_sd}),
+matching \code{\link{clique_threshold_sweep}}. Set it to whatever
+built the baseline \code{cliques}.}
 }
 \value{
 Data frame with columns:
@@ -90,6 +105,13 @@ Adds Gaussian noise to MR scores in each species network, re-thresholds,
 re-runs the comparison-to-cliques pipeline, and measures how often
 baseline cliques survive. This tests robustness to measurement noise
 without recomputing correlations from scratch.
+}
+\details{
+For sparse networks only the stored entries are perturbed: edges
+discarded below the store threshold can never be promoted back above
+the analysis threshold, and the RNG stream differs from the dense path
+(one draw per stored entry instead of one per upper-triangle cell), so
+seeded results are not comparable between the two storage classes.
 }
 \examples{
 \dontrun{

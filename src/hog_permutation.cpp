@@ -10,7 +10,9 @@
 //
 // Test statistic: Sum of fold-enrichments across all pair x direction
 //   T = sum_{i,j} [x1_ij/E1_ij + x2_ij/E2_ij]
-// where x is the observed overlap and E is the hypergeometric expectation.
+// where x is the observed overlap and E = m * k / (n - 1) is the
+// hypergeometric expectation under the self-excluded urn: the anchor gene
+// leaves the ortholog-reachable set (k) and the population (n - 1).
 //
 // Intersection modes:
 // - Bit-vector with popcount when max(n1, n2) <= 100,000
@@ -39,6 +41,7 @@
 #include <omp.h>
 #endif
 
+#include "neighbor_lists.h"
 #include "sample_k_distinct.h"
 
 using namespace Rcpp;
@@ -88,30 +91,36 @@ static double compute_T_bitvec(
 ) {
     double T = 0.0;
 
-    // Direction 1: anchor = net1
+    // Direction 1: anchor = net1. The anchor a leaves the reachable set
+    // (k1 drops by one when a is reachable) and the population (n1 - 1);
+    // the overlap is unaffected because a is never its own neighbour.
     for (int b : sp2_genes) {
-        int k1 = reach1_sz[b];
-        if (k1 == 0) continue;
+        int k1_all = reach1_sz[b];
+        if (k1_all == 0) continue;
         auto r1 = bv_row(reach1_bv, b, n1w);
         for (int a : sp1_genes) {
             int m1 = neigh1_sz[a];
             if (m1 == 0) continue;
+            int k1 = k1_all - static_cast<int>((r1[a >> 6] >> (a & 63)) & 1ULL);
+            if (k1 == 0) continue;
             int x1 = bv_and_popcount(bv_row(neigh1_bv, a, n1w), r1);
-            double E1 = static_cast<double>(m1) * k1 / n1;
+            double E1 = static_cast<double>(m1) * k1 / (n1 - 1);
             T += x1 / E1;
         }
     }
 
     // Direction 2: anchor = net2
     for (int a : sp1_genes) {
-        int k2 = reach2_sz[a];
-        if (k2 == 0) continue;
+        int k2_all = reach2_sz[a];
+        if (k2_all == 0) continue;
         auto r2 = bv_row(reach2_bv, a, n2w);
         for (int b : sp2_genes) {
             int m2 = neigh2_sz[b];
             if (m2 == 0) continue;
+            int k2 = k2_all - static_cast<int>((r2[b >> 6] >> (b & 63)) & 1ULL);
+            if (k2 == 0) continue;
             int x2 = bv_and_popcount(bv_row(neigh2_bv, b, n2w), r2);
-            double E2 = static_cast<double>(m2) * k2 / n2;
+            double E2 = static_cast<double>(m2) * k2 / (n2 - 1);
             T += x2 / E2;
         }
     }
@@ -135,22 +144,24 @@ static double compute_T_flags(
 ) {
     double T = 0.0;
 
-    // Direction 1: anchor = net1
+    // Direction 1: anchor = net1 (self-excluded urn, see compute_T_bitvec)
     for (int b : sp2_genes) {
         const auto& r1 = reachable1[b];
-        int k1 = static_cast<int>(r1.size());
-        if (k1 == 0) continue;
+        int k1_all = static_cast<int>(r1.size());
+        if (k1_all == 0) continue;
 
         for (int x : r1) flags1[x] = 1;
 
         for (int a : sp1_genes) {
             int m1 = static_cast<int>(neighbors1[a].size());
             if (m1 == 0) continue;
+            int k1 = k1_all - (flags1[a] ? 1 : 0);
+            if (k1 == 0) continue;
             int x1 = 0;
             for (int x : neighbors1[a]) {
                 if (flags1[x]) ++x1;
             }
-            double E1 = static_cast<double>(m1) * k1 / n1;
+            double E1 = static_cast<double>(m1) * k1 / (n1 - 1);
             T += x1 / E1;
         }
 
@@ -160,19 +171,21 @@ static double compute_T_flags(
     // Direction 2: anchor = net2
     for (int a : sp1_genes) {
         const auto& r2 = reachable2[a];
-        int k2 = static_cast<int>(r2.size());
-        if (k2 == 0) continue;
+        int k2_all = static_cast<int>(r2.size());
+        if (k2_all == 0) continue;
 
         for (int x : r2) flags2[x] = 1;
 
         for (int b : sp2_genes) {
             int m2 = static_cast<int>(neighbors2[b].size());
             if (m2 == 0) continue;
+            int k2 = k2_all - (flags2[b] ? 1 : 0);
+            if (k2 == 0) continue;
             int x2 = 0;
             for (int x : neighbors2[b]) {
                 if (flags2[x]) ++x2;
             }
-            double E2 = static_cast<double>(m2) * k2 / n2;
+            double E2 = static_cast<double>(m2) * k2 / (n2 - 1);
             T += x2 / E2;
         }
 
@@ -183,32 +196,12 @@ static double compute_T_flags(
 }
 
 
-//' Permutation-based HOG-level conservation test
-//'
-//' Tests each HOG for co-expression conservation using a gene-identity
-//' permutation null with adaptive stopping (Besag & Clifford, 1991).
-//'
-//' @param net1 Co-expression network matrix for species 1 (n1 x n1)
-//' @param net2 Co-expression network matrix for species 2 (n2 x n2)
-//' @param thr1 Co-expression threshold for species 1
-//' @param thr2 Co-expression threshold for species 2
-//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
-//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
-//' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
-//' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
-//' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
-//' @param min_exceedances Besag-Clifford stopping parameter (default 50)
-//' @param max_permutations Maximum permutations per HOG (default 10000)
-//' @param n_cores Number of OpenMP threads (default 1)
-//' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
-//'
-//' @keywords internal
-// [[Rcpp::export]]
-Rcpp::DataFrame hog_permutation_test_cpp(
-    const arma::mat& net1,
-    const arma::mat& net2,
-    double thr1,
-    double thr2,
+// Shared body for both entry points: everything after neighbour-list
+// construction. neighbors1[i] / neighbors2[j] are ascending 0-based lists
+// (see neighbor_lists.h).
+static Rcpp::DataFrame hog_permutation_test_core(
+    const std::vector<std::vector<int>>& neighbors1,
+    const std::vector<std::vector<int>>& neighbors2,
     const Rcpp::IntegerVector& ortho_sp1_idx,
     const Rcpp::IntegerVector& ortho_sp2_idx,
     const Rcpp::List& hog_sp1_list,
@@ -216,10 +209,11 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     bool test_greater,
     int min_exceedances,
     int max_permutations,
-    int n_cores
+    int n_cores,
+    bool force_flag_mode
 ) {
-    const int n1 = static_cast<int>(net1.n_rows);
-    const int n2 = static_cast<int>(net2.n_rows);
+    const int n1 = static_cast<int>(neighbors1.size());
+    const int n2 = static_cast<int>(neighbors2.size());
     const int n_ortho = ortho_sp1_idx.size();
     const int n_hogs = hog_sp1_list.size();
 
@@ -233,36 +227,6 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         if (s1 >= 0 && s1 < n1 && s2 >= 0 && s2 < n2) {
             sp2_to_sp1[s2].push_back(s1);
             sp1_to_sp2[s1].push_back(s2);
-        }
-    }
-
-    // ---- Compute neighbor lists ----
-    // Column access is sequential in Armadillo's column-major layout;
-    // since the matrices are symmetric, col(i) == row(i) in value.
-    std::vector<std::vector<int>> neighbors1(n1);
-    std::vector<std::vector<int>> neighbors2(n2);
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
-#endif
-    for (int i = 0; i < n1; ++i) {
-        const double* col_i = net1.colptr(i);
-        for (int j = 0; j < n1; ++j) {
-            if (i != j && col_i[j] >= thr1) {
-                neighbors1[i].push_back(j);
-            }
-        }
-    }
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
-#endif
-    for (int i = 0; i < n2; ++i) {
-        const double* col_i = net2.colptr(i);
-        for (int j = 0; j < n2; ++j) {
-            if (i != j && col_i[j] >= thr2) {
-                neighbors2[i].push_back(j);
-            }
         }
     }
 
@@ -307,8 +271,10 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     for (int a = 0; a < n1; ++a) reach2_sz[a] = static_cast<int>(reachable2[a].size());
 
     // ---- Choose intersection mode and build bit-vectors ----
-    bool use_bitvec = (std::max(n1, n2) <= 100000);
-    if (!use_bitvec) {
+    bool use_bitvec = !force_flag_mode && (std::max(n1, n2) <= 100000);
+    if (force_flag_mode) {
+        REprintf("force_flag_mode: using flag-vector mode\n");
+    } else if (!use_bitvec) {
         REprintf("Network size > 100K genes: using flag-vector mode "
                  "(slower than bit-vector; expected for large genomes)\n");
     }
@@ -475,4 +441,107 @@ Rcpp::DataFrame hog_permutation_test_cpp(
         Rcpp::Named("n_exceed") = out_n_exceed,
         Rcpp::Named("p_value") = out_p_value
     );
+}
+
+
+//' Permutation-based HOG-level conservation test
+//'
+//' Tests each HOG for co-expression conservation using a gene-identity
+//' permutation null with adaptive stopping (Besag & Clifford, 1991).
+//'
+//' @param net1 Co-expression network matrix for species 1 (n1 x n1)
+//' @param net2 Co-expression network matrix for species 2 (n2 x n2)
+//' @param thr1 Co-expression threshold for species 1
+//' @param thr2 Co-expression threshold for species 2
+//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+//' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
+//' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
+//' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
+//' @param min_exceedances Besag-Clifford stopping parameter (default 50)
+//' @param max_permutations Maximum permutations per HOG (default 10000)
+//' @param n_cores Number of OpenMP threads (default 1)
+//' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+//'   regardless of network size (internal testing hook; default FALSE)
+//' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+//'
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::DataFrame hog_permutation_test_cpp(
+    const arma::mat& net1,
+    const arma::mat& net2,
+    double thr1,
+    double thr2,
+    const Rcpp::IntegerVector& ortho_sp1_idx,
+    const Rcpp::IntegerVector& ortho_sp2_idx,
+    const Rcpp::List& hog_sp1_list,
+    const Rcpp::List& hog_sp2_list,
+    bool test_greater,
+    int min_exceedances,
+    int max_permutations,
+    int n_cores,
+    bool force_flag_mode = false
+) {
+    return hog_permutation_test_core(
+        neighbor_lists_dense(net1, thr1, n_cores),
+        neighbor_lists_dense(net2, thr2, n_cores),
+        ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list,
+        test_greater, min_exceedances, max_permutations, n_cores,
+        force_flag_mode);
+}
+
+
+//' Permutation-based HOG-level conservation test (sparse networks)
+//'
+//' Same as [hog_permutation_test_cpp()] but takes the slots of a
+//' `dgCMatrix` (column-compressed, both triangles stored) for each network
+//' instead of a dense matrix. Column j lists the neighbours of gene j.
+//'
+//' @param p1 `@p` slot of net1 (column pointers, length n1 + 1)
+//' @param i1 `@i` slot of net1 (0-based row indices)
+//' @param x1 `@x` slot of net1 (stored values)
+//' @param thr1 Co-expression threshold for species 1
+//' @param p2 `@p` slot of net2
+//' @param i2 `@i` slot of net2
+//' @param x2 `@x` slot of net2
+//' @param thr2 Co-expression threshold for species 2
+//' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+//' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+//' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
+//' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
+//' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
+//' @param min_exceedances Besag-Clifford stopping parameter (default 50)
+//' @param max_permutations Maximum permutations per HOG (default 10000)
+//' @param n_cores Number of OpenMP threads (default 1)
+//' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+//'   regardless of network size (internal testing hook; default FALSE)
+//' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+//'
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::DataFrame hog_permutation_test_sparse_cpp(
+    const Rcpp::IntegerVector& p1,
+    const Rcpp::IntegerVector& i1,
+    const Rcpp::NumericVector& x1,
+    double thr1,
+    const Rcpp::IntegerVector& p2,
+    const Rcpp::IntegerVector& i2,
+    const Rcpp::NumericVector& x2,
+    double thr2,
+    const Rcpp::IntegerVector& ortho_sp1_idx,
+    const Rcpp::IntegerVector& ortho_sp2_idx,
+    const Rcpp::List& hog_sp1_list,
+    const Rcpp::List& hog_sp2_list,
+    bool test_greater,
+    int min_exceedances,
+    int max_permutations,
+    int n_cores,
+    bool force_flag_mode = false
+) {
+    return hog_permutation_test_core(
+        neighbor_lists_sparse(p1, i1, x1, thr1, n_cores),
+        neighbor_lists_sparse(p2, i2, x2, thr2, n_cores),
+        ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list,
+        test_greater, min_exceedances, max_permutations, n_cores,
+        force_flag_mode);
 }

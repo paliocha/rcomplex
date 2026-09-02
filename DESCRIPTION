@@ -1,6 +1,6 @@
 Package: rcomplex
 Title: Comparative Co-Expression Network Analysis Across Species
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Martin", "Paliocha", , "martin.paliocha@nmbu.no", role = c("aut", "cre"))
 Description: Compares gene co-expression networks across species by mapping
@@ -14,7 +14,6 @@ Description: Compares gene co-expression networks across species by mapping
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends:
     R (>= 4.1.0)
 Imports:
@@ -23,6 +22,7 @@ Imports:
     Rfast,
     dplyr (>= 1.1.0),
     igraph,
+    Matrix (>= 1.5-0),
     DiscreteQvalue,
     qvalue,
     tidyr (>= 1.3.0),
@@ -50,6 +50,8 @@ Suggests:
     torch,
     testthat (>= 3.0.0),
     lintr,
+    withr,
     pkgdown
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0

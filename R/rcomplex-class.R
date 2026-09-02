@@ -69,6 +69,7 @@ rcomplex <- function(species, traits, networks, orthologs,
     net <- networks[[sp]]
     if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
       stop("networks[['", sp, "']] must have 'network' and 'threshold'")
+    .net_check(net, net$threshold)
   }
 
   # --- Validate orthologs ---
@@ -142,6 +143,9 @@ print.rcomplex <- function(x, ...) {
       length(trait_levels), "traits (",
       paste(trait_levels, collapse = ", "), ")\n")
   cat("  Networks:       ", n_sp, "/", n_sp, "species\n", sep = "")
+  for (sp in x$species) {
+    cat("    ", sp, ": ", .net_describe(x$networks[[sp]]), "\n", sep = "")
+  }
   cat("  Orthologs:      ", nrow(x$orthologs), " pairs\n", sep = "")
   cat("  Contrasts:      ", length(x$species_pairs), " species pairs",
       if (!is.null(x$phylo_pairs))
@@ -191,7 +195,8 @@ summary.rcomplex <- function(object, ...) {
     n_species   = length(x$species),
     trait_levels = sort(unique(x$traits[x$species])),
     n_orthologs = nrow(x$orthologs),
-    n_pairs     = length(x$species_pairs)
+    n_pairs     = length(x$species_pairs),
+    network_storage = vapply(x$networks, .net_describe, character(1))
   )
   if (!is.null(x$edges)) {
     out$n_edges     <- nrow(x$edges)
@@ -213,6 +218,12 @@ summary.rcomplex <- function(object, ...) {
 print.summary.rcomplex <- function(x, ...) {
   cat("rcomplex summary:", x$n_species, "species,",
       x$n_orthologs, "ortholog pairs\n")
+  if (!is.null(x$network_storage)) {
+    cat("  Networks:\n")
+    for (sp in names(x$network_storage)) {
+      cat("    ", sp, ": ", x$network_storage[[sp]], "\n", sep = "")
+    }
+  }
   if (!is.null(x$n_edges))
     cat("  Edges:", x$n_edges, "(", x$n_conserved, "conserved )\n")
   if (!is.null(x$n_cliques))

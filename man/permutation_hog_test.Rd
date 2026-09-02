@@ -69,14 +69,23 @@ neighborhood overlap.
 
 For each permutation, M random species-1 genes and N random species-2 genes
 are drawn (matching the HOG's gene counts), and the sum-of-fold-enrichments
-statistic T is computed over all M x N pair x direction combinations. The
-permutation p-value is the fraction of permuted T values that exceed (or
-fall below, for divergence) the observed T.
+statistic T is computed over all M x N pair x direction combinations. Each
+fold enrichment is \eqn{x / E} with \eqn{E = m k / (n - 1)}: the anchor
+gene leaves the ortholog-reachable set (\eqn{k}) and the population
+(\eqn{n - 1}), as in \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}. The permutation p-value is
+the fraction of permuted T values that exceed (or fall below, for
+divergence) the observed T.
 
 The Besag & Clifford (1991) sequential stopping rule terminates permutations
 early once \code{min_exceedances} permutation statistics exceed T_obs,
 providing efficient computation without sacrificing accuracy for clearly
 significant or non-significant HOGs.
+
+The internal option \code{options(rcomplex.force_flag_vector = TRUE)} forces
+the C++ backends into the flag-vector intersection mode normally reserved
+for networks with more than 100,000 genes (testing hook; results are
+identical to the default bit-vector mode). It has no effect when
+\code{use_torch = TRUE}.
 }
 
 \section{Why not Fisher's method}{

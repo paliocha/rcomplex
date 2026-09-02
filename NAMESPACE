@@ -25,6 +25,7 @@ S3method(identify_module_hubs,rcomplex)
 S3method(print,rcomplex)
 S3method(print,summary.rcomplex)
 S3method(summary,rcomplex)
+export(as_sparse_network)
 export(characterize_hubs)
 export(classify_cliques)
 export(classify_hub_conservation)
@@ -35,6 +36,7 @@ export(clique_perturbation_test)
 export(clique_stability)
 export(clique_threshold_sweep)
 export(coarsen_modules)
+export(coexpressolog_null)
 export(compare_modules)
 export(compare_modules_paired)
 export(compare_neighborhoods)
@@ -47,6 +49,7 @@ export(find_cliques)
 export(find_coexpressologs)
 export(get_coexpressed_hogs)
 export(identify_module_hubs)
+export(mr_block)
 export(parse_orthologs)
 export(permutation_hog_test)
 export(prepare_orthologs)
@@ -56,14 +59,21 @@ export(run_pairwise_comparisons)
 export(summarize_comparison)
 export(tag_permutation)
 exportMethods(compute_network)
+importClassesFrom(Matrix,dgCMatrix)
 importFrom(Rcpp,sourceCpp)
-importFrom(methods,is)
-importFrom(methods,new)
-importFrom(methods,setGeneric)
-importFrom(methods,setMethod)
-importFrom(rlang,.data)
-importFrom(rlang,.env)
+importFrom(methods,
+  is,
+  new,
+  setGeneric,
+  setMethod
+)
+importFrom(rlang,
+  .data,
+  .env
+)
 importFrom(stats,setNames)
-importFrom(utils,modifyList)
-importFrom(utils,read.delim)
+importFrom(utils,
+  modifyList,
+  read.delim
+)
 useDynLib(rcomplex, .registration = TRUE)

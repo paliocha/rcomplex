@@ -30,11 +30,46 @@ make_clique_fixture <- function(n_genes = 20L) {
   )
 
   target <- c("SP_A", "SP_B")
-  edges <- find_coexpressologs(networks, orthologs, method = "analytical")
+  edges <- find_coexpressologs(networks, orthologs, method = "analytical", pi0_method = "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(networks = networks, orthologs = orthologs, edges = edges,
        cliques = cliques, target_species = target)
+}
+
+
+# Build a 2-species fixture where pval_combine = "min" and "max" call
+# DIFFERENT conserved edges. Pair (A1, B1) is significant in the Species2
+# direction only: A1's neighbourhood is tight (A2..A5, all mapped) while
+# B1 is connected to every other gene, so the Species1 direction has
+# m = N - 1 and p = 1 (the overlap cannot beat a full neighbourhood).
+# The mapping covers genes 1-5 only; the unmapped B genes provide the
+# dilution. With pi0_method = "none": exactly one conserved edge under
+# "min", none under "max".
+make_asym_clique_fixture <- function() {
+  n <- 20L
+  ga <- paste0("A", seq_len(n))
+  gb <- paste0("B", seq_len(n))
+  mk <- function(genes, hub_to) {
+    m <- matrix(0, n, n, dimnames = list(genes, genes))
+    m[1, hub_to] <- m[hub_to, 1] <- 10
+    m
+  }
+  networks <- list(SP_A = list(network = mk(ga, 2:5), threshold = 2),
+                   SP_B = list(network = mk(gb, 2:n), threshold = 2))
+  orthologs <- data.frame(Species1 = ga[1:5], Species2 = gb[1:5],
+                          hog = paste0("HOG", 1:5),
+                          stringsAsFactors = FALSE)
+  target <- c("SP_A", "SP_B")
+
+  edges_min <- find_coexpressologs(networks, orthologs,
+                                   method = "analytical",
+                                   pi0_method = "none",
+                                   pval_combine = "min")
+  cliques <- find_cliques(edges_min, target, min_species = 2L)
+
+  list(networks = networks, orthologs = orthologs,
+       edges_min = edges_min, cliques = cliques, target_species = target)
 }
 
 
@@ -71,7 +106,7 @@ make_clique_fixture_3sp <- function(n_genes = 15L) {
   )
 
   target <- c("SP_A", "SP_B", "SP_C")
-  edges <- find_coexpressologs(networks, orthologs, method = "analytical")
+  edges <- find_coexpressologs(networks, orthologs, method = "analytical", pi0_method = "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(networks = networks, orthologs = orthologs, edges = edges,

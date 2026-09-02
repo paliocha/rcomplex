@@ -19,6 +19,32 @@
 #' 3. Apply maximum-paralogs filter on the reduced ortholog table
 #' 4. Compute networks and run comparison
 #'
+#' @details
+#' For an ortholog pair (A in species 1, B in species 2) and direction 1
+#' (anchor A), the neighbourhood of A in net1 (size \eqn{m}) is tested
+#' against the set of species-1 orthologs of B's neighbours in net2 (size
+#' \eqn{k}); \eqn{x} is their intersection. The urn excludes the anchor
+#' gene: A is never its own neighbour, it is dropped from the mapped set,
+#' and the hypergeometric population is the other \eqn{N - 1} network
+#' genes. `Species1.p.val.con` is \eqn{P(X \ge x)} and keeps the gate of
+#' the original RComPlEx R Markdown (not the paper): it is reported as 1
+#' when \eqn{x \le 1}. `Species1.p.val.gt` (\eqn{P(X > x)}) and
+#' `Species1.p.val.eq` (\eqn{P(X = x)}) are ungated so that
+#' `p.val.gt + U * p.val.eq` is a randomized p-value, exactly uniform under
+#' the null (used by [summarize_comparison()] to estimate pi0). The effect
+#' size \eqn{(x / k) / (m / (N - 1))} is computed for every \eqn{x}
+#' (1 when \eqn{m = 0} or \eqn{k = 0}). Direction 2 is symmetric.
+#'
+#' @section Gene universe:
+#' Networks are built on all supplied genes and \eqn{N} is the number of
+#' genes in the anchor network, as in Netotea et al. (2014). The canonical
+#' ComPlEx implementations (`RComPlEx.Rmd`, `ComPlEx_python`) instead
+#' restrict the expression tables to genes with an ortholog before building
+#' the networks, which changes neighbourhoods, thresholds and therefore the
+#' calls. rcomplex reproduces those implementations only when the
+#' expression matrices are restricted the same way before
+#' [compute_network()] (`tests/testthat/test-equivalence.R`).
+#'
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
 #' @param orthologs Data frame with columns `Species1`, `Species2`, and
@@ -32,22 +58,26 @@
 #'     \item{hog}{Ortholog group identifier}
 #'     \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
 #'     \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net2}
+#'       from net2, excluding the Species1 gene itself}
 #'     \item{Species1.neigh.overlap}{Intersection size}
 #'     \item{Species1.p.val.con}{Upper-tail hypergeometric p-value for
-#'       conservation (direction 1)}
+#'       conservation (direction 1); 1 when the overlap is 0 or 1}
 #'     \item{Species1.p.val.div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 1)}
+#'     \item{Species1.p.val.gt}{\eqn{P(X > x)}, ungated (direction 1)}
+#'     \item{Species1.p.val.eq}{\eqn{P(X = x)} (direction 1)}
 #'     \item{Species1.effect.size}{Fold enrichment (direction 1). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
 #'     \item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
 #'     \item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net1}
+#'       from net1, excluding the Species2 gene itself}
 #'     \item{Species2.neigh.overlap}{Intersection size}
 #'     \item{Species2.p.val.con}{Upper-tail hypergeometric p-value for
-#'       conservation (direction 2)}
+#'       conservation (direction 2); 1 when the overlap is 0 or 1}
 #'     \item{Species2.p.val.div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 2)}
+#'     \item{Species2.p.val.gt}{\eqn{P(X > x)}, ungated (direction 2)}
+#'     \item{Species2.p.val.eq}{\eqn{P(X = x)} (direction 2)}
 #'     \item{Species2.effect.size}{Fold enrichment (direction 2). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
 #'     \item{Species1.jaccard}{Jaccard index of neighborhood overlap
@@ -103,18 +133,32 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   sp1_idx <- as.integer(idx1[orthologs$Species1])
   sp2_idx <- as.integer(idx2[orthologs$Species2])
 
-  # Call C++
-  result <- compare_neighborhoods_cpp(
-    net1 = net1_mat,
-    net2 = net2_mat,
-    thr1 = thr1,
-    thr2 = thr2,
-    pair_sp1_idx = sp1_idx,
-    pair_sp2_idx = sp2_idx,
-    ortho_sp1_idx = sp1_idx,
-    ortho_sp2_idx = sp2_idx,
-    n_cores = n_cores
-  )
+  # Call C++ (dense or sparse entry point, chosen by storage class)
+  a1 <- .net_cpp_args(net1, thr1)
+  a2 <- .net_cpp_args(net2, thr2)
+  result <- if (.net_pair_sparse(net1, net2)) {
+    compare_neighborhoods_sparse_cpp(
+      p1 = a1$p, i1 = a1$i, x1 = a1$x, thr1 = a1$thr,
+      p2 = a2$p, i2 = a2$i, x2 = a2$x, thr2 = a2$thr,
+      pair_sp1_idx = sp1_idx,
+      pair_sp2_idx = sp2_idx,
+      ortho_sp1_idx = sp1_idx,
+      ortho_sp2_idx = sp2_idx,
+      n_cores = n_cores
+    )
+  } else {
+    compare_neighborhoods_cpp(
+      net1 = a1$net,
+      net2 = a2$net,
+      thr1 = a1$thr,
+      thr2 = a2$thr,
+      pair_sp1_idx = sp1_idx,
+      pair_sp2_idx = sp2_idx,
+      ortho_sp1_idx = sp1_idx,
+      ortho_sp2_idx = sp2_idx,
+      n_cores = n_cores
+    )
+  }
 
   # Combine with ortholog info
   cbind(
@@ -143,6 +187,13 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold for the \code{type} column
 #'   (default 0.05).
+#' @param pval_combine How the two directional q-values are combined into
+#'   \code{q.value}: \code{"max"} (default; both directions must be
+#'   significant -- the reciprocal criterion of Netotea et al. (2014),
+#'   the \code{Max.p.val} filter of the original ComPlEx) or \code{"min"}
+#'   (permissive; a pair is called when either direction is significant,
+#'   yielding a denser edge supply for \code{\link{find_cliques}}). A
+#'   missing directional q-value is ignored in either case.
 #'
 #' @return Data frame with columns:
 #'   \describe{
@@ -151,7 +202,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'     \item{species1}{Species abbreviation for gene1 (\code{sp1})}
 #'     \item{species2}{Species abbreviation for gene2 (\code{sp2})}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{q.value}{Minimum of the two directional q-values}
+#'     \item{q.value}{Maximum (or minimum, see \code{pval_combine}) of the
+#'       two directional q-values}
 #'     \item{effect_size}{Geometric mean of directional effect sizes}
 #'     \item{jaccard}{Geometric mean of directional Jaccard indices
 #'       (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
@@ -172,8 +224,10 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' @export
 comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
-                                alpha = 0.05) {
+                                alpha = 0.05,
+                                pval_combine = c("max", "min")) {
   alternative <- match.arg(alternative)
+  pval_combine <- match.arg(pval_combine)
 
   suffix <- if (alternative == "greater") "con" else "div"
   q1_col <- paste0("Species1.q.val.", suffix)
@@ -189,8 +243,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
          ". Did you pass summarize_comparison()$results?")
   }
 
-  q_min <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
-  q_min[is.infinite(q_min)] <- NA_real_
+  combine <- if (pval_combine == "min") pmin else pmax
+  q_comb <- combine(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
+  q_comb[is.infinite(q_comb)] <- NA_real_
   eff_geo <- sqrt(comparison$Species1.effect.size *
                   comparison$Species2.effect.size)
 
@@ -203,7 +258,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   }
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
-  type <- ifelse(q_min < alpha, type_label, "ns")
+  type <- ifelse(q_comb < alpha, type_label, "ns")
 
   data.frame(
     gene1 = comparison$Species1,
@@ -211,7 +266,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     species1 = sp1,
     species2 = sp2,
     hog = comparison$hog,
-    q.value = q_min,
+    q.value = q_comb,
     effect_size = eff_geo,
     jaccard = jacc_geo,
     type = type
@@ -236,6 +291,15 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'     HOGs where pair-level tests are correlated.}
 #' }
 #'
+#' @section Gene universe:
+#' Each network is built on all genes supplied to
+#' \code{\link{compute_network}} and the hypergeometric population is the
+#' whole network (Netotea et al. 2014). Canonical ComPlEx implementations
+#' restrict expression to ortholog genes before building the networks;
+#' that changes neighbourhoods and calls, so rcomplex matches them only
+#' when the expression matrices are restricted the same way beforehand
+#' (see \code{\link{compare_neighborhoods}}).
+#'
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
 #' @param orthologs Data frame with columns \code{Species1},
@@ -256,6 +320,18 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   permutation method (default 50).
 #' @param max_permutations Maximum permutations for permutation method
 #'   (default 10000).
+#' @param pi0_method Analytical method only: how pi0 is estimated for the
+#'   pair-level Storey q-values, passed to
+#'   \code{\link{summarize_comparison}}: \code{"randomized"} (default),
+#'   \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
+#'   draws from the global RNG; call \code{set.seed()} first for
+#'   reproducible calls.
+#' @param pval_combine Analytical method only: how the two directional
+#'   q-values are combined, passed to \code{\link{comparison_to_edges}}:
+#'   \code{"max"} (default; both directions significant -- the reciprocal
+#'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
+#'   the original ComPlEx) or \code{"min"} (permissive; either direction,
+#'   denser edge supply for \code{\link{find_cliques}}).
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
@@ -265,7 +341,14 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' @examples
 #' \dontrun{
 #' # Fast analytical path
+#' set.seed(1)
 #' edges <- find_coexpressologs(networks, orthologs)
+#'
+#' # Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
+#' edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
+#'
+#' # Permissive either-direction calls (denser clique input)
+#' edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 #'
 #' # Rigorous permutation path with GPU
 #' edges <- find_coexpressologs(networks, orthologs,
@@ -287,10 +370,14 @@ find_coexpressologs.default <- function(
     n_cores = 1L,
     use_torch = FALSE,
     min_exceedances = 50L,
-    max_permutations = 10000L, ...) {
+    max_permutations = 10000L,
+    pi0_method = c("randomized", "storey", "none"),
+    pval_combine = c("max", "min"), ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
+  pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
 
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
@@ -341,7 +428,8 @@ find_coexpressologs.default <- function(
 
     if (method == "analytical") {
       summary_res <- tryCatch(
-        summarize_comparison(comparison, alternative, alpha),
+        summarize_comparison(comparison, alternative, alpha,
+                             pi0_method = pi0_method),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b,
                   " q-value computation failed: ", conditionMessage(e))
@@ -350,7 +438,8 @@ find_coexpressologs.default <- function(
       )
       if (is.null(summary_res) || nrow(summary_res$results) == 0) next
       edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
-                                       alternative, alpha)
+                                       alternative, alpha,
+                                       pval_combine = pval_combine)
     } else {
       # Permutation path: HOG-level permutation test
       hog_res <- tryCatch(
@@ -434,6 +523,14 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #' @param species_pairs Optional list of length-2 character vectors
 #'   passed to \code{\link{find_coexpressologs}} at each threshold
 #'   level. Defaults to all pairwise combinations.
+#' @param pi0_method Passed to \code{\link{find_coexpressologs}} (used
+#'   by the analytical method): \code{"randomized"} (default),
+#'   \code{"storey"} or \code{"none"}. The default draws from the
+#'   global RNG; call \code{set.seed()} first for reproducible q-values.
+#' @param pval_combine Passed to \code{\link{find_coexpressologs}}:
+#'   \code{"max"} (default) requires both directions to be significant
+#'   (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
+#'   calls a pair when either direction is significant.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -465,10 +562,14 @@ density_sweep.default <- function(networks, orthologs,
                            use_torch = FALSE,
                            min_exceedances = 50L,
                            max_permutations = 10000L,
-                           species_pairs = NULL, ...) {
+                           species_pairs = NULL,
+                           pi0_method = c("randomized", "storey", "none"),
+                           pval_combine = c("max", "min"), ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
+  pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
 
   if (!is.list(networks) || is.null(names(networks)))
     stop("networks must be a named list keyed by species")
@@ -478,6 +579,7 @@ density_sweep.default <- function(networks, orthologs,
     net <- networks[[sp]]
     if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
       stop("each network must have 'network' and 'threshold' elements")
+    .net_check(net, net$threshold)
   }
   if (!is.numeric(multipliers) || length(multipliers) == 0L)
     stop("multipliers must be a non-empty numeric vector")
@@ -510,8 +612,17 @@ density_sweep.default <- function(networks, orthologs,
       modifyList(net, list(threshold = net$threshold * m)))
 
     densities <- vapply(tight_nets, function(net) {
-      vals <- net$network[upper.tri(net$network)]
-      mean(vals >= net$threshold)
+      # .net_check() also fires the store guard: a multiplier below the
+      # sparse store errors here instead of silently missing edges
+      mat <- .net_check(net, net$threshold)
+      if (.net_is_sparse(net)) {
+        # both triangles stored, no diagonal (asserted by .net_check)
+        n <- nrow(mat)
+        sum(mat@x >= net$threshold) / (n * (n - 1))
+      } else {
+        vals <- mat[upper.tri(mat)]
+        mean(vals >= net$threshold)
+      }
     }, numeric(1))
     res_eff_density[i] <- mean(densities)
     res_species_densities[[i]] <- densities
@@ -524,7 +635,9 @@ density_sweep.default <- function(networks, orthologs,
         alpha = alpha, n_cores = n_cores,
         use_torch = use_torch,
         min_exceedances = min_exceedances,
-        max_permutations = max_permutations
+        max_permutations = max_permutations,
+        pi0_method = pi0_method,
+        pval_combine = pval_combine
       ),
       error = function(e) {
         warning("density_sweep: multiplier ", m, " failed: ",
@@ -586,7 +699,11 @@ density_sweep.default <- function(networks, orthologs,
 #'     \item{coexpressed_traits}{Comma-separated unique trait values of
 #'       those species (sorted); \code{NA} if \code{species_trait} is
 #'       \code{NULL}}
-#'     \item{mean_weight}{Mean co-expression weight across species}
+#'     \item{mean_weight}{Mean co-expression weight across species. Per
+#'       species, the maximum over candidate-HOG copies of the mean edge
+#'       weight from a copy to the partner-HOG genes in that copy's own
+#'       neighborhood (edge values at or above the network threshold), so
+#'       the value is identical for dense and sparse networks}
 #'   }
 #'   When \code{edges} is provided, three additional columns are appended:
 #'   \describe{
@@ -653,6 +770,7 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
   # For each species, find genes in the network that belong to each HOG
   hog_genes_by_sp <- list()
   for (sp in species) {
+    .net_check(networks[[sp]], networks[[sp]]$threshold)
     net_genes <- rownames(networks[[sp]]$network)
     mapped <- gene_to_hog[intersect(names(gene_to_hog), net_genes)]
     hog_genes_by_sp[[sp]] <- split(names(mapped), mapped)
@@ -670,13 +788,18 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     net_mat <- networks[[sp]]$network
     thr <- networks[[sp]]$threshold
 
-    # Union of neighbors across all candidate genes (multi-copy)
+    # Per-copy neighbor sets and their union (multi-copy)
+    nbrs_by_cg <- vector("list", length(candidate_genes))
+    names(nbrs_by_cg) <- candidate_genes
     all_neighbors <- character(0)
     for (cg in candidate_genes) {
-      row_vals <- net_mat[cg, ]
-      nbrs <- names(row_vals[row_vals >= thr])
+      # column access: named numeric for both dense and dgCMatrix networks
+      # (the matrix is symmetric)
+      col_vals <- net_mat[, cg]
+      nbrs <- names(col_vals[col_vals >= thr])
       # Exclude self
       nbrs <- setdiff(nbrs, candidate_genes)
+      nbrs_by_cg[[cg]] <- nbrs
       all_neighbors <- union(all_neighbors, nbrs)
     }
     if (length(all_neighbors) == 0L) next
@@ -686,13 +809,20 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     nbr_hogs <- nbr_hogs[!is.na(nbr_hogs)]
     if (length(nbr_hogs) == 0L) next
 
-    # Per-partner-HOG max weight across candidate genes
+    # Per-partner-HOG max weight across candidate genes. Each copy's mean
+    # runs only over partner genes in that copy's own neighborhood (values
+    # >= thr, hence always stored): identical for dense and sparse
+    # networks. Copies with no neighbor in the partner HOG do not
+    # contribute; every partner HOG has at least one contributing copy by
+    # construction of all_neighbors.
     nbr_by_hog <- split(names(nbr_hogs), nbr_hogs)
     partner_hogs <- names(nbr_by_hog)
     weights <- vapply(partner_hogs, function(ph) {
       ph_genes <- nbr_by_hog[[ph]]
       max(vapply(candidate_genes, function(cg) {
-        mean(net_mat[cg, ph_genes])
+        own <- intersect(ph_genes, nbrs_by_cg[[cg]])
+        if (length(own) == 0L) return(-Inf)
+        mean(net_mat[own, cg])
       }, numeric(1)))
     }, numeric(1))
 
