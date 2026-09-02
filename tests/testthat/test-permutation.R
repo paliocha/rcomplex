@@ -527,47 +527,31 @@ test_that("torch backend with tighter threshold: sparse equals dense", {
 # ---- self-excluded urn (D5) ----
 
 test_that("T_obs uses the self-excluded urn and matches the R oracle", {
-  # HOG1 members (1-3) are co-expressed with each other and with 4-6, so
-  # for anchor A1 and HOG-mate B2 the anchor is itself ortholog-reachable
-  # from B2's neighbours and must leave the reachable set; the population
-  # is N - 1 in both directions.
-  n <- 12
-  build <- function(prefix) {
-    m <- matrix(0, n, n)
-    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
-    for (g in 1:3) for (h in 1:6) if (g != h) m[g, h] <- m[h, g] <- 0.9
-    diag(m) <- 1
-    m
-  }
-  net1 <- list(network = build("A"), threshold = 0.5)
-  net2 <- list(network = build("B"), threshold = 0.5)
-  ortho <- data.frame(
-    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n),
-    hog = c(rep("HOG1", 3), paste0("HOG", 2:(n - 2))),
-    stringsAsFactors = FALSE
-  )
-  comparison <- compare_neighborhoods(net1, net2, ortho)
+  # Fixture: make_self_excluded_nets() (helper-reference.R) -- the anchor
+  # is itself ortholog-reachable from a HOG-mate's neighbours and must
+  # leave the reachable set; the population is N - 1 in both directions.
+  td <- make_self_excluded_nets()
   sp1 <- paste0("A", 1:3)
   sp2 <- paste0("B", 1:3)
 
   set.seed(3)
-  res <- permutation_hog_test(net1, net2, comparison,
+  res <- permutation_hog_test(td$net1, td$net2, td$comparison,
                               max_permutations = 50L, min_exceedances = 5L)
   t_hog1 <- res$T_obs[res$hog == "HOG1"]
-  expected <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
-                              sp1, sp2)
+  expected <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
+                              td$ortho, sp1, sp2)
   expect_equal(t_hog1, expected, tolerance = 1e-12)
 
   # the exclusion is exercised: the pre-0.2.0 urn (k, N) gives a
   # different statistic
-  old <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
-                         sp1, sp2, self_exclude = FALSE)
+  old <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
+                         td$ortho, sp1, sp2, self_exclude = FALSE)
   expect_false(isTRUE(all.equal(t_hog1, old)))
 
   # sparse path identical
   set.seed(3)
-  res_s <- permutation_hog_test(sparse_net(net1), sparse_net(net2),
-                                comparison,
+  res_s <- permutation_hog_test(sparse_net(td$net1), sparse_net(td$net2),
+                                td$comparison,
                                 max_permutations = 50L, min_exceedances = 5L)
   expect_equal(res_s, res)
 })
@@ -625,31 +609,16 @@ test_that("forced flag-vector engine equals bit-vector engine (seeded)", {
 
 test_that("forced flag-vector T_obs matches the self-excluded R oracle", {
   skip_if_not_installed("withr")
-  # Same construction as the bit-vector D5 test above: HOG1 members (1-3)
-  # are co-expressed with each other, so the anchor is itself
+  # Same fixture as the bit-vector D5 test above
+  # (make_self_excluded_nets(), helper-reference.R): the anchor is itself
   # ortholog-reachable and compute_T_flags must drop it from the urn
   # (k - 1, population N - 1).
-  n <- 12
-  build <- function(prefix) {
-    m <- matrix(0, n, n)
-    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
-    for (g in 1:3) for (h in 1:6) if (g != h) m[g, h] <- m[h, g] <- 0.9
-    diag(m) <- 1
-    m
-  }
-  net1 <- list(network = build("A"), threshold = 0.5)
-  net2 <- list(network = build("B"), threshold = 0.5)
-  ortho <- data.frame(
-    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n),
-    hog = c(rep("HOG1", 3), paste0("HOG", 2:(n - 2))),
-    stringsAsFactors = FALSE
-  )
-  comparison <- compare_neighborhoods(net1, net2, ortho)
+  td <- make_self_excluded_nets()
 
   withr::local_options(rcomplex.force_flag_vector = TRUE)
   set.seed(3)
   msgs <- capture.output(
-    res <- permutation_hog_test(net1, net2, comparison,
+    res <- permutation_hog_test(td$net1, td$net2, td$comparison,
                                 max_permutations = 50L,
                                 min_exceedances = 5L),
     type = "message"
@@ -657,13 +626,13 @@ test_that("forced flag-vector T_obs matches the self-excluded R oracle", {
   expect_true(any(grepl("flag-vector", msgs)))
 
   t_hog1 <- res$T_obs[res$hog == "HOG1"]
-  expected <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
-                              paste0("A", 1:3), paste0("B", 1:3))
+  expected <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
+                              td$ortho, paste0("A", 1:3), paste0("B", 1:3))
   expect_equal(t_hog1, expected, tolerance = 1e-12)
 
   # the exclusion is exercised: the pre-0.2.0 urn (k, N) differs
-  old <- reference_T_obs(net1$network, net2$network, 0.5, 0.5, ortho,
-                         paste0("A", 1:3), paste0("B", 1:3),
+  old <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
+                         td$ortho, paste0("A", 1:3), paste0("B", 1:3),
                          self_exclude = FALSE)
   expect_false(isTRUE(all.equal(t_hog1, old)))
 })
@@ -698,7 +667,37 @@ test_that("forced flag-vector mode: sparse equals dense (seeded)", {
 })
 
 
-test_that("without the option the bit-vector path is used unchanged", {
+test_that("forced flag-vector engine: n_cores = 2 matches serial T_obs", {
+  skip_if_not_installed("withr")
+  td <- make_test_nets()
+
+  withr::local_options(rcomplex.force_flag_vector = TRUE)
+  set.seed(42)
+  msgs_1 <- capture.output(
+    res_1 <- permutation_hog_test(
+      td$net1, td$net2, td$comparison,
+      max_permutations = 200L, min_exceedances = 10L, n_cores = 1L
+    ),
+    type = "message"
+  )
+  set.seed(42)
+  msgs_2 <- capture.output(
+    res_2 <- permutation_hog_test(
+      td$net1, td$net2, td$comparison,
+      max_permutations = 200L, min_exceedances = 10L, n_cores = 2L
+    ),
+    type = "message"
+  )
+  expect_true(any(grepl("flag-vector", msgs_1)))
+  expect_true(any(grepl("flag-vector", msgs_2)))
+  # T_obs is permutation-free, so the parallel run must reproduce the
+  # serial statistic exactly (without OpenMP n_cores = 2 degrades to
+  # serial and the assertion stays valid).
+  expect_equal(res_2$T_obs[order(res_2$hog)], res_1$T_obs[order(res_1$hog)])
+})
+
+
+test_that("option set to FALSE keeps the bit-vector path unchanged", {
   skip_if_not_installed("withr")
   td <- make_test_nets()
 
@@ -708,15 +707,15 @@ test_that("without the option the bit-vector path is used unchanged", {
     max_permutations = 200L, min_exceedances = 10L
   )
 
-  withr::local_options(rcomplex.force_flag_vector = NULL)
+  withr::local_options(rcomplex.force_flag_vector = FALSE)
   set.seed(42)
   msgs <- capture.output(
-    res_unset <- permutation_hog_test(
+    res_false <- permutation_hog_test(
       td$net1, td$net2, td$comparison,
       max_permutations = 200L, min_exceedances = 10L
     ),
     type = "message"
   )
   expect_false(any(grepl("flag-vector", msgs)))
-  expect_equal(res_unset, res_plain)
+  expect_equal(res_false, res_plain)
 })

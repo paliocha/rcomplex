@@ -221,3 +221,30 @@ make_graded_nets <- function() {
   )
   list(net1 = net1, net2 = net2, ortho = ortho)
 }
+
+#' 12-gene self-excluded urn fixture (D5)
+#'
+#' HOG1 members (genes 1-3) are co-expressed with each other and with genes
+#' 4-6, so for anchor A1 and HOG-mate B2 the anchor is itself
+#' ortholog-reachable from B2's neighbours and must leave the reachable set
+#' (urn k - 1, population N - 1 in both directions). Exercises the
+#' self-exclusion in both the bit-vector and flag-vector engines.
+make_self_excluded_nets <- function() {
+  n <- 12
+  build <- function(prefix) {
+    m <- matrix(0, n, n)
+    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
+    for (g in 1:3) for (h in 1:6) if (g != h) m[g, h] <- m[h, g] <- 0.9
+    diag(m) <- 1
+    m
+  }
+  net1 <- list(network = build("A"), threshold = 0.5)
+  net2 <- list(network = build("B"), threshold = 0.5)
+  ortho <- data.frame(
+    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n),
+    hog = c(rep("HOG1", 3), paste0("HOG", 2:(n - 2))),
+    stringsAsFactors = FALSE
+  )
+  list(net1 = net1, net2 = net2, ortho = ortho,
+       comparison = compare_neighborhoods(net1, net2, ortho))
+}
