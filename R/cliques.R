@@ -1127,6 +1127,17 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' @param seed Random seed for reproducibility.
 #' @param cost_weights Cost weights for \code{\link{find_cliques}}
 #'   (default \code{c(q = 1, effect = 0)}).
+#' @param pval_combine Directional q-value combination for the edge calls
+#'   in every internal rerun, passed to
+#'   \code{\link{find_coexpressologs}}. Set it to whatever built the
+#'   baseline \code{cliques} (default \code{"max"}): a mismatch deflates
+#'   survival rates by the criterion change rather than by noise.
+#' @param pi0_method pi0 estimation for every internal rerun, passed to
+#'   \code{\link{find_coexpressologs}}. Default \code{"storey"} is
+#'   deterministic across bootstrap iterations (\code{"randomized"} adds
+#'   per-iteration Monte Carlo noise unrelated to \code{noise_sd}),
+#'   matching \code{\link{clique_threshold_sweep}}. Set it to whatever
+#'   built the baseline \code{cliques}.
 #' @param ... Additional arguments passed to the default method.
 #'
 #' @return Data frame with columns:
@@ -1171,9 +1182,13 @@ clique_perturbation_test.default <- function(
     jaccard_threshold = 0.5,
     n_cores = 1L,
     seed = NULL,
-    cost_weights = c(q = 1.0, effect = 0.0), ...) {
+    cost_weights = c(q = 1.0, effect = 0.0),
+    pval_combine = c("max", "min"),
+    pi0_method = c("storey", "randomized", "none"), ...) {
 
   alternative <- match.arg(alternative)
+  pval_combine <- match.arg(pval_combine)
+  pi0_method <- match.arg(pi0_method)
   n_boot <- as.integer(n_boot)
 
   # --- Empty result template ---
@@ -1261,7 +1276,9 @@ clique_perturbation_test.default <- function(
                            species_pairs = species_pairs,
                            method = "analytical",
                            alternative = alternative,
-                           alpha = alpha, n_cores = n_cores),
+                           alpha = alpha, n_cores = n_cores,
+                           pval_combine = pval_combine,
+                           pi0_method = pi0_method),
       error = function(e) NULL
     )
     if (is.null(edges_b) || nrow(edges_b) == 0L) next
@@ -1357,6 +1374,20 @@ clique_perturbation_test.default <- function(
 #'   \code{\link{find_coexpressologs}}). When provided, skips the
 #'   baseline edge recomputation. When \code{NULL} (default), edges
 #'   are computed internally.
+#' @param pval_combine Directional q-value combination for the edge
+#'   calls in the baseline recomputation (when \code{edges = NULL}) and
+#'   in every permutation rerun, passed to
+#'   \code{\link{find_coexpressologs}}. Set it to whatever built the
+#'   baseline \code{cliques}/\code{edges} (default \code{"max"}): a null
+#'   built under a stricter criterion than the observed edges is
+#'   anti-conservative.
+#' @param pi0_method pi0 estimation for the baseline recomputation and
+#'   every permutation rerun, passed to
+#'   \code{\link{find_coexpressologs}}. Default \code{"storey"} is
+#'   deterministic across permutations (\code{"randomized"} adds
+#'   per-permutation Monte Carlo noise), matching
+#'   \code{\link{clique_threshold_sweep}}. Set it to whatever built the
+#'   baseline \code{cliques}/\code{edges}.
 #' @param ... Additional arguments passed to the default method.
 #'
 #' @return Data frame with columns:
@@ -1394,9 +1425,13 @@ clique_intensity_test.default <- function(
     n_cores = 1L,
     seed = NULL,
     cost_weights = c(q = 1.0, effect = 0.0),
-    edges = NULL, ...) {
+    edges = NULL,
+    pval_combine = c("max", "min"),
+    pi0_method = c("storey", "randomized", "none"), ...) {
 
   alternative <- match.arg(alternative)
+  pval_combine <- match.arg(pval_combine)
+  pi0_method <- match.arg(pi0_method)
   n_perm <- as.integer(n_perm)
 
   empty_result <- data.frame(
@@ -1438,7 +1473,9 @@ clique_intensity_test.default <- function(
                                   species_pairs = species_pairs,
                                   method = "analytical",
                                   alternative = alternative,
-                                  alpha = alpha, n_cores = n_cores)
+                                  alpha = alpha, n_cores = n_cores,
+                                  pval_combine = pval_combine,
+                                  pi0_method = pi0_method)
   }
   obs_stats <- compute_clique_edge_stats(cliques, edges,
                                           target_species)
@@ -1460,7 +1497,9 @@ clique_intensity_test.default <- function(
                            species_pairs = species_pairs,
                            method = "analytical",
                            alternative = alternative,
-                           alpha = alpha, n_cores = n_cores),
+                           alpha = alpha, n_cores = n_cores,
+                           pval_combine = pval_combine,
+                           pi0_method = pi0_method),
       error = function(e) NULL
     )
     if (is.null(edges_p) || nrow(edges_p) == 0L) next
