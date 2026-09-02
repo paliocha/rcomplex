@@ -168,6 +168,14 @@ cor_rfast <- function(x, method = "pearson") {
 #' the expression matrices are restricted the same way first (see
 #' [compare_neighborhoods()]).
 #'
+#' @section Reconstructing sub-threshold values:
+#' A sparse network (`sparse = TRUE`) discards values below
+#' `store_threshold`, so visualisations of a gene subset (e.g. module
+#' heatmaps) cannot read them back from `net$network`. [mr_block()]
+#' reconstructs the exact mutual-rank values for a gene subset from the
+#' expression matrix and the network's parameters, without rebuilding the
+#' dense n x n matrix.
+#'
 #' @examples
 #' \dontrun{
 #' # From a matrix:

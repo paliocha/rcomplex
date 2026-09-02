@@ -116,6 +116,16 @@ the expression matrices are restricted the same way first (see
 \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}).
 }
 
+\section{Reconstructing sub-threshold values}{
+
+A sparse network (\code{sparse = TRUE}) discards values below
+\code{store_threshold}, so visualisations of a gene subset (e.g. module
+heatmaps) cannot read them back from \code{net$network}. \code{\link[=mr_block]{mr_block()}}
+reconstructs the exact mutual-rank values for a gene subset from the
+expression matrix and the network's parameters, without rebuilding the
+dense n x n matrix.
+}
+
 \examples{
 \dontrun{
 # From a matrix:

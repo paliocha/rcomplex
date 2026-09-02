@@ -4,10 +4,12 @@
 # compute_network(sparse = FALSE) matrix.
 
 
-# 40 genes x 25 samples; continuous values so correlation ranks are
-# collision-free for both Pearson and Spearman
+# 40 genes x 25 samples; seed chosen so the query genes' correlation
+# ranks are tie-free for both Pearson and Spearman (Spearman rho lies on
+# a finite grid: mathematically tied values are broken differently by
+# Rfast::cora and stats::cor, which would shift ranks by 0.5)
 make_mr_block_expr <- function() {
-  set.seed(101)
+  set.seed(107)
   x <- matrix(rnorm(40 * 25), nrow = 40, ncol = 25)
   rownames(x) <- paste0("g", sprintf("%02d", 1:40))
   colnames(x) <- paste0("s", seq_len(25))
