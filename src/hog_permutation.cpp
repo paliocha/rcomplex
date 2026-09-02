@@ -209,7 +209,8 @@ static Rcpp::DataFrame hog_permutation_test_core(
     bool test_greater,
     int min_exceedances,
     int max_permutations,
-    int n_cores
+    int n_cores,
+    bool force_flag_mode
 ) {
     const int n1 = static_cast<int>(neighbors1.size());
     const int n2 = static_cast<int>(neighbors2.size());
@@ -270,8 +271,10 @@ static Rcpp::DataFrame hog_permutation_test_core(
     for (int a = 0; a < n1; ++a) reach2_sz[a] = static_cast<int>(reachable2[a].size());
 
     // ---- Choose intersection mode and build bit-vectors ----
-    bool use_bitvec = (std::max(n1, n2) <= 100000);
-    if (!use_bitvec) {
+    bool use_bitvec = !force_flag_mode && (std::max(n1, n2) <= 100000);
+    if (force_flag_mode) {
+        REprintf("force_flag_mode: using flag-vector mode\n");
+    } else if (!use_bitvec) {
         REprintf("Network size > 100K genes: using flag-vector mode "
                  "(slower than bit-vector; expected for large genomes)\n");
     }
@@ -458,6 +461,8 @@ static Rcpp::DataFrame hog_permutation_test_core(
 //' @param min_exceedances Besag-Clifford stopping parameter (default 50)
 //' @param max_permutations Maximum permutations per HOG (default 10000)
 //' @param n_cores Number of OpenMP threads (default 1)
+//' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+//'   regardless of network size (internal testing hook; default FALSE)
 //' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
 //'
 //' @keywords internal
@@ -474,13 +479,15 @@ Rcpp::DataFrame hog_permutation_test_cpp(
     bool test_greater,
     int min_exceedances,
     int max_permutations,
-    int n_cores
+    int n_cores,
+    bool force_flag_mode = false
 ) {
     return hog_permutation_test_core(
         neighbor_lists_dense(net1, thr1, n_cores),
         neighbor_lists_dense(net2, thr2, n_cores),
         ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list,
-        test_greater, min_exceedances, max_permutations, n_cores);
+        test_greater, min_exceedances, max_permutations, n_cores,
+        force_flag_mode);
 }
 
 
@@ -506,6 +513,8 @@ Rcpp::DataFrame hog_permutation_test_cpp(
 //' @param min_exceedances Besag-Clifford stopping parameter (default 50)
 //' @param max_permutations Maximum permutations per HOG (default 10000)
 //' @param n_cores Number of OpenMP threads (default 1)
+//' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+//'   regardless of network size (internal testing hook; default FALSE)
 //' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
 //'
 //' @keywords internal
@@ -526,11 +535,13 @@ Rcpp::DataFrame hog_permutation_test_sparse_cpp(
     bool test_greater,
     int min_exceedances,
     int max_permutations,
-    int n_cores
+    int n_cores,
+    bool force_flag_mode = false
 ) {
     return hog_permutation_test_core(
         neighbor_lists_sparse(p1, i1, x1, thr1, n_cores),
         neighbor_lists_sparse(p2, i2, x2, thr2, n_cores),
         ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list,
-        test_greater, min_exceedances, max_permutations, n_cores);
+        test_greater, min_exceedances, max_permutations, n_cores,
+        force_flag_mode);
 }

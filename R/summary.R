@@ -502,6 +502,12 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #' providing efficient computation without sacrificing accuracy for clearly
 #' significant or non-significant HOGs.
 #'
+#' The internal option `options(rcomplex.force_flag_vector = TRUE)` forces
+#' the C++ backends into the flag-vector intersection mode normally reserved
+#' for networks with more than 100,000 genes (testing hook; results are
+#' identical to the default bit-vector mode). It has no effect when
+#' `use_torch = TRUE`.
+#'
 #' @section Why not Fisher's method:
 #' Fisher's method for combining p-values assumes independent tests. Within a
 #' HOG, pair-level hypergeometric tests share network neighborhoods (genes
@@ -684,6 +690,10 @@ permutation_hog_test <- function(net1, net2, comparison,
     as.integer(unique(idx2[comparison$Species2[rows]]))
   })
 
+  # Internal testing hook: force the flag-vector intersection mode of the
+  # C++ engines (the max(n1, n2) > 100000 path) on small networks
+  force_flag <- isTRUE(getOption("rcomplex.force_flag_vector"))
+
   if (use_torch) {
     .gpu_gc()
     combined <- build_combined_fe_torch(
@@ -716,7 +726,8 @@ permutation_hog_test <- function(net1, net2, comparison,
       test_greater = (alternative == "greater"),
       min_exceedances = min_exceedances,
       max_permutations = max_permutations,
-      n_cores = n_cores
+      n_cores = n_cores,
+      force_flag_mode = force_flag
     )
   } else {
     perm_result <- hog_permutation_test_cpp(
@@ -729,7 +740,8 @@ permutation_hog_test <- function(net1, net2, comparison,
       test_greater = (alternative == "greater"),
       min_exceedances = min_exceedances,
       max_permutations = max_permutations,
-      n_cores = n_cores
+      n_cores = n_cores,
+      force_flag_mode = force_flag
     )
   }
 

@@ -16,7 +16,8 @@ hog_permutation_test_cpp(
   test_greater,
   min_exceedances,
   max_permutations,
-  n_cores
+  n_cores,
+  force_flag_mode = FALSE
 )
 }
 \arguments{
@@ -43,6 +44,9 @@ hog_permutation_test_cpp(
 \item{max_permutations}{Maximum permutations per HOG (default 10000)}
 
 \item{n_cores}{Number of OpenMP threads (default 1)}
+
+\item{force_flag_mode}{If TRUE, force the flag-vector intersection mode
+regardless of network size (internal testing hook; default FALSE)}
 }
 \value{
 DataFrame with T_obs, n_perm, n_exceed, p_value per HOG

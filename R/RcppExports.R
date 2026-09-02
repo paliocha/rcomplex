@@ -163,11 +163,13 @@ find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edg
 #' @param min_exceedances Besag-Clifford stopping parameter (default 50)
 #' @param max_permutations Maximum permutations per HOG (default 10000)
 #' @param n_cores Number of OpenMP threads (default 1)
+#' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+#'   regardless of network size (internal testing hook; default FALSE)
 #' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
 #'
 #' @keywords internal
-hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores) {
-    .Call(`_rcomplex_hog_permutation_test_cpp`, net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores)
+hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
+    .Call(`_rcomplex_hog_permutation_test_cpp`, net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
 }
 
 #' Permutation-based HOG-level conservation test (sparse networks)
@@ -192,11 +194,13 @@ hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, orth
 #' @param min_exceedances Besag-Clifford stopping parameter (default 50)
 #' @param max_permutations Maximum permutations per HOG (default 10000)
 #' @param n_cores Number of OpenMP threads (default 1)
+#' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+#'   regardless of network size (internal testing hook; default FALSE)
 #' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
 #'
 #' @keywords internal
-hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores) {
-    .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores)
+hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
+    .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
 }
 
 #' Permutation-based Jaccard test for module comparison (batched)

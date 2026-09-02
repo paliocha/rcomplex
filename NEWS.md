@@ -170,6 +170,11 @@ urn.
 - Internal: the unreachable invalid-index branch of the neighborhood
   comparison now encodes p = 1 as `p.val.gt = 0`, `p.val.eq = 1`, keeping
   the randomized-p decomposition valid in the degenerate case.
+- Internal testing hook: `options(rcomplex.force_flag_vector = TRUE)`
+  forces the HOG permutation engines into the flag-vector intersection
+  mode (the > 100K-gene path), which is now oracle-covered: identical to
+  the seeded bit-vector run, to `reference_T_obs()` under the
+  self-excluded urn, and dense vs sparse.
 
 # rcomplex 0.1.0
 

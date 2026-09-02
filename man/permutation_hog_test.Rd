@@ -80,6 +80,12 @@ The Besag & Clifford (1991) sequential stopping rule terminates permutations
 early once \code{min_exceedances} permutation statistics exceed T_obs,
 providing efficient computation without sacrificing accuracy for clearly
 significant or non-significant HOGs.
+
+The internal option \code{options(rcomplex.force_flag_vector = TRUE)} forces
+the C++ backends into the flag-vector intersection mode normally reserved
+for networks with more than 100,000 genes (testing hook; results are
+identical to the default bit-vector mode). It has no effect when
+\code{use_torch = TRUE}.
 }
 
 \section{Why not Fisher's method}{
