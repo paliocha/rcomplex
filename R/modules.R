@@ -521,7 +521,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 #' Run Leiden at all resolutions on a consensus graph (internal)
 #'
 #' Always uses modularity objective regardless of the original objective.
-#' Consensus graph weights are in [0, 1] (excess co-classification); CPM
+#' Consensus graph weights are between 0 and 1 (excess co-classification); CPM
 #' with resolution > 1 would make all edges repulsive, collapsing to
 #' singletons. Modularity is the correct objective per Jeub et al. (2018).
 #' @noRd

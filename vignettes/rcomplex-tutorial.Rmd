@@ -181,9 +181,13 @@ cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
 
 For quick exploration without GPU, the `"analytical"` method uses
 pair-level Storey q-values (less statistically rigorous for multi-copy
-HOGs, but much faster):
+HOGs, but much faster). Since v0.2.0 its default `pi0_method =
+"randomized"` estimates the null proportion pi0 from randomized
+p-values drawn from the global RNG, so call `set.seed()` first for
+reproducible q-values:
 
 ```{r analytical-edges}
+set.seed(42)
 edges_analytical <- find_coexpressologs(networks, orthologs,
   method = "analytical")
 cat("Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n")
