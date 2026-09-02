@@ -83,6 +83,9 @@ test_that("co-expressolog calls match canonical ComPlEx", {
     expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
   }
   expect_equal(maxbh[idx], expected$Max.p.val, tolerance = 1e-2)
+  # absolute guard next to the relative tolerance: measured max |diff| is
+  # 2.7e-3, so 5e-3 leaves headroom without letting large shifts through
+  expect_lt(max(abs(maxbh[idx] - expected$Max.p.val)), 5e-3)
   expect_equal(cmp$Species1.neigh.overlap[idx], expected$Species1.neigh.overlap)
   expect_equal(cmp$Species2.neigh.overlap[idx], expected$Species2.neigh.overlap)
 })
