@@ -101,11 +101,9 @@ test_that("make_fixture.R reproduces the committed fixture inputs", {
   # printed doubles differs on x86/gcc (Orion); byte-identical output is
   # only guaranteed on the reference platform (arm64/clang, md5s in the
   # fixture README).
-  for (f in c("sp1_expr.tsv", "sp2_expr.tsv")) {
+  for (f in setdiff(fixture_inputs, "ortho_pairs.tsv")) {
     regen <- read_expr(file.path(tmp, f))
     ref <- read_expr(fx(f))
-    expect_identical(dim(regen), dim(ref))
-    expect_identical(rownames(regen), rownames(ref))
     expect_equal(regen, ref, tolerance = 1e-12)
   }
   # ortho_pairs.tsv is strings only: byte-identical on every platform
