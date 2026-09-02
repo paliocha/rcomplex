@@ -23,7 +23,11 @@ table, so the test restricts each species to the genes present in
 The committed TSVs were written with R version 4.6.1 (2026-06-24),
 `RNGkind()` = `Mersenne-Twister`, `Inversion`, `Rejection` (R defaults).
 `test-equivalence.R` re-runs `make_fixture.R` in a temporary directory and
-checks the three input files line-for-line against the committed copies.
+checks `ortho_pairs.tsv` byte-for-byte (strings only) and the two
+expression TSVs as parsed numbers (`read.delim`, tolerance 1e-12, identical
+dim/rownames). Byte-identical expression TSVs are only guaranteed on the
+reference platform (arm64/clang, md5s below); x86/gcc differs in the last
+ULP of some printed doubles but is numerically identical.
 `tools::md5sum()` of the committed files:
 
 | File | md5 |

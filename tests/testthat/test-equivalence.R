@@ -94,14 +94,23 @@ test_that("make_fixture.R reproduces the committed fixture inputs", {
   skip_if_not_installed("withr")
   skip_if_no_fixture()
   script <- normalizePath(fx("make_fixture.R"))
-  committed <- normalizePath(fx(fixture_inputs))
   withr::local_preserve_seed()
   tmp <- withr::local_tempdir()
   withr::with_dir(tmp, source(script, local = new.env()))
-  for (i in seq_along(fixture_inputs)) {
-    expect_identical(readLines(file.path(tmp, fixture_inputs[i])),
-                     readLines(committed[i]))
+  # Expression TSVs: compare parsed numbers, not bytes -- the last ULP of
+  # printed doubles differs on x86/gcc (Orion); byte-identical output is
+  # only guaranteed on the reference platform (arm64/clang, md5s in the
+  # fixture README).
+  for (f in c("sp1_expr.tsv", "sp2_expr.tsv")) {
+    regen <- read_expr(file.path(tmp, f))
+    ref <- read_expr(fx(f))
+    expect_identical(dim(regen), dim(ref))
+    expect_identical(rownames(regen), rownames(ref))
+    expect_equal(regen, ref, tolerance = 1e-12)
   }
+  # ortho_pairs.tsv is strings only: byte-identical on every platform
+  expect_identical(readLines(file.path(tmp, "ortho_pairs.tsv")),
+                   readLines(fx("ortho_pairs.tsv")))
 })
 
 test_that("find_coexpressologs(pval_combine = 'max', pi0_method = 'none') reproduces the canonical calls", {
