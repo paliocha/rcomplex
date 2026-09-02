@@ -241,22 +241,36 @@ test_that("torch backend matches Rfast (Spearman)", {
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
+  # The correlation itself is stable across backends: rank-swap artifacts
+  # only appear AFTER MR ranks the correlations. Strict up to the working
+  # precision of the backend -- MPS is float32 (measured max |diff| ~1.2e-7
+  # on this fixture), so 1e-5 leaves two orders of magnitude of headroom
+  # while still failing for any structural difference (e.g. a halved
+  # matrix).
+  expect_equal(unname(cor_torch(expr, "spearman")),
+               unname(cor_rfast(expr, "spearman")),
+               tolerance = 1e-5)
+
   rfast_result <- compute_network(expr, cor_method = "spearman",
                                   density = 0.05, use_torch = FALSE, sparse = FALSE)
   torch_result <- compute_network(expr, cor_method = "spearman",
                                   density = 0.05, use_torch = TRUE, sparse = FALSE)
 
   # MR normalization is rank-based: swapping two near-tie correlations
-  # changes their mutual ranks by ~1, producing MR differences of O(1).
-  # Near-tie swaps happen under ANY non-reference float path -- MPS
-  # float32 (~1e-7 per-element error) and float64 with a different BLAS
-  # alike (Orion CPU-Lantern vs Rfast) -- so the tolerant comparison
-  # applies to every torch backend for Spearman+MR. This doesn't affect
-  # downstream results (density threshold on the same network is
-  # self-consistent). The Pearson test above stays strict.
-  tol <- 1.0
-  expect_equal(torch_result$network, rfast_result$network, tolerance = tol)
-  expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = tol)
+  # changes their mutual ranks by ~1, producing MR differences of O(1) in a
+  # minority of cells. Near-tie swaps happen under ANY non-reference float
+  # path -- MPS float32 and float64 with a different BLAS (Orion
+  # CPU-Lantern vs Rfast) alike -- so bound the damage per cell and in
+  # extent instead of using a vacuous global tolerance (the old
+  # tolerance = 1.0 passed for a halved network): every cell within 2 of
+  # the reference (a near-tie swap moves each mutual rank by ~1), few
+  # cells touched at all (measured 0.14 on MPS float32 here; a halved
+  # network scores ~1.0 with max diff ~15), and the density threshold
+  # agrees.
+  d <- abs(torch_result$network - rfast_result$network)
+  expect_lt(max(d), 2)
+  expect_lt(mean(d > 1e-8), 0.25)
+  expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = 0.1)
 })
 
 test_that("mutual_rank_inplace_cpp matches cached reference (ties, all modes)", {
