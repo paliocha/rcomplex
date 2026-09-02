@@ -124,7 +124,18 @@ urn.
   `clique_threshold_sweep()`) and forward them to every internal
   `find_coexpressologs()` rerun, so survival rates and the intensity
   null are computed under the same edge-calling criterion that built
-  the baseline cliques/edges.
+  the baseline cliques/edges. `as_sparse_network()` now fails fast when
+  the requested `store_density` would give a store threshold above the
+  network's analysis threshold (the store would silently drop analysis
+  edges), naming `store_density` and both thresholds in the error.
+  `coexpressolog_null()`: the serial path (`n_cores = 1` or Windows)
+  now saves `.Random.seed` and restores it on exit, so the caller's
+  ambient RNG stream continues where the observed run left it, exactly
+  as under `mclapply()`; the ineffective `OMP_NUM_THREADS` save/set/
+  restore around the workers was removed; and a rewired null run that
+  leaves a species pair with no overlap > 0 rows now records 0 for that
+  pair under the built-in conserved-count statistic instead of aborting
+  (a user-supplied statistic missing a name still errors).
 
 ## New functions
 
@@ -149,8 +160,7 @@ urn.
   `(1 + sum(null >= observed)) / (n_perm + 1)`) with the full
   `n_perm x k` null matrix as `attr(, "null")`. Permutation `b` seeds its
   worker with `seed + b`, so results are identical for any `n_cores`
-  (`parallel::mclapply()` on Unix with `OMP_NUM_THREADS = 1` in workers;
-  serial on Windows). Rewired networks are unweighted (`threshold = 1`,
+  (`parallel::mclapply()` on Unix; serial on Windows). Rewired networks are unweighted (`threshold = 1`,
   `store_threshold = 1`), so only membership-based consumers are valid
   downstream. Requires sparse networks (`as_sparse_network()`).
 
