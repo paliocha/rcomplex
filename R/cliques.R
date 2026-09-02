@@ -760,7 +760,9 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
 #' individual functions directly.
 #'
 #' No permutations are involved -- all tests are analytical
-#' (hypergeometric + Storey q-values).
+#' (hypergeometric + Storey q-values; the pi0 method is pinned to
+#' \code{"storey"}, so the sweep is deterministic and does not consume
+#' the global RNG).
 #'
 #' @param cliques Baseline output of \code{\link{find_cliques}}.
 #' @param target_species Character vector of species abbreviations.
@@ -906,7 +908,10 @@ clique_threshold_sweep <- function(
       if (is.null(comparison) || nrow(comparison) == 0) next
 
       summary_res <- tryCatch(
-        summarize_comparison(comparison, alternative, alpha),
+        # pi0_method pinned to "storey": deterministic pre-0.2.0 q-values
+        # (matches compare_modules); pass-through is a P2 hand-off
+        summarize_comparison(comparison, alternative, alpha,
+                             pi0_method = "storey"),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b, " q-values at ", m,
                   "x failed: ", conditionMessage(e))

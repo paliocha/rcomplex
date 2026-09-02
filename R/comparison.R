@@ -516,6 +516,13 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #' @param species_pairs Optional list of length-2 character vectors
 #'   passed to \code{\link{find_coexpressologs}} at each threshold
 #'   level. Defaults to all pairwise combinations.
+#' @param pi0_method Passed to \code{\link{find_coexpressologs}} (used
+#'   by the analytical method): \code{"randomized"} (default),
+#'   \code{"storey"} or \code{"none"}. The default draws from the
+#'   global RNG; call \code{set.seed()} first for reproducible q-values.
+#' @param pval_combine Passed to \code{\link{find_coexpressologs}}:
+#'   \code{"min"} (default) calls a pair when either direction is
+#'   significant; \code{"max"} requires both.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -547,10 +554,14 @@ density_sweep.default <- function(networks, orthologs,
                            use_torch = FALSE,
                            min_exceedances = 50L,
                            max_permutations = 10000L,
-                           species_pairs = NULL, ...) {
+                           species_pairs = NULL,
+                           pi0_method = c("randomized", "storey", "none"),
+                           pval_combine = c("min", "max"), ...) {
 
   method <- match.arg(method)
   alternative <- match.arg(alternative)
+  pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
 
   if (!is.list(networks) || is.null(names(networks)))
     stop("networks must be a named list keyed by species")
@@ -606,7 +617,9 @@ density_sweep.default <- function(networks, orthologs,
         alpha = alpha, n_cores = n_cores,
         use_torch = use_torch,
         min_exceedances = min_exceedances,
-        max_permutations = max_permutations
+        max_permutations = max_permutations,
+        pi0_method = pi0_method,
+        pval_combine = pval_combine
       ),
       error = function(e) {
         warning("density_sweep: multiplier ", m, " failed: ",
