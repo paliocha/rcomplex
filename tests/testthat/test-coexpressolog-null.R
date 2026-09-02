@@ -105,3 +105,74 @@ test_that("n_cores = 2 reproduces the serial result", {
   )
   expect_equal(res1, res2)
 })
+
+
+# Tiny matched-networks fixture for the missing-pair and RNG-state tests:
+# a disjoint perfect matching gives every gene exactly one neighbour, so a
+# rewired permutation in which no ortholog pair shares a mapped neighbour
+# has zero overlap > 0 rows and the species pair is absent from the null
+# edges entirely. With seed = 1 the first of 6 permutations is such a run.
+make_match_nets <- function() {
+  mk <- function(prefix) {
+    n <- 8L
+    g <- paste0(prefix, seq_len(n))
+    m <- matrix(0, n, n, dimnames = list(g, g))
+    for (e in list(c(1, 2), c(3, 4), c(5, 6), c(7, 8))) {
+      m[e[1], e[2]] <- m[e[2], e[1]] <- 10
+    }
+    list(network = m, threshold = 5)
+  }
+  list(networks = list(A = sparse_net(mk("A")), B = sparse_net(mk("B"))),
+       ortho = data.frame(Species1 = paste0("A", 1:8),
+                          Species2 = paste0("B", 1:8),
+                          hog = paste0("H", 1:8),
+                          stringsAsFactors = FALSE))
+}
+
+
+test_that("null runs missing a species pair record 0 for the built-in statistic", {
+  d <- make_match_nets()
+  res <- coexpressolog_null(
+    d$networks, d$ortho, n_perm = 6L, seed = 1L,
+    pval_combine = "max", pi0_method = "none"
+  )
+  expect_identical(res$statistic, c("A~B", "total"))
+  null_mat <- attr(res, "null")
+  expect_true(all(is.finite(null_mat)))
+  # the pair-less rewiring is a null observation of 0, not an abort
+  expect_equal(unname(null_mat[1L, "A~B"]), 0)
+})
+
+
+test_that("a user statistic missing a name still errors", {
+  d <- make_match_nets()
+  per_pair <- function(edges) {
+    if (is.null(edges) || nrow(edges) == 0L) return(c(total = 0))
+    pair <- paste(edges$species1, edges$species2, sep = "~")
+    counts <- vapply(split(edges$type == "conserved", pair), sum,
+                     numeric(1))
+    c(counts, total = sum(counts))
+  }
+  expect_error(
+    coexpressolog_null(d$networks, d$ortho, statistic = per_pair,
+                       n_perm = 6L, seed = 1L,
+                       pval_combine = "max", pi0_method = "none"),
+    "statistic is missing"
+  )
+})
+
+
+test_that("the serial path restores the caller's RNG state", {
+  d <- make_match_nets()
+  set.seed(11)
+  before <- runif(5)
+  set.seed(11)
+  invisible(coexpressolog_null(
+    d$networks, d$ortho, n_perm = 2L, seed = 3L,
+    pval_combine = "max", pi0_method = "none"
+  ))
+  after <- runif(5)
+  # set.seed(seed + b) inside the serial loop must not leak: the caller's
+  # stream continues exactly where the observed run left it
+  expect_equal(after, before)
+})

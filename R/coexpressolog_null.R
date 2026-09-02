@@ -46,8 +46,10 @@
 #' Permutation \code{b} runs in a worker that calls
 #' \code{set.seed(seed + b)} first, so results are reproducible and
 #' independent of \code{n_cores}. On Unix the permutations run under
-#' \code{parallel::mclapply()} with \code{OMP_NUM_THREADS = 1} in the
-#' workers; on Windows they run serially. The observed run uses the
+#' \code{parallel::mclapply()}; on Windows they run serially. The serial
+#' path saves and restores the caller's RNG state around the loop, so
+#' the ambient stream continues where the observed run left it. The
+#' observed run uses the
 #' ambient RNG: call \code{set.seed()} beforehand when \code{...}
 #' includes settings that draw from it (e.g. the default
 #' \code{pi0_method = "randomized"}). \code{method = "permutation"} in
@@ -65,7 +67,10 @@
 #'   edge data frame to a named numeric vector, or \code{NULL} (default)
 #'   for the count of rows with \code{type == "conserved"} per species
 #'   pair (named \code{paste(species1, species2, sep = "~")}) plus
-#'   \code{"total"}.
+#'   \code{"total"}. For the built-in statistic, a null run whose
+#'   rewiring leaves a species pair with no overlap > 0 rows records 0
+#'   conserved calls for that pair; a user-supplied statistic missing a
+#'   name from the observed run errors.
 #' @param n_perm Number of rewired permutations (default 100).
 #' @param swap_factor Edge swaps per permutation, as a multiple of the
 #'   edge count of each thresholded network (default 10).
@@ -111,7 +116,8 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   if (length(n_perm) != 1L || is.na(n_perm) || n_perm < 1L) {
     stop("n_perm must be a single integer >= 1")
   }
-  if (is.null(statistic)) {
+  builtin_stat <- is.null(statistic)
+  if (builtin_stat) {
     statistic <- .coexpressolog_conserved_counts
   }
   if (!is.function(statistic)) {
@@ -152,16 +158,26 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
 
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
   if (use_mc) {
-    old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
-    Sys.setenv(OMP_NUM_THREADS = 1L)
-    on.exit({
-      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
-      else Sys.setenv(OMP_NUM_THREADS = old_omp)
-    }, add = TRUE)
     null_list <- parallel::mclapply(seq_len(n_perm), one_perm,
                                     mc.cores = n_cores,
                                     mc.preschedule = FALSE)
   } else {
+    # one_perm() calls set.seed() in the caller's session here (no fork):
+    # save/restore .Random.seed so the ambient stream continues where
+    # the observed run left it, exactly as under mclapply()
+    has_seed <- exists(".Random.seed", envir = globalenv(),
+                       inherits = FALSE)
+    old_seed <- if (has_seed) {
+      get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    }
+    on.exit({
+      if (has_seed) {
+        assign(".Random.seed", old_seed, envir = globalenv())
+      } else if (exists(".Random.seed", envir = globalenv(),
+                        inherits = FALSE)) {
+        rm(".Random.seed", envir = globalenv())
+      }
+    }, add = TRUE)
     null_list <- lapply(seq_len(n_perm), one_perm)
   }
 
@@ -188,8 +204,15 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     }
     miss <- setdiff(nm, names(s))
     if (length(miss) > 0L) {
-      stop("permutation ", b, " statistic is missing: ",
-           paste(miss, collapse = ", "))
+      if (builtin_stat) {
+        # a rewired run can leave a species pair with no overlap > 0
+        # rows at all; for the built-in conserved count that IS a null
+        # observation of 0 conserved calls, not an error
+        s[miss] <- 0
+      } else {
+        stop("permutation ", b, " statistic is missing: ",
+             paste(miss, collapse = ", "))
+      }
     }
     null_mat[b, ] <- s[nm]
   }
