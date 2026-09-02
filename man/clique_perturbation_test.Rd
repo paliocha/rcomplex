@@ -25,6 +25,8 @@ clique_perturbation_test(cliques, ...)
   n_cores = 1L,
   seed = NULL,
   cost_weights = c(q = 1, effect = 0),
+  pval_combine = c("max", "min"),
+  pi0_method = c("storey", "randomized", "none"),
   ...
 )
 }
@@ -70,6 +72,19 @@ combinations of \code{target_species}.}
 
 \item{cost_weights}{Cost weights for \code{\link{find_cliques}}
 (default \code{c(q = 1, effect = 0)}).}
+
+\item{pval_combine}{Directional q-value combination for the edge calls
+in every internal rerun, passed to
+\code{\link{find_coexpressologs}}. Set it to whatever built the
+baseline \code{cliques} (default \code{"max"}): a mismatch deflates
+survival rates by the criterion change rather than by noise.}
+
+\item{pi0_method}{pi0 estimation for every internal rerun, passed to
+\code{\link{find_coexpressologs}}. Default \code{"storey"} is
+deterministic across bootstrap iterations (\code{"randomized"} adds
+per-iteration Monte Carlo noise unrelated to \code{noise_sd}),
+matching \code{\link{clique_threshold_sweep}}. Set it to whatever
+built the baseline \code{cliques}.}
 }
 \value{
 Data frame with columns:

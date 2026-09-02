@@ -55,6 +55,8 @@ Rows are filtered according to \code{filter_zero}.}
 \item{summary}{List of summary statistics at gene-pair, gene, and
 ortholog-group levels, thresholded on q-values, plus \code{pi0}, the
 estimated null proportion per direction (\code{c(sp1 = , sp2 = )};
+for \code{pi0_method = "randomized"} it is estimated from the
+unfiltered comparison rows, i.e. the full ortholog-pair set;
 \code{NA} when fewer than 2 rows remain).}
 \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
 Edge-format data frame from \code{comparison_to_edges()}.}
@@ -77,7 +79,12 @@ to pi0 = 1 -- no gain over BH. With \code{pi0_method = "randomized"}
 \code{P(X < x) + U * P(X = x)} for \code{alternative = "less"}), which are exactly
 uniform under the null for any \eqn{(m, k, N)} (Dickhaus et al. 2012),
 averaged over \code{B} draws of \code{U}, and applied to the exact p-values via
-\code{qvalue::qvalue(p, pi0 = pi0)}. The columns \code{Species*.p.val.gt} /
+\code{qvalue::qvalue(p, pi0 = pi0)}. The randomized draws run over ALL rows
+of \code{comparison}, before the \code{filter_zero} filter: uniformity holds only
+unconditionally, so pi0 refers to the full ortholog-pair set
+(conditioning the draw on overlap > 0 truncates the null distribution
+and deflates pi0), while the q-values themselves are computed on the
+filtered rows. The columns \code{Species*.p.val.gt} /
 \code{.p.val.eq} from \code{\link[=compare_neighborhoods]{compare_neighborhoods()}} supply the two terms.
 \code{"storey"} estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
 \code{"none"} fixes pi0 = 1 (BH). The randomized estimate uses the global

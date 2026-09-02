@@ -113,6 +113,18 @@ urn.
   `compare_modules()`). The canonical fixture calls reproduce under the
   defaults: `find_coexpressologs(..., pi0_method = "none")`
   (`test-equivalence.R`).
+- Review fixes (roborev 156): the randomized-p pi0 draw now runs over
+  ALL comparison rows, before the `filter_zero` filter -- the randomized
+  p-value is uniform under H0 only unconditionally, and conditioning on
+  overlap > 0 truncated the null and deflated pi0 (anti-conservative
+  q-values whenever the expected overlap is small); pi0 therefore refers
+  to the full ortholog-pair set. `clique_perturbation_test()` and
+  `clique_intensity_test()` gain `pval_combine` (default `"max"`) and
+  `pi0_method` (default `"storey"`, deterministic, matching
+  `clique_threshold_sweep()`) and forward them to every internal
+  `find_coexpressologs()` rerun, so survival rates and the intensity
+  null are computed under the same edge-calling criterion that built
+  the baseline cliques/edges.
 
 ## New functions
 

@@ -29,7 +29,10 @@ abbreviation. Dense networks are rejected; convert them with
 edge data frame to a named numeric vector, or \code{NULL} (default)
 for the count of rows with \code{type == "conserved"} per species
 pair (named \code{paste(species1, species2, sep = "~")}) plus
-\code{"total"}.}
+\code{"total"}. For the built-in statistic, a null run whose
+rewiring leaves a species pair with no overlap > 0 rows records 0
+conserved calls for that pair; a user-supplied statistic missing a
+name from the observed run errors.}
 
 \item{n_perm}{Number of rewired permutations (default 100).}
 
@@ -81,8 +84,10 @@ loops, no multi-edges).
 Permutation \code{b} runs in a worker that calls
 \code{set.seed(seed + b)} first, so results are reproducible and
 independent of \code{n_cores}. On Unix the permutations run under
-\code{parallel::mclapply()} with \code{OMP_NUM_THREADS = 1} in the
-workers; on Windows they run serially. The observed run uses the
+\code{parallel::mclapply()}; on Windows they run serially. The serial
+path saves and restores the caller's RNG state around the loop, so
+the ambient stream continues where the observed run left it. The
+observed run uses the
 ambient RNG: call \code{set.seed()} beforehand when \code{...}
 includes settings that draw from it (e.g. the default
 \code{pi0_method = "randomized"}). \code{method = "permutation"} in
