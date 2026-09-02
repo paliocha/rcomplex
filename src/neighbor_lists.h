@@ -71,11 +71,20 @@ inline std::vector<std::vector<int>> neighbor_lists_sparse(
                    p[n], static_cast<int>(i.size()),
                    static_cast<int>(x.size()));
     }
+    // Verify ALL of p before any row-index scan: the scan for column c
+    // reads i[p[c]..p[c+1]) and is safe only once every pointer is known
+    // to be non-decreasing (with p[0] = 0 and p[n] = length(i) already
+    // checked, that bounds each p[c+1] by length(i)). Checking p per
+    // column while scanning would read i[] out of bounds inside the
+    // validator itself for a later inflated pointer, e.g. p = {0, 100, 3}
+    // with length(i) = 3.
     for (int c = 0; c < n; ++c) {
         if (p[c] > p[c + 1]) {
             Rcpp::stop("dgCMatrix slot p must be non-decreasing (column %d)",
                        c + 1);
         }
+    }
+    for (int c = 0; c < n; ++c) {
         int prev = -1;
         for (int k = p[c]; k < p[c + 1]; ++k) {
             const int r = i[k];

@@ -1062,6 +1062,14 @@ test_that("sparse compare_neighborhoods rejects malformed dgCMatrix slots", {
   expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
                "strictly increasing")
 
+  # a p entry above length(x) with intact endpoints: p must be verified
+  # non-decreasing for the WHOLE vector before any row-index scan, or the
+  # validator itself reads i[] out of bounds for the inflated column
+  m <- good
+  m@p[2L] <- length(m@x) + 50L
+  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
+               "non-decreasing")
+
   # a well-formed network still passes
   expect_equal(compare_neighborhoods(with_net(good), net2_s, td$ortho),
                compare_neighborhoods(td$net1, td$net2, td$ortho))
