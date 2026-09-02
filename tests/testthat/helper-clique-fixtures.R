@@ -30,7 +30,7 @@ make_clique_fixture <- function(n_genes = 20L) {
   )
 
   target <- c("SP_A", "SP_B")
-  edges <- find_coexpressologs(networks, orthologs, method = "analytical")
+  edges <- find_coexpressologs(networks, orthologs, method = "analytical", pi0_method = "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(networks = networks, orthologs = orthologs, edges = edges,
@@ -71,7 +71,7 @@ make_clique_fixture_3sp <- function(n_genes = 15L) {
   )
 
   target <- c("SP_A", "SP_B", "SP_C")
-  edges <- find_coexpressologs(networks, orthologs, method = "analytical")
+  edges <- find_coexpressologs(networks, orthologs, method = "analytical", pi0_method = "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(networks = networks, orthologs = orthologs, edges = edges,

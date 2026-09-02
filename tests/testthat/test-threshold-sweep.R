@@ -42,7 +42,7 @@ make_sweep_setup <- function() {
 
   # Run baseline pipeline
   comparison <- compare_neighborhoods(networks$SP_A, networks$SP_B, orthologs)
-  summary <- summarize_comparison(comparison)
+  summary <- summarize_comparison(comparison, pi0_method = "storey")
   edges <- comparison_to_edges(summary$results, "SP_A", "SP_B")
   baseline <- find_cliques(edges, c("SP_A", "SP_B"), min_species = 2L)
 
