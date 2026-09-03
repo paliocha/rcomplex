@@ -17,3 +17,4 @@
 ^skills-lock\.json$
 ^\.roborev\.toml$
 ^prepare_data$
+^\.code-review-graph$
