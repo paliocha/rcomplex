@@ -8,13 +8,17 @@ src/*.dll
 *.tar.gz
 *.Rcheck/
 .DS_Store
-nf-rcomplex/
 vignettes/*.html
 vignettes/*.R
 /doc/
 /Meta/
-PLAN-*.md
 prepare_data/
-docs/superpowers/
 NOTES_*.md
 PLAN_*.md
+
+# agent tooling (local only)
+.claude/
+.agents/
+skills-lock.json
+.roborev.toml
+.code-review-graph/

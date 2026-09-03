@@ -13,3 +13,7 @@
 ^Meta$
 ^NOTES_.*\.md$
 ^PLAN_.*\.md$
+^\.agents$
+^skills-lock\.json$
+^\.roborev\.toml$
+^prepare_data$
