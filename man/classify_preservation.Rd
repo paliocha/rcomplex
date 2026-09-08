@@ -42,9 +42,11 @@ significant modules, so the familiar 2 / 10 cut points still appear.
 \item{moderate}{\code{q.value < alpha} and \code{Zsummary < z_conserved}}
 \item{diverged}{\code{q.value >= alpha}}
 }
-Modules whose degree correlation was undefined (constant connectivity)
-carry \code{NA} and are reported as \code{diverged} only if their density statistic
-also fails.
+A module whose degree correlation could not be computed -- \code{cor.degree} is
+undefined when intramodular connectivity is constant, or when fewer than
+three genes map -- gets \code{NA} for that statistic, so the \code{pmax} combination
+and hence \code{q.value} are \code{NA} too and the module is reported \code{diverged}. It
+is never called preserved on the density statistic alone.
 }
 
 \examples{

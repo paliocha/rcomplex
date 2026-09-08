@@ -326,3 +326,64 @@ test_that("resolve_ortholog_map validates its inputs", {
     "No orthologs found"
   )
 })
+
+
+# ---- cross-layer collisions ----
+
+test_that("a coexpressolog cannot re-claim a gene the clique layer resolved", {
+  fx <- map_fixture()
+  # The clique puts a1 on A2. These edges make a3-A2 the mutual best, which
+  # would give A2 a second resolved partner; .pres_project() then majority-
+  # votes over the two labels and drops the gene on a tie, removing it from
+  # the mappable set - exactly what resolution must never do.
+  edges <- data.frame(
+    gene1 = c("a3", "a3", "a2"),
+    gene2 = c("A2", "A1", "A2"),
+    species1 = "SP_A", species2 = "SP_B", hog = "H1",
+    q.value = 0.001,
+    effect_size = c(0.99, 0.10, 0.50),
+    jaccard = c(0.9, 0.1, 0.5),
+    type = "conserved",
+    stringsAsFactors = FALSE
+  )
+
+  res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
+    sp1 = "SP_A", sp2 = "SP_B", edges = edges, cliques = fx$cliques
+  )
+
+  resolved <- res[res$source != "unresolved", ]
+  expect_false(anyDuplicated(resolved$gene2) > 0L)
+  expect_equal(resolved$gene1[resolved$gene2 == "A2"], "a1")
+  expect_setequal(sort(unique(res$gene2)), candidate_sp2(fx))
+})
+
+
+# ---- defensive paths ----
+
+test_that("cliques without n_species or mean_q still resolve", {
+  fx <- map_fixture()
+  cl <- data.frame(
+    hog = c("H1", "H1"),
+    SP_A = c("a1", "a2"),
+    SP_B = c("A2", "A1"),
+    stringsAsFactors = FALSE
+  )
+
+  res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
+    sp1 = "SP_A", sp2 = "SP_B", cliques = cl
+  )
+  expect_true(any(res$source == "clique"))
+})
+
+test_that("edges missing hog are reported by name", {
+  fx <- map_fixture()
+  edges <- fx$edges
+  edges$hog <- NULL
+
+  expect_error(
+    resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
+      sp1 = "SP_A", sp2 = "SP_B", edges = edges, rank_by = "q.value"
+    ),
+    "edges missing columns: hog"
+  )
+})

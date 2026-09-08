@@ -128,6 +128,9 @@
 #'       `Z.cor.degree`, `Zsummary` and `medianRank`.}
 #'     \item{observed}{All six statistics per module, with permutation means
 #'       and standard deviations.}
+#'     \item{projection}{One row per test-species gene that received a module
+#'       label: the reference gene it came from, the module, and which
+#'       resolution layer chose the pair.}
 #'     \item{map}{The ortholog map used.}
 #'     \item{sensitivity}{Only when `sensitivity = TRUE`: per-module
 #'       `Zsummary` and `q.value` under the resolved and naive maps, plus the
@@ -496,16 +499,30 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'
 #' @noRd
 .pres_qvalues <- function(p, n_perm, method = "liang") {
-  if (length(p) < 2L) return(p)
-  bh <- function() compute_qvalues(p, pi0_method = "none")$qvalues
-  if (method != "liang" || length(p) < 10L) return(bh())
+  # A statistic that could not be computed carries an NA p-value; correct the
+  # rest and leave those NA, rather than letting them error here or be scored
+  # as significant downstream.
+  ok <- !is.na(p)
+  out <- rep(NA_real_, length(p))
+  if (sum(ok) < 2L) {
+    out[ok] <- p[ok]
+    return(out)
+  }
+  pv <- p[ok]
 
-  support <- seq_len(n_perm + 1L) / (n_perm + 1L)
-  out <- tryCatch(
-    DiscreteQvalue::DQ(p, ss = support, method = "Liang")$q.values,
-    error = function(e) NULL
-  )
-  if (is.null(out) || anyNA(out)) bh() else out
+  bh <- function() compute_qvalues(pv, pi0_method = "none")$qvalues
+  q <- if (method != "liang" || length(pv) < 10L) {
+    bh()
+  } else {
+    support <- seq_len(n_perm + 1L) / (n_perm + 1L)
+    liang <- tryCatch(
+      DiscreteQvalue::DQ(pv, ss = support, method = "Liang")$q.values,
+      error = function(e) NULL
+    )
+    if (is.null(liang) || anyNA(liang)) bh() else liang
+  }
+  out[ok] <- q
+  out
 }
 
 
@@ -522,9 +539,11 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'   \item{moderate}{`q.value < alpha` and `Zsummary < z_conserved`}
 #'   \item{diverged}{`q.value >= alpha`}
 #' }
-#' Modules whose degree correlation was undefined (constant connectivity)
-#' carry `NA` and are reported as `diverged` only if their density statistic
-#' also fails.
+#' A module whose degree correlation could not be computed -- `cor.degree` is
+#' undefined when intramodular connectivity is constant, or when fewer than
+#' three genes map -- gets `NA` for that statistic, so the `pmax` combination
+#' and hence `q.value` are `NA` too and the module is reported `diverged`. It
+#' is never called preserved on the density statistic alone.
 #'
 #' @param pres Output of [module_preservation()].
 #' @param alpha Significance threshold for the combined q-value (default 0.05).

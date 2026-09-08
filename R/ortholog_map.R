@@ -12,7 +12,8 @@
 # conserved co-expression neighbourhoods and module preservation measures
 # conserved local topology, so filtering the mappable set on coexpressolog
 # evidence would select the tested genes on the statistic being tested.
-# `retain_uncovered()` below is what enforces that invariant.
+# The `uncovered` block in resolve_ortholog_map() is what enforces that
+# invariant.
 
 
 #' Resolve paralog copies in an ortholog map
@@ -129,7 +130,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   resolved <- .map_clique_layer(cliques, sp1, sp2, cand, cand_key)
 
   coexpr <- .map_coexpressolog_layer(
-    edges, sp1, sp2, cand, cand_key, resolved$gene1, rank_by, alpha
+    edges, sp1, sp2, cand, cand_key, resolved$gene1, resolved$gene2,
+    rank_by, alpha
   )
   resolved <- rbind(resolved, coexpr)
 
@@ -181,8 +183,12 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   }
 
   # Best clique per HOG: most species, then lowest mean q-value.
-  n_species <- if ("n_species" %in% names(cl)) cl$n_species else 0L
-  mean_q <- if ("mean_q" %in% names(cl)) cl$mean_q else 0
+  n_species <- if ("n_species" %in% names(cl)) {
+    cl$n_species
+  } else {
+    rep_len(0L, nrow(cl))
+  }
+  mean_q <- if ("mean_q" %in% names(cl)) cl$mean_q else rep_len(0, nrow(cl))
   cl <- cl[order(-n_species, mean_q, cl[[sp1]], cl[[sp2]]), , drop = FALSE]
   cl <- cl[!duplicated(as.character(cl$hog)), , drop = FALSE]
 
@@ -212,7 +218,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 #'
 #' @noRd
 .map_coexpressolog_layer <- function(edges, sp1, sp2, cand, cand_key,
-                                     done_genes, rank_by, alpha) {
+                                     done_genes, done_gene2,
+                                     rank_by, alpha) {
   empty <- cand[0, , drop = FALSE]
   empty$source <- character(0)
   if (is.null(edges)) {
@@ -222,7 +229,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   if (!is.data.frame(edges)) {
     stop("edges must be a data.frame")
   }
-  req <- c("gene1", "gene2", "species1", "species2", rank_by)
+  req <- c("gene1", "gene2", "species1", "species2", "hog", rank_by)
   missing_cols <- setdiff(req, names(edges))
   if (length(missing_cols) > 0L) {
     stop("edges missing columns: ", paste(missing_cols, collapse = ", "))
@@ -247,7 +254,11 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   }
 
   # Only candidate pairs, and only genes the clique layer left open.
-  e <- e[!e$gene1 %in% done_genes, , drop = FALSE]
+  # Both sides must be free: a species-2 gene a clique already resolved would
+  # otherwise gain a second partner, and .pres_project() drops a gene whose
+  # two resolved labels tie -- removing it from the mappable set, which
+  # resolution must never do.
+  e <- e[!e$gene1 %in% done_genes & !e$gene2 %in% done_gene2, , drop = FALSE]
   e <- e[paste(e$gene1, e$gene2, sep = "\x01") %in% cand_key, , drop = FALSE]
   e <- e[!is.na(e[[rank_by]]), , drop = FALSE]
   if (nrow(e) == 0L) {

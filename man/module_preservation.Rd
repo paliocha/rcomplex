@@ -91,6 +91,9 @@ p-values, the combined \code{p.value} and \code{q.value}, \code{Z.avg.weight},
 \code{Z.cor.degree}, \code{Zsummary} and \code{medianRank}.}
 \item{observed}{All six statistics per module, with permutation means
 and standard deviations.}
+\item{projection}{One row per test-species gene that received a module
+label: the reference gene it came from, the module, and which
+resolution layer chose the pair.}
 \item{map}{The ortholog map used.}
 \item{sensitivity}{Only when \code{sensitivity = TRUE}: per-module
 \code{Zsummary} and \code{q.value} under the resolved and naive maps, plus the

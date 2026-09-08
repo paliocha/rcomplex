@@ -524,3 +524,48 @@ test_that("preservation_paired validates its inputs", {
     "must have columns"
   )
 })
+
+
+# ---- an uncomputable statistic must not be scored as significant ----
+
+test_that("a constant reference degree gives NA, not a floor p-value", {
+  fx <- pres_fixture()
+  net <- fx$netA
+  keep <- as.integer(seq_len(nrow(net$network)) - 1L)
+  mm <- lapply(fx$mods, function(z) as.integer(z - 1L))
+
+  # cor.degree is undefined when the reference vector is constant. The
+  # exceedance counter can never fire for an NA observed value, so a naive
+  # (0 + 1) / (n + 1) would report the most significant p-value attainable
+  # for a statistic that could not be computed.
+  flat <- lapply(fx$mods, function(i) rep(1, length(i)))
+  got <- module_preservation_dense_cpp(
+    net$network, net$threshold, keep, mm, flat, flat, flat,
+    n_perm = 100L, n_cores = 1L, binary = FALSE
+  )
+
+  expect_true(all(is.na(got$observed[, 4])))
+  expect_true(all(is.na(got$p_value[, 4])))
+  # The density statistic is unaffected and still computed.
+  expect_false(any(is.na(got$p_value[, 1])))
+})
+
+test_that("an NA combined p-value is reported as diverged", {
+  pres <- list(preservation = data.frame(
+    module = c("1", "2"),
+    size = c(30L, 30L), size_mapped = c(20L, 20L),
+    Zsummary = c(NA_real_, 15),
+    q.value = c(NA_real_, 0.001),
+    stringsAsFactors = FALSE
+  ))
+  cls <- classify_preservation(pres)
+  expect_equal(cls$classification, c("diverged", "conserved"))
+})
+
+test_that("q-value correction passes NA through", {
+  p <- c(0.001, NA, 0.5, 0.9)
+  q <- rcomplex:::.pres_qvalues(p, n_perm = 1000L, method = "bh")
+
+  expect_true(is.na(q[2]))
+  expect_false(any(is.na(q[-2])))
+})

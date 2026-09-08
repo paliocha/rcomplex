@@ -441,7 +441,10 @@ List run_preservation(WeightedNeighbors& g,
             obs_out(k, j) = observed[c];
             n_out(k, j) = count[c];
             exceed_out(k, j) = exceed[c];
-            p_out(k, j) = (count[c] > 0)
+            // An NA observed statistic can never be exceeded, so counting
+            // it would report (0 + 1) / (n + 1) -- the most significant value
+            // attainable -- for a statistic that could not be computed at all.
+            p_out(k, j) = (count[c] > 0 && !ISNAN(observed[c]))
                 ? static_cast<double>(exceed[c] + 1) / (count[c] + 1)
                 : NA_REAL;
             if (count[c] > 1) {
