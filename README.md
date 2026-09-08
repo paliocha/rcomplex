@@ -136,7 +136,8 @@ hubs1[hubs1$is_hub, ]
 # rebuilding a naive one -- a bare resolve_ortholog_map() with no edges
 # or cliques runs no resolution layer at all.
 trait <- c(SP_A = "annual", SP_B = "perennial")
-corr <- module_correspondence(mod1, mod2, pres$map)
+corr <- module_correspondence(mod1, mod2, pres$map,
+                              sp_ref = "SP_A", sp_test = "SP_B")
 hub_class <- classify_hub_conservation(
   list(SP_A = hubs1, SP_B = hubs2), trait,
   # The list key must be the ALPHABETICALLY SORTED species pair.

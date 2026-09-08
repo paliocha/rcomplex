@@ -397,7 +397,8 @@ for (i in seq_len(nrow(phylo_pairs))) {
   gene_map <- mod_results$raw[[key]]$map
 
   correspondence[[key]] <-
-    module_correspondence(modules[[sp[1]]], modules[[sp[2]]], gene_map)
+    module_correspondence(modules[[sp[1]]], modules[[sp[2]]], gene_map,
+                          sp_ref = sp[1], sp_test = sp[2])
 }
 
 hub_class <- classify_hub_conservation(

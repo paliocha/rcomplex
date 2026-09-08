@@ -35,8 +35,9 @@ distinction. Two things the caller must now satisfy themselves: each
 element must be built with the alphabetically first species as
 \code{modules_ref}, and \code{\link[=module_correspondence]{module_correspondence()}} needs a map from
 \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}, so the networks are required for the gene
-universes. A module pair absent from the table counts as
-not corresponding.}
+universes. Pass \code{sp_ref} / \code{sp_test} to \code{\link[=module_correspondence]{module_correspondence()}} and
+that orientation is checked here instead of taken on trust. A module
+pair absent from the table counts as not corresponding.}
 
 \item{alpha}{Significance threshold for module correspondence (default 0.05).}
 
@@ -111,7 +112,9 @@ classify_hub_conservation(hub_list, trait)
 map <- resolve_ortholog_map(
   ortho_AB, rownames(net_A$network), rownames(net_B$network)
 )
-corr <- list(SP_A.SP_B = module_correspondence(mods_A, mods_B, map))
+corr <- list(SP_A.SP_B = module_correspondence(
+  mods_A, mods_B, map, sp_ref = "SP_A", sp_test = "SP_B"
+))
 classify_hub_conservation(hub_list, trait, module_comparisons = corr)
 }
 

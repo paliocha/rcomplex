@@ -801,6 +801,36 @@ test_that("classify_hub_conservation rejects unusable comparison keys", {
   expect_error(
     classify_hub_conservation(hubs, td$trait,
       module_comparisons = list(SP_A.SP_C = flipped)),
-    "transposed"
+    "arguments or the key are wrong"
+  )
+  # A sp_test naming a third species is the same class of silent wrong
+  # verdict, and a first-element check would pass it.
+  third <- corr
+  third$sp_ref <- "SP_A"
+  third$sp_test <- "SP_D"
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_A.SP_C = third)),
+    "arguments or the key are wrong"
+  )
+})
+
+test_that("orientation check survives species names containing a dot", {
+  # Splitting the key on "." would make "A.thaliana.O.sativa" look transposed
+  # and reject a correctly oriented table.
+  trait <- c(A.thaliana = "annual", O.sativa = "perennial")
+  corr <- list(pairs = data.frame(
+    module_sp1 = "1", module_sp2 = "1", jaccard = 0.5, q.value = 0.01,
+    stringsAsFactors = FALSE
+  ), sp_ref = "A.thaliana", sp_test = "O.sativa")
+  hubs <- list(
+    A.thaliana = data.frame(gene = "a1", module = 1L, is_hub = TRUE,
+                            hog = "H1", degree = 1, stringsAsFactors = FALSE),
+    O.sativa = data.frame(gene = "o1", module = 1L, is_hub = TRUE,
+                          hog = "H1", degree = 1, stringsAsFactors = FALSE)
+  )
+  expect_no_error(
+    classify_hub_conservation(hubs, trait,
+      module_comparisons = list("A.thaliana.O.sativa" = corr))
   )
 })

@@ -1015,8 +1015,9 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   element must be built with the alphabetically first species as
 #'   `modules_ref`, and [module_correspondence()] needs a map from
 #'   [resolve_ortholog_map()], so the networks are required for the gene
-#'   universes. A module pair absent from the table counts as
-#'   not corresponding.
+#'   universes. Pass `sp_ref` / `sp_test` to [module_correspondence()] and
+#'   that orientation is checked here instead of taken on trust. A module
+#'   pair absent from the table counts as not corresponding.
 #' @param alpha Significance threshold for module correspondence (default 0.05).
 #' @param jaccard_threshold Jaccard threshold for module correspondence
 #'   (default 0.1). [module_correspondence()] computes this over the
@@ -1061,7 +1062,9 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #' map <- resolve_ortholog_map(
 #'   ortho_AB, rownames(net_A$network), rownames(net_B$network)
 #' )
-#' corr <- list(SP_A.SP_B = module_correspondence(mods_A, mods_B, map))
+#' corr <- list(SP_A.SP_B = module_correspondence(
+#'   mods_A, mods_B, map, sp_ref = "SP_A", sp_test = "SP_B"
+#' ))
 #' classify_hub_conservation(hub_list, trait, module_comparisons = corr)
 #' }
 #'
@@ -1214,11 +1217,23 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     # module_sp2 swapped, giving wrong verdicts rather than a detectable NA.
     for (k in nm) {
       ref <- module_comparisons[[k]]$sp_ref
-      first_sp <- strsplit(k, ".", fixed = TRUE)[[1]][1]
-      if (!is.null(ref) && !identical(ref, first_sp)) {
+      if (is.null(ref)) next
+      tst <- module_comparisons[[k]]$sp_test
+      # Rebuild the key from the recorded labels rather than splitting it.
+      # Splitting on "." mangles species names that contain one, and
+      # comparing the pair as a whole also catches a sp_test naming a third
+      # species, which a first-element check would pass.
+      rebuilt <- if (is.null(tst)) NULL else paste(c(ref, tst), collapse = ".")
+      ok <- if (is.null(rebuilt)) {
+        startsWith(k, paste0(ref, "."))
+      } else {
+        identical(k, rebuilt)
+      }
+      if (!ok) {
         stop("module_comparisons[[\"", k, "\"]] was built with sp_ref = \"",
-             ref, "\"; module_sp1 must belong to the first species of the ",
-             "key, so the arguments are transposed")
+             ref, "\"", if (!is.null(tst)) paste0(", sp_test = \"", tst, "\""),
+             "; module_sp1 must belong to the first species of the key, so ",
+             "the arguments or the key are wrong")
       }
     }
 
