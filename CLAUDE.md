@@ -7,7 +7,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 rcomplex is an R package for comparative co-expression network analysis across species. It maps orthologous genes (via ortholog groups / HOGs from OrthoFinder, FastOMA, PLAZA, etc.), builds co-expression networks independently per species, then tests conservation at three levels:
 
 - **Gene / HOG-level**: Hypergeometric tests with q-value correction (`compare_neighborhoods()` + `summarize_comparison()`), gene-identity permutation with adaptive stopping (`permutation_hog_test()`), batch orchestration (`find_coexpressologs()`, `density_sweep()`), degree-preserving edge-swap null (`coexpressolog_null()`)
-- **Module-level**: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests, module hubs + conservation
+- **Module-level**: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, connectivity preservation testing (`module_preservation()` — permutation null on `avg.weight` + `cor.degree`) over paralog-resolved ortholog maps (`resolve_ortholog_map()`), module correspondence (`module_correspondence()`), module hubs + conservation
 - **Clique-level**: C++ Bron-Kerbosch / Tomita clique detection, leave-k-out jackknife stability for trait-exclusive cliques, threshold sweep, HOG conservation classification
 
 Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106).
@@ -19,10 +19,11 @@ Rscript -e 'Rcpp::compileAttributes()'
 Rscript -e 'devtools::document()'
 R CMD INSTALL .
 Rscript -e 'devtools::test()'
-R CMD build . && R CMD check --no-manual rcomplex_0.2.0.tar.gz   # expect "Status: OK"
+Rscript -e 'lintr::lint_package()'
+R CMD build . && R CMD check --no-manual rcomplex_0.3.0.tar.gz   # expect "Status: OK"
 ```
 
-Check the built tarball, not the source directory — `Authors@R` only expands at build time, so `R CMD check .` fails with "Author/Maintainer missing". `--no-manual` avoids needing pdflatex. The historical `R_ext/Boolean.h` warning no longer appears with clang 22.
+Check the built tarball, not the source directory — `Authors@R` only expands at build time, so `R CMD check .` fails with "Author/Maintainer missing". `--no-manual` avoids needing pdflatex. The historical `R_ext/Boolean.h` warning no longer appears with clang 22. CI runs `lintr::lint_package()` with `LINTR_ERROR_ON_LINT` and there is no `.lintr` file, so any lint fails the build — keep lines at or under 80 characters.
 
 ## Package Architecture
 
@@ -36,11 +37,13 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `find_coexpressologs()` (alias: `run_pairwise_comparisons()`), `density_sweep()`, `get_coexpressed_hogs()` |
 | `R/coexpressolog_null.R` | `coexpressolog_null()` — degree-preserving edge-swap null |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, `compute_qvalues()` (randomized-p pi0), torch FE helpers |
-| `R/modules.R` | `detect_modules()` (single + consensus), `compare_modules()`, `compare_modules_paired()`, `classify_modules()`, `coarsen_modules()`, `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
+| `R/modules.R` | `detect_modules()` (single + consensus), `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
+| `R/ortholog_map.R` | `resolve_ortholog_map()` — one-to-one paralog resolution (cliques, then mutual-best coexpressologs, then majority vote) |
+| `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
 | `R/tag_permutation.R` | `tag_permutation()` — trait-specific module recurrence test |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) — SummarizedExperiment helpers |
-| `R/rcomplex-class.R` | S3 `rcomplex` container: constructor, print/summary, `.rcomplex` methods for 9 pipeline functions |
+| `R/rcomplex-class.R` | S3 `rcomplex` container: constructor, print/summary, and a `.rcomplex` method for every pipeline generic registered in `NAMESPACE` |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
 
 ### C++ layer (src/, RcppArmadillo + OpenMP)
@@ -54,7 +57,7 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap (hypergeometric, self-excluded urn); dense + sparse entry points |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector/flag-vector, Besag & Clifford); dense + sparse entry points |
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
-| `src/module_jaccard_permutation.cpp` | Batched Jaccard permutation engine |
+| `src/module_preservation.cpp` | Module preservation permutation engine (`avg.weight`, `cor.degree`, plus diagnostics) and per-gene intramodular statistics; dense + sparse entry points |
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging |
 | `src/coclassification.cpp` | Co-classification matrix with per-pair null subtraction (Jeub et al. 2018) |
 | `src/find_cliques_common.h` | Shared clique primitives (BK/Tomita, backtracking, trait, Jaccard) |
@@ -75,7 +78,9 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `tests/testthat/test-mr-block.R` | `mr_block()` exact reconstruction vs dense network |
 | `tests/testthat/test-coexpressolog-null.R` | Edge-swap null (seeded, parallel reproducibility) |
 | `tests/testthat/test-coexpressed-hogs.R` | `get_coexpressed_hogs()` cross-species partner queries |
-| `tests/testthat/test-modules.R` | Module detection, comparison, classification, consensus |
+| `tests/testthat/test-modules.R` | Module detection and consensus |
+| `tests/testthat/test-ortholog-map.R` | Paralog resolution layers, precedence, mappable-set invariant |
+| `tests/testthat/test-module-preservation.R` | Preservation kernel vs R reference, null calibration, classification, correspondence, paired directions |
 | `tests/testthat/test-module-hubs.R` | Hub identification, tie-breaking, hub conservation |
 | `tests/testthat/test-tag-permutation.R` | Trait-specific module recurrence test |
 | `tests/testthat/test-cliques.R` | Clique detection (igraph + C++ backends) |
@@ -115,6 +120,9 @@ Homebrew clang ABI issue with `std::unordered_map<std::string, ...>`. All C++ us
 
 ### HOG-level testing uses permutation, not Fisher's method
 Fisher's method is anti-conservative for multi-copy HOGs (correlated tests). `permutation_hog_test()` permutes gene identities instead.
+
+### Module-level testing measures connectivity, not membership
+Gene overlap called a module conserved whenever its membership survived, even when the wiring inside it was gone. `module_preservation()` permutes gene identities with the edges held fixed and tests `avg.weight` (module density) and `cor.degree` (Pearson correlation of intramodular connectivity), combined with `pmax` so both must be significant. q-values use `DiscreteQvalue::DQ(method = "Liang")` on the exact permutation support, falling back to Benjamini-Hochberg below 10 modules. `resolve_ortholog_map()` may only choose *which* paralog copy carries a label, never which genes are mappable — filtering the mappable set on coexpressolog evidence would select the tested genes on the statistic being tested, and `module_preservation(sensitivity = TRUE)` re-runs under a naive map to check that invariant.
 
 ### Iterative consensus module detection
 Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-pair null subtraction: E(i,j) = (1/K) sum_k (s_m(i)/N)(s_m(j)/N), not a scalar mean. Iterates co-classification → Leiden sweep on consensus graph until all resolutions converge (ARI > 0.999).

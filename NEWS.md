@@ -1,3 +1,169 @@
+# rcomplex 0.3.0
+
+Module-preservation release. Module-level conservation is now a
+topology-preservation test, not a gene-overlap test. Overlap called a module
+conserved when its membership survived, even if the wiring was gone --
+connectivity, not membership, is what selection acts on (Mähler et al.
+2017). The overlap hypergeometric was also anti-conservative on multi-copy
+HOGs: one HOG with three paralogs contributed three correlated draws to the
+same urn. `module_preservation()` replaces it with the permutation test
+NetRep computes when only an adjacency matrix is available (Ritchie et al.
+2016), and `resolve_ortholog_map()` reduces each multi-copy HOG to one
+counterpart per gene before any module label is projected.
+
+## Breaking changes
+
+- Removed, with no deprecation shim: `compare_modules()` (with its
+  `compare_modules_hypergeometric()` and `compare_modules_jaccard()`
+  engines, `best_match_direction()` and `compute_best_matches()`),
+  `classify_modules()`, `coarsen_modules()` and `compare_modules_paired()`
+  (generic, default and `rcomplex` methods), together with
+  `src/module_jaccard_permutation.cpp`. Module-level conservation now runs
+  through `module_preservation()` / `preservation_paired()`; the separate
+  "which module corresponds to which" question is `module_correspondence()`.
+- Classification vocabulary: conserved / partially_conserved /
+  species_specific, with the species held in `sp1` / `sp2`, becomes
+  conserved / moderate / diverged / untested, with the real species names in
+  a `species` column and new `reference` / `test` columns naming the two
+  sides of the direction the row describes. `untested` is a `q.value` of
+  `NA` -- `cor.degree` undefined because intramodular connectivity is
+  constant, so nothing was measured. It is deliberately not folded into
+  `diverged`, which would be a positive claim of divergence.
+- `classify_hub_conservation(module_comparisons = )` now takes a named list
+  of `module_correspondence()` results keyed by the ALPHABETICALLY SORTED
+  species pair, and validates that each element carries a `pairs` data frame
+  with `module_sp1`, `module_sp2`, `jaccard` and `q.value`. Passing
+  something else (e.g. `preservation_paired()$raw`) errors instead of
+  leaving every HOG at `NA`, which was indistinguishable from supplying no
+  comparison at all.
+- `tag_permutation()` retargeted at `preservation_paired()$classification`:
+  it takes each contrast's two sides from `reference` / `test` and counts
+  only `"diverged"` rows. Preservation reports only modules with at least
+  `min_module_size` mapped genes, so the HOG pool is smaller than the
+  retired gene-overlap engine's.
+- `rcomplex` container: the `module_comparisons` slot is replaced by
+  `preservation` (a `preservation_paired()` result) and `correspondence` (a
+  `module_correspondence()` result per alphabetically sorted species pair,
+  built from the resolved map `preservation_paired()` already computed for
+  that orientation). `classify_hub_conservation.rcomplex()` reads the
+  latter; `print()` / `summary()` report preservation.
+- Fixed: `compare_modules_paired()` keyed its `raw` list unsorted
+  (`paste(sp1, sp2)`) while `classify_hub_conservation()` looks up the
+  ALPHABETICALLY SORTED pair, so any `phylo_pairs` row with `sp1 > sp2`
+  silently missed every lookup and degraded all of its HOGs to
+  `multi_trait_hub`. `preservation_paired()` runs the sorted direction as
+  one of its two, and the container keys correspondence by the sorted pair.
+- Fixed: `classify_preservation()` crashed on a zero-row preservation table
+  (the scalar `species` / `pair_name` clashed with the zero-length columns);
+  it now returns a zero-row classification.
+- `module_correspondence()` computes `jaccard` on the one-to-one projected
+  map, so the values run systematically HIGHER than the retired engine's and
+  the unchanged `jaccard_threshold = 0.1` of `classify_hub_conservation()`
+  is now slightly more permissive. Its q-values default to randomized-pi0,
+  which draws from the global RNG, so the `conserved_hub` / `rewired_hub`
+  verdict is seed-dependent: `set.seed()` first.
+- Preservation is directional -- whether A's modules survive in B is a
+  different question from the reverse -- and `preservation_paired()` always
+  runs both, so its output is roughly twice the size of the old
+  per-contrast output; a contrast listed twice in either orientation is now
+  rejected rather than silently overwritten. There is no coarsening and no
+  `matched_scale`: preservation never partitions the test species, so a
+  module-count ratio is meaningless.
+
+## New functions
+
+- `module_preservation(modules_ref, net_ref, net_test, ...)`: permutation
+  test for whether a reference species' modules keep their topology in a
+  test network. Two statistics carry the call -- the pair NetRep computes
+  when only an adjacency matrix is available (Ritchie et al. 2016):
+  `avg.weight` (`sum(kIM) / (m^2 - m)`, the module density) and
+  `cor.degree` (Pearson correlation of intramodular connectivity between
+  the reference and test networks, i.e. whether hub identity is conserved).
+  `meanClusterCoeff` and `meanMAR` are reported as diagnostics only and
+  take NO part in the call: a hard-thresholded MR network leaves the
+  surviving edge weights nearly constant (max/min ratio about 1.04 at
+  density 0.03), so both lose their dynamic range -- including them in a
+  median-of-three collapsed a density signal of Z = 124 to Z = 5.3 and
+  misclassified a perfectly preserved module. The null shuffles gene
+  identities with the edges held constant, each module taking a contiguous
+  block of the shuffled genes of its own size, and only ortholog-mappable
+  test-species genes enter the shuffle (the NetRep overlap null model).
+  One-sided `p = (exceedances + 1) / (n_perm + 1)` per statistic, combined
+  across the two with `pmax`, so a module is preserved only when BOTH are
+  significant -- the same reciprocal criterion as `pval_combine = "max"`
+  elsewhere in the package. `n_perm` defaults to 10000 and sets the p-value
+  floor at `1 / (n_perm + 1)`; at 1000 permutations every strongly
+  preserved module ties. q-values are `DiscreteQvalue::DQ(method =
+  "Liang")` on the exact permutation support, falling back to
+  Benjamini-Hochberg below 10 modules.
+  `Zsummary = (Z_avg.weight + Z_cor.degree) / 2` is reported alongside for
+  continuity with the WGCNA literature (Langfelder et al. 2011); on
+  adjacency-only inputs it is the GWENA `z_summary()` formula reduced to
+  the statistics available. Dense and sparse networks share the kernel
+  (`src/module_preservation.cpp`, OpenMP over permutations, each iteration
+  drawing the same permutation whatever `n_cores` is).
+- `resolve_ortholog_map(orthologs, genes1, genes2, ...)`: reduces
+  multi-copy HOGs to one counterpart per gene. Cliques first -- a clique
+  fixes one gene per species simultaneously, so its copy choices are
+  globally consistent across every species at once -- then mutual-best
+  coexpressologs (`gene1`'s highest-ranked partner must also rank `gene1`
+  highest), then whatever is left, which `module_preservation()` resolves
+  by majority vote with ties dropped. Resolution may only choose WHICH
+  paralog copy carries a label, never which genes are mappable: filtering
+  the mappable set on coexpressolog evidence would select the tested genes
+  on the statistic being tested, so every candidate pair whose species-2
+  gene no resolved pair claims is kept and the mappable species-2 gene set
+  is identical to the one `orthologs` implies.
+  `module_preservation(sensitivity = TRUE)` re-runs under a naive map --
+  built from `orthologs` alone, no resolution -- and reports both results
+  side by side with the attribute recording whether the two runs covered
+  the identical test-species genes; a mismatch means the resolution layer
+  is filtering rather than choosing.
+- `classify_preservation(pres, alpha = 0.05, z_conserved = 10)`: conserved
+  (`q.value < alpha` and `Zsummary >= z_conserved`), moderate
+  (`q.value < alpha`, weaker), diverged (`q.value >= alpha`) and untested
+  (`q.value` is `NA`), carrying the species and pair labels through and
+  warning with the module names whenever anything is untested.
+- `module_correspondence(modules_ref, modules_test, map)`: module-pair
+  cross-tabulation over the resolved map with a hypergeometric
+  excess-overlap test, returning `module_sp1`, `module_sp2`, `size_sp1`,
+  `size_sp2`, `overlap`, `jaccard`, `p.value` and `q.value` -- the columns
+  `classify_hub_conservation()` expects. The test is no longer
+  anti-conservative: the resolved map contributes one draw per test-species
+  gene instead of one per paralog.
+- `preservation_paired(modules, networks, orthologs, pairs, group = )`:
+  `module_preservation()` over both directions of every contrast, returning
+  `classification` (one row per module per direction), `summary` (counts
+  per contrast and direction) and `raw` keyed `"<reference>.<test>"`.
+  `"untested"` modules are counted under `"untested"` rather than
+  attributed to the reference species' trait group -- nothing was measured,
+  so attributing them would overstate the evidence -- and are carried as
+  their own level rather than `NA`, which `aggregate()` would drop.
+  `rcomplex` method included.
+
+## Validation and documentation
+
+- New `tests/testthat/test-module-preservation.R` (44 blocks): the kernel
+  statistics and the observed per-module statistics against a pure-R
+  reference, dense vs sparse exactly equal, results independent of
+  `n_cores`, permutation p-values uniform and `Zsummary` centred near zero
+  under the null, shared module structure detected as preserved and an
+  unrelated test network not, a module with constant intramodular
+  connectivity reported untested rather than diverged, the `sensitivity`
+  re-run (including a copy choice that changes the result and a naive map
+  covering different genes), `module_correspondence()` output sanity, and
+  `preservation_paired()` covering every module in both directions.
+- New `tests/testthat/test-ortholog-map.R` (22 blocks): the resolution
+  waterfall and its precedence (a coexpressolog cannot re-claim a gene the
+  clique layer resolved), the preserved-gene-set invariant, exactly one
+  species-1 partner per resolved species-2 gene, `rank_by` handling
+  (`"q.value"` errors on the HOG-level constant q-values that
+  `find_coexpressologs(method = "permutation")` broadcasts), and input
+  validation.
+- `tests/testthat/test-modules.R` reduced to `detect_modules()` coverage
+  (single-resolution and consensus); everything it held for the retired
+  comparison engine is gone with it.
+
 # rcomplex 0.2.0
 
 Sparse-network release. The network object is now a thresholded sparse

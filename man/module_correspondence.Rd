@@ -40,8 +40,8 @@ preservation call.
 The map assigns one reference gene to each test-species gene, so the
 hypergeometric's independence assumption holds. The multi-copy expansion
 that made the same test anti-conservative under the retired
-gene-overlap engine is gone here: a HOG with three paralogs no longer contributes three correlated
-draws to the same urn.
+gene-overlap engine is gone here: a HOG with three paralogs no longer
+contributes three correlated draws to the same urn.
 }
 \examples{
 \dontrun{

@@ -201,9 +201,14 @@ cat("Permutation:", sum(edges$type == "conserved"), "conserved edges\n")
 ## 3. Module-level analysis
 
 To identify regulatory signatures of parallel life-cycle evolution, we
-detect modules in all eight species and compare across each of the four
-phylogenetic pairs. Module-level conservation reveals whether the same
-co-regulatory programs are used independently in annual lineages.
+detect modules in all eight species and test preservation across each of
+the four phylogenetic pairs. Module-level conservation reveals whether the
+same co-regulatory programs are used independently in annual lineages.
+Preservation is directional -- whether one species' modules keep their
+wiring in the partner network is a different question from the reverse --
+so both directions are run for every pair (the annual's modules tested in
+the perennial network, then the perennial's in the annual), and every pair
+contributes two sets of rows instead of one.
 
 ```{r phylo-pairs}
 phylo_pairs <- tribble(
@@ -259,37 +264,53 @@ resolutions and how consecutive partitions agree (ARI):
 show_table(modules$BDIS$resolution_scan, caption = "Resolution scan (BDIS)")
 ```
 
-### Module comparison across phylogenetic pairs
+### Module preservation across phylogenetic pairs
 
-`compare_modules_paired()` wraps the full comparison pipeline into a
-single call: for each pair it runs Jaccard permutation (shuffling the
-ortholog mapping), classifies modules as conserved / species-specific,
-tags group-specificity from the `group` vector, and auto-coarsens the
-finer-grained partition when the module-count ratio exceeds 2-fold:
+`preservation_paired()` wraps the full preservation pipeline into a
+single call. For each pair, in both directions, it asks whether the
+reference species' modules keep their wiring in the partner network:
+module density (`avg.weight`) and hub identity (`cor.degree`) are each
+tested against a gene-identity permutation null and combined with `pmax`,
+so a module counts as preserved only when both statistics are
+significant. Every module is then labelled `conserved` (significant with
+`Zsummary` at or above 10), `moderate` (significant but weaker),
+`diverged` (not significant), or `untested` -- a statistic was undefined,
+so nothing was measured, which is not the same as a positive claim of
+divergence. With a `group` vector, diverged modules are attributed to the
+trait group of the species that owns them and preserved ones to
+`"conserved"`, while untested modules are carried as their own level
+rather than folded into a trait. There is no matched-scale table any
+more: preservation projects one species' modules onto the other's network
+instead of comparing two partitions, so a module-count ratio has nothing
+left to correct for.
 
-```{r module-comparison}
-mod_results <- compare_modules_paired(
-  modules, orthologs,
+```{r module-preservation}
+# `cliques` is not built until section 5, so paralogs are resolved from
+# the coexpressolog edges alone here.
+mod_results <- preservation_paired(
+  modules, networks, orthologs,
   pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
   group = trait_vec,
-  matched_scale = TRUE, coarsen_ratio = 2,
-  method = "jaccard", n_cores = n_cores
+  edges = edges, n_cores = n_cores
 )
 
-show_table(mod_results$module_counts,
-           caption = "Module count ratio per pair")
+tibble(species = names(modules),
+       trait = trait_vec[names(modules)],
+       n_modules = map_int(modules, \(m) m$n_modules)) |>
+  show_table(caption = "Modules per species")
+
 show_table(mod_results$summary,
-           caption = "Module conservation: natural vs matched scale")
+           caption = "Module preservation by contrast, direction and group")
 ```
 
-Do any HOGs consistently land in annual-specific modules across
+Do any HOGs consistently land in modules diverged in the annual across
 independent lineages? That would be strong evidence for parallel
 re-use of regulatory programs. `tag_permutation()` tests this
-formally: trait labels are shuffled across species (preserving
-marginal frequencies), and HOG recurrence is recomputed under
-each permuted labelling. A pair contributes HOGs only when exactly
-one of its species carries the target trait, so the null correctly
-accounts for the paired design:
+formally on the `diverged` rows of the classification table: trait
+labels are shuffled across species (preserving marginal frequencies),
+and HOG recurrence is recomputed under each permuted labelling. A pair
+contributes HOGs only when exactly one of its species carries the
+target trait, so the null correctly accounts for the paired design:
 
 ```{r module-parallel}
 parallel_test <- tag_permutation(
@@ -301,7 +322,7 @@ parallel_test <- tag_permutation(
 
 parallel_test$recurrence_table |>
   count(n_pairs, name = "n_hogs") |>
-  show_table(caption = "HOG recurrence in annual-specific modules across pairs")
+  show_table(caption = "HOG recurrence in modules diverged in the annual")
 
 cat("HOGs recurring in >= 2 pairs:", parallel_test$observed,
     "(permutation p =", sprintf("%.4f", parallel_test$p_value), ")\n")
@@ -342,11 +363,56 @@ species_data |>
   show_table(caption = "Hub genes per species")
 ```
 
+Deciding whether a HOG is a hub of *the same* module in two species is a
+separate question from preservation, and `module_correspondence()`
+answers it: it projects the resolved one-to-one ortholog map through both
+partitions and tests each module pair with a hypergeometric. Because the
+resolved map contributes one draw per test gene rather than one per
+paralog, the test is no longer anti-conservative on multi-copy HOGs, and
+its `jaccard` values run systematically higher than the retired
+gene-overlap engine's -- the unchanged `jaccard_threshold = 0.1` inside
+`classify_hub_conservation()` is therefore slightly more permissive than
+it used to be. The q-values default to randomized-pi0 estimation and draw
+from the global RNG, so the `conserved_hub` / `rewired_hub` verdicts are
+seed-dependent; `set.seed()` first.
+
+`classify_hub_conservation()` looks each species pair up under its
+alphabetically sorted key, which is a real bug fixed here: the old raw
+comparison list was keyed in the order the pairs were written
+(`"HVUL.HJUB"`, `"VBRO.FPRA"`), so two of the four pairs never matched a
+lookup and their hub calls silently degraded to `multi_trait_hub`.
+
 ```{r hub-conservation}
+set.seed(42)
+
+# Keyed on the ALPHABETICALLY SORTED pair, with module_sp1 belonging to
+# the first of the two species -- that is what the lookup inside
+# classify_hub_conservation() expects. `cliques` is not defined until
+# section 5, so only `edges` feeds the paralog resolver.
+correspondence <- list()
+for (i in seq_len(nrow(phylo_pairs))) {
+  sp <- sort(c(phylo_pairs$annual[i], phylo_pairs$perennial[i]))
+  g1 <- rownames(networks[[sp[1]]]$network)
+  g2 <- rownames(networks[[sp[2]]]$network)
+
+  # prepare_orthologs() writes each species pair in one orientation only
+  ortho_pair <- orthologs
+  if (sum(ortho_pair$Species1 %in% g1 & ortho_pair$Species2 %in% g2) <
+        sum(ortho_pair$Species2 %in% g1 & ortho_pair$Species1 %in% g2)) {
+    ortho_pair[c("Species1", "Species2")] <-
+      ortho_pair[c("Species2", "Species1")]
+  }
+
+  gene_map <- resolve_ortholog_map(ortho_pair, g1, g2,
+                                   sp1 = sp[1], sp2 = sp[2], edges = edges)
+  correspondence[[paste(sp, collapse = ".")]] <-
+    module_correspondence(modules[[sp[1]]], modules[[sp[2]]], gene_map)
+}
+
 hub_class <- classify_hub_conservation(
   deframe(select(species_data, species, hubs)),
   trait_vec,
-  module_comparisons = mod_results$raw
+  module_comparisons = correspondence
 )
 
 hub_class |>
@@ -881,7 +947,7 @@ cat("Robust candidates (>= 50% density survival + stability >= 1):",
     n_robust, "\n")
 if (exists("parallel_test")) {
   cat("\nParallel module signal: ", parallel_test$observed,
-      " HOGs recur in annual-specific modules across >= 2 pairs (p = ",
+      " HOGs recur in modules diverged in the annual across >= 2 pairs (p = ",
       sprintf("%.4f", parallel_test$p_value), ")\n", sep = "")
 }
 ```
@@ -895,7 +961,7 @@ annual lineage.
 
 **Trait-specific HOGs** (annual-only or perennial-only cliques) may
 encode lineage-specific regulatory modules. The formal permutation
-test above addresses whether annual-specific modules share HOGs
+test above addresses whether modules diverged in the annual share HOGs
 across independent lineages more than expected by chance. A significant
 result supports the hypothesis that annuality draws on a shared
 regulatory toolkit rather than arising from independent *de novo*

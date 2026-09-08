@@ -13,8 +13,9 @@ levels:
 
 - **Gene / HOG level** -- Are individual genes' co-expression
   neighborhoods preserved across species?
-- **Module level** -- Are higher-order communities (modules) of
-  co-expressed genes conserved, partially conserved, or species-specific?
+- **Module level** -- Does a module's internal wiring -- its connection
+  density and which genes are its hubs -- survive in the other species'
+  network?
 - **Clique level** -- Which fully connected subsets of ortholog groups
   are conserved, and how robust is their trait exclusivity to species
   removal?
@@ -104,11 +105,20 @@ mod1 <- detect_modules(net1, resolution = seq(0.1, 5, by = 0.1), seed = 42)
 
 mod2 <- detect_modules(net2, resolution = seq(0.1, 5, by = 0.1), seed = 42)
 
-# Compare modules across species (hypergeometric or Jaccard permutation)
-comp <- compare_modules(mod1, mod2, orthologs, method = "jaccard", n_cores = 4L)
+# Does mod1's wiring survive in species 2? Preservation is DIRECTIONAL:
+# this asks about SP_A's modules in SP_B's network, which is a different
+# question from the reverse. Run both to get both answers.
+pres <- module_preservation(mod1, net1, net2, orthologs,
+                            sp_ref = "SP_A", sp_test = "SP_B",
+                            n_perm = 10000L, n_cores = 4L, seed = 1L)
+pres$preservation  # avg.weight, cor.degree, Zsummary, q.value per module
 
-# Classify: conserved, partially conserved, or species-specific
-classes <- classify_modules(comp)
+# Classify: the call comes from the combined permutation q-value over
+# avg.weight (module density) and cor.degree (hub identity), combined
+# with pmax so both must be significant. Four classes: conserved
+# (q < alpha, Zsummary >= 10), moderate (q < alpha, Zsummary < 10),
+# diverged (q >= alpha), untested (q is NA -- nothing was measured).
+classes <- classify_preservation(pres)
 
 # Identify hub genes within modules (6-tier tie-breaking cascade)
 hubs1 <- identify_module_hubs(mod1, net1, orthologs,
@@ -117,11 +127,17 @@ hubs2 <- identify_module_hubs(mod2, net2, orthologs,
                               comparison = summary$results)
 hubs1[hubs1$is_hub, ]
 
-# Classify hub conservation across traits
+# Classify hub conservation across traits. This needs module
+# correspondence ("which module matches which"), not the preservation
+# call, so it takes module_correspondence() over a paralog-resolved map.
 trait <- c(SP_A = "annual", SP_B = "perennial")
+map <- resolve_ortholog_map(orthologs, rownames(net1$network),
+                            rownames(net2$network))
+corr <- module_correspondence(mod1, mod2, map)
 hub_class <- classify_hub_conservation(
   list(SP_A = hubs1, SP_B = hubs2), trait,
-  module_comparisons = list("SP_A.SP_B" = comp)
+  # The list key must be the ALPHABETICALLY SORTED species pair.
+  module_comparisons = list("SP_A.SP_B" = corr)
 )
 hub_class[hub_class$classification != "non_hub", ]
 
@@ -216,9 +232,14 @@ multiplier) error with a message asking for a larger `store_density`.
 | `density_sweep()` | Re-run the co-expressolog pipeline across density multipliers |
 | `coexpressolog_null()` | Degree-preserving edge-swap null for co-expressolog statistics |
 | `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
-| `compare_modules()` | Cross-species module overlap (hypergeometric or Jaccard permutation) |
-| `classify_modules()` | Three-tier module conservation classification |
+| `resolve_ortholog_map()` | Reduce multi-copy HOGs to one counterpart per gene (cliques, then coexpressologs, then majority vote) |
+| `module_preservation()` | Permutation test of module density and hub identity in the other species' network |
+| `classify_preservation()` | Four-tier preservation classification (conserved / moderate / diverged / untested) |
+| `module_correspondence()` | Match modules across species by ortholog overlap on the resolved map |
+| `preservation_paired()` | Batch module preservation across species pairs, both directions |
+| `tag_permutation()` | Permutation test for trait-specific module recurrence across species pairs |
 | `identify_module_hubs()` | Within-module hub identification with 6-tier conservation-aware tie-breaking |
+| `characterize_hubs()` | Regulatory-potential metrics for hub genes (bridge fraction, betweenness/degree ratio) |
 | `classify_hub_conservation()` | Hub conservation across traits (conserved / rewired / trait-specific) |
 | `get_coexpressed_hogs()` | Query co-expression partners of a candidate HOG across species |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting |
@@ -376,25 +397,90 @@ genes at 3% density. Re-running the full resolution sweep on the
 consensus graph (step 5) avoids the resolution limit that afflicts
 single-resolution Leiden on dense graphs (Fortunato & Barthélemy, 2007).
 
-### Module comparison
+### Module preservation
 
-`compare_modules()` supports two methods:
+Gene overlap is the wrong test for module conservation. A module whose
+genes all have orthologs in the same partner module scores as conserved
+even when none of the edges between them survived -- membership was kept,
+the wiring was gone. Connectivity, not membership, is what selection acts
+on (Mähler *et al.*, 2017). The overlap hypergeometric was also
+anti-conservative on multi-copy HOGs: one HOG with three paralogs
+contributed three correlated draws to the same urn.
 
-- **Hypergeometric**: Maps module genes through the ortholog table and
-  tests overlap with `phyper()`. Q-values via Storey (2003).
-- **Jaccard + permutation**: Computes observed Jaccard index on
-  ortholog-mappable genes. The null permutes the ortholog mapping
-  (Fisher-Yates shuffle), preserving module and network structure. Batched
-  permutation shares one shuffle per iteration across all active pairs.
-  Q-values via Liang (2016) discrete method.
+`module_preservation()` instead asks whether a reference module's
+topology survives in the test species' network, using the pair of
+statistics NetRep computes when only an adjacency matrix is available
+(Ritchie *et al.*, 2016):
 
-`classify_modules()` assigns each module to one of three categories:
+- **`avg.weight`** = `sum(kIM) / (m^2 - m)` -- the module's connection
+  density among its mapped genes.
+- **`cor.degree`** -- Pearson correlation of intramodular connectivity
+  (kIM) between the reference and test networks: is hub identity
+  conserved?
+
+`meanClusterCoeff` and `meanMAR` are reported as diagnostics only and
+take no part in the call. A hard-thresholded MR network leaves the
+surviving edge weights nearly constant (max/min ratio about 1.04 at
+density 0.03), so both lose their dynamic range; including them in a
+median-of-three collapsed a density signal of Z = 124 to Z = 5.3 and
+misclassified a perfectly preserved module.
+
+The null shuffles gene identities while holding edges constant, handing
+each module a contiguous block of the shuffled genes of its own size.
+Only ortholog-mappable test-species genes enter the shuffle -- NetRep's
+overlap null model. P-values are one-sided,
+`(exceedances + 1) / (permutations + 1)`, and combined across the two
+statistics with `pmax`, so a module is preserved only when both are
+significant -- the same reciprocal criterion as `pval_combine = "max"`
+elsewhere in the package. `n_perm` (default 10000) therefore sets the
+p-value floor at `1 / (n_perm + 1)`: at 1000 permutations every strongly
+preserved module ties at the floor and cannot be ranked. Q-values use the
+Liang (2016) discrete method on the exact permutation support, falling
+back to Benjamini-Hochberg below 10 modules.
+
+`Zsummary = (Z_avg.weight + Z_cor.degree) / 2` is reported alongside for
+continuity with the WGCNA literature (Langfelder *et al.*, 2011); on
+adjacency-only inputs this is the GWENA `z_summary()` formula reduced to
+the statistics available.
+
+Multi-copy HOGs are reduced to one counterpart per gene by
+`resolve_ortholog_map()`: cliques first (globally consistent across every
+species at once), then mutual-best coexpressologs, then majority vote
+with ties dropped. Resolution may only choose *which* paralog copy
+carries a module label, never which genes are mappable -- filtering the
+mappable set on coexpressolog evidence would select the tested genes on
+the statistic being tested. `module_preservation(sensitivity = TRUE)`
+re-runs under a naive map and checks that invariant held.
+
+Preservation is directional: whether A's modules survive in B is a
+different question from the reverse. `preservation_paired()` always runs
+both.
+
+`classify_preservation()` assigns each module to one of four categories:
 
 | Classification | Criteria |
 |----------------|----------|
-| Conserved | Best-match q < alpha AND Jaccard >= threshold |
-| Partially conserved | Best-match q < alpha AND Jaccard < threshold |
-| Species-specific | No significant match in the other species |
+| Conserved | q < alpha AND Zsummary >= `z_conserved` (default 10) |
+| Moderate | q < alpha AND Zsummary < `z_conserved` |
+| Diverged | q >= alpha |
+| Untested | q is NA -- nothing was measured |
+
+`cor.degree` is undefined when intramodular connectivity is constant in
+either network, which leaves the `pmax` combination and hence the
+q-value `NA`. Such a module is reported untested rather than diverged:
+divergence would be a positive claim the data does not support.
+
+`module_correspondence()` answers the separate "which module corresponds
+to which" question, which `classify_hub_conservation()` needs. It
+cross-tabulates the two species' modules over the resolved map and tests
+each module pair with `phyper()`. Because the resolved map contributes
+one draw per test gene instead of one per paralog, this hypergeometric is
+no longer anti-conservative. Its q-values default to the randomized-p
+pi0 estimator, which draws from the global RNG: seed first, or the
+`conserved_hub` / `rewired_hub` split downstream will move between runs.
+Jaccard is computed on the one-to-one projected map, so values run
+systematically higher than under the retired gene-overlap engine and the
+unchanged `jaccard_threshold = 0.1` is now slightly more permissive.
 
 ### Hub identification
 
@@ -523,7 +609,9 @@ permutations) to avoid zero p-values.
 | `R/mr_block.R` | `mr_block()` -- exact local MR reconstruction for gene subsets |
 | `R/coexpressolog_null.R` | `coexpressolog_null()` -- degree-preserving edge-swap null |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
-| `R/modules.R` | `detect_modules()`, `compare_modules()`, `classify_modules()`, `identify_module_hubs()`, `classify_hub_conservation()` |
+| `R/modules.R` | `detect_modules()`, `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
+| `R/ortholog_map.R` | `resolve_ortholog_map()` -- paralog resolution waterfall (cliques, coexpressologs, majority vote) |
+| `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
 
@@ -541,7 +629,7 @@ permutations) to avoid zero p-values.
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
-| `src/module_jaccard_permutation.cpp` | Batched Jaccard permutation engine |
+| `src/module_preservation.cpp` | Module preservation permutation kernel (dense and sparse entry points) |
 | `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch / Tomita, backtracking, Jaccard, trait) |
 | `src/find_cliques.cpp` | C++ clique detection wrapper |
 | `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
@@ -576,6 +664,18 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
 - Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
   consensus clustering in networks. *Scientific Reports*, 8, 3259.
   [doi:10.1038/s41598-018-21352-7](https://doi.org/10.1038/s41598-018-21352-7)
+- Langfelder, P., Luo, R., Oldham, M. C. & Horvath, S. (2011). Is my
+  network module preserved and reproducible? *PLoS Computational
+  Biology*, 7(1), e1001057.
+  [doi:10.1371/journal.pcbi.1001057](https://doi.org/10.1371/journal.pcbi.1001057)
+- Ritchie, S. C. *et al.* (2016). A scalable permutation approach reveals
+  replication and preservation patterns of network modules in large
+  datasets. *Cell Systems*, 3(1), 71--82.
+  [doi:10.1016/j.cels.2016.06.012](https://doi.org/10.1016/j.cels.2016.06.012)
+- Mähler, N. *et al.* (2017). Gene co-expression network connectivity is
+  an important determinant of selective constraint. *PLoS Genetics*,
+  13(4), e1006402.
+  [doi:10.1371/journal.pgen.1006402](https://doi.org/10.1371/journal.pgen.1006402)
 - Senbabaoglu, Y. *et al.* (2014). Critical limitations of consensus
   clustering in class discovery. *Scientific Reports*, 4, 6207.
   [doi:10.1038/srep06207](https://doi.org/10.1038/srep06207)

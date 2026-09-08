@@ -904,7 +904,7 @@ test_that("alpha monotonically controls the diverged call", {
   expect_gte(sum(strict == "diverged"), sum(loose == "diverged"))
 })
 
-test_that("z_conserved splits conserved from moderate without moving the rest", {
+test_that("z_conserved splits conserved from moderate, rest unmoved", {
   fx <- pres_fixture()
   tm <- true_modules(fx$netA, fx$mods)
   pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
