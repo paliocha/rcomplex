@@ -792,4 +792,15 @@ test_that("classify_hub_conservation rejects unusable comparison keys", {
       module_comparisons = list(SP_C.SP_A = corr)),
     "alphabetically sorted species"
   )
+  # Worse than a bad key: transposed arguments under a VALID key pass every
+  # other check and then match lookups with module_sp1/module_sp2 swapped,
+  # giving wrong verdicts instead of a detectable NA.
+  flipped <- corr
+  flipped$sp_ref <- "SP_C"
+  flipped$sp_test <- "SP_A"
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_A.SP_C = flipped)),
+    "transposed"
+  )
 })

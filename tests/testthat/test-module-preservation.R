@@ -890,10 +890,11 @@ test_that("correspondence p-values, q-values, jaccard and overlap are sane", {
   # Every projected gene lands in exactly one (ref, test) module cell. Compare
   # against a projection size computed independently of the cross-tab -- the
   # marginals come from the same table, so comparing them to it is arithmetic.
-  proj <- rcomplex:::.pres_project(
-    within(map, module <- as.character(tm_a$modules[gene1]))
-  )
-  n_projected <- sum(!is.na(tm_b$modules[proj$gene2]))
+  # Independent of .pres_project(): the fixture's ortholog table is strictly
+  # 1:1, so a projected gene is one whose reference partner carries a module
+  # and which itself lands in a test-species module.
+  labelled <- map$gene2[!is.na(tm_a$modules[map$gene1])]
+  n_projected <- sum(!is.na(tm_b$modules[labelled]))
   expect_equal(sum(p$overlap), n_projected)
 })
 
@@ -963,13 +964,10 @@ test_that("the test species' own partition never enters preservation", {
   # modules through the ortholog map, so the test species' partition has no
   # argument to arrive through. A behavioural test cannot vary what cannot be
   # passed; this fails the moment someone adds the parameter back.
-  expect_false("modules_test" %in% names(formals(module_preservation)))
-  expect_setequal(
-    names(formals(module_preservation)),
-    c("modules_ref", "net_ref", "net_test", "orthologs", "map", "edges",
-      "cliques", "sp_ref", "sp_test", "n_perm", "min_module_size", "binary",
-      "alpha", "qvalue_method", "sensitivity", "n_cores", "seed")
-  )
+  expect_false(any(
+    c("modules_test", "mods_test", "clusters", "partition", "membership") %in%
+      names(formals(module_preservation))
+  ))
 })
 
 test_that("preservation_paired requires a group entry for every species", {
@@ -1028,4 +1026,47 @@ test_that("preservation_paired output feeds tag_permutation directly", {
                  res$classification$reference == "A")
   expect_gt(n_div, 0L)
   expect_gt(tp$observed, 0L)
+})
+
+
+test_that(".pres_project resolves each gene2 group independently", {
+  # The vectorised rewrite attributes run counts to (gene2, module) cells and
+  # takes two group-wise passes keyed on gene2. Single-gene fixtures exercise
+  # none of that: a group-boundary error in the run alignment or in either
+  # ave() pass would ship green.
+  map <- data.frame(
+    gene1 = c("a1", "a2", "a3",      # B1: module 5 wins 2-1
+              "b1", "b2",            # B2: 1-1 tie, dropped
+              "c1",                  # B3: single row
+              "d1", "d2", "d3"),     # B4: winner sorts last
+    gene2 = c("B1", "B1", "B1", "B2", "B2", "B3", "B4", "B4", "B4"),
+    module = c("5", "5", "9",  "2", "7",  "4",  "1", "9", "9"),
+    source = "unresolved",
+    stringsAsFactors = FALSE
+  )
+  out <- .pres_project(map)
+
+  expect_setequal(out$gene2, c("B1", "B3", "B4"))
+  # Modal label per gene, and the smallest gene1 carrying it.
+  expect_equal(out$module[out$gene2 == "B1"], "5")
+  expect_equal(out$gene1[out$gene2 == "B1"], "a1")
+  expect_equal(out$module[out$gene2 == "B3"], "4")
+  # "9" wins on count even though "1" sorts first.
+  expect_equal(out$module[out$gene2 == "B4"], "9")
+  expect_equal(out$gene1[out$gene2 == "B4"], "d2")
+  # A tie in B2 must not disturb its neighbours.
+  expect_false("B2" %in% out$gene2)
+})
+
+test_that("module_correspondence records its orientation", {
+  fx <- pres_fixture()
+  tm_a <- true_modules(fx$netA, fx$mods)
+  tm_b <- true_modules(fx$netB, fx$mods)
+  map <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  corr <- module_correspondence(tm_a, tm_b, map, sp_ref = "A", sp_test = "B")
+
+  expect_equal(corr$sp_ref, "A")
+  expect_equal(corr$sp_test, "B")
 })

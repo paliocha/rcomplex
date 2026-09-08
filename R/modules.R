@@ -1208,6 +1208,19 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
            "pairs drawn from species_trait; unusable: ",
            paste(bad_keys, collapse = ", "))
     }
+    # Orientation, when the producer recorded it. A transposed call --
+    # module_correspondence(mods_B, mods_A, ...) filed under "A.B" -- passes
+    # the name and shape checks and then matches lookups with module_sp1 and
+    # module_sp2 swapped, giving wrong verdicts rather than a detectable NA.
+    for (k in nm) {
+      ref <- module_comparisons[[k]]$sp_ref
+      first_sp <- strsplit(k, ".", fixed = TRUE)[[1]][1]
+      if (!is.null(ref) && !identical(ref, first_sp)) {
+        stop("module_comparisons[[\"", k, "\"]] was built with sp_ref = \"",
+             ref, "\"; module_sp1 must belong to the first species of the ",
+             "key, so the arguments are transposed")
+      }
+    }
 
     req_corr <- c("module_sp1", "module_sp2", "jaccard", "q.value")
     for (k in nm) {

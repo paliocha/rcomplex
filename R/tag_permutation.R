@@ -142,8 +142,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # "conserved" rows, which belong to both vocabularies. Either way the filter
   # below finds no diverged rows and returns observed = 0 with no error.
   known_cls <- c("conserved", "moderate", "diverged", "untested")
-  if (!any(classification$classification %in% known_cls)) {
-    stop("classification$classification holds none of ",
+  if (!all(classification$classification %in% known_cls)) {
+    stop("classification$classification holds levels outside ",
          paste(known_cls, collapse = "/"), "; expected the output of ",
          "preservation_paired()")
   }

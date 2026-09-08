@@ -8,7 +8,9 @@ module_correspondence(
   modules_ref,
   modules_test,
   map,
-  qvalue_method = "randomized"
+  qvalue_method = "randomized",
+  sp_ref = NULL,
+  sp_test = NULL
 )
 }
 \arguments{
@@ -21,12 +23,18 @@ reference species and \code{gene2} in the test species.}
 \item{qvalue_method}{Passed to \code{compute_qvalues()}; \code{"randomized"}
 (default) estimates pi0 on randomized p-values, which is what the package
 uses elsewhere for discrete hypergeometric p-values.}
+
+\item{sp_ref, sp_test}{Optional species labels recorded on the result.
+\code{module_sp1} belongs to \code{modules_ref}, and that orientation cannot be
+recovered from the table, so supplying these lets
+\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} catch a transposed call.}
 }
 \value{
-A list with one element, \code{pairs}: a data frame of \code{module_sp1},
+A list with \code{pairs} -- a data frame of \code{module_sp1},
 \code{module_sp2}, \code{size_sp1}, \code{size_sp2}, \code{overlap}, \code{jaccard}, \code{p.value} and
-\code{q.value}, one row per module pair. The column names match what
-\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} expects.
+\code{q.value}, one row per module pair -- plus the \code{sp_ref} / \code{sp_test}
+labels. The column names match what \code{\link[=classify_hub_conservation]{classify_hub_conservation()}}
+expects.
 }
 \description{
 Cross-tabulates the modules of two species over a paralog-resolved ortholog

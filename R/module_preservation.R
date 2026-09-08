@@ -408,13 +408,12 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     # gene2, then module, then gene1: the first row of each (gene2, module)
     # run is that module's smallest gene1, which is the deterministic pick.
     d <- df[order(df$gene2, df$module, df$gene1), , drop = FALSE]
-    gm <- paste(d$gene2, d$module, sep = "\x01")
-    runs <- rle(gm)
-    n_gm <- rep(runs$lengths, runs$lengths)
-
-    first <- !duplicated(gm)
-    fd <- d[first, , drop = FALSE]
-    fc <- n_gm[first]
+    runs <- rle(paste(d$gene2, d$module, sep = "\x01"))
+    # Sorted by (gene2, module), so each run start is that module's smallest
+    # gene1 and the run lengths are already the per-cell counts.
+    starts <- cumsum(c(1L, utils::head(runs$lengths, -1L)))
+    fd <- d[starts, , drop = FALSE]
+    fc <- runs$lengths
 
     # Modal module per gene2, dropped when two modules tie for the maximum.
     mx <- stats::ave(fc, fd$gene2, FUN = max)
@@ -682,11 +681,16 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #' @param qvalue_method Passed to `compute_qvalues()`; `"randomized"`
 #'   (default) estimates pi0 on randomized p-values, which is what the package
 #'   uses elsewhere for discrete hypergeometric p-values.
+#' @param sp_ref,sp_test Optional species labels recorded on the result.
+#'   `module_sp1` belongs to `modules_ref`, and that orientation cannot be
+#'   recovered from the table, so supplying these lets
+#'   [classify_hub_conservation()] catch a transposed call.
 #'
-#' @return A list with one element, `pairs`: a data frame of `module_sp1`,
+#' @return A list with `pairs` -- a data frame of `module_sp1`,
 #'   `module_sp2`, `size_sp1`, `size_sp2`, `overlap`, `jaccard`, `p.value` and
-#'   `q.value`, one row per module pair. The column names match what
-#'   [classify_hub_conservation()] expects.
+#'   `q.value`, one row per module pair -- plus the `sp_ref` / `sp_test`
+#'   labels. The column names match what [classify_hub_conservation()]
+#'   expects.
 #'
 #' @examples
 #' \dontrun{
@@ -698,7 +702,8 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #'
 #' @export
 module_correspondence <- function(modules_ref, modules_test, map,
-                                  qvalue_method = "randomized") {
+                                  qvalue_method = "randomized",
+                                  sp_ref = NULL, sp_test = NULL) {
   for (nm in c("modules_ref", "modules_test")) {
     m <- get(nm)
     if (!is.list(m) || is.null(m$modules) || is.null(m$module_genes)) {
@@ -759,7 +764,10 @@ module_correspondence <- function(modules_ref, modules_test, map,
   }
   rownames(pairs) <- NULL
 
-  list(pairs = pairs)
+  # Orientation is not recoverable from the table, so record it: module_sp1
+  # belongs to modules_ref. classify_hub_conservation() checks it against the
+  # key when present.
+  list(pairs = pairs, sp_ref = sp_ref, sp_test = sp_test)
 }
 
 

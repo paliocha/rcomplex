@@ -203,6 +203,19 @@ test_that("tag_permutation validates inputs", {
     "retired gene-overlap vocabulary"
   )
 
+  # A foreign vocabulary must error too, even mixed with a known level --
+  # relabelled rows or another tool's output would otherwise filter to zero
+  # diverged rows and return observed = 0.
+  foreign <- fix$classification
+  foreign$classification <- ifelse(
+    foreign$classification == "diverged", "Diverged", "Conserved")
+  foreign$classification[1] <- "conserved"
+  expect_error(
+    tag_permutation(foreign, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, "annual"),
+    "levels outside"
+  )
+
   # A pair_name the classification does not carry must error rather than
   # silently yielding observed = 0.
   bad_pn <- fix$pairs

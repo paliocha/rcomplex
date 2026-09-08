@@ -303,7 +303,8 @@ detect_modules.rcomplex <- function(net, ...) {
     # none lands in a test-species module; a small container should degrade to
     # "no correspondence", not throw.
     out[[key]] <- tryCatch(
-      module_correspondence(x$modules[[sp[1]]], x$modules[[sp[2]]], map),
+      module_correspondence(x$modules[[sp[1]]], x$modules[[sp[2]]], map,
+                            sp_ref = sp[1], sp_test = sp[2]),
       error = function(e) NULL)
   }
   Filter(Negate(is.null), out)
