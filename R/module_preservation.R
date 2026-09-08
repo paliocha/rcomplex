@@ -70,11 +70,15 @@
 #' `pval_combine = "max"` elsewhere in the package.
 #'
 #' @section Paralog resolution:
-#' Multi-copy HOGs are reduced to one counterpart per gene by
-#' [resolve_ortholog_map()] when `map` is not supplied. Resolution only
-#' chooses which paralog copy carries a module label; it never changes which
-#' genes are mappable, so the tested gene set does not depend on the
-#' conservation evidence used to resolve it.
+#' Multi-copy HOGs are reduced toward one counterpart per gene by
+#' [resolve_ortholog_map()] when `map` is not supplied. Resolution never
+#' changes which genes are *mappable* -- that is the invariant
+#' [resolve_ortholog_map()] enforces. It can still change which genes end up
+#' *tested*: an unresolved gene whose candidate module labels tie is dropped
+#' by the majority vote, and resolving its copy rescues it. The tested set
+#' therefore does depend on the resolution, so the circularity defence rests
+#' on the `p_copy` columns of `sensitivity`, not on the mappable-set
+#' invariant.
 #'
 #' @param modules_ref Module detection result for the reference species
 #'   (output of [detect_modules()]).
@@ -371,7 +375,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
         out$sensitivity <- .pres_sensitivity(out, naive, map, naive_map)
         cn <- .pres_copy_null(
           out$preservation, modules_ref, net_ref, net_test, orthologs,
-          genes_ref, genes_test, copy_draws, min_module_size, binary
+          genes_ref, genes_test, unique(out$projection$gene2), copy_draws,
+          min_module_size, binary
         )
         if (!is.null(cn$p_copy.avg.weight)) {
           out$sensitivity$p_copy.avg.weight <- cn$p_copy.avg.weight
@@ -433,13 +438,30 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   # differing block sizes make the two runs consume the RNG differently.
   out$Zsummary_delta <- out$Zsummary - out$Zsummary_naive
 
-  same <- setequal(unique(map$gene2), unique(naive_map$gene2))
-  attr(out, "same_gene_set") <- same
+  # Compare the PROJECTED sets, not the candidate sets. resolve_ortholog_map()
+  # guarantees both maps carry every candidate gene2 -- that is its
+  # preserved-gene-set invariant -- so comparing map$gene2 is a tautology that
+  # can never fire. What actually varies is which genes survive projection:
+  # an unresolved gene whose candidate labels tie is dropped by the majority
+  # vote, and resolving its copy rescues it.
+  same_cand <- setequal(unique(map$gene2), unique(naive_map$gene2))
+  res_proj <- unique(resolved$projection$gene2)
+  nai_proj <- unique(naive$projection$gene2)
+  same <- setequal(res_proj, nai_proj)
+
+  attr(out, "same_candidate_set") <- same_cand
+  attr(out, "same_projected_set") <- same
+  attr(out, "n_rescued") <- length(setdiff(res_proj, nai_proj))
+  attr(out, "n_lost") <- length(setdiff(nai_proj, res_proj))
+
   if (!same) {
-    warning("the resolved and naive ortholog maps cover different ",
-            "test-species genes; paralog resolution should only choose which ",
-            "copy carries a label, so this indicates a filtering bug and the ",
-            "Zsummary comparison is not interpretable")
+    warning("paralog resolution changed which test-species genes carry a ",
+            "module label: ", length(setdiff(res_proj, nai_proj)),
+            " rescued from a tied majority vote, ",
+            length(setdiff(nai_proj, res_proj)), " lost. The resolved and ",
+            "naive Zsummary are therefore not measured on the same gene set, ",
+            "so read Zsummary_delta with that in mind and prefer the p_copy ",
+            "columns, which hold the set fixed.")
   }
   out
 }
@@ -666,10 +688,14 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' cannot see that selection, because it draws random gene blocks with no copy
 #' choice at all, so the observed statistics are inflated relative to it.
 #'
-#' This draws `n_draws` alternative resolutions of the same candidate map, each
-#' picking one species-1 partner per species-2 gene uniformly at random, and
-#' reports where the real map's statistics sit in that distribution. Every draw
-#' covers the identical species-2 genes, so only the copy choice varies.
+#' This draws `n_draws` alternative resolutions restricted to the species-2
+#' genes the run under test actually projected, each picking one species-1
+#' partner per gene uniformly at random, and reports where the real map's
+#' statistics sit in that distribution. Restricting to the projected set is
+#' what makes only the copy choice vary: an unrestricted draw projects a
+#' different number of genes, because resolving a copy rescues genes whose
+#' candidate labels would otherwise tie in the majority vote, and that
+#' set-size difference would be read as a copy-choice effect.
 #'
 #' A large `p_copy` means the result is typical of an arbitrary copy choice and
 #' the resolution did not manufacture it. A small `p_copy` means the finding
@@ -678,9 +704,15 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'
 #' @noRd
 .pres_copy_null <- function(observed, modules_ref, net_ref, net_test,
-                            orthologs, genes_ref, genes_test, n_draws,
-                            min_module_size, binary) {
+                            orthologs, genes_ref, genes_test, projected,
+                            n_draws, min_module_size, binary) {
   cand <- resolve_ortholog_map(orthologs, genes_ref, genes_test)
+  # Only candidates whose reference partner carries a module label can project,
+  # and only the genes the run under test actually projected may enter -- a
+  # draw that projected a different gene set would confound a set-size
+  # difference with the copy-choice effect this null exists to isolate.
+  cand <- cand[!is.na(modules_ref$modules[cand$gene1]), , drop = FALSE]
+  cand <- cand[cand$gene2 %in% projected, , drop = FALSE]
   by_g2 <- split(seq_len(nrow(cand)), cand$gene2)
   multi <- sum(lengths(by_g2) > 1L)
   if (multi == 0L) {
@@ -693,6 +725,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
       if (length(ix) == 1L) ix else ix[sample.int(length(ix), 1L)]
     }, integer(1))
     m <- cand[idx, , drop = FALSE]
+    # One row per gene2, so the majority vote is unanimous and the projected
+    # set is exactly `projected` -- the set the observed run used.
     m$source <- "random"
     draws[[d]] <- tryCatch(
       module_preservation(

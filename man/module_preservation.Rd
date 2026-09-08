@@ -160,11 +160,15 @@ significant -- the same reciprocal criterion as
 
 \section{Paralog resolution}{
 
-Multi-copy HOGs are reduced to one counterpart per gene by
-\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} when \code{map} is not supplied. Resolution only
-chooses which paralog copy carries a module label; it never changes which
-genes are mappable, so the tested gene set does not depend on the
-conservation evidence used to resolve it.
+Multi-copy HOGs are reduced toward one counterpart per gene by
+\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} when \code{map} is not supplied. Resolution never
+changes which genes are \emph{mappable} -- that is the invariant
+\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} enforces. It can still change which genes end up
+\emph{tested}: an unresolved gene whose candidate module labels tie is dropped
+by the majority vote, and resolving its copy rescues it. The tested set
+therefore does depend on the resolution, so the circularity defence rests
+on the \code{p_copy} columns of \code{sensitivity}, not on the mappable-set
+invariant.
 }
 
 \examples{

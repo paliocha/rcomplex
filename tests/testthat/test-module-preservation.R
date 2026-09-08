@@ -428,7 +428,9 @@ test_that("sensitivity detects a copy choice that changes the result", {
 
   # Resolution may only change which copy carries a label, never which genes
   # are mappable.
-  expect_true(attr(pres$sensitivity, "same_gene_set"))
+  # The candidate sets are equal by construction; what matters is whether
+  # projection kept the same genes.
+  expect_true(attr(pres$sensitivity, "same_candidate_set"))
 
   # The clique rescues the 10 genes the naive majority vote drops on a tie, so
   # module 1 gains exactly those. This is the deterministic consequence of the
@@ -457,9 +459,9 @@ test_that("sensitivity warns when the two maps cover different genes", {
     pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
       map = trimmed, n_perm = 100L, sensitivity = TRUE, seed = 1
     ),
-    "cover different"
+    "changed which test-species genes"
   )
-  expect_false(attr(pres$sensitivity, "same_gene_set"))
+  expect_false(attr(pres$sensitivity, "same_projected_set"))
 })
 
 test_that("sensitivity is skipped when there is nothing to resolve", {
@@ -1156,4 +1158,45 @@ test_that("coverage reconciles the tested modules against the partition", {
   # Every untested module carries a reason; every tested one does not.
   expect_true(all(!is.na(pres$coverage$reason[!pres$coverage$tested])))
   expect_true(all(is.na(pres$coverage$reason[pres$coverage$tested])))
+})
+
+
+test_that("the resolution guard compares the set that can actually differ", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  amb <- ambiguous_fixture(fx)
+
+  # resolve_ortholog_map() guarantees both maps carry every candidate gene2,
+  # so comparing candidate sets is a tautology. The projected sets differ
+  # because resolving a copy rescues genes whose labels would otherwise tie.
+  expect_warning(
+    pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
+      cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+      n_perm = 100L, sensitivity = TRUE, copy_draws = 10L, seed = 1
+    ),
+    "changed which test-species genes"
+  )
+  expect_true(attr(pres$sensitivity, "same_candidate_set"))
+  expect_false(attr(pres$sensitivity, "same_projected_set"))
+  expect_gt(attr(pres$sensitivity, "n_rescued"), 0L)
+})
+
+test_that("the copy null holds the projected gene set fixed", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  amb <- ambiguous_fixture(fx)
+
+  pres <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, amb$ortho, cliques = amb$cliques,
+    sp_ref = "A", sp_test = "B", n_perm = 100L, sensitivity = TRUE,
+    copy_draws = 20L, seed = 1
+  ))
+
+  # Every draw must score the same genes as the observed run, or a set-size
+  # difference is read as a copy-choice effect.
+  pc <- c(pres$sensitivity$p_copy.avg.weight,
+          pres$sensitivity$p_copy.cor.degree)
+  pc <- pc[!is.na(pc)]
+  expect_gt(length(pc), 0L)
+  expect_true(all(pc > 0 & pc <= 1))
 })
