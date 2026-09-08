@@ -45,19 +45,17 @@ inline std::vector<std::vector<int>> neighbor_lists_dense(
     return neighbors;
 }
 
-inline std::vector<std::vector<int>> neighbor_lists_sparse(
+// Serial validation pre-pass for dgCMatrix slots. Runs before any parallel
+// region so that Rcpp::stop() is never called from inside one. Rejects slots
+// the readers would otherwise read out of bounds or silently miscount: empty
+// p, p not starting at 0, p / i / x length mismatch, non-monotone p, and row
+// indices that are not strictly increasing within a column or not in [0, n)
+// (duplicates, out-of-range rows, non-square input). Returns n.
+inline int validate_dgc_slots(
     const Rcpp::IntegerVector& p,
     const Rcpp::IntegerVector& i,
-    const Rcpp::NumericVector& x,
-    double thr,
-    int n_cores
+    const Rcpp::NumericVector& x
 ) {
-    // Serial validation pre-pass. Runs before the parallel region so that
-    // Rcpp::stop() is never called from inside it. Rejects slots the loop
-    // below would otherwise read out of bounds or silently miscount: empty
-    // p, p not starting at 0, p / i / x length mismatch, non-monotone p, and
-    // row indices that are not strictly increasing within a column or not in
-    // [0, n) (duplicates, out-of-range rows, non-square input).
     if (p.size() < 1) {
         Rcpp::stop("dgCMatrix slot p must have length >= 1 (got 0)");
     }
@@ -96,6 +94,17 @@ inline std::vector<std::vector<int>> neighbor_lists_sparse(
             prev = r;
         }
     }
+    return n;
+}
+
+inline std::vector<std::vector<int>> neighbor_lists_sparse(
+    const Rcpp::IntegerVector& p,
+    const Rcpp::IntegerVector& i,
+    const Rcpp::NumericVector& x,
+    double thr,
+    int n_cores
+) {
+    const int n = validate_dgc_slots(p, i, x);
 
     std::vector<std::vector<int>> neighbors(n);
 
@@ -116,6 +125,131 @@ inline std::vector<std::vector<int>> neighbor_lists_sparse(
         }
     }
     return neighbors;
+}
+
+// ---------------------------------------------------------------------------
+// Weighted induced subgraphs (module preservation)
+//
+// Preservation statistics read edge weights, not just membership, and only
+// ever touch the ortholog-mappable genes. Both builders below therefore return
+// the subgraph induced on `keep` in local index space (0 .. keep.size() - 1),
+// with weights divided by `scale`.
+//
+// `keep` must be strictly ascending. That is what makes each returned
+// neighbour list ascending too: the dense loop and the dgCMatrix column layout
+// both walk rows in ascending global order, and an ascending `keep` makes the
+// global-to-local map monotone. Triangle enumeration relies on that ordering
+// to intersect two lists in linear time.
+// ---------------------------------------------------------------------------
+
+struct WeightedNeighbors {
+    std::vector<std::vector<int>> idx;
+    std::vector<std::vector<double>> w;
+    double scale = 1.0;  // divisor applied to every weight
+};
+
+// Build the global -> local index map for an induced subgraph. Validates that
+// `keep` is strictly ascending and in range.
+inline std::vector<int> induced_local_map(
+    const Rcpp::IntegerVector& keep, int n
+) {
+    std::vector<int> local(n, -1);
+    int prev = -1;
+    for (R_xlen_t u = 0; u < keep.size(); ++u) {
+        const int g = keep[u];
+        if (g <= prev || g < 0 || g >= n) {
+            Rcpp::stop("induced subgraph indices must be strictly increasing "
+                       "and in [0, n) (position %d)", static_cast<int>(u) + 1);
+        }
+        local[g] = static_cast<int>(u);
+        prev = g;
+    }
+    return local;
+}
+
+// Largest thresholded off-diagonal weight within the induced subgraph, used to
+// rescale adjacencies onto [0, 1]. Returns 1.0 when the subgraph has no edges
+// so callers never divide by zero. Note the Z-scores are invariant to this
+// choice (a common factor cancels in (obs - mean) / sd); it only puts the
+// reported observed statistics on a comparable footing across species.
+inline double induced_max_weight(const WeightedNeighbors& g) {
+    double mx = 0.0;
+    for (const auto& row : g.w) {
+        for (const double v : row) {
+            if (v > mx) mx = v;
+        }
+    }
+    return (mx > 0.0) ? mx : 1.0;
+}
+
+inline void rescale_weights(WeightedNeighbors& g, double scale) {
+    g.scale = scale;
+    for (auto& row : g.w) {
+        for (double& v : row) v /= scale;
+    }
+}
+
+inline WeightedNeighbors induced_weighted_lists_dense(
+    const arma::mat& m, double thr, const Rcpp::IntegerVector& keep
+) {
+    const int n = static_cast<int>(m.n_rows);
+    const std::vector<int> local = induced_local_map(keep, n);
+    const int mm = static_cast<int>(keep.size());
+
+    WeightedNeighbors out;
+    out.idx.resize(mm);
+    out.w.resize(mm);
+
+    for (int u = 0; u < mm; ++u) {
+        const int g = keep[u];
+        const double* col_g = m.colptr(g);
+        for (int r = 0; r < n; ++r) {
+            if (r == g) continue;
+            const int lr = local[r];
+            if (lr < 0) continue;
+            const double v = col_g[r];
+            if (v >= thr) {
+                out.idx[u].push_back(lr);
+                out.w[u].push_back(v);
+            }
+        }
+    }
+    return out;
+}
+
+inline WeightedNeighbors induced_weighted_lists_sparse(
+    const Rcpp::IntegerVector& p,
+    const Rcpp::IntegerVector& i,
+    const Rcpp::NumericVector& x,
+    double thr,
+    const Rcpp::IntegerVector& keep
+) {
+    const int n = validate_dgc_slots(p, i, x);
+    const std::vector<int> local = induced_local_map(keep, n);
+    const int mm = static_cast<int>(keep.size());
+
+    WeightedNeighbors out;
+    out.idx.resize(mm);
+    out.w.resize(mm);
+
+    const int* pp = p.begin();
+    const int* ii = i.begin();
+    const double* xx = x.begin();
+
+    for (int u = 0; u < mm; ++u) {
+        const int g = keep[u];
+        for (int k = pp[g]; k < pp[g + 1]; ++k) {
+            const int r = ii[k];
+            if (r == g) continue;
+            const int lr = local[r];
+            if (lr < 0) continue;
+            if (xx[k] >= thr) {
+                out.idx[u].push_back(lr);
+                out.w[u].push_back(xx[k]);
+            }
+        }
+    }
+    return out;
 }
 
 #endif // RCOMPLEX_NEIGHBOR_LISTS_H

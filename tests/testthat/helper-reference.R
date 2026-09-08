@@ -157,8 +157,10 @@ reference_T_obs <- function(net1, net2, thr1, thr2, ortho,
 #' Converts at `thr` (default: the network's own threshold) and records it as
 #' `store_threshold`, as compute_network(sparse = TRUE) does.
 sparse_net <- function(net, thr = net$threshold) {
-  modifyList(net, list(network = dense_to_dgc(net$network, thr),
-                       store_threshold = thr))
+  modifyList(net, list(
+    network = dense_to_dgc(net$network, thr),
+    store_threshold = thr
+  ))
 }
 
 #' Random compute_network() pair (50 x 10 and 40 x 10, density 0.1) with a
@@ -199,12 +201,12 @@ make_graded_nets <- function() {
     m <- matrix(0, n, n)
     rownames(m) <- colnames(m) <- paste0(prefix, sprintf("%02d", 1:n))
     for (g in 1:3) {
-      m[g, 4:9]   <- m[4:9, g]   <- 10   # kept at thr 8
-      m[g, 10:15] <- m[10:15, g] <- 7    # stored at 5, dropped at 8
-      m[g, 16:18] <- m[16:18, g] <- 4    # below the store threshold
+      m[g, 4:9] <- m[4:9, g] <- 10 # kept at thr 8
+      m[g, 10:15] <- m[10:15, g] <- 7 # stored at 5, dropped at 8
+      m[g, 16:18] <- m[16:18, g] <- 4 # below the store threshold
     }
-    m[1, 16] <- m[16, 1] <- 10  # copy 1's own HOG6 neighbour
-    m[2, 17] <- m[17, 2] <- 10  # copy 2's own HOG6 neighbour
+    m[1, 16] <- m[16, 1] <- 10 # copy 1's own HOG6 neighbour
+    m[2, 17] <- m[17, 2] <- 10 # copy 2's own HOG6 neighbour
     for (g in 19:21) {
       m[g, far] <- m[far, g] <- 10
     }
@@ -245,6 +247,85 @@ make_self_excluded_nets <- function() {
     hog = c(rep("HOG1", 3), paste0("HOG", 2:(n - 2))),
     stringsAsFactors = FALSE
   )
-  list(net1 = net1, net2 = net2, ortho = ortho,
-       comparison = compare_neighborhoods(net1, net2, ortho))
+  list(
+    net1 = net1, net2 = net2, ortho = ortho,
+    comparison = compare_neighborhoods(net1, net2, ortho)
+  )
+}
+
+
+# ---- module preservation reference (Langfelder et al. 2011) ----
+
+#' Dense [0, 1] adjacency for a gene subset
+#'
+#' Thresholds, zeroes the diagonal, and rescales by the largest weight in the
+#' induced subgraph -- matching induced_max_weight() in src/neighbor_lists.h.
+reference_adjacency <- function(net, genes, thr = net$threshold) {
+  m <- as.matrix(net$network)[genes, genes, drop = FALSE]
+  m[m < thr] <- 0
+  diag(m) <- 0
+  mx <- max(m)
+  if (mx > 0) m <- m / mx
+  m
+}
+
+#' Per-gene intramodular connectivity, clustering coefficient and MAR
+#'
+#' `adj` is a dense symmetric [0, 1] adjacency with zero diagonal; `idx` are
+#' the positions of the module's genes. The weighted clustering coefficient is
+#' Zhang & Horvath's: CC_i = (A^3)_ii / (kIM_i^2 - sum_j a_ij^2), and with a
+#' zero diagonal (A^3)_ii counts each triangle through i exactly twice.
+reference_module_stats <- function(adj, idx) {
+  a <- adj[idx, idx, drop = FALSE]
+  diag(a) <- 0
+  m <- length(idx)
+
+  k_im <- rowSums(a)
+  sq <- rowSums(a^2)
+  tri2 <- diag(a %*% a %*% a)
+
+  denom <- k_im^2 - sq
+  cc <- ifelse(denom > 0, tri2 / denom, 0)
+  mar <- ifelse(k_im > 0, sq / k_im, 0)
+
+  list(
+    kIM = k_im, CC = cc, MAR = mar,
+    meanAdj = if (m > 1L) sum(k_im) / (m * (m - 1)) else 0,
+    meanClusterCoeff = mean(cc),
+    meanMAR = mean(mar)
+  )
+}
+
+#' Pearson correlation, NA when it would be degenerate
+#'
+#' Two points always correlate at +/-1, so fewer than three genes (or a
+#' constant vector) yields NA rather than a meaningless +/-1.
+reference_safe_cor <- function(x, y) {
+  if (length(x) < 3L) {
+    return(NA_real_)
+  }
+  if (stats::sd(x) == 0 || stats::sd(y) == 0) {
+    return(NA_real_)
+  }
+  stats::cor(x, y)
+}
+
+#' The six adjacency-based preservation statistics for one module
+#'
+#' `idx_ref` and `idx_test` must be the same length and aligned gene-by-gene:
+#' position i of each is the reference gene and the test gene it maps to.
+reference_preservation_stats <- function(adj_ref, idx_ref, adj_test,
+                                         idx_test) {
+  stopifnot(length(idx_ref) == length(idx_test))
+  ref <- reference_module_stats(adj_ref, idx_ref)
+  tst <- reference_module_stats(adj_test, idx_test)
+
+  c(
+    meanAdj = tst$meanAdj,
+    meanClusterCoeff = tst$meanClusterCoeff,
+    meanMAR = tst$meanMAR,
+    cor.kIM = reference_safe_cor(ref$kIM, tst$kIM),
+    cor.clusterCoeff = reference_safe_cor(ref$CC, tst$CC),
+    cor.MAR = reference_safe_cor(ref$MAR, tst$MAR)
+  )
 }
