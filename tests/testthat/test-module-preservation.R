@@ -381,3 +381,146 @@ test_that("classify_preservation validates its input", {
     "must be output from module_preservation"
   )
 })
+
+
+# ---- sensitivity: the circularity guard ----
+
+test_that("sensitivity reports both maps and confirms the gene set matches", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 100L, sensitivity = TRUE, seed = 1
+  )
+
+  expect_true("sensitivity" %in% names(pres))
+  expect_named(pres$sensitivity, c(
+    "module", "Zsummary", "Zsummary_naive",
+    "q.value", "q.value_naive", "Zsummary_delta"
+  ))
+  # Resolution may only change which copy carries a label, never which genes
+  # are mappable.
+  expect_true(attr(pres$sensitivity, "same_gene_set"))
+})
+
+test_that("sensitivity is absent unless requested", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 50L, seed = 1
+  )
+  expect_false("sensitivity" %in% names(pres))
+})
+
+test_that("sensitivity warns and is skipped without orthologs", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  map <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+
+  expect_warning(
+    pres <- module_preservation(tm, fx$netA, fx$netB,
+      orthologs = NULL, map = map, n_perm = 50L, sensitivity = TRUE, seed = 1
+    ),
+    "needs 'orthologs'"
+  )
+  expect_false("sensitivity" %in% names(pres))
+})
+
+
+# ---- module_correspondence ----
+
+test_that("module_correspondence matches the modules that correspond", {
+  fx <- pres_fixture()
+  tm_a <- true_modules(fx$netA, fx$mods)
+  tm_b <- true_modules(fx$netB, fx$mods)
+  map <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+
+  corr <- module_correspondence(tm_a, tm_b, map)
+  p <- corr$pairs
+
+  expect_true(all(c(
+    "module_sp1", "module_sp2", "overlap", "jaccard",
+    "p.value", "q.value"
+  ) %in% names(p)))
+  expect_equal(nrow(p), tm_a$n_modules * tm_b$n_modules)
+
+  # The fixture maps module k of species A onto module k of species B, so the
+  # diagonal must be the significant part of the table.
+  diag_rows <- p$module_sp1 == p$module_sp2
+  expect_true(all(p$q.value[diag_rows] < 0.05))
+  expect_true(all(p$jaccard[diag_rows] > p$jaccard[!diag_rows]))
+})
+
+test_that("module_correspondence validates its inputs", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  map <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+
+  expect_error(module_correspondence(list(a = 1), tm, map),
+    "must be output from detect_modules"
+  )
+  expect_error(module_correspondence(tm, tm, data.frame(x = 1)),
+    "must be a data frame from resolve_ortholog_map"
+  )
+})
+
+
+# ---- preservation_paired ----
+
+test_that("preservation_paired runs both directions per contrast", {
+  fx <- pres_fixture()
+  mods <- list(A = true_modules(fx$netA, fx$mods),
+               B = true_modules(fx$netB, fx$mods))
+  nets <- list(A = fx$netA, B = fx$netB)
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  res <- preservation_paired(mods, nets, fx$ortho, pairs,
+    n_perm = 100L, seed = 1
+  )
+
+  expect_named(res, c("classification", "summary", "raw"))
+  expect_setequal(names(res$raw), c("A.B", "B.A"))
+  expect_setequal(unique(res$classification$reference), c("A", "B"))
+
+  # tag_permutation() reads exactly these columns.
+  expect_true(all(c("pair_name", "module", "species", "classification") %in%
+    names(res$classification)))
+})
+
+test_that("preservation_paired tags trait groups", {
+  fx <- pres_fixture()
+  mods <- list(A = true_modules(fx$netA, fx$mods),
+               B = true_modules(fx$netB, fx$mods))
+  nets <- list(A = fx$netA, B = fx$netB)
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  res <- preservation_paired(mods, nets, fx$ortho, pairs,
+    group = c(A = "annual", B = "perennial"), n_perm = 100L, seed = 1
+  )
+
+  expect_true("group" %in% names(res$classification))
+  expect_true(all(res$classification$group %in%
+    c("conserved", "annual", "perennial")))
+})
+
+test_that("preservation_paired validates its inputs", {
+  fx <- pres_fixture()
+  mods <- list(A = true_modules(fx$netA, fx$mods))
+  nets <- list(A = fx$netA)
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  expect_error(
+    preservation_paired(mods, nets, fx$ortho, pairs, n_perm = 10L),
+    "modules and networks must both cover"
+  )
+  expect_error(
+    preservation_paired(mods, nets, fx$ortho, data.frame(x = 1)),
+    "must have columns"
+  )
+})

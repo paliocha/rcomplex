@@ -19,6 +19,7 @@ module_preservation(
   binary = FALSE,
   alpha = 0.05,
   qvalue_method = c("liang", "bh"),
+  sensitivity = FALSE,
   n_cores = 1L,
   seed = NULL
 )
@@ -67,6 +68,16 @@ Benjamini-Hochberg. Liang falls back to BH automatically when there are
 too few modules to estimate pi0 (fewer than 10) or if the estimator
 fails.}
 
+\item{sensitivity}{Re-run under a naive ortholog map -- one built from
+\code{orthologs} alone, with no clique or coexpressolog resolution -- and
+report both results side by side (default \code{FALSE}). Doubles the runtime.
+Because resolution may only choose which paralog copy carries a label,
+the two runs must map the identical set of test-species genes; the
+returned table records whether they did. A large \code{Zsummary} gap with
+matching gene sets means the copy choice mattered; a mismatched gene set
+means the resolution layer is filtering rather than choosing, which is a
+bug.}
+
 \item{n_cores}{Number of OpenMP threads (default 1).}
 
 \item{seed}{Optional RNG seed. Results are independent of \code{n_cores}.}
@@ -81,6 +92,10 @@ p-values, the combined \code{p.value} and \code{q.value}, \code{Z.avg.weight},
 \item{observed}{All six statistics per module, with permutation means
 and standard deviations.}
 \item{map}{The ortholog map used.}
+\item{sensitivity}{Only when \code{sensitivity = TRUE}: per-module
+\code{Zsummary} and \code{q.value} under the resolved and naive maps, plus the
+\code{same_gene_set} attribute recording whether both mapped the identical
+test-species genes.}
 \item{params}{Call parameters.}
 }
 }

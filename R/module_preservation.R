@@ -108,6 +108,15 @@
 #'   Benjamini-Hochberg. Liang falls back to BH automatically when there are
 #'   too few modules to estimate pi0 (fewer than 10) or if the estimator
 #'   fails.
+#' @param sensitivity Re-run under a naive ortholog map -- one built from
+#'   `orthologs` alone, with no clique or coexpressolog resolution -- and
+#'   report both results side by side (default `FALSE`). Doubles the runtime.
+#'   Because resolution may only choose which paralog copy carries a label,
+#'   the two runs must map the identical set of test-species genes; the
+#'   returned table records whether they did. A large `Zsummary` gap with
+#'   matching gene sets means the copy choice mattered; a mismatched gene set
+#'   means the resolution layer is filtering rather than choosing, which is a
+#'   bug.
 #' @param n_cores Number of OpenMP threads (default 1).
 #' @param seed Optional RNG seed. Results are independent of `n_cores`.
 #'
@@ -120,6 +129,10 @@
 #'     \item{observed}{All six statistics per module, with permutation means
 #'       and standard deviations.}
 #'     \item{map}{The ortholog map used.}
+#'     \item{sensitivity}{Only when `sensitivity = TRUE`: per-module
+#'       `Zsummary` and `q.value` under the resolved and naive maps, plus the
+#'       `same_gene_set` attribute recording whether both mapped the identical
+#'       test-species genes.}
 #'     \item{params}{Call parameters.}
 #'   }
 #'
@@ -149,6 +162,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
                                 n_perm = 10000L, min_module_size = 10L,
                                 binary = FALSE, alpha = 0.05,
                                 qvalue_method = c("liang", "bh"),
+                                sensitivity = FALSE,
                                 n_cores = 1L, seed = NULL) {
   if (!is.list(modules_ref) || is.null(modules_ref$module_genes) ||
     is.null(modules_ref$modules)) {
@@ -265,10 +279,67 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     binary
   )
 
-  .pres_assemble(
+  out <- .pres_assemble(
     res, modules_ref, tested, rows_by_mod, proj, map,
     n_perm, min_module_size, binary, alpha, qvalue_method, seed
   )
+
+  if (isTRUE(sensitivity)) {
+    if (is.null(orthologs)) {
+      warning("sensitivity = TRUE needs 'orthologs' to build the naive map; ",
+              "skipping the comparison")
+    } else {
+      naive_map <- resolve_ortholog_map(orthologs, genes_ref, genes_test)
+      naive <- module_preservation(
+        modules_ref, net_ref, net_test, orthologs = orthologs,
+        map = naive_map, n_perm = n_perm,
+        min_module_size = min_module_size, binary = binary, alpha = alpha,
+        qvalue_method = qvalue_method, sensitivity = FALSE,
+        n_cores = n_cores, seed = seed
+      )
+      out$sensitivity <- .pres_sensitivity(out, naive, map, naive_map)
+    }
+  }
+
+  out
+}
+
+
+#' Compare a resolved run against its naive-map counterpart (internal)
+#'
+#' Resolution may only change which paralog copy carries a module label, never
+#' which genes are mappable, so both runs must cover the identical set of
+#' test-species genes. That invariant is what keeps the circularity in check:
+#' coexpressologs are defined by conserved neighbourhoods and preservation
+#' measures conserved topology, so a resolution layer that also filtered the
+#' mapped set would be selecting the tested genes on the statistic being
+#' tested.
+#'
+#' @noRd
+.pres_sensitivity <- function(resolved, naive, map, naive_map) {
+  a <- resolved$preservation
+  b <- naive$preservation
+  idx <- match(a$module, b$module)
+
+  out <- data.frame(
+    module = a$module,
+    Zsummary = a$Zsummary,
+    Zsummary_naive = b$Zsummary[idx],
+    q.value = a$q.value,
+    q.value_naive = b$q.value[idx],
+    stringsAsFactors = FALSE
+  )
+  out$Zsummary_delta <- out$Zsummary - out$Zsummary_naive
+
+  same <- setequal(unique(map$gene2), unique(naive_map$gene2))
+  attr(out, "same_gene_set") <- same
+  if (!same) {
+    warning("the resolved and naive ortholog maps cover different ",
+            "test-species genes; paralog resolution should only choose which ",
+            "copy carries a label, so this indicates a filtering bug and the ",
+            "Zsummary comparison is not interpretable")
+  }
+  out
 }
 
 
@@ -498,4 +569,241 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     size_mapped = p$size_mapped,
     stringsAsFactors = FALSE
   )
+}
+
+
+#' Match modules across species by ortholog overlap
+#'
+#' Cross-tabulates the modules of two species over a paralog-resolved ortholog
+#' map and tests each module pair for excess overlap. This answers "which
+#' module corresponds to which", a different question from whether a module's
+#' topology is preserved ([module_preservation()]); [classify_hub_conservation()]
+#' needs the correspondence, not the preservation call.
+#'
+#' The map assigns one reference gene to each test-species gene, so the
+#' hypergeometric's independence assumption holds. The multi-copy expansion
+#' that made the same test anti-conservative in the removed `compare_modules()`
+#' is gone: a HOG with three paralogs no longer contributes three correlated
+#' draws to the same urn.
+#'
+#' @param modules_ref,modules_test Module detection results
+#'   (output of [detect_modules()]) for the two species.
+#' @param map Ortholog map from [resolve_ortholog_map()], with `gene1` in the
+#'   reference species and `gene2` in the test species.
+#' @param qvalue_method Passed to `compute_qvalues()`; `"randomized"`
+#'   (default) estimates pi0 on randomized p-values, which is what the package
+#'   uses elsewhere for discrete hypergeometric p-values.
+#'
+#' @return A list with one element, `pairs`: a data frame of `module_sp1`,
+#'   `module_sp2`, `size_sp1`, `size_sp2`, `overlap`, `jaccard`, `p.value` and
+#'   `q.value`, one row per module pair. The column names match what
+#'   [classify_hub_conservation()] expects.
+#'
+#' @examples
+#' \dontrun{
+#' map <- resolve_ortholog_map(ortho, rownames(net_a$network),
+#'   rownames(net_b$network))
+#' corr <- module_correspondence(mods_a, mods_b, map)
+#' subset(corr$pairs, q.value < 0.05)
+#' }
+#'
+#' @export
+module_correspondence <- function(modules_ref, modules_test, map,
+                                  qvalue_method = "randomized") {
+  for (nm in c("modules_ref", "modules_test")) {
+    m <- get(nm)
+    if (!is.list(m) || is.null(m$modules) || is.null(m$module_genes)) {
+      stop(nm, " must be output from detect_modules()")
+    }
+  }
+  if (!is.data.frame(map) ||
+    !all(c("gene1", "gene2", "source") %in% names(map))) {
+    stop("map must be a data frame from resolve_ortholog_map()")
+  }
+
+  map$module <- as.character(modules_ref$modules[map$gene1])
+  map <- map[!is.na(map$module), , drop = FALSE]
+  proj <- .pres_project(map)
+  if (is.null(proj) || nrow(proj) == 0L) {
+    stop("no test-species gene received an unambiguous module label")
+  }
+
+  proj$module_test <- as.character(modules_test$modules[proj$gene2])
+  proj <- proj[!is.na(proj$module_test), , drop = FALSE]
+  if (nrow(proj) == 0L) {
+    stop("no mapped gene falls in a module of the test species")
+  }
+
+  tab <- table(proj$module, proj$module_test)
+  n_total <- nrow(proj)
+  ref_n <- rowSums(tab)
+  test_n <- colSums(tab)
+
+  i <- rep(seq_len(nrow(tab)), ncol(tab))
+  j <- rep(seq_len(ncol(tab)), each = nrow(tab))
+  overlap <- as.integer(tab)
+  m <- as.integer(ref_n[i])
+  k <- as.integer(test_n[j])
+
+  p_gt <- stats::phyper(overlap, m, n_total - m, k, lower.tail = FALSE)
+  p_eq <- stats::dhyper(overlap, m, n_total - m, k)
+
+  pairs <- data.frame(
+    module_sp1 = rownames(tab)[i],
+    module_sp2 = colnames(tab)[j],
+    size_sp1 = m,
+    size_sp2 = k,
+    overlap = overlap,
+    jaccard = overlap / (m + k - overlap),
+    p.value = p_gt + p_eq,
+    stringsAsFactors = FALSE
+  )
+
+  pairs$q.value <- if (nrow(pairs) < 2L) {
+    pairs$p.value
+  } else {
+    compute_qvalues(
+      pairs$p.value,
+      p_rand_fn = function() p_gt + stats::runif(length(p_gt)) * p_eq,
+      pi0_method = qvalue_method
+    )$qvalues
+  }
+  rownames(pairs) <- NULL
+
+  list(pairs = pairs)
+}
+
+
+#' Run module preservation across many species pairs
+#'
+#' Applies [module_preservation()] to each contrast in `pairs`. Preservation is
+#' directional -- whether species A's modules survive in B is a different
+#' question from the reverse -- so both directions are run and reported
+#' separately.
+#'
+#' @param modules Named list of [detect_modules()] results, keyed by species.
+#' @param networks Named list of [compute_network()] results, keyed by species.
+#' @param orthologs Data frame with columns `Species1`, `Species2`, `hog`.
+#' @param pairs Data frame with columns `sp1`, `sp2` and optionally
+#'   `pair_name`.
+#' @param group Optional named vector mapping species to a trait group. When
+#'   supplied, a `group` column records `"conserved"` for preserved modules and
+#'   the owning species' group for diverged ones.
+#' @param edges,cliques Optional [find_coexpressologs()] and [find_cliques()]
+#'   results, used for paralog resolution.
+#' @param alpha,z_conserved Passed to [classify_preservation()].
+#' @param ... Further arguments passed to [module_preservation()].
+#'
+#' @return A list with `classification` (one row per module per direction,
+#'   carrying `pair_name`, `module`, `species` and `classification`, the
+#'   columns [tag_permutation()] requires), `summary` (counts per contrast and
+#'   direction) and `raw` (the [module_preservation()] results, keyed by
+#'   `"<reference>.<test>"`).
+#'
+#' @examples
+#' \dontrun{
+#' res <- preservation_paired(mods, nets, ortho,
+#'   pairs = data.frame(sp1 = "BDIS", sp2 = "BSYL"),
+#'   group = c(BDIS = "annual", BSYL = "perennial")
+#' )
+#' res$summary
+#' }
+#'
+#' @export
+preservation_paired <- function(modules, networks, orthologs, pairs,
+                                group = NULL, edges = NULL, cliques = NULL,
+                                alpha = 0.05, z_conserved = 10, ...) {
+  if (!is.list(modules) || is.null(names(modules))) {
+    stop("modules must be a named list keyed by species")
+  }
+  if (!is.list(networks) || is.null(names(networks))) {
+    stop("networks must be a named list keyed by species")
+  }
+  if (!is.data.frame(pairs) || !all(c("sp1", "sp2") %in% names(pairs))) {
+    stop("pairs must have columns 'sp1' and 'sp2'")
+  }
+  species <- unique(c(pairs$sp1, pairs$sp2))
+  missing_sp <- setdiff(species, intersect(names(modules), names(networks)))
+  if (length(missing_sp) > 0L) {
+    stop("modules and networks must both cover: ",
+         paste(missing_sp, collapse = ", "))
+  }
+  if (!is.null(group)) {
+    missing_grp <- setdiff(species, names(group))
+    if (length(missing_grp) > 0L) {
+      stop("group missing entries for: ",
+           paste(missing_grp, collapse = ", "))
+    }
+  }
+  if (!"pair_name" %in% names(pairs)) {
+    pairs$pair_name <- paste(pairs$sp1, pairs$sp2, sep = ".")
+  }
+
+  raw <- list()
+  class_list <- list()
+
+  for (p in seq_len(nrow(pairs))) {
+    for (direction in list(c(pairs$sp1[p], pairs$sp2[p]),
+                           c(pairs$sp2[p], pairs$sp1[p]))) {
+      ref <- direction[1]
+      test <- direction[2]
+      key <- paste(ref, test, sep = ".")
+
+      pres <- module_preservation(
+        modules[[ref]], networks[[ref]], networks[[test]],
+        .orient_orthologs(
+          orthologs, rownames(networks[[ref]]$network),
+          rownames(networks[[test]]$network)
+        ),
+        edges = edges, cliques = cliques, sp_ref = ref, sp_test = test,
+        alpha = alpha, ...
+      )
+      raw[[key]] <- pres
+
+      cls <- classify_preservation(pres, alpha = alpha,
+                                   z_conserved = z_conserved,
+                                   species = ref,
+                                   pair_name = pairs$pair_name[p])
+      cls$reference <- ref
+      cls$test <- test
+      if (!is.null(group)) {
+        cls$group <- ifelse(cls$classification != "diverged",
+                            "conserved", as.character(group[ref]))
+      }
+      class_list[[key]] <- cls
+    }
+  }
+
+  classification <- do.call(rbind, class_list)
+  rownames(classification) <- NULL
+
+  count_col <- if (is.null(group)) "classification" else "group"
+  summary_df <- stats::aggregate(
+    stats::as.formula(paste("module ~ pair_name + reference +", count_col)),
+    data = classification, FUN = length
+  )
+  names(summary_df)[ncol(summary_df)] <- "n"
+
+  list(classification = classification, summary = summary_df, raw = raw)
+}
+
+
+#' Put an ortholog table in the orientation a direction needs (internal)
+#'
+#' `Species1` / `Species2` hold gene identifiers, and the rest of the package
+#' selects rows by testing them against each network's gene names. A table
+#' written for the A -> B direction therefore yields nothing when B is the
+#' reference, so the columns are swapped whenever that recovers more pairs.
+#'
+#' @noRd
+.orient_orthologs <- function(orthologs, genes_ref, genes_test) {
+  as_is <- sum(orthologs$Species1 %in% genes_ref &
+    orthologs$Species2 %in% genes_test)
+  swapped <- sum(orthologs$Species2 %in% genes_ref &
+    orthologs$Species1 %in% genes_test)
+  if (swapped > as_is) {
+    orthologs[c("Species1", "Species2")] <-
+      orthologs[c("Species2", "Species1")]
+  }
+  orthologs
 }
