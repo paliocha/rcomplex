@@ -618,8 +618,8 @@ test_that("a constant reference degree gives NA, not a floor p-value", {
 
   expect_true(all(is.na(got$observed[, 4])))
   expect_true(all(is.na(got$p_value[, 4])))
-  # All three outputs must agree, or a consumer could recompute the floor
-  # p-value from the counts.
+  # With an NA observed statistic all three outputs are NA, or a consumer
+  # could recompute the floor p-value from the counts.
   expect_true(all(is.na(got$n_perm_used[, 4])))
   expect_true(all(is.na(got$n_exceed[, 4])))
   # The density statistic is unaffected and still computed.
@@ -685,8 +685,15 @@ isolated_fixture <- function() {
   n <- 60L
   build <- function(prefix) {
     m <- matrix(0, n, n)
+    # Each connected block is a clique minus its tail-tail edges, so the
+    # first half have degree 19 and the second half 10. A plain clique would
+    # give every gene the same kIM, making cor.degree undefined and the block
+    # untested too -- which would leave the mixed tested/untested case, the
+    # one the summary accounting depends on, uncovered.
     m[1:20, 1:20] <- 1
+    m[11:20, 11:20] <- 0
     m[21:40, 21:40] <- 1
+    m[31:40, 31:40] <- 0
     diag(m) <- 0
     dimnames(m) <- list(
       paste0(prefix, sprintf("%02d", seq_len(n))),
@@ -724,8 +731,12 @@ test_that("a module with constant connectivity is untested, not diverged", {
   )
   expect_warning(cls <- classify_preservation(pres), "could not be tested")
 
-  expect_true("untested" %in% cls$classification)
+  # Only the isolated module is untested; the other two must be testable, or
+  # the mixed accounting below is not actually being exercised.
+  expect_equal(cls$classification[cls$module == "3"], "untested")
+  expect_false(any(cls$classification[cls$module != "3"] == "untested"))
   expect_true(all(is.na(cls$q.value[cls$classification == "untested"])))
+  expect_false(any(is.na(cls$q.value[cls$classification != "untested"])))
 })
 
 test_that("untested modules stay visible in the paired summary", {
@@ -743,6 +754,11 @@ test_that("untested modules stay visible in the paired summary", {
   # counts would silently stop summing to the number of modules.
   untested <- res$classification$classification == "untested"
   expect_true(all(res$classification$group[untested] == "untested"))
+  # Tested rows must still receive their real attribution -- a table that was
+  # untested end to end would satisfy the line above vacuously.
+  expect_true(any(!untested))
+  expect_true(all(res$classification$group[!untested] %in%
+    c("conserved", "annual", "perennial")))
   expect_equal(sum(res$summary$n), nrow(res$classification))
 })
 
@@ -759,4 +775,80 @@ test_that("the paired summary always accounts for every module", {
     ))
     expect_equal(sum(res$summary$n), nrow(res$classification))
   }
+})
+
+
+test_that("an empty null keeps the counts but not the p-value", {
+  fx <- pres_fixture()
+  net <- fx$netA
+  keep <- as.integer(seq_len(nrow(net$network)) - 1L)
+  mm <- lapply(fx$mods, function(z) as.integer(z - 1L))
+  adj <- reference_adjacency(net, rownames(net$network))
+  rs <- lapply(fx$mods, function(i) reference_module_stats(adj, i))
+
+  # n_perm = 0 is the "observed is fine, the null was uncomputable" state:
+  # distinct from an NA observed statistic, and the usable count of 0 is the
+  # only record of it.
+  got <- module_preservation_dense_cpp(
+    net$network, net$threshold, keep, mm,
+    lapply(rs, `[[`, "kIM"), lapply(rs, `[[`, "CC"), lapply(rs, `[[`, "MAR"),
+    n_perm = 0L, n_cores = 1L, binary = FALSE
+  )
+
+  expect_false(any(is.na(got$observed[, 1])))
+  expect_equal(got$n_perm_used[, 1], rep(0L, length(fx$mods)))
+  expect_equal(got$n_exceed[, 1], rep(0L, length(fx$mods)))
+  expect_true(all(is.na(got$p_value[, 1])))
+})
+
+
+test_that("sensitivity reports the naive run's own statistics", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  amb <- ambiguous_fixture(fx)
+
+  pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
+    cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+    n_perm = 100L, sensitivity = TRUE, seed = 1
+  )
+
+  # The internal naive run is seeded with the same seed, so an external run on
+  # the naive map reproduces it exactly. Without this, a wrong-index or
+  # copy-paste regression in .pres_sensitivity() -- naive columns silently
+  # echoing the resolved ones -- would pass every other assertion.
+  naive_map <- resolve_ortholog_map(
+    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  ext <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
+    map = naive_map, n_perm = 100L, seed = 1
+  )
+
+  idx <- match(pres$sensitivity$module, ext$preservation$module)
+  expect_equal(pres$sensitivity$Zsummary_naive, ext$preservation$Zsummary[idx])
+  expect_equal(pres$sensitivity$q.value_naive, ext$preservation$q.value[idx])
+  expect_false(isTRUE(all.equal(
+    pres$sensitivity$Zsummary, pres$sensitivity$Zsummary_naive
+  )))
+})
+
+
+test_that("sensitivity warns when resolution loses a testable module", {
+  resolved <- list(preservation = data.frame(
+    module = c("1", "2"), size_mapped = c(20L, 20L),
+    Zsummary = c(1, 2), q.value = c(0.1, 0.2), stringsAsFactors = FALSE
+  ))
+  # The naive run tested a module the resolved run dropped, e.g. because
+  # resolution concentrated its genes below min_module_size. This direction
+  # produces no NA and would otherwise pass silently.
+  naive <- list(preservation = data.frame(
+    module = c("1", "2", "3"), size_mapped = c(20L, 20L, 15L),
+    Zsummary = c(1, 2, 3), q.value = c(0.1, 0.2, 0.3), stringsAsFactors = FALSE
+  ))
+  map <- data.frame(gene2 = c("X", "Y"), stringsAsFactors = FALSE)
+
+  expect_warning(
+    out <- rcomplex:::.pres_sensitivity(resolved, naive, map, map),
+    "not tested under the resolved map"
+  )
+  expect_false("3" %in% out$module)
 })

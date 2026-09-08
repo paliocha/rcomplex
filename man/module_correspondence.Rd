@@ -32,8 +32,9 @@ A list with one element, \code{pairs}: a data frame of \code{module_sp1},
 Cross-tabulates the modules of two species over a paralog-resolved ortholog
 map and tests each module pair for excess overlap. This answers "which
 module corresponds to which", a different question from whether a module's
-topology is preserved (\code{\link[=module_preservation]{module_preservation()}}); \code{\link[=classify_hub_conservation]{classify_hub_conservation()}}
-needs the correspondence, not the preservation call.
+topology is preserved (\code{\link[=module_preservation]{module_preservation()}});
+\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} needs the correspondence, not the
+preservation call.
 }
 \details{
 The map assigns one reference gene to each test-species gene, so the

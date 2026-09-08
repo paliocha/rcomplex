@@ -50,8 +50,9 @@ carrying \code{pair_name}, \code{module}, \code{species}, \code{reference}, \cod
 Note that \code{\link[=tag_permutation]{tag_permutation()}} cannot consume this table yet: it selects
 rows on \code{classification == "species_specific"} and \code{species \%in\% c("sp1", "sp2")}, the vocabulary of the overlap engine, whereas this
 function emits \code{"conserved"} / \code{"moderate"} / \code{"diverged"} /
-\code{"untested"} and real species names. Feeding it straight in yields an empty result with no
-error. \code{\link[=tag_permutation]{tag_permutation()}} is updated when the overlap engine is removed.
+\code{"untested"} and real species names. Feeding it straight in yields an
+empty result with no error. \code{\link[=tag_permutation]{tag_permutation()}} is updated when the
+overlap engine is removed.
 }
 \description{
 Applies \code{\link[=module_preservation]{module_preservation()}} to each contrast in \code{pairs}. Preservation is

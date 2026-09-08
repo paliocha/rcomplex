@@ -649,8 +649,9 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #' Cross-tabulates the modules of two species over a paralog-resolved ortholog
 #' map and tests each module pair for excess overlap. This answers "which
 #' module corresponds to which", a different question from whether a module's
-#' topology is preserved ([module_preservation()]); [classify_hub_conservation()]
-#' needs the correspondence, not the preservation call.
+#' topology is preserved ([module_preservation()]);
+#' [classify_hub_conservation()] needs the correspondence, not the
+#' preservation call.
 #'
 #' The map assigns one reference gene to each test-species gene, so the
 #' hypergeometric's independence assumption holds. The multi-copy expansion
@@ -778,8 +779,9 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #'   rows on `classification == "species_specific"` and `species %in%
 #'   c("sp1", "sp2")`, the vocabulary of the overlap engine, whereas this
 #'   function emits `"conserved"` / `"moderate"` / `"diverged"` /
-#'   `"untested"` and real species names. Feeding it straight in yields an empty result with no
-#'   error. [tag_permutation()] is updated when the overlap engine is removed.
+#'   `"untested"` and real species names. Feeding it straight in yields an
+#'   empty result with no error. [tag_permutation()] is updated when the
+#'   overlap engine is removed.
 #'
 #' @examples
 #' \dontrun{

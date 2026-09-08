@@ -439,14 +439,14 @@ List run_preservation(WeightedNeighbors& g,
         for (int j = 0; j < kNStats; ++j) {
             const std::size_t c = static_cast<std::size_t>(k) * kNStats + j;
             obs_out(k, j) = observed[c];
-            // An NA observed statistic can never be exceeded, so reporting the
-            // counts would let any consumer recompute (0 + 1) / (n + 1) -- the
-            // most significant value attainable -- for a statistic that could
-            // not be computed at all. All three outputs agree on NA.
-            // Gate the counts on the observed value alone. A finite observed
-            // statistic whose permutations were all NA is a different state --
-            // the null was uncomputable, not the statistic -- and a usable
-            // count of 0 is the only thing that records it.
+            // Two distinct failures, reported differently. If the observed
+            // statistic is NA it can never be exceeded, so reporting the counts
+            // would let a consumer recompute (0 + 1) / (n + 1) -- the most
+            // significant value attainable -- for something never computed;
+            // all three outputs are NA. If the observed statistic is finite but
+            // no permutation was scorable, it is the null that was
+            // uncomputable, and a usable count of 0 is the only record of it,
+            // so the counts stand and only the p-value is NA.
             const bool have_obs = !ISNAN(observed[c]);
             n_out(k, j) = have_obs ? count[c] : NA_INTEGER;
             exceed_out(k, j) = have_obs ? exceed[c] : NA_INTEGER;
