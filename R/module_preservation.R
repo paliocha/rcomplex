@@ -560,12 +560,16 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'   \item{conserved}{`q.value < alpha` and `Zsummary >= z_conserved`}
 #'   \item{moderate}{`q.value < alpha` and `Zsummary < z_conserved`}
 #'   \item{diverged}{`q.value >= alpha`}
+#'   \item{untested}{`q.value` is `NA` -- a statistic could not be computed,
+#'     so neither preservation nor divergence was measured}
 #' }
 #' A module whose degree correlation could not be computed -- `cor.degree` is
-#' undefined when intramodular connectivity is constant, or when fewer than
-#' three genes map -- gets `NA` for that statistic, so the `pmax` combination
-#' and hence `q.value` are `NA` too and the module is reported `diverged`. It
-#' is never called preserved on the density statistic alone.
+#' undefined when intramodular connectivity is constant in either network --
+#' gets `NA` for that statistic, so the `pmax` combination and hence `q.value`
+#' are `NA` too. Such a module is reported `"untested"` rather than
+#' `"diverged"`: nothing was measured, so divergence would be a positive claim
+#' the data does not support. It is never called preserved on the density
+#' statistic alone.
 #'
 #' @param pres Output of [module_preservation()].
 #' @param alpha Significance threshold for the combined q-value (default 0.05).
@@ -593,11 +597,18 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
   }
   p <- pres$preservation
 
-  significant <- !is.na(p$q.value) & p$q.value < alpha
+  testable <- !is.na(p$q.value)
+  significant <- testable & p$q.value < alpha
   strong <- !is.na(p$Zsummary) & p$Zsummary >= z_conserved
-  classification <- ifelse(!significant, "diverged",
-    ifelse(strong, "conserved", "moderate")
+  classification <- ifelse(!testable, "untested",
+    ifelse(!significant, "diverged",
+      ifelse(strong, "conserved", "moderate")
+    )
   )
+  if (any(!testable)) {
+    warning(sum(!testable), " module(s) could not be tested (a statistic was ",
+            "undefined); reported as \"untested\"")
+  }
 
   data.frame(
     module = p$module,
@@ -729,7 +740,9 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #'   `pair_name`.
 #' @param group Optional named vector mapping species to a trait group. When
 #'   supplied, a `group` column records `"conserved"` for preserved modules and
-#'   the owning species' group for diverged ones.
+#'   the owning species' group for diverged ones. Modules reported
+#'   `"untested"` get `NA`: nothing was measured, so attributing them to a
+#'   trait group would overstate the evidence.
 #' @param edges,cliques Optional [find_coexpressologs()] and [find_cliques()]
 #'   results, used for paralog resolution.
 #' @param alpha,z_conserved Passed to [classify_preservation()].
@@ -826,8 +839,13 @@ preservation_paired <- function(modules, networks, orthologs, pairs,
       cls$reference <- ref
       cls$test <- test
       if (!is.null(group)) {
-        cls$group <- ifelse(cls$classification != "diverged",
-                            "conserved", as.character(group[ref]))
+        # "untested" is not evidence of species-specific divergence, so it
+        # earns no trait-group attribution.
+        cls$group <- ifelse(
+          cls$classification == "untested", NA_character_,
+          ifelse(cls$classification != "diverged",
+                 "conserved", as.character(group[ref]))
+        )
       }
       class_list[[key]] <- cls
     }

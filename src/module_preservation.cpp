@@ -439,12 +439,14 @@ List run_preservation(WeightedNeighbors& g,
         for (int j = 0; j < kNStats; ++j) {
             const std::size_t c = static_cast<std::size_t>(k) * kNStats + j;
             obs_out(k, j) = observed[c];
-            n_out(k, j) = count[c];
-            exceed_out(k, j) = exceed[c];
-            // An NA observed statistic can never be exceeded, so counting
-            // it would report (0 + 1) / (n + 1) -- the most significant value
-            // attainable -- for a statistic that could not be computed at all.
-            p_out(k, j) = (count[c] > 0 && !ISNAN(observed[c]))
+            // An NA observed statistic can never be exceeded, so reporting the
+            // counts would let any consumer recompute (0 + 1) / (n + 1) -- the
+            // most significant value attainable -- for a statistic that could
+            // not be computed at all. All three outputs agree on NA.
+            const bool computable = (count[c] > 0) && !ISNAN(observed[c]);
+            n_out(k, j) = computable ? count[c] : NA_INTEGER;
+            exceed_out(k, j) = computable ? exceed[c] : NA_INTEGER;
+            p_out(k, j) = computable
                 ? static_cast<double>(exceed[c] + 1) / (count[c] + 1)
                 : NA_REAL;
             if (count[c] > 1) {

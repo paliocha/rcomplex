@@ -610,11 +610,16 @@ test_that("a constant reference degree gives NA, not a floor p-value", {
 
   expect_true(all(is.na(got$observed[, 4])))
   expect_true(all(is.na(got$p_value[, 4])))
+  # All three outputs must agree, or a consumer could recompute the floor
+  # p-value from the counts.
+  expect_true(all(is.na(got$n_perm_used[, 4])))
+  expect_true(all(is.na(got$n_exceed[, 4])))
   # The density statistic is unaffected and still computed.
   expect_false(any(is.na(got$p_value[, 1])))
+  expect_false(any(is.na(got$n_perm_used[, 1])))
 })
 
-test_that("an NA combined p-value is reported as diverged", {
+test_that("an NA combined p-value is reported as untested, not diverged", {
   pres <- list(preservation = data.frame(
     module = c("1", "2"),
     size = c(30L, 30L), size_mapped = c(20L, 20L),
@@ -622,8 +627,10 @@ test_that("an NA combined p-value is reported as diverged", {
     q.value = c(NA_real_, 0.001),
     stringsAsFactors = FALSE
   ))
-  cls <- classify_preservation(pres)
-  expect_equal(cls$classification, c("diverged", "conserved"))
+  # Nothing was measured for module 1, so calling it diverged would assert
+  # something the data does not support.
+  expect_warning(cls <- classify_preservation(pres), "could not be tested")
+  expect_equal(cls$classification, c("untested", "conserved"))
 })
 
 test_that("q-value correction passes NA through", {

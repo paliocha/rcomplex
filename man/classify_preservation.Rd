@@ -41,12 +41,16 @@ significant modules, so the familiar 2 / 10 cut points still appear.
 \item{conserved}{\code{q.value < alpha} and \code{Zsummary >= z_conserved}}
 \item{moderate}{\code{q.value < alpha} and \code{Zsummary < z_conserved}}
 \item{diverged}{\code{q.value >= alpha}}
+\item{untested}{\code{q.value} is \code{NA} -- a statistic could not be computed,
+so neither preservation nor divergence was measured}
 }
 A module whose degree correlation could not be computed -- \code{cor.degree} is
-undefined when intramodular connectivity is constant, or when fewer than
-three genes map -- gets \code{NA} for that statistic, so the \code{pmax} combination
-and hence \code{q.value} are \code{NA} too and the module is reported \code{diverged}. It
-is never called preserved on the density statistic alone.
+undefined when intramodular connectivity is constant in either network --
+gets \code{NA} for that statistic, so the \code{pmax} combination and hence \code{q.value}
+are \code{NA} too. Such a module is reported \code{"untested"} rather than
+\code{"diverged"}: nothing was measured, so divergence would be a positive claim
+the data does not support. It is never called preserved on the density
+statistic alone.
 }
 
 \examples{
