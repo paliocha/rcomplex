@@ -133,9 +133,12 @@
 #'       resolution layer chose the pair.}
 #'     \item{map}{The ortholog map used.}
 #'     \item{sensitivity}{Only when `sensitivity = TRUE`: per-module
-#'       `Zsummary` and `q.value` under the resolved and naive maps, plus the
-#'       `same_gene_set` attribute recording whether both mapped the identical
-#'       test-species genes.}
+#'       `size_mapped`, `Zsummary` and `q.value` under the resolved and naive
+#'       maps, plus the `same_gene_set` attribute recording whether both mapped
+#'       the identical test-species genes. `size_mapped` is the deterministic
+#'       consequence of the copy choice; `Zsummary_delta` also absorbs
+#'       permutation-stream drift when the two runs have different block
+#'       sizes.}
 #'     \item{params}{Call parameters.}
 #'   }
 #'
@@ -345,15 +348,29 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     warning(sum(is.na(idx)), " module(s) tested under the resolved map were ",
             "not tested under the naive map; their naive columns are NA")
   }
+  # The reverse direction produces no NA and would otherwise pass silently,
+  # yet it is the more alarming one: resolution lost a module the naive map
+  # could test.
+  lost <- setdiff(b$module, a$module)
+  if (length(lost) > 0L) {
+    warning(length(lost), " module(s) tested under the naive map were not ",
+            "tested under the resolved map (", paste(lost, collapse = ", "),
+            "); paralog resolution concentrated their genes")
+  }
 
   out <- data.frame(
     module = a$module,
+    size_mapped = a$size_mapped,
+    size_mapped_naive = b$size_mapped[idx],
     Zsummary = a$Zsummary,
     Zsummary_naive = b$Zsummary[idx],
     q.value = a$q.value,
     q.value_naive = b$q.value[idx],
     stringsAsFactors = FALSE
   )
+  # size_mapped is the deterministic consequence of the copy choice; the
+  # Zsummary difference also absorbs permutation-stream drift, because
+  # differing block sizes make the two runs consume the RNG differently.
   out$Zsummary_delta <- out$Zsummary - out$Zsummary_naive
 
   same <- setequal(unique(map$gene2), unique(naive_map$gene2))
@@ -756,8 +773,8 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #'   Note that [tag_permutation()] cannot consume this table yet: it selects
 #'   rows on `classification == "species_specific"` and `species %in%
 #'   c("sp1", "sp2")`, the vocabulary of the overlap engine, whereas this
-#'   function emits `"conserved"` / `"moderate"` / `"diverged"` and real
-#'   species names. Feeding it straight in yields an empty result with no
+#'   function emits `"conserved"` / `"moderate"` / `"diverged"` /
+#'   `"untested"` and real species names. Feeding it straight in yields an empty result with no
 #'   error. [tag_permutation()] is updated when the overlap engine is removed.
 #'
 #' @examples

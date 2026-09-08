@@ -96,9 +96,12 @@ label: the reference gene it came from, the module, and which
 resolution layer chose the pair.}
 \item{map}{The ortholog map used.}
 \item{sensitivity}{Only when \code{sensitivity = TRUE}: per-module
-\code{Zsummary} and \code{q.value} under the resolved and naive maps, plus the
-\code{same_gene_set} attribute recording whether both mapped the identical
-test-species genes.}
+\code{size_mapped}, \code{Zsummary} and \code{q.value} under the resolved and naive
+maps, plus the \code{same_gene_set} attribute recording whether both mapped
+the identical test-species genes. \code{size_mapped} is the deterministic
+consequence of the copy choice; \code{Zsummary_delta} also absorbs
+permutation-stream drift when the two runs have different block
+sizes.}
 \item{params}{Call parameters.}
 }
 }

@@ -421,17 +421,24 @@ test_that("sensitivity detects a copy choice that changes the result", {
 
   expect_true("sensitivity" %in% names(pres))
   expect_named(pres$sensitivity, c(
-    "module", "Zsummary", "Zsummary_naive",
-    "q.value", "q.value_naive", "Zsummary_delta"
+    "module", "size_mapped", "size_mapped_naive", "Zsummary",
+    "Zsummary_naive", "q.value", "q.value_naive", "Zsummary_delta"
   ))
 
   # Resolution may only change which copy carries a label, never which genes
   # are mappable.
   expect_true(attr(pres$sensitivity, "same_gene_set"))
 
-  # The clique rescues genes the naive majority vote drops on a tie, so at
-  # least one module must actually move.
-  expect_true(any(pres$sensitivity$Zsummary_delta != 0))
+  # The clique rescues the 10 genes the naive majority vote drops on a tie, so
+  # module 1 gains exactly those. This is the deterministic consequence of the
+  # copy choice; Zsummary_delta is not assertable on its own because differing
+  # block sizes also make the two runs consume the RNG differently, which
+  # shifts every module's delta.
+  m1 <- pres$sensitivity[pres$sensitivity$module == "1", ]
+  expect_equal(m1$size_mapped - m1$size_mapped_naive, 10L)
+  # Modules the ambiguity does not touch are unchanged in size.
+  rest <- pres$sensitivity[pres$sensitivity$module != "1", ]
+  expect_true(all(rest$size_mapped == rest$size_mapped_naive))
 })
 
 test_that("sensitivity warns when the two maps cover different genes", {
@@ -552,7 +559,8 @@ test_that("preservation_paired runs both directions per contrast", {
   expect_setequal(names(res$raw), c("A.B", "B.A"))
   expect_setequal(unique(res$classification$reference), c("A", "B"))
 
-  # tag_permutation() reads exactly these columns.
+  # The column names tag_permutation() expects. Its *values* are not yet
+  # compatible -- see ?preservation_paired -- so this asserts shape only.
   expect_true(all(c("pair_name", "module", "species", "classification") %in%
     names(res$classification)))
 })
