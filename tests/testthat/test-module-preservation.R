@@ -113,7 +113,7 @@ test_that("observed preservation statistics match the R reference", {
   got <- module_preservation_dense_cpp(
     net$network, net$threshold, keep, mm,
     lapply(rs, `[[`, "kIM"), lapply(rs, `[[`, "CC"), lapply(rs, `[[`, "MAR"),
-    n_perm = 0L, n_cores = 1L, binary = FALSE
+    n_perm = 0L, n_cores = 1L, binary = FALSE, store_perm = FALSE
   )
 
   for (k in seq_along(fx$mods)) {
@@ -615,7 +615,7 @@ test_that("a constant reference degree gives NA, not a floor p-value", {
   flat <- lapply(fx$mods, function(i) rep(1, length(i)))
   got <- module_preservation_dense_cpp(
     net$network, net$threshold, keep, mm, flat, flat, flat,
-    n_perm = 100L, n_cores = 1L, binary = FALSE
+    n_perm = 100L, n_cores = 1L, binary = FALSE, store_perm = FALSE
   )
 
   expect_true(all(is.na(got$observed[, 4])))
@@ -645,7 +645,7 @@ test_that("an NA combined p-value is reported as untested, not diverged", {
 
 test_that("q-value correction passes NA through", {
   p <- c(0.001, NA, 0.5, 0.9)
-  q <- rcomplex:::.pres_qvalues(p, n_perm = 1000L, method = "bh")
+  q <- rcomplex:::.pres_qvalues(p)
 
   expect_true(is.na(q[2]))
   expect_false(any(is.na(q[-2])))
@@ -797,7 +797,7 @@ test_that("an empty null keeps the counts but not the p-value", {
   got <- module_preservation_dense_cpp(
     net$network, net$threshold, keep, mm,
     lapply(rs, `[[`, "kIM"), lapply(rs, `[[`, "CC"), lapply(rs, `[[`, "MAR"),
-    n_perm = 0L, n_cores = 1L, binary = FALSE
+    n_perm = 0L, n_cores = 1L, binary = FALSE, store_perm = FALSE
   )
 
   expect_false(any(is.na(got$observed[, 1])))
@@ -814,7 +814,7 @@ test_that("an empty null keeps the counts but not the p-value", {
   flat <- lapply(fx$mods, function(i) rep(1, length(i)))
   mixed <- module_preservation_dense_cpp(
     net$network, net$threshold, keep, mm, flat, flat, flat,
-    n_perm = 20L, n_cores = 1L, binary = FALSE
+    n_perm = 20L, n_cores = 1L, binary = FALSE, store_perm = FALSE
   )
   expect_true(all(is.na(mixed$n_perm_used[, 4])))
   expect_true(all(mixed$n_perm_used[, 1] > 0L))
@@ -1199,4 +1199,130 @@ test_that("the copy null holds the projected gene set fixed", {
   pc <- pc[!is.na(pc)]
   expect_gt(length(pc), 0L)
   expect_true(all(pc > 0 & pc <= 1))
+})
+
+
+# ---- mixture-calibrated p-values ----
+
+# 14 modules, so w00 is estimable (the estimator returns 0 below 10).
+calib_fixture <- function() {
+  n_mod <- 14L
+  per <- 25L
+  set.seed(31)
+  loadings <- lapply(seq_len(n_mod), function(k) {
+    l <- stats::rlnorm(per, 0, 0.9)
+    l / max(l)
+  })
+  eA <- pres_expr(41, 600, "A", loadings, per)
+  eB <- pres_expr(42, 700, "B", loadings, per)
+  mods <- lapply(seq_len(n_mod), function(k) ((k - 1) * per + 1):(k * per))
+  list(
+    netA = compute_network(eA, density = 0.03, sparse = FALSE),
+    netB = compute_network(eB, density = 0.03, sparse = FALSE),
+    mods = mods, n_mod = n_mod,
+    ortho = data.frame(
+      Species1 = paste0("A", sprintf("%04d", seq_len(600))),
+      Species2 = paste0("B", sprintf("%04d", seq_len(600))),
+      hog = paste0("H", seq_len(600)), stringsAsFactors = FALSE
+    )
+  )
+}
+
+test_that("calibration lies between the joint null and raw pmax", {
+  fx <- calib_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 999L, min_module_size = 10L, n_cores = 2L, seed = 1
+  )
+  d <- pres$preservation
+
+  # pmax is the intersection-union p-value and the calibrated value is a
+  # blend of it with the empirical joint null, so it can only move downward.
+  expect_true(all(d$p.calibrated <= d$p.value + 1e-12, na.rm = TRUE))
+  expect_true(all(d$p.calibrated > 0, na.rm = TRUE))
+  # The identity the blend's validity rests on.
+  expect_equal(d$p.value, pmax(d$p.avg.weight, d$p.cor.degree))
+  # The estimator is live at this module count.
+  expect_gte(pres$params$w00, 0)
+  expect_lte(pres$params$w00, 1)
+})
+
+test_that("calibrate = none reproduces the uncalibrated pmax result", {
+  fx <- calib_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 999L, min_module_size = 10L, n_cores = 2L, seed = 1,
+    calibrate = "none"
+  )
+  d <- pres$preservation
+
+  expect_identical(d$p.calibrated, d$p.value)
+  expect_equal(pres$params$w00, 0)
+  # and the q-values are BH on the raw pmax
+  expect_equal(d$q.value, stats::p.adjust(d$p.value, "BH"))
+})
+
+test_that("w00 degrades to zero below ten modules", {
+  # Storey's estimator is high-variance on a handful of p-values, so the
+  # implementation refuses rather than guessing.
+  expect_equal(.pres_w00(runif(5), runif(5)), 0)
+  # With both margins uniform it should approach 1 (both-null everywhere).
+  set.seed(2)
+  expect_gt(.pres_w00(runif(400), runif(400)), 0.8)
+  # With both margins all-significant there is no both-null mass.
+  expect_equal(.pres_w00(rep(0.001, 400), rep(0.001, 400)), 0)
+})
+
+test_that("the NPC p-value is the joint-null rank of the observed pmax", {
+  fx <- pres_fixture()
+  net <- fx$netA
+  keep <- as.integer(seq_len(nrow(net$network)) - 1L)
+  mm <- lapply(fx$mods, function(z) as.integer(z - 1L))
+  adj <- reference_adjacency(net, rownames(net$network))
+  rs <- lapply(fx$mods, function(i) reference_module_stats(adj, i))
+
+  got <- module_preservation_dense_cpp(
+    net$network, net$threshold, keep, mm,
+    lapply(rs, `[[`, "kIM"), lapply(rs, `[[`, "CC"), lapply(rs, `[[`, "MAR"),
+    n_perm = 200L, n_cores = 1L, binary = FALSE, store_perm = TRUE
+  )
+
+  # Recompute the combination in R from the stored pairs and check the kernel.
+  pp <- array(got$perm_pairs, dim = c(2L * length(fx$mods), 200L))
+  for (k in seq_along(fx$mods)) {
+    a1 <- c(got$observed[k, 1], pp[2 * k - 1, ])
+    a2 <- c(got$observed[k, 4], pp[2 * k, ])
+    ok <- !is.na(a1) & !is.na(a2)
+    a1 <- a1[ok]
+    a2 <- a2[ok]
+    n <- length(a1)
+    l1 <- vapply(a1, function(v) sum(a1 >= v) / n, numeric(1))
+    l2 <- vapply(a2, function(v) sum(a2 >= v) / n, numeric(1))
+    psi <- pmax(l1, l2)
+    expect_equal(got$p_npc[k], sum(psi <= psi[1]) / n, tolerance = 1e-12)
+    expect_equal(got$p_joint[k, 1], l1[1], tolerance = 1e-12)
+    expect_equal(got$p_joint[k, 2], l2[1], tolerance = 1e-12)
+    expect_equal(got$n_joint[k], n - 1L)
+  }
+})
+
+test_that("calibrated p-values do not depend on n_cores", {
+  fx <- calib_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  a <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 200L, min_module_size = 10L, n_cores = 1L, seed = 5)
+  b <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 200L, min_module_size = 10L, n_cores = 4L, seed = 5)
+  expect_equal(a$preservation$p.calibrated, b$preservation$p.calibrated)
+  expect_equal(a$params$w00, b$params$w00)
+})
+
+test_that("qvalue_method is deprecated", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  expect_warning(
+    module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+      n_perm = 50L, seed = 1, qvalue_method = "liang"),
+    "deprecated and ignored"
+  )
 })

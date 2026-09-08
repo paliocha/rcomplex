@@ -16,7 +16,8 @@ module_preservation_sparse_cpp(
   ref_MAR,
   n_perm,
   n_cores,
-  binary
+  binary,
+  store_perm
 )
 }
 \arguments{
@@ -37,10 +38,12 @@ network's per-gene statistics, one vector per module.}
 \item{n_cores}{Number of OpenMP threads.}
 
 \item{binary}{Treat every surviving edge as weight 1.}
+
+\item{store_perm}{Return the raw per-permutation statistic pairs.}
 }
 \value{
 List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
-p_value, scale.
+p_value, p_npc, p_joint, n_joint, scale.
 }
 \description{
 Module preservation permutation engine (sparse)

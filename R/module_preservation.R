@@ -105,13 +105,29 @@
 #'   On a hard-thresholded network this changes little and makes `avg.weight`
 #'   exactly the module edge density.
 #' @param alpha Significance threshold (default 0.05).
-#' @param qvalue_method Multiple-testing correction. `"liang"` (default) uses
-#'   [DiscreteQvalue::DQ()] with the exact discrete support of a permutation
-#'   p-value, `{1/(n_perm+1), ..., 1}` -- the same treatment
-#'   [permutation_hog_test()] gives its permutation p-values. `"bh"` forces
-#'   Benjamini-Hochberg. Liang falls back to BH automatically when there are
-#'   too few modules to estimate pi0 (fewer than 10) or if the estimator
-#'   fails.
+#' @param calibrate How the combined p-value is calibrated before FDR
+#'   correction. `"mixture"` (default) recalibrates `pmax` toward the
+#'   empirical joint null of the two statistics; `"none"` uses `pmax`
+#'   unchanged.
+#'
+#'   `pmax` is a valid p-value for the intersection-union null, but it is
+#'   calibrated against a bound rather than the actual joint null and runs
+#'   roughly `1/t` conservative when the two statistics are near-independent,
+#'   as they are here -- measured on this engine, a realised false discovery
+#'   rate of 1.2e-4 against a nominal 0.05, with the smallest attainable
+#'   q-value 0.10. The mixture blends `pmax` with the permutation joint null
+#'   in proportion to the estimated fraction of modules null on *both*
+#'   statistics, which is a super-uniform bound for any dependence structure.
+#'   The rejection region stays `max(p1, p2) <= c`, so a module still cannot
+#'   be called preserved on density alone.
+#'
+#'   One caveat, measured rather than argued: when neither statistic shows
+#'   signal anywhere the estimated both-null fraction approaches 1 and the
+#'   procedure calibrates against the intersection null for that contrast.
+#'   Realised FDR there was 0.031 against a nominal 0.05.
+#' @param qvalue_method Deprecated and ignored; the Liang discrete path was
+#'   measured bit-identical to Benjamini-Hochberg on this engine. Use
+#'   `calibrate = "none"` for the uncalibrated result.
 #' @param sensitivity Re-run under a naive ortholog map -- one built from
 #'   `orthologs` alone, with no clique or coexpressolog resolution -- and
 #'   report both results side by side (default `FALSE`). Doubles the runtime.
@@ -185,7 +201,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
                                 sp_ref = NULL, sp_test = NULL,
                                 n_perm = 10000L, min_module_size = 10L,
                                 binary = FALSE, alpha = 0.05,
-                                qvalue_method = c("liang", "bh"),
+                                calibrate = c("mixture", "none"),
+                                qvalue_method = NULL,
                                 sensitivity = FALSE, copy_draws = 200L,
                                 n_cores = 1L, seed = NULL) {
   if (!is.list(modules_ref) || is.null(modules_ref$module_genes) ||
@@ -194,7 +211,12 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   }
   n_perm <- as.integer(n_perm)
   if (is.na(n_perm) || n_perm < 1L) stop("n_perm must be >= 1")
-  qvalue_method <- match.arg(qvalue_method)
+  calibrate <- match.arg(calibrate)
+  if (!is.null(qvalue_method)) {
+    warning("qvalue_method is deprecated and ignored: the Liang path was ",
+            "measured bit-identical to Benjamini-Hochberg on this engine. ",
+            "Use calibrate = \"none\" for the uncalibrated pmax + BH result.")
+  }
   min_module_size <- as.integer(min_module_size)
   if (is.na(min_module_size) || min_module_size < 3L) {
     stop(
@@ -339,7 +361,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 
   out <- .pres_assemble(
     res, modules_ref, tested, rows_by_mod, proj, map,
-    n_perm, min_module_size, binary, alpha, qvalue_method, seed
+    n_perm, min_module_size, binary, alpha, calibrate, seed
   )
   out$coverage <- coverage
 
@@ -362,7 +384,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
           modules_ref, net_ref, net_test, orthologs = orthologs,
           map = naive_map, n_perm = n_perm,
           min_module_size = min_module_size, binary = binary, alpha = alpha,
-          qvalue_method = qvalue_method, sensitivity = FALSE,
+          calibrate = calibrate, sensitivity = FALSE,
           n_cores = n_cores, seed = seed
         ),
         error = function(e) {
@@ -531,19 +553,19 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' Preservation permutation engine, dense/sparse dispatch (internal)
 #' @noRd
 .pres_run <- function(net, keep, members, ref_kIM, ref_cc, ref_mar,
-                      n_perm, n_cores, binary) {
+                      n_perm, n_cores, binary, store_perm = FALSE) {
   a <- .net_cpp_args(net, net$threshold)
   if (.net_is_sparse(net)) {
     module_preservation_sparse_cpp(
       a$p, a$i, a$x, a$thr, keep, members,
       ref_kIM, ref_cc, ref_mar, n_perm,
-      n_cores, binary
+      n_cores, binary, store_perm
     )
   } else {
     module_preservation_dense_cpp(
       a$net, a$thr, keep, members,
       ref_kIM, ref_cc, ref_mar, n_perm,
-      n_cores, binary
+      n_cores, binary, store_perm
     )
   }
 }
@@ -553,11 +575,12 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' @noRd
 .pres_assemble <- function(res, modules_ref, tested, rows_by_mod, proj, map,
                            n_perm, min_module_size, binary, alpha,
-                           qvalue_method, seed) {
+                           calibrate, seed) {
   colnames(res$observed) <- .PRES_STATS
   colnames(res$perm_mean) <- .PRES_STATS
   colnames(res$perm_sd) <- .PRES_STATS
   colnames(res$p_value) <- .PRES_STATS
+  colnames(res$n_perm_used) <- .PRES_STATS
 
   z <- (res$observed - res$perm_mean) / res$perm_sd
   colnames(z) <- .PRES_STATS
@@ -566,9 +589,31 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   cc <- .PRES_CONNECTIVITY
 
   # Both statistics must be significant: the reciprocal criterion used by
-  # pval_combine = "max" elsewhere in the package.
-  p_comb <- pmax(res$p_value[, d], res$p_value[, cc])
-  q_comb <- .pres_qvalues(p_comb, n_perm, qvalue_method)
+  # pval_combine = "max" elsewhere in the package. Computed on the JOINTLY
+  # scorable permutations so that pmax and the NPC combination share a
+  # denominator -- mismatched denominators would break the identity the
+  # calibration below rests on.
+  p_comb <- pmax(res$p_joint[, 1L], res$p_joint[, 2L])
+
+  # pmax is a valid intersection-union p-value (Berger) but is calibrated
+  # against a bound, not the joint null, and runs about 1/t conservative when
+  # the two statistics are near-independent -- measured here as a realised FDR
+  # of 1.2e-4 against a nominal 0.05. Recalibrate toward the empirical joint
+  # null by the estimated fraction of modules null on BOTH statistics:
+  #   F(t) <= w00 * C(t, t) + (1 - w00) * t
+  # is a super-uniform bound for any dependence and any alternative, because
+  # each partial-null term has one exactly-uniform marginal. p_npc is C(t, t)
+  # at the observed value and p_comb is t, so p_cal is that bound evaluated
+  # where it matters. Under-estimating w00 moves the result toward plain pmax,
+  # i.e. toward the conservative side.
+  w00 <- if (identical(calibrate, "mixture")) {
+    .pres_w00(res$p_joint[, 1L], res$p_joint[, 2L])
+  } else {
+    0
+  }
+  p_cal <- ifelse(is.na(res$p_npc), p_comb,
+                  w00 * res$p_npc + (1 - w00) * p_comb)
+  q_comb <- .pres_qvalues(p_cal)
 
   # medianRank: rank of the observed statistics across modules, 1 = strongest.
   rank_d <- rank(-res$observed[, d], na.last = "keep")
@@ -601,9 +646,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     size_mapped = vapply(rows_by_mod, length, integer(1)),
     avg.weight = res$observed[, d],
     cor.degree = res$observed[, cc],
-    p.avg.weight = res$p_value[, d],
-    p.cor.degree = res$p_value[, cc],
+    p.avg.weight = res$p_joint[, 1L],
+    p.cor.degree = res$p_joint[, 2L],
     p.value = p_comb,
+    p.calibrated = p_cal,
     q.value = q_comb,
     Z.avg.weight = z[, d],
     Z.cor.degree = z[, cc],
@@ -620,7 +666,12 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     observed[[s]] <- res$observed[, s]
     observed[[paste0("perm_mean.", s)]] <- res$perm_mean[, s]
     observed[[paste0("perm_sd.", s)]] <- res$perm_sd[, s]
+    # The denominator each p-value was actually computed over. The kernel has
+    # counted these since day one and the R layer discarded them; they are the
+    # audit trail for the support.
+    observed[[paste0("n_perm.", s)]] <- res$n_perm_used[, s]
   }
+  observed$n_joint <- res$n_joint
   rownames(observed) <- NULL
 
   list(
@@ -630,7 +681,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     map = map,
     params = list(
       n_perm = n_perm, min_module_size = min_module_size,
-      binary = binary, alpha = alpha, qvalue_method = qvalue_method,
+      binary = binary, alpha = alpha, calibrate = calibrate,
+      w00 = w00, n_joint = res$n_joint,
       seed = seed, scale = res$scale,
       n_mapped = nrow(proj)
     )
@@ -651,30 +703,39 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' estimation to mean anything, or if the estimator errors.
 #'
 #' @noRd
-.pres_qvalues <- function(p, n_perm, method = "liang") {
-  # A statistic that could not be computed carries an NA p-value; correct the
-  # rest and leave those NA, rather than letting them error here or be scored
-  # as significant downstream.
+#' Fraction of modules null on BOTH statistics (internal)
+#'
+#' The Frechet lower bound on the both-null fraction: pi0 for each margin,
+#' summed and shifted. It under-estimates by construction, and it estimates the
+#' unconditional both-null fraction where the bound wants the conditional one,
+#' so it errs conservative twice over. Storey's estimator at lambda = 0.5 is
+#' high-variance on a handful of p-values, so below `min_m` modules it returns
+#' 0, which degrades the calibration to plain pmax rather than guessing.
+#'
+#' @noRd
+.pres_w00 <- function(p1, p2, lambda = 0.5, min_m = 10L) {
+  ok <- !is.na(p1) & !is.na(p2)
+  if (sum(ok) < min_m) {
+    return(0)
+  }
+  st0 <- function(p) min(1, mean(p > lambda) / (1 - lambda))
+  max(0, st0(p1[ok]) + st0(p2[ok]) - 1)
+}
+
+
+.pres_qvalues <- function(p) {
+  # BH on the calibrated p-value. After calibration the p-value lives on a
+  # grid of a thousand points or more, where the discrete correction buys
+  # about 1% of rejections; DiscreteQvalue's Liang path was measured
+  # bit-identical to BH on this engine, and qvalue::qvalue errors outright on
+  # the p-value shapes produced at these module counts.
   ok <- !is.na(p)
   out <- rep(NA_real_, length(p))
   if (sum(ok) < 2L) {
     out[ok] <- p[ok]
     return(out)
   }
-  pv <- p[ok]
-
-  bh <- function() compute_qvalues(pv, pi0_method = "none")$qvalues
-  q <- if (method != "liang" || length(pv) < 10L) {
-    bh()
-  } else {
-    support <- seq_len(n_perm + 1L) / (n_perm + 1L)
-    liang <- tryCatch(
-      DiscreteQvalue::DQ(pv, ss = support, method = "Liang")$q.values,
-      error = function(e) NULL
-    )
-    if (is.null(liang) || anyNA(liang)) bh() else liang
-  }
-  out[ok] <- q
+  out[ok] <- compute_qvalues(p[ok], pi0_method = "none")$qvalues
   out
 }
 

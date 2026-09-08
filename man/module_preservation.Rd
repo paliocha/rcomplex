@@ -18,7 +18,8 @@ module_preservation(
   min_module_size = 10L,
   binary = FALSE,
   alpha = 0.05,
-  qvalue_method = c("liang", "bh"),
+  calibrate = c("mixture", "none"),
+  qvalue_method = NULL,
   sensitivity = FALSE,
   copy_draws = 200L,
   n_cores = 1L,
@@ -61,13 +62,30 @@ exactly the module edge density.}
 
 \item{alpha}{Significance threshold (default 0.05).}
 
-\item{qvalue_method}{Multiple-testing correction. \code{"liang"} (default) uses
-\code{\link[DiscreteQvalue:DQ]{DiscreteQvalue::DQ()}} with the exact discrete support of a permutation
-p-value, \verb{\{1/(n_perm+1), ..., 1\}} -- the same treatment
-\code{\link[=permutation_hog_test]{permutation_hog_test()}} gives its permutation p-values. \code{"bh"} forces
-Benjamini-Hochberg. Liang falls back to BH automatically when there are
-too few modules to estimate pi0 (fewer than 10) or if the estimator
-fails.}
+\item{calibrate}{How the combined p-value is calibrated before FDR
+correction. \code{"mixture"} (default) recalibrates \code{pmax} toward the
+empirical joint null of the two statistics; \code{"none"} uses \code{pmax}
+unchanged.
+
+\code{pmax} is a valid p-value for the intersection-union null, but it is
+calibrated against a bound rather than the actual joint null and runs
+roughly \code{1/t} conservative when the two statistics are near-independent,
+as they are here -- measured on this engine, a realised false discovery
+rate of 1.2e-4 against a nominal 0.05, with the smallest attainable
+q-value 0.10. The mixture blends \code{pmax} with the permutation joint null
+in proportion to the estimated fraction of modules null on \emph{both}
+statistics, which is a super-uniform bound for any dependence structure.
+The rejection region stays \code{max(p1, p2) <= c}, so a module still cannot
+be called preserved on density alone.
+
+One caveat, measured rather than argued: when neither statistic shows
+signal anywhere the estimated both-null fraction approaches 1 and the
+procedure calibrates against the intersection null for that contrast.
+Realised FDR there was 0.031 against a nominal 0.05.}
+
+\item{qvalue_method}{Deprecated and ignored; the Liang discrete path was
+measured bit-identical to Benjamini-Hochberg on this engine. Use
+\code{calibrate = "none"} for the uncalibrated result.}
 
 \item{sensitivity}{Re-run under a naive ortholog map -- one built from
 \code{orthologs} alone, with no clique or coexpressolog resolution -- and

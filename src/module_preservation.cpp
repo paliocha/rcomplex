@@ -30,6 +30,7 @@
 
 #include <RcppArmadillo.h>
 #include <algorithm>
+#include <iterator>
 #include <cmath>
 #include <random>
 #include <vector>
@@ -229,6 +230,97 @@ void score_modules(const WeightedNeighbors& g, Scratch& s,
     }
 }
 
+// Nonparametric combination of the two headline statistics.
+//
+// pmax is a valid p-value for the intersection-union null (Berger), but it is
+// calibrated against a bound, not against the actual joint null, and is
+// therefore conservative -- by a factor of about 1/t when the two statistics
+// are near-independent. This builds the empirical joint null instead: the same
+// combining function is applied to every permutation, so the observed
+// combination can be ranked among combinations drawn the same way.
+//
+// Only JOINTLY scorable permutations enter, i.e. those where both statistics
+// were defined. Mixing denominators between the marginals and the combination
+// would break the identity psi(observed) == pmax that the downstream blend
+// rests on.
+//
+// lambda_j(e) = #{f : a_j[f] >= a_j[e]} / N is the one-sided permutation
+// p-value of entry e; psi(e) = max over j; and p_npc is the fraction of
+// entries whose psi is at or below the observed one. >= throughout, matching
+// the kernel's tie handling elsewhere: ties are conservative.
+struct NpcResult {
+    std::vector<double> p_npc;
+    std::vector<double> p_joint_d;
+    std::vector<double> p_joint_c;
+    std::vector<int> n_joint;
+};
+
+NpcResult npc_combine(const std::vector<double>& perm_pairs,
+                      const std::vector<double>& observed,
+                      int n_perm, int n_mod) {
+    NpcResult out;
+    out.p_npc.assign(n_mod, NA_REAL);
+    out.p_joint_d.assign(n_mod, NA_REAL);
+    out.p_joint_c.assign(n_mod, NA_REAL);
+    out.n_joint.assign(n_mod, 0);
+
+    for (int k = 0; k < n_mod; ++k) {
+        const std::size_t b = static_cast<std::size_t>(k) * kNStats;
+        const double od = observed[b + 0];
+        const double oc = observed[b + 3];
+        if (ISNAN(od) || ISNAN(oc)) continue;
+
+        // Entry 0 is the observed pair; the rest are jointly scorable draws.
+        std::vector<double> a1;
+        std::vector<double> a2;
+        a1.push_back(od);
+        a2.push_back(oc);
+        for (int e = 0; e < n_perm; ++e) {
+            const std::size_t r =
+                static_cast<std::size_t>(e) * 2 * n_mod + 2 * k;
+            const double vd = perm_pairs[r];
+            const double vc = perm_pairs[r + 1];
+            if (!ISNAN(vd) && !ISNAN(vc)) {
+                a1.push_back(vd);
+                a2.push_back(vc);
+            }
+        }
+        const auto n = static_cast<int>(a1.size());
+        out.n_joint[k] = n - 1;
+        if (n < 2) continue;
+
+        // lambda_j via one sort each: the count of entries at or above a value
+        // is n minus the number strictly below it.
+        std::vector<double> s1(a1);
+        std::vector<double> s2(a2);
+        std::sort(s1.begin(), s1.end());
+        std::sort(s2.begin(), s2.end());
+        const double inv = 1.0 / static_cast<double>(n);
+
+        std::vector<double> psi(n);
+        for (int e = 0; e < n; ++e) {
+            const auto lo1 = std::lower_bound(s1.begin(), s1.end(), a1[e]);
+            const auto lo2 = std::lower_bound(s2.begin(), s2.end(), a2[e]);
+            const double l1 =
+                (n - static_cast<int>(lo1 - s1.begin())) * inv;
+            const double l2 =
+                (n - static_cast<int>(lo2 - s2.begin())) * inv;
+            psi[e] = (l1 > l2) ? l1 : l2;
+            if (e == 0) {
+                out.p_joint_d[k] = l1;
+                out.p_joint_c[k] = l2;
+            }
+        }
+
+        int at_or_below = 0;
+        for (int e = 0; e < n; ++e) {
+            if (psi[e] <= psi[0]) ++at_or_below;
+        }
+        out.p_npc[k] = static_cast<double>(at_or_below) * inv;
+    }
+    return out;
+}
+
 std::vector<std::vector<int>> as_int_lists(const List& x) {
     const auto n = static_cast<int>(x.size());
     std::vector<std::vector<int>> out(n);
@@ -273,7 +365,8 @@ List run_preservation(WeightedNeighbors& g,
                       const List& ref_kIM,
                       const List& ref_CC,
                       const List& ref_MAR,
-                      int n_perm, int n_cores, bool binary) {
+                      int n_perm, int n_cores, bool binary,
+                      bool store_perm) {
     const auto m = static_cast<int>(g.idx.size());
     const auto n_mod = static_cast<int>(module_members.size());
 
@@ -346,6 +439,16 @@ List run_preservation(WeightedNeighbors& g,
     // unknown scale.
     std::vector<double> cross(n_mod, 0.0);
     std::vector<int> cross_n(n_mod, 0);
+    // Per-permutation values of the two statistics that carry the call. The
+    // nonparametric combination needs the joint null of (avg.weight,
+    // cor.degree), which no summary accumulator can reconstruct: pmax is
+    // calibrated against a null that must be built, not assumed. Iterations
+    // own disjoint rows, so no reduction and no critical section.
+    std::vector<double> perm_pairs;
+    if (n_perm > 0) {
+        perm_pairs.assign(static_cast<std::size_t>(n_perm) * 2 * n_mod,
+                          NA_REAL);
+    }
 
     if (n_perm > 0) {
         int n_threads = (n_cores > 1) ? n_cores : 1;
@@ -434,6 +537,10 @@ List run_preservation(WeightedNeighbors& g,
                         t_cross[tid][k] += vd * vc;
                         t_cross_n[tid][k] += 1;
                     }
+                    const std::size_t r =
+                        static_cast<std::size_t>(iter) * 2 * n_mod + 2 * k;
+                    perm_pairs[r] = vd;
+                    perm_pairs[r + 1] = vc;
                 }
             }
         }
@@ -450,6 +557,17 @@ List run_preservation(WeightedNeighbors& g,
                 exceed[c] += t_exceed[t][c];
             }
         }
+    }
+
+    const NpcResult npc = npc_combine(perm_pairs, observed, n_perm, n_mod);
+    NumericVector p_npc_out(n_mod);
+    NumericMatrix p_joint_out(n_mod, 2);
+    IntegerVector n_joint_out(n_mod);
+    for (int k = 0; k < n_mod; ++k) {
+        p_npc_out[k] = npc.p_npc[k];
+        p_joint_out(k, 0) = npc.p_joint_d[k];
+        p_joint_out(k, 1) = npc.p_joint_c[k];
+        n_joint_out[k] = npc.n_joint[k];
     }
 
     NumericVector cross_out(n_mod);
@@ -511,6 +629,11 @@ List run_preservation(WeightedNeighbors& g,
         Named("p_value") = p_out,
         Named("cross_sum") = cross_out,
         Named("cross_n") = cross_n_out,
+        Named("p_npc") = p_npc_out,
+        Named("p_joint") = p_joint_out,
+        Named("n_joint") = n_joint_out,
+        Named("perm_pairs") = store_perm
+            ? Rcpp::wrap(perm_pairs) : Rcpp::wrap(R_NilValue),
         Named("scale") = scale
     );
 }
@@ -577,8 +700,9 @@ List run_gene_stats(WeightedNeighbors& g, const List& module_members,
 //' @param n_perm Number of permutations.
 //' @param n_cores Number of OpenMP threads.
 //' @param binary Treat every surviving edge as weight 1.
+//' @param store_perm Return the raw per-permutation statistic pairs.
 //' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
-//'   p_value, scale.
+//'   p_value, p_npc, p_joint, n_joint, scale.
 //'
 //' @keywords internal
 // [[Rcpp::export]]
@@ -589,11 +713,11 @@ Rcpp::List module_preservation_dense_cpp(
     const Rcpp::List& ref_kIM,
     const Rcpp::List& ref_CC,
     const Rcpp::List& ref_MAR,
-    int n_perm, int n_cores, bool binary
+    int n_perm, int n_cores, bool binary, bool store_perm
 ) {
     WeightedNeighbors g = induced_weighted_lists_dense(net, thr, keep);
     return run_preservation(g, module_members, ref_kIM, ref_CC, ref_MAR,
-                            n_perm, n_cores, binary);
+                            n_perm, n_cores, binary, store_perm);
 }
 
 
@@ -609,8 +733,9 @@ Rcpp::List module_preservation_dense_cpp(
 //' @param n_perm Number of permutations.
 //' @param n_cores Number of OpenMP threads.
 //' @param binary Treat every surviving edge as weight 1.
+//' @param store_perm Return the raw per-permutation statistic pairs.
 //' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
-//'   p_value, scale.
+//'   p_value, p_npc, p_joint, n_joint, scale.
 //'
 //' @keywords internal
 // [[Rcpp::export]]
@@ -624,11 +749,11 @@ Rcpp::List module_preservation_sparse_cpp(
     const Rcpp::List& ref_kIM,
     const Rcpp::List& ref_CC,
     const Rcpp::List& ref_MAR,
-    int n_perm, int n_cores, bool binary
+    int n_perm, int n_cores, bool binary, bool store_perm
 ) {
     WeightedNeighbors g = induced_weighted_lists_sparse(p, i, x, thr, keep);
     return run_preservation(g, module_members, ref_kIM, ref_CC, ref_MAR,
-                            n_perm, n_cores, binary);
+                            n_perm, n_cores, binary, store_perm);
 }
 
 

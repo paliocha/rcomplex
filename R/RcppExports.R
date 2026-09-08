@@ -215,12 +215,13 @@ hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, 
 #' @param n_perm Number of permutations.
 #' @param n_cores Number of OpenMP threads.
 #' @param binary Treat every surviving edge as weight 1.
+#' @param store_perm Return the raw per-permutation statistic pairs.
 #' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
-#'   p_value, scale.
+#'   p_value, p_npc, p_joint, n_joint, scale.
 #'
 #' @keywords internal
-module_preservation_dense_cpp <- function(net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary) {
-    .Call(`_rcomplex_module_preservation_dense_cpp`, net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary)
+module_preservation_dense_cpp <- function(net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm) {
+    .Call(`_rcomplex_module_preservation_dense_cpp`, net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm)
 }
 
 #' Module preservation permutation engine (sparse)
@@ -235,12 +236,13 @@ module_preservation_dense_cpp <- function(net, thr, keep, module_members, ref_kI
 #' @param n_perm Number of permutations.
 #' @param n_cores Number of OpenMP threads.
 #' @param binary Treat every surviving edge as weight 1.
+#' @param store_perm Return the raw per-permutation statistic pairs.
 #' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
-#'   p_value, scale.
+#'   p_value, p_npc, p_joint, n_joint, scale.
 #'
 #' @keywords internal
-module_preservation_sparse_cpp <- function(p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary) {
-    .Call(`_rcomplex_module_preservation_sparse_cpp`, p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary)
+module_preservation_sparse_cpp <- function(p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm) {
+    .Call(`_rcomplex_module_preservation_sparse_cpp`, p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm)
 }
 
 #' Per-gene intramodular statistics (dense)
