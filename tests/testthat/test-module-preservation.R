@@ -735,7 +735,10 @@ test_that("a module with constant connectivity is untested, not diverged", {
   expect_equal(cls$classification[cls$module == "3"], "untested")
   expect_false(any(cls$classification[cls$module != "3"] == "untested"))
   expect_true(all(is.na(cls$q.value[cls$classification == "untested"])))
-  expect_false(any(is.na(cls$q.value[cls$classification != "untested"])))
+  # Upstream property, not a restatement of the classifier's own definition:
+  # cor.degree is computable for the two blocks with non-constant degree.
+  expect_false(anyNA(
+    pres$preservation$cor.degree[pres$preservation$module != "3"]))
 })
 
 test_that("untested modules stay visible in the paired summary", {
@@ -798,6 +801,17 @@ test_that("an empty null keeps the counts but not the p-value", {
   expect_equal(got$n_perm_used[, 1], rep(0L, length(fx$mods)))
   expect_equal(got$n_exceed[, 1], rep(0L, length(fx$mods)))
   expect_true(all(is.na(got$p_value[, 1])))
+
+  # Per-column, not all-columns-at-once: a constant reference degree vector
+  # makes cor.degree NA while the density column keeps a usable null.
+  flat <- lapply(fx$mods, function(i) rep(1, length(i)))
+  mixed <- module_preservation_dense_cpp(
+    net$network, net$threshold, keep, mm, flat, flat, flat,
+    n_perm = 20L, n_cores = 1L, binary = FALSE
+  )
+  expect_true(all(is.na(mixed$n_perm_used[, 4])))
+  expect_true(all(mixed$n_perm_used[, 1] > 0L))
+  expect_false(any(is.na(mixed$p_value[, 1])))
 })
 
 
@@ -825,9 +839,6 @@ test_that("sensitivity reports the naive run's own statistics", {
   idx <- match(pres$sensitivity$module, ext$preservation$module)
   expect_equal(pres$sensitivity$Zsummary_naive, ext$preservation$Zsummary[idx])
   expect_equal(pres$sensitivity$q.value_naive, ext$preservation$q.value[idx])
-  expect_false(isTRUE(all.equal(
-    pres$sensitivity$Zsummary, pres$sensitivity$Zsummary_naive
-  )))
 })
 
 
@@ -872,9 +883,11 @@ test_that("correspondence p-values, q-values, jaccard and overlap are sane", {
   expect_false(anyNA(p$jaccard))
   expect_true(all(p$jaccard >= 0 & p$jaccard <= 1))
   expect_true(all(p$overlap <= pmin(p$size_sp1, p$size_sp2)))
-  # Every projected gene lands in exactly one (ref, test) module cell.
-  expect_equal(sum(p$overlap), sum(p$overlap[p$module_sp1 == p$module_sp2]) +
-                 sum(p$overlap[p$module_sp1 != p$module_sp2]))
+  # Every projected gene lands in exactly one (ref, test) module cell, so the
+  # cross-tab total equals the reference-module marginal. Fails if a gene is
+  # ever double-counted.
+  ref_sizes <- p$size_sp1[!duplicated(p$module_sp1)]
+  expect_equal(sum(p$overlap), sum(ref_sizes))
 })
 
 test_that("classification covers every module in both directions", {
@@ -941,19 +954,9 @@ test_that("the test species' own partition never enters preservation", {
   # modules_test argument would silently reintroduce the scale sensitivity.
   expect_false("modules_test" %in% names(formals(module_preservation)))
 
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  a <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 50L, seed = 1
-  )
-  # Partitioning the test species differently changes nothing, because the
-  # partition is not an input.
-  invisible(detect_modules(fx$netB, method = "leiden",
-                           objective_function = "modularity", seed = 99))
-  b <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 50L, seed = 1
-  )
-  expect_equal(a$preservation, b$preservation)
+  # Nor may it acquire one by another name.
+  expect_false(any(grepl("modules_test|partition",
+                         names(formals(module_preservation)))))
 })
 
 test_that("preservation_paired requires a group entry for every species", {

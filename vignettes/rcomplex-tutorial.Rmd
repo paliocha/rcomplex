@@ -291,7 +291,7 @@ mod_results <- preservation_paired(
   modules, networks, orthologs,
   pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
   group = trait_vec,
-  edges = edges, n_cores = n_cores
+  edges = edges, n_cores = n_cores, seed = 42
 )
 
 tibble(species = names(modules),
@@ -387,25 +387,16 @@ set.seed(42)
 
 # Keyed on the ALPHABETICALLY SORTED pair, with module_sp1 belonging to
 # the first of the two species -- that is what the lookup inside
-# classify_hub_conservation() expects. `cliques` is not defined until
-# section 5, so only `edges` feeds the paralog resolver.
+# classify_hub_conservation() expects. preservation_paired() already ran
+# the sorted direction and returns the map it resolved for it, so reuse
+# that rather than resolving a second time.
 correspondence <- list()
 for (i in seq_len(nrow(phylo_pairs))) {
   sp <- sort(c(phylo_pairs$annual[i], phylo_pairs$perennial[i]))
-  g1 <- rownames(networks[[sp[1]]]$network)
-  g2 <- rownames(networks[[sp[2]]]$network)
+  key <- paste(sp, collapse = ".")
+  gene_map <- mod_results$raw[[key]]$map
 
-  # prepare_orthologs() writes each species pair in one orientation only
-  ortho_pair <- orthologs
-  if (sum(ortho_pair$Species1 %in% g1 & ortho_pair$Species2 %in% g2) <
-        sum(ortho_pair$Species2 %in% g1 & ortho_pair$Species1 %in% g2)) {
-    ortho_pair[c("Species1", "Species2")] <-
-      ortho_pair[c("Species2", "Species1")]
-  }
-
-  gene_map <- resolve_ortholog_map(ortho_pair, g1, g2,
-                                   sp1 = sp[1], sp2 = sp[2], edges = edges)
-  correspondence[[paste(sp, collapse = ".")]] <-
+  correspondence[[key]] <-
     module_correspondence(modules[[sp[1]]], modules[[sp[2]]], gene_map)
 }
 

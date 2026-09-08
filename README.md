@@ -129,11 +129,11 @@ hubs1[hubs1$is_hub, ]
 
 # Classify hub conservation across traits. This needs module
 # correspondence ("which module matches which"), not the preservation
-# call, so it takes module_correspondence() over a paralog-resolved map.
+# call. Reuse the map module_preservation() already resolved rather than
+# rebuilding a naive one -- a bare resolve_ortholog_map() with no edges
+# or cliques runs no resolution layer at all.
 trait <- c(SP_A = "annual", SP_B = "perennial")
-map <- resolve_ortholog_map(orthologs, rownames(net1$network),
-                            rownames(net2$network))
-corr <- module_correspondence(mod1, mod2, map)
+corr <- module_correspondence(mod1, mod2, pres$map)
 hub_class <- classify_hub_conservation(
   list(SP_A = hubs1, SP_B = hubs2), trait,
   # The list key must be the ALPHABETICALLY SORTED species pair.
@@ -232,7 +232,7 @@ multiplier) error with a message asking for a larger `store_density`.
 | `density_sweep()` | Re-run the co-expressolog pipeline across density multipliers |
 | `coexpressolog_null()` | Degree-preserving edge-swap null for co-expressolog statistics |
 | `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
-| `resolve_ortholog_map()` | Reduce multi-copy HOGs to one counterpart per gene (cliques, then coexpressologs, then majority vote) |
+| `resolve_ortholog_map()` | Reduce multi-copy HOGs toward one counterpart per gene (cliques, then coexpressologs); the rest stay `unresolved` |
 | `module_preservation()` | Permutation test of module density and hub identity in the other species' network |
 | `classify_preservation()` | Four-tier preservation classification (conserved / moderate / diverged / untested) |
 | `module_correspondence()` | Match modules across species by ortholog overlap on the resolved map |
@@ -443,10 +443,12 @@ continuity with the WGCNA literature (Langfelder *et al.*, 2011); on
 adjacency-only inputs this is the GWENA `z_summary()` formula reduced to
 the statistics available.
 
-Multi-copy HOGs are reduced to one counterpart per gene by
+Multi-copy HOGs are reduced toward one counterpart per gene by
 `resolve_ortholog_map()`: cliques first (globally consistent across every
-species at once), then mutual-best coexpressologs, then majority vote
-with ties dropped. Resolution may only choose *which* paralog copy
+species at once), then mutual-best coexpressologs. Whatever neither layer
+claims is carried as `unresolved`, and `module_preservation()` settles it
+by majority vote over the candidate labels, dropping ties. Resolution may
+only choose *which* paralog copy
 carries a module label, never which genes are mappable -- filtering the
 mappable set on coexpressolog evidence would select the tested genes on
 the statistic being tested. `module_preservation(sensitivity = TRUE)`
@@ -610,7 +612,7 @@ permutations) to avoid zero p-values.
 | `R/coexpressolog_null.R` | `coexpressolog_null()` -- degree-preserving edge-swap null |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
-| `R/ortholog_map.R` | `resolve_ortholog_map()` -- paralog resolution waterfall (cliques, coexpressologs, majority vote) |
+| `R/ortholog_map.R` | `resolve_ortholog_map()` -- paralog resolution waterfall (cliques, coexpressologs, unresolved remainder) |
 | `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |

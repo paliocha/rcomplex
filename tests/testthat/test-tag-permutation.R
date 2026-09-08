@@ -191,13 +191,26 @@ test_that("tag_permutation validates inputs", {
     "target_group.*not found"
   )
 
-  # An old gene-overlap table must error, not return observed = 0.
+  # An old gene-overlap table must error, not return observed = 0. Only the
+  # diverged rows are relabelled, so the table keeps its "conserved" rows --
+  # a guard that merely looked for known levels would pass this.
   old_cls <- fix$classification
-  old_cls$classification <- "species_specific"
+  old_cls$classification[old_cls$classification == "diverged"] <-
+    "species_specific"
   expect_error(
     tag_permutation(old_cls, fix$modules, fix$orthologs,
                     fix$pairs, fix$group, "annual"),
-    "holds none of"
+    "retired gene-overlap vocabulary"
+  )
+
+  # A pair_name the classification does not carry must error rather than
+  # silently yielding observed = 0.
+  bad_pn <- fix$pairs
+  bad_pn$pair_name <- c("nope1", "nope2", "nope3")
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    bad_pn, fix$group, "annual"),
+    "no rows for pair_name"
   )
 
   no_side <- fix$classification

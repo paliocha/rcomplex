@@ -403,10 +403,12 @@ test_that("classify_hub_conservation with module_comparisons detects conserved o
   # At least check that the function runs without error
   expect_true(is.data.frame(result))
   expect_true(all(!is.na(result$classification)))
-  # A live correspondence must actually reach the lookup: NA counts here mean
-  # the keys never matched, which is how the old unsorted keying failed.
+  # A live correspondence must actually reach the lookup: n_corresponding is
+  # reset to NA when the key misses, which is how the old unsorted keying
+  # failed. n_cross_pairs is set regardless, so it proves nothing here.
   expect_false(all(is.na(result$n_corresponding)))
-  expect_false(all(is.na(result$n_cross_pairs)))
+  expect_true(any(result$classification %in%
+                    c("conserved_hub", "rewired_hub")))
 })
 
 

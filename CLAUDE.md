@@ -38,7 +38,7 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `R/coexpressolog_null.R` | `coexpressolog_null()` — degree-preserving edge-swap null |
 | `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, `compute_qvalues()` (randomized-p pi0), torch FE helpers |
 | `R/modules.R` | `detect_modules()` (single + consensus), `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
-| `R/ortholog_map.R` | `resolve_ortholog_map()` — one-to-one paralog resolution (cliques, then mutual-best coexpressologs, then majority vote) |
+| `R/ortholog_map.R` | `resolve_ortholog_map()` — reduce multi-copy HOGs toward one counterpart per gene (cliques, then mutual-best coexpressologs); anything left is carried as `unresolved` and settled by majority vote inside `module_preservation()` / `module_correspondence()` |
 | `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
 | `R/tag_permutation.R` | `tag_permutation()` — trait-specific module recurrence test |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |

@@ -128,10 +128,12 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
          "' not found in group values: ",
          paste(unique(group), collapse = ", "))
   }
-  known_cls <- c("conserved", "moderate", "diverged", "untested")
-  if (!any(classification$classification %in% known_cls)) {
-    stop("classification$classification holds none of ",
-         paste(known_cls, collapse = "/"), "; expected the output of ",
+  # "conserved" belongs to both vocabularies, so testing for known levels
+  # would pass any old table carrying one. Test for the old-only levels.
+  retired_cls <- c("species_specific", "partially_conserved")
+  if (any(classification$classification %in% retired_cls)) {
+    stop("classification uses the retired gene-overlap vocabulary (",
+         paste(retired_cls, collapse = "/"), "); expected the output of ",
          "preservation_paired()")
   }
   miss_sp <- setdiff(unique(c(pairs$sp1, pairs$sp2)),
@@ -140,6 +142,14 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   if (length(miss_sp) > 0L) {
     stop("classification has no rows for: ",
          paste(miss_sp, collapse = ", "))
+  }
+  # preservation_paired() defaults pair_name to "sp1.sp2" while this function
+  # requires the caller to supply it, so a mismatch is easy to produce and
+  # would otherwise yield observed = 0 with no error.
+  miss_pn <- setdiff(pairs$pair_name, unique(classification$pair_name))
+  if (length(miss_pn) > 0L) {
+    stop("classification has no rows for pair_name: ",
+         paste(miss_pn, collapse = ", "))
   }
   n_perm <- as.integer(n_perm)
   min_recurrence <- as.integer(min_recurrence)

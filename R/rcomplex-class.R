@@ -288,21 +288,17 @@ detect_modules.rcomplex <- function(net, ...) {
 # preservation_paired() always runs the sorted direction as one of its two and
 # keys raw "<ref>.<test>", so raw[[key]]$map is the already-resolved map for
 # that orientation; re-keying raw would break the lookup.
-.rcx_correspondence <- function(x, alpha = 0.05) {
+.rcx_correspondence <- function(x) {
   if (is.null(x$modules) || is.null(x$phylo_pairs)) return(NULL)
   out <- list()
   for (p in seq_len(nrow(x$phylo_pairs))) {
     sp <- sort(c(x$phylo_pairs$sp1[p], x$phylo_pairs$sp2[p]))
     key <- paste(sp, collapse = ".")
-    g1 <- rownames(x$networks[[sp[1]]]$network)
-    g2 <- rownames(x$networks[[sp[2]]]$network)
+    # preservation_paired.default() runs both directions and keys raw
+    # "<ref>.<test>", so the sorted key is always present and its map is the
+    # already-resolved one for that orientation.
     map <- x$preservation$raw[[key]]$map
-    if (is.null(map)) {
-      map <- resolve_ortholog_map(
-        .orient_orthologs(x$orthologs, g1, g2), g1, g2,
-        sp1 = sp[1], sp2 = sp[2],
-        edges = x$edges, cliques = x$cliques, alpha = alpha)
-    }
+    if (is.null(map)) next
     # module_correspondence() stops when no gene gets an unambiguous label or
     # none lands in a test-species module; a small container should degrade to
     # "no correspondence", not throw.
