@@ -443,10 +443,14 @@ List run_preservation(WeightedNeighbors& g,
             // counts would let any consumer recompute (0 + 1) / (n + 1) -- the
             // most significant value attainable -- for a statistic that could
             // not be computed at all. All three outputs agree on NA.
-            const bool computable = (count[c] > 0) && !ISNAN(observed[c]);
-            n_out(k, j) = computable ? count[c] : NA_INTEGER;
-            exceed_out(k, j) = computable ? exceed[c] : NA_INTEGER;
-            p_out(k, j) = computable
+            // Gate the counts on the observed value alone. A finite observed
+            // statistic whose permutations were all NA is a different state --
+            // the null was uncomputable, not the statistic -- and a usable
+            // count of 0 is the only thing that records it.
+            const bool have_obs = !ISNAN(observed[c]);
+            n_out(k, j) = have_obs ? count[c] : NA_INTEGER;
+            exceed_out(k, j) = have_obs ? exceed[c] : NA_INTEGER;
+            p_out(k, j) = (have_obs && count[c] > 0)
                 ? static_cast<double>(exceed[c] + 1) / (count[c] + 1)
                 : NA_REAL;
             if (count[c] > 1) {

@@ -30,8 +30,9 @@ preservation_paired(
 \item{group}{Optional named vector mapping species to a trait group. When
 supplied, a \code{group} column records \code{"conserved"} for preserved modules and
 the owning species' group for diverged ones. Modules reported
-\code{"untested"} get \code{NA}: nothing was measured, so attributing them to a
-trait group would overstate the evidence.}
+\code{"untested"} are counted under \code{"untested"} rather than a trait group:
+nothing was measured, so attributing them to one would overstate the
+evidence.}
 
 \item{edges, cliques}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} and \code{\link[=find_cliques]{find_cliques()}}
 results, used for paralog resolution.}

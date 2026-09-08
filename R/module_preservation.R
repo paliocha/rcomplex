@@ -623,8 +623,11 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     )
   )
   if (any(!testable)) {
+    where <- paste(stats::na.omit(c(species, pair_name)), collapse = " / ")
     warning(sum(!testable), " module(s) could not be tested (a statistic was ",
-            "undefined); reported as \"untested\"")
+            "undefined); reported as \"untested\"",
+            if (nzchar(where)) paste0(" [", where, "]") else "",
+            ": ", paste(p$module[!testable], collapse = ", "))
   }
 
   data.frame(
@@ -758,8 +761,9 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' @param group Optional named vector mapping species to a trait group. When
 #'   supplied, a `group` column records `"conserved"` for preserved modules and
 #'   the owning species' group for diverged ones. Modules reported
-#'   `"untested"` get `NA`: nothing was measured, so attributing them to a
-#'   trait group would overstate the evidence.
+#'   `"untested"` are counted under `"untested"` rather than a trait group:
+#'   nothing was measured, so attributing them to one would overstate the
+#'   evidence.
 #' @param edges,cliques Optional [find_coexpressologs()] and [find_cliques()]
 #'   results, used for paralog resolution.
 #' @param alpha,z_conserved Passed to [classify_preservation()].
@@ -857,9 +861,11 @@ preservation_paired <- function(modules, networks, orthologs, pairs,
       cls$test <- test
       if (!is.null(group)) {
         # "untested" is not evidence of species-specific divergence, so it
-        # earns no trait-group attribution.
+        # earns no trait-group attribution -- but it is carried as its own
+        # level rather than NA, which stats::aggregate() would silently drop
+        # from the summary under its default na.omit.
         cls$group <- ifelse(
-          cls$classification == "untested", NA_character_,
+          cls$classification == "untested", "untested",
           ifelse(cls$classification != "diverged",
                  "conserved", as.character(group[ref]))
         )

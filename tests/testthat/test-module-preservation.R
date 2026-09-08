@@ -674,3 +674,89 @@ test_that("preservation_paired rejects a repeated or self species pair", {
     "not compare a species with itself"
   )
 })
+
+
+# ---- untested modules through preservation_paired ----
+
+# Hand-built pair: two connected blocks plus an isolated block. Every gene in
+# the isolated module has kIM = 0, so the degree correlation is undefined and
+# the module comes back "untested" rather than diverged.
+isolated_fixture <- function() {
+  n <- 60L
+  build <- function(prefix) {
+    m <- matrix(0, n, n)
+    m[1:20, 1:20] <- 1
+    m[21:40, 21:40] <- 1
+    diag(m) <- 0
+    dimnames(m) <- list(
+      paste0(prefix, sprintf("%02d", seq_len(n))),
+      paste0(prefix, sprintf("%02d", seq_len(n)))
+    )
+    list(network = m, threshold = 0.5)
+  }
+  mods <- list(1:20, 21:40, 41:60)
+  nets <- list(A = build("A"), B = build("B"))
+  list(
+    nets = nets,
+    mods = lapply(names(nets), function(sp) {
+      genes <- rownames(nets[[sp]]$network)
+      mb <- stats::setNames(rep(NA_integer_, n), genes)
+      for (k in seq_along(mods)) mb[mods[[k]]] <- k
+      list(modules = mb, module_genes = split(names(mb), mb), n_modules = 3L)
+    }) |> stats::setNames(names(nets)),
+    ortho = data.frame(
+      Species1 = paste0("A", sprintf("%02d", seq_len(n))),
+      Species2 = paste0("B", sprintf("%02d", seq_len(n))),
+      hog = paste0("H", seq_len(n)),
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+test_that("a module with constant connectivity is untested, not diverged", {
+  fx <- isolated_fixture()
+
+  expect_warning(
+    pres <- module_preservation(fx$mods$A, fx$nets$A, fx$nets$B, fx$ortho,
+      n_perm = 50L, seed = 1
+    ),
+    "connectivity is constant"
+  )
+  expect_warning(cls <- classify_preservation(pres), "could not be tested")
+
+  expect_true("untested" %in% cls$classification)
+  expect_true(all(is.na(cls$q.value[cls$classification == "untested"])))
+})
+
+test_that("untested modules stay visible in the paired summary", {
+  fx <- isolated_fixture()
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  res <- suppressWarnings(preservation_paired(
+    fx$mods, fx$nets, fx$ortho, pairs,
+    group = c(A = "annual", B = "perennial"), n_perm = 50L, seed = 1
+  ))
+
+  expect_true("untested" %in% res$classification$classification)
+  # An untested module earns no trait attribution, but must not vanish:
+  # stats::aggregate() drops NA groups under its default na.omit, so the
+  # counts would silently stop summing to the number of modules.
+  untested <- res$classification$classification == "untested"
+  expect_true(all(res$classification$group[untested] == "untested"))
+  expect_equal(sum(res$summary$n), nrow(res$classification))
+})
+
+test_that("the paired summary always accounts for every module", {
+  fx <- pres_fixture()
+  mods <- list(A = true_modules(fx$netA, fx$mods),
+               B = true_modules(fx$netB, fx$mods))
+  nets <- list(A = fx$netA, B = fx$netB)
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  for (grp in list(NULL, c(A = "annual", B = "perennial"))) {
+    res <- suppressWarnings(preservation_paired(
+      mods, nets, fx$ortho, pairs, group = grp, n_perm = 50L, seed = 1
+    ))
+    expect_equal(sum(res$summary$n), nrow(res$classification))
+  }
+})
