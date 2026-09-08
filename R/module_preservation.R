@@ -117,6 +117,10 @@
 #'   matching gene sets means the copy choice mattered; a mismatched gene set
 #'   means the resolution layer is filtering rather than choosing, which is a
 #'   bug.
+#' @param copy_draws Number of random copy choices drawn for the
+#'   `sensitivity` comparison (default 200). Each draw resolves the same
+#'   candidate map by picking one species-1 partner per species-2 gene
+#'   uniformly at random, so only the copy choice varies.
 #' @param n_cores Number of OpenMP threads (default 1).
 #' @param seed Optional RNG seed. Results are independent of `n_cores`.
 #'
@@ -128,17 +132,27 @@
 #'       `Z.cor.degree`, `Zsummary` and `medianRank`.}
 #'     \item{observed}{All six statistics per module, with permutation means
 #'       and standard deviations.}
+#'     \item{coverage}{One row per reference module -- `size`,
+#'       `size_mapped`, `tested`, and the `reason` it was not -- so the tested
+#'       set reconciles against the partition. Modules below
+#'       `min_module_size`, and modules whose genes never reach the test
+#'       species, leave the analysis entirely; without this the preservation
+#'       table looks like a complete accounting when it is not.}
 #'     \item{projection}{One row per test-species gene that received a module
 #'       label: the reference gene it came from, the module, and which
 #'       resolution layer chose the pair.}
 #'     \item{map}{The ortholog map used.}
 #'     \item{sensitivity}{Only when `sensitivity = TRUE`: per-module
 #'       `size_mapped`, `Zsummary` and `q.value` under the resolved and naive
-#'       maps, plus the `same_gene_set` attribute recording whether both mapped
-#'       the identical test-species genes. `size_mapped` is the deterministic
-#'       consequence of the copy choice; `Zsummary_delta` also absorbs
-#'       permutation-stream drift when the two runs have different block
-#'       sizes.}
+#'       maps, plus `p_copy.avg.weight` and `p_copy.cor.degree` -- where each
+#'       statistic sits in a null over `copy_draws` random copy choices of the
+#'       same candidate map. The `same_gene_set` attribute records whether the
+#'       resolved and naive maps covered the identical test-species genes, and
+#'       `n_multi_copy` how many species-2 genes had more than one candidate
+#'       partner (the copy null is skipped, and the columns absent, when none
+#'       did). `size_mapped` is the deterministic consequence of the copy
+#'       choice; `Zsummary_delta` also absorbs permutation-stream drift when
+#'       the two runs have different block sizes.}
 #'     \item{params}{Call parameters.}
 #'   }
 #'
@@ -168,7 +182,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
                                 n_perm = 10000L, min_module_size = 10L,
                                 binary = FALSE, alpha = 0.05,
                                 qvalue_method = c("liang", "bh"),
-                                sensitivity = FALSE,
+                                sensitivity = FALSE, copy_draws = 200L,
                                 n_cores = 1L, seed = NULL) {
   if (!is.list(modules_ref) || is.null(modules_ref$module_genes) ||
     is.null(modules_ref$modules)) {
@@ -238,6 +252,39 @@ module_preservation <- function(modules_ref, net_ref, net_test,
       ") mapped test-species genes; largest is ", max(sizes)
     )
   }
+
+  # Every module the reference has, and what became of it. Modules below
+  # min_module_size leave the analysis entirely, and modules whose genes never
+  # reach the test species never appear in `sizes` at all -- reporting only
+  # the tested ones makes a partial analysis look complete.
+  all_mods <- names(modules_ref$module_genes)
+  mapped_n <- integer(length(all_mods))
+  names(mapped_n) <- all_mods
+  mapped_n[names(sizes)] <- sizes
+  coverage <- data.frame(
+    module = all_mods,
+    size = as.integer(vapply(modules_ref$module_genes, length, integer(1))),
+    size_mapped = as.integer(mapped_n),
+    tested = all_mods %in% tested,
+    stringsAsFactors = FALSE
+  )
+  coverage$reason <- ifelse(
+    coverage$tested, NA_character_,
+    ifelse(coverage$size_mapped == 0L, "no mapped gene",
+           paste0("fewer than min_module_size (", min_module_size,
+                  ") mapped genes"))
+  )
+  rownames(coverage) <- NULL
+
+  n_dropped <- sum(!coverage$tested)
+  if (n_dropped > 0L) {
+    message(n_dropped, " of ", nrow(coverage), " reference modules were not ",
+            "tested (", sum(coverage$size_mapped == 0L), " with no mapped ",
+            "gene, ", sum(!coverage$tested & coverage$size_mapped > 0L),
+            " below min_module_size = ", min_module_size,
+            "); see $coverage")
+  }
+
   rows_by_mod <- rows_by_mod[tested]
 
   # ---- Local index spaces (ascending, as the C++ entry points require) ----
@@ -290,6 +337,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     res, modules_ref, tested, rows_by_mod, proj, map,
     n_perm, min_module_size, binary, alpha, qvalue_method, seed
   )
+  out$coverage <- coverage
 
   if (isTRUE(sensitivity)) {
     if (is.null(orthologs)) {
@@ -321,6 +369,18 @@ module_preservation <- function(modules_ref, net_ref, net_test,
       )
       if (!is.null(naive)) {
         out$sensitivity <- .pres_sensitivity(out, naive, map, naive_map)
+        cn <- .pres_copy_null(
+          out$preservation, modules_ref, net_ref, net_test, orthologs,
+          genes_ref, genes_test, copy_draws, min_module_size, binary
+        )
+        if (!is.null(cn$p_copy.avg.weight)) {
+          out$sensitivity$p_copy.avg.weight <- cn$p_copy.avg.weight
+          out$sensitivity$p_copy.cor.degree <- cn$p_copy.cor.degree
+          attr(out$sensitivity, "n_multi_copy") <- cn$n_multi
+          attr(out$sensitivity, "n_copy_draws") <- cn$n_draws
+        } else {
+          attr(out$sensitivity, "n_multi_copy") <- cn$n_multi
+        }
       }
     }
   }
@@ -493,6 +553,24 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   rank_c <- rank(-res$observed[, cc], na.last = "keep")
   median_rank <- (rank_d + rank_c) / 2
 
+  # Null scale of Zsummary. Each Z is standardized by its own permutation
+  # mean and sd, so it has unit null variance by construction; their mean does
+  # not, and its variance depends on how correlated the two statistics are
+  # under the null: sd = sqrt(2 + 2*rho) / 2. Langfelder et al.'s 10 / 2 cut
+  # points were set for a Zsummary built from medians over several statistics,
+  # a quantity with a different null spread, so reading them against a raw
+  # mean of two is reading them on an unknown scale.
+  n_cross <- res$cross_n
+  mu_d <- res$perm_mean[, d]
+  mu_c <- res$perm_mean[, cc]
+  sd_d <- res$perm_sd[, d]
+  sd_c <- res$perm_sd[, cc]
+  cov_dc <- ifelse(n_cross > 1L,
+                   res$cross_sum / n_cross - mu_d * mu_c, NA_real_)
+  rho <- ifelse(sd_d > 0 & sd_c > 0, cov_dc / (sd_d * sd_c), NA_real_)
+  rho <- pmin(pmax(rho, -1), 1)
+  z_null_sd <- sqrt(2 + 2 * rho) / 2
+
   size_all <- vapply(modules_ref$module_genes, length, integer(1))
 
   preservation <- data.frame(
@@ -508,6 +586,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     Z.avg.weight = z[, d],
     Z.cor.degree = z[, cc],
     Zsummary = (z[, d] + z[, cc]) / 2,
+    Zsummary_null_sd = z_null_sd,
+    Zsummary_std = ((z[, d] + z[, cc]) / 2) / z_null_sd,
     medianRank = median_rank,
     stringsAsFactors = FALSE
   )
@@ -577,6 +657,78 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 }
 
 
+
+#' Null distribution over paralog copy choices (internal)
+#'
+#' The resolved map picks copies using coexpressolog evidence, and a
+#' coexpressolog is a gene pair whose co-expression neighbourhoods overlap --
+#' the same signal `avg.weight` and `cor.degree` measure. The permutation null
+#' cannot see that selection, because it draws random gene blocks with no copy
+#' choice at all, so the observed statistics are inflated relative to it.
+#'
+#' This draws `n_draws` alternative resolutions of the same candidate map, each
+#' picking one species-1 partner per species-2 gene uniformly at random, and
+#' reports where the real map's statistics sit in that distribution. Every draw
+#' covers the identical species-2 genes, so only the copy choice varies.
+#'
+#' A large `p_copy` means the result is typical of an arbitrary copy choice and
+#' the resolution did not manufacture it. A small `p_copy` means the finding
+#' depends on having picked those particular copies, which is exactly the
+#' circularity to distrust.
+#'
+#' @noRd
+.pres_copy_null <- function(observed, modules_ref, net_ref, net_test,
+                            orthologs, genes_ref, genes_test, n_draws,
+                            min_module_size, binary) {
+  cand <- resolve_ortholog_map(orthologs, genes_ref, genes_test)
+  by_g2 <- split(seq_len(nrow(cand)), cand$gene2)
+  multi <- sum(lengths(by_g2) > 1L)
+  if (multi == 0L) {
+    return(list(draws = NULL, n_multi = 0L))
+  }
+
+  draws <- vector("list", n_draws)
+  for (d in seq_len(n_draws)) {
+    idx <- vapply(by_g2, function(ix) {
+      if (length(ix) == 1L) ix else ix[sample.int(length(ix), 1L)]
+    }, integer(1))
+    m <- cand[idx, , drop = FALSE]
+    m$source <- "random"
+    draws[[d]] <- tryCatch(
+      module_preservation(
+        modules_ref, net_ref, net_test, map = m, n_perm = 1L,
+        min_module_size = min_module_size, binary = binary,
+        sensitivity = FALSE
+      )$preservation,
+      error = function(e) NULL
+    )
+  }
+  draws <- Filter(Negate(is.null), draws)
+  if (length(draws) == 0L) {
+    return(list(draws = NULL, n_multi = multi))
+  }
+
+  stat_p <- function(col) {
+    vapply(seq_len(nrow(observed)), function(i) {
+      vals <- vapply(draws, function(d) {
+        j <- match(observed$module[i], d$module)
+        if (is.na(j)) NA_real_ else d[[col]][j]
+      }, numeric(1))
+      vals <- vals[!is.na(vals)]
+      if (length(vals) == 0L || is.na(observed[[col]][i])) {
+        return(NA_real_)
+      }
+      (sum(vals >= observed[[col]][i]) + 1) / (length(vals) + 1)
+    }, numeric(1))
+  }
+  list(
+    n_multi = multi,
+    n_draws = length(draws),
+    p_copy.avg.weight = stat_p("avg.weight"),
+    p_copy.cor.degree = stat_p("cor.degree")
+  )
+}
+
 #' Classify modules as conserved, moderately preserved, or diverged
 #'
 #' Turns [module_preservation()] output into a per-module call. The call is
@@ -586,8 +738,9 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'
 #' @section Criteria:
 #' \describe{
-#'   \item{conserved}{`q.value < alpha` and `Zsummary >= z_conserved`}
-#'   \item{moderate}{`q.value < alpha` and `Zsummary < z_conserved`}
+#'   \item{conserved}{`q.value < alpha` and the `Zsummary` scale chosen by
+#'     `z_scale` is at or above `z_conserved`}
+#'   \item{moderate}{`q.value < alpha` and it is below `z_conserved`}
 #'   \item{diverged}{`q.value >= alpha`}
 #'   \item{untested}{`q.value` is `NA` -- a statistic could not be computed,
 #'     so neither preservation nor divergence was measured}
@@ -602,9 +755,23 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'
 #' @param pres Output of [module_preservation()].
 #' @param alpha Significance threshold for the combined q-value (default 0.05).
-#' @param z_conserved `Zsummary` at or above which a significant module is
-#'   called conserved rather than moderately preserved (default 10, the
-#'   Langfelder et al. 2011 cut point).
+#' @param z_conserved Cut point at or above which a significant module is
+#'   called conserved rather than moderately preserved (default 10).
+#' @param z_scale Which `Zsummary` the cut point is read against.
+#'   `"standardized"` (default) uses `Zsummary_std`, which has unit variance
+#'   under the permutation null; `"raw"` uses `Zsummary` itself.
+#'
+#'   This matters because the familiar 10 / 2 cut points are not
+#'   scale-free. Langfelder et al. (2011) set them for a `Zsummary` built as
+#'   the mean of two medians over several density and connectivity statistics.
+#'   Here only two statistics are available from an adjacency matrix, so
+#'   `Zsummary` is the mean of two standardized values and its null spread is
+#'   `sqrt(2 + 2 * rho) / 2`, where `rho` is the null correlation between
+#'   `avg.weight` and `cor.degree` -- between 0.71 and 1 rather than the
+#'   smaller spread a median-of-several carries. Reading 10 against the raw
+#'   mean therefore imports a number calibrated on a different quantity.
+#'   Dividing by the null sd restores its intended meaning, "this many null
+#'   standard deviations". Use `"raw"` only to reproduce older output.
 #' @param species Optional species label recorded in the `species` column.
 #' @param pair_name Optional contrast label recorded in the `pair_name` column.
 #'
@@ -619,8 +786,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'
 #' @export
 classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
+                                  z_scale = c("standardized", "raw"),
                                   species = NA_character_,
                                   pair_name = NA_character_) {
+  z_scale <- match.arg(z_scale)
   if (!is.list(pres) || is.null(pres$preservation)) {
     stop("pres must be output from module_preservation()")
   }
@@ -628,7 +797,15 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 
   testable <- !is.na(p$q.value)
   significant <- testable & p$q.value < alpha
-  strong <- !is.na(p$Zsummary) & p$Zsummary >= z_conserved
+  # Read the cut point on a scale where it means what it is meant to mean:
+  # one null standard deviation. Zsummary is a mean of two standardized
+  # statistics, so its own null sd is sqrt(2 + 2*rho)/2, not 1.
+  z_used <- if (z_scale == "standardized" && "Zsummary_std" %in% names(p)) {
+    p$Zsummary_std
+  } else {
+    p$Zsummary
+  }
+  strong <- !is.na(z_used) & z_used >= z_conserved
   classification <- ifelse(!testable, "untested",
     ifelse(!significant, "diverged",
       ifelse(strong, "conserved", "moderate")
@@ -651,6 +828,11 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     pair_name = rep(pair_name, length.out = n),
     classification = classification,
     Zsummary = p$Zsummary,
+    Zsummary_std = if ("Zsummary_std" %in% names(p)) {
+      p$Zsummary_std
+    } else {
+      rep(NA_real_, n)
+    },
     q.value = p$q.value,
     size = p$size,
     size_mapped = p$size_mapped,

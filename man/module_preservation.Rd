@@ -20,6 +20,7 @@ module_preservation(
   alpha = 0.05,
   qvalue_method = c("liang", "bh"),
   sensitivity = FALSE,
+  copy_draws = 200L,
   n_cores = 1L,
   seed = NULL
 )
@@ -78,6 +79,11 @@ matching gene sets means the copy choice mattered; a mismatched gene set
 means the resolution layer is filtering rather than choosing, which is a
 bug.}
 
+\item{copy_draws}{Number of random copy choices drawn for the
+\code{sensitivity} comparison (default 200). Each draw resolves the same
+candidate map by picking one species-1 partner per species-2 gene
+uniformly at random, so only the copy choice varies.}
+
 \item{n_cores}{Number of OpenMP threads (default 1).}
 
 \item{seed}{Optional RNG seed. Results are independent of \code{n_cores}.}
@@ -91,17 +97,27 @@ p-values, the combined \code{p.value} and \code{q.value}, \code{Z.avg.weight},
 \code{Z.cor.degree}, \code{Zsummary} and \code{medianRank}.}
 \item{observed}{All six statistics per module, with permutation means
 and standard deviations.}
+\item{coverage}{One row per reference module -- \code{size},
+\code{size_mapped}, \code{tested}, and the \code{reason} it was not -- so the tested
+set reconciles against the partition. Modules below
+\code{min_module_size}, and modules whose genes never reach the test
+species, leave the analysis entirely; without this the preservation
+table looks like a complete accounting when it is not.}
 \item{projection}{One row per test-species gene that received a module
 label: the reference gene it came from, the module, and which
 resolution layer chose the pair.}
 \item{map}{The ortholog map used.}
 \item{sensitivity}{Only when \code{sensitivity = TRUE}: per-module
 \code{size_mapped}, \code{Zsummary} and \code{q.value} under the resolved and naive
-maps, plus the \code{same_gene_set} attribute recording whether both mapped
-the identical test-species genes. \code{size_mapped} is the deterministic
-consequence of the copy choice; \code{Zsummary_delta} also absorbs
-permutation-stream drift when the two runs have different block
-sizes.}
+maps, plus \code{p_copy.avg.weight} and \code{p_copy.cor.degree} -- where each
+statistic sits in a null over \code{copy_draws} random copy choices of the
+same candidate map. The \code{same_gene_set} attribute records whether the
+resolved and naive maps covered the identical test-species genes, and
+\code{n_multi_copy} how many species-2 genes had more than one candidate
+partner (the copy null is skipped, and the columns absent, when none
+did). \code{size_mapped} is the deterministic consequence of the copy
+choice; \code{Zsummary_delta} also absorbs permutation-stream drift when
+the two runs have different block sizes.}
 \item{params}{Call parameters.}
 }
 }

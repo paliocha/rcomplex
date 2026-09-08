@@ -246,7 +246,7 @@ test_that("module_preservation returns the documented structure", {
 
   expect_named(pres, c(
     "preservation", "observed", "projection", "map",
-    "params"
+    "params", "coverage"
   ))
   expect_true(all(c(
     "module", "size", "size_mapped", "avg.weight",
@@ -422,7 +422,8 @@ test_that("sensitivity detects a copy choice that changes the result", {
   expect_true("sensitivity" %in% names(pres))
   expect_named(pres$sensitivity, c(
     "module", "size_mapped", "size_mapped_naive", "Zsummary",
-    "Zsummary_naive", "q.value", "q.value_naive", "Zsummary_delta"
+    "Zsummary_naive", "q.value", "q.value_naive", "Zsummary_delta",
+    "p_copy.avg.weight", "p_copy.cor.degree"
   ))
 
   # Resolution may only change which copy carries a label, never which genes
@@ -1069,4 +1070,90 @@ test_that("module_correspondence records its orientation", {
 
   expect_equal(corr$sp_ref, "A")
   expect_equal(corr$sp_test, "B")
+})
+
+
+test_that("the copy-choice null runs and is skipped when there is no choice", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  amb <- ambiguous_fixture(fx)
+
+  # The ambiguous fixture has multi-copy HOGs, so there is a copy choice to
+  # vary and the null has something to say.
+  pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
+    cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+    n_perm = 100L, sensitivity = TRUE, copy_draws = 20L, seed = 1
+  )
+  expect_true(all(c("p_copy.avg.weight", "p_copy.cor.degree") %in%
+                    names(pres$sensitivity)))
+  pc <- c(pres$sensitivity$p_copy.avg.weight,
+          pres$sensitivity$p_copy.cor.degree)
+  pc <- pc[!is.na(pc)]
+  expect_true(all(pc > 0 & pc <= 1))
+  expect_gt(attr(pres$sensitivity, "n_multi_copy"), 0L)
+
+  # The 1:1 fixture offers no copy to choose, so the null is skipped rather
+  # than reporting a degenerate p of 1 for every module.
+  strict <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    map = resolve_ortholog_map(fx$ortho, rownames(fx$netA$network),
+                               rownames(fx$netB$network)),
+    n_perm = 50L, sensitivity = TRUE, copy_draws = 5L, seed = 1
+  )
+  expect_equal(attr(strict$sensitivity, "n_multi_copy"), 0L)
+  expect_false("p_copy.avg.weight" %in% names(strict$sensitivity))
+})
+
+
+test_that("Zsummary is standardized to unit null variance", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 500L, n_cores = 2L, seed = 1
+  )
+  d <- pres$preservation
+
+  # Each Z has unit null variance by construction, so their mean has null sd
+  # sqrt(2 + 2*rho)/2 -- between 1/sqrt(2) and 1. Reading the Langfelder 10/2
+  # cut points against the raw mean imports a threshold calibrated on a
+  # different quantity.
+  expect_true(all(d$Zsummary_null_sd >= 1 / sqrt(2) - 1e-8))
+  expect_true(all(d$Zsummary_null_sd <= 1 + 1e-8))
+  expect_equal(d$Zsummary_std, d$Zsummary / d$Zsummary_null_sd)
+
+  # The scale switch must actually change which cut point is applied.
+  raw <- classify_preservation(pres, z_conserved = 10, z_scale = "raw")
+  std <- classify_preservation(pres, z_conserved = 10,
+                               z_scale = "standardized")
+  expect_gte(sum(std$classification == "conserved"),
+             sum(raw$classification == "conserved"))
+})
+
+test_that("coverage reconciles the tested modules against the partition", {
+  fx <- pres_fixture()
+  # Carve a five-gene module out of module 4 so something is genuinely below
+  # min_module_size; every module in the base fixture has 40 genes.
+  mods <- fx$mods
+  mods[[4]] <- setdiff(mods[[4]], tail(fx$mods[[4]], 5L))
+  mods[[5]] <- tail(fx$mods[[4]], 5L)
+  tm <- true_modules(fx$netA, mods)
+
+  # min_module_size drops modules from the analysis entirely; without a
+  # coverage table the preservation output looks like a complete accounting.
+  expect_message(
+    pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+      n_perm = 50L, min_module_size = 10L, seed = 1
+    ),
+    "were not tested"
+  )
+
+  expect_equal(nrow(pres$coverage), tm$n_modules)
+  expect_false(pres$coverage$tested[pres$coverage$module == "5"])
+  expect_match(pres$coverage$reason[pres$coverage$module == "5"],
+               "min_module_size")
+  expect_equal(sum(pres$coverage$tested), nrow(pres$preservation))
+  expect_true(all(c("module", "size", "size_mapped", "tested", "reason") %in%
+                    names(pres$coverage)))
+  # Every untested module carries a reason; every tested one does not.
+  expect_true(all(!is.na(pres$coverage$reason[!pres$coverage$tested])))
+  expect_true(all(is.na(pres$coverage$reason[pres$coverage$tested])))
 })
