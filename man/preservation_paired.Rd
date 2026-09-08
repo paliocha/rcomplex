@@ -2,9 +2,12 @@
 % Please edit documentation in R/module_preservation.R
 \name{preservation_paired}
 \alias{preservation_paired}
+\alias{preservation_paired.default}
 \title{Run module preservation across many species pairs}
 \usage{
-preservation_paired(
+preservation_paired(modules, ...)
+
+\method{preservation_paired}{default}(
   modules,
   networks,
   orthologs,
@@ -19,6 +22,8 @@ preservation_paired(
 }
 \arguments{
 \item{modules}{Named list of \code{\link[=detect_modules]{detect_modules()}} results, keyed by species.}
+
+\item{...}{Additional arguments passed to the default method.}
 
 \item{networks}{Named list of \code{\link[=compute_network]{compute_network()}} results, keyed by species.}
 
@@ -38,8 +43,6 @@ evidence.}
 results, used for paralog resolution.}
 
 \item{alpha, z_conserved}{Passed to \code{\link[=classify_preservation]{classify_preservation()}}.}
-
-\item{...}{Further arguments passed to \code{\link[=module_preservation]{module_preservation()}}.}
 }
 \value{
 A list with \code{classification} (one row per module per direction,
@@ -47,12 +50,9 @@ carrying \code{pair_name}, \code{module}, \code{species}, \code{reference}, \cod
 \code{classification}), \code{summary} (counts per contrast and direction) and \code{raw}
 (the \code{\link[=module_preservation]{module_preservation()}} results, keyed by \code{"<reference>.<test>"}).
 
-Note that \code{\link[=tag_permutation]{tag_permutation()}} cannot consume this table yet: it selects
-rows on \code{classification == "species_specific"} and \code{species \%in\% c("sp1", "sp2")}, the vocabulary of the overlap engine, whereas this
-function emits \code{"conserved"} / \code{"moderate"} / \code{"diverged"} /
-\code{"untested"} and real species names. Feeding it straight in yields an
-empty result with no error. \code{\link[=tag_permutation]{tag_permutation()}} is updated when the
-overlap engine is removed.
+This table feeds \code{\link[=tag_permutation]{tag_permutation()}} directly: it selects the
+\code{"diverged"} rows and uses \code{reference} / \code{test} to pick each contrast's
+two sides.
 }
 \description{
 Applies \code{\link[=module_preservation]{module_preservation()}} to each contrast in \code{pairs}. Preservation is

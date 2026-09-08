@@ -31,7 +31,9 @@ all pairwise combinations.}
 
 \item{phylo_pairs}{Optional data frame with columns \code{sp1},
 \code{sp2} (and optionally \code{pair_name}) for module-level
-comparison.}
+preservation (\code{\link{preservation_paired}}). Note the
+constructor accepts self-pairs and duplicated unordered contrasts that
+\code{\link{preservation_paired}} later rejects.}
 }
 \value{
 An S3 object of class \code{"rcomplex"}.

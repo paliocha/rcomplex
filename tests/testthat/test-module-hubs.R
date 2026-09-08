@@ -364,6 +364,8 @@ test_that("classify_hub_conservation without module_comparisons uses multi_trait
 
 
 test_that("classify_hub_conservation with module_comparisons detects conserved or rewired", {
+  # module_correspondence() q-values draw from the global RNG.
+  set.seed(42)
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 5L)
 
@@ -381,8 +383,13 @@ test_that("classify_hub_conservation with module_comparisons detects conserved o
     if (!ortho_key %in% names(td$orthologs)) {
       ortho_key <- paste(sp2, sp1, sep = ".")
     }
-    mod_comps[[key]] <- compare_modules(
-      td$mods[[sp1]], td$mods[[sp2]], td$orthologs[[ortho_key]]
+    map <- resolve_ortholog_map(
+      td$orthologs[[ortho_key]],
+      rownames(td$nets[[sp1]]$network),
+      rownames(td$nets[[sp2]]$network)
+    )
+    mod_comps[[key]] <- module_correspondence(
+      td$mods[[sp1]], td$mods[[sp2]], map
     )
   }
 
@@ -396,6 +403,10 @@ test_that("classify_hub_conservation with module_comparisons detects conserved o
   # At least check that the function runs without error
   expect_true(is.data.frame(result))
   expect_true(all(!is.na(result$classification)))
+  # A live correspondence must actually reach the lookup: NA counts here mean
+  # the keys never matched, which is how the old unsorted keying failed.
+  expect_false(all(is.na(result$n_corresponding)))
+  expect_false(all(is.na(result$n_cross_pairs)))
 })
 
 
@@ -429,6 +440,11 @@ test_that("classify_hub_conservation validates inputs", {
   expect_error(classify_hub_conservation(hubs,
                  c(SP_A = "annual", SP_B = "annual")),
                "missing entries")
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_A.SP_C = list(raw = 1))),
+    "must be a module_correspondence\\(\\) result"
+  )
 })
 
 

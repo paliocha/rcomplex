@@ -46,6 +46,8 @@ test_that("rcomplex constructor creates valid object", {
   # All result slots are NULL
   expect_null(rcx$edges)
   expect_null(rcx$modules)
+  expect_null(rcx$preservation)
+  expect_null(rcx$correspondence)
   expect_null(rcx$cliques)
   expect_null(rcx$classification)
 })
@@ -136,6 +138,7 @@ test_that("print.rcomplex shows pipeline status", {
   out <- capture.output(print(rcx))
   expect_true(any(grepl("rcomplex:", out)))
   expect_true(any(grepl("\\[pending\\]", out)))
+  expect_true(any(grepl("Preservation:", out)))
 })
 
 
@@ -266,34 +269,41 @@ test_that("classify_cliques errors without edges", {
 })
 
 
-test_that("compare_modules_paired dispatches on rcomplex", {
+test_that("preservation_paired dispatches on rcomplex", {
   fix <- make_rcx_fixtures()
   phylo <- data.frame(sp1 = "SP_A", sp2 = "SP_B")
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
                    phylo_pairs = phylo)
   rcx <- detect_modules(rcx, method = "leiden",
                           objective_function = "modularity")
-  rcx <- compare_modules_paired(rcx)
+  # classify_preservation() warns that some modules could not be tested on a
+  # fixture this small.
+  rcx <- suppressWarnings(
+    preservation_paired(rcx, min_module_size = 3L, n_perm = 99L, seed = 1))
   expect_s3_class(rcx, "rcomplex")
-  expect_true(!is.null(rcx$module_comparisons))
+  expect_true(is.data.frame(rcx$preservation$classification))
+  expect_setequal(names(rcx$preservation),
+                  c("classification", "summary", "raw"))
+  # Preservation is directional: both orientations always run.
+  expect_setequal(names(rcx$preservation$raw), c("SP_A.SP_B", "SP_B.SP_A"))
 })
 
 
-test_that("compare_modules_paired errors without modules", {
+test_that("preservation_paired errors without modules", {
   fix <- make_rcx_fixtures()
   phylo <- data.frame(sp1 = "SP_A", sp2 = "SP_B")
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
                    phylo_pairs = phylo)
-  expect_error(compare_modules_paired(rcx), "run detect_modules")
+  expect_error(preservation_paired(rcx), "run detect_modules")
 })
 
 
-test_that("compare_modules_paired errors without phylo_pairs", {
+test_that("preservation_paired errors without phylo_pairs", {
   fix <- make_rcx_fixtures()
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
   rcx <- detect_modules(rcx, method = "leiden",
                           objective_function = "modularity")
-  expect_error(compare_modules_paired(rcx), "phylo_pairs not set")
+  expect_error(preservation_paired(rcx), "phylo_pairs not set")
 })
 
 
@@ -305,6 +315,28 @@ test_that("classify_hub_conservation dispatches on rcomplex", {
   rcx <- identify_module_hubs(rcx)
   rcx <- classify_hub_conservation(rcx)
   expect_s3_class(rcx, "rcomplex")
+  expect_true(is.data.frame(rcx$hub_classification))
+})
+
+
+test_that("the container builds a usable module correspondence", {
+  fix <- make_rcx_fixtures()
+  phylo <- data.frame(sp1 = "SP_A", sp2 = "SP_B")
+  rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
+                   phylo_pairs = phylo)
+  rcx <- detect_modules(rcx, method = "leiden",
+                          objective_function = "modularity")
+  rcx <- suppressWarnings(
+    preservation_paired(rcx, min_module_size = 3L, n_perm = 99L, seed = 1))
+  rcx <- identify_module_hubs(rcx)
+  rcx <- classify_hub_conservation(rcx)
+
+  expect_false(is.null(rcx$correspondence))
+  # Keys must be the ALPHABETICALLY SORTED pair -- that is what
+  # classify_hub_conservation() looks up.
+  expect_equal(names(rcx$correspondence), "SP_A.SP_B")
+  expect_true(all(c("module_sp1", "module_sp2", "jaccard", "q.value") %in%
+                    names(rcx$correspondence[["SP_A.SP_B"]]$pairs)))
   expect_true(is.data.frame(rcx$hub_classification))
 })
 

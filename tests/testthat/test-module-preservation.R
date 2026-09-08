@@ -559,10 +559,9 @@ test_that("preservation_paired runs both directions per contrast", {
   expect_setequal(names(res$raw), c("A.B", "B.A"))
   expect_setequal(unique(res$classification$reference), c("A", "B"))
 
-  # The column names tag_permutation() expects. Its *values* are not yet
-  # compatible -- see ?preservation_paired -- so this asserts shape only.
-  expect_true(all(c("pair_name", "module", "species", "classification") %in%
-    names(res$classification)))
+  # tag_permutation() reads exactly these columns.
+  expect_true(all(c("pair_name", "module", "reference", "test",
+                    "classification") %in% names(res$classification)))
 })
 
 test_that("preservation_paired tags trait groups", {
@@ -851,4 +850,122 @@ test_that("sensitivity warns when resolution loses a testable module", {
     "not tested under the resolved map"
   )
   expect_false("3" %in% out$module)
+})
+
+
+# ---- carried over from the retired gene-overlap tests ----
+
+test_that("correspondence p-values, q-values, jaccard and overlap are sane", {
+  set.seed(7)
+  fx <- pres_fixture()
+  tm_a <- true_modules(fx$netA, fx$mods)
+  tm_b <- true_modules(fx$netB, fx$mods)
+  map <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  p <- module_correspondence(tm_a, tm_b, map)$pairs
+
+  # p.value is built as p_gt + p_eq and q.value goes through a randomized-pi0
+  # correction; neither is range-checked anywhere else.
+  expect_true(all(p$p.value >= 0 & p$p.value <= 1))
+  expect_true(all(p$q.value >= 0 & p$q.value <= 1))
+  expect_false(anyNA(p$jaccard))
+  expect_true(all(p$jaccard >= 0 & p$jaccard <= 1))
+  expect_true(all(p$overlap <= pmin(p$size_sp1, p$size_sp2)))
+  # Every projected gene lands in exactly one (ref, test) module cell.
+  expect_equal(sum(p$overlap), sum(p$overlap[p$module_sp1 == p$module_sp2]) +
+                 sum(p$overlap[p$module_sp1 != p$module_sp2]))
+})
+
+test_that("classification covers every module in both directions", {
+  fx <- pres_fixture()
+  mods <- list(A = true_modules(fx$netA, fx$mods),
+               B = true_modules(fx$netB, fx$mods))
+  nets <- list(A = fx$netA, B = fx$netB)
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  res <- suppressWarnings(preservation_paired(
+    mods, nets, fx$ortho, pairs, n_perm = 50L, min_module_size = 3L, seed = 1
+  ))
+
+  expect_equal(nrow(res$classification),
+               mods$A$n_modules + mods$B$n_modules)
+})
+
+test_that("alpha monotonically controls the diverged call", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 100L, seed = 1
+  )
+
+  strict <- classify_preservation(pres, alpha = 1e-10)$classification
+  loose <- classify_preservation(pres, alpha = 0.5)$classification
+  expect_gte(sum(strict == "diverged"), sum(loose == "diverged"))
+})
+
+test_that("z_conserved splits conserved from moderate without moving the rest", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 100L, seed = 1
+  )
+
+  low <- classify_preservation(pres, z_conserved = 0)$classification
+  high <- classify_preservation(pres, z_conserved = 1e6)$classification
+
+  expect_gte(sum(low == "conserved"), sum(high == "conserved"))
+  expect_lte(sum(low == "moderate"), sum(high == "moderate"))
+  # Raising the secondary cut may not change significance.
+  expect_equal(sum(low %in% c("diverged", "untested")),
+               sum(high %in% c("diverged", "untested")))
+})
+
+test_that("classify_preservation handles a zero-row preservation table", {
+  empty <- list(preservation = data.frame(
+    module = character(0), size = integer(0), size_mapped = integer(0),
+    Zsummary = numeric(0), q.value = numeric(0), stringsAsFactors = FALSE
+  ))
+  cls <- classify_preservation(empty)
+
+  expect_equal(nrow(cls), 0L)
+  expect_true(all(c("module", "species", "pair_name", "classification",
+                    "Zsummary", "q.value") %in% names(cls)))
+})
+
+test_that("the test species' own partition never enters preservation", {
+  # The retired engine compared two partitions, so a module-count mismatch
+  # produced false species-specific calls and needed a coarsening pass. The
+  # preservation engine projects reference modules through the ortholog map
+  # and never partitions the test species at all. Pin that contract: a future
+  # modules_test argument would silently reintroduce the scale sensitivity.
+  expect_false("modules_test" %in% names(formals(module_preservation)))
+
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  a <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 50L, seed = 1
+  )
+  # Partitioning the test species differently changes nothing, because the
+  # partition is not an input.
+  invisible(detect_modules(fx$netB, method = "leiden",
+                           objective_function = "modularity", seed = 99))
+  b <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 50L, seed = 1
+  )
+  expect_equal(a$preservation, b$preservation)
+})
+
+test_that("preservation_paired requires a group entry for every species", {
+  fx <- pres_fixture()
+  mods <- list(A = true_modules(fx$netA, fx$mods),
+               B = true_modules(fx$netB, fx$mods))
+  nets <- list(A = fx$netA, B = fx$netB)
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  expect_error(
+    preservation_paired(mods, nets, fx$ortho, pairs,
+                        group = c(A = "annual"), n_perm = 10L),
+    "group missing entries"
+  )
 })

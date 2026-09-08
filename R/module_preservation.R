@@ -630,10 +630,13 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
             ": ", paste(p$module[!testable], collapse = ", "))
   }
 
+  # rep() rather than recycling: with zero modules the scalar species and
+  # pair_name would otherwise clash with the 0-length columns.
+  n <- nrow(p)
   data.frame(
     module = p$module,
-    species = species,
-    pair_name = pair_name,
+    species = rep(species, length.out = n),
+    pair_name = rep(pair_name, length.out = n),
     classification = classification,
     Zsummary = p$Zsummary,
     q.value = p$q.value,
@@ -655,8 +658,8 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #'
 #' The map assigns one reference gene to each test-species gene, so the
 #' hypergeometric's independence assumption holds. The multi-copy expansion
-#' that makes the same test anti-conservative in `compare_modules()` is gone
-#' here: a HOG with three paralogs no longer contributes three correlated
+#' that made the same test anti-conservative under the retired
+#' gene-overlap engine is gone here: a HOG with three paralogs no longer contributes three correlated
 #' draws to the same urn.
 #'
 #' @param modules_ref,modules_test Module detection results
@@ -775,13 +778,9 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #'   `classification`), `summary` (counts per contrast and direction) and `raw`
 #'   (the [module_preservation()] results, keyed by `"<reference>.<test>"`).
 #'
-#'   Note that [tag_permutation()] cannot consume this table yet: it selects
-#'   rows on `classification == "species_specific"` and `species %in%
-#'   c("sp1", "sp2")`, the vocabulary of the overlap engine, whereas this
-#'   function emits `"conserved"` / `"moderate"` / `"diverged"` /
-#'   `"untested"` and real species names. Feeding it straight in yields an
-#'   empty result with no error. [tag_permutation()] is updated when the
-#'   overlap engine is removed.
+#'   This table feeds [tag_permutation()] directly: it selects the
+#'   `"diverged"` rows and uses `reference` / `test` to pick each contrast's
+#'   two sides.
 #'
 #' @examples
 #' \dontrun{
@@ -792,10 +791,18 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' res$summary
 #' }
 #'
+#' @param ... Additional arguments passed to the default method.
 #' @export
-preservation_paired <- function(modules, networks, orthologs, pairs,
-                                group = NULL, edges = NULL, cliques = NULL,
-                                alpha = 0.05, z_conserved = 10, ...) {
+preservation_paired <- function(modules, ...) {
+  UseMethod("preservation_paired")
+}
+
+#' @rdname preservation_paired
+#' @export
+preservation_paired.default <- function(modules, networks, orthologs, pairs,
+                                        group = NULL, edges = NULL,
+                                        cliques = NULL, alpha = 0.05,
+                                        z_conserved = 10, ...) {
   if (!is.list(modules) || is.null(names(modules))) {
     stop("modules must be a named list keyed by species")
   }

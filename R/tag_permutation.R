@@ -3,8 +3,9 @@
 #' Tests whether HOGs recur in trait-specific modules across independent
 #' species pairs more than expected by chance. The null shuffles trait
 #' labels across species (preserving marginal frequencies), re-tags
-#' species-specific modules, and counts HOG recurrence under the
-#' permuted labelling.
+#' diverged modules -- those whose topology is not preserved in the
+#' partner network -- and counts HOG recurrence under the permuted
+#' labelling.
 #'
 #' @section Null model:
 #' Each permutation randomly reassigns trait labels to species,
@@ -21,9 +22,16 @@
 #' frequencies.
 #'
 #' @param classification Data frame from
-#'   \code{\link{compare_modules_paired}()$classification}. Must
-#'   contain columns \code{pair_name}, \code{module}, \code{species}
-#'   (\code{"sp1"} or \code{"sp2"}), and \code{classification}.
+#'   \code{\link{preservation_paired}()$classification}. Must contain
+#'   columns \code{pair_name}, \code{module}, \code{reference},
+#'   \code{test} and \code{classification}. \code{reference} names the
+#'   species whose modules the row describes and \code{test} the partner
+#'   network they were tested in; \code{classification} is one of
+#'   \code{"conserved"}, \code{"moderate"}, \code{"diverged"} or
+#'   \code{"untested"}, and only \code{"diverged"} rows contribute.
+#'   Preservation only reports modules with at least
+#'   \code{min_module_size} mapped genes, so the HOG pool is smaller than
+#'   the retired gene-overlap engine's.
 #' @param modules Named list of \code{\link{detect_modules}} outputs.
 #'   Names must include all species referenced by \code{pairs}.
 #' @param orthologs Data frame with columns \code{Species1},
@@ -57,7 +65,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' mod_results <- compare_modules_paired(modules, orthologs,
+#' mod_results <- preservation_paired(modules, networks, orthologs,
 #'   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
 #'                      sp2 = c("BSYL", "HJUB"),
 #'                      pair_name = c("Brachypodium", "Hordeum")),
@@ -82,7 +90,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
                             n_perm = 1000L,
                             min_recurrence = 2L) {
   # --- Validation ---
-  req_cls <- c("pair_name", "module", "species", "classification")
+  req_cls <- c("pair_name", "module", "reference", "test",
+               "classification")
   missing_cls <- setdiff(req_cls, names(classification))
   if (length(missing_cls) > 0L) {
     stop("classification missing columns: ",
@@ -119,6 +128,19 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
          "' not found in group values: ",
          paste(unique(group), collapse = ", "))
   }
+  known_cls <- c("conserved", "moderate", "diverged", "untested")
+  if (!any(classification$classification %in% known_cls)) {
+    stop("classification$classification holds none of ",
+         paste(known_cls, collapse = "/"), "; expected the output of ",
+         "preservation_paired()")
+  }
+  miss_sp <- setdiff(unique(c(pairs$sp1, pairs$sp2)),
+                     unique(c(classification$reference,
+                              classification$test)))
+  if (length(miss_sp) > 0L) {
+    stop("classification has no rows for: ",
+         paste(miss_sp, collapse = ", "))
+  }
   n_perm <- as.integer(n_perm)
   min_recurrence <- as.integer(min_recurrence)
 
@@ -138,7 +160,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   gene_to_hog <- stats::setNames(gene_hog_df$hog, gene_hog_df$gene)
 
   # --- Pre-compute HOG sets per (pair, side) ---
-  ss <- classification[classification$classification == "species_specific", ,
+  ss <- classification[classification$classification == "diverged", ,
                        drop = FALSE]
 
   n_pairs <- nrow(pairs)
@@ -153,7 +175,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     ss_pair <- ss[ss$pair_name == pn, , drop = FALSE]
 
     # sp1 side
-    mods_sp1 <- ss_pair$module[ss_pair$species == "sp1"]
+    mods_sp1 <- ss_pair$module[ss_pair$reference == s1 &
+                                 ss_pair$test == s2]
     genes_sp1 <- if (length(mods_sp1) > 0L) {
       unlist(modules[[s1]]$module_genes[as.character(mods_sp1)],
              use.names = FALSE)
@@ -163,7 +186,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     hogs_sp1 <- unique(stats::na.omit(gene_to_hog[genes_sp1]))
 
     # sp2 side
-    mods_sp2 <- ss_pair$module[ss_pair$species == "sp2"]
+    mods_sp2 <- ss_pair$module[ss_pair$reference == s2 &
+                                 ss_pair$test == s1]
     genes_sp2 <- if (length(mods_sp2) > 0L) {
       unlist(modules[[s2]]$module_genes[as.character(mods_sp2)],
              use.names = FALSE)

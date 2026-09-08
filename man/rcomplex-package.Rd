@@ -23,8 +23,12 @@ testing conservation at gene, module, and clique levels.
 \item{\code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}}{Query co-expression partners of a candidate HOG}
 \item{\code{\link[=permutation_hog_test]{permutation_hog_test()}}}{HOG-level permutation test}
 \item{\code{\link[=detect_modules]{detect_modules()}}}{Community detection with consensus}
-\item{\code{\link[=compare_modules]{compare_modules()}}}{Cross-species module comparison}
-\item{\code{\link[=classify_modules]{classify_modules()}}}{Module conservation classification}
+\item{\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}}{Paralog-resolved ortholog map}
+\item{\code{\link[=module_preservation]{module_preservation()}}}{Cross-species module topology
+preservation}
+\item{\code{\link[=classify_preservation]{classify_preservation()}}}{Module preservation classification}
+\item{\code{\link[=module_correspondence]{module_correspondence()}}}{Cross-species module matching}
+\item{\code{\link[=preservation_paired]{preservation_paired()}}}{Module preservation over species pairs}
 \item{\code{\link[=identify_module_hubs]{identify_module_hubs()}}}{Within-module hub gene identification}
 \item{\code{\link[=classify_hub_conservation]{classify_hub_conservation()}}}{Hub conservation across traits}
 \item{\code{\link[=find_cliques]{find_cliques()}}}{C++ clique detection (Bron-Kerbosch)}

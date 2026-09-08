@@ -17,8 +17,12 @@
 #'   \item{[get_coexpressed_hogs()]}{Query co-expression partners of a candidate HOG}
 #'   \item{[permutation_hog_test()]}{HOG-level permutation test}
 #'   \item{[detect_modules()]}{Community detection with consensus}
-#'   \item{[compare_modules()]}{Cross-species module comparison}
-#'   \item{[classify_modules()]}{Module conservation classification}
+#'   \item{[resolve_ortholog_map()]}{Paralog-resolved ortholog map}
+#'   \item{[module_preservation()]}{Cross-species module topology
+#'     preservation}
+#'   \item{[classify_preservation()]}{Module preservation classification}
+#'   \item{[module_correspondence()]}{Cross-species module matching}
+#'   \item{[preservation_paired()]}{Module preservation over species pairs}
 #'   \item{[identify_module_hubs()]}{Within-module hub gene identification}
 #'   \item{[classify_hub_conservation()]}{Hub conservation across traits}
 #'   \item{[find_cliques()]}{C++ clique detection (Bron-Kerbosch)}

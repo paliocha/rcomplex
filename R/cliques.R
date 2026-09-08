@@ -920,7 +920,8 @@ clique_threshold_sweep <- function(
 
       summary_res <- tryCatch(
         # pi0_method pinned to "storey": deterministic pre-0.2.0 q-values
-        # (matches compare_modules); pass-through is a P2 hand-off
+        # pinned for determinism across multipliers; pass-through is a
+        # P2 hand-off
         summarize_comparison(comparison, alternative, alpha,
                              pi0_method = "storey"),
         error = function(e) {

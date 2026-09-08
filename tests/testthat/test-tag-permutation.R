@@ -45,16 +45,29 @@ make_tag_perm_fixtures <- function() {
     stringsAsFactors = FALSE
   )
 
-  # Classification: all annual modules are species_specific (sp1 side)
-  # Module 1 in annuals is species-specific, module 2 in perennials is species-specific
+  # Classification in the preservation vocabulary: one row per module per
+  # DIRECTION. Module 1 of each annual is diverged in its perennial partner;
+  # module 2 of each perennial is diverged in its annual partner. One
+  # "moderate" and one "untested" row prove neither contributes.
+  annuals <- c("A1", "A2", "A3")
+  perennials <- c("P1", "P2", "P3")
   classification <- data.frame(
     pair_name = rep(c("pair1", "pair2", "pair3"), each = 4),
-    module = rep(c(1L, 2L, 1L, 2L), 3),
-    species = rep(c("sp1", "sp1", "sp2", "sp2"), 3),
-    classification = rep(c("species_specific", "conserved",
-                           "conserved", "species_specific"), 3),
+    module = rep(c("1", "2", "1", "2"), 3),
+    reference = rep(annuals, each = 4),
+    test = rep(perennials, each = 4),
+    classification = rep(c("diverged", "conserved",
+                           "conserved", "diverged"), 3),
     stringsAsFactors = FALSE
   )
+  # The reverse direction: rows 3 and 4 of each pair describe the perennial's
+  # own modules tested in the annual.
+  rev_rows <- rep(c(FALSE, FALSE, TRUE, TRUE), 3)
+  classification$reference[rev_rows] <- rep(perennials, each = 2)
+  classification$test[rev_rows] <- rep(annuals, each = 2)
+  # Neither of these may contribute.
+  classification$classification[2] <- "moderate"
+  classification$classification[3] <- "untested"
 
   list(classification = classification, modules = modules,
        orthologs = orthologs, pairs = pairs, group = group)
@@ -176,6 +189,23 @@ test_that("tag_permutation validates inputs", {
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
                     fix$pairs, fix$group, "nonexistent"),
     "target_group.*not found"
+  )
+
+  # An old gene-overlap table must error, not return observed = 0.
+  old_cls <- fix$classification
+  old_cls$classification <- "species_specific"
+  expect_error(
+    tag_permutation(old_cls, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, "annual"),
+    "holds none of"
+  )
+
+  no_side <- fix$classification
+  no_side$reference <- NULL
+  expect_error(
+    tag_permutation(no_side, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, "annual"),
+    "classification missing columns"
   )
 
   expect_error(

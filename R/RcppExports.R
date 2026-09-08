@@ -203,31 +203,6 @@ hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, 
     .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
 }
 
-#' Permutation-based Jaccard test for module comparison (batched)
-#'
-#' Tests each module pair for significant Jaccard overlap using ortholog-mapping
-#' permutation with Besag-Clifford adaptive stopping.  Uses batched permutation:
-#' one shuffle per iteration shared across all active pairs.
-#'
-#' @param ortho_sp1_gene 0-based index of each ortholog's sp1 unique gene
-#' @param ortho_sp2_gene 0-based sp2 gene index for each ortholog row
-#' @param n_sp1_unique Number of unique sp1 genes in ortholog table
-#' @param n_sp2_universe Total number of sp2 genes in index space
-#' @param mod1_sp1_genes List of integer vectors: sp1 unique gene indices per sp1 module
-#' @param mod_sp2_sets List of integer vectors: sp2 indices per sp2 module
-#' @param mod_i_idx 0-based index into mod1_sp1_genes for each pair
-#' @param mod_j_idx 0-based index into mod_sp2_sets for each pair
-#' @param obs_jaccard Observed Jaccard for each pair
-#' @param min_exceedances Besag-Clifford stopping parameter
-#' @param max_permutations Maximum permutations
-#' @param n_cores Number of OpenMP threads
-#' @return DataFrame with n_perm, n_exceed, p_value per pair
-#'
-#' @keywords internal
-module_jaccard_permutation_cpp <- function(ortho_sp1_gene, ortho_sp2_gene, n_sp1_unique, n_sp2_universe, mod1_sp1_genes, mod_sp2_sets, mod_i_idx, mod_j_idx, obs_jaccard, min_exceedances, max_permutations, n_cores) {
-    .Call(`_rcomplex_module_jaccard_permutation_cpp`, ortho_sp1_gene, ortho_sp2_gene, n_sp1_unique, n_sp2_universe, mod1_sp1_genes, mod_sp2_sets, mod_i_idx, mod_j_idx, obs_jaccard, min_exceedances, max_permutations, n_cores)
-}
-
 #' Module preservation permutation engine (dense)
 #'
 #' @param net Dense network matrix.

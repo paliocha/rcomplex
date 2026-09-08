@@ -23,7 +23,9 @@
 #'   all pairwise combinations.
 #' @param phylo_pairs Optional data frame with columns \code{sp1},
 #'   \code{sp2} (and optionally \code{pair_name}) for module-level
-#'   comparison.
+#'   preservation (\code{\link{preservation_paired}}). Note the
+#'   constructor accepts self-pairs and duplicated unordered contrasts that
+#'   \code{\link{preservation_paired}} later rejects.
 #'
 #' @return An S3 object of class \code{"rcomplex"}.
 #'
@@ -122,7 +124,8 @@ rcomplex <- function(species, traits, networks, orthologs,
       edges              = NULL,
       sweep              = NULL,
       modules            = NULL,
-      module_comparisons = NULL,
+      preservation       = NULL,
+      correspondence     = NULL,
       hubs               = NULL,
       hub_classification = NULL,
       cliques            = NULL,
@@ -166,8 +169,12 @@ print.rcomplex <- function(x, ...) {
            " conserved)"))
   slot_info(x$modules, "Modules:       ", function(m)
     paste0(length(m), " species"))
-  slot_info(x$module_comparisons, "Mod. comp.:    ", function(mc)
-    paste0(nrow(mc$summary), " pairs"))
+  slot_info(x$preservation, "Preservation:  ", function(pr)
+    paste0(nrow(pr$classification), " modules, ",
+           sum(pr$classification$classification == "conserved"),
+           " conserved"))
+  slot_info(x$correspondence, "Mod. corresp.: ", function(cr)
+    paste0(length(cr), " pairs"))
   slot_info(x$hubs, "Hubs:          ", function(h)
     paste0(length(h), " species"))
   slot_info(x$hub_classification, "Hub class.:    ", function(hc)
@@ -276,19 +283,54 @@ detect_modules.rcomplex <- function(net, ...) {
 }
 
 
+# Named list of module_correspondence() results keyed by the ALPHABETICALLY
+# SORTED species pair -- the key classify_hub_conservation() looks up.
+# preservation_paired() always runs the sorted direction as one of its two and
+# keys raw "<ref>.<test>", so raw[[key]]$map is the already-resolved map for
+# that orientation; re-keying raw would break the lookup.
+.rcx_correspondence <- function(x, alpha = 0.05) {
+  if (is.null(x$modules) || is.null(x$phylo_pairs)) return(NULL)
+  out <- list()
+  for (p in seq_len(nrow(x$phylo_pairs))) {
+    sp <- sort(c(x$phylo_pairs$sp1[p], x$phylo_pairs$sp2[p]))
+    key <- paste(sp, collapse = ".")
+    g1 <- rownames(x$networks[[sp[1]]]$network)
+    g2 <- rownames(x$networks[[sp[2]]]$network)
+    map <- x$preservation$raw[[key]]$map
+    if (is.null(map)) {
+      map <- resolve_ortholog_map(
+        .orient_orthologs(x$orthologs, g1, g2), g1, g2,
+        sp1 = sp[1], sp2 = sp[2],
+        edges = x$edges, cliques = x$cliques, alpha = alpha)
+    }
+    # module_correspondence() stops when no gene gets an unambiguous label or
+    # none lands in a test-species module; a small container should degrade to
+    # "no correspondence", not throw.
+    out[[key]] <- tryCatch(
+      module_correspondence(x$modules[[sp[1]]], x$modules[[sp[2]]], map),
+      error = function(e) NULL)
+  }
+  Filter(Negate(is.null), out)
+}
+
+
 #' @export
-compare_modules_paired.rcomplex <- function(modules, ..., group = NULL) {
+preservation_paired.rcomplex <- function(modules, ..., group = NULL,
+                                         edges = modules$edges,
+                                         cliques = modules$cliques) {
   x <- modules
   if (is.null(x$modules))
     stop("run detect_modules() first")
   if (is.null(x$phylo_pairs))
     stop("phylo_pairs not set; pass to rcomplex() constructor")
-  x$module_comparisons <- compare_modules_paired.default(
-    x$modules, x$orthologs,
+  x$preservation <- preservation_paired.default(
+    x$modules, x$networks, x$orthologs,
     pairs = x$phylo_pairs,
     group = if (is.null(group)) x$traits else group,
+    edges = edges, cliques = cliques,
     ...
   )
+  x$correspondence <- .rcx_correspondence(x)
   x
 }
 
@@ -314,14 +356,9 @@ classify_hub_conservation.rcomplex <- function(hub_results, ...) {
   x <- hub_results
   if (is.null(x$hubs))
     stop("run identify_module_hubs() first")
-  mod_raw <- if (!is.null(x$module_comparisons)) {
-    x$module_comparisons$raw
-  } else {
-    NULL
-  }
   x$hub_classification <- classify_hub_conservation.default(
     x$hubs, x$traits,
-    module_comparisons = mod_raw,
+    module_comparisons = x$correspondence,
     ...
   )
   x

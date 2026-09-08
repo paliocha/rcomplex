@@ -17,9 +17,16 @@ tag_permutation(
 }
 \arguments{
 \item{classification}{Data frame from
-\code{\link{compare_modules_paired}()$classification}. Must
-contain columns \code{pair_name}, \code{module}, \code{species}
-(\code{"sp1"} or \code{"sp2"}), and \code{classification}.}
+\code{\link{preservation_paired}()$classification}. Must contain
+columns \code{pair_name}, \code{module}, \code{reference},
+\code{test} and \code{classification}. \code{reference} names the
+species whose modules the row describes and \code{test} the partner
+network they were tested in; \code{classification} is one of
+\code{"conserved"}, \code{"moderate"}, \code{"diverged"} or
+\code{"untested"}, and only \code{"diverged"} rows contribute.
+Preservation only reports modules with at least
+\code{min_module_size} mapped genes, so the HOG pool is smaller than
+the retired gene-overlap engine's.}
 
 \item{modules}{Named list of \code{\link{detect_modules}} outputs.
 Names must include all species referenced by \code{pairs}.}
@@ -63,8 +70,9 @@ HOGs appearing in at least 1 pair).}
 Tests whether HOGs recur in trait-specific modules across independent
 species pairs more than expected by chance. The null shuffles trait
 labels across species (preserving marginal frequencies), re-tags
-species-specific modules, and counts HOG recurrence under the
-permuted labelling.
+diverged modules -- those whose topology is not preserved in the
+partner network -- and counts HOG recurrence under the permuted
+labelling.
 }
 \section{Null model}{
 
@@ -84,7 +92,7 @@ frequencies.
 
 \examples{
 \dontrun{
-mod_results <- compare_modules_paired(modules, orthologs,
+mod_results <- preservation_paired(modules, networks, orthologs,
   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
                      sp2 = c("BSYL", "HJUB"),
                      pair_name = c("Brachypodium", "Hordeum")),
