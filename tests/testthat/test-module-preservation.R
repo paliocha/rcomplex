@@ -972,3 +972,47 @@ test_that("preservation_paired requires a group entry for every species", {
     "group missing entries"
   )
 })
+
+
+test_that("preservation_paired output feeds tag_permutation directly", {
+  # The one integration boundary this engine introduces. Both sides are tested
+  # apart -- preservation_paired() here, tag_permutation() against a hand-built
+  # fixture -- so a change to the level names or to how reference/test are
+  # filled would leave both suites green while the handoff silently returned
+  # observed = 0.
+  fx <- pres_fixture()
+  # The partner network carries no shared structure, so A's modules come back
+  # diverged and the HOG pool is genuinely non-empty. On a fixture where every
+  # module is preserved this test would pass vacuously.
+  set.seed(99)
+  e <- matrix(stats::rnorm(500 * 40), 500, 40)
+  rownames(e) <- paste0("B", sprintf("%04d", seq_len(500)))
+  net_b <- compute_network(e, density = 0.03, sparse = FALSE)
+
+  mods <- list(A = true_modules(fx$netA, fx$mods),
+               B = true_modules(net_b, fx$mods))
+  nets <- list(A = fx$netA, B = net_b)
+  grp <- c(A = "annual", B = "perennial")
+  pairs <- data.frame(sp1 = "A", sp2 = "B", pair_name = "AB",
+                      stringsAsFactors = FALSE)
+
+  res <- suppressWarnings(preservation_paired(
+    mods, nets, fx$ortho, pairs, group = grp,
+    n_perm = 50L, min_module_size = 3L, seed = 1
+  ))
+
+  tp <- tag_permutation(res$classification, mods, fx$ortho, pairs,
+                        group = grp, target_group = "annual",
+                        n_perm = 50L, min_recurrence = 1L)
+
+  expect_true(all(c("observed", "p_value", "recurrence_table") %in% names(tp)))
+  expect_gte(tp$p_value, 0)
+  expect_lte(tp$p_value, 1)
+
+  # Non-vacuity: if the annual reference has diverged modules, they must reach
+  # the HOG pool rather than being filtered out by a vocabulary mismatch.
+  n_div <- sum(res$classification$classification == "diverged" &
+                 res$classification$reference == "A")
+  expect_gt(n_div, 0L)
+  expect_gt(tp$observed, 0L)
+})

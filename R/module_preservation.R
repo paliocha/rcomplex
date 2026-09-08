@@ -396,24 +396,37 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   unres <- map[map$source == "unresolved" &
     !(map$gene2 %in% res$gene2), , drop = FALSE]
 
+  # Vectorised: one sort plus linear passes. Splitting per gene2 and building a
+  # one-row data frame each costs O(mappable genes) allocations, and on the
+  # default path every row is unresolved, so the whole map goes through here --
+  # once per module_preservation() and again per module_correspondence(), twice
+  # more under sensitivity, and twice per contrast in preservation_paired().
   pick <- function(df) {
     if (nrow(df) == 0L) {
       return(NULL)
     }
-    do.call(rbind, lapply(split(df, df$gene2), function(d) {
-      tab <- table(d$module)
-      top <- names(tab)[tab == max(tab)]
-      if (length(top) != 1L) {
-        return(NULL)
-      } # tie: drop the gene
-      d <- d[d$module == top, , drop = FALSE]
-      d <- d[order(d$gene1), , drop = FALSE]
-      data.frame(
-        gene1 = d$gene1[1], gene2 = d$gene2[1],
-        module = d$module[1], source = d$source[1],
-        stringsAsFactors = FALSE
-      )
-    }))
+    # gene2, then module, then gene1: the first row of each (gene2, module)
+    # run is that module's smallest gene1, which is the deterministic pick.
+    d <- df[order(df$gene2, df$module, df$gene1), , drop = FALSE]
+    gm <- paste(d$gene2, d$module, sep = "\x01")
+    runs <- rle(gm)
+    n_gm <- rep(runs$lengths, runs$lengths)
+
+    first <- !duplicated(gm)
+    fd <- d[first, , drop = FALSE]
+    fc <- n_gm[first]
+
+    # Modal module per gene2, dropped when two modules tie for the maximum.
+    mx <- stats::ave(fc, fd$gene2, FUN = max)
+    n_top <- stats::ave(as.integer(fc == mx), fd$gene2, FUN = sum)
+    keep <- fc == mx & n_top == 1L
+
+    out <- fd[keep, c("gene1", "gene2", "module", "source"), drop = FALSE]
+    if (nrow(out) == 0L) {
+      return(NULL)
+    }
+    rownames(out) <- NULL
+    out
   }
 
   out <- rbind(pick(res), pick(unres))

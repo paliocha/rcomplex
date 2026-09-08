@@ -1187,8 +1187,30 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   # logical(0) and report every HOG as NA, indistinguishable from having
   # supplied no comparison at all.
   if (!is.null(module_comparisons)) {
+    # Keys first. An unnamed list makes the loops below iterate over NULL and
+    # a wrongly-ordered key never matches the sorted lookup, and both leave
+    # every HOG at NA -- indistinguishable from supplying no comparison, which
+    # is the failure this guard exists to prevent.
+    nm <- names(module_comparisons)
+    if (is.null(nm) || !all(nzchar(nm))) {
+      stop("module_comparisons must be a named list keyed by ",
+           "alphabetically sorted species pair (e.g. \"SP_A.SP_C\")")
+    }
+    known_sp <- names(species_trait)
+    valid_keys <- if (length(known_sp) >= 2L) {
+      apply(utils::combn(sort(known_sp), 2L), 2L, paste, collapse = ".")
+    } else {
+      character(0)
+    }
+    bad_keys <- setdiff(nm, valid_keys)
+    if (length(bad_keys) > 0L) {
+      stop("module_comparisons keys must be alphabetically sorted species ",
+           "pairs drawn from species_trait; unusable: ",
+           paste(bad_keys, collapse = ", "))
+    }
+
     req_corr <- c("module_sp1", "module_sp2", "jaccard", "q.value")
-    for (k in names(module_comparisons)) {
+    for (k in nm) {
       pk <- module_comparisons[[k]]$pairs
       if (!is.data.frame(pk) || !all(req_corr %in% names(pk))) {
         stop("module_comparisons[[\"", k, "\"]] must be a ",

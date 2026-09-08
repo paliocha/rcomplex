@@ -769,3 +769,27 @@ test_that("characterize_hubs validates inputs", {
     "gene"
   )
 })
+
+
+test_that("classify_hub_conservation rejects unusable comparison keys", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td)
+  map <- resolve_ortholog_map(
+    td$orthologs[["SP_A.SP_C"]],
+    rownames(td$nets$SP_A$network), rownames(td$nets$SP_C$network)
+  )
+  corr <- module_correspondence(td$mods$SP_A, td$mods$SP_C, map)
+
+  # An unnamed list makes the lookup loop iterate over NULL, leaving every HOG
+  # at NA -- the same silent degradation as supplying nothing.
+  expect_error(
+    classify_hub_conservation(hubs, td$trait, module_comparisons = list(corr)),
+    "must be a named list"
+  )
+  # A reversed key passes the shape check but never matches the sorted lookup.
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_C.SP_A = corr)),
+    "alphabetically sorted species"
+  )
+})
