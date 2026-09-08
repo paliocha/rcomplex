@@ -385,11 +385,37 @@ test_that("classify_preservation validates its input", {
 
 # ---- sensitivity: the circularity guard ----
 
-test_that("sensitivity reports both maps and confirms the gene set matches", {
+# A HOG that is multi-copy on the reference side, spanning two modules: each
+# listed species-2 gene has one partner in module 1 and one in module 2, so the
+# naive map ties and .pres_project() drops it, while a clique resolves it to
+# module 1. Both maps still cover the same species-2 genes -- only the copy
+# choice differs -- which is exactly the case sensitivity exists to measure.
+ambiguous_fixture <- function(fx, n_amb = 10L) {
+  amb <- seq_len(n_amb)
+  list(
+    ortho = rbind(fx$ortho, data.frame(
+      Species1 = paste0("A", sprintf("%04d", fx$per + amb)),
+      Species2 = paste0("B", sprintf("%04d", amb)),
+      hog = paste0("H", amb),
+      stringsAsFactors = FALSE
+    )),
+    cliques = data.frame(
+      hog = paste0("H", amb),
+      A = paste0("A", sprintf("%04d", amb)),
+      B = paste0("B", sprintf("%04d", amb)),
+      n_species = 2L, mean_q = 0.01,
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+test_that("sensitivity detects a copy choice that changes the result", {
   fx <- pres_fixture()
   tm <- true_modules(fx$netA, fx$mods)
+  amb <- ambiguous_fixture(fx)
 
-  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+  pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
+    cliques = amb$cliques, sp_ref = "A", sp_test = "B",
     n_perm = 100L, sensitivity = TRUE, seed = 1
   )
 
@@ -398,9 +424,47 @@ test_that("sensitivity reports both maps and confirms the gene set matches", {
     "module", "Zsummary", "Zsummary_naive",
     "q.value", "q.value_naive", "Zsummary_delta"
   ))
+
   # Resolution may only change which copy carries a label, never which genes
   # are mappable.
   expect_true(attr(pres$sensitivity, "same_gene_set"))
+
+  # The clique rescues genes the naive majority vote drops on a tie, so at
+  # least one module must actually move.
+  expect_true(any(pres$sensitivity$Zsummary_delta != 0))
+})
+
+test_that("sensitivity warns when the two maps cover different genes", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+
+  naive <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  # Drop a mappable gene: a resolution layer that filtered like this would be
+  # selecting the tested genes on the statistic being tested.
+  trimmed <- naive[naive$gene2 != naive$gene2[1], , drop = FALSE]
+
+  expect_warning(
+    pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+      map = trimmed, n_perm = 100L, sensitivity = TRUE, seed = 1
+    ),
+    "cover different"
+  )
+  expect_false(attr(pres$sensitivity, "same_gene_set"))
+})
+
+test_that("sensitivity is skipped when there is nothing to resolve", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+
+  expect_warning(
+    pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+      n_perm = 50L, sensitivity = TRUE, seed = 1
+    ),
+    "nothing to compare"
+  )
+  expect_false("sensitivity" %in% names(pres))
 })
 
 test_that("sensitivity is absent unless requested", {
@@ -452,7 +516,7 @@ test_that("module_correspondence matches the modules that correspond", {
   # diagonal must be the significant part of the table.
   diag_rows <- p$module_sp1 == p$module_sp2
   expect_true(all(p$q.value[diag_rows] < 0.05))
-  expect_true(all(p$jaccard[diag_rows] > p$jaccard[!diag_rows]))
+  expect_gt(min(p$jaccard[diag_rows]), max(p$jaccard[!diag_rows]))
 })
 
 test_that("module_correspondence validates its inputs", {
@@ -568,4 +632,30 @@ test_that("q-value correction passes NA through", {
 
   expect_true(is.na(q[2]))
   expect_false(any(is.na(q[-2])))
+})
+
+
+test_that("preservation_paired rejects a repeated or self species pair", {
+  fx <- pres_fixture()
+  mods <- list(A = true_modules(fx$netA, fx$mods),
+               B = true_modules(fx$netB, fx$mods))
+  nets <- list(A = fx$netA, B = fx$netB)
+
+  # Both directions of each contrast are run, so (A, B) and (B, A) would
+  # collide on the "<reference>.<test>" key and silently overwrite each other.
+  expect_error(
+    preservation_paired(mods, nets, fx$ortho,
+      data.frame(sp1 = c("A", "B"), sp2 = c("B", "A"),
+                 stringsAsFactors = FALSE),
+      n_perm = 10L
+    ),
+    "same species pair more than once"
+  )
+  expect_error(
+    preservation_paired(mods, nets, fx$ortho,
+      data.frame(sp1 = "A", sp2 = "A", stringsAsFactors = FALSE),
+      n_perm = 10L
+    ),
+    "not compare a species with itself"
+  )
 })

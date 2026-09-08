@@ -38,8 +38,8 @@ needs the correspondence, not the preservation call.
 \details{
 The map assigns one reference gene to each test-species gene, so the
 hypergeometric's independence assumption holds. The multi-copy expansion
-that made the same test anti-conservative in the removed \code{compare_modules()}
-is gone: a HOG with three paralogs no longer contributes three correlated
+that makes the same test anti-conservative in \code{compare_modules()} is gone
+here: a HOG with three paralogs no longer contributes three correlated
 draws to the same urn.
 }
 \examples{

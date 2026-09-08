@@ -187,6 +187,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   genes_ref <- rownames(mat_ref)
   genes_test <- rownames(mat_test)
 
+  supplied_map <- !is.null(map)
   if (is.null(map)) {
     if (is.null(orthologs)) {
       stop("supply either 'orthologs' or a pre-built 'map'")
@@ -291,16 +292,33 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     if (is.null(orthologs)) {
       warning("sensitivity = TRUE needs 'orthologs' to build the naive map; ",
               "skipping the comparison")
+    } else if (!supplied_map && is.null(edges) && is.null(cliques)) {
+      # Nothing resolved any copy, so the map already IS the naive map and a
+      # second run would spend a full n_perm to report a delta of exactly zero.
+      warning("sensitivity = TRUE has nothing to compare: without 'edges', ",
+              "'cliques' or a supplied 'map' the resolved map is already the ",
+              "naive map; skipping the second run")
     } else {
       naive_map <- resolve_ortholog_map(orthologs, genes_ref, genes_test)
-      naive <- module_preservation(
-        modules_ref, net_ref, net_test, orthologs = orthologs,
-        map = naive_map, n_perm = n_perm,
-        min_module_size = min_module_size, binary = binary, alpha = alpha,
-        qvalue_method = qvalue_method, sensitivity = FALSE,
-        n_cores = n_cores, seed = seed
+      # The naive run must never discard the primary result: it can legitimately
+      # stop(), e.g. when all its modules fall below min_module_size.
+      naive <- tryCatch(
+        module_preservation(
+          modules_ref, net_ref, net_test, orthologs = orthologs,
+          map = naive_map, n_perm = n_perm,
+          min_module_size = min_module_size, binary = binary, alpha = alpha,
+          qvalue_method = qvalue_method, sensitivity = FALSE,
+          n_cores = n_cores, seed = seed
+        ),
+        error = function(e) {
+          warning("the naive-map run failed (", conditionMessage(e),
+                  "); skipping the sensitivity comparison")
+          NULL
+        }
       )
-      out$sensitivity <- .pres_sensitivity(out, naive, map, naive_map)
+      if (!is.null(naive)) {
+        out$sensitivity <- .pres_sensitivity(out, naive, map, naive_map)
+      }
     }
   }
 
@@ -323,6 +341,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   a <- resolved$preservation
   b <- naive$preservation
   idx <- match(a$module, b$module)
+  if (anyNA(idx)) {
+    warning(sum(is.na(idx)), " module(s) tested under the resolved map were ",
+            "not tested under the naive map; their naive columns are NA")
+  }
 
   out <- data.frame(
     module = a$module,
@@ -601,8 +623,8 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #'
 #' The map assigns one reference gene to each test-species gene, so the
 #' hypergeometric's independence assumption holds. The multi-copy expansion
-#' that made the same test anti-conservative in the removed `compare_modules()`
-#' is gone: a HOG with three paralogs no longer contributes three correlated
+#' that makes the same test anti-conservative in `compare_modules()` is gone
+#' here: a HOG with three paralogs no longer contributes three correlated
 #' draws to the same urn.
 #'
 #' @param modules_ref,modules_test Module detection results
@@ -714,10 +736,16 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' @param ... Further arguments passed to [module_preservation()].
 #'
 #' @return A list with `classification` (one row per module per direction,
-#'   carrying `pair_name`, `module`, `species` and `classification`, the
-#'   columns [tag_permutation()] requires), `summary` (counts per contrast and
-#'   direction) and `raw` (the [module_preservation()] results, keyed by
-#'   `"<reference>.<test>"`).
+#'   carrying `pair_name`, `module`, `species`, `reference`, `test` and
+#'   `classification`), `summary` (counts per contrast and direction) and `raw`
+#'   (the [module_preservation()] results, keyed by `"<reference>.<test>"`).
+#'
+#'   Note that [tag_permutation()] cannot consume this table yet: it selects
+#'   rows on `classification == "species_specific"` and `species %in%
+#'   c("sp1", "sp2")`, the vocabulary of the overlap engine, whereas this
+#'   function emits `"conserved"` / `"moderate"` / `"diverged"` and real
+#'   species names. Feeding it straight in yields an empty result with no
+#'   error. [tag_permutation()] is updated when the overlap engine is removed.
 #'
 #' @examples
 #' \dontrun{
@@ -740,6 +768,18 @@ preservation_paired <- function(modules, networks, orthologs, pairs,
   }
   if (!is.data.frame(pairs) || !all(c("sp1", "sp2") %in% names(pairs))) {
     stop("pairs must have columns 'sp1' and 'sp2'")
+  }
+  if (any(pairs$sp1 == pairs$sp2)) {
+    stop("pairs must not compare a species with itself")
+  }
+  # Both directions of every contrast are run, so results are keyed by
+  # "<reference>.<test>". A repeated contrast -- in either orientation -- would
+  # collide on that key and silently overwrite the earlier one.
+  unordered <- paste(pmin(pairs$sp1, pairs$sp2), pmax(pairs$sp1, pairs$sp2))
+  if (anyDuplicated(unordered) > 0L) {
+    stop("pairs lists the same species pair more than once (both directions ",
+         "of each contrast are run, so (A, B) and (B, A) are the same row): ",
+         paste(unique(unordered[duplicated(unordered)]), collapse = ", "))
   }
   species <- unique(c(pairs$sp1, pairs$sp2))
   missing_sp <- setdiff(species, intersect(names(modules), names(networks)))
