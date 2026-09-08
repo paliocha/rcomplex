@@ -297,7 +297,29 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     stop("No edges above threshold; cannot detect modules")
   }
 
-  if (!is.null(seed)) set.seed(seed)
+  if (is.null(seed)) {
+    seed_root <- sample.int(.Machine$integer.max, 1L)
+  } else {
+    set.seed(seed)
+    seed_root <- as.integer(seed)
+  }
+  # Per-task set.seed() below runs in the caller's session on the serial path
+  # (no fork) but not under mclapply, so restore the ambient stream on exit and
+  # leave detect_modules() looking the same at any n_cores. Snapshot taken
+  # after the seed handling: with an explicit seed the stream is left exactly
+  # where set.seed(seed) put it, and with seed = NULL it is left advanced by
+  # the one draw above, so consecutive unseeded calls still differ.
+  has_rng <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+  old_rng <- if (has_rng) {
+    get(".Random.seed", envir = globalenv(), inherits = FALSE)
+  }
+  on.exit({
+    if (!is.null(old_rng)) {
+      assign(".Random.seed", old_rng, envir = globalenv())
+    } else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      rm(".Random.seed", envir = globalenv())
+    }
+  }, add = TRUE)
 
   # Build original graph — then free the dense adjacency (~4.6 GB for N=24k)
   g <- igraph::graph_from_adjacency_matrix(
@@ -318,7 +340,9 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
 
   # ---- Initial Leiden sweep on original graph ----
-  run_initial <- function(res) {
+  run_initial <- function(ri) {
+    set.seed(.task_seed(seed_root, 1L, ri))
+    res <- resolutions[[ri]]
     comm <- igraph::cluster_leiden(
       g,
       resolution = res,
@@ -339,9 +363,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
       else Sys.setenv(OMP_NUM_THREADS = old_omp)
     }, add = TRUE)
-    results <- parallel::mclapply(resolutions, run_initial, mc.cores = n_cores)
+    results <- parallel::mclapply(seq_len(n_res), run_initial,
+                                  mc.cores = n_cores)
   } else {
-    results <- lapply(resolutions, run_initial)
+    results <- lapply(seq_len(n_res), run_initial)
   }
 
   errs <- which(vapply(results, inherits, logical(1), "try-error"))
@@ -408,7 +433,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       )
 
       consensus_mems <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, n_cores
+        g_consensus, resolutions, n_iterations, n_cores,
+        seed_root = seed_root, iter = 0L
       )
       membership <- pick_best_partition(consensus_mems, g)
     }
@@ -417,7 +443,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     if (test_k1) {
       k1_result <- test_community_structure(
         g, genes, resolutions, objective_function, n_iterations,
-        memberships, edge_list_0, n_perm_k1, n_cores, alpha_k1
+        memberships, edge_list_0, n_perm_k1, n_cores, alpha_k1,
+        seed_root = seed_root
       )
       if (!k1_result$has_structure) {
         membership <- stats::setNames(rep(1L, n_genes), genes)
@@ -471,7 +498,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       )
 
       new_memberships <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, n_cores
+        g_consensus, resolutions, n_iterations, n_cores,
+        seed_root = seed_root, iter = iter
       )
 
       # Convergence: all K partitions are ~identical (vacuously true for
@@ -526,10 +554,12 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 #' singletons. Modularity is the correct objective per Jeub et al. (2018).
 #' @noRd
 consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
-                                   n_cores = 1L) {
+                                   n_cores = 1L, seed_root = 0L, iter = 0L) {
   vertex_names <- igraph::V(graph)$name
 
-  run_one <- function(res) {
+  run_one <- function(ri) {
+    set.seed(.task_seed(seed_root, 100L + iter, ri))
+    res <- resolutions[[ri]]
     comm <- igraph::cluster_leiden(
       graph,
       resolution = res,
@@ -548,7 +578,8 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
       if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
       else Sys.setenv(OMP_NUM_THREADS = old_omp)
     }, add = TRUE)
-    results <- parallel::mclapply(resolutions, run_one, mc.cores = n_cores)
+    results <- parallel::mclapply(seq_along(resolutions), run_one,
+                                  mc.cores = n_cores)
     errs <- which(vapply(results, inherits, logical(1), "try-error"))
     if (length(errs)) {
       e <- results[[errs[1L]]]
@@ -556,7 +587,7 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
     }
     results
   } else {
-    lapply(resolutions, run_one)
+    lapply(seq_along(resolutions), run_one)
   }
 }
 
@@ -598,7 +629,8 @@ pick_best_partition <- function(memberships, graph) {
 test_community_structure <- function(g, genes, resolutions, objective_function,
                                       n_iterations, memberships_obs,
                                       edge_list_0, n_perm = 100L,
-                                      n_cores = 1L, alpha = 0.05) {
+                                      n_cores = 1L, alpha = 0.05,
+                                      seed_root = 0L) {
   n_genes <- length(genes)
   n_edges <- igraph::ecount(g)
 
@@ -606,6 +638,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
                                                  edge_list_0, n_cores)
 
   run_one_perm <- function(b) {
+    set.seed(.task_seed(seed_root, 2L, b))
     g_perm <- igraph::rewire(g, igraph::keeping_degseq(
       niter = 5L * n_edges))
     igraph::E(g_perm)$weight <- igraph::E(g)$weight[
@@ -631,7 +664,10 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
   min_for_sig <- as.integer(ceiling(1 / alpha))
 
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
-  batch_size <- if (use_mc) n_cores else max(1L, min_for_sig)
+  # Batch on the significance grid, not on the core count: the early-stop rule
+  # must be evaluated at the same points regardless of the machine. Concurrency
+  # is unaffected -- the batch is still spread over mc.cores below.
+  batch_size <- max(1L, min_for_sig)
 
   if (use_mc) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
@@ -1495,4 +1531,29 @@ characterize_hubs <- function(hub_result, modules = NULL,
   }
 
   hub_result
+}
+
+
+#' Deterministic per-task RNG seed (internal)
+#'
+#' Maps (root, stream, index) to a legal R seed, so every parallel task seeds
+#' itself from its own identity rather than inheriting one. That is what makes
+#' the result independent of how mclapply chunks the work: with the default
+#' RNGkind a forked child runs parallel:::mc.set.stream(), whose non-L'Ecuyer
+#' branch deletes .Random.seed, and the child then re-seeds from clock and PID
+#' at its first draw. igraph::cluster_leiden() consumes the R stream, so
+#' set.seed() in the parent reaches no worker at n_cores > 1.
+#'
+#' The arithmetic is done in doubles and folded modulo 2^31 - 1 so it cannot
+#' overflow integer range: a naive root + offset form gives NA for a seed near
+#' the limit, and set.seed(NA) errors. Products stay exact in double
+#' (2654435761 * 1e6 is well under 2^53).
+#'
+#' Streams: 1 = initial sweep, 2 = K=1 permutations, 100 + iter = consensus
+#' sweep at that iteration. The consensus stream must vary with iter because
+#' the same resolutions are re-run on a different graph each round.
+#'
+#' @noRd
+.task_seed <- function(root, stream, index) {
+  as.integer((root + 2654435761 * stream + 40503 * index) %% 2147483647)
 }
