@@ -803,7 +803,11 @@ test_that("an empty null keeps the counts but not the p-value", {
   expect_true(all(is.na(got$p_value[, 1])))
 
   # Per-column, not all-columns-at-once: a constant reference degree vector
-  # makes cor.degree NA while the density column keeps a usable null.
+  # makes cor.degree NA while the density column keeps a usable null. This
+  # covers per-column have_obs reporting. The remaining state -- a finite
+  # observed value whose own null was unscorable while sibling columns kept a
+  # usable one -- is not constructible from the R entry point, which rejects
+  # n_perm < 1; it is covered only by the n_perm = 0 case above.
   flat <- lapply(fx$mods, function(i) rep(1, length(i)))
   mixed <- module_preservation_dense_cpp(
     net$network, net$threshold, keep, mm, flat, flat, flat,
@@ -883,11 +887,14 @@ test_that("correspondence p-values, q-values, jaccard and overlap are sane", {
   expect_false(anyNA(p$jaccard))
   expect_true(all(p$jaccard >= 0 & p$jaccard <= 1))
   expect_true(all(p$overlap <= pmin(p$size_sp1, p$size_sp2)))
-  # Every projected gene lands in exactly one (ref, test) module cell, so the
-  # cross-tab total equals the reference-module marginal. Fails if a gene is
-  # ever double-counted.
-  ref_sizes <- p$size_sp1[!duplicated(p$module_sp1)]
-  expect_equal(sum(p$overlap), sum(ref_sizes))
+  # Every projected gene lands in exactly one (ref, test) module cell. Compare
+  # against a projection size computed independently of the cross-tab -- the
+  # marginals come from the same table, so comparing them to it is arithmetic.
+  proj <- rcomplex:::.pres_project(
+    within(map, module <- as.character(tm_a$modules[gene1]))
+  )
+  n_projected <- sum(!is.na(tm_b$modules[proj$gene2]))
+  expect_equal(sum(p$overlap), n_projected)
 })
 
 test_that("classification covers every module in both directions", {
@@ -952,11 +959,17 @@ test_that("the test species' own partition never enters preservation", {
   # preservation engine projects reference modules through the ortholog map
   # and never partitions the test species at all. Pin that contract: a future
   # modules_test argument would silently reintroduce the scale sensitivity.
+  # A structural claim, deliberately: module_preservation() projects reference
+  # modules through the ortholog map, so the test species' partition has no
+  # argument to arrive through. A behavioural test cannot vary what cannot be
+  # passed; this fails the moment someone adds the parameter back.
   expect_false("modules_test" %in% names(formals(module_preservation)))
-
-  # Nor may it acquire one by another name.
-  expect_false(any(grepl("modules_test|partition",
-                         names(formals(module_preservation)))))
+  expect_setequal(
+    names(formals(module_preservation)),
+    c("modules_ref", "net_ref", "net_test", "orthologs", "map", "edges",
+      "cliques", "sp_ref", "sp_test", "n_perm", "min_module_size", "binary",
+      "alpha", "qvalue_method", "sensitivity", "n_cores", "seed")
+  )
 })
 
 test_that("preservation_paired requires a group entry for every species", {

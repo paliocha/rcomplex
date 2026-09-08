@@ -108,7 +108,10 @@ mod2 <- detect_modules(net2, resolution = seq(0.1, 5, by = 0.1), seed = 42)
 # Does mod1's wiring survive in species 2? Preservation is DIRECTIONAL:
 # this asks about SP_A's modules in SP_B's network, which is a different
 # question from the reverse. Run both to get both answers.
+# edges_AB feeds the paralog resolver: without it the ortholog map runs no
+# resolution layer and every multi-copy HOG stays unresolved.
 pres <- module_preservation(mod1, net1, net2, orthologs,
+                            edges = edges_AB,
                             sp_ref = "SP_A", sp_test = "SP_B",
                             n_perm = 10000L, n_cores = 4L, seed = 1L)
 pres$preservation  # avg.weight, cor.degree, Zsummary, q.value per module

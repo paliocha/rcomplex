@@ -136,6 +136,17 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
          paste(retired_cls, collapse = "/"), "); expected the output of ",
          "preservation_paired()")
   }
+  # Both checks are needed. Testing only for retired levels lets a foreign
+  # vocabulary through (relabelled rows, "Diverged", another tool's output),
+  # and testing only for known levels lets an old table through on its
+  # "conserved" rows, which belong to both vocabularies. Either way the filter
+  # below finds no diverged rows and returns observed = 0 with no error.
+  known_cls <- c("conserved", "moderate", "diverged", "untested")
+  if (!any(classification$classification %in% known_cls)) {
+    stop("classification$classification holds none of ",
+         paste(known_cls, collapse = "/"), "; expected the output of ",
+         "preservation_paired()")
+  }
   miss_sp <- setdiff(unique(c(pairs$sp1, pairs$sp2)),
                      unique(c(classification$reference,
                               classification$test)))
