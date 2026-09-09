@@ -206,9 +206,13 @@ the four phylogenetic pairs. Module-level conservation reveals whether the
 same co-regulatory programs are used independently in annual lineages.
 Preservation is directional -- whether one species' modules keep their
 wiring in the partner network is a different question from the reverse --
-so both directions are run for every pair (the annual's modules tested in
-the perennial network, then the perennial's in the annual), and every pair
-contributes two sets of rows instead of one.
+so both directions are run for every pair, and every pair contributes two
+sets of rows instead of one. Preservation is run over *all* 28 species
+pairs, not only the four within-genus contrasts: the primary trait test
+is a relabelling null over that whole matrix, and it needs the pairs a
+designated-contrast design throws away. The four within-genus contrasts
+are still used, by the secondary HOG-recurrence test at the end of the
+section.
 
 ```{r phylo-pairs}
 phylo_pairs <- tribble(
@@ -284,12 +288,23 @@ more: preservation projects one species' modules onto the other's network
 instead of comparing two partitions, so a module-count ratio has nothing
 left to correct for.
 
+Run it over *every* pair of species, not only the four within-genus
+contrasts. The extra 24 pairs are what the trait test in the next section
+consumes: they turn 4 contrasts into 28 and 73 module-directions into
+511, and they enlarge the relabelling null from 16 labellings to
+`choose(8, 4) = 70`. Because renaming the two trait levels reproduces the
+statistic, the smallest attainable p-value is `2 / n_labellings` rather
+than `1 / n_labellings`: that is the difference between 2/16 = 0.125 and
+2/70 = 0.029, between `p < 0.05` being unreachable by construction and
+being reachable. The cost is linear in pairs: seven times the
+preservation runs.
+
 ```{r module-preservation}
 # `cliques` is not built until section 5, so paralogs are resolved from
 # the coexpressolog edges alone here.
 mod_results <- preservation_paired(
   modules, networks, orthologs,
-  pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
+  pairs = all_species_pairs(names(modules)),
   group = trait_vec,
   edges = edges, n_cores = n_cores, seed = 42
 )
@@ -303,39 +318,156 @@ show_table(mod_results$summary,
            caption = "Module preservation by contrast, direction and group")
 ```
 
-Do any HOGs consistently land in modules diverged in the annual across
-independent lineages? That would be strong evidence for parallel
-re-use of regulatory programs. `tag_permutation()` tests this
-formally on the `diverged` rows of the classification table. The design
-is a randomised block --- the phylogenetic pair is the block, its two
-species are the two levels of the trait, and the pairs are the
-replication --- so the null swaps the two trait labels *within* each
-pair rather than shuffling them across species. Every draw therefore
-keeps one annual and one perennial per pair, which is the design that
-was actually run.
+### Is divergence associated with the trait?
 
-Contrasts that share a species are coupled --- relabelling one changes
-the other --- so the unit of independence is the connected component of
-the graph whose nodes are species and whose edges are contrasts, not the
-contrast. Here the four genera are disjoint, so each is its own
-component, giving at most `2^4 = 16` labellings; a design reusing a
-species would simply have fewer, and is handled rather than refused. It
-is *at most* because a component whose labellings all select the same
-HOG sets adds no resolution and is collapsed --- read `$n_labellings`
-and `$n_swappable` rather than assuming `2^k`.
+The primary trait test asks one question of the whole preservation
+matrix: **are trait-discordant species pairs the less-preserved ones?**
+`preservation_matrix_test()` averages `Zsummary_std` over the
+module-directions of concordant pairs (both annual, or both perennial)
+and of discordant pairs (one of each), takes the difference, and refers
+it to a null that relabels the species' traits. A positive statistic
+means discordant pairs are less preserved, which is the biological
+hypothesis, so the test is one-sided upward.
 
-That makes the null small and exact, so `tag_permutation()` enumerates it
-and ignores `n_perm`. It also puts a hard floor under the p-value: the
-observed labelling is always one of the points, so `p_min` is one over
-the number of labellings. **With fewer than five independent contrast
-groups, `p < 0.05` is unreachable no matter how strong the signal**
-(`2^-4 = 0.0625`). Report `p_min` alongside `p_value` so a
-non-significant result is not mistaken for evidence of absence:
+Two things make this the primary analysis rather than an extra one.
+
+First, it uses **every** pairwise comparison instead of a designated few.
+All 28 are run and 24 contribute rows (the four within-genus pairs are
+dropped, for the reason given below), so the label space is every way of
+assigning four annual labels among eight species -- `choose(8, 4) = 70`
+labellings -- rather than the 16 a within-genus design allows. The floor
+is not one over that count: renaming the two trait levels reproduces the
+statistic exactly, so at least two labellings tie at the maximum and the
+smallest attainable p-value is `2 / n_labellings`. It falls from
+2/16 = 0.125 to 2/70 = 0.029, which is what makes `alpha = 0.05`
+reachable at all.
+`$free$p_attainable` and `$blocked$p_attainable` report the floor that
+actually binds, and the function warns when it exceeds 0.05.
+
+Both nulls are reported: `p_free` over all 70, and `p_blocked` over the
+16 that permute only within a genus, which holds the phylogeny fixed.
+Their agreement is the diagnostic. A free p-value far below the blocked
+one would mean the larger label space bought its resolution by breaking
+phylogenetic control rather than by measuring the trait. Read
+`p_blocked` as that check on direction and rank only: its floor of 0.125
+puts significance out of reach for any signal, so a non-significant
+blocked p-value is not evidence against the free one.
+
+Second, it ranks on `Zsummary_std`, the standardised effect size, and
+never on the q-value -- see the saturation note below for why that is not
+a stylistic choice.
+
+Within-genus pairs are dropped by default. In this design every
+within-genus pair is trait-discordant and every trait-concordant pair is
+between-genus, so trait status and phylogenetic distance are perfectly
+confounded there, and the confound runs *against* the hypothesis: close
+relatives are better preserved, which pulls those discordant rows upward
+and masks a real effect. The exclusion is by genus membership, which no
+relabelling changes, so the null stays valid.
+
+```{r preservation-matrix}
+genus_vec <- setNames(
+  rep(phylo_pairs$pair_name, 2L),
+  c(phylo_pairs$annual, phylo_pairs$perennial)
+)
+
+pmt <- preservation_matrix_test(
+  mod_results$classification, trait_vec, block = genus_vec
+)
+
+show_table(pmt$class_means,
+           caption = "Mean Zsummary_std by pair class")
+
+cat("mean Zsummary_std, concordant - discordant:",
+    sprintf("%.3f", pmt$observed),
+    "\n  p, free labelling null   :", sprintf("%.4f", pmt$p_free),
+    " (floor", sprintf("%.4f", pmt$free$p_attainable), ")",
+    "\n  p, within-genus null     :", sprintf("%.4f", pmt$p_blocked),
+    " (floor", sprintf("%.4f", pmt$blocked$p_attainable), ")",
+    "\n  rows used:", pmt$n_rows, "over", pmt$n_pairs, "species pairs,",
+    pmt$n_excluded, "dropped as within-genus\n")
+```
+
+Every module-direction counts once, so a heavily partitioned species
+contributes more rows than a coarsely partitioned one. That is
+deliberate --- the module is the unit and more modules is more evidence
+--- but check `$rows_per_pair` before believing a result that one species
+could be driving.
+
+```{r preservation-matrix-rows}
+show_table(pmt$rows_per_pair,
+           caption = "Module-directions contributed by each species pair")
+```
+
+### A note on p-value saturation
+
+A permutation p-value cannot fall below `1 / (n_perm + 1)`, because the
+observed labelling is itself one of the draws. Every test whose true
+p-value lies below that floor comes back holding exactly it, and
+Benjamini-Hochberg maps a tied block of inputs onto a tied block of
+outputs. Run on this data set, the 511 module-directions yield only 172
+distinct q-values: 35 tied at the floor and 20 at exactly 1. Among the 35
+tied ones, `Zsummary_std` spans an order of magnitude. The q-value orders
+none of them.
+
+That is why every statistic above ranks on `Zsummary_std` and why `p` and
+`q` appear only in the significance call. `pvalue_resolution()` puts a
+number on it, so the tie count can be reported next to the p-value and a
+reader can see the resolution the test actually had:
+
+```{r preservation-saturation}
+pvalue_resolution(mod_results$classification$q.value)
+```
+
+### Secondary: do the same orthogroups recur in diverged modules?
+
+The matrix test above asks whether divergence *tracks the trait*. It says
+nothing about **which** genes are involved, or whether the same ones are
+involved twice. `tag_permutation()` asks that narrower question: do
+particular HOGs consistently land in modules diverged in the annual
+across independent lineages? A yes would be evidence for parallel re-use
+of the same regulatory programs, which is a stronger and more specific
+claim than the matrix test makes. It is a secondary analysis here, not a
+deprecated one --- nothing else in the package answers it.
+
+Its design is a randomised block --- the phylogenetic pair is the block,
+its two species are the two levels of the trait, and the pairs are the
+replication --- so the null swaps the two trait labels *within* each pair
+rather than shuffling them across species. Every draw therefore keeps one
+annual and one perennial per pair, which is the design that was actually
+run. Contrasts that share a species are coupled, so the unit of
+independence is the connected component of the graph whose nodes are
+species and whose edges are contrasts. Here the four genera are disjoint,
+so each is its own component, giving at most `2^4 = 16` labellings. It is
+*at most* because a component whose labellings all select the same HOG
+sets adds no resolution and is collapsed --- read `$n_labellings` and
+`$n_swappable` rather than assuming `2^k`.
+
+**That is also its structural limit, and it is worth stating plainly.**
+The observed labelling is always one of the points in the null, so the
+smallest attainable p-value is one over the number of labellings. With
+four contrasts that is `2^-4 = 0.0625`, so **this test cannot return
+`p < 0.05` no matter how strong the signal**. Five or more independent
+contrast groups are needed before significance is even attainable. Report
+`p_min` alongside `p_value` so a non-significant result is not read as
+evidence of absence. This is exactly the limit the all-pairs matrix test
+above escapes, by using all 28 pairs instead of these 4. (Its own floor
+is twice one over its label space, because renaming the trait levels
+leaves its statistic alone; here renaming them turns the annual-side
+statistic into the perennial-side one, so no such tie is guaranteed.)
+
+It is run on the four within-genus contrasts, not on the all-pairs table:
+the within-pair swap is what makes the null exact, and it needs the
+paired design. `pair_name` has to name the contrasts as
+`mod_results$classification` does, which since the all-pairs run above is
+`"<sp1>.<sp2>"` rather than the genus label.
 
 ```{r module-parallel}
 parallel_test <- tag_permutation(
   mod_results$classification, modules, orthologs,
-  pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
+  pairs = phylo_pairs |>
+    transmute(sp1 = annual, sp2 = perennial,
+              pair_name = paste(annual, perennial, sep = ".")),
   group = trait_vec, target_group = "annual"
 )
 
@@ -670,6 +802,19 @@ cross-trait cliques in the waterfall, but cliques are not weighted
 by phylogenetic distance. For the current dataset this is acceptable:
 each genus contributes exactly one species per trait, limiting
 phylogenetic confounding.
+
+**A second backend.** `find_cliques()`, used below, builds cliques of a
+per-orthogroup *species* graph and returns one best gene assignment each.
+`gene_clique_graph()` builds maximal cliques of the per-orthogroup *gene*
+graph instead, following Rodriguez *et al.* (2026,
+doi:10.1038/s41467-026-75624-2), so a multi-copy HOG can yield several
+overlapping cliques, and `classify_gene_cliques()` applies that paper's
+five-tier taxonomy. Its two tolerance tiers cover different kinds of gap:
+`partial_significant` admits an edge to the graph at a loose threshold but
+counts it as evidence only at the strict one (weak wiring), while
+`partial_present` accepts a fully significant clique that is one species
+short (a missing gene). Neither is run here --- the waterfall in section 6
+uses the species-graph cliques throughout.
 
 Using edges from the baseline density level, we find cliques and
 test their structural stability via leave-k-out jackknife. The

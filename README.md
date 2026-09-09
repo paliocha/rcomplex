@@ -123,6 +123,31 @@ pres$preservation  # avg.weight, cor.degree, Zsummary, q.value per module
 # diverged (q >= alpha), untested (q is NA -- nothing was measured).
 classes <- classify_preservation(pres)
 
+# PRIMARY trait test. Run preservation for EVERY species pair, then ask
+# whether trait-discordant pairs are the less-preserved ones. All pairs
+# rather than a designated few is the whole point: eight species give 28
+# contrasts instead of 4, and the free relabelling null grows from 16
+# labellings to choose(8, 4) = 70. Swapping the two trait names
+# reproduces the statistic, so the smallest attainable p-value is
+# 2/n_labellings, not 1/n: 2/70 = 0.029 instead of 2/16 = 0.125, which
+# is the difference between alpha = 0.05 being reachable and being
+# unreachable by construction. `trait` and `genus` are named vectors
+# over every species; `modules` and `networks` are the per-species lists.
+pairs    <- all_species_pairs(names(trait))
+pres_all <- preservation_paired(modules, networks, orthologs, pairs,
+                                group = trait, edges = edges,
+                                n_cores = 4L, seed = 1L)
+
+# The statistic averages Zsummary_std -- the standardised effect size --
+# and never the q-value. `block` names the phylogenetic group (a genus),
+# which enables the conservative within-block null and drops the
+# within-block pairs, where trait and phylogeny are confounded.
+pmt <- preservation_matrix_test(pres_all$classification, trait,
+                                block = genus)
+c(pmt$observed, pmt$p_free, pmt$p_blocked)
+pmt$class_means   # the class means the statistic is built from
+pmt$saturation    # resolution left in the q-values behind it
+
 # Identify hub genes within modules (6-tier tie-breaking cascade)
 hubs1 <- identify_module_hubs(mod1, net1, orthologs,
                               comparison = summary$results)
@@ -151,6 +176,32 @@ partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
                                   edges = edges)
 partners[partners$coexpressed_traits == "annual", ]      # annual-only partners
 partners[grepl(",", partners$coexpressed_traits), ]       # cross-trait partners
+```
+
+### P-value saturation
+
+A permutation p-value cannot go below `1 / (n_perm + 1)`, because the
+observed labelling is one of the draws. Every test whose true p-value
+lies below that floor comes back holding exactly it, and Benjamini-
+Hochberg maps a tied block of inputs to a tied block of outputs. On the
+eight-species Pooideae run at `n_perm = 2000`, the 511 module-directions
+produced only 172 distinct q-values: 35 tied at the floor of 0.00071 and
+20 at exactly 1.0. Among those 35, `Zsummary_std` ranged from 6.4 to
+66.7 -- a tenfold spread in effect size that the q-value cannot see.
+
+So: **rank, weight and order on `Zsummary_std`; use `p` and `q` for the
+significance call only.** `preservation_matrix_test()` follows that rule,
+and `pvalue_resolution()` reports how much resolution any p- or q-value
+vector has left, so the tie count can be published next to the p-value.
+
+```r
+pvalue_resolution(pres_all$classification$q.value)
+# 511 values, 172 distinct, 35 tied at the minimum, 20 at 1
+
+# With n_perm it also says whether the tie is the sampling or the data.
+# It must be the n_perm the p-values were actually computed with -- 10000
+# for the module_preservation() call above.
+pvalue_resolution(pres$preservation$p.value, n_perm = 10000L)
 ```
 
 ### Clique-level analysis
@@ -190,7 +241,44 @@ pert <- clique_perturbation_test(cliques, annual_sp, networks, orthologs,
 # Permutation null for clique intensity
 z_test <- clique_intensity_test(cliques, annual_sp, networks, orthologs,
                                  edges = edges, n_perm = 500)
+
+# Gene-graph backend: maximal cliques of the per-HOG GENE graph, then the
+# published five-tier taxonomy. Row-bind a strict and a loose graph (with
+# distinct id_prefix) so both tolerance tiers can be reached -- a clique
+# that is maximal at one threshold need not be maximal at the other.
+gene_cl <- rbind(
+  gene_clique_graph(edges, alpha_graph = 0.1, id_prefix = "strict_"),
+  gene_clique_graph(edges, alpha_graph = 0.9, id_prefix = "loose_")
+)
+genus <- setNames(rep(c("Brachypodium", "Hordeum", "Briza", "Festuca"), 2),
+                  all_sp)
+# `edges` here must be the FULL, unfiltered table: the gap tier needs to
+# see pairs that were tested and failed in order to refuse them.
+gene_classes <- classify_gene_cliques(gene_cl, edges, all_sp,
+                                      lineage = genus)
 ```
+
+`find_cliques()` and `gene_clique_graph()` are different computations, not
+two spellings of one. `find_cliques()` builds cliques of a per-orthogroup
+*species* graph and returns the single best gene assignment;
+`gene_clique_graph()` builds maximal cliques of the per-orthogroup *gene*
+graph, as published by [Rodriguez *et al.*
+(2026)](https://doi.org/10.1038/s41467-026-75624-2), so a multi-copy HOG
+can yield several. Every hard-coded constant of the six-species original is
+replaced by a formula in the number of species `S`: 15 becomes
+`choose(S, 2)`, 11 becomes `choose(S - 1, 2) + 1`, 10 becomes
+`choose(S - g, 2)`.
+
+The point of `classify_gene_cliques()` is that it tolerates annotation
+gaps, and there are two orthogonal kinds of gap under two names.
+`partial_significant` is **weak wiring**: the edge is admitted to the graph
+at the loose threshold (`alpha_graph`, default 0.9) but counted as evidence
+only at the strict one (`alpha_call`, default 0.1), so the clique stays
+intact. `partial_present` is **a missing gene**: a fully significant clique
+that is one species short. Each species pair is tracked in three states --
+significant, tested but not significant, and never tested -- so the second
+tier never silently absorbs the first, and a pair that was never compared
+is not read as evidence of divergence.
 
 ## Sparse network storage (v0.2.0)
 
@@ -241,12 +329,17 @@ multiplier) error with a message asking for a larger `store_density`.
 | `classify_preservation()` | Four-tier preservation classification (conserved / moderate / diverged / untested) |
 | `module_correspondence()` | Match modules across species by ortholog overlap on the resolved map |
 | `preservation_paired()` | Batch module preservation across species pairs, both directions |
-| `tag_permutation()` | Permutation test for trait-specific module recurrence across species pairs |
+| `all_species_pairs()` | Build the all-pairs `pairs` table for `preservation_paired()` |
+| `preservation_matrix_test()` | Primary trait test: relabelling null on the all-pairs preservation matrix (ranks on `Zsummary_std`) |
+| `pvalue_resolution()` | How much resolution a set of p- or q-values has left (ties at the permutation floor) |
+| `tag_permutation()` | Secondary: do the same HOGs recur in diverged modules across pairs? (floor `2^-k`; needs >= 5 contrasts to reach 0.05) |
 | `identify_module_hubs()` | Within-module hub identification with 6-tier conservation-aware tie-breaking |
 | `characterize_hubs()` | Regulatory-potential metrics for hub genes (bridge fraction, betweenness/degree ratio) |
 | `classify_hub_conservation()` | Hub conservation across traits (conserved / rewired / trait-specific) |
 | `get_coexpressed_hogs()` | Query co-expression partners of a candidate HOG across species |
-| `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting |
+| `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting (species graph, one best gene assignment) |
+| `gene_clique_graph()` | Maximal cliques of the per-HOG gene graph (Rodriguez et al., 2026) |
+| `classify_gene_cliques()` | Five-tier taxonomy for gene-graph cliques, tolerating weak wiring (`partial_significant`) and a missing gene (`partial_present`) |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
 | `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |

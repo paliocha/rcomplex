@@ -321,6 +321,77 @@ counterpart per gene before any module label is projected.
   so attributing them would overstate the evidence -- and are carried as
   their own level rather than `NA`, which `aggregate()` would drop.
   `rcomplex` method included.
+- `all_species_pairs(species)` and `preservation_matrix_test(classification,
+  group, block = )`: the primary trait test, and the reason the pairs table
+  should no longer be a designated few. A four-contrast within-genus design
+  on eight species has a relabelling null of 16 labellings, and renaming the
+  two trait levels everywhere reproduces the statistic exactly, so at least
+  two labellings tie at the maximum: the smallest attainable p-value is
+  `2 / 16 = 0.125`, **not `1 / 16`**. No such design can return `p < 0.05`,
+  whatever the data say. Running `preservation_paired()` over all
+  `choose(8, 2) = 28` pairs instead costs 13 s for eight species and yields
+  511 module-directions instead of 73; the free label space becomes
+  `choose(8, 4) = 70` and the floor `2 / 70 = 0.029`, which is what puts
+  `alpha = 0.05` within reach at all. The statistic averages `Zsummary_std`
+  over the module-directions of trait-concordant and trait-discordant pairs
+  and takes the difference (the row-weighted dispersion of the class means
+  for more than two trait levels), one-sided upward, and it never reads a
+  q-value -- see `pvalue_resolution()` below for why. Both nulls are
+  returned: `p_free` over all 70 labellings, and `p_blocked` over the 16
+  that permute only within a `block` (a genus), which holds the phylogeny
+  fixed. **Their agreement is the diagnostic, not their separate verdicts**
+  -- `p_blocked`'s floor is again `2 / 16 = 0.125`, so it is a conservative
+  check on the direction and rank of the effect and never a significance
+  test in its own right. `$free$p_attainable` and `$blocked$p_attainable`
+  report whichever floor actually binds, `$n_tied_max` how many labellings
+  share it, and the function warns when it exceeds 0.05. Within-block pairs
+  are dropped by default: in a paired design every within-genus pair is
+  trait-discordant while every trait-concordant pair is between-genus, so
+  trait status and phylogenetic distance are perfectly confounded there and
+  the confound runs *against* the hypothesis. The exclusion is by block
+  membership, which no relabelling changes, so the null stays valid. On the
+  Pooideae set the two agree: p = 0.171 free, p = 0.125 blocked.
+- `pvalue_resolution(p, n_perm = )`: a diagnostic for a defect that is
+  invisible in the numbers themselves. A permutation p-value cannot fall
+  below `1 / (n_perm + 1)`, so every test whose true p-value is smaller
+  comes back holding exactly that floor, and Benjamini-Hochberg maps a tied
+  block of inputs onto a tied block of outputs. On the eight-species
+  Pooideae run at `n_perm = 2000` the 511 module-directions carry only 172
+  distinct q-values: 35 tied at the floor of 0.00071 and 20 at exactly 1,
+  and across those 35 `Zsummary_std` runs from 6.4 to 66.7. **Anything that
+  ranks, weights or top-k-selects on a saturated q-value is reading
+  tie-break noise, not evidence** -- rank on `Zsummary_std` and keep `p` and
+  `q` for the significance call. Passing `n_perm` also separates the two
+  causes: `floor_status` says whether the minimum sits *at* the sampling
+  floor (permutation-limited, more permutations would help) or above it
+  (evidence-limited, they would not). At `n_perm = 20000` the Pooideae ties
+  fall to 7 and sit above the floor.
+- `gene_clique_graph(edges, ...)` and `classify_gene_cliques(cliques, edges,
+  species, ...)`: a second clique backend, not a rewrite of the first.
+  `find_cliques()` builds maximal cliques of a per-orthogroup *species*
+  graph and returns one best gene assignment; the published method
+  (Rodriguez et al. 2026, Nat Commun, doi:10.1038/s41467-026-75624-2) builds
+  maximal cliques of the per-orthogroup *gene* graph, so a multi-copy HOG
+  can yield several overlapping cliques. Those are different computations
+  and both are kept. `classify_gene_cliques()` implements the published five
+  tiers with every upstream constant replaced by a formula in the number of
+  species `S`, so the taxonomy is not stuck at the six species it was
+  written for: 15 becomes `choose(S, 2)`, 11 becomes `choose(S - 1, 2) + 1`,
+  10 becomes `choose(S - g, 2)`, and the cross-lineage bound likewise.
+  Tolerating annotation gaps is the point of it, and there are two
+  orthogonal kinds under two names: `partial_significant` is **weak
+  wiring** -- the edge enters the graph at the loose `alpha_graph` (0.9) but
+  counts as evidence only at the strict `alpha_call` (0.1) -- while
+  `partial_present` is **a missing gene**, a fully significant clique one
+  species short. Each species pair is tracked in three states (significant,
+  tested but not significant, never tested) so the second tier cannot
+  silently absorb the first and an untested pair is never read as evidence
+  of divergence. `choose(S - 1, 2) + 1` is the largest tolerance that still
+  leaves every member one significant edge; one more and the object is an
+  `(S - 1)`-clique with a passenger, which is what the other tier is for.
+  Both functions report `mean_q_floor` and `n_cliques_at_q_floor`, and both
+  carry `mean_effect_size` when `edges` has it: **prefer it to `mean_q` for
+  ranking**, for the reason `pvalue_resolution()` measures.
 
 ## Validation and documentation
 
@@ -344,6 +415,44 @@ counterpart per gene before any module label is projected.
 - `tests/testthat/test-modules.R` reduced to `detect_modules()` coverage
   (single-resolution and consensus); everything it held for the retired
   comparison engine is gone with it.
+- New `tests/testthat/test-preservation-matrix.R`,
+  `tests/testthat/test-clique-gene-graph.R` and
+  `tests/testthat/test-pvalue-saturation.R` for the three new source files
+  (`R/preservation_matrix.R`, `R/clique_gene_graph.R`,
+  `R/pvalue_saturation.R`). Each deliverable was reviewed adversarially and
+  its defects fixed under mutation testing. Four of them produced wrong
+  output from the gene-clique classifier: a clique species outside the
+  analysis set scored as `complete_conserved`; all-singleton lineages made
+  `differentiated` vacuously true through `all(logical(0))`; `differentiated`
+  read untested pairs as evidence of divergence; and a duplicate-row tie was
+  broken on the saturating q-value, which then decided the nominated ranking
+  column. Classification was also `O(n_cliques * n_edges)`; one vectorised
+  `match()` makes it 18.7x faster at 220k edge rows. The saturation printout
+  asserted "the minimum is above the floor" when it was below. All 12
+  previously surviving mutants are now caught, control 0.
+- **README and `vignettes/rcomplex-tutorial.Rmd` are reframed around the
+  all-pairs test, and the vignette's numbers move.** Section 3 now runs
+  `preservation_paired()` over `all_species_pairs(names(modules))` rather
+  than the four within-genus contrasts, so `mod_results` is a 28-pair, 511
+  module-direction matrix and every table drawn from it changes; the
+  primary trait question is answered by `preservation_matrix_test()` on
+  that matrix. The `tag_permutation()` HOG-recurrence analysis is
+  **demoted to secondary, not deprecated and not removed** -- it is the
+  only test in the package that asks whether the *same orthogroups* recur
+  in diverged modules across independent lineages, and it still runs on the
+  four within-genus contrasts, whose within-pair swap is what makes its
+  null exact. Its limit is now stated where a reader meets it rather than
+  in a footnote: four contrasts give a 16-point label space and a floor of
+  `2^-4 = 0.0625`, so it cannot reach 0.05 by construction. (That floor is
+  `1 / n_labellings`, unlike `preservation_matrix_test()`'s
+  `2 / n_labellings`: renaming the trait levels turns the annual-side
+  statistic into the perennial-side one rather than reproducing it, so no
+  tie at the maximum is guaranteed.) Its `pairs` argument in the vignette
+  now names contrasts as the all-pairs classification does
+  (`"<sp1>.<sp2>"`, e.g. `"BDIS.BSYL"`) instead of the genus label;
+  `tag_permutation()` matches on `pair_name`, so the old genus names would
+  error against the new classification. Both documents also gain a
+  p-value-saturation note pointing at `pvalue_resolution()`.
 
 # rcomplex 0.2.0
 
