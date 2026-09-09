@@ -13,6 +13,14 @@ counterpart per gene before any module label is projected.
 
 ## Reproducibility
 
+- `detect_modules(seed = )` on a single resolution now leaves the global
+  stream where `set.seed(seed)` put it, as consensus mode already did. It
+  previously left it wherever `cluster_leiden()` / `cluster_infomap()` /
+  `estimateSimpleSBM()` stopped, which is backend- and build-dependent,
+  so a later unseeded draw --- `summarize_comparison()`'s randomized-p
+  pi0, for one --- started from an unpredictable position. Anything drawn
+  after a seeded `detect_modules()` without its own `set.seed()` moves.
+
 - `tag_permutation()`'s sampled branch draws one admissible labelling per
   component rather than a `runif(k)` swap vector, so under a fixed seed a
   sampled null and its p-value move, as does the RNG stream position
@@ -67,14 +75,13 @@ counterpart per gene before any module label is projected.
   Because the observed labelling is always one of the points,
   **`p_min = 2^-k`, and a design with fewer than five swappable pairs
   cannot produce p < 0.05 for any signal whatsoever** --- at four pairs
-  the floor is 0.0625. The function warns when `p_min > 0.05` so a
+  the floor is 0.0625. The function warns whenever
+  `max(p_min, p_attainable)` exceeds 0.05, naming whichever of the two
+  --- too small a label space, or ties within it --- actually binds, so a
   non-significant result is not read as evidence of absence when
   significance was unreachable by construction. Note also that running the
   test for two complementary trait values reads two entries of the *same*
   null distribution; they are not independent tests.
-
-  `pairs` must now be disjoint (each species in at most one pair), since a
-  within-pair swap would otherwise change another pair's labels.
 
   Two things measured while fixing this, neither of them changed in code.
   The retired null's type I error grows with the number of pairs, because
@@ -109,19 +116,22 @@ counterpart per gene before any module label is projected.
   refuse. **`p_value` is unchanged** --- the larger enumeration was an
   exact duplicate of the reduced one --- but `p_min`, `n_swappable` and
   `length(null_distribution)` move, and the warning now fires in cases
-  where it did not, naming the degenerate pairs. The return value gains
-  `p_attainable` (the floor after ties in the null, which can exceed
-  `2^-k`) and `n_contributing`.
+  where it did not, reporting how many contrasts are affected. The
+  return value gains `p_attainable` (the floor after ties in the null,
+  which can exceed `2^-k`), `n_contributing`, `statistic` and
+  `statistic_observed`.
 
-- The null is enumerated whenever there are at most 20 swappable pairs,
-  independent of `n_perm`. The decision was `2^k <= n_perm`, so at ten
-  pairs the default `n_perm = 1000` drew 1000 sampled points from a
-  1024-point space --- inexact, and slower than walking all of it --- and
-  raising `n_perm` for precision could flip the null from exact to
-  sampled. **For designs with 11-20 swappable pairs and `n_perm < 2^k`,
-  p-values change: they become exact.** Four-pair designs are unaffected.
-  `n_perm` is kept but now sizes only the sampled branch, which needs 21
-  disjoint pairs (42 species) to reach.
+- Any label space of at most `2^enum_max` labellings (default 20, so
+  about a million) is now enumerated exactly, regardless of `n_perm`. The
+  decision used to be `2^k <= n_perm`, so at ten contrasts the default
+  `n_perm = 1000` drew 1000 sampled points from a 1024-point space ---
+  inexact, and slower than walking all of it --- and raising `n_perm` for
+  precision could flip the null from exact to sampled. **Any design whose
+  label space exceeded `n_perm` changes: its p-value becomes exact**,
+  four-contrast designs included when `n_perm` was under 16. `n_perm` is
+  kept but now sizes only the sampled branch, which needs 21 independent
+  contrast groups (42 species if disjoint) to reach. `enum_max` exposes
+  the ceiling.
 
 - `tag_permutation()` errors instead of returning `p = 1` in silence when
   `min_recurrence` exceeds the number of contributing pairs (the

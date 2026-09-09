@@ -254,9 +254,10 @@ struct NpcResult {
     std::vector<double> p_joint_c;
     std::vector<int> n_joint;
     // Null correlation of the two statistics, computed on the SAME jointly
-    // scorable draws and with the same unbiased convention perm_sd uses.
-    // Mixing an ML covariance with unbiased marginal sds, over means taken on
-    // each margin's own scorable set, does not estimate a correlation.
+    // scorable draws. The n cancels in s12 / sqrt(s11 * s22), so the ML /
+    // unbiased choice is moot here; what matters is that both margins are
+    // centred on means taken over that one shared set. Taking each margin's
+    // mean on its own scorable set would not estimate a correlation.
     std::vector<double> rho;
 };
 
@@ -325,6 +326,11 @@ NpcResult npc_combine(const std::vector<double>& perm_pairs,
         out.p_npc[k] = static_cast<double>(at_or_below) * inv;
 
         // Correlation over the permutation draws only (entry 0 is observed).
+        // At least three: a correlation on two points is +/-1 by
+        // construction, and feeding that to sqrt(2 + 2*rho)/2 would report a
+        // null spread of 1 or 1/sqrt(2) on no evidence. R reports rho as NA
+        // below that and classify_preservation() falls back to the raw scale
+        // with a warning.
         const int nb = n - 1;
         if (nb > 2) {
             double m1 = 0.0;

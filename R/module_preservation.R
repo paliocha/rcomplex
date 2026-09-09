@@ -182,9 +182,12 @@
 #'       `size_mapped`, `Zsummary` and `q.value` under the resolved and naive
 #'       maps, plus `p_copy.avg.weight` and `p_copy.cor.degree` -- where each
 #'       statistic sits in a null over `copy_draws` random copy choices of the
-#'       same candidate map. Attributes: `same_candidate_set` (always `TRUE`
-#'       -- the mappable set is invariant by construction, so this is a
-#'       structural check only), `same_projected_set` (whether the two runs
+#'       same candidate map. Attributes: `same_candidate_set` (`TRUE` by
+#'       construction when the map was resolved from `orthologs`, since
+#'       the mappable set is then invariant; `FALSE` means a supplied
+#'       `map` does not cover the same genes as the naive one, which is a
+#'       property of that map rather than of resolution),
+#'       `same_projected_set` (whether the two runs
 #'       tested the same genes, which resolution CAN change by rescuing genes
 #'       from a tied majority vote), `n_rescued` and `n_lost` counting that
 #'       difference, and `n_multi_copy` / `n_copy_draws` for the copy null
@@ -974,18 +977,19 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
   # FALSE and quietly demotes an otherwise significant module to
   # "moderate", which reads as a measurement rather than a missing
   # normaliser. Fall back to the raw scale for those rows and say so.
+  # Both warnings below label themselves with the same context.
+  where <- paste(stats::na.omit(c(species, pair_name)), collapse = " / ")
   # Only significant rows can be affected: a row with q >= alpha is
   # "diverged" whatever z_used says, so warning about it reports a
   # threshold-scale hazard where the fallback is inert.
   fell_back <- is.na(z_used) & !is.na(p$Zsummary) & significant
   if (any(fell_back)) {
     z_used[fell_back] <- p$Zsummary[fell_back]
-    where_fb <- paste(stats::na.omit(c(species, pair_name)),
-                      collapse = " / ")
+
     warning(sum(fell_back), " module(s) have no null correlation for ",
             "Zsummary_std, so the raw Zsummary was used against ",
             "z_conserved for them",
-            if (nzchar(where_fb)) paste0(" [", where_fb, "]") else "",
+            if (nzchar(where)) paste0(" [", where, "]") else "",
             "; the cut point means a different number of null standard ",
             "deviations there. Raise n_perm.")
   }
@@ -996,7 +1000,6 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     )
   )
   if (any(!testable)) {
-    where <- paste(stats::na.omit(c(species, pair_name)), collapse = " / ")
     warning(sum(!testable), " module(s) could not be tested (a statistic was ",
             "undefined); reported as \"untested\"",
             if (nzchar(where)) paste0(" [", where, "]") else "",

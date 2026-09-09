@@ -356,7 +356,7 @@ test_that("tag_permutation warns when significance is unreachable", {
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
                     fix$pairs, fix$group, target_group = "annual",
                     n_perm = 100L, min_recurrence = 2L),
-    "smallest attainable p-value"
+    "p < 0.05 is unreachable for any signal"
   )
 })
 
@@ -733,7 +733,12 @@ test_that("the sampled branch runs when enumeration is capped", {
   # The +1 correction returns: the observed labelling is not guaranteed
   # to be among the draws.
   expect_equal(res$p_min, 1 / 51)
-  expect_equal(res$p_attainable, res$p_min)
+  # Ties bind in the sampled branch as well: setting p_attainable to
+  # p_min there let a lowered enum_max switch the tie diagnostic off.
+  expect_gte(res$p_attainable, res$p_min)
+  expect_equal(res$p_attainable,
+               (sum(res$null_distribution >=
+                      max(res$null_distribution)) + 1L) / 51L)
   expect_equal(res$p_value,
                (sum(res$null_distribution >= res$statistic_observed) + 1L) /
                  51L)
@@ -808,8 +813,12 @@ test_that("the unreachable-significance warning names the right cause", {
   expect_equal(res$p_min, 1 / 64)
   expect_gt(res$p_attainable, 0.05)
   expect_gt(res$p_attainable, res$p_min)
-  expect_true(any(grepl("^ties in the null", warns)))
-  expect_false(any(grepl("At least 5 swappable pairs are needed", warns)))
+  # The message names every binding cause. Here the label space is large
+  # enough (p_min = 1/64) but the statistic cannot separate the
+  # labellings, so ties must be named and more contrasts must not be
+  # prescribed.
+  expect_true(any(grepl("maximum is shared by", warns)))
+  expect_false(any(grepl("independent contrast groups are needed", warns)))
 })
 
 
@@ -1075,11 +1084,16 @@ test_that("a pinned component cannot crash the asymmetry diagnostic", {
     min_recurrence = 2L
   )))
   expect_true(is.numeric(res$p_value))
-  # The sign test ranges over the same rows for successes and trials.
+  # The pinned contrast must be excluded from the sign test, not counted
+  # as a success without a matching trial. Assert the design directly
+  # rather than a relation that holds either way.
+  expect_false(res$pair_sizes$swappable[1])
   n_nontied <- sum(res$pair_sizes$swappable &
                      res$pair_sizes$n_hogs_target !=
                        res$pair_sizes$n_hogs_partner, na.rm = TRUE)
-  expect_true(is.na(res$size_asymmetry_p) || n_nontied > 0L)
+  expect_equal(res$size_asymmetry_p,
+               stats::binom.test(n_nontied, n_nontied, 0.5,
+                                 alternative = "greater")$p.value)
 })
 
 
@@ -1098,4 +1112,91 @@ test_that(".tp_expected matches a hand-computed Poisson-binomial tail", {
   expect_equal(.tp_expected(c(2, 2), 0L, 2L), 0)
   # A threshold above the number of sides is unreachable.
   expect_equal(.tp_expected(c(2, 2), 4L, 3L), 0)
+})
+
+
+test_that("min_recurrence scales on contrasts that can supply a HOG", {
+  # Scaling on every contrast with a target side counts contrasts whose
+  # target side holds no diverged module and so can supply nothing. The
+  # threshold then rises above what the data can reach: the observed
+  # statistic collapses to 0 while the null still scores, and the
+  # min_recurrence > n_contributing guard cannot see it because the
+  # threshold is under that bound.
+  fix <- make_tag_perm_fixtures_k(10)
+  cl <- fix$classification
+  cl$classification[cl$reference %in% paste0("A", 1:6) &
+                      cl$module == "1"] <- "conserved"
+
+  res <- suppressMessages(suppressWarnings(tag_permutation(
+    cl, fix$modules, fix$orthologs, fix$pairs, fix$group,
+    target_group = "annual"
+  )))
+  # Four annual sides still carry a diverged module, so the threshold is
+  # 2 and the observed statistic is non-zero.
+  expect_equal(res$n_contributing, 10L)
+  expect_equal(res$min_recurrence, 2L)
+  expect_gt(res$observed, 0L)
+
+  # Scaling on n_contributing would have given 5 and observed = 0 while
+  # the null still reached 3 -- a measured absence that is really an
+  # unreachable threshold.
+  starved <- suppressMessages(suppressWarnings(tag_permutation(
+    cl, fix$modules, fix$orthologs, fix$pairs, fix$group,
+    target_group = "annual", min_recurrence = 5L
+  )))
+  expect_equal(starved$observed, 0L)
+  expect_gt(max(starved$null_distribution), 0)
+})
+
+
+test_that("the auto threshold is monotone in the number of contrasts", {
+  # round() is half-to-even, which made "half" flat across k = 7, 8, 9
+  # and again across 11, 12, 13. Assert literal values rather than
+  # restating the implementation expression.
+  thr <- vapply(4:13, function(k) {
+    fix <- make_tag_perm_fixtures_k(k)
+    res <- suppressMessages(suppressWarnings(tag_permutation(
+      fix$classification, fix$modules, fix$orthologs, fix$pairs,
+      fix$group, target_group = "annual"
+    )))
+    res$min_recurrence
+  }, integer(1))
+  expect_equal(thr, c(2L, 3L, 3L, 4L, 4L, 5L, 5L, 6L, 6L, 7L))
+  expect_false(is.unsorted(thr))
+  # Four contrasts still resolve to 2, so existing designs are unmoved.
+  expect_equal(thr[1], 2L)
+})
+
+
+test_that("the resolution message does not precede its own error", {
+  # A design that is about to error announced a threshold it would never
+  # use, then died.
+  fix <- make_tag_perm_fixtures_k(4)
+  msgs <- character(0)
+  expect_error(
+    withCallingHandlers(
+      tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                      fix$pairs, fix$group, target_group = "annual",
+                      min_recurrence = 9L),
+      message = function(m) {
+        msgs <<- c(msgs, conditionMessage(m))
+        invokeRestart("muffleMessage")
+      }
+    ),
+    "exceeds the number of pairs contributing"
+  )
+  expect_false(any(grepl("min_recurrence =", msgs)))
+})
+
+
+test_that("enum_max rejects a non-whole ceiling", {
+  # enum_max = 2.9 truncated to 2 in silence, demoting an enumerable
+  # 16-point space to 1000 sampled draws.
+  fix <- make_tag_perm_fixtures_k(4)
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, target_group = "annual",
+                    enum_max = 2.9),
+    "enum_max must be a single whole number"
+  )
 })

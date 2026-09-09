@@ -318,8 +318,11 @@ Contrasts that share a species are coupled --- relabelling one changes
 the other --- so the unit of independence is the connected component of
 the graph whose nodes are species and whose edges are contrasts, not the
 contrast. Here the four genera are disjoint, so each is its own
-component and there are `2^4 = 16` labellings; a design reusing a species
-would simply have fewer, and is handled rather than refused.
+component, giving at most `2^4 = 16` labellings; a design reusing a
+species would simply have fewer, and is handled rather than refused. It
+is *at most* because a component whose labellings all select the same
+HOG sets adds no resolution and is collapsed --- read `$n_labellings`
+and `$n_swappable` rather than assuming `2^k`.
 
 That makes the null small and exact, so `tag_permutation()` enumerates it
 and ignores `n_perm`. It also puts a hard floor under the p-value: the
@@ -344,19 +347,28 @@ cat("HOGs recurring in >=", parallel_test$min_recurrence, "pairs:",
     parallel_test$observed,
     "\n  p =", sprintf("%.4f", parallel_test$p_value),
     if (parallel_test$exact) "(exact)" else "(sampled)",
-    "over", parallel_test$n_labellings, "labellings from",
-    parallel_test$n_swappable, "independent contrast group(s)",
-    "\n  smallest attainable p:", sprintf("%.4f", parallel_test$p_min),
-    if (parallel_test$p_min > 0.05) "-- significance unreachable" else "",
+    "over",
+    if (parallel_test$exact) parallel_test$n_labellings
+    else parallel_test$n_perm,
+    "labellings from", parallel_test$n_swappable,
+    "independent contrast group(s)",
+    "\n  smallest attainable p:",
+    sprintf("%.4f", max(parallel_test$p_min, parallel_test$p_attainable)),
+    if (max(parallel_test$p_min, parallel_test$p_attainable) > 0.05) {
+      "-- significance unreachable"
+    } else {
+      ""
+    },
     "\n")
 ```
 
-`min_recurrence` was left at its default, which is half the contributing
-contrasts and at least 2 --- so 2 here. A constant would not describe a
-design of arbitrary size: the chance a HOG reaches two of `k` sides
-unaided is about 0.03 at four contrasts but 0.25 at twelve, so a fixed
-threshold lets the statistic saturate on chance recurrence as contrasts
-are added.
+`min_recurrence` was left at its default, which is half the contrasts
+able to supply a HOG, rounded up and floored at 2 --- so 2 here. A
+constant would not describe a design of arbitrary size: at a per-side
+rate of about 0.08, the chance a HOG reaches two of `k` sides unaided is
+roughly 0.03 at four contrasts but 0.25 at twelve, so a fixed threshold
+lets the statistic saturate on chance recurrence as contrasts are
+added.
 
 Two things to check before believing the result. The relabelling is only
 exchangeable if the target side is not systematically the larger one, so
@@ -370,6 +382,11 @@ relative to the HOG universe and over-corrects when they are not --- see
 ```{r module-parallel-sizes}
 show_table(parallel_test$pair_sizes,
            caption = "Diverged-HOG set sizes per contrast")
+
+cat("size-asymmetry sign test p:",
+    sprintf("%.4f", parallel_test$size_asymmetry_p),
+    "\n  (advisory at 0.10; like p_min it cannot reach 0.05 below five",
+    "contrast groups)\n")
 ```
 
 Running the same test for `target_group = "perennial"` reads a second
@@ -990,7 +1007,8 @@ if (exists("parallel_test")) {
   cat("\nParallel module signal: ", parallel_test$observed,
       " HOGs recur in modules diverged in the annual across >= 2 pairs (p = ",
       sprintf("%.4f", parallel_test$p_value), ", floor ",
-      sprintf("%.4f", parallel_test$p_min), ")\n", sep = "")
+      sprintf("%.4f", max(parallel_test$p_min,
+                          parallel_test$p_attainable)), ")\n", sep = "")
 }
 ```
 

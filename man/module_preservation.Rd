@@ -145,9 +145,12 @@ resolution layer chose the pair.}
 \code{size_mapped}, \code{Zsummary} and \code{q.value} under the resolved and naive
 maps, plus \code{p_copy.avg.weight} and \code{p_copy.cor.degree} -- where each
 statistic sits in a null over \code{copy_draws} random copy choices of the
-same candidate map. Attributes: \code{same_candidate_set} (always \code{TRUE}
--- the mappable set is invariant by construction, so this is a
-structural check only), \code{same_projected_set} (whether the two runs
+same candidate map. Attributes: \code{same_candidate_set} (\code{TRUE} by
+construction when the map was resolved from \code{orthologs}, since
+the mappable set is then invariant; \code{FALSE} means a supplied
+\code{map} does not cover the same genes as the naive one, which is a
+property of that map rather than of resolution),
+\code{same_projected_set} (whether the two runs
 tested the same genes, which resolution CAN change by rescuing genes
 from a tied majority vote), \code{n_rescued} and \code{n_lost} counting that
 difference, and \code{n_multi_copy} / \code{n_copy_draws} for the copy null

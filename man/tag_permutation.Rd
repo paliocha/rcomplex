@@ -47,9 +47,10 @@ All species in \code{pairs} must have entries.}
 \item{target_group}{Character string: the trait value to test
 recurrence for (e.g., \code{"annual"}).}
 
-\item{n_perm}{Number of swap vectors to draw when the null is too
-large to enumerate (default 1000). Only used above 20 swappable
-pairs --- 21 disjoint pairs means 42 species --- so in practice the
+\item{n_perm}{Number of labellings to draw when the null is too large
+to enumerate (default 1000). Only used when the label space exceeds
+\code{2^enum_max}, which needs 21 independent contrast groups at the
+default --- 42 species if they are disjoint --- so in practice the
 null is always enumerated and this argument is ignored, with a
 message when it was supplied explicitly. Enumeration is decided on
 cost rather than on \code{n_perm} so that raising \code{n_perm} for
@@ -133,11 +134,16 @@ A list with components:
 \item{null_distribution}{Integer vector of recurrence counts under
 the null: all \code{2^k} labellings when \code{exact} is
 \code{TRUE}, otherwise \code{n_perm} sampled ones.}
-\item{p_value}{One-sided p-value. When \code{exact} is
-\code{TRUE} this is \code{mean(null >= observed)} over the
-complete null, which already includes the observed labelling.
-When sampled it is \code{(sum(null >= observed) + 1) /
-      (n_perm + 1)}.}
+\item{p_value}{One-sided p-value, comparing
+\code{statistic_observed} --- not \code{observed} --- against
+\code{null_distribution}, which is a double vector. When
+\code{exact} is \code{TRUE} this is
+\code{mean(null >= statistic_observed)} over the complete null,
+which already includes the observed labelling; when sampled it
+is \code{(sum(null >= statistic_observed) + 1) / (n_perm + 1)}.
+The comparison carries a tolerance, since under
+\code{statistic = "excess"} mathematically tied labellings need
+not be bitwise equal.}
 \item{p_min}{Smallest p-value this design can produce
 (\code{2^-k} when enumerated, \code{1 / (n_perm + 1)} when
 sampled). A \code{p_value} above \code{alpha} is uninformative
@@ -163,8 +169,13 @@ HOG sets.}
 \item{n_swappable}{The \code{k} above: the number of
 \emph{components} some relabelling moves, not a count of pairs.
 For a disjoint design the two coincide.}
-\item{pair_sizes}{Data frame of per-pair diverged-HOG set sizes,
-with the target and partner sides named. \code{block} gives the
+\item{pair_sizes}{Data frame with one row per contrast and
+columns \code{pair_name}, \code{sp1}, \code{sp2},
+\code{n_hogs_sp1}, \code{n_hogs_sp2}, \code{contributes},
+\code{block}, \code{swappable}, \code{n_hogs_target} and
+\code{n_hogs_partner}. The last two are \code{NA} on rows that
+do not contribute, since those have no target side.
+\code{block} gives the
 component each contrast belongs to and \code{swappable} is a
 property of that component, so it is \code{TRUE} for every
 contrast in a component some relabelling moves. The relabelling
@@ -172,7 +183,8 @@ is exchangeable only if the target side is not systematically
 the larger one; if it is, the statistic reads set size rather
 than recurrence.}
 \item{size_asymmetry_p}{One-sided sign-test p-value for the target
-side being the larger one across the non-tied swappable pairs.
+side being the larger one across the non-tied contrasts in
+components some relabelling moves.
 A warning is emitted when it is at or below 0.10 --- an advisory
 threshold, since like \code{p_min} this cannot reach 0.05 below
 five pairs. \code{NA} when
@@ -182,7 +194,8 @@ exchangeability assumption, not part of the test.}
 \code{n_pairs}: observed per-HOG recurrence counts (only
 HOGs appearing in at least 1 pair).}
 \item{target_group}{Echo of the input.}
-\item{min_recurrence}{Echo of the input.}
+\item{min_recurrence}{The threshold actually used --- the
+resolved value, not an echo, when the input was \code{NULL}.}
 \item{n_perm}{Number of null values actually used.}
 }
 }
@@ -225,9 +238,12 @@ ignored; beyond that \code{n_perm} labellings are drawn, one
 admissible labelling per component. Either way the
 observed labelling is one of the points, so the smallest attainable
 p-value is \code{p_min} (\code{2^-k} when enumerated). \strong{A
-design with fewer than 5 swappable pairs cannot reach p < 0.05 no
-matter how strong the signal}, because \code{2^-4 = 0.0625}; the
-function warns when \code{p_min > 0.05}.
+design with fewer than 5 independent contrast groups cannot reach
+p < 0.05 no matter how strong the signal}, because
+\code{2^-4 = 0.0625}. The function warns whenever
+\code{max(p_min, p_attainable)} exceeds 0.05, naming whichever of the
+two --- too small a label space, or ties within it --- actually
+binds.
 
 Because a swap of \emph{every} pair maps the statistic for one trait
 value onto the statistic for the other, running the test for two

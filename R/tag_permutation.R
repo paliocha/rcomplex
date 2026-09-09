@@ -37,9 +37,12 @@
 #' admissible labelling per component. Either way the
 #' observed labelling is one of the points, so the smallest attainable
 #' p-value is \code{p_min} (\code{2^-k} when enumerated). \strong{A
-#' design with fewer than 5 swappable pairs cannot reach p < 0.05 no
-#' matter how strong the signal}, because \code{2^-4 = 0.0625}; the
-#' function warns when \code{p_min > 0.05}.
+#' design with fewer than 5 independent contrast groups cannot reach
+#' p < 0.05 no matter how strong the signal}, because
+#' \code{2^-4 = 0.0625}. The function warns whenever
+#' \code{max(p_min, p_attainable)} exceeds 0.05, naming whichever of the
+#' two --- too small a label space, or ties within it --- actually
+#' binds.
 #'
 #' Because a swap of \emph{every} pair maps the statistic for one trait
 #' value onto the statistic for the other, running the test for two
@@ -88,9 +91,10 @@
 #'   All species in \code{pairs} must have entries.
 #' @param target_group Character string: the trait value to test
 #'   recurrence for (e.g., \code{"annual"}).
-#' @param n_perm Number of swap vectors to draw when the null is too
-#'   large to enumerate (default 1000). Only used above 20 swappable
-#'   pairs --- 21 disjoint pairs means 42 species --- so in practice the
+#' @param n_perm Number of labellings to draw when the null is too large
+#'   to enumerate (default 1000). Only used when the label space exceeds
+#'   \code{2^enum_max}, which needs 21 independent contrast groups at the
+#'   default --- 42 species if they are disjoint --- so in practice the
 #'   null is always enumerated and this argument is ignored, with a
 #'   message when it was supplied explicitly. Enumeration is decided on
 #'   cost rather than on \code{n_perm} so that raising \code{n_perm} for
@@ -169,11 +173,16 @@
 #'     \item{null_distribution}{Integer vector of recurrence counts under
 #'       the null: all \code{2^k} labellings when \code{exact} is
 #'       \code{TRUE}, otherwise \code{n_perm} sampled ones.}
-#'     \item{p_value}{One-sided p-value. When \code{exact} is
-#'       \code{TRUE} this is \code{mean(null >= observed)} over the
-#'       complete null, which already includes the observed labelling.
-#'       When sampled it is \code{(sum(null >= observed) + 1) /
-#'       (n_perm + 1)}.}
+#'     \item{p_value}{One-sided p-value, comparing
+#'       \code{statistic_observed} --- not \code{observed} --- against
+#'       \code{null_distribution}, which is a double vector. When
+#'       \code{exact} is \code{TRUE} this is
+#'       \code{mean(null >= statistic_observed)} over the complete null,
+#'       which already includes the observed labelling; when sampled it
+#'       is \code{(sum(null >= statistic_observed) + 1) / (n_perm + 1)}.
+#'       The comparison carries a tolerance, since under
+#'       \code{statistic = "excess"} mathematically tied labellings need
+#'       not be bitwise equal.}
 #'     \item{p_min}{Smallest p-value this design can produce
 #'       (\code{2^-k} when enumerated, \code{1 / (n_perm + 1)} when
 #'       sampled). A \code{p_value} above \code{alpha} is uninformative
@@ -199,8 +208,13 @@
 #'     \item{n_swappable}{The \code{k} above: the number of
 #'       \emph{components} some relabelling moves, not a count of pairs.
 #'       For a disjoint design the two coincide.}
-#'     \item{pair_sizes}{Data frame of per-pair diverged-HOG set sizes,
-#'       with the target and partner sides named. \code{block} gives the
+#'     \item{pair_sizes}{Data frame with one row per contrast and
+#'       columns \code{pair_name}, \code{sp1}, \code{sp2},
+#'       \code{n_hogs_sp1}, \code{n_hogs_sp2}, \code{contributes},
+#'       \code{block}, \code{swappable}, \code{n_hogs_target} and
+#'       \code{n_hogs_partner}. The last two are \code{NA} on rows that
+#'       do not contribute, since those have no target side.
+#'       \code{block} gives the
 #'       component each contrast belongs to and \code{swappable} is a
 #'       property of that component, so it is \code{TRUE} for every
 #'       contrast in a component some relabelling moves. The relabelling
@@ -208,7 +222,8 @@
 #'       the larger one; if it is, the statistic reads set size rather
 #'       than recurrence.}
 #'     \item{size_asymmetry_p}{One-sided sign-test p-value for the target
-#'       side being the larger one across the non-tied swappable pairs.
+#'       side being the larger one across the non-tied contrasts in
+#'       components some relabelling moves.
 #'       A warning is emitted when it is at or below 0.10 --- an advisory
 #'       threshold, since like \code{p_min} this cannot reach 0.05 below
 #'       five pairs. \code{NA} when
@@ -218,7 +233,8 @@
 #'       \code{n_pairs}: observed per-HOG recurrence counts (only
 #'       HOGs appearing in at least 1 pair).}
 #'     \item{target_group}{Echo of the input.}
-#'     \item{min_recurrence}{Echo of the input.}
+#'     \item{min_recurrence}{The threshold actually used --- the
+#'       resolved value, not an echo, when the input was \code{NULL}.}
 #'     \item{n_perm}{Number of null values actually used.}
 #'   }
 #'
@@ -254,6 +270,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # Capture before n_perm is reassigned: missing() reports FALSE once an
   # argument has been written to, so this cannot be asked for later.
   n_perm_supplied <- !missing(n_perm)
+  min_recurrence_in <- min_recurrence
   statistic <- match.arg(statistic)
   # --- Validation ---
   req_cls <- c("pair_name", "module", "reference", "test",
@@ -358,8 +375,9 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     min_recurrence <- as.integer(min_recurrence)
   }
   if (!is.numeric(enum_max) || length(enum_max) != 1L ||
-        is.na(enum_max) || enum_max < 0 || enum_max > 30) {
-    stop("enum_max must be a single number between 0 and 30")
+        is.na(enum_max) || enum_max < 0 || enum_max > 30 ||
+        enum_max != round(enum_max)) {
+    stop("enum_max must be a single whole number between 0 and 30")
   }
   enum_max <- as.integer(enum_max)
 
@@ -449,19 +467,30 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # stops rising with k. Half the contributing contrasts holds that
   # chance near constant. At four contrasts this is 2, the previous
   # fixed default, so small designs are unaffected.
+  # Scale on the contrasts that can actually supply a HOG, not on those
+  # that merely have a target side. A contrast whose target side holds no
+  # diverged module contributes the empty set, so counting it raises the
+  # threshold above what the data can reach: the observed statistic then
+  # collapses to 0 while the null still scores, and the guard below
+  # cannot see it because the threshold is under n_contributing.
+  n_supplying <- sum(lengths(get_pair_hogs(group)) > 0L)
   if (is.null(min_recurrence)) {
-    min_recurrence <- max(2L, as.integer(round(n_contributing / 2)))
-    if (n_contributing > 0L) {
-      message("min_recurrence = ", min_recurrence, " (half of ",
-              n_contributing, " contributing contrasts); pass it ",
-              "explicitly to override")
-    }
+    # ceiling, not round: round() is half-to-even, which makes "half"
+    # flat across k = 7, 8, 9 and again across 11, 12, 13.
+    min_recurrence <- max(2L, as.integer(ceiling(n_supplying / 2)))
   }
   if (min_recurrence > n_contributing) {
     stop("min_recurrence (", min_recurrence, ") exceeds the number of ",
          "pairs contributing to the statistic (", n_contributing,
          "): no HOG can recur in that many pairs, so the statistic is 0 ",
          "under every labelling and the p-value is 1 by construction")
+  }
+  # The message belongs after the guard, or a design that is about to
+  # error first announces a threshold it will never use.
+  if (is.null(min_recurrence_in) && n_supplying > 0L) {
+    message("min_recurrence = ", min_recurrence, " (half of ",
+            n_supplying, " contrast(s) able to supply a HOG); pass it ",
+            "explicitly to override")
   }
 
   # --- Recurrence counter ---
@@ -638,7 +667,11 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     tol <- 1e-9 * max(1, abs(obs), max(abs(null_dist)))
     p_value <- (sum(null_dist >= obs - tol) + 1L) / (n_draw + 1L)
     p_min <- 1 / (n_draw + 1L)
-    p_attainable <- p_min
+    # Ties bind here too. Setting this to p_min unconditionally meant
+    # lowering enum_max to cap runtime silently switched the whole tie
+    # diagnostic off, even with most draws sharing the maximum.
+    p_attainable <- (sum(null_dist >= max(null_dist) - tol) + 1L) /
+      (n_draw + 1L)
   }
 
   p_floor <- max(p_min, p_attainable)
@@ -653,24 +686,40 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     } else {
       ""
     }
-    if (p_attainable > p_min) {
-      # Enough labellings, but the statistic cannot tell them apart.
-      # Prescribing more pairs here would point at the wrong cause.
-      warning("ties in the null put the smallest attainable p-value at ",
-              signif(p_floor, 3), ": ", k, " independent contrast ",
-              "group(s)", extra, " give p_min = ", signif(p_min, 3),
-              ", but the maximum is ",
-              "shared by ", round(p_attainable * length(null_dist)),
-              " labellings, so p < 0.05 is unreachable for any signal. ",
-              "More pairs will not help unless the statistic separates ",
-              "them; see $null_distribution.")
+    # Two things can put the floor above 0.05, and they call for
+    # different remedies, so name whichever actually binds -- and both
+    # when both do. Blaming the label space in the sampled branch would
+    # prescribe more contrasts when the knob is n_perm; blaming ties when
+    # p_min alone already exceeds 0.05 would deny that more contrasts
+    # help, which they do.
+    too_few <- p_min > 0.05
+    tied <- p_attainable > p_min && p_attainable > 0.05
+    space <- if (exact) {
+      paste0(k, " independent contrast group(s)", extra, " over ",
+             n_contributing, " contributing contrast(s) give ",
+             n_draw, " labellings")
     } else {
-      warning("only ", k, " independent contrast group(s)", extra,
-              " over ", n_contributing, " contributing contrast(s): the ",
-              "smallest attainable p-value is ", signif(p_floor, 3),
-              ", so p < 0.05 is unreachable for any signal. At least 5 ",
-              "independent groups are needed.")
+      paste0("a sampled null of ", n_draw, " draws")
     }
+    remedy <- character(0)
+    if (too_few) {
+      remedy <- c(remedy, if (exact) {
+        "at least 5 independent contrast groups are needed"
+      } else {
+        paste0("n_perm must be at least 20 (it is ", n_perm, ")")
+      })
+    }
+    if (tied) {
+      shared <- round(p_attainable * n_draw)
+      remedy <- c(remedy,
+                  paste0("the maximum is shared by ", shared, " of ",
+                         n_draw, " draws, so separating them matters ",
+                         "more than adding contrasts"))
+    }
+    warning(space, ", so the smallest attainable p-value is ",
+            signif(p_floor, 3), " and p < 0.05 is unreachable for any ",
+            "signal: ", paste(remedy, collapse = "; "),
+            ". See $null_distribution.")
   }
 
   # The within-pair swap is only exchangeable if, under the null, the two

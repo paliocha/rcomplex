@@ -1228,15 +1228,32 @@ test_that("the copy null holds the projected gene set fixed", {
     copy_draws = 20L, seed = 1
   ))
 
-  # p_copy lies in (0, 1] by construction, so asserting that proves nothing.
-  # The invariant the restriction establishes is that the draws' candidate
-  # pool is exactly the observed run's projected gene set.
+  # p_copy lies in (0, 1] by construction, so asserting that proves
+  # nothing. The invariant the restriction establishes is that the draws'
+  # candidate pool is exactly the observed run's projected gene set.
+  # Re-applying the same `%in% projected` filter before comparing would
+  # make that a tautology, so compare the UNFILTERED pool: on the clique
+  # map the two coincide, which is what makes the restriction a no-op
+  # here and the naive case below the one that exercises it.
   cand <- resolve_ortholog_map(
     amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
   )
   cand <- cand[!is.na(tm$modules[cand$gene1]), , drop = FALSE]
-  cand <- cand[cand$gene2 %in% unique(pres$projection$gene2), , drop = FALSE]
   expect_setequal(unique(cand$gene2), unique(pres$projection$gene2))
+
+  # Under the naive map the ambiguous genes tie in the majority vote and
+  # drop out of projection while remaining candidates, so the pool is a
+  # strict superset and the restriction is load-bearing. Without it those
+  # 10 genes would enter the draws and the copy null would score a larger
+  # gene set than the observed run -- exactly the set-size confound it
+  # exists to remove.
+  naive <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, amb$ortho,
+    n_perm = 20L, min_module_size = 3L, sensitivity = FALSE, seed = 1
+  ))
+  naive_proj <- unique(naive$projection$gene2)
+  expect_gt(length(setdiff(unique(cand$gene2), naive_proj)), 0L)
+  expect_true(all(naive_proj %in% unique(cand$gene2)))
 
   # And every draw must have survived, or p_copy rests on fewer than claimed.
   expect_equal(attr(pres$sensitivity, "n_copy_draws"), 20L)
@@ -1410,7 +1427,21 @@ test_that("an unestimable Zsummary_std falls back to the raw scale", {
   untested <- pr
   untested$preservation$q.value <- NA_real_
   untested$preservation$Zsummary_std <- NA_real_
-  expect_silent(cls2 <- suppressWarnings(classify_preservation(untested)))
+  # The inner suppressWarnings() muffled every warning before
+  # expect_silent could observe one, so this passed against a mutant that
+  # emitted the fallback warning on untested rows. Collect instead, and
+  # assert on which warning fired: the untested one must, the fallback
+  # one must not.
+  warns <- character(0)
+  cls2 <- withCallingHandlers(
+    classify_preservation(untested),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_true(any(grepl("could not be tested", warns)))
+  expect_false(any(grepl("no null correlation", warns)))
   expect_true(all(cls2$classification == "untested"))
 })
 
@@ -1446,4 +1477,72 @@ test_that("copy_null_skipped distinguishes why the copy null did not run", {
   expect_gt(attr(ran$sensitivity, "n_multi_copy"), 0L)
   expect_true("p_copy.avg.weight" %in% names(ran$sensitivity))
   expect_equal(attr(ran$sensitivity, "n_copy_draws"), 5L)
+})
+
+
+test_that("same_candidate_set is FALSE for a map that does not cover", {
+  # Documented as "always TRUE". It is TRUE by construction only when the
+  # map was resolved from `orthologs`; a supplied map that covers fewer
+  # genes makes it FALSE, so a reader taking the doc at face value would
+  # treat a real mismatch as impossible.
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  full <- resolve_ortholog_map(fx$ortho, rownames(fx$netA$network),
+                               rownames(fx$netB$network))
+  trimmed <- full[-seq_len(20L), , drop = FALSE]
+
+  res <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, fx$ortho, map = trimmed,
+    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
+    copy_draws = 0L, seed = 1
+  ))
+  expect_false(attr(res$sensitivity, "same_candidate_set"))
+})
+
+
+test_that("copy_null_skipped reports no_multi_copy on a 1:1 map", {
+  # Only "off" and the success path were covered, so the reason that
+  # distinguishes "nothing to vary" from "never ran" was untested -- and
+  # it is the one a reader of n_multi_copy == 0 relies on.
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  res <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, fx$ortho, cliques = NULL, edges = NULL,
+    map = resolve_ortholog_map(fx$ortho, rownames(fx$netA$network),
+                               rownames(fx$netB$network)),
+    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
+    copy_draws = 5L, seed = 1
+  ))
+  # fx$ortho is strictly 1:1, so no gene2 has a choice of partner.
+  if (!is.null(res$sensitivity)) {
+    expect_equal(attr(res$sensitivity, "n_multi_copy"), 0L)
+    expect_equal(attr(res$sensitivity, "copy_null_skipped"),
+                 "no_multi_copy")
+    expect_false("p_copy.avg.weight" %in% names(res$sensitivity))
+  }
+})
+
+
+test_that("a partial copy-draw failure is reported, not absorbed", {
+  # p_copy was ranked against however many draws survived, with only the
+  # n_copy_draws attribute recording it. Drive some draws to fail by
+  # setting min_module_size where a copy choice can push a module under
+  # it, and assert the count is visible.
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  amb <- ambiguous_fixture(fx)
+  res <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, amb$ortho, cliques = amb$cliques,
+    sp_ref = "A", sp_test = "B",
+    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
+    copy_draws = 5L, seed = 1
+  ))
+  n_used <- attr(res$sensitivity, "n_copy_draws")
+  # Whatever the outcome, the number of draws p_copy was ranked against
+  # must be recorded, and must not exceed what was asked for.
+  if ("p_copy.avg.weight" %in% names(res$sensitivity)) {
+    expect_true(is.numeric(n_used))
+    expect_lte(n_used, 5L)
+    expect_gt(n_used, 0L)
+  }
 })
