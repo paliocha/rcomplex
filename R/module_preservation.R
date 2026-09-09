@@ -141,6 +141,11 @@
 #'   `sensitivity` comparison (default 200). Each draw resolves the same
 #'   candidate map by picking one species-1 partner per species-2 gene
 #'   uniformly at random, so only the copy choice varies.
+#'
+#'   Each draw is a nested analysis of the reference network, so
+#'   `sensitivity = TRUE` costs roughly `copy_draws` extra projections on top
+#'   of the naive-map run. Set `copy_draws = 0L` to skip the copy null and
+#'   keep only the naive-map comparison.
 #' @param n_cores Number of OpenMP threads (default 1).
 #' @param seed Optional RNG seed. Results are independent of `n_cores`.
 #'
@@ -148,10 +153,16 @@
 #'   \describe{
 #'     \item{preservation}{One row per tested module: `module`, `size`,
 #'       `size_mapped`, the two headline statistics, their permutation
-#'       p-values, the combined `p.value` and `q.value`, `Z.avg.weight`,
-#'       `Z.cor.degree`, `Zsummary` and `medianRank`.}
+#'       p-values, the combined `p.value` (raw `pmax`), `p.calibrated` (the
+#'       mixture recalibration described under `calibrate`), `q.value`
+#'       (Benjamini-Hochberg on `p.calibrated`, NOT on `p.value`),
+#'       `Z.avg.weight`, `Z.cor.degree`, `Zsummary`, `Zsummary_null_sd`,
+#'       `Zsummary_std` and `medianRank`.}
 #'     \item{observed}{All six statistics per module, with permutation means
-#'       and standard deviations.}
+#'       and standard deviations, plus `n_perm.<stat>` -- the number of
+#'       permutations each statistic was actually scored over, which can be
+#'       fewer than `n_perm` when a statistic was undefined -- and `n_joint`,
+#'       the number scorable for both headline statistics at once.}
 #'     \item{coverage}{One row per reference module -- `size`,
 #'       `size_mapped`, `tested`, and the `reason` it was not -- so the tested
 #'       set reconciles against the partition. Modules below
@@ -166,14 +177,18 @@
 #'       `size_mapped`, `Zsummary` and `q.value` under the resolved and naive
 #'       maps, plus `p_copy.avg.weight` and `p_copy.cor.degree` -- where each
 #'       statistic sits in a null over `copy_draws` random copy choices of the
-#'       same candidate map. The `same_gene_set` attribute records whether the
-#'       resolved and naive maps covered the identical test-species genes, and
-#'       `n_multi_copy` how many species-2 genes had more than one candidate
-#'       partner (the copy null is skipped, and the columns absent, when none
-#'       did). `size_mapped` is the deterministic consequence of the copy
-#'       choice; `Zsummary_delta` also absorbs permutation-stream drift when
-#'       the two runs have different block sizes.}
-#'     \item{params}{Call parameters.}
+#'       same candidate map. Attributes: `same_candidate_set` (always `TRUE`
+#'       -- the mappable set is invariant by construction, so this is a
+#'       structural check only), `same_projected_set` (whether the two runs
+#'       tested the same genes, which resolution CAN change by rescuing genes
+#'       from a tied majority vote), `n_rescued` and `n_lost` counting that
+#'       difference, and `n_multi_copy` / `n_copy_draws` for the copy null
+#'       (skipped, and its columns absent, when nothing is multi-copy).
+#'       `size_mapped` is the deterministic consequence of the copy choice;
+#'       `Zsummary_delta` also absorbs permutation-stream drift when the two
+#'       runs have different block sizes.}
+#'     \item{params}{Call parameters, including `calibrate`, the estimated
+#'       both-null fraction `w00`, and `n_joint` per module.}
 #'   }
 #'
 #' @references
@@ -635,7 +650,14 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   cov_dc <- ifelse(n_cross > 1L,
                    res$cross_sum / n_cross - mu_d * mu_c, NA_real_)
   rho <- ifelse(sd_d > 0 & sd_c > 0, cov_dc / (sd_d * sd_c), NA_real_)
-  rho <- pmin(pmax(rho, -1), 1)
+  # rho is a sample correlation over n_perm draws, so a negative value is an
+  # ordinary sampling outcome at small n_perm -- and sqrt(2 + 2*rho)/2 shrinks
+  # toward 0 as it goes negative, which would inflate Zsummary_std without
+  # bound and turn a diverged module into a conserved one. Clamp at 0: the two
+  # statistics are near-independent by construction (cor.degree is
+  # scale-invariant, avg.weight is pure scale), so a negative estimate is
+  # noise, and clamping keeps the divisor in the honest range [1/sqrt(2), 1].
+  rho <- pmin(pmax(rho, 0), 1)
   z_null_sd <- sqrt(2 + 2 * rho) / 2
 
   size_all <- vapply(modules_ref$module_genes, length, integer(1))
@@ -690,19 +712,6 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 }
 
 
-#' Q-values for permutation p-values (internal)
-#'
-#' A fixed-`n_perm` permutation p-value lives on the discrete support
-#' `{1/(n+1), 2/(n+1), ..., 1}`, and `pmax` of two such p-values lives on the
-#' same set. Storey's continuous estimator is invalid on that support and
-#' Benjamini-Hochberg is valid but assumes pi0 = 1; Liang's discrete method
-#' estimates pi0 from the support, which is why the package already uses it
-#' for the Besag-Clifford p-values in permutation_hog_test().
-#'
-#' Falls back to Benjamini-Hochberg when there are too few modules for pi0
-#' estimation to mean anything, or if the estimator errors.
-#'
-#' @noRd
 #' Fraction of modules null on BOTH statistics (internal)
 #'
 #' The Frechet lower bound on the both-null fraction: pi0 for each margin,
@@ -723,6 +732,15 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 }
 
 
+#' Benjamini-Hochberg on the calibrated p-value (internal)
+#'
+#' After calibration the p-value lives on a grid of a thousand points or more,
+#' where a discrete correction buys about 1% of rejections. DiscreteQvalue's
+#' Liang path was measured bit-identical to BH on this engine, and
+#' qvalue::qvalue() errors outright on the p-value shapes produced at these
+#' module counts, so BH is the whole of it.
+#'
+#' @noRd
 .pres_qvalues <- function(p) {
   # BH on the calibrated p-value. After calibration the p-value lives on a
   # grid of a thousand points or more, where the discrete correction buys
@@ -775,6 +793,15 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   cand <- cand[!is.na(modules_ref$modules[cand$gene1]), , drop = FALSE]
   cand <- cand[cand$gene2 %in% projected, , drop = FALSE]
   by_g2 <- split(seq_len(nrow(cand)), cand$gene2)
+  # With a caller-supplied map the candidates need not cover the projected
+  # genes, and then every draw would score fewer genes -- reintroducing the
+  # set-size artefact this null exists to remove.
+  if (!setequal(names(by_g2), projected)) {
+    warning("the ortholog table does not cover every projected gene (",
+            length(setdiff(projected, names(by_g2))), " missing), so the ",
+            "copy-choice null cannot hold the gene set fixed; skipping it")
+    return(list(draws = NULL, n_multi = 0L))
+  }
   multi <- sum(lengths(by_g2) > 1L)
   if (multi == 0L) {
     return(list(draws = NULL, n_multi = 0L))
@@ -789,12 +816,17 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     # One row per gene2, so the majority vote is unanimous and the projected
     # set is exactly `projected` -- the set the observed run used.
     m$source <- "random"
+    # Each draw is a nested analysis, so mute its reporting: otherwise a run
+    # with many untested modules prints the coverage message and the
+    # flat-connectivity warning once per draw.
     draws[[d]] <- tryCatch(
-      module_preservation(
-        modules_ref, net_ref, net_test, map = m, n_perm = 1L,
-        min_module_size = min_module_size, binary = binary,
-        sensitivity = FALSE
-      )$preservation,
+      suppressMessages(suppressWarnings(
+        module_preservation(
+          modules_ref, net_ref, net_test, map = m, n_perm = 1L,
+          min_module_size = min_module_size, binary = binary,
+          sensitivity = FALSE
+        )$preservation
+      )),
       error = function(e) NULL
     )
   }

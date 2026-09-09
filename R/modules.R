@@ -31,6 +31,21 @@
 #' @param nb_trials Number of Infomap attempts; best result is kept
 #'   (default 10). Ignored for other methods.
 #' @param seed Random seed for reproducibility (default `NULL`).
+#'
+#'   With a seed, the result is reproducible and identical at any `n_cores`:
+#'   every parallel task derives its own RNG stream from the seed and its task
+#'   index, so the answer does not depend on how the work was distributed.
+#'   Two limits are worth knowing. Reproducibility holds for one machine and
+#'   one igraph build -- the partition is a function of what
+#'   `igraph::cluster_leiden()` draws, so an igraph upgrade may move it. And
+#'   the answer depends on `RNGkind` as well as on `seed`: a session that has
+#'   set `RNGkind("L'Ecuyer-CMRG")` gets a different, still reproducible,
+#'   partition. `RNGkind` is deliberately not pinned inside the function.
+#'
+#'   The caller's RNG state is restored on exit. With an explicit seed the
+#'   stream is left where `set.seed(seed)` put it; with `seed = NULL` it is
+#'   left advanced by the one draw used to pick a root, so consecutive
+#'   unseeded calls still differ.
 #' @param consensus_threshold Threshold for consensus mode. \code{NULL}
 #'   (default) uses iterative adaptive thresholding per Jeub et al. (2018):
 #'   subtracts the per-pair expected co-classification under random assignment
@@ -309,17 +324,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # after the seed handling: with an explicit seed the stream is left exactly
   # where set.seed(seed) put it, and with seed = NULL it is left advanced by
   # the one draw above, so consecutive unseeded calls still differ.
-  has_rng <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
-  old_rng <- if (has_rng) {
-    get(".Random.seed", envir = globalenv(), inherits = FALSE)
-  }
-  on.exit({
-    if (!is.null(old_rng)) {
-      assign(".Random.seed", old_rng, envir = globalenv())
-    } else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
-      rm(".Random.seed", envir = globalenv())
-    }
-  }, add = TRUE)
+  # Both branches above have seeded, so .Random.seed exists unconditionally
+  # here -- unlike coexpressolog_null(), which snapshots before seeding.
+  old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+  on.exit(assign(".Random.seed", old_rng, envir = globalenv()), add = TRUE)
 
   # Build original graph — then free the dense adjacency (~4.6 GB for N=24k)
   g <- igraph::graph_from_adjacency_matrix(
@@ -665,8 +673,11 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
   # Batch on the significance grid, not on the core count: the early-stop rule
-  # must be evaluated at the same points regardless of the machine. Concurrency
-  # is unaffected -- the batch is still spread over mc.cores below.
+  # must be evaluated at the same points regardless of the machine. The batch
+  # is still spread over mc.cores below, so on typical hardware concurrency is
+  # unaffected -- but a batch of ceiling(1 / alpha) tasks cannot occupy more
+  # than that many workers, so a large alpha_k1 on a many-core node leaves
+  # cores idle during this test. Determinism is worth that.
   batch_size <- max(1L, min_for_sig)
 
   if (use_mc) {

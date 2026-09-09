@@ -1115,7 +1115,9 @@ test_that("Zsummary is standardized to unit null variance", {
   d <- pres$preservation
 
   # Each Z has unit null variance by construction, so their mean has null sd
-  # sqrt(2 + 2*rho)/2 -- between 1/sqrt(2) and 1. Reading the Langfelder 10/2
+  # sqrt(2 + 2*rho)/2. rho is clamped at 0 from below -- a negative sample
+  # correlation would shrink the divisor and inflate Zsummary_std without
+  # bound -- so the spread is in [1/sqrt(2), 1]. Reading the Langfelder 10/2
   # cut points against the raw mean imports a threshold calibrated on a
   # different quantity.
   expect_true(all(d$Zsummary_null_sd >= 1 / sqrt(2) - 1e-8))
@@ -1152,6 +1154,27 @@ test_that("coverage reconciles the tested modules against the partition", {
   expect_false(pres$coverage$tested[pres$coverage$module == "5"])
   expect_match(pres$coverage$reason[pres$coverage$module == "5"],
                "min_module_size")
+
+  # The other arm: a module whose genes have no ortholog at all never enters
+  # the size vector, so it was invisible even in the module-size table.
+  mods2 <- mods
+  # Indices, not names: setdiff() on a character vector against integers
+  # coerces and matches nothing, which would silently pick module-1 genes.
+  bg <- setdiff(seq_len(nrow(fx$netA$network)), unlist(mods))
+  mods2[[6]] <- bg[1:12]
+  tm2 <- true_modules(fx$netA, mods2)
+  ortho_partial <- fx$ortho[fx$ortho$Species1 %in%
+                              rownames(fx$netA$network)[unlist(mods)], ]
+  expect_message(
+    pres2 <- module_preservation(tm2, fx$netA, fx$netB, ortho_partial,
+      n_perm = 50L, min_module_size = 10L, seed = 1
+    ),
+    "no mapped gene"
+  )
+  cv6 <- pres2$coverage[pres2$coverage$module == "6", ]
+  expect_equal(cv6$size_mapped, 0L)
+  expect_false(cv6$tested)
+  expect_equal(cv6$reason, "no mapped gene")
   expect_equal(sum(pres$coverage$tested), nrow(pres$preservation))
   expect_true(all(c("module", "size", "size_mapped", "tested", "reason") %in%
                     names(pres$coverage)))
@@ -1192,13 +1215,21 @@ test_that("the copy null holds the projected gene set fixed", {
     copy_draws = 20L, seed = 1
   ))
 
-  # Every draw must score the same genes as the observed run, or a set-size
-  # difference is read as a copy-choice effect.
+  # p_copy lies in (0, 1] by construction, so asserting that proves nothing.
+  # The invariant the restriction establishes is that the draws' candidate
+  # pool is exactly the observed run's projected gene set.
+  cand <- resolve_ortholog_map(
+    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  cand <- cand[!is.na(tm$modules[cand$gene1]), , drop = FALSE]
+  cand <- cand[cand$gene2 %in% unique(pres$projection$gene2), , drop = FALSE]
+  expect_setequal(unique(cand$gene2), unique(pres$projection$gene2))
+
+  # And every draw must have survived, or p_copy rests on fewer than claimed.
+  expect_equal(attr(pres$sensitivity, "n_copy_draws"), 20L)
   pc <- c(pres$sensitivity$p_copy.avg.weight,
           pres$sensitivity$p_copy.cor.degree)
-  pc <- pc[!is.na(pc)]
-  expect_gt(length(pc), 0L)
-  expect_true(all(pc > 0 & pc <= 1))
+  expect_gt(sum(!is.na(pc)), 0L)
 })
 
 

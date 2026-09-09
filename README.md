@@ -438,9 +438,18 @@ statistics with `pmax`, so a module is preserved only when both are
 significant -- the same reciprocal criterion as `pval_combine = "max"`
 elsewhere in the package. `n_perm` (default 10000) therefore sets the
 p-value floor at `1 / (n_perm + 1)`: at 1000 permutations every strongly
-preserved module ties at the floor and cannot be ranked. Q-values use the
-Liang (2016) discrete method on the exact permutation support, falling
-back to Benjamini-Hochberg below 10 modules.
+preserved module ties at the floor and cannot be ranked.
+
+`pmax` is a valid p-value for this intersection-union null, but it is
+calibrated against a bound rather than the joint null, and measured on this
+engine it ran roughly 400x conservative -- the smallest q-value it could
+emit was 0.10. The reported `p.calibrated` blends `pmax` with the
+permutation joint null of the two statistics in proportion to the estimated
+fraction of modules null on *both*, which is a super-uniform bound for any
+dependence structure. The rejection region is unchanged -- still
+`max(p1, p2) <= c` -- so this recalibrates the statistic rather than
+replacing it, and `calibrate = "none"` recovers the raw `pmax`. Q-values are
+Benjamini-Hochberg on `p.calibrated`.
 
 `Zsummary = (Z_avg.weight + Z_cor.degree) / 2` is reported alongside for
 continuity with the WGCNA literature (Langfelder *et al.*, 2011); on

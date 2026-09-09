@@ -11,6 +11,25 @@ NetRep computes when only an adjacency matrix is available (Ritchie et al.
 2016), and `resolve_ortholog_map()` reduces each multi-copy HOG to one
 counterpart per gene before any module label is projected.
 
+## Reproducibility
+
+- `detect_modules(seed = )` now reaches the parallel workers. Under the
+  default `RNGkind` a forked `mclapply` child deletes `.Random.seed` and
+  re-seeds from clock and PID, so `set.seed()` in the parent never reached
+  `igraph::cluster_leiden()`: the same call at `n_cores > 1` could return
+  different partitions, and every downstream result inherited that. Each
+  parallel task now derives its stream from the seed and its own task index,
+  making the result identical at any core count. Reproducibility holds per
+  machine and per igraph build, and depends on `RNGkind` as well as `seed`.
+
+- The K = 1 test's early-stopping grid was batched on `n_cores`, so
+  `n_perm_completed` and its p-value were functions of the machine (0.040 at
+  eight cores versus 0.0476 at one). It now batches on the significance grid
+  the serial path already used. Serial results are unchanged; parallel
+  results move to match them. **Anyone who ran with `n_cores > 1` should
+  expect different K = 1 numbers, and a flipped verdict rewrites the whole
+  partition.**
+
 ## Breaking changes
 
 - Removed, with no deprecation shim: `compare_modules()` (with its
@@ -93,9 +112,11 @@ counterpart per gene before any module label is projected.
   significant -- the same reciprocal criterion as `pval_combine = "max"`
   elsewhere in the package. `n_perm` defaults to 10000 and sets the p-value
   floor at `1 / (n_perm + 1)`; at 1000 permutations every strongly
-  preserved module ties. q-values are `DiscreteQvalue::DQ(method =
-  "Liang")` on the exact permutation support, falling back to
-  Benjamini-Hochberg below 10 modules.
+  preserved module ties. The combined p-value is recalibrated against the
+  permutation joint null of the two statistics (`p.calibrated`) before
+  Benjamini-Hochberg: raw `pmax` is valid but was measured roughly 400x
+  conservative, with 0.10 the smallest q-value it could emit. The rejection
+  region is unchanged, and `calibrate = "none"` recovers the raw result.
   `Zsummary = (Z_avg.weight + Z_cor.degree) / 2` is reported alongside for
   continuity with the WGCNA literature (Langfelder et al. 2011); on
   adjacency-only inputs it is the GWENA `z_summary()` formula reduced to

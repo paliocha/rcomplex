@@ -100,7 +100,12 @@ bug.}
 \item{copy_draws}{Number of random copy choices drawn for the
 \code{sensitivity} comparison (default 200). Each draw resolves the same
 candidate map by picking one species-1 partner per species-2 gene
-uniformly at random, so only the copy choice varies.}
+uniformly at random, so only the copy choice varies.
+
+Each draw is a nested analysis of the reference network, so
+\code{sensitivity = TRUE} costs roughly \code{copy_draws} extra projections on top
+of the naive-map run. Set \code{copy_draws = 0L} to skip the copy null and
+keep only the naive-map comparison.}
 
 \item{n_cores}{Number of OpenMP threads (default 1).}
 
@@ -111,10 +116,16 @@ A list with components:
 \describe{
 \item{preservation}{One row per tested module: \code{module}, \code{size},
 \code{size_mapped}, the two headline statistics, their permutation
-p-values, the combined \code{p.value} and \code{q.value}, \code{Z.avg.weight},
-\code{Z.cor.degree}, \code{Zsummary} and \code{medianRank}.}
+p-values, the combined \code{p.value} (raw \code{pmax}), \code{p.calibrated} (the
+mixture recalibration described under \code{calibrate}), \code{q.value}
+(Benjamini-Hochberg on \code{p.calibrated}, NOT on \code{p.value}),
+\code{Z.avg.weight}, \code{Z.cor.degree}, \code{Zsummary}, \code{Zsummary_null_sd},
+\code{Zsummary_std} and \code{medianRank}.}
 \item{observed}{All six statistics per module, with permutation means
-and standard deviations.}
+and standard deviations, plus \verb{n_perm.<stat>} -- the number of
+permutations each statistic was actually scored over, which can be
+fewer than \code{n_perm} when a statistic was undefined -- and \code{n_joint},
+the number scorable for both headline statistics at once.}
 \item{coverage}{One row per reference module -- \code{size},
 \code{size_mapped}, \code{tested}, and the \code{reason} it was not -- so the tested
 set reconciles against the partition. Modules below
@@ -129,14 +140,18 @@ resolution layer chose the pair.}
 \code{size_mapped}, \code{Zsummary} and \code{q.value} under the resolved and naive
 maps, plus \code{p_copy.avg.weight} and \code{p_copy.cor.degree} -- where each
 statistic sits in a null over \code{copy_draws} random copy choices of the
-same candidate map. The \code{same_gene_set} attribute records whether the
-resolved and naive maps covered the identical test-species genes, and
-\code{n_multi_copy} how many species-2 genes had more than one candidate
-partner (the copy null is skipped, and the columns absent, when none
-did). \code{size_mapped} is the deterministic consequence of the copy
-choice; \code{Zsummary_delta} also absorbs permutation-stream drift when
-the two runs have different block sizes.}
-\item{params}{Call parameters.}
+same candidate map. Attributes: \code{same_candidate_set} (always \code{TRUE}
+-- the mappable set is invariant by construction, so this is a
+structural check only), \code{same_projected_set} (whether the two runs
+tested the same genes, which resolution CAN change by rescuing genes
+from a tied majority vote), \code{n_rescued} and \code{n_lost} counting that
+difference, and \code{n_multi_copy} / \code{n_copy_draws} for the copy null
+(skipped, and its columns absent, when nothing is multi-copy).
+\code{size_mapped} is the deterministic consequence of the copy choice;
+\code{Zsummary_delta} also absorbs permutation-stream drift when the two
+runs have different block sizes.}
+\item{params}{Call parameters, including \code{calibrate}, the estimated
+both-null fraction \code{w00}, and \code{n_joint} per module.}
 }
 }
 \description{

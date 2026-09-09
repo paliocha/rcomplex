@@ -46,7 +46,22 @@ other methods.}
 \item{nb_trials}{Number of Infomap attempts; best result is kept
 (default 10). Ignored for other methods.}
 
-\item{seed}{Random seed for reproducibility (default \code{NULL}).}
+\item{seed}{Random seed for reproducibility (default \code{NULL}).
+
+With a seed, the result is reproducible and identical at any \code{n_cores}:
+every parallel task derives its own RNG stream from the seed and its task
+index, so the answer does not depend on how the work was distributed.
+Two limits are worth knowing. Reproducibility holds for one machine and
+one igraph build -- the partition is a function of what
+\code{igraph::cluster_leiden()} draws, so an igraph upgrade may move it. And
+the answer depends on \code{RNGkind} as well as on \code{seed}: a session that has
+set \code{RNGkind("L'Ecuyer-CMRG")} gets a different, still reproducible,
+partition. \code{RNGkind} is deliberately not pinned inside the function.
+
+The caller's RNG state is restored on exit. With an explicit seed the
+stream is left where \code{set.seed(seed)} put it; with \code{seed = NULL} it is
+left advanced by the one draw used to pick a root, so consecutive
+unseeded calls still differ.}
 
 \item{consensus_threshold}{Threshold for consensus mode. \code{NULL}
 (default) uses iterative adaptive thresholding per Jeub et al. (2018):
