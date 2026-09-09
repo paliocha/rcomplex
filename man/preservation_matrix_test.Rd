@@ -45,7 +45,12 @@ is deliberately no q-value option.}
 
 \item{n_perm}{Number of labellings to draw when a space is too large to
 enumerate. \code{NULL} (default) means 10000 if it comes to that. Ignored, with
-a message when it was supplied explicitly, for a space that is enumerated.}
+a message when it was supplied explicitly, for a space that is enumerated.
+The sampled branch draws from the global RNG, so call
+\code{\link[=set.seed]{set.seed()}} beforehand for a reproducible p-value. Which
+branch runs is decided by \code{enum_max} rather than by the
+caller, so a design can cross into the sampled regime
+without the call site changing.}
 
 \item{enum_max}{Enumerate a null while its space holds at most this many
 labellings (default 50000). Lower it to cap runtime on wide designs; the

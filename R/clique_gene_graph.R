@@ -105,8 +105,12 @@
 #'   (default 3, matching the published workflow).
 #' @param alpha_graph Edges with `q.value < alpha_graph` build the
 #'   graph. Use the calling threshold (e.g. 0.1) for complete cliques,
-#'   a permissive value (0.9) for partially-significant cliques, and 1
-#'   for an unfiltered graph. Passing several thresholds and combining
+#'   a permissive value (0.9) for partially-significant cliques, and a
+#'   value **above** 1 (`Inf`) for an unfiltered graph. The comparison
+#'   is strict, so `alpha_graph = 1` drops every edge whose `q.value` is
+#'   exactly 1 -- not a corner case, since BH q-values cap at 1 and 20 of
+#'   511 module q-values sit there on the package's own worked
+#'   example. Passing several thresholds and combining
 #'   the results is the intended way to feed
 #'   \code{\link{classify_gene_cliques}}, since a clique that is maximal
 #'   at one threshold need not be maximal at another.
@@ -148,6 +152,11 @@
 #'
 #' @seealso \code{\link{classify_gene_cliques}},
 #'   \code{\link{find_cliques}}
+#' @references
+#' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
+#' Comparative regulomics of wood formation across dicot and
+#' conifer trees. \emph{Nature Communications} 17(1).
+#' \doi{10.1038/s41467-026-75624-2}
 #' @export
 gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
                               id_prefix = "") {
@@ -293,9 +302,14 @@ gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
   if (has_effect) {
     out$mean_effect_size <- rep(me_v, times = nm_v)
   }
+  # Tie counts go through the tolerant comparison for the same reason
+  # pvalue_resolution() does: mean_q is a mean over a different edge
+  # subset per clique, so two mathematically equal values need not be
+  # bitwise equal, and a tie count that exists to say "these cannot be
+  # ranked" must not under-report the tie.
+  mq_ties <- .tol_min_ties(mq_v)
   .gcg_graph_attrs(
-    out, alpha_graph, min_size, min(qv), min(mq_v),
-    sum(mq_v == min(mq_v))
+    out, alpha_graph, min_size, min(qv), mq_ties$min, mq_ties$n_at_min
   )
 }
 
@@ -473,6 +487,11 @@ gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
 #' classify_gene_cliques(cl, edges, c("SP_A", "SP_B", "SP_C"))
 #'
 #' @seealso \code{\link{gene_clique_graph}}
+#' @references
+#' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
+#' Comparative regulomics of wood formation across dicot and
+#' conifer trees. \emph{Nature Communications} 17(1).
+#' \doi{10.1038/s41467-026-75624-2}
 #' @export
 classify_gene_cliques <- function(cliques, edges, species,
                                   lineage = NULL, alpha_call = 0.1,
@@ -500,6 +519,16 @@ classify_gene_cliques <- function(cliques, edges, species,
   species <- as.character(species)
   if (length(species) < 2L || anyDuplicated(species) > 0L) {
     stop("species must be at least 2 unique species names")
+  }
+  # The only numeric parameters that were unchecked. An NA alpha makes
+  # every `q < alpha` comparison NA, so n_sig is NA, the tier predicates
+  # evaluate to NA, and the call dies inside a helper with base R's
+  # "missing value where TRUE/FALSE needed" -- naming neither argument.
+  for (nm in c("alpha_call", "alpha_graph")) {
+    v <- get(nm)
+    if (!is.numeric(v) || length(v) != 1L || is.na(v)) {
+      stop(nm, " must be a single non-missing number")
+    }
   }
   cl_sp <- as.character(cliques$species)
   # A clique species outside `species` is counted into the clique's own
@@ -686,7 +715,7 @@ classify_gene_cliques <- function(cliques, edges, species,
   n_tied <- if (is.na(floor_q)) {
     0L
   } else {
-    sum(out$mean_q == floor_q, na.rm = TRUE)
+    .tol_min_ties(out$mean_q)$n_at_min
   }
   out$mean_q_floor <- rep(floor_q, nrow(out))
   out$n_cliques_at_q_floor <- rep(n_tied, nrow(out))

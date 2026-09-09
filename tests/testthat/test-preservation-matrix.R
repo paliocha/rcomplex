@@ -958,3 +958,21 @@ test_that("preservation_matrix_test consumes a real preservation_paired run", {
     paired$classification$q.value
   )))
 })
+
+
+test_that("a present-but-NA block value is refused", {
+  # It passes the missing-names check, then poisons the within-block
+  # comparison: n_excluded becomes NA and NA species enter ref/tst, so
+  # the run died later complaining about the trait design instead.
+  cls <- data.frame(
+    reference = c("A", "A", "B"), test = c("B", "C", "C"),
+    Zsummary_std = c(1, 2, 3), q.value = c(0.01, 0.02, 0.03),
+    module = "1", stringsAsFactors = FALSE
+  )
+  grp <- c(A = "x", B = "y", C = "x")
+  bl <- c(A = "g1", B = NA_character_, C = "g2")
+  expect_error(
+    preservation_matrix_test(cls, group = grp, block = bl),
+    "block has NA values for: B"
+  )
+})

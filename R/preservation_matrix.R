@@ -458,6 +458,11 @@ all_species_pairs <- function(species, sep = ".") {
 #' @param n_perm Number of labellings to draw when a space is too large to
 #'   enumerate. `NULL` (default) means 10000 if it comes to that. Ignored, with
 #'   a message when it was supplied explicitly, for a space that is enumerated.
+#'   The sampled branch draws from the global RNG, so call
+#'   [set.seed()] beforehand for a reproducible p-value. Which
+#'   branch runs is decided by `enum_max` rather than by the
+#'   caller, so a design can cross into the sampled regime
+#'   without the call site changing.
 #' @param enum_max Enumerate a null while its space holds at most this many
 #'   labellings (default 50000). Lower it to cap runtime on wide designs; the
 #'   free space grows as the multinomial coefficient, so 20 species split
@@ -598,9 +603,12 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   p_min_pres <- if (is.null(n_perm_pres)) NA_real_ else 1 / (n_perm_pres + 1)
   saturation <- list(
     n_tests = n_tests,
-    n_distinct = length(unique(qv_ok)),
+    # Tolerant, so this agrees with pvalue_resolution() when a reader
+    # puts the two side by side on the same q-vector -- which the README
+    # and the vignette both do.
+    n_distinct = .tol_min_ties(qv_ok)$n_distinct,
     q_floor = if (n_tests > 0L) min(qv_ok) else NA_real_,
-    n_at_floor = if (n_tests > 0L) sum(qv_ok == min(qv_ok)) else 0L,
+    n_at_floor = .tol_min_ties(qv_ok)$n_at_min,
     n_at_one = sum(qv_ok >= 1),
     p_min_pres = p_min_pres,
     # No q-values means no multiplicity to correct, which is not the same as
@@ -649,6 +657,17 @@ preservation_matrix_test <- function(classification, group, block = NULL,
     miss_bl <- setdiff(unique(c(ref, tst)), names(block))
     if (length(miss_bl) > 0L) {
       stop("block missing entries for: ", paste(miss_bl, collapse = ", "))
+    }
+    # A present-but-NA block value passes the name check and then poisons
+    # the within-block comparison: n_excluded becomes NA and NA species
+    # enter ref/tst, so the run dies later complaining about the trait
+    # design. Mirror the group check instead.
+    bl_sp <- unique(c(ref, tst))
+    if (anyNA(block[bl_sp])) {
+      stop(
+        "block has NA values for: ",
+        paste(bl_sp[is.na(block[bl_sp])], collapse = ", ")
+      )
     }
     if (isTRUE(exclude_within_block)) {
       same <- as.character(block[ref]) == as.character(block[tst])

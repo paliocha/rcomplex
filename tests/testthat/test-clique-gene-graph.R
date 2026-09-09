@@ -858,3 +858,44 @@ test_that("classification cost is not multiplied by unrelated edges", {
   expect_equal(a$classification, b$classification)
   expect_lt(big[["elapsed"]], 3 * small[["elapsed"]] + 0.2)
 })
+
+
+test_that("alpha_call and alpha_graph are validated", {
+  # Unchecked, an NA alpha makes every q < alpha comparison NA, so the
+  # tier predicates evaluate to NA and the call dies inside a helper with
+  # base R's "missing value where TRUE/FALSE needed", naming neither
+  # argument. A length-2 vector silently used only its first element.
+  e <- data.frame(
+    gene1 = c("a1", "a1", "b1"), gene2 = c("b1", "c1", "c1"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C"),
+    hog = "H1", q.value = 0.01, stringsAsFactors = FALSE
+  )
+  cl <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
+  sp <- c("SP_A", "SP_B", "SP_C")
+  for (bad in list(NA_real_, c(0.1, 0.2), "x", numeric(0))) {
+    expect_error(
+      classify_gene_cliques(cl, e, sp, alpha_call = bad),
+      "alpha_call must be a single non-missing number"
+    )
+    expect_error(
+      classify_gene_cliques(cl, e, sp, alpha_graph = bad),
+      "alpha_graph must be a single non-missing number"
+    )
+  }
+})
+
+
+test_that("mean_q ties are counted to tolerance, not bitwise", {
+  # mean_q is a mean over a different edge subset per clique, so two
+  # mathematically equal values need not be bitwise equal. An exact ==
+  # under-reports the very tie the count exists to report, and would
+  # disagree with pvalue_resolution() on the same vector.
+  eps <- .Machine$double.eps
+  v <- 0.25 * (1 + c(0, 1, -1, 2) * eps)
+  ties <- rcomplex:::.tol_min_ties(c(v, 0.5, 0.9))
+  expect_equal(ties$n_at_min, 4L)
+  expect_equal(ties$n_distinct, 3L)
+  # and the exact comparison the fix replaced would have said 1 and 6
+  expect_lt(ties$n_distinct, length(unique(c(v, 0.5, 0.9))))
+})

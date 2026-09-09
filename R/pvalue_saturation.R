@@ -232,6 +232,35 @@ pvalue_resolution <- function(p, n_perm = NULL) {
 # group's smallest member. Two doubles a few last bits apart are one value
 # wobbled by arithmetic, not two resolvable p-values, and the distinct count
 # and the tie count must not disagree about which it is.
+#' Count values tied at the minimum, to floating-point tolerance
+#'
+#' Two doubles a few last bits apart are one value wobbled by arithmetic,
+#' not two resolvable quantities. Exact `==` against the minimum
+#' under-reports a tie, which matters because a tie count is reported
+#' precisely to say how far a quantity can rank -- and because the same
+#' vector is summarised by more than one diagnostic in this package, which
+#' must not disagree about it.
+#'
+#' @param v Numeric vector; `NA` are dropped.
+#' @param tol Relative tolerance.
+#' @return List with `n_distinct`, `min` and `n_at_min`.
+#' @noRd
+.tol_min_ties <- function(v, tol = sqrt(.Machine$double.eps)) {
+  v <- v[!is.na(v)]
+  if (length(v) == 0L) {
+    return(list(n_distinct = 0L, min = NA_real_, n_at_min = 0L))
+  }
+  u <- sort(unique(v))
+  g <- .tol_groups(u, tol)
+  mn <- u[1L]
+  list(
+    n_distinct = length(unique(g)),
+    min = mn,
+    n_at_min = sum(v <= mn + tol * abs(mn))
+  )
+}
+
+
 .tol_groups <- function(u, tol) {
   n <- length(u)
   if (n <= 1L) {

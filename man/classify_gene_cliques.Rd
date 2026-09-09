@@ -132,6 +132,12 @@ cl <- gene_clique_graph(edges)
 classify_gene_cliques(cl, edges, c("SP_A", "SP_B", "SP_C"))
 
 }
+\references{
+Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
+Comparative regulomics of wood formation across dicot and
+conifer trees. \emph{Nature Communications} 17(1).
+\doi{10.1038/s41467-026-75624-2}
+}
 \seealso{
 \code{\link{gene_clique_graph}}
 }

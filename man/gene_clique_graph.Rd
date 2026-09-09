@@ -17,8 +17,12 @@ column is used when present.}
 
 \item{alpha_graph}{Edges with \code{q.value < alpha_graph} build the
 graph. Use the calling threshold (e.g. 0.1) for complete cliques,
-a permissive value (0.9) for partially-significant cliques, and 1
-for an unfiltered graph. Passing several thresholds and combining
+a permissive value (0.9) for partially-significant cliques, and a
+value \strong{above} 1 (\code{Inf}) for an unfiltered graph. The comparison
+is strict, so \code{alpha_graph = 1} drops every edge whose \code{q.value} is
+exactly 1 -- not a corner case, since BH q-values cap at 1 and 20 of
+511 module q-values sit there on the package's own worked
+example. Passing several thresholds and combining
 the results is the intended way to feed
 \code{\link{classify_gene_cliques}}, since a clique that is maximal
 at one threshold need not be maximal at another.}
@@ -95,6 +99,12 @@ edges <- data.frame(
 )
 gene_clique_graph(edges)
 
+}
+\references{
+Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
+Comparative regulomics of wood formation across dicot and
+conifer trees. \emph{Nature Communications} 17(1).
+\doi{10.1038/s41467-026-75624-2}
 }
 \seealso{
 \code{\link{classify_gene_cliques}},
