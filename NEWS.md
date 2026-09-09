@@ -124,6 +124,43 @@ counterpart per gene before any module label is projected.
   duplicate left later pool slots `NULL` and failed with a message
   naming neither argument.
 
+- `tag_permutation()` no longer requires a disjoint pairing. Contrasts
+  sharing a species are *coupled* --- relabelling one changes the other
+  --- so the unit of independence is the connected component of the graph
+  whose nodes are species and whose edges are contrasts, not the contrast.
+  A component's labelling is fixed by the label given to any one of its
+  species, since each contrast then forces its partner, so enumerating the
+  alphabet for one species and propagating finds every admissible
+  labelling. The null is the product over components. A disjoint pairing
+  gives one component per contrast with two labellings each, so the
+  familiar `2^k` space is the special case rather than the assumption, and
+  designs with shared species, unbalanced label counts, or more than two
+  trait values are handled rather than refused. The return value gains
+  `n_labellings`, and `$pair_sizes` gains a `block` column.
+
+- `tag_permutation(statistic = )` offers `"excess"` alongside the default
+  `"count"`. The raw count scales with how many HOGs the selected sides
+  hold, so a contrast whose two sides differ greatly in size dominates the
+  null, which then ranks labellings largely by set size: on the
+  eight-species Pooideae set 98% of the variance of the count null is
+  explained by the total size of the selected sides, and the single most
+  lopsided contrast (528 HOGs against 9) explains 64% on its own.
+  `"excess"` subtracts the count expected from independent sides of those
+  sizes, as a Poisson-binomial upper tail over `universe`.
+
+  **It is not the default, because whether it helps depends on the
+  regime.** On the Pooideae set it cuts the size-explained variance from
+  0.98 to 0.33 and moves the observed labelling from 6th to 3rd of 16
+  (p = 0.375 to 0.1875). On a simulated design whose sides nearly
+  partition the universe it makes matters worse, because the independence
+  model then predicts more overlap than disjoint sides can deliver --- the
+  size dependence rose from 0.97 to 0.999 as the sides were made more
+  disjoint. The reference `universe` is not identifiable from the data,
+  so it is an argument rather than something inferred, and both regimes
+  are pinned by tests. Inference is exact under either statistic, since
+  the permutation null is recomputed on whichever is chosen; this is a
+  power choice, not a validity one.
+
 - `tag_permutation()` returns `$pair_sizes` and `$size_asymmetry_p`. The
   within-pair swap is exchangeable only if the target side is not
   systematically the larger one; simulation puts the rejection rate at

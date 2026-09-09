@@ -22,20 +22,19 @@
 #' labelling contributes under every draw --- the null stays inside the
 #' design that was actually run.
 #'
-#' A pair counts toward \code{k} only when swapping it changes the
-#' statistic: exactly one of its sides must carry \code{target_group},
-#' \emph{and} its two sides must carry different diverged-HOG sets. A
-#' swap within a pair whose species share a label is the identity; with
-#' three or more trait values a pair whose labels differ but where
-#' neither is the target contributes nothing under either orientation;
-#' and a pair whose two sides hold the same HOG set --- most often one
-#' with no diverged module above \code{min_module_size} on either side
-#' --- swaps to itself. Counting any of these would duplicate every
-#' labelling and halve the reported \code{p_min} without adding a point
-#' of resolution. With \code{k} swappable pairs the null therefore has
-#' exactly \code{2^k} distinct labellings. Up to 20 swappable pairs it is
-#' \strong{enumerated exactly} and \code{n_perm} is ignored; beyond that
-#' \code{n_perm} independent swap vectors are drawn. Either way the
+#' A component counts toward \code{k} only when relabelling it changes
+#' the statistic. A contrast whose two species share a label is pinned;
+#' with three or more trait values a contrast whose labels differ but
+#' where neither is the target contributes nothing under either
+#' orientation; and a component whose labellings all select the same HOG
+#' sets --- most often one with no diverged module above
+#' \code{min_module_size} on either side --- adds no resolution.
+#' Counting any of these would multiply the label space without
+#' separating anything, and \code{p_min} would then claim a floor the
+#' design cannot reach. The label space is enumerated exactly while it
+#' holds at most \code{2^enum_max} labellings, and \code{n_perm} is then
+#' ignored; beyond that \code{n_perm} labellings are drawn, one
+#' admissible labelling per component. Either way the
 #' observed labelling is one of the points, so the smallest attainable
 #' p-value is \code{p_min} (\code{2^-k} when enumerated). \strong{A
 #' design with fewer than 5 swappable pairs cannot reach p < 0.05 no
@@ -48,10 +47,19 @@
 #' distribution. Those are not independent tests and must not be
 #' corrected as if they were.
 #'
-#' The test generalises to any number of trait values with arbitrary
-#' frequencies. It requires a disjoint pairing: each species may appear
-#' in at most one pair, otherwise a within-pair swap would change another
-#' pair's labels.
+#' Contrasts sharing a species are \emph{coupled}: relabelling one
+#' changes the other, so they cannot be swapped independently. The unit of
+#' independence is therefore the connected component of the graph whose
+#' nodes are species and whose edges are contrasts, and the null is the
+#' product over components of each component's admissible labellings. A
+#' component's labelling is fixed by the label given to any one of its
+#' species, since each contrast then forces its partner, so enumerating
+#' the alphabet for one species and propagating finds them all. A disjoint
+#' pairing gives one component per contrast with two labellings each, which
+#' is where \code{2^k} comes from --- the special case, not the
+#' assumption. The test generalises to any number of trait values with
+#' arbitrary frequencies, to unbalanced designs, and to species appearing
+#' in several contrasts.
 #'
 #' An earlier version permuted trait labels across all species without
 #' conditioning on the pairing. That null mixed the observed design with
@@ -94,6 +102,44 @@
 #'   which on Pooideae-sized HOG pools is tens of minutes --- so lower it
 #'   to fall back to \code{n_perm} sampled draws when that cost is not
 #'   worth an exact p-value. Values above 30 are refused.
+#' @param statistic Either \code{"count"} (default) or \code{"excess"}.
+#'   Inference is exact under both --- the permutation null is recomputed
+#'   on whichever is chosen --- so this is a power choice, not a validity
+#'   one. \code{observed} is the recurrence count either way and
+#'   \code{statistic_observed} is the value actually tested.
+#'
+#'   \code{"count"} is the raw number of recurring HOGs. It scales with
+#'   how many HOGs the selected sides happen to hold, so a contrast whose
+#'   two sides differ greatly in size dominates the null, which then ranks
+#'   labellings largely by set size. Measured on the eight-species
+#'   Pooideae set, 98\% of the variance of the count null is explained by
+#'   the total size of the selected sides.
+#'
+#'   \code{"excess"} subtracts the count expected from independent sides
+#'   of exactly those sizes, as a Poisson-binomial upper tail over
+#'   \code{universe}. \strong{Whether this helps depends on the regime,
+#'   and it can make matters worse.} It works when the sides are small
+#'   relative to the universe --- on the Pooideae set it cuts the variance
+#'   explained by set size from 0.98 to 0.33 and moves the observed
+#'   labelling from 6th to 3rd of 16. It over-corrects when the sides
+#'   between them account for most of the universe, because the
+#'   independence model then predicts far more overlap than disjoint sides
+#'   can produce: on a simulated design whose sides nearly partition the
+#'   universe, the size dependence rises rather than falls (measured 0.97
+#'   to 0.999 as the sides were made more disjoint). Check
+#'   \code{$pair_sizes} against \code{universe} before trusting it, and
+#'   treat a large negative \code{statistic_observed} as a sign that the
+#'   universe is too small.
+#' @param universe Reference universe for \code{statistic = "excess"}:
+#'   a count, or a vector of HOG identifiers whose distinct values are
+#'   counted. Defaults to every HOG in \code{orthologs}. \strong{This is
+#'   not identifiable from the data} --- it is the set of HOGs that could
+#'   have appeared in a diverged module, which the data cannot report ---
+#'   and the correction is sensitive to it, so it is an argument rather
+#'   than something inferred. A universe at or below the union of the
+#'   selected sides forces the expectation above what disjoint sides can
+#'   deliver and drives the statistic systematically negative. Ignored for
+#'   \code{statistic = "count"}.
 #' @param min_recurrence Minimum number of pairs in which a HOG must
 #'   appear to be counted as recurring (default 2). \strong{This does not
 #'   scale with the number of pairs and should be raised as pairs are
@@ -133,6 +179,12 @@
 #'       statistic cannot be separated, so nothing scores below the tail
 #'       of the maximum. Equals \code{p_min} when the maximum is unique,
 #'       and whenever the null was sampled.}
+#'     \item{statistic}{Echo of the input.}
+#'     \item{statistic_observed}{The observed value of the chosen
+#'       statistic --- what \code{null_distribution} is compared against.
+#'       Equals \code{observed} when \code{statistic = "count"}.}
+#'     \item{n_labellings}{Size of the admissible label space, the
+#'       product over components. \code{2^k} for a disjoint design.}
 #'     \item{n_contributing}{Number of pairs feeding the statistic ---
 #'       those with exactly one side in \code{target_group}. Differs from
 #'       \code{n_swappable} when a contributing pair carries the same HOG
@@ -187,10 +239,13 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
                             group, target_group,
                             n_perm = 1000L,
                             min_recurrence = 2L,
+                            statistic = c("count", "excess"),
+                            universe = NULL,
                             enum_max = 20L) {
   # Capture before n_perm is reassigned: missing() reports FALSE once an
   # argument has been written to, so this cannot be asked for later.
   n_perm_supplied <- !missing(n_perm)
+  statistic <- match.arg(statistic)
   # --- Validation ---
   req_cls <- c("pair_name", "module", "reference", "test",
                "classification")
@@ -211,10 +266,6 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   if (!is.character(group) || is.null(names(group))) {
     stop("group must be a named character vector")
   }
-  # The within-pair swap null needs a disjoint pairing: swapping one
-  # pair's labels must not change another pair's. A species appearing
-  # twice makes the swaps dependent and the 2^k support wrong.
-  # A self-pair is also a duplicate, so diagnose it first.
   if (any(pairs$sp1 == pairs$sp2)) {
     stop("pairs must have two distinct species per row")
   }
@@ -226,13 +277,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
          paste(unique(pairs$pair_name[duplicated(pairs$pair_name)]),
                collapse = ", "))
   }
-  sp_all <- c(pairs$sp1, pairs$sp2)
-  dup_sp <- unique(sp_all[duplicated(sp_all)])
-  if (length(dup_sp) > 0L) {
-    stop("pairs must be disjoint (each species in at most one pair); ",
-         "repeated: ", paste(dup_sp, collapse = ", "))
-  }
-  all_sp <- unique(sp_all)
+  all_sp <- unique(c(pairs$sp1, pairs$sp2))
   missing_grp <- setdiff(all_sp, names(group))
   if (length(missing_grp) > 0L) {
     stop("group missing entries for: ",
@@ -389,8 +434,44 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     sum(tabulate(match(all_hogs, unique(all_hogs))) >= min_recurrence)
   }
 
+  # The reference universe for the "excess" statistic. It is NOT
+  # identifiable from the data and the correction is sensitive to it, so
+  # it is an argument rather than an inference: see @param universe.
+  n_universe <- if (is.null(universe)) {
+    length(unique(stats::na.omit(gene_to_hog)))
+  } else if (is.numeric(universe) && length(universe) == 1L) {
+    as.integer(universe)
+  } else {
+    length(unique(universe))
+  }
+  if (statistic == "excess" && n_universe <= 0L) {
+    stop("statistic = \"excess\" needs a positive universe size")
+  }
+
+  # --- The statistic ---
+  # "count" is the raw recurrence count, which scales with how many HOGs
+  # the chosen sides happen to hold: a contrast whose two sides differ
+  # greatly in size then dominates, and the relabelling null measures set
+  # size rather than shared identity. "excess" subtracts the count
+  # expected from independent sides of exactly those sizes, which removes
+  # that term without assuming anything about the trait.
+  statistic_of <- function(grp) {
+    sel <- get_pair_hogs(grp)
+    all_hogs <- unlist(sel)
+    obs_n <- if (length(all_hogs) == 0L) {
+      0L
+    } else {
+      sum(tabulate(match(all_hogs, unique(all_hogs))) >= min_recurrence)
+    }
+    if (statistic == "count") return(as.numeric(obs_n))
+    sizes <- vapply(sel, length, integer(1))
+    sizes <- sizes[sizes > 0L]
+    obs_n - .tp_expected(sizes, n_universe, min_recurrence)
+  }
+
   # --- Observed ---
-  obs <- count_recurring(group)
+  obs <- statistic_of(group)
+  observed_count <- count_recurring(group)
 
   # --- Build observed recurrence table ---
   obs_all <- unlist(get_pair_hogs(group))
@@ -418,17 +499,6 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # exactly the set of pairs whose two labels differ.
   contributes <- unname(xor(group[pairs$sp1] == target_group,
                             group[pairs$sp2] == target_group))
-  # A pair whose two sides carry the same HOG set swaps to itself, so its
-  # bit duplicates every labelling without adding a point of resolution
-  # and halves the reported p_min. Both sides empty is the common case:
-  # preservation_paired() reports only modules above min_module_size, so
-  # a well-preserved or sparsely mapped pair has no diverged module on
-  # either side. `contributes` is what feeds the statistic; `swappable`
-  # is the subset that also moves the null.
-  pool_differs <- vapply(hog_pool, function(z) !setequal(z$sp1, z$sp2),
-                         logical(1))
-  swappable <- unname(which(contributes & pool_differs))
-  k <- length(swappable)
   n_contributing <- sum(contributes)
   if (min_recurrence > n_contributing) {
     stop("min_recurrence (", min_recurrence, ") exceeds the number of ",
@@ -437,50 +507,90 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
          "under every labelling and the p-value is 1 by construction")
   }
 
-  apply_swaps <- function(flip) {
+  # Contrasts sharing a species are coupled, so the unit of independence
+  # is the connected component of the species-by-contrast graph, not the
+  # contrast. A disjoint pairing gives one component per contrast with
+  # two labellings each, recovering the 2^k space as a special case.
+  blocks <- .tp_blocks(pairs, group)
+  # A component whose labellings all select the same HOG sets adds no
+  # resolution: keeping them would multiply the label space without
+  # separating anything, and p_min would then claim a floor the design
+  # cannot reach. Reduce such a component to one labelling.
+  informative <- vapply(seq_along(blocks$labellings), function(ci) {
+    labs <- blocks$labellings[[ci]]
+    if (length(labs) < 2L) return(FALSE)
+    sigs <- vapply(labs, function(l) {
+      grp <- group
+      grp[names(l)] <- l
+      paste(vapply(get_pair_hogs(grp), function(h) {
+        paste(sort(h), collapse = "\r")
+      }, character(1)), collapse = "\n")
+    }, character(1))
+    length(unique(sigs)) > 1L
+  }, logical(1))
+  for (ci in which(!informative)) {
+    blocks$labellings[[ci]] <- blocks$labellings[[ci]][1L]
+  }
+  blocks$n <- vapply(blocks$labellings, length, integer(1))
+
+  n_labellings <- prod(as.numeric(blocks$n))
+  # k is reported as the number of components that actually move the
+  # statistic; for a disjoint binary design this is the familiar count of
+  # swappable pairs and n_labellings is 2^k.
+  k <- sum(blocks$n > 1L)
+
+  apply_labelling <- function(pick) {
     grp <- group
-    idx <- swappable[flip]
-    if (length(idx) > 0L) {
-      a <- pairs$sp1[idx]
-      b <- pairs$sp2[idx]
-      grp[a] <- group[b]
-      grp[b] <- group[a]
+    for (ci in seq_along(pick)) {
+      l <- blocks$labellings[[ci]][[pick[ci]]]
+      grp[names(l)] <- l
     }
     grp
   }
 
   # Enumeration is a cost question, not a Monte Carlo budget question.
-  # 2^20 labellings is about a million count_recurring() calls, the
-  # practical ceiling. Tying the decision to n_perm meant raising n_perm
-  # for precision could demote the null from exact to sampled, and at
-  # k = 10 the default n_perm = 1000 drew 1000 sampled points from a
-  # 1024-point space -- inexact, and slower than walking all of it.
-  exact <- k <= enum_max
+  # The ceiling is on the number of labellings, so a design with many
+  # coupled contrasts is judged by the size of its actual label space
+  # rather than by a pair count that no longer describes it.
+  enum_cap <- 2^enum_max
+  exact <- n_labellings <= enum_cap
+  # Mixed-radix counter over the components: digit ci ranges over that
+  # component's admissible labellings, so the product space is walked
+  # without materialising it.
+  radix <- blocks$n
+  pick_at <- function(i) {
+    rem <- i
+    pick <- integer(length(radix))
+    for (ci in seq_along(radix)) {
+      pick[ci] <- (rem %% radix[ci]) + 1L
+      rem <- rem %/% radix[ci]
+    }
+    pick
+  }
+
   if (exact) {
-    n_draw <- bitwShiftL(1L, k)
+    n_draw <- as.integer(n_labellings)
     if (n_perm_supplied) {
       message("null enumerated exactly over ", n_draw,
-              " labellings (2^", k, "); n_perm = ", n_perm, " ignored")
+              " labellings; n_perm = ", n_perm, " ignored")
     }
-    null_dist <- integer(n_draw)
+    null_dist <- numeric(n_draw)
     for (i in seq_len(n_draw)) {
-      # bit i-1 of the counter selects which swappable pairs flip
-      bits <- as.logical(bitwAnd(i - 1L, bitwShiftL(1L, seq_len(k) - 1L)))
-      null_dist[i] <- count_recurring(apply_swaps(bits))
+      null_dist[i] <- statistic_of(apply_labelling(pick_at(i - 1L)))
     }
     # The enumeration already contains the observed labelling, so no +1.
     p_value <- sum(null_dist >= obs) / n_draw
     p_min <- 1 / n_draw
     # The floor this data actually reaches. Ties at the maximum raise it
-    # above 2^-k: labellings sharing a statistic cannot be separated, so
-    # nothing scores below their shared tail.
+    # above 1 / n_labellings: labellings sharing a statistic cannot be
+    # separated, so nothing scores below their shared tail.
     p_attainable <- sum(null_dist >= max(null_dist)) / n_draw
   } else {
     n_draw <- n_perm
-    null_dist <- integer(n_draw)
+    null_dist <- numeric(n_draw)
     for (i in seq_len(n_draw)) {
-      flip <- stats::runif(k) < 0.5
-      null_dist[i] <- count_recurring(apply_swaps(flip))
+      pick <- vapply(radix, function(r) sample.int(r, 1L), integer(1))
+      null_dist[i] <- statistic_of(apply_labelling(pick))
     }
     p_value <- (sum(null_dist >= obs) + 1L) / (n_draw + 1L)
     p_min <- 1 / (n_draw + 1L)
@@ -529,7 +639,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     n_hogs_sp1 = vapply(hog_pool, function(z) length(z$sp1), integer(1)),
     n_hogs_sp2 = vapply(hog_pool, function(z) length(z$sp2), integer(1)),
     contributes = contributes,
-    swappable = seq_len(n_pairs) %in% swappable,
+    block = unname(blocks$membership[pairs$sp1]),
+    swappable = blocks$n[blocks$membership[pairs$sp1]] > 1L,
     stringsAsFactors = FALSE
   )
   target_is_sp1 <- group[pairs$sp1] == target_group
@@ -573,7 +684,10 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   }
 
   list(
-    observed = obs,
+    observed = observed_count,
+    statistic = statistic,
+    statistic_observed = obs,
+    n_labellings = n_labellings,
     null_distribution = null_dist,
     p_value = p_value,
     p_min = p_min,

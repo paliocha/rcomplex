@@ -13,6 +13,8 @@ tag_permutation(
   target_group,
   n_perm = 1000L,
   min_recurrence = 2L,
+  statistic = c("count", "excess"),
+  universe = NULL,
   enum_max = 20L
 )
 }
@@ -73,6 +75,46 @@ every labelling. At \code{min_recurrence = 1} the statistic
 degenerates to the size of the union of the chosen sides, a pure
 set-size measure.}
 
+\item{statistic}{Either \code{"count"} (default) or \code{"excess"}.
+Inference is exact under both --- the permutation null is recomputed
+on whichever is chosen --- so this is a power choice, not a validity
+one. \code{observed} is the recurrence count either way and
+\code{statistic_observed} is the value actually tested.
+
+\code{"count"} is the raw number of recurring HOGs. It scales with
+how many HOGs the selected sides happen to hold, so a contrast whose
+two sides differ greatly in size dominates the null, which then ranks
+labellings largely by set size. Measured on the eight-species
+Pooideae set, 98\\% of the variance of the count null is explained by
+the total size of the selected sides.
+
+\code{"excess"} subtracts the count expected from independent sides
+of exactly those sizes, as a Poisson-binomial upper tail over
+\code{universe}. \strong{Whether this helps depends on the regime,
+and it can make matters worse.} It works when the sides are small
+relative to the universe --- on the Pooideae set it cuts the variance
+explained by set size from 0.98 to 0.33 and moves the observed
+labelling from 6th to 3rd of 16. It over-corrects when the sides
+between them account for most of the universe, because the
+independence model then predicts far more overlap than disjoint sides
+can produce: on a simulated design whose sides nearly partition the
+universe, the size dependence rises rather than falls (measured 0.97
+to 0.999 as the sides were made more disjoint). Check
+\code{$pair_sizes} against \code{universe} before trusting it, and
+treat a large negative \code{statistic_observed} as a sign that the
+universe is too small.}
+
+\item{universe}{Reference universe for \code{statistic = "excess"}:
+a count, or a vector of HOG identifiers whose distinct values are
+counted. Defaults to every HOG in \code{orthologs}. \strong{This is
+not identifiable from the data} --- it is the set of HOGs that could
+have appeared in a diverged module, which the data cannot report ---
+and the correction is sensitive to it, so it is an argument rather
+than something inferred. A universe at or below the union of the
+selected sides forces the expectation above what disjoint sides can
+deliver and drives the statistic systematically negative. Ignored for
+\code{statistic = "count"}.}
+
 \item{enum_max}{Largest number of swappable pairs to enumerate
 (default 20). The enumeration is \code{2^enum_max} serial
 evaluations of the statistic --- about a million at the default,
@@ -101,6 +143,12 @@ when \code{p_min} is also above it.}
 statistic cannot be separated, so nothing scores below the tail
 of the maximum. Equals \code{p_min} when the maximum is unique,
 and whenever the null was sampled.}
+\item{statistic}{Echo of the input.}
+\item{statistic_observed}{The observed value of the chosen
+statistic --- what \code{null_distribution} is compared against.
+Equals \code{observed} when \code{statistic = "count"}.}
+\item{n_labellings}{Size of the admissible label space, the
+product over components. \code{2^k} for a disjoint design.}
 \item{n_contributing}{Number of pairs feeding the statistic ---
 those with exactly one side in \code{target_group}. Differs from
 \code{n_swappable} when a contributing pair carries the same HOG
@@ -153,20 +201,19 @@ pair's pair of labels, so a pair that contributes under the observed
 labelling contributes under every draw --- the null stays inside the
 design that was actually run.
 
-A pair counts toward \code{k} only when swapping it changes the
-statistic: exactly one of its sides must carry \code{target_group},
-\emph{and} its two sides must carry different diverged-HOG sets. A
-swap within a pair whose species share a label is the identity; with
-three or more trait values a pair whose labels differ but where
-neither is the target contributes nothing under either orientation;
-and a pair whose two sides hold the same HOG set --- most often one
-with no diverged module above \code{min_module_size} on either side
---- swaps to itself. Counting any of these would duplicate every
-labelling and halve the reported \code{p_min} without adding a point
-of resolution. With \code{k} swappable pairs the null therefore has
-exactly \code{2^k} distinct labellings. Up to 20 swappable pairs it is
-\strong{enumerated exactly} and \code{n_perm} is ignored; beyond that
-\code{n_perm} independent swap vectors are drawn. Either way the
+A component counts toward \code{k} only when relabelling it changes
+the statistic. A contrast whose two species share a label is pinned;
+with three or more trait values a contrast whose labels differ but
+where neither is the target contributes nothing under either
+orientation; and a component whose labellings all select the same HOG
+sets --- most often one with no diverged module above
+\code{min_module_size} on either side --- adds no resolution.
+Counting any of these would multiply the label space without
+separating anything, and \code{p_min} would then claim a floor the
+design cannot reach. The label space is enumerated exactly while it
+holds at most \code{2^enum_max} labellings, and \code{n_perm} is then
+ignored; beyond that \code{n_perm} labellings are drawn, one
+admissible labelling per component. Either way the
 observed labelling is one of the points, so the smallest attainable
 p-value is \code{p_min} (\code{2^-k} when enumerated). \strong{A
 design with fewer than 5 swappable pairs cannot reach p < 0.05 no
@@ -179,10 +226,19 @@ complementary trait values reads two entries of the same null
 distribution. Those are not independent tests and must not be
 corrected as if they were.
 
-The test generalises to any number of trait values with arbitrary
-frequencies. It requires a disjoint pairing: each species may appear
-in at most one pair, otherwise a within-pair swap would change another
-pair's labels.
+Contrasts sharing a species are \emph{coupled}: relabelling one
+changes the other, so they cannot be swapped independently. The unit of
+independence is therefore the connected component of the graph whose
+nodes are species and whose edges are contrasts, and the null is the
+product over components of each component's admissible labellings. A
+component's labelling is fixed by the label given to any one of its
+species, since each contrast then forces its partner, so enumerating
+the alphabet for one species and propagating finds them all. A disjoint
+pairing gives one component per contrast with two labellings each, which
+is where \code{2^k} comes from --- the special case, not the
+assumption. The test generalises to any number of trait values with
+arbitrary frequencies, to unbalanced designs, and to species appearing
+in several contrasts.
 
 An earlier version permuted trait labels across all species without
 conditioning on the pairing. That null mixed the observed design with

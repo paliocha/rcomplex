@@ -281,11 +281,14 @@ test_that("the null stays inside the observed design", {
   # leave enough pairs to meet min_recurrence = 2.
   fix <- make_tag_perm_fixtures()
 
-  result <- suppressWarnings(tag_permutation(
+  # statistic = "count" so the null holds recurrence counts and the
+  # assertion reads directly; the default "excess" subtracts a size
+  # expectation and is exercised separately.
+  result <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
-    n_perm = 1000L, min_recurrence = 2L
-  ))
+    n_perm = 1000L, min_recurrence = 2L, statistic = "count"
+  )))
 
   # Every labelling selects one side of all 3 pairs, and every side
   # carries 3 HOGs shared across pairs, so every draw recurs 3 HOGs.
@@ -317,9 +320,12 @@ test_that("the enumerated null is the exact 2^k label space", {
   # p-value needs no +1 and can never fall below 1 / 2^k.
   expect_gte(result$p_value, result$p_min)
   expect_equal(result$p_min, 1 / 8)
-  expect_true(result$observed %in% result$null_distribution)
-  expect_equal(result$p_value, mean(result$null_distribution >=
-                                      result$observed))
+  # null_distribution holds the statistic, so compare against
+  # statistic_observed rather than the raw recurrence count.
+  expect_true(result$statistic_observed %in% result$null_distribution)
+  expect_equal(result$p_value,
+               mean(result$null_distribution >=
+                      result$statistic_observed))
 
   # Enumeration is decided on cost (at most 20 swappable pairs), not on
   # n_perm, so lowering n_perm below the label space no longer demotes
@@ -356,25 +362,54 @@ test_that("tag_permutation warns when significance is unreachable", {
 })
 
 
-test_that("tag_permutation requires a disjoint pairing", {
+test_that("contrasts sharing a species are coupled, not refused", {
+  # A species in more than one contrast makes the relabellings dependent:
+  # flipping one contrast changes the other. That used to be refused
+  # outright, which restricted the test to a disjoint matched-pairs
+  # design. The unit of independence is the connected component of the
+  # species-by-contrast graph, so the coupling is modelled rather than
+  # excluded, and a disjoint design is the special case where every
+  # component is one contrast.
   fix <- make_tag_perm_fixtures()
+  chain <- data.frame(
+    sp1 = c("A1", "P1"), sp2 = c("P1", "A2"),
+    pair_name = c("pair1", "pair2"), stringsAsFactors = FALSE
+  )
+  bl <- .tp_blocks(chain, fix$group)
+  # One component over A1, P1, A2; fixing A1 forces the other two, so
+  # there are 2 labellings, not the 4 a disjoint reading would claim.
+  expect_equal(length(bl$labellings), 1L)
+  expect_equal(unname(bl$n), 2L)
+  lab <- bl$labellings[[1]]
+  expect_true(all(vapply(lab, function(l) {
+    l[["A1"]] != l[["P1"]] && l[["P1"]] != l[["A2"]]
+  }, logical(1))))
 
-  # A1 in two pairs: swapping pair1 would change pair3's labels too, so
-  # the swaps are not independent and 2^k is not the support.
+  # A disjoint design still gives one component per contrast and 2^k.
+  bl2 <- .tp_blocks(fix$pairs, fix$group)
+  expect_equal(length(bl2$labellings), 3L)
+  expect_equal(prod(bl2$n), 8)
+
+  # A contrast whose two species share a label is pinned, not swappable.
+  same <- fix$group
+  same["P1"] <- "annual"
+  bl3 <- .tp_blocks(fix$pairs[1, , drop = FALSE], same)
+  expect_equal(unname(bl3$n), 1L)
+
+  # Self-pairs and duplicate pair names remain errors.
   bad <- fix$pairs
-  bad$sp1[3] <- "A1"
+  bad$sp2[1] <- bad$sp1[1]
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
                     bad, fix$group, target_group = "annual"),
-    "disjoint"
+    "two distinct species"
   )
-
-  same <- fix$pairs
-  same$sp2[1] <- same$sp1[1]
+  dup <- fix$pairs
+  dup$pair_name[2] <- dup$pair_name[1]
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    same, fix$group, target_group = "annual"),
-    "two distinct species"
+                    dup, fix$group, target_group = "annual"),
+    "pair_name must be unique"
   )
 })
 
@@ -397,7 +432,8 @@ test_that("complementary trait values share one null distribution", {
       fix$pairs,
       fix$group,
       target_group = tg,
-      min_recurrence = 2L
+      min_recurrence = 2L,
+      statistic = "count"
     )))
   }
   ann <- run_for("annual")
@@ -700,7 +736,8 @@ test_that("the sampled branch runs when enumeration is capped", {
   expect_equal(res$p_min, 1 / 51)
   expect_equal(res$p_attainable, res$p_min)
   expect_equal(res$p_value,
-               (sum(res$null_distribution >= res$observed) + 1L) / 51L)
+               (sum(res$null_distribution >= res$statistic_observed) + 1L) /
+                 51L)
   expect_equal(res$n_swappable, 4L)
 
   # The enumerated answer on the same data, for comparison.
@@ -774,4 +811,117 @@ test_that("the unreachable-significance warning names the right cause", {
   expect_gt(res$p_attainable, res$p_min)
   expect_true(any(grepl("^ties in the null", warns)))
   expect_false(any(grepl("At least 5 swappable pairs are needed", warns)))
+})
+
+
+# Build a k-contrast design whose sides are random subsets of a HOG pool,
+# with one contrast deliberately lopsided so set size has something to
+# dominate. Returns the pieces tag_permutation() consumes plus the sizes,
+# so a test can regress the null on total selected size.
+lopsided_design <- function(n_hog, sizes, seed) {
+  set.seed(seed)
+  k <- length(sizes)
+  hogs <- paste0("HOG", seq_len(n_hog))
+  sp1 <- paste0("A", seq_len(k))
+  sp2 <- paste0("P", seq_len(k))
+  group <- stats::setNames(rep(c("annual", "perennial"), each = k),
+                           c(sp1, sp2))
+  pairs <- data.frame(sp1 = sp1, sp2 = sp2,
+                      pair_name = paste0("pair", seq_len(k)),
+                      stringsAsFactors = FALSE)
+  modules <- list()
+  orth <- list()
+  cls <- list()
+  for (i in seq_len(k)) {
+    for (side in 1:2) {
+      sp <- if (side == 1L) sp1[i] else sp2[i]
+      hs <- sample(hogs, sizes[[i]][side])
+      g <- paste0(sp, "_g", seq_along(hs))
+      modules[[sp]] <- list(
+        modules = stats::setNames(rep(1L, length(g)), g),
+        module_genes = list(`1` = g), n_modules = 1L,
+        modularity = 0.3, graph = NULL, method = "leiden",
+        params = list()
+      )
+      orth[[sp]] <- data.frame(Species1 = g, Species2 = g, hog = hs,
+                               stringsAsFactors = FALSE)
+    }
+    cls[[i]] <- data.frame(
+      pair_name = rep(pairs$pair_name[i], 2),
+      module = c("1", "1"),
+      reference = c(sp1[i], sp2[i]),
+      test = c(sp2[i], sp1[i]),
+      classification = c("diverged", "diverged"),
+      stringsAsFactors = FALSE
+    )
+  }
+  list(cl = do.call(rbind, cls), og = do.call(rbind, orth),
+       modules = modules, pairs = pairs, group = group,
+       k = k, sizes = sizes)
+}
+
+# R^2 of the null on the total size of the selected sides, walked in the
+# same mixed-radix order the kernel uses.
+size_dependence <- function(fx, ...) {
+  res <- suppressMessages(suppressWarnings(tag_permutation(
+    fx$cl, fx$modules, fx$og, fx$pairs, fx$group,
+    target_group = "annual", min_recurrence = 2L, ...
+  )))
+  tot <- vapply(seq_len(2^fx$k) - 1L, function(idx) {
+    bits <- as.logical(bitwAnd(idx, bitwShiftL(1L, seq_len(fx$k) - 1L)))
+    sum(vapply(seq_len(fx$k), function(i) {
+      fx$sizes[[i]][if (bits[i]) 2L else 1L]
+    }, numeric(1)))
+  }, numeric(1))
+  # cor^2 rather than lm(), which is the same quantity for a single
+  # predictor and keeps the variables out of a formula.
+  stats::cor(res$null_distribution, tot)^2
+}
+
+
+test_that("the raw count null is dominated by selected set size", {
+  # This is the motivation for offering "excess" at all, and it is a
+  # property of the statistic rather than of any one dataset: a contrast
+  # whose two sides differ greatly in size decides the ordering.
+  fx <- lopsided_design(6000, list(c(60, 60), c(60, 60), c(60, 60),
+                                   c(300, 8)), seed = 21)
+  # Measured 0.71 here and 0.98 on the eight-species Pooideae set; assert
+  # that size is the dominant term rather than either exact level, since
+  # how dominant it is depends on the pool the sides are drawn from.
+  expect_gt(size_dependence(fx, statistic = "count"), 0.6)
+})
+
+
+test_that("the excess correction helps or hurts with the universe", {
+  # The correction subtracts a Poisson-binomial expectation over
+  # `universe`, which the data cannot identify. Assert both directions so
+  # the regime dependence is pinned rather than assumed away.
+  fx <- lopsided_design(6000, list(c(60, 60), c(60, 60), c(60, 60),
+                                   c(300, 8)), seed = 21)
+  raw <- size_dependence(fx, statistic = "count")
+
+  # Sides small relative to the universe: the correction is well posed
+  # and reduces the size dependence.
+  big <- size_dependence(fx, statistic = "excess", universe = 20000)
+  expect_lt(big, raw)
+
+  # A universe near the union of the selected sides: the independence
+  # model predicts more overlap than disjoint sides can deliver, so the
+  # statistic goes systematically negative and tracks size again.
+  small <- suppressMessages(suppressWarnings(tag_permutation(
+    fx$cl, fx$modules, fx$og, fx$pairs, fx$group,
+    target_group = "annual", min_recurrence = 2L,
+    statistic = "excess", universe = 500
+  )))
+  expect_lt(small$statistic_observed, 0)
+  expect_gt(size_dependence(fx, statistic = "excess", universe = 500),
+            raw)
+
+  # Inference stays exact under both: same label space, same floor.
+  a <- suppressMessages(suppressWarnings(tag_permutation(
+    fx$cl, fx$modules, fx$og, fx$pairs, fx$group,
+    target_group = "annual", min_recurrence = 2L, statistic = "count"
+  )))
+  expect_equal(small$n_labellings, a$n_labellings)
+  expect_equal(small$p_min, a$p_min)
 })
