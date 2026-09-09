@@ -47,7 +47,7 @@ recurrence for (e.g., \code{"annual"}).}
 \item{n_perm}{Number of swap vectors to draw when the null is too
 large to enumerate (default 1000). Ignored, with a message, when
 \code{2^k <= n_perm} for \code{k} swappable pairs, because the null
-is then enumerated exactly.}
+is then enumerated exactly and sampling could only add noise.}
 
 \item{min_recurrence}{Minimum number of pairs in which a HOG must
 appear to be counted as recurring (default 2).}
@@ -70,8 +70,9 @@ When sampled it is \code{(sum(null >= observed) + 1) /
 sampled). A \code{p_value} above \code{alpha} is uninformative
 when \code{p_min} is also above it.}
 \item{exact}{Logical: was the null enumerated?}
-\item{n_swappable}{Number of pairs whose two species carry
-different trait labels --- the \code{k} above.}
+\item{n_swappable}{Number of pairs with exactly one side in
+\code{target_group} --- the \code{k} above. For a binary trait
+this is every pair whose two labels differ.}
 \item{recurrence_table}{Data frame with columns \code{hog} and
 \code{n_pairs}: observed per-HOG recurrence counts (only
 HOGs appearing in at least 1 pair).}
@@ -104,10 +105,13 @@ pair's pair of labels, so a pair that contributes under the observed
 labelling contributes under every draw --- the null stays inside the
 design that was actually run.
 
-Only pairs whose two species carry \emph{different} labels can be
-swapped; a swap within a pair whose species share a label is the
-identity. With \code{k} swappable pairs the null therefore has exactly
-\code{2^k} distinct labellings. When \code{2^k <= n_perm} the null is
+Only pairs with exactly one side in \code{target_group} can be
+swapped. A swap within a pair whose species share a label is the
+identity, and with three or more trait values a pair whose labels
+differ but where neither is the target contributes nothing under
+either orientation. With \code{k} swappable pairs the null therefore
+has exactly \code{2^k} distinct labellings. When
+\code{2^k <= n_perm} the null is
 \strong{enumerated exactly} and \code{n_perm} is ignored; otherwise
 \code{n_perm} independent swap vectors are drawn. Either way the
 observed labelling is one of the points, so the smallest attainable

@@ -1017,11 +1017,11 @@ test_that("preservation_paired output feeds tag_permutation directly", {
 
   # One pair, so the conditional null has 2 labellings and p_min = 0.5;
   # the unreachable-significance warning is expected here.
-  tp <- suppressWarnings(tag_permutation(
+  tp <- suppressMessages(suppressWarnings(tag_permutation(
     res$classification, mods, fx$ortho, pairs,
     group = grp, target_group = "annual",
     n_perm = 50L, min_recurrence = 1L
-  ))
+  )))
 
   expect_true(all(c("observed", "p_value", "recurrence_table") %in% names(tp)))
   expect_equal(tp$n_swappable, 1L)
@@ -1340,6 +1340,14 @@ test_that("the NPC p-value is the joint-null rank of the observed pmax", {
     expect_equal(got$p_joint[k, 1], l1[1], tolerance = 1e-12)
     expect_equal(got$p_joint[k, 2], l2[1], tolerance = 1e-12)
     expect_equal(got$n_joint[k], n - 1L)
+
+    # rho is the Pearson correlation of the two statistics over the
+    # permutation draws only -- entry 1 is the observed pair. It divides
+    # Zsummary to give Zsummary_std, which carries the z_conserved cut
+    # point, so a wrong normaliser (s12 / s11) or an off-by-one that
+    # lets the observed pair in would move every conserved call.
+    expect_equal(got$rho[k], stats::cor(a1[-1], a2[-1]),
+                 tolerance = 1e-12)
   }
 })
 
@@ -1362,4 +1370,39 @@ test_that("qvalue_method is deprecated", {
       n_perm = 50L, seed = 1, qvalue_method = "liang"),
     "deprecated and ignored"
   )
+})
+
+
+test_that("an unestimable Zsummary_std falls back to the raw scale", {
+  # rho is NA when fewer than four permutations are usable or one
+  # statistic is constant across them, which makes Zsummary_std NA. Left
+  # alone that turns `strong` FALSE and demotes a significant module to
+  # "moderate" with nothing said -- a missing normaliser reported as a
+  # measurement.
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pr <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 50L, min_module_size = 3L, seed = 1
+  ))
+  expect_true(any(classify_preservation(pr)$classification == "conserved"))
+
+  broken <- pr
+  broken$preservation$Zsummary_std <- NA_real_
+  expect_warning(cls <- classify_preservation(broken),
+                 "no null correlation for Zsummary_std")
+  # The fallback is to the raw scale, which is the stricter of the two
+  # (Zsummary_std >= Zsummary, since the divisor is in [1/sqrt(2), 1]),
+  # so nothing is promoted by the failure.
+  expect_false(any(cls$classification == "conserved"))
+  expect_true(all(cls$classification[!is.na(pr$preservation$q.value)] %in%
+                    c("moderate", "diverged")))
+
+  # An untested module must not trigger the fallback: it has no Zsummary
+  # to fall back to and is already reported as untested.
+  untested <- pr
+  untested$preservation$q.value <- NA_real_
+  untested$preservation$Zsummary_std <- NA_real_
+  expect_silent(cls2 <- suppressWarnings(classify_preservation(untested)))
+  expect_true(all(cls2$classification == "untested"))
 })

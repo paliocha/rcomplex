@@ -287,11 +287,14 @@ test_that("the null stays inside the observed design", {
 
 
 test_that("the enumerated null is the exact 2^k label space", {
+  # The default fixture gives every labelling the same statistic, which
+  # cannot distinguish a correct enumeration from a constant. Break the
+  # symmetry so the 8 labellings produce a spread: strip P3's diverged
+  # module down to a single HOG, so selecting the P3 side of pair3 leaves
+  # too few shared HOGs to meet min_recurrence.
   fix <- make_tag_perm_fixtures()
+  fix$modules$P3$module_genes[["2"]] <- "P3_g4"
 
-  # Give the three pairs distinguishable HOG content per side so the 8
-  # labellings produce a spread rather than a constant, and the mapping
-  # from labelling to statistic can be checked by hand.
   result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
@@ -299,9 +302,21 @@ test_that("the enumerated null is the exact 2^k label space", {
   ))
   expect_true(result$exact)
   expect_length(result$null_distribution, 8L)
+  # A real spread, so the assertions below have something to bite on.
+  expect_gt(length(unique(result$null_distribution)), 1L)
 
-  # Asking for fewer draws than the label space still enumerates: the
-  # exact null is never more expensive than 2^k evaluations.
+  # The observed labelling is one of the enumerated points, so the exact
+  # p-value needs no +1 and can never fall below 1 / 2^k.
+  expect_gte(result$p_value, result$p_min)
+  expect_equal(result$p_min, 1 / 8)
+  expect_true(result$observed %in% result$null_distribution)
+  expect_equal(result$p_value, mean(result$null_distribution >=
+                                      result$observed))
+
+  # n_perm below the label space is the one case that does NOT enumerate:
+  # it falls back to sampling that many independent swap vectors, and the
+  # +1 correction returns because the observed labelling is not
+  # guaranteed to be among the draws.
   small <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
@@ -310,10 +325,6 @@ test_that("the enumerated null is the exact 2^k label space", {
   expect_false(small$exact)
   expect_length(small$null_distribution, 4L)
   expect_equal(small$p_min, 1 / 5)
-
-  # The observed labelling is one of the enumerated points, so the exact
-  # p-value needs no +1 and can never be below 1 / 2^k.
-  expect_gte(result$p_value, result$p_min)
 })
 
 
@@ -356,10 +367,14 @@ test_that("complementary trait values share one null distribution", {
   # Swapping every pair maps the annual statistic onto the perennial one,
   # so the two runs read the same 2^k numbers. They are not independent
   # evidence and must not be corrected as two tests.
+  # Needs a fixture whose null is not constant: on the default one both
+  # runs return eight copies of the same value and the multiset equality
+  # holds for any implementation, symmetry or not.
   fix <- make_tag_perm_fixtures()
+  fix$modules$P3$module_genes[["2"]] <- "P3_g4"
 
   run_for <- function(tg) {
-    suppressWarnings(tag_permutation(
+    suppressMessages(suppressWarnings(tag_permutation(
       fix$classification,
       fix$modules,
       fix$orthologs,
@@ -367,13 +382,18 @@ test_that("complementary trait values share one null distribution", {
       fix$group,
       target_group = tg,
       min_recurrence = 2L
-    ))
+    )))
   }
   ann <- run_for("annual")
   per <- run_for("perennial")
 
+  expect_gt(length(unique(ann$null_distribution)), 1L)
   expect_equal(sort(ann$null_distribution), sort(per$null_distribution))
   expect_true(per$observed %in% ann$null_distribution)
+  # The complement of the observed labelling is the all-swapped one, and
+  # its annual statistic is the observed perennial statistic.
+  expect_equal(ann$null_distribution[length(ann$null_distribution)],
+               per$observed)
 })
 
 
@@ -432,7 +452,7 @@ test_that("the conditional null is calibrated under H0", {
         stringsAsFactors = FALSE
       )
     }
-    suppressWarnings(tag_permutation(
+    suppressMessages(suppressWarnings(tag_permutation(
       do.call(rbind, cls),
       modules,
       do.call(rbind, orth),
@@ -440,7 +460,7 @@ test_that("the conditional null is calibrated under H0", {
       group,
       target_group = "annual",
       min_recurrence = 2L
-    ))
+    )))
   }
 
   ps <- vapply(seq_len(60), function(i) one_rep()$p_value, numeric(1))

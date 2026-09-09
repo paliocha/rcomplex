@@ -69,6 +69,25 @@ counterpart per gene before any module label is projected.
   `pairs` must now be disjoint (each species in at most one pair), since a
   within-pair swap would otherwise change another pair's labels.
 
+  Two things measured while fixing this, neither of them changed in code.
+  The retired null's type I error grows with the number of pairs, because
+  the fraction of its support that reproduces the observed design falls
+  as `C(k, a) C(k - a, a) 2^D / C(2k, k)`: 0.16 at four pairs, 0.69 at
+  six, and **1.000 at eight or more** --- it rejected on every replicate
+  with no signal present. And the "2.7x enrichment" is what zero signal
+  produces against that null: with nothing planted the ratio of observed
+  to null mean measures 2.80-3.00, so the reported 2.68 sits slightly
+  *below* the no-signal expectation.
+
+  Separately, `min_recurrence` does not scale with the number of pairs.
+  A HOG reaches two of `k` sides by chance with probability about 0.03 at
+  `k = 4` but 0.19 at `k = 10`, so with the default of 2 the statistic
+  saturates on chance recurrence and simulated power becomes non-monotone
+  in `k`, collapsing by `k = 10`; `max(2, round(k / 2))` restores it. The
+  default is unchanged for continuity and the trade-off is now documented
+  on the argument --- but anyone acting on the "add pairs" advice above
+  should raise it at the same time.
+
 - Removed, with no deprecation shim: `compare_modules()` (with its
   `compare_modules_hypergeometric()` and `compare_modules_jaccard()`
   engines, `best_match_direction()` and `compute_best_matches()`),

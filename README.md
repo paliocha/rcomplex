@@ -477,6 +477,8 @@ both.
 |----------------|----------|
 | Conserved | q < alpha AND `Zsummary_std` >= `z_conserved` (default 10) |
 | Moderate | q < alpha AND `Zsummary_std` < `z_conserved` |
+| Diverged | q >= alpha |
+| Untested | q is NA -- nothing was measured |
 
 `Zsummary_std` rather than `Zsummary`: the familiar 10 / 2 cut points were
 calibrated for a Zsummary built from medians over several statistics, and
@@ -485,8 +487,6 @@ standardized values has null spread `sqrt(2 + 2*rho)/2` rather than 1 --
 about 0.71 here, since the two statistics are near-independent under the
 null. Dividing by it restores the threshold's intended meaning, "this many
 null standard deviations". `z_scale = "raw"` reads the older scale.
-| Diverged | q >= alpha |
-| Untested | q is NA -- nothing was measured |
 
 `cor.degree` is undefined when intramodular connectivity is constant in
 either network, which leaves the `pmax` combination and hence the

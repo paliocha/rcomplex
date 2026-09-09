@@ -306,18 +306,29 @@ show_table(mod_results$summary,
 Do any HOGs consistently land in modules diverged in the annual across
 independent lineages? That would be strong evidence for parallel
 re-use of regulatory programs. `tag_permutation()` tests this
-formally on the `diverged` rows of the classification table: trait
-labels are shuffled across species (preserving marginal frequencies),
-and HOG recurrence is recomputed under each permuted labelling. A pair
-contributes HOGs only when exactly one of its species carries the
-target trait, so the null correctly accounts for the paired design:
+formally on the `diverged` rows of the classification table. The design
+is a randomised block --- the phylogenetic pair is the block, its two
+species are the two levels of the trait, and the pairs are the
+replication --- so the null swaps the two trait labels *within* each
+pair rather than shuffling them across species. Every draw therefore
+keeps one annual and one perennial per pair, which is the design that
+was actually run.
+
+That makes the null small and exact. With `k` pairs carrying exactly one
+annual there are only `2^k` labellings, so `tag_permutation()`
+enumerates them and ignores `n_perm`. It also puts a hard floor under
+the p-value: the observed labelling is always one of the points, so
+`p_min = 2^-k`. **With fewer than five such pairs, `p < 0.05` is
+unreachable no matter how strong the signal** --- report `p_min`
+alongside `p_value` so a non-significant result is not mistaken for
+evidence of absence:
 
 ```{r module-parallel}
 parallel_test <- tag_permutation(
   mod_results$classification, modules, orthologs,
   pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
   group = trait_vec, target_group = "annual",
-  n_perm = 1000L, min_recurrence = 2L
+  min_recurrence = 2L
 )
 
 parallel_test$recurrence_table |>
@@ -325,8 +336,19 @@ parallel_test$recurrence_table |>
   show_table(caption = "HOG recurrence in modules diverged in the annual")
 
 cat("HOGs recurring in >= 2 pairs:", parallel_test$observed,
-    "(permutation p =", sprintf("%.4f", parallel_test$p_value), ")\n")
+    "\n  p =", sprintf("%.4f", parallel_test$p_value),
+    if (parallel_test$exact) "(exact)" else "(sampled)",
+    "over", parallel_test$n_perm, "labellings from",
+    parallel_test$n_swappable, "swappable pairs",
+    "\n  smallest attainable p:", sprintf("%.4f", parallel_test$p_min),
+    if (parallel_test$p_min > 0.05) "-- significance unreachable" else "",
+    "\n")
 ```
+
+Running the same test for `target_group = "perennial"` reads a second
+entry of the *same* null distribution --- swapping every pair maps one
+trait's statistic onto the other's --- so the two are not independent
+tests and must not be corrected as if they were.
 
 ### Hub genes and trait conservation
 
@@ -940,7 +962,8 @@ cat("Robust candidates (>= 50% density survival + stability >= 1):",
 if (exists("parallel_test")) {
   cat("\nParallel module signal: ", parallel_test$observed,
       " HOGs recur in modules diverged in the annual across >= 2 pairs (p = ",
-      sprintf("%.4f", parallel_test$p_value), ")\n", sep = "")
+      sprintf("%.4f", parallel_test$p_value), ", floor ",
+      sprintf("%.4f", parallel_test$p_min), ")\n", sep = "")
 }
 ```
 

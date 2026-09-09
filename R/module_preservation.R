@@ -411,11 +411,19 @@ module_preservation <- function(modules_ref, net_ref, net_test,
       )
       if (!is.null(naive)) {
         out$sensitivity <- .pres_sensitivity(out, naive, map, naive_map)
-        cn <- .pres_copy_null(
-          out$preservation, modules_ref, net_ref, net_test, orthologs,
-          genes_ref, genes_test, unique(out$projection$gene2), copy_draws,
-          min_module_size, binary, n_cores
-        )
+        # copy_draws = 0 is the documented off switch, so do not pay for
+        # the candidate map or risk its coverage warning for a null the
+        # caller declined. naive_map is that same candidate map, already
+        # built above.
+        cn <- if (copy_draws >= 1L) {
+          .pres_copy_null(
+            out$preservation, modules_ref, net_ref, net_test, naive_map,
+            unique(out$projection$gene2), copy_draws,
+            min_module_size, binary
+          )
+        } else {
+          list(draws = NULL, n_multi = 0L)
+        }
         if (!is.null(cn$p_copy.avg.weight)) {
           out$sensitivity$p_copy.avg.weight <- cn$p_copy.avg.weight
           out$sensitivity$p_copy.cor.degree <- cn$p_copy.cor.degree
@@ -779,10 +787,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #'
 #' @noRd
 .pres_copy_null <- function(observed, modules_ref, net_ref, net_test,
-                            orthologs, genes_ref, genes_test, projected,
-                            n_draws, min_module_size, binary,
-                            n_cores = 1L) {
-  cand <- resolve_ortholog_map(orthologs, genes_ref, genes_test)
+                            cand, projected,
+                            n_draws, min_module_size, binary) {
   # Only candidates whose reference partner carries a module label can project,
   # and only the genes the run under test actually projected may enter -- a
   # draw that projected a different gene set would confound a set-size
@@ -818,10 +824,14 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     # flat-connectivity warning once per draw.
     draws[[d]] <- tryCatch(
       suppressMessages(suppressWarnings(
+        # n_cores = 1L deliberately: the kernel parallelises over
+        # permutations and there is exactly one here, so extra threads
+        # only allocate per-thread buffers. The serial cost is this loop
+        # over draws.
         module_preservation(
           modules_ref, net_ref, net_test, map = m, n_perm = 1L,
           min_module_size = min_module_size, binary = binary,
-          sensitivity = FALSE, n_cores = n_cores
+          sensitivity = FALSE, n_cores = 1L
         )$preservation
       )),
       error = function(e) NULL
@@ -928,6 +938,20 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     p$Zsummary_std
   } else {
     p$Zsummary
+  }
+  # Zsummary_std is NA when the null correlation of the two statistics
+  # could not be estimated (fewer than four usable permutations, or one
+  # statistic constant across them). Left alone that makes `strong`
+  # FALSE and quietly demotes an otherwise significant module to
+  # "moderate", which reads as a measurement rather than a missing
+  # normaliser. Fall back to the raw scale for those rows and say so.
+  fell_back <- is.na(z_used) & !is.na(p$Zsummary) & testable
+  if (any(fell_back)) {
+    z_used[fell_back] <- p$Zsummary[fell_back]
+    warning(sum(fell_back), " module(s) have no null correlation for ",
+            "Zsummary_std, so the raw Zsummary was used against ",
+            "z_conserved for them; the cut point means a different ",
+            "number of null standard deviations there. Raise n_perm.")
   }
   strong <- !is.na(z_used) & z_used >= z_conserved
   classification <- ifelse(!testable, "untested",

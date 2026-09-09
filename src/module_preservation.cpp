@@ -464,13 +464,6 @@ List run_preservation(WeightedNeighbors& g,
     std::vector<double> sumsq(cells, 0.0);
     std::vector<int> count(cells, 0);
     std::vector<int> exceed(cells, 0);
-    // Cross-product of the two statistics that carry the call, so R can
-    // recover their null correlation. Zsummary is their mean, and the null
-    // variance of a mean of two standardized statistics depends on how
-    // correlated they are -- without this the 10 / 2 cut points are read on an
-    // unknown scale.
-    std::vector<double> cross(n_mod, 0.0);
-    std::vector<int> cross_n(n_mod, 0);
     // Per-permutation values of the two statistics that carry the call. The
     // nonparametric combination needs the joint null of (avg.weight,
     // cor.degree), which no summary accumulator can reconstruct: pmax is
@@ -507,10 +500,6 @@ List run_preservation(WeightedNeighbors& g,
             n_threads, std::vector<int>(cells, 0));
         std::vector<std::vector<int>> t_exceed(
             n_threads, std::vector<int>(cells, 0));
-        std::vector<std::vector<double>> t_cross(
-            n_threads, std::vector<double>(n_mod, 0.0));
-        std::vector<std::vector<int>> t_cross_n(
-            n_threads, std::vector<int>(n_mod, 0));
 
 #ifdef _OPENMP
         #pragma omp parallel num_threads(n_threads) if(n_threads > 1)
@@ -565,10 +554,6 @@ List run_preservation(WeightedNeighbors& g,
                     const std::size_t b = static_cast<std::size_t>(k) * kNStats;
                     const double vd = stats[b + 0];
                     const double vc = stats[b + 3];
-                    if (!ISNAN(vd) && !ISNAN(vc)) {
-                        t_cross[tid][k] += vd * vc;
-                        t_cross_n[tid][k] += 1;
-                    }
                     const std::size_t r =
                         static_cast<std::size_t>(iter) * 2 * n_mod + 2 * k;
                     perm_pairs[r] = vd;
@@ -578,10 +563,6 @@ List run_preservation(WeightedNeighbors& g,
         }
 
         for (int t = 0; t < n_threads; ++t) {
-            for (int k = 0; k < n_mod; ++k) {
-                cross[k] += t_cross[t][k];
-                cross_n[k] += t_cross_n[t][k];
-            }
             for (std::size_t c = 0; c < cells; ++c) {
                 sum[c] += t_sum[t][c];
                 sumsq[c] += t_sumsq[t][c];
@@ -602,13 +583,6 @@ List run_preservation(WeightedNeighbors& g,
         p_joint_out(k, 1) = npc.p_joint_c[k];
         n_joint_out[k] = npc.n_joint[k];
         rho_out[k] = npc.rho[k];
-    }
-
-    NumericVector cross_out(n_mod);
-    IntegerVector cross_n_out(n_mod);
-    for (int k = 0; k < n_mod; ++k) {
-        cross_out[k] = (cross_n[k] > 0) ? cross[k] : NA_REAL;
-        cross_n_out[k] = cross_n[k];
     }
 
     NumericMatrix obs_out(n_mod, kNStats);
@@ -661,8 +635,6 @@ List run_preservation(WeightedNeighbors& g,
         Named("n_perm_used") = n_out,
         Named("n_exceed") = exceed_out,
         Named("p_value") = p_out,
-        Named("cross_sum") = cross_out,
-        Named("cross_n") = cross_n_out,
         Named("p_npc") = p_npc_out,
         Named("p_joint") = p_joint_out,
         Named("n_joint") = n_joint_out,
