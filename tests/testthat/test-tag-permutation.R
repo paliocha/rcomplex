@@ -678,3 +678,100 @@ test_that("tag_permutation rejects unusable n_perm and NA traits", {
     "NA trait values"
   )
 })
+
+
+test_that("the sampled branch runs when enumeration is capped", {
+  # Moving the enumeration decision off n_perm made this branch
+  # unreachable in practice (21 disjoint pairs = 42 species), so nothing
+  # exercised the runif() draws, the +1-corrected p-value or its p_min.
+  # enum_max is the hook that lets a test reach it.
+  fix <- make_tag_perm_fixtures_k(4)
+
+  set.seed(3)
+  res <- suppressMessages(suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual",
+    n_perm = 50L, min_recurrence = 2L, enum_max = 2L
+  )))
+  expect_false(res$exact)
+  expect_length(res$null_distribution, 50L)
+  # The +1 correction returns: the observed labelling is not guaranteed
+  # to be among the draws.
+  expect_equal(res$p_min, 1 / 51)
+  expect_equal(res$p_attainable, res$p_min)
+  expect_equal(res$p_value,
+               (sum(res$null_distribution >= res$observed) + 1L) / 51L)
+  expect_equal(res$n_swappable, 4L)
+
+  # The enumerated answer on the same data, for comparison.
+  ex <- suppressMessages(suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual", min_recurrence = 2L
+  )))
+  expect_true(ex$exact)
+  expect_length(ex$null_distribution, 16L)
+
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, target_group = "annual",
+                    enum_max = 31L),
+    "enum_max must be"
+  )
+})
+
+
+test_that("the size-asymmetry warning fires when the sign test can see it", {
+  # Four pairs is the smallest clean sweep the advisory 0.10 threshold
+  # can reach (binom.test(4, 4) = 0.0625). Nothing previously exercised
+  # the warning branch at all.
+  fix <- make_tag_perm_fixtures_k(4)
+  for (sp in paste0("P", 1:4)) {
+    fix$modules[[sp]]$module_genes[["2"]] <-
+      fix$modules[[sp]]$module_genes[["2"]][1]
+  }
+
+  warns <- character(0)
+  res <- withCallingHandlers(
+    suppressMessages(tag_permutation(
+      fix$classification, fix$modules, fix$orthologs, fix$pairs,
+      fix$group, target_group = "annual", min_recurrence = 2L
+    )),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_equal(res$size_asymmetry_p,
+               stats::binom.test(4L, 4L, 0.5,
+                                 alternative = "greater")$p.value)
+  expect_lte(res$size_asymmetry_p, 0.10)
+  expect_true(any(grepl("larger HOG set in 4 of 4", warns)))
+  expect_true(any(grepl("reading set size rather than recurrence", warns)))
+})
+
+
+test_that("the unreachable-significance warning names the right cause", {
+  # With enough labellings but a statistic that cannot separate them, the
+  # floor is set by ties, not by k. Blaming k there would prescribe more
+  # pairs for a problem more pairs do not solve.
+  fix <- make_tag_perm_fixtures_k(6)
+  warns <- character(0)
+  res <- withCallingHandlers(
+    suppressMessages(tag_permutation(
+      fix$classification, fix$modules, fix$orthologs, fix$pairs,
+      fix$group, target_group = "annual", min_recurrence = 2L
+    )),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  # Every side of this fixture carries the same three HOGs, so the null
+  # is heavily tied: p_min is 1/64 but the maximum is shared by most
+  # labellings, putting the realised floor far above it.
+  expect_equal(res$p_min, 1 / 64)
+  expect_gt(res$p_attainable, 0.05)
+  expect_gt(res$p_attainable, res$p_min)
+  expect_true(any(grepl("^ties in the null", warns)))
+  expect_false(any(grepl("At least 5 swappable pairs are needed", warns)))
+})

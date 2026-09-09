@@ -151,11 +151,12 @@ structural check only), \code{same_projected_set} (whether the two runs
 tested the same genes, which resolution CAN change by rescuing genes
 from a tied majority vote), \code{n_rescued} and \code{n_lost} counting that
 difference, and \code{n_multi_copy} / \code{n_copy_draws} for the copy null
-(\code{n_multi_copy} is \code{NA} with a \code{copy_null_skipped} reason when the
-null did not run: \code{"off"} for \code{copy_draws = 0}, \code{"coverage"} when
-the ortholog table could not hold the gene set fixed; it is \code{0}
-with reason \code{"no_multi_copy"} when there was genuinely nothing to
-vary).
+(when the null did not run, \code{copy_null_skipped} says why:
+\code{"off"} for \code{copy_draws = 0} and \code{"coverage"} when the ortholog
+table could not hold the gene set fixed, both with \code{n_multi_copy}
+\code{NA}; \code{"no_multi_copy"} with \code{n_multi_copy} \code{0} when there was
+genuinely nothing to vary; and \code{"all_draws_failed"} with the real
+multi-copy count when every draw errored).
 \code{size_mapped} is the deterministic consequence of the copy choice;
 \code{Zsummary_delta} also absorbs permutation-stream drift when the two
 runs have different block sizes.}

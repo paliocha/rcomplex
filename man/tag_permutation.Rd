@@ -12,7 +12,8 @@ tag_permutation(
   group,
   target_group,
   n_perm = 1000L,
-  min_recurrence = 2L
+  min_recurrence = 2L,
+  enum_max = 20L
 )
 }
 \arguments{
@@ -50,7 +51,8 @@ pairs --- 21 disjoint pairs means 42 species --- so in practice the
 null is always enumerated and this argument is ignored, with a
 message when it was supplied explicitly. Enumeration is decided on
 cost rather than on \code{n_perm} so that raising \code{n_perm} for
-precision cannot demote the null from exact to sampled.}
+precision cannot demote the null from exact to sampled. See
+\code{enum_max} to lower that ceiling.}
 
 \item{min_recurrence}{Minimum number of pairs in which a HOG must
 appear to be counted as recurring (default 2). \strong{This does not
@@ -70,6 +72,13 @@ no HOG could recur in that many, so the statistic would be 0 under
 every labelling. At \code{min_recurrence = 1} the statistic
 degenerates to the size of the union of the chosen sides, a pure
 set-size measure.}
+
+\item{enum_max}{Largest number of swappable pairs to enumerate
+(default 20). The enumeration is \code{2^enum_max} serial
+evaluations of the statistic --- about a million at the default,
+which on Pooideae-sized HOG pools is tens of minutes --- so lower it
+to fall back to \code{n_perm} sampled draws when that cost is not
+worth an exact p-value. Values above 30 are refused.}
 }
 \value{
 A list with components:

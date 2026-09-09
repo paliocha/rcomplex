@@ -42,10 +42,15 @@
 #'   set `RNGkind("L'Ecuyer-CMRG")` gets a different, still reproducible,
 #'   partition. `RNGkind` is deliberately not pinned inside the function.
 #'
-#'   The caller's RNG state is restored on exit. With an explicit seed the
-#'   stream is left where `set.seed(seed)` put it; with `seed = NULL` it is
-#'   left advanced by the one draw used to pick a root, so consecutive
-#'   unseeded calls still differ.
+#'   With an explicit seed the global stream is left exactly where
+#'   `set.seed(seed)` put it, so a seeded call does not displace the
+#'   caller's stream by however much the clustering backend happened to
+#'   consume. That is not the same as restoring the caller's pre-call
+#'   state: `set.seed(seed)` has still happened, and anything drawn
+#'   afterwards continues from there. With `seed = NULL` the stream
+#'   advances -- by the one draw used to pick a root in consensus mode,
+#'   and by whatever the backend consumed in single-resolution mode -- so
+#'   consecutive unseeded calls still differ.
 #' @param consensus_threshold Threshold for consensus mode. \code{NULL}
 #'   (default) uses iterative adaptive thresholding per Jeub et al. (2018):
 #'   subtracts the per-pair expected co-classification under random assignment
@@ -189,7 +194,19 @@ detect_modules.default <- function(net,
     stop("No edges above threshold; cannot detect modules")
   }
 
-  if (!is.null(seed)) set.seed(seed)
+  if (!is.null(seed)) {
+    set.seed(seed)
+    # Same contract as consensus mode, which pins the stream at the
+    # post-seed position (see detect_modules_consensus). Without this the
+    # single-resolution path left the stream wherever cluster_leiden() /
+    # cluster_infomap() / estimateSimpleSBM() stopped, which is
+    # backend- and build-dependent, so a downstream set.seed()-free draw
+    # -- summarize_comparison()'s randomized-p pi0, for one -- started
+    # from an unpredictable position.
+    old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    on.exit(assign(".Random.seed", old_rng, envir = globalenv()),
+            add = TRUE)
+  }
 
   if (method == "sbm") {
     if (!requireNamespace("sbm", quietly = TRUE)) {

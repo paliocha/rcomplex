@@ -86,7 +86,14 @@
 #'   null is always enumerated and this argument is ignored, with a
 #'   message when it was supplied explicitly. Enumeration is decided on
 #'   cost rather than on \code{n_perm} so that raising \code{n_perm} for
-#'   precision cannot demote the null from exact to sampled.
+#'   precision cannot demote the null from exact to sampled. See
+#'   \code{enum_max} to lower that ceiling.
+#' @param enum_max Largest number of swappable pairs to enumerate
+#'   (default 20). The enumeration is \code{2^enum_max} serial
+#'   evaluations of the statistic --- about a million at the default,
+#'   which on Pooideae-sized HOG pools is tens of minutes --- so lower it
+#'   to fall back to \code{n_perm} sampled draws when that cost is not
+#'   worth an exact p-value. Values above 30 are refused.
 #' @param min_recurrence Minimum number of pairs in which a HOG must
 #'   appear to be counted as recurring (default 2). \strong{This does not
 #'   scale with the number of pairs and should be raised as pairs are
@@ -179,7 +186,8 @@
 tag_permutation <- function(classification, modules, orthologs, pairs,
                             group, target_group,
                             n_perm = 1000L,
-                            min_recurrence = 2L) {
+                            min_recurrence = 2L,
+                            enum_max = 20L) {
   # Capture before n_perm is reassigned: missing() reports FALSE once an
   # argument has been written to, so this cannot be asked for later.
   n_perm_supplied <- !missing(n_perm)
@@ -293,6 +301,11 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     stop("min_recurrence must be a single positive number")
   }
   min_recurrence <- as.integer(min_recurrence)
+  if (!is.numeric(enum_max) || length(enum_max) != 1L ||
+        is.na(enum_max) || enum_max < 0 || enum_max > 30) {
+    stop("enum_max must be a single number between 0 and 30")
+  }
+  enum_max <- as.integer(enum_max)
 
   # --- Build gene -> HOG lookup ---
   g1 <- orthologs[, c("Species1", "hog"), drop = FALSE]
@@ -442,7 +455,6 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # for precision could demote the null from exact to sampled, and at
   # k = 10 the default n_perm = 1000 drew 1000 sampled points from a
   # 1024-point space -- inexact, and slower than walking all of it.
-  enum_max <- 20L
   exact <- k <= enum_max
   if (exact) {
     n_draw <- bitwShiftL(1L, k)
@@ -484,10 +496,22 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     } else {
       ""
     }
-    warning("only ", k, " swappable pair(s)", extra, ": the smallest ",
-            "attainable p-value is ", signif(p_floor, 3), ", so p < 0.05 ",
-            "is unreachable for any signal. At least 5 swappable pairs ",
-            "are needed, and ties in the null raise the floor further.")
+    if (p_attainable > p_min) {
+      # Enough labellings, but the statistic cannot tell them apart.
+      # Prescribing more pairs here would point at the wrong cause.
+      warning("ties in the null put the smallest attainable p-value at ",
+              signif(p_floor, 3), ": ", k, " swappable pair(s)", extra,
+              " give p_min = ", signif(p_min, 3), ", but the maximum is ",
+              "shared by ", round(p_attainable * length(null_dist)),
+              " labellings, so p < 0.05 is unreachable for any signal. ",
+              "More pairs will not help unless the statistic separates ",
+              "them; see $null_distribution.")
+    } else {
+      warning("only ", k, " swappable pair(s)", extra, ": the smallest ",
+              "attainable p-value is ", signif(p_floor, 3), ", so ",
+              "p < 0.05 is unreachable for any signal. At least 5 ",
+              "swappable pairs are needed.")
+    }
   }
 
   # The within-pair swap is only exchangeable if, under the null, the two

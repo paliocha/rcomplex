@@ -43,7 +43,10 @@ standard deviations". Use \code{"raw"} only to reproduce older output.}
 }
 \value{
 A data frame with \code{module}, \code{species}, \code{pair_name},
-\code{classification}, \code{Zsummary}, \code{q.value}, \code{size} and \code{size_mapped}.
+\code{classification}, \code{Zsummary}, \code{Zsummary_std}, \code{q.value}, \code{size} and
+\code{size_mapped}. \code{Zsummary_std} is the column the default
+\code{z_scale = "standardized"} criterion is read against, so reproducing
+the call from \code{Zsummary} alone will not match.
 }
 \description{
 Turns \code{\link[=module_preservation]{module_preservation()}} output into a per-module call. The call is

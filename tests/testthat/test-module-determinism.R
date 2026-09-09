@@ -66,3 +66,43 @@ test_that("detect_modules leaves the ambient RNG stream core-count invariant", {
   }
   expect_identical(after(1L), after(2L))
 })
+
+
+test_that("a seeded call leaves the stream where set.seed(seed) put it", {
+  # The single-resolution path used to leave the global stream wherever
+  # the clustering backend stopped, which is backend- and build-
+  # dependent. Anything drawn afterwards without its own set.seed() --
+  # summarize_comparison()'s randomized-p pi0, for one -- then started
+  # from an unpredictable position. Consensus mode already pinned it;
+  # both paths now agree.
+  set.seed(1)
+  e <- matrix(stats::rnorm(120 * 8), 120, 8)
+  rownames(e) <- paste0("g", seq_len(120))
+  net <- compute_network(e, density = 0.1, sparse = FALSE)
+
+  pinned <- function(f) {
+    set.seed(7)
+    f()
+    after <- get(".Random.seed", envir = globalenv())
+    set.seed(42)
+    identical(after, get(".Random.seed", envir = globalenv()))
+  }
+
+  expect_true(pinned(function() {
+    detect_modules(net, resolution = 1.0, seed = 42,
+                   objective_function = "modularity")
+  }))
+  expect_true(pinned(function() {
+    detect_modules(net, resolution = c(0.8, 1.0), seed = 42,
+                   objective_function = "modularity",
+                   n_iterations = 1L, max_consensus_iter = 1L)
+  }))
+
+  # seed = NULL must still advance the stream, or consecutive unseeded
+  # calls would return the same partition.
+  set.seed(7)
+  before <- get(".Random.seed", envir = globalenv())
+  invisible(detect_modules(net, resolution = 1.0, seed = NULL,
+                           objective_function = "modularity"))
+  expect_false(identical(before, get(".Random.seed", envir = globalenv())))
+})

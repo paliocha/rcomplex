@@ -1413,3 +1413,37 @@ test_that("an unestimable Zsummary_std falls back to the raw scale", {
   expect_silent(cls2 <- suppressWarnings(classify_preservation(untested)))
   expect_true(all(cls2$classification == "untested"))
 })
+
+
+test_that("copy_null_skipped distinguishes why the copy null did not run", {
+  # n_multi_copy = 0 used to mean three different things: the caller
+  # switched the null off, the ortholog table could not hold the gene set
+  # fixed, or there was genuinely nothing multi-copy. Only the middle one
+  # warned, so a reader of n_multi_copy == 0 could conclude the map had no
+  # paralogs when the check had simply never run.
+  fx <- pres_fixture()
+  amb <- ambiguous_fixture(fx)
+  tm <- true_modules(fx$netA, fx$mods)
+
+  off <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, amb$ortho, cliques = amb$cliques,
+    sp_ref = "A", sp_test = "B",
+    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
+    copy_draws = 0L, seed = 1
+  ))
+  expect_equal(attr(off$sensitivity, "copy_null_skipped"), "off")
+  expect_true(is.na(attr(off$sensitivity, "n_multi_copy")))
+  expect_false("p_copy.avg.weight" %in% names(off$sensitivity))
+
+  # The ordinary multi-copy path runs the null and records no reason.
+  ran <- suppressWarnings(module_preservation(
+    tm, fx$netA, fx$netB, amb$ortho, cliques = amb$cliques,
+    sp_ref = "A", sp_test = "B",
+    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
+    copy_draws = 5L, seed = 1
+  ))
+  expect_null(attr(ran$sensitivity, "copy_null_skipped"))
+  expect_gt(attr(ran$sensitivity, "n_multi_copy"), 0L)
+  expect_true("p_copy.avg.weight" %in% names(ran$sensitivity))
+  expect_equal(attr(ran$sensitivity, "n_copy_draws"), 5L)
+})

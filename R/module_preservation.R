@@ -188,11 +188,12 @@
 #'       tested the same genes, which resolution CAN change by rescuing genes
 #'       from a tied majority vote), `n_rescued` and `n_lost` counting that
 #'       difference, and `n_multi_copy` / `n_copy_draws` for the copy null
-#'       (`n_multi_copy` is `NA` with a `copy_null_skipped` reason when the
-#'       null did not run: `"off"` for `copy_draws = 0`, `"coverage"` when
-#'       the ortholog table could not hold the gene set fixed; it is `0`
-#'       with reason `"no_multi_copy"` when there was genuinely nothing to
-#'       vary).
+#'       (when the null did not run, `copy_null_skipped` says why:
+#'       `"off"` for `copy_draws = 0` and `"coverage"` when the ortholog
+#'       table could not hold the gene set fixed, both with `n_multi_copy`
+#'       `NA`; `"no_multi_copy"` with `n_multi_copy` `0` when there was
+#'       genuinely nothing to vary; and `"all_draws_failed"` with the real
+#'       multi-copy count when every draw errored).
 #'       `size_mapped` is the deterministic consequence of the copy choice;
 #'       `Zsummary_delta` also absorbs permutation-stream drift when the two
 #'       runs have different block sizes.}
@@ -853,6 +854,14 @@ module_preservation <- function(modules_ref, net_ref, net_test,
       error = function(e) NULL
     )
   }
+  n_kept <- sum(!vapply(draws, is.null, logical(1)))
+  if (n_kept > 0L && n_kept < n_draws) {
+    # p_copy is then a rank against a smaller null than requested, which
+    # only the n_copy_draws attribute records.
+    warning(n_draws - n_kept, " of ", n_draws, " copy-choice draws ",
+            "failed; p_copy is computed against the ", n_kept,
+            " that succeeded")
+  }
   draws <- Filter(Negate(is.null), draws)
   if (length(draws) == 0L) {
     return(list(draws = NULL, n_multi = multi, reason = "all_draws_failed"))
@@ -926,7 +935,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' @param pair_name Optional contrast label recorded in the `pair_name` column.
 #'
 #' @return A data frame with `module`, `species`, `pair_name`,
-#'   `classification`, `Zsummary`, `q.value`, `size` and `size_mapped`.
+#'   `classification`, `Zsummary`, `Zsummary_std`, `q.value`, `size` and
+#'   `size_mapped`. `Zsummary_std` is the column the default
+#'   `z_scale = "standardized"` criterion is read against, so reproducing
+#'   the call from `Zsummary` alone will not match.
 #'
 #' @examples
 #' \dontrun{
@@ -956,8 +968,9 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     p$Zsummary
   }
   # Zsummary_std is NA when the null correlation of the two statistics
-  # could not be estimated (fewer than four usable permutations, or one
-  # statistic constant across them). Left alone that makes `strong`
+  # could not be estimated -- the kernel guards on `nb > 2`, so fewer
+  # than three jointly scorable permutations, or one statistic constant
+  # across them. Left alone that makes `strong`
   # FALSE and quietly demotes an otherwise significant module to
   # "moderate", which reads as a measurement rather than a missing
   # normaliser. Fall back to the raw scale for those rows and say so.
