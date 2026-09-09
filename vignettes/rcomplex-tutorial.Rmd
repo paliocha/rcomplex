@@ -209,8 +209,8 @@ wiring in the partner network is a different question from the reverse --
 so both directions are run for every pair, and every pair contributes two
 sets of rows instead of one. Preservation is run over *all* 28 species
 pairs, not only the four within-genus contrasts: the primary trait test
-is a relabelling null over that whole matrix, and it needs the pairs a
-designated-contrast design throws away. The four within-genus contrasts
+weighs same-trait pairs against different-trait ones, and a within-genus
+table holds no same-trait pair at all. The four within-genus contrasts
 are still used, by the secondary HOG-recurrence test at the end of the
 section.
 
@@ -290,14 +290,15 @@ left to correct for.
 
 Run it over *every* pair of species, not only the four within-genus
 contrasts. The extra 24 pairs are what the trait test in the next section
-consumes: they turn 4 contrasts into 28 and 73 module-directions into
-511, and they enlarge the relabelling null from 16 labellings to
-`choose(8, 4) = 70`. Because renaming the two trait levels reproduces the
-statistic, the smallest attainable p-value is `2 / n_labellings` rather
-than `1 / n_labellings`: that is the difference between 2/16 = 0.125 and
-2/70 = 0.029, between `p < 0.05` being unreachable by construction and
-being reachable. The cost is linear in pairs: seven times the
-preservation runs.
+consumes, and it consumes them because it has nothing to work with
+otherwise. Its statistic is the mean preservation of trait-*concordant*
+pairs minus that of trait-*discordant* ones, and in this design every
+within-genus pair is one annual against one perennial: a designated
+four-contrast table is discordant end to end, so the concordant mean is
+taken over an empty set and `preservation_matrix_test()` stops rather
+than returning a number. Only the between-genus pairs supply
+annual-annual and perennial-perennial contrasts. The cost is linear in
+pairs: seven times the preservation runs.
 
 ```{r module-preservation}
 # `cliques` is not built until section 5, so paralogs are resolved from
@@ -331,27 +332,35 @@ hypothesis, so the test is one-sided upward.
 
 Two things make this the primary analysis rather than an extra one.
 
-First, it uses **every** pairwise comparison instead of a designated few.
-All 28 are run and 24 contribute rows (the four within-genus pairs are
-dropped, for the reason given below), so the label space is every way of
-assigning four annual labels among eight species -- `choose(8, 4) = 70`
-labellings -- rather than the 16 a within-genus design allows. The floor
-is not one over that count: renaming the two trait levels reproduces the
-statistic exactly, so at least two labellings tie at the maximum and the
-smallest attainable p-value is `2 / n_labellings`. It falls from
-2/16 = 0.125 to 2/70 = 0.029, which is what makes `alpha = 0.05`
-reachable at all.
-`$free$p_attainable` and `$blocked$p_attainable` report the floor that
+First, it uses **every** pairwise comparison instead of a designated few,
+which is what gives the statistic a concordant side to average at all.
+All 28 pairs are run and 24 contribute rows (the four within-genus ones
+are dropped, for the reason given below); of those 24, 12 are
+trait-concordant and 12 discordant. Restricted to the four within-genus
+contrasts there would be no concordant pair anywhere in the table, and
+the function refuses such a table outright -- with
+`exclude_within_block = TRUE` because the exclusion empties it, with
+`FALSE` because one side of the difference is then empty.
+
+The two label spaces are a property of the eight species and their trait
+labels, not of the pairs table, so neither of them is something the
+all-pairs run buys. Splitting four annual labels among eight species
+gives `choose(8, 4) = 70` free labellings, and permuting only within the
+four genera gives `2^4 = 16`. What the floor is *not* is one over those
+counts: renaming the two trait levels reproduces the statistic exactly,
+so at least two labellings tie at the maximum and the smallest attainable
+p-value is `2 / n_labellings` -- 2/70 = 0.029 free, 2/16 = 0.125 blocked.
+`$free$p_attainable` and `$blocked$p_attainable` report whichever floor
 actually binds, and the function warns when it exceeds 0.05.
 
-Both nulls are reported: `p_free` over all 70, and `p_blocked` over the
-16 that permute only within a genus, which holds the phylogeny fixed.
-Their agreement is the diagnostic. A free p-value far below the blocked
-one would mean the larger label space bought its resolution by breaking
-phylogenetic control rather than by measuring the trait. Read
-`p_blocked` as that check on direction and rank only: its floor of 0.125
-puts significance out of reach for any signal, so a non-significant
-blocked p-value is not evidence against the free one.
+Both nulls are reported: `p_free` over all 70 labellings, and
+`p_blocked` over the 16 that permute only within a genus, which holds the
+phylogeny fixed. Their agreement is the diagnostic. A free p-value far
+below the blocked one would mean the larger label space bought its
+resolution by breaking phylogenetic control rather than by measuring the
+trait. Read `p_blocked` as that check on direction and rank only: its
+floor of 0.125 puts significance out of reach for any signal, so a
+non-significant blocked p-value is not evidence against the free one.
 
 Second, it ranks on `Zsummary_std`, the standardised effect size, and
 never on the q-value -- see the saturation note below for why that is not
@@ -384,8 +393,11 @@ cat("mean Zsummary_std, concordant - discordant:",
     " (floor", sprintf("%.4f", pmt$free$p_attainable), ")",
     "\n  p, within-genus null     :", sprintf("%.4f", pmt$p_blocked),
     " (floor", sprintf("%.4f", pmt$blocked$p_attainable), ")",
-    "\n  rows used:", pmt$n_rows, "over", pmt$n_pairs, "species pairs,",
-    pmt$n_excluded, "dropped as within-genus\n")
+    # n_pairs counts the pairs left after the exclusion, while n_excluded
+    # counts dropped ROWS, so the two must not be read as one sum.
+    "\n  module-directions used:", pmt$n_rows, "over", pmt$n_pairs,
+    "between-genus pairs",
+    "\n  module-directions dropped as within-genus:", pmt$n_excluded, "\n")
 ```
 
 Every module-direction counts once, so a heavily partitioned species
@@ -405,10 +417,17 @@ A permutation p-value cannot fall below `1 / (n_perm + 1)`, because the
 observed labelling is itself one of the draws. Every test whose true
 p-value lies below that floor comes back holding exactly it, and
 Benjamini-Hochberg maps a tied block of inputs onto a tied block of
-outputs. Run on this data set, the 511 module-directions yield only 172
-distinct q-values: 35 tied at the floor and 20 at exactly 1. Among the 35
-tied ones, `Zsummary_std` spans an order of magnitude. The q-value orders
-none of them.
+outputs. The `preservation_paired()` call above left `n_perm` at the
+`module_preservation()` default of 10000, so no p-value behind it can
+fall below 1/10001 and every module whose true p-value is smaller comes
+back holding exactly that. The chunk below counts the q-value block those
+ties produce, a little above the p-floor once Benjamini-Hochberg has
+scaled it, and a second block at exactly 1. Both counts move with
+`n_perm` -- on the full eight-species set the floor ties fall from 35 at
+`n_perm = 2000` to 7 at `n_perm = 20000` -- so read the numbers the chunk
+prints rather than any fixed pair. What does not move is that the tied
+modules are not equivalent: `Zsummary_std` spreads them over an order of
+magnitude while the q-value orders none of them.
 
 That is why every statistic above ranks on `Zsummary_std` and why `p` and
 `q` appear only in the significance call. `pvalue_resolution()` puts a
@@ -446,15 +465,24 @@ sets adds no resolution and is collapsed --- read `$n_labellings` and
 **That is also its structural limit, and it is worth stating plainly.**
 The observed labelling is always one of the points in the null, so the
 smallest attainable p-value is one over the number of labellings. With
-four contrasts that is `2^-4 = 0.0625`, so **this test cannot return
-`p < 0.05` no matter how strong the signal**. Five or more independent
-contrast groups are needed before significance is even attainable. Report
+four independent contrast groups that is `1 / 16 = 0.0625`, so **this
+test cannot return `p < 0.05` no matter how strong the signal**. Five or
+more groups are needed before significance is even attainable. Report
 `p_min` alongside `p_value` so a non-significant result is not read as
-evidence of absence. This is exactly the limit the all-pairs matrix test
-above escapes, by using all 28 pairs instead of these 4. (Its own floor
-is twice one over its label space, because renaming the trait levels
-leaves its statistic alone; here renaming them turns the annual-side
-statistic into the perennial-side one, so no such tie is guaranteed.)
+evidence of absence.
+
+Do not carry that floor across to the matrix test, whose blocked null
+happens to have 16 points as well. The two floors differ by a factor of
+two, and which way round is not arbitrary: swapping the trait labels of
+*every* species reproduces the matrix test's statistic exactly, so its
+maximum is always shared by at least two labellings and its floor is
+`2 / 16 = 0.125`; the same global swap maps this test's annual-side
+statistic onto its perennial-side one, which guarantees no tie at all, so
+its floor stays `1 / 16 = 0.0625`. Neither test reaches 0.05 within
+blocks. What the matrix test has instead is its free null over all 70
+labellings, floor `2 / 70 = 0.029`; this one has only the within-pair
+swap, since a free shuffle would draw designs that are not the paired one
+the data came from.
 
 It is run on the four within-genus contrasts, not on the all-pairs table:
 the within-pair swap is what makes the null exact, and it needs the

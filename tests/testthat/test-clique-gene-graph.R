@@ -300,6 +300,43 @@ test_that("lineage_specific outranks partial_present", {
 })
 
 
+test_that("lineage_specific refuses a tested, diverged outside species", {
+  # HOG6 (L2 absent from the orthogroup) is lineage_specific; the same
+  # L1 triangle with L2 compared against every member and rejected is
+  # not. The published workflow requires Cross == 0 in a matrix whose
+  # 1s mark a *tested* pair, so a rejected comparison disqualifies
+  # there too, and its differentiated set is the one that scores it.
+  l1 <- gcg_six[1:3]
+  h <- gcg_pairs(l1, c("a1", "b1", "c1"), "HOG1", 0.01)
+  cross <- do.call(rbind, lapply(gcg_six[4:6], function(s) {
+    data.frame(
+      gene1 = c("a1", "b1", "c1"), gene2 = paste0(s, "_g"),
+      species1 = l1, species2 = s, hog = "HOG1", q.value = 0.95,
+      effect_size = 1, stringsAsFactors = FALSE
+    )
+  }))
+  e <- rbind(h, cross)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  expect_equal(res$missing_reason, "tested_ns,tested_ns,tested_ns")
+  expect_equal(res$classification, "unclassified")
+
+  # And the tier that does own this pattern picks it up, once the
+  # outside species are testable among themselves and the cliques come
+  # from the unfiltered graph.
+  cmb <- utils::combn(6L, 2L)
+  same <- gcg_lin[gcg_six[cmb[1L, ]]] == gcg_lin[gcg_six[cmb[2L, ]]]
+  e2 <- gcg_pairs(
+    gcg_six, paste0(c("a", "b", "c", "d", "e", "f"), 1),
+    "HOG1", ifelse(same, 0.01, 0.95)
+  )
+  cl2 <- gene_clique_graph(e2, alpha_graph = Inf)
+  res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
+  expect_equal(res2$n_members, 6L)
+  expect_equal(res2$classification, "differentiated")
+})
+
+
 test_that("lineage tiers are skipped when no lineage is supplied", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
@@ -488,13 +525,18 @@ test_that("gene cliques carry at most one gene per species", {
 test_that("a one-member clique is never scored as conserved", {
   # choose(1, 2) == 0, so every tier count is vacuously satisfied
   # unless singletons are refused outright.
-  cl <- data.frame(clique_id = "X_1", hog = "HOG9", species = "SP_A",
-                   gene = "a9", stringsAsFactors = FALSE)
-  e <- data.frame(gene1 = "a9", gene2 = "b9", species1 = "SP_A",
-                  species2 = "SP_B", hog = "HOG9", q.value = 0.5,
-                  stringsAsFactors = FALSE)
+  cl <- data.frame(
+    clique_id = "X_1", hog = "HOG9", species = "SP_A",
+    gene = "a9", stringsAsFactors = FALSE
+  )
+  e <- data.frame(
+    gene1 = "a9", gene2 = "b9", species1 = "SP_A",
+    species2 = "SP_B", hog = "HOG9", q.value = 0.5,
+    stringsAsFactors = FALSE
+  )
   res <- classify_gene_cliques(cl, e, c("SP_A", "SP_B"),
-                               lineage = c(SP_A = "L1", SP_B = "L2"))
+    lineage = c(SP_A = "L1", SP_B = "L2")
+  )
   expect_equal(res$classification, "unclassified")
   expect_equal(res$n_pairs, 0L)
 })
@@ -546,6 +588,68 @@ test_that("repeated clique ids are refused, not silently merged", {
     classify_gene_cliques(cl, e, gcg_six),
     "distinct id_prefix"
   )
+})
+
+
+test_that("colliding cliques with no shared member are still refused", {
+  # The (clique_id, species, gene) triple only collides when the two
+  # cliques share a member. Two runs whose same-numbered cliques are
+  # disjoint used to merge silently into one six-member "clique" with
+  # n_pairs 15, six of them scored and nine invented.
+  sp <- c("SP_A", "SP_B", "SP_C")
+  tri <- function(genes, q) {
+    data.frame(
+      gene1 = genes[c(1L, 1L, 2L)], gene2 = genes[c(2L, 3L, 3L)],
+      species1 = c("SP_A", "SP_A", "SP_B"),
+      species2 = c("SP_B", "SP_C", "SP_C"),
+      hog = "HOG1", q.value = q, stringsAsFactors = FALSE
+    )
+  }
+  e <- rbind(tri(c("a", "b", "c"), 0.5), tri(c("d", "ee", "f"), 0.01))
+  tight <- gene_clique_graph(e, alpha_graph = 0.1)
+  loose <- gene_clique_graph(e, alpha_graph = 0.9)
+  # Both runs number a clique HOG1_1, and the two have no gene in
+  # common, so the old triple guard saw nothing.
+  both <- rbind(tight, loose[loose$clique_id == "HOG1_1", ])
+  expect_equal(length(unique(both$clique_id)), 1L)
+  expect_equal(anyDuplicated(paste(
+    both$clique_id, both$species, both$gene
+  )), 0L)
+  expect_error(
+    classify_gene_cliques(both, e, sp),
+    "row count contradicting n_members"
+  )
+})
+
+
+test_that("one clique id may not span two hogs", {
+  # The row-count signature needs n_members; a hand-built table without
+  # it is caught by the id-to-hog check instead.
+  sp <- c("SP_A", "SP_B", "SP_C")
+  e <- rbind(
+    gcg_pairs(sp, c("a1", "b1", "c1"), "HOG1", 0.01),
+    gcg_pairs(sp, c("a2", "b2", "c2"), "HOG2", 0.01)
+  )
+  cl <- data.frame(
+    clique_id = "C1", hog = rep(c("HOG1", "HOG2"), each = 3L),
+    species = rep(sp, 2L),
+    gene = c("a1", "b1", "c1", "a2", "b2", "c2"),
+    stringsAsFactors = FALSE
+  )
+  expect_error(
+    classify_gene_cliques(cl, e, sp),
+    "spanning several hogs"
+  )
+})
+
+
+test_that("a clique table without n_members is still accepted", {
+  sp <- c("SP_A", "SP_B", "SP_C")
+  e <- gcg_pairs(sp, c("a1", "b1", "c1"), "HOG1", 0.01)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  bare <- cl[, c("clique_id", "hog", "species", "gene")]
+  res <- classify_gene_cliques(bare, e, sp)
+  expect_equal(res$classification, "complete_conserved")
 })
 
 
@@ -826,9 +930,11 @@ test_that("both thresholds are strict at q == alpha", {
 
 test_that("classification cost is not multiplied by unrelated edges", {
   # Matching each clique against the whole edge table separately made
-  # this O(n_cliques x n_edges). Measured on this fixture: 8x the edge
-  # rows cost 6.3x the time before the fix and 1.7x after.
-  skip_on_cran()
+  # this O(n_cliques x n_edges) and cost 18.7x on a real run. The
+  # assertion counts elements scanned by match(), not seconds: a
+  # wall-clock ratio on a shared CI runner fails for reasons that have
+  # nothing to do with the code, and would have to be skipped, leaving
+  # the regression unguarded.
   sp <- paste0("SP_", LETTERS[1:4])
   n_hog <- 1000L
   cmb <- utils::combn(4L, 2L)
@@ -853,10 +959,32 @@ test_that("classification cost is not multiplied by unrelated edges", {
     x$gene2 <- paste0(x$gene2, "_p", k)
     x
   })))
-  small <- system.time(a <- classify_gene_cliques(cl, core, sp))
-  big <- system.time(b <- classify_gene_cliques(cl, pad, sp))
-  expect_equal(a$classification, b$classification)
-  expect_lt(big[["elapsed"]], 3 * small[["elapsed"]] + 0.2)
+  # Shadow match() in a child of the package namespace and total the
+  # lookup-table lengths it is handed. body(f) <- body(f) drops the
+  # byte-compiled body, which would otherwise resolve match() straight
+  # to base and never reach the shadow.
+  scanned <- function(cliques, edges, species) {
+    n <- 0
+    f <- classify_gene_cliques
+    env <- new.env(parent = environment(f))
+    env$match <- function(x, table, ...) {
+      n <<- n + length(table)
+      base::match(x, table, ...)
+    }
+    environment(f) <- env
+    body(f) <- body(f)
+    res <- f(cliques, edges, species)
+    list(res = res, scanned = n)
+  }
+  n_cl <- length(unique(cl$clique_id))
+  a <- scanned(cl, core, sp)
+  b <- scanned(cl, pad, sp)
+  expect_equal(a$res$classification, b$res$classification)
+  # One pass over the pair lookup, not one per clique. The regressed
+  # form scanned n_cliques x n_edges, three orders of magnitude more.
+  expect_lt(a$scanned, nrow(core) + 100)
+  expect_lt(b$scanned, nrow(pad) + 100)
+  expect_lt(b$scanned, n_cl * nrow(pad) / 100)
 })
 
 

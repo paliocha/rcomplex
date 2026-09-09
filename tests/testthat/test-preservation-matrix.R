@@ -976,3 +976,67 @@ test_that("a present-but-NA block value is refused", {
     "block has NA values for: B"
   )
 })
+
+
+test_that("a designated within-genus table cannot be tested at all", {
+  fx <- make_pmt_fixture()
+  cls <- fx$classification
+  within <- fx$block[cls$reference] == fx$block[cls$test]
+  cls <- cls[within, , drop = FALSE]
+  # Every within-genus pair is one annual against one perennial, so the
+  # concordant side of the difference has no rows to average. This is the
+  # justification for running all pairs: without between-genus contrasts
+  # the statistic is undefined, whichever way the exclusion is set.
+  expect_true(all(fx$group[cls$reference] != fx$group[cls$test]))
+  expect_error(
+    preservation_matrix_test(cls, fx$group, block = fx$block),
+    "leaves nothing to test"
+  )
+  expect_error(
+    preservation_matrix_test(cls, fx$group, block = fx$block,
+      exclude_within_block = FALSE
+    ),
+    "one side of the statistic empty"
+  )
+})
+
+
+test_that("the label spaces belong to the species, not the pairs table", {
+  fx <- make_pmt_fixture()
+  cls <- fx$classification
+  full <- suppressWarnings(
+    preservation_matrix_test(cls, fx$group, block = fx$block)
+  )
+  expect_equal(full$free$n_labellings, choose(8, 4))
+  expect_equal(full$blocked$n_labellings, 2^4)
+
+  # Half the contrasts dropped, all eight species still present: the two
+  # nulls are unchanged. Justifying all pairs by "a larger relabelling
+  # null" would therefore be wrong -- the pairs table never enters either
+  # space.
+  key <- paste(pmin(cls$reference, cls$test), pmax(cls$reference, cls$test))
+  keep <- !(key %in% unique(key)[seq(1L, 28L, by = 2L)])
+  sub <- cls[keep, , drop = FALSE]
+  expect_setequal(unique(c(sub$reference, sub$test)), fx$species)
+  part <- suppressWarnings(
+    preservation_matrix_test(sub, fx$group, block = fx$block)
+  )
+  expect_equal(part$free$n_labellings, full$free$n_labellings)
+  expect_equal(part$blocked$n_labellings, full$blocked$n_labellings)
+  expect_lt(part$n_pairs, full$n_pairs)
+})
+
+
+test_that("the two 16-point floors are 2/16 and 1/16 respectively", {
+  fx <- make_pmt_fixture()
+  res <- suppressWarnings(preservation_matrix_test(
+    fx$classification, fx$group,
+    block = fx$block
+  ))
+  # Swapping the two trait names everywhere reproduces the statistic, so
+  # the blocked maximum is always shared: 2/16, never tag_permutation()'s
+  # 1/16, which the docs used to quote for a matrix-test design.
+  expect_equal(res$blocked$p_attainable, 2 / 16)
+  expect_gte(res$blocked$n_tied_max, 2L)
+  expect_equal(res$free$p_attainable, 2 / 70)
+})

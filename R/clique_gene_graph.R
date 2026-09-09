@@ -22,6 +22,58 @@
 }
 
 
+#' Refuse a clique table that row-binds two runs under one clique_id
+#'
+#' `gene_clique_graph()` numbers cliques positionally within a HOG, so
+#' two runs at different `alpha_graph` produce the same ids unless the
+#' caller gave them distinct `id_prefix` values. Row-binding them merges
+#' unrelated genes into one oversized "clique" whose `n_members`,
+#' `n_species`, `n_pairs` and `missing_species` are then arithmetic over
+#' genes that were never adjacent -- silently, since nothing downstream
+#' can tell a merged block from a real clique.
+#'
+#' Three independent signatures of such a merge are refused, because no
+#' one of them fires on its own: the repeated (id, species, gene) triple
+#' needs the colliding cliques to share a member, the shared id needs
+#' them to come from different HOGs, and the row-count check needs the
+#' input to carry `n_members` at all.
+#'
+#' @param cl_id Clique id of each row.
+#' @param mk_all Node key (species + gene) of each row.
+#' @param cl_hog HOG of each row.
+#' @param n_members Declared clique size of each row, or `NULL` when the
+#'   input does not carry the column.
+#' @return Invisibly `TRUE`; errors on any merge signature.
+#' @noRd
+.gcg_check_clique_ids <- function(cl_id, mk_all, cl_hog, n_members) {
+  hint <- ": give each gene_clique_graph() run a distinct id_prefix"
+  if (anyDuplicated(paste(cl_id, mk_all, sep = .gcg_sep)) > 0L) {
+    stop(
+      "cliques contain repeated (clique_id, species, gene) rows", hint
+    )
+  }
+  n_id <- length(unique(cl_id))
+  if (length(unique(paste(cl_id, cl_hog, sep = .gcg_sep))) != n_id) {
+    stop("cliques contain a clique_id spanning several hogs", hint)
+  }
+  if (!is.null(n_members)) {
+    by_id <- split(as.integer(n_members), cl_id)
+    # A clique that declares one size and supplies another number of
+    # member rows is two blocks stacked, whatever their members are.
+    bad <- vapply(by_id, function(v) {
+      u <- unique(v[!is.na(v)])
+      length(u) > 1L || (length(u) == 1L && u != length(v))
+    }, logical(1))
+    if (any(bad)) {
+      stop(
+        "cliques have a member row count contradicting n_members", hint
+      )
+    }
+  }
+  invisible(TRUE)
+}
+
+
 #' Empty result template for [gene_clique_graph()]
 #'
 #' @param has_effect Whether an `effect_size` column is carried.
@@ -393,7 +445,11 @@ gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
 #'   \item{complete_conserved}{All `S` species present and all
 #'     `choose(S, 2)` pairs significant at `alpha_call`.}
 #'   \item{lineage_specific}{A complete clique over one entire lineage,
-#'     with no species outside it testable against the clique.}
+#'     with no species outside it testable against the clique. A species
+#'     that *was* compared against every member and came back
+#'     non-significant is evidence of a boundary rather than a gap, so
+#'     it blocks this tier -- that clique is a candidate for
+#'     `differentiated`, on the cliques of the unfiltered graph.}
 #'   \item{partial_significant}{All `S` species present, every clique
 #'     edge below `alpha_graph`, and at least `choose(S - 1, 2) + 1`
 #'     pairs significant at `alpha_call`.}
@@ -423,7 +479,8 @@ gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
 #'   any table with `clique_id`, `hog`, `species` and `gene` columns.
 #'   Combine runs at several `alpha_graph` values (with distinct
 #'   `id_prefix`) to expose every tier: a clique complete at
-#'   `alpha_call` need not be maximal on a looser graph.
+#'   `alpha_call` need not be maximal on a looser graph. Two runs that
+#'   collide on a `clique_id` are refused rather than merged.
 #' @param edges The full, unfiltered co-expressolog table. It must not
 #'   be pre-filtered on `q.value`: the gap tier needs to see rows that
 #'   were tested and failed in order to refuse them.
@@ -618,15 +675,7 @@ classify_gene_cliques <- function(cliques, edges, species,
   cl_hog <- as.character(cliques$hog)
   mk_all <- paste(cl_sp, as.character(cliques$gene), sep = .gcg_sep)
   cl_id <- as.character(cliques$clique_id)
-  # Two graph runs that share a clique_id merge into one oversized
-  # "clique" whose pair counts are arithmetic over genes that were never
-  # adjacent. Distinct id_prefix values are the fix.
-  if (anyDuplicated(paste(cl_id, mk_all, sep = .gcg_sep)) > 0L) {
-    stop(
-      "cliques contain repeated (clique_id, species, gene) rows: ",
-      "give each gene_clique_graph() run a distinct id_prefix"
-    )
-  }
+  .gcg_check_clique_ids(cl_id, mk_all, cl_hog, cliques$n_members)
 
   cl_by_id <- split(seq_len(nrow(cliques)), factor(cl_id, levels = ids))
   cmb_l <- lapply(cl_by_id, function(rr) {
@@ -803,8 +852,16 @@ classify_gene_cliques <- function(cliques, edges, species,
     key2 = ekey2, mk = mk, m = m,
     alpha_call = alpha_call, USE.NAMES = FALSE
   )
-  # Only "absent" and "untested" are annotation gaps; a pair that was
-  # tested and failed must keep the clique out of partial_present.
+  # Only "absent" and "untested" are annotation gaps. Admitting
+  # "tested_ns" would let partial_present claim a clique whose missing
+  # species was in fact rejected, and would let lineage_specific claim
+  # one whose outside species were compared against every member and
+  # diverged -- evidence of a boundary, not a gap, and the case
+  # `differentiated` exists to score. Folding it in here would make the
+  # two tiers indistinguishable. The published workflow draws the same
+  # line: its dicot- and conifer-specific sets require Cross == 0 in a
+  # matrix whose 1s mark a *tested* species pair, not a significant one,
+  # while its differentiated set requires both lineages present.
   gap_only <- length(gone) == 0L ||
     all(reason %in% c("absent", "untested"))
 

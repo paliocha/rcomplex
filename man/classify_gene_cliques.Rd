@@ -20,7 +20,8 @@ classify_gene_cliques(
 any table with \code{clique_id}, \code{hog}, \code{species} and \code{gene} columns.
 Combine runs at several \code{alpha_graph} values (with distinct
 \code{id_prefix}) to expose every tier: a clique complete at
-\code{alpha_call} need not be maximal on a looser graph.}
+\code{alpha_call} need not be maximal on a looser graph. Two runs that
+collide on a \code{clique_id} are refused rather than merged.}
 
 \item{edges}{The full, unfiltered co-expressolog table. It must not
 be pre-filtered on \code{q.value}: the gap tier needs to see rows that
@@ -95,7 +96,11 @@ and \code{X = P - W} cross-lineage pairs, the tiers are:
 \item{complete_conserved}{All \code{S} species present and all
 \code{choose(S, 2)} pairs significant at \code{alpha_call}.}
 \item{lineage_specific}{A complete clique over one entire lineage,
-with no species outside it testable against the clique.}
+with no species outside it testable against the clique. A species
+that \emph{was} compared against every member and came back
+non-significant is evidence of a boundary rather than a gap, so
+it blocks this tier -- that clique is a candidate for
+\code{differentiated}, on the cliques of the unfiltered graph.}
 \item{partial_significant}{All \code{S} species present, every clique
 edge below \code{alpha_graph}, and at least \code{choose(S - 1, 2) + 1}
 pairs significant at \code{alpha_call}.}

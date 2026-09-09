@@ -123,17 +123,26 @@ pres$preservation  # avg.weight, cor.degree, Zsummary, q.value per module
 # diverged (q >= alpha), untested (q is NA -- nothing was measured).
 classes <- classify_preservation(pres)
 
-# PRIMARY trait test. Run preservation for EVERY species pair, then ask
-# whether trait-discordant pairs are the less-preserved ones. All pairs
-# rather than a designated few is the whole point: eight species give 28
-# contrasts instead of 4, and the free relabelling null grows from 16
-# labellings to choose(8, 4) = 70. Swapping the two trait names
-# reproduces the statistic, so the smallest attainable p-value is
-# 2/n_labellings, not 1/n: 2/70 = 0.029 instead of 2/16 = 0.125, which
-# is the difference between alpha = 0.05 being reachable and being
-# unreachable by construction. `trait` and `genus` are named vectors
-# over every species; `modules` and `networks` are the per-species lists.
-pairs    <- all_species_pairs(names(trait))
+# PRIMARY trait test. It steps outside the two-species example above,
+# because the test needs a clade: from here `networks`, `modules`,
+# `orthologs` and `edges` are the eight-species versions, keyed by
+# species.
+annual_sp    <- c("BDIS", "HVUL", "BMAX", "VBRO")
+perennial_sp <- c("BSYL", "HJUB", "BMED", "FPRA")
+all_sp       <- c(annual_sp, perennial_sp)
+trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
+genus <- setNames(rep(c("Brachypodium", "Hordeum", "Briza", "Festuca"), 2),
+                  all_sp)
+
+# Run preservation for EVERY species pair, then ask whether
+# trait-discordant pairs are the less-preserved ones. All pairs rather
+# than a designated few is not a matter of extra resolution -- it is what
+# makes the test exist. The statistic is the concordant mean minus the
+# discordant mean, and a designated annual-vs-perennial table holds no
+# trait-concordant pair at all, so the concordant side is empty and
+# preservation_matrix_test() errors instead of running. Only the
+# between-genus pairs supply same-trait contrasts.
+pairs    <- all_species_pairs(all_sp)
 pres_all <- preservation_paired(modules, networks, orthologs, pairs,
                                 group = trait, edges = edges,
                                 n_cores = 4L, seed = 1L)
@@ -142,13 +151,21 @@ pres_all <- preservation_paired(modules, networks, orthologs, pairs,
 # and never the q-value. `block` names the phylogenetic group (a genus),
 # which enables the conservative within-block null and drops the
 # within-block pairs, where trait and phylogeny are confounded.
+# Both label spaces belong to the species and their trait labels, not to
+# the pairs table: 4/4 over eight species gives choose(8, 4) = 70 free
+# labellings and 2^4 = 16 that permute only within a genus. Renaming the
+# two trait levels reproduces the statistic, so each floor is 2 over its
+# own count -- 2/70 = 0.029 free, 2/16 = 0.125 blocked. Read `p_blocked`
+# as a check on the direction and rank of the effect; nothing can reach
+# alpha = 0.05 against it.
 pmt <- preservation_matrix_test(pres_all$classification, trait,
                                 block = genus)
 c(pmt$observed, pmt$p_free, pmt$p_blocked)
 pmt$class_means   # the class means the statistic is built from
 pmt$saturation    # resolution left in the q-values behind it
 
-# Identify hub genes within modules (6-tier tie-breaking cascade)
+# Identify hub genes within modules (6-tier tie-breaking cascade).
+# Back to the two-species example: mod1/mod2 and net1/net2 again.
 hubs1 <- identify_module_hubs(mod1, net1, orthologs,
                               comparison = summary$results)
 hubs2 <- identify_module_hubs(mod2, net2, orthologs,
@@ -332,7 +349,7 @@ multiplier) error with a message asking for a larger `store_density`.
 | `all_species_pairs()` | Build the all-pairs `pairs` table for `preservation_paired()` |
 | `preservation_matrix_test()` | Primary trait test: relabelling null on the all-pairs preservation matrix (ranks on `Zsummary_std`) |
 | `pvalue_resolution()` | How much resolution a set of p- or q-values has left (ties at the permutation floor) |
-| `tag_permutation()` | Secondary: do the same HOGs recur in diverged modules across pairs? (floor `2^-k`; needs >= 5 contrasts to reach 0.05) |
+| `tag_permutation()` | Secondary: do the same HOGs recur in diverged modules across pairs? (floor `2^-k`, `k` = connected components of the contrast graph, not contrasts; needs `k >= 5`) |
 | `identify_module_hubs()` | Within-module hub identification with 6-tier conservation-aware tie-breaking |
 | `characterize_hubs()` | Regulatory-potential metrics for hub genes (bridge fraction, betweenness/degree ratio) |
 | `classify_hub_conservation()` | Hub conservation across traits (conserved / rewired / trait-specific) |

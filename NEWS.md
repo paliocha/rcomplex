@@ -323,27 +323,39 @@ counterpart per gene before any module label is projected.
   `rcomplex` method included.
 - `all_species_pairs(species)` and `preservation_matrix_test(classification,
   group, block = )`: the primary trait test, and the reason the pairs table
-  should no longer be a designated few. A four-contrast within-genus design
-  on eight species has a relabelling null of 16 labellings, and renaming the
-  two trait levels everywhere reproduces the statistic exactly, so at least
-  two labellings tie at the maximum: the smallest attainable p-value is
-  `2 / 16 = 0.125`, **not `1 / 16`**. No such design can return `p < 0.05`,
-  whatever the data say. Running `preservation_paired()` over all
-  `choose(8, 2) = 28` pairs instead costs 13 s for eight species and yields
-  511 module-directions instead of 73; the free label space becomes
-  `choose(8, 4) = 70` and the floor `2 / 70 = 0.029`, which is what puts
-  `alpha = 0.05` within reach at all. The statistic averages `Zsummary_std`
-  over the module-directions of trait-concordant and trait-discordant pairs
-  and takes the difference (the row-weighted dispersion of the class means
-  for more than two trait levels), one-sided upward, and it never reads a
-  q-value -- see `pvalue_resolution()` below for why. Both nulls are
-  returned: `p_free` over all 70 labellings, and `p_blocked` over the 16
-  that permute only within a `block` (a genus), which holds the phylogeny
-  fixed. **Their agreement is the diagnostic, not their separate verdicts**
-  -- `p_blocked`'s floor is again `2 / 16 = 0.125`, so it is a conservative
-  check on the direction and rank of the effect and never a significance
-  test in its own right. `$free$p_attainable` and `$blocked$p_attainable`
-  report whichever floor actually binds, `$n_tied_max` how many labellings
+  should no longer be a designated few. **A designated within-genus table
+  cannot be tested at all.** The statistic averages `Zsummary_std` over the
+  module-directions of trait-concordant pairs and of trait-discordant ones
+  and takes the difference, and in a paired design every within-genus pair
+  is one annual against one perennial: there is no concordant row anywhere
+  in such a table, so the concordant mean is taken over an empty set.
+  Measured on the four within-genus contrasts of the Pooideae set (73
+  rows), `exclude_within_block = TRUE` errors with "excluding within-block
+  rows leaves nothing to test" and `FALSE` with "the observed labelling
+  leaves one side of the statistic empty; there is no trait contrast to
+  test". Only between-genus pairs supply same-trait contrasts, and running
+  `preservation_paired()` over all `choose(8, 2) = 28` pairs costs 13 s for
+  eight species: 24 of them contribute, 12 concordant and 12 discordant,
+  and of the 511 module-directions 438 are between-genus, 219 on each
+  side. The relabelling spaces are **not** part of that argument. They are fixed
+  by the species and their trait labels, so any table covering all eight
+  species has the same two: `choose(8, 4) = 70` free labellings, and
+  `2^4 = 16` permuting only within a `block` (a genus). Neither floor is
+  one over its count -- renaming the two trait levels everywhere
+  reproduces the statistic exactly, so at least two labellings tie at the
+  maximum and the smallest attainable p-value is `2 / 70 = 0.029` free and
+  `2 / 16 = 0.125` blocked. (`tag_permutation()` has a 16-point null too
+  and a floor of `1 / 16`, not `2 / 16`: its global swap maps the
+  annual-side statistic onto the perennial-side one, which guarantees no
+  tie. The two floors must not be quoted for each other.) The statistic
+  becomes the row-weighted dispersion of the class means for more than two
+  trait levels, stays one-sided upward, and never reads a q-value -- see
+  `pvalue_resolution()` below for why. Both nulls are returned. **Their
+  agreement is the diagnostic, not their separate verdicts** -- at a floor
+  of `2 / 16 = 0.125` the blocked null is a conservative check on the
+  direction and rank of the effect and never a significance test in its
+  own right. `$free$p_attainable` and `$blocked$p_attainable` report
+  whichever floor actually binds, `$n_tied_max` how many labellings
   share it, and the function warns when it exceeds 0.05. Within-block pairs
   are dropped by default: in a paired design every within-genus pair is
   trait-discordant while every trait-concordant pair is between-genus, so
@@ -442,13 +454,16 @@ counterpart per gene before any module label is projected.
   in diverged modules across independent lineages, and it still runs on the
   four within-genus contrasts, whose within-pair swap is what makes its
   null exact. Its limit is now stated where a reader meets it rather than
-  in a footnote: four contrasts give a 16-point label space and a floor of
-  `2^-4 = 0.0625`, so it cannot reach 0.05 by construction. (That floor is
-  `1 / n_labellings`, unlike `preservation_matrix_test()`'s
-  `2 / n_labellings`: renaming the trait levels turns the annual-side
-  statistic into the perennial-side one rather than reproducing it, so no
-  tie at the maximum is guaranteed.) Its `pairs` argument in the vignette
-  now names contrasts as the all-pairs classification does
+  in a footnote: four independent contrast groups give a 16-point label
+  space and a floor of `2^-4 = 0.0625`, so it cannot reach 0.05 by
+  construction. (That floor is `1 / n_labellings`, unlike
+  `preservation_matrix_test()`'s `2 / n_labellings`, even though its
+  blocked null also has 16 points: renaming the trait levels turns the
+  annual-side statistic into the perennial-side one rather than
+  reproducing it, so no tie at the maximum is guaranteed. `0.0625` belongs
+  to this test and `0.125` to that one; neither number describes the
+  other.) Its `pairs` argument in the vignette now names contrasts as the
+  all-pairs classification does
   (`"<sp1>.<sp2>"`, e.g. `"BDIS.BSYL"`) instead of the genus label;
   `tag_permutation()` matches on `pair_name`, so the old genus names would
   error against the new classification. Both documents also gain a
