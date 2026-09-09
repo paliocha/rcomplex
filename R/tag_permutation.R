@@ -141,9 +141,11 @@
 #'   deliver and drives the statistic systematically negative. Ignored for
 #'   \code{statistic = "count"}.
 #' @param min_recurrence Minimum number of pairs in which a HOG must
-#'   appear to be counted as recurring (default 2). \strong{This does not
-#'   scale with the number of pairs and should be raised as pairs are
-#'   added.} Writing \code{p} for the chance that one HOG falls in a
+#'   appear to be counted as recurring. \code{NULL} (default) uses half
+#'   the contributing contrasts, at least 2 --- which is 2 for a
+#'   four-contrast design, so small designs behave as they did when the
+#'   default was the constant 2. A constant does not describe a design of
+#'   arbitrary size. Writing \code{p} for the chance that one HOG falls in a
 #'   diverged module on one side of one pair, a HOG reaches at least 2 of
 #'   \code{k} target sides by chance alone with probability
 #'   \code{1 - (1 - p)^k - k p (1 - p)^(k - 1)}. At the \code{p = 0.08}
@@ -151,9 +153,9 @@
 #'   \code{k = 4} and 0.19 at \code{k = 10}: the statistic
 #'   saturates on chance recurrence, and simulation shows power becoming
 #'   non-monotone in \code{k} and collapsing by \code{k = 10}. Scaling it
-#'   as \code{max(2, round(k / 2))} restores monotone power. The default
-#'   is left at 2 for continuity, not because it is right at every
-#'   \code{k}. Exceeding the number of contributing pairs is an error:
+#'   as \code{max(2, round(k / 2))} restores monotone power, and is what
+#'   \code{NULL} does. Exceeding the number of contributing pairs is an
+#'   error:
 #'   no HOG could recur in that many, so the statistic would be 0 under
 #'   every labelling. At \code{min_recurrence = 1} the statistic
 #'   degenerates to the size of the union of the chosen sides, a pure
@@ -238,7 +240,7 @@
 tag_permutation <- function(classification, modules, orthologs, pairs,
                             group, target_group,
                             n_perm = 1000L,
-                            min_recurrence = 2L,
+                            min_recurrence = NULL,
                             statistic = c("count", "excess"),
                             universe = NULL,
                             enum_max = 20L) {
@@ -341,11 +343,13 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # as.integer() overflows to NA above 2^31, which used to surface as
   # "missing value where TRUE/FALSE needed" from an unrelated `if`.
   n_perm <- as.integer(min(n_perm, .Machine$integer.max))
-  if (!is.numeric(min_recurrence) || length(min_recurrence) != 1L ||
-        is.na(min_recurrence) || min_recurrence < 1) {
-    stop("min_recurrence must be a single positive number")
+  if (!is.null(min_recurrence)) {
+    if (!is.numeric(min_recurrence) || length(min_recurrence) != 1L ||
+          is.na(min_recurrence) || min_recurrence < 1) {
+      stop("min_recurrence must be a single positive number or NULL")
+    }
+    min_recurrence <- as.integer(min_recurrence)
   }
-  min_recurrence <- as.integer(min_recurrence)
   if (!is.numeric(enum_max) || length(enum_max) != 1L ||
         is.na(enum_max) || enum_max < 0 || enum_max > 30) {
     stop("enum_max must be a single number between 0 and 30")
@@ -427,6 +431,32 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     pair_hogs
   }
 
+  # Which contrasts feed the statistic, and how deep a HOG must recur.
+  contributes <- unname(xor(group[pairs$sp1] == target_group,
+                            group[pairs$sp2] == target_group))
+  n_contributing <- sum(contributes)
+  # A fixed min_recurrence does not describe a design of arbitrary size.
+  # The chance a HOG reaches two of k sides on its own grows steeply with
+  # k -- about 0.03 at k = 4 but 0.25 at k = 12 for a per-side rate of
+  # 0.08 -- so the statistic saturates on chance recurrence and power
+  # stops rising with k. Half the contributing contrasts holds that
+  # chance near constant. At four contrasts this is 2, the previous
+  # fixed default, so small designs are unaffected.
+  if (is.null(min_recurrence)) {
+    min_recurrence <- max(2L, as.integer(round(n_contributing / 2)))
+    if (n_contributing > 0L) {
+      message("min_recurrence = ", min_recurrence, " (half of ",
+              n_contributing, " contributing contrasts); pass it ",
+              "explicitly to override")
+    }
+  }
+  if (min_recurrence > n_contributing) {
+    stop("min_recurrence (", min_recurrence, ") exceeds the number of ",
+         "pairs contributing to the statistic (", n_contributing,
+         "): no HOG can recur in that many pairs, so the statistic is 0 ",
+         "under every labelling and the p-value is 1 by construction")
+  }
+
   # --- Recurrence counter ---
   count_recurring <- function(grp) {
     all_hogs <- unlist(get_pair_hogs(grp))
@@ -497,16 +527,6 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # p_min below the floor the design can actually reach -- which is the
   # guard this function exists to provide. For a binary trait this is
   # exactly the set of pairs whose two labels differ.
-  contributes <- unname(xor(group[pairs$sp1] == target_group,
-                            group[pairs$sp2] == target_group))
-  n_contributing <- sum(contributes)
-  if (min_recurrence > n_contributing) {
-    stop("min_recurrence (", min_recurrence, ") exceeds the number of ",
-         "pairs contributing to the statistic (", n_contributing,
-         "): no HOG can recur in that many pairs, so the statistic is 0 ",
-         "under every labelling and the p-value is 1 by construction")
-  }
-
   # Contrasts sharing a species are coupled, so the unit of independence
   # is the connected component of the species-by-contrast graph, not the
   # contrast. A disjoint pairing gives one component per contrast with

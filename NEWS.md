@@ -79,14 +79,16 @@ counterpart per gene before any module label is projected.
   to null mean measures 2.80-3.00, so the reported 2.68 sits slightly
   *below* the no-signal expectation.
 
-  Separately, `min_recurrence` does not scale with the number of pairs.
-  A HOG reaches two of `k` sides by chance with probability about 0.03 at
-  `k = 4` but 0.19 at `k = 10`, so with the default of 2 the statistic
-  saturates on chance recurrence and simulated power becomes non-monotone
-  in `k`, collapsing by `k = 10`; `max(2, round(k / 2))` restores it. The
-  default is unchanged for continuity and the trade-off is now documented
-  on the argument --- but anyone acting on the "add pairs" advice above
-  should raise it at the same time.
+  Separately, `min_recurrence` defaults to `NULL`, meaning half the
+  contributing contrasts (at least 2), rather than the constant 2. A
+  constant does not describe a design of arbitrary size: a HOG reaches two
+  of `k` sides by chance with probability about 0.03 at `k = 4`, 0.13 at
+  `k = 8` and 0.25 at `k = 12`, so the statistic saturates on chance
+  recurrence and simulated power becomes non-monotone in `k`, collapsing
+  by `k = 10`. Scaling holds that chance roughly constant. **Four
+  contrasts resolve to 2, the previous default, so existing small designs
+  return the same numbers**; larger designs change, and an explicit
+  `min_recurrence` still wins.
 
 - `tag_permutation()` counts a pair toward `k` only when swapping it
   changes the statistic. A pair whose two sides carry the same

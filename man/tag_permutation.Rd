@@ -12,7 +12,7 @@ tag_permutation(
   group,
   target_group,
   n_perm = 1000L,
-  min_recurrence = 2L,
+  min_recurrence = NULL,
   statistic = c("count", "excess"),
   universe = NULL,
   enum_max = 20L
@@ -57,9 +57,11 @@ precision cannot demote the null from exact to sampled. See
 \code{enum_max} to lower that ceiling.}
 
 \item{min_recurrence}{Minimum number of pairs in which a HOG must
-appear to be counted as recurring (default 2). \strong{This does not
-scale with the number of pairs and should be raised as pairs are
-added.} Writing \code{p} for the chance that one HOG falls in a
+appear to be counted as recurring. \code{NULL} (default) uses half
+the contributing contrasts, at least 2 --- which is 2 for a
+four-contrast design, so small designs behave as they did when the
+default was the constant 2. A constant does not describe a design of
+arbitrary size. Writing \code{p} for the chance that one HOG falls in a
 diverged module on one side of one pair, a HOG reaches at least 2 of
 \code{k} target sides by chance alone with probability
 \code{1 - (1 - p)^k - k p (1 - p)^(k - 1)}. At the \code{p = 0.08}
@@ -67,9 +69,9 @@ of the eight-species Pooideae set that is about 0.03 at
 \code{k = 4} and 0.19 at \code{k = 10}: the statistic
 saturates on chance recurrence, and simulation shows power becoming
 non-monotone in \code{k} and collapsing by \code{k = 10}. Scaling it
-as \code{max(2, round(k / 2))} restores monotone power. The default
-is left at 2 for continuity, not because it is right at every
-\code{k}. Exceeding the number of contributing pairs is an error:
+as \code{max(2, round(k / 2))} restores monotone power, and is what
+\code{NULL} does. Exceeding the number of contributing pairs is an
+error:
 no HOG could recur in that many, so the statistic would be 0 under
 every labelling. At \code{min_recurrence = 1} the statistic
 degenerates to the size of the union of the chosen sides, a pure

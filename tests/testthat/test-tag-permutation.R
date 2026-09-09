@@ -925,3 +925,54 @@ test_that("the excess correction helps or hurts with the universe", {
   expect_equal(small$n_labellings, a$n_labellings)
   expect_equal(small$p_min, a$p_min)
 })
+
+
+test_that("min_recurrence scales with the number of contrasts", {
+  # A fixed threshold describes one design size. The chance a HOG reaches
+  # two of k sides unaided grows steeply with k, so with min_recurrence
+  # pinned at 2 the statistic saturates on chance recurrence as contrasts
+  # are added and power stops rising with the design.
+  for (k in c(4L, 6L, 10L)) {
+    fix <- make_tag_perm_fixtures_k(k)
+    res <- suppressMessages(suppressWarnings(tag_permutation(
+      fix$classification, fix$modules, fix$orthologs, fix$pairs,
+      fix$group, target_group = "annual"
+    )))
+    expect_equal(res$n_contributing, k)
+    expect_equal(res$min_recurrence, max(2L, as.integer(round(k / 2))))
+  }
+
+  # Four contrasts resolve to 2, the previous fixed default, so existing
+  # small designs are unaffected by the change.
+  fix4 <- make_tag_perm_fixtures_k(4)
+  auto <- suppressMessages(suppressWarnings(tag_permutation(
+    fix4$classification, fix4$modules, fix4$orthologs, fix4$pairs,
+    fix4$group, target_group = "annual"
+  )))
+  fixed <- suppressMessages(suppressWarnings(tag_permutation(
+    fix4$classification, fix4$modules, fix4$orthologs, fix4$pairs,
+    fix4$group, target_group = "annual", min_recurrence = 2L
+  )))
+  expect_equal(auto$min_recurrence, 2L)
+  expect_equal(auto$observed, fixed$observed)
+  expect_equal(auto$p_value, fixed$p_value)
+
+  # An explicit value still wins, and still cannot exceed the design.
+  expl <- suppressMessages(suppressWarnings(tag_permutation(
+    fix4$classification, fix4$modules, fix4$orthologs, fix4$pairs,
+    fix4$group, target_group = "annual", min_recurrence = 3L
+  )))
+  expect_equal(expl$min_recurrence, 3L)
+  expect_error(
+    tag_permutation(fix4$classification, fix4$modules, fix4$orthologs,
+                    fix4$pairs, fix4$group, target_group = "annual",
+                    min_recurrence = 9L),
+    "exceeds the number of pairs contributing"
+  )
+  expect_error(
+    tag_permutation(fix4$classification, fix4$modules, fix4$orthologs,
+                    fix4$pairs, fix4$group, target_group = "annual",
+                    min_recurrence = 0L),
+    "min_recurrence must be"
+  )
+})
