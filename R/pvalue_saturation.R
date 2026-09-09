@@ -228,10 +228,6 @@ pvalue_resolution <- function(p, n_perm = NULL) {
 .min_credible_n_perm <- 99
 
 
-# Group sorted unique values that lie within a relative tolerance of the
-# group's smallest member. Two doubles a few last bits apart are one value
-# wobbled by arithmetic, not two resolvable p-values, and the distinct count
-# and the tie count must not disagree about which it is.
 #' Count values tied at the minimum, to floating-point tolerance
 #'
 #' Two doubles a few last bits apart are one value wobbled by arithmetic,
@@ -261,6 +257,10 @@ pvalue_resolution <- function(p, n_perm = NULL) {
 }
 
 
+# Group sorted unique values that lie within a relative tolerance of the
+# group's smallest member. Two doubles a few last bits apart are one value
+# wobbled by arithmetic, not two resolvable p-values, and the distinct count
+# and the tie count must not disagree about which it is.
 .tol_groups <- function(u, tol) {
   n <- length(u)
   if (n <= 1L) {

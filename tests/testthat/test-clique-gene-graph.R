@@ -1027,3 +1027,36 @@ test_that("mean_q ties are counted to tolerance, not bitwise", {
   # and the exact comparison the fix replaced would have said 1 and 6
   expect_lt(ties$n_distinct, length(unique(c(v, 0.5, 0.9))))
 })
+
+
+test_that("near-tied mean_q is counted as tied at both call sites", {
+  # The tolerant comparison exists for the two attributes below, but the
+  # only test for it called .tol_min_ties() directly, so an exact ==
+  # could have come back at either call site unnoticed. mean_q is a mean
+  # over a different edge subset per clique, so build two cliques whose
+  # mean_q is mathematically equal and bitwise apart.
+  eps <- .Machine$double.eps
+  q1 <- c(0.2, 0.4, 0.6)
+  q2 <- q1 * (1 + c(1, -1, 2) * eps)
+  mk <- function(tag, qs) {
+    data.frame(
+      gene1 = c("a", "a", "b"), gene2 = c("b", "c", "c"),
+      species1 = c("SP_A", "SP_A", "SP_B"),
+      species2 = c("SP_B", "SP_C", "SP_C"),
+      hog = tag, q.value = qs, stringsAsFactors = FALSE
+    )
+  }
+  e <- rbind(mk("H1", q1), mk("H2", q2))
+  e$gene1 <- paste0(e$hog, "_", e$gene1)
+  e$gene2 <- paste0(e$hog, "_", e$gene2)
+
+  cl <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
+  expect_equal(length(unique(cl$clique_id)), 2L)
+  # Exact equality would report 1; the two mean_q differ only in the last
+  # bits, so both cliques sit at the floor.
+  expect_equal(attr(cl, "n_cliques_at_q_floor"), 2L)
+
+  res <- classify_gene_cliques(cl, e, c("SP_A", "SP_B", "SP_C"),
+                               alpha_call = 0.9, alpha_graph = 0.9)
+  expect_equal(unique(res$n_cliques_at_q_floor), 2L)
+})

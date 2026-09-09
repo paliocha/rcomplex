@@ -47,7 +47,7 @@ is deliberately no q-value option.}
 enumerate. \code{NULL} (default) means 10000 if it comes to that. Ignored, with
 a message when it was supplied explicitly, for a space that is enumerated.
 The sampled branch draws from the global RNG, so call
-\code{\link[=set.seed]{set.seed()}} beforehand for a reproducible p-value. Which
+\code{set.seed()} beforehand for a reproducible p-value. Which
 branch runs is decided by \code{enum_max} rather than by the
 caller, so a design can cross into the sampled regime
 without the call site changing.}
@@ -91,7 +91,13 @@ both are counted over the \code{n_scored} draws rather than over the
 \item{saturation}{List describing the resolution of the supplied
 q-values: \code{n_tests}, \code{n_distinct}, \code{q_floor}, \code{n_at_floor},
 \code{n_at_one}, plus \code{p_min_pres} and \code{q_floor_global} (both \code{NA}
-without \code{n_perm_pres}). \code{n_tests} counts every row of the supplied
+without \code{n_perm_pres}). \code{n_distinct}, \code{n_at_floor} and \code{n_at_one}
+are counted with the same relative tolerance
+\code{\link[=pvalue_resolution]{pvalue_resolution()}} uses, so the two agree on one
+q-vector:
+values within a few last bits of each other are one value
+wobbled by arithmetic, not two resolvable ones. \code{n_tests}
+counts every row of the supplied
 \code{classification} carrying a finite q-value --- the multiplicity
 population is the whole matrix, so this is deliberately \emph{not}
 \code{n_rows} below, which is the subset this test averages over after

@@ -1040,3 +1040,28 @@ test_that("the two 16-point floors are 2/16 and 1/16 respectively", {
   expect_gte(res$blocked$n_tied_max, 2L)
   expect_equal(res$free$p_attainable, 2 / 70)
 })
+
+
+test_that("$saturation counts near-ties the way pvalue_resolution does", {
+  # n_distinct, n_at_floor and n_at_one are all tolerance-grouped so the
+  # two diagnostics of one q-vector cannot disagree -- the README and the
+  # vignette print them side by side.
+  eps <- .Machine$double.eps
+  sp <- c("A", "B", "C", "D")
+  grp <- c(A = "x", B = "y", C = "x", D = "y")
+  pr <- rcomplex::all_species_pairs(sp)
+  q <- c(0.001 * (1 + c(0, 1, -1) * eps), 1, 1 * (1 - eps), 0.5)
+  cls <- data.frame(
+    reference = pr$sp1[c(1, 2, 3, 4, 5, 6)],
+    test = pr$sp2[c(1, 2, 3, 4, 5, 6)],
+    Zsummary_std = c(5, 3, 4, 2, 6, 1),
+    q.value = q, module = "1", stringsAsFactors = FALSE
+  )
+  res <- suppressWarnings(preservation_matrix_test(cls, group = grp))
+  pvr <- pvalue_resolution(q)
+  expect_equal(res$saturation$n_distinct, pvr$n_distinct)
+  expect_equal(res$saturation$n_at_floor, pvr$n_at_min)
+  expect_equal(res$saturation$n_at_one, pvr$n_at_one)
+  # and the exact comparisons the fix replaced would disagree
+  expect_lt(res$saturation$n_distinct, length(unique(q)))
+})

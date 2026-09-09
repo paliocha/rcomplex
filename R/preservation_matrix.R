@@ -459,7 +459,7 @@ all_species_pairs <- function(species, sep = ".") {
 #'   enumerate. `NULL` (default) means 10000 if it comes to that. Ignored, with
 #'   a message when it was supplied explicitly, for a space that is enumerated.
 #'   The sampled branch draws from the global RNG, so call
-#'   [set.seed()] beforehand for a reproducible p-value. Which
+#'   `set.seed()` beforehand for a reproducible p-value. Which
 #'   branch runs is decided by `enum_max` rather than by the
 #'   caller, so a design can cross into the sampled regime
 #'   without the call site changing.
@@ -500,7 +500,13 @@ all_species_pairs <- function(species, sep = ".") {
 #'     \item{saturation}{List describing the resolution of the supplied
 #'       q-values: `n_tests`, `n_distinct`, `q_floor`, `n_at_floor`,
 #'       `n_at_one`, plus `p_min_pres` and `q_floor_global` (both `NA`
-#'       without `n_perm_pres`). `n_tests` counts every row of the supplied
+#'       without `n_perm_pres`). `n_distinct`, `n_at_floor` and `n_at_one`
+#'       are counted with the same relative tolerance
+#'       [pvalue_resolution()] uses, so the two agree on one
+#'       q-vector:
+#'       values within a few last bits of each other are one value
+#'       wobbled by arithmetic, not two resolvable ones. `n_tests`
+#'       counts every row of the supplied
 #'       `classification` carrying a finite q-value --- the multiplicity
 #'       population is the whole matrix, so this is deliberately *not*
 #'       `n_rows` below, which is the subset this test averages over after
@@ -601,15 +607,18 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   # n_tests * p_min, so at a given n_perm the global correction the all-pairs
   # framing calls for may not be available at all.
   p_min_pres <- if (is.null(n_perm_pres)) NA_real_ else 1 / (n_perm_pres + 1)
+  q_ties <- .tol_min_ties(qv_ok)
   saturation <- list(
     n_tests = n_tests,
-    # Tolerant, so this agrees with pvalue_resolution() when a reader
-    # puts the two side by side on the same q-vector -- which the README
-    # and the vignette both do.
-    n_distinct = .tol_min_ties(qv_ok)$n_distinct,
+    # All three counts are tolerant, so $saturation agrees with
+    # pvalue_resolution() when a reader puts the two side by side on the
+    # same q-vector -- which the README and the vignette both do. Leaving
+    # n_at_one exact would have reintroduced the same disagreement one
+    # line below the fix for it.
+    n_distinct = q_ties$n_distinct,
     q_floor = if (n_tests > 0L) min(qv_ok) else NA_real_,
-    n_at_floor = .tol_min_ties(qv_ok)$n_at_min,
-    n_at_one = sum(qv_ok >= 1),
+    n_at_floor = q_ties$n_at_min,
+    n_at_one = sum(abs(qv_ok - 1) <= sqrt(.Machine$double.eps)),
     p_min_pres = p_min_pres,
     # No q-values means no multiplicity to correct, which is not the same as
     # a floor of zero.
