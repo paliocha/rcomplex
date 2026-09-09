@@ -469,3 +469,62 @@ test_that("the conditional null is calibrated under H0", {
   expect_lte(mean(ps <= 0.05), 0.05 + 3 * sqrt(0.05 * 0.95 / 60))
   expect_lte(mean(ps <= 0.10), 0.10 + 3 * sqrt(0.10 * 0.90 / 60))
 })
+
+
+test_that("pair_sizes exposes the exchangeability condition", {
+  # The within-pair swap is exchangeable only if the target side is not
+  # systematically the larger one. Simulation puts the false-positive
+  # rate at 0.74 for a 13% systematic size excess with no recurrence
+  # signal, so the sizes have to be visible and a clean sweep has to be
+  # called out.
+  fix <- make_tag_perm_fixtures()
+
+  balanced <- suppressMessages(suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual", min_recurrence = 2L
+  )))
+  ps <- balanced$pair_sizes
+  expect_s3_class(ps, "data.frame")
+  expect_equal(nrow(ps), nrow(fix$pairs))
+  expect_true(all(ps$swappable))
+  # Every annual side carries HOG1:3 and every perennial side HOG4:6, so
+  # the sides are the same size and no asymmetry warning is due.
+  expect_equal(ps$n_hogs_target, ps$n_hogs_partner)
+
+  # Now make the annual side the larger one in all three pairs.
+  skewed <- fix
+  for (sp in c("P1", "P2", "P3")) {
+    skewed$modules[[sp]]$module_genes[["2"]] <-
+      skewed$modules[[sp]]$module_genes[["2"]][1]
+  }
+  # Two warnings fire here (the p_min floor and the size sweep), so
+  # collect both rather than letting expect_warning swallow the first.
+  warns <- character(0)
+  res <- withCallingHandlers(
+    suppressMessages(tag_permutation(
+      skewed$classification, skewed$modules, skewed$orthologs,
+      skewed$pairs, skewed$group, target_group = "annual",
+      min_recurrence = 2L
+    )),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_true(any(grepl("larger HOG set in all 3 swappable pairs", warns)))
+  expect_true(all(res$pair_sizes$n_hogs_target >
+                    res$pair_sizes$n_hogs_partner))
+
+  # A non-swappable pair has no target side, so its sizes are NA rather
+  # than silently counted toward the sweep.
+  group3 <- fix$group
+  group3["A3"] <- "biennial"
+  mixed <- suppressMessages(suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    group3, target_group = "annual", min_recurrence = 2L
+  )))
+  expect_equal(sum(mixed$pair_sizes$swappable), 2L)
+  unswappable <- mixed$pair_sizes[!mixed$pair_sizes$swappable, ]
+  expect_true(all(is.na(unswappable$n_hogs_target)))
+  expect_true(all(is.na(unswappable$n_hogs_partner)))
+})

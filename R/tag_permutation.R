@@ -111,6 +111,12 @@
 #'     \item{n_swappable}{Number of pairs with exactly one side in
 #'       \code{target_group} --- the \code{k} above. For a binary trait
 #'       this is every pair whose two labels differ.}
+#'     \item{pair_sizes}{Data frame of per-pair diverged-HOG set sizes,
+#'       with the target and partner sides named. The within-pair swap is
+#'       exchangeable only if the target side is not systematically the
+#'       larger one; if it is, the statistic reads set size rather than
+#'       recurrence. A warning is emitted when the target side is larger
+#'       in every swappable pair (and there are at least three).}
 #'     \item{recurrence_table}{Data frame with columns \code{hog} and
 #'       \code{n_pairs}: observed per-HOG recurrence counts (only
 #'       HOGs appearing in at least 1 pair).}
@@ -396,6 +402,42 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
             "are needed.")
   }
 
+  # The within-pair swap is only exchangeable if, under the null, the two
+  # sides of a pair are interchangeable in what the statistic reads. A
+  # target side that is systematically the larger one breaks that, and
+  # the test then measures set size. Simulation puts the rejection rate
+  # at 0.74 for a 13% systematic size excess with no recurrence signal at
+  # all, so the caller needs to be able to see it. Per-pair sizes vary
+  # for ordinary reasons; what matters is whether the target side is
+  # consistently the larger across pairs.
+  pair_sizes <- data.frame(
+    pair_name = pairs$pair_name,
+    sp1 = pairs$sp1,
+    sp2 = pairs$sp2,
+    n_hogs_sp1 = vapply(hog_pool, function(z) length(z$sp1), integer(1)),
+    n_hogs_sp2 = vapply(hog_pool, function(z) length(z$sp2), integer(1)),
+    swappable = seq_len(n_pairs) %in% swappable,
+    stringsAsFactors = FALSE
+  )
+  target_is_sp1 <- group[pairs$sp1] == target_group
+  pair_sizes$n_hogs_target <- ifelse(target_is_sp1,
+                                     pair_sizes$n_hogs_sp1,
+                                     pair_sizes$n_hogs_sp2)
+  pair_sizes$n_hogs_partner <- ifelse(target_is_sp1,
+                                      pair_sizes$n_hogs_sp2,
+                                      pair_sizes$n_hogs_sp1)
+  pair_sizes$n_hogs_target[!pair_sizes$swappable] <- NA_integer_
+  pair_sizes$n_hogs_partner[!pair_sizes$swappable] <- NA_integer_
+  rownames(pair_sizes) <- NULL
+  n_larger <- sum(pair_sizes$n_hogs_target > pair_sizes$n_hogs_partner,
+                  na.rm = TRUE)
+  if (k >= 3L && n_larger == k) {
+    warning("the ", target_group, " side holds the larger HOG set in all ",
+            k, " swappable pairs, so the within-pair swap is not ",
+            "exchangeable and this test may be reading set size rather ",
+            "than recurrence; see $pair_sizes")
+  }
+
   list(
     observed = obs,
     null_distribution = null_dist,
@@ -403,6 +445,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     p_min = p_min,
     exact = exact,
     n_swappable = k,
+    pair_sizes = pair_sizes,
     recurrence_table = recurrence_table,
     target_group = target_group,
     min_recurrence = min_recurrence,

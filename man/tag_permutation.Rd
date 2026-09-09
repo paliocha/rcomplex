@@ -50,7 +50,16 @@ large to enumerate (default 1000). Ignored, with a message, when
 is then enumerated exactly and sampling could only add noise.}
 
 \item{min_recurrence}{Minimum number of pairs in which a HOG must
-appear to be counted as recurring (default 2).}
+appear to be counted as recurring (default 2). \strong{This does not
+scale with the number of pairs and should be raised as pairs are
+added.} A HOG lands in at least 2 of \code{k} sides by chance with
+probability \code{1 - (1 - p)^k - k p (1 - p)^(k - 1)}, which is
+about 0.03 at \code{k = 4} but 0.19 at \code{k = 10}: the statistic
+saturates on chance recurrence, and simulation shows power becoming
+non-monotone in \code{k} and collapsing by \code{k = 10}. Scaling it
+as \code{max(2, round(k / 2))} restores monotone power. The default
+is left at 2 for continuity, not because it is right at every
+\code{k}.}
 }
 \value{
 A list with components:
@@ -73,6 +82,12 @@ when \code{p_min} is also above it.}
 \item{n_swappable}{Number of pairs with exactly one side in
 \code{target_group} --- the \code{k} above. For a binary trait
 this is every pair whose two labels differ.}
+\item{pair_sizes}{Data frame of per-pair diverged-HOG set sizes,
+with the target and partner sides named. The within-pair swap is
+exchangeable only if the target side is not systematically the
+larger one; if it is, the statistic reads set size rather than
+recurrence. A warning is emitted when the target side is larger
+in every swappable pair (and there are at least three).}
 \item{recurrence_table}{Data frame with columns \code{hog} and
 \code{n_pairs}: observed per-HOG recurrence counts (only
 HOGs appearing in at least 1 pair).}
