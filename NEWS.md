@@ -32,6 +32,43 @@ counterpart per gene before any module label is projected.
 
 ## Breaking changes
 
+- `tag_permutation()` no longer permutes trait labels across all species.
+  The design it is applied to is a randomised block --- the phylogenetic
+  pair is the block, its two species are the two levels of the trait, and
+  the pairs are the replication --- so an unconditional shuffle draws
+  labellings in which a pair carries the same trait on both sides. Such a
+  pair contributes nothing to the statistic, so the old null mixed the
+  observed design with designs having fewer contributing pairs. For four
+  pairs, 77% of its support came from those other designs, which is where
+  its inflated variance came from (null mean 178 with sd 178) and made it
+  anti-conservative: measured type I error 17.2% at a nominal 5%. The null
+  now swaps the two labels *within* each pair, so every draw keeps the
+  observed design.
+
+  **This changes published numbers, and it moves them the wrong way.** On
+  the eight-species Pooideae set the annual-side result goes from
+  p = 0.088 to the exact p = 6/16 = 0.375; the "2.7x enrichment" was the
+  observed statistic measured against a null mean 77% composed of
+  degenerate designs, and against the correct null the ratio is about
+  1.04x. Anyone who reported a `tag_permutation()` p-value must recompute
+  it.
+
+  The new null is enumerated exactly whenever `2^k <= n_perm` for `k`
+  swappable pairs, so `n_perm` is ignored in that case: with four pairs
+  the label space has 16 points and `n_perm = 10000` claimed a resolution
+  it never had. The return value gains `p_min`, `exact` and `n_swappable`.
+  Because the observed labelling is always one of the points,
+  **`p_min = 2^-k`, and a design with fewer than five swappable pairs
+  cannot produce p < 0.05 for any signal whatsoever** --- at four pairs
+  the floor is 0.0625. The function warns when `p_min > 0.05` so a
+  non-significant result is not read as evidence of absence when
+  significance was unreachable by construction. Note also that running the
+  test for two complementary trait values reads two entries of the *same*
+  null distribution; they are not independent tests.
+
+  `pairs` must now be disjoint (each species in at most one pair), since a
+  within-pair swap would otherwise change another pair's labels.
+
 - Removed, with no deprecation shim: `compare_modules()` (with its
   `compare_modules_hypergeometric()` and `compare_modules_jaccard()`
   engines, `best_match_direction()` and `compute_best_matches()`),

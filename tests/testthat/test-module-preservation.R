@@ -1015,11 +1015,17 @@ test_that("preservation_paired output feeds tag_permutation directly", {
     n_perm = 50L, min_module_size = 3L, seed = 1
   ))
 
-  tp <- tag_permutation(res$classification, mods, fx$ortho, pairs,
-                        group = grp, target_group = "annual",
-                        n_perm = 50L, min_recurrence = 1L)
+  # One pair, so the conditional null has 2 labellings and p_min = 0.5;
+  # the unreachable-significance warning is expected here.
+  tp <- suppressWarnings(tag_permutation(
+    res$classification, mods, fx$ortho, pairs,
+    group = grp, target_group = "annual",
+    n_perm = 50L, min_recurrence = 1L
+  ))
 
   expect_true(all(c("observed", "p_value", "recurrence_table") %in% names(tp)))
+  expect_equal(tp$n_swappable, 1L)
+  expect_equal(tp$p_min, 0.5)
   expect_gte(tp$p_value, 0)
   expect_lte(tp$p_value, 1)
 

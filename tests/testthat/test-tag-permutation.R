@@ -77,19 +77,26 @@ make_tag_perm_fixtures <- function() {
 test_that("tag_permutation returns correct structure", {
   fix <- make_tag_perm_fixtures()
 
-  result <- tag_permutation(
+  result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
     n_perm = 100L, min_recurrence = 2L
-  )
+  ))
 
   expect_type(result, "list")
   expect_true(all(c("observed", "null_distribution", "p_value",
+                     "p_min", "exact", "n_swappable",
                      "recurrence_table", "target_group",
                      "min_recurrence", "n_perm") %in% names(result)))
   expect_type(result$observed, "integer")
-  expect_length(result$null_distribution, 100L)
-  expect_true(result$p_value >= 0 && result$p_value <= 1)
+  # 3 swappable pairs -> the null is 2^3 labellings, enumerated, and
+  # n_perm = 100 is ignored rather than sampled.
+  expect_true(result$exact)
+  expect_equal(result$n_swappable, 3L)
+  expect_length(result$null_distribution, 8L)
+  expect_equal(result$n_perm, 8L)
+  expect_equal(result$p_min, 1 / 8)
+  expect_true(result$p_value >= result$p_min && result$p_value <= 1)
   expect_s3_class(result$recurrence_table, "data.frame")
   expect_equal(result$target_group, "annual")
   expect_equal(result$min_recurrence, 2L)
@@ -102,11 +109,11 @@ test_that("tag_permutation detects known parallel signal", {
   # All 3 annual species have module 1 as species-specific.
   # Module 1 genes are A*_g1:g3, mapping to HOG1:HOG3.
   # So HOG1, HOG2, HOG3 each recur in 3 pairs.
-  result <- tag_permutation(
+  result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
     n_perm = 100L, min_recurrence = 2L
-  )
+  ))
 
   expect_equal(result$observed, 3L)  # HOG1, HOG2, HOG3
 
@@ -120,19 +127,19 @@ test_that("tag_permutation handles min_recurrence thresholds", {
   fix <- make_tag_perm_fixtures()
 
   # min_recurrence = 3: all 3 pairs must have the HOG
-  r3 <- tag_permutation(
+  r3 <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
     n_perm = 50L, min_recurrence = 3L
-  )
+  ))
   expect_equal(r3$observed, 3L)
 
   # min_recurrence = 4: impossible with 3 pairs
-  r4 <- tag_permutation(
+  r4 <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
     n_perm = 50L, min_recurrence = 4L
-  )
+  ))
   expect_equal(r4$observed, 0L)
 })
 
@@ -144,13 +151,18 @@ test_that("tag_permutation pair exclusion: both sides same trait", {
   all_annual <- stats::setNames(rep("annual", 6),
                                 names(fix$group))
 
-  result <- tag_permutation(
+  result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     all_annual, target_group = "annual",
     n_perm = 50L, min_recurrence = 2L
-  )
+  ))
 
   expect_equal(result$observed, 0L)
+  # No pair has two different labels, so nothing is swappable and the
+  # null is the single observed labelling.
+  expect_equal(result$n_swappable, 0L)
+  expect_length(result$null_distribution, 1L)
+  expect_equal(result$p_min, 1)
 })
 
 
@@ -162,11 +174,11 @@ test_that("tag_permutation works with > 2 trait values", {
               A2 = "annual", P2 = "biennial",
               A3 = "biennial", P3 = "perennial")
 
-  result <- tag_permutation(
+  result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     group3, target_group = "annual",
     n_perm = 100L, min_recurrence = 2L
-  )
+  ))
 
   expect_type(result, "list")
   # Only pair1 and pair2 have exactly one "annual" species
@@ -246,4 +258,194 @@ test_that("tag_permutation validates inputs", {
                     fix$pairs, bad_group, "annual"),
     "group missing entries"
   )
+})
+
+
+test_that("the null stays inside the observed design", {
+  # This is the property the unconditional shuffle broke. Every pair here
+  # contributes a non-empty HOG set under the observed labelling, and a
+  # within-pair swap cannot change that: each pair keeps one annual and
+  # one perennial in every draw, so no draw can collapse to a design with
+  # fewer contributing pairs. Under the retired null a draw could make a
+  # pair trait-concordant, which zeroes its contribution: enumerating its
+  # C(6, 3) = 20 labellings on this fixture gives a statistic of exactly
+  # 0 for 12 of them, because only the 2^3 = 8 all-discordant labellings
+  # leave enough pairs to meet min_recurrence = 2.
+  fix <- make_tag_perm_fixtures()
+
+  result <- suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual",
+    n_perm = 1000L, min_recurrence = 2L
+  ))
+
+  # Every labelling selects one side of all 3 pairs, and every side
+  # carries 3 HOGs shared across pairs, so every draw recurs 3 HOGs.
+  expect_true(all(result$null_distribution == 3L))
+  expect_false(any(result$null_distribution == 0L))
+})
+
+
+test_that("the enumerated null is the exact 2^k label space", {
+  fix <- make_tag_perm_fixtures()
+
+  # Give the three pairs distinguishable HOG content per side so the 8
+  # labellings produce a spread rather than a constant, and the mapping
+  # from labelling to statistic can be checked by hand.
+  result <- suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual",
+    n_perm = 8L, min_recurrence = 2L
+  ))
+  expect_true(result$exact)
+  expect_length(result$null_distribution, 8L)
+
+  # Asking for fewer draws than the label space still enumerates: the
+  # exact null is never more expensive than 2^k evaluations.
+  small <- suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual",
+    n_perm = 4L, min_recurrence = 2L
+  ))
+  expect_false(small$exact)
+  expect_length(small$null_distribution, 4L)
+  expect_equal(small$p_min, 1 / 5)
+
+  # The observed labelling is one of the enumerated points, so the exact
+  # p-value needs no +1 and can never be below 1 / 2^k.
+  expect_gte(result$p_value, result$p_min)
+})
+
+
+test_that("tag_permutation warns when significance is unreachable", {
+  fix <- make_tag_perm_fixtures()
+
+  expect_warning(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, target_group = "annual",
+                    n_perm = 100L, min_recurrence = 2L),
+    "smallest attainable p-value"
+  )
+})
+
+
+test_that("tag_permutation requires a disjoint pairing", {
+  fix <- make_tag_perm_fixtures()
+
+  # A1 in two pairs: swapping pair1 would change pair3's labels too, so
+  # the swaps are not independent and 2^k is not the support.
+  bad <- fix$pairs
+  bad$sp1[3] <- "A1"
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    bad, fix$group, target_group = "annual"),
+    "disjoint"
+  )
+
+  same <- fix$pairs
+  same$sp2[1] <- same$sp1[1]
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    same, fix$group, target_group = "annual"),
+    "two distinct species"
+  )
+})
+
+
+test_that("complementary trait values share one null distribution", {
+  # Swapping every pair maps the annual statistic onto the perennial one,
+  # so the two runs read the same 2^k numbers. They are not independent
+  # evidence and must not be corrected as two tests.
+  fix <- make_tag_perm_fixtures()
+
+  run_for <- function(tg) {
+    suppressWarnings(tag_permutation(
+      fix$classification,
+      fix$modules,
+      fix$orthologs,
+      fix$pairs,
+      fix$group,
+      target_group = tg,
+      min_recurrence = 2L
+    ))
+  }
+  ann <- run_for("annual")
+  per <- run_for("perennial")
+
+  expect_equal(sort(ann$null_distribution), sort(per$null_distribution))
+  expect_true(per$observed %in% ann$null_distribution)
+})
+
+
+test_that("the conditional null is calibrated under H0", {
+  # Type I error must not exceed nominal when no trait effect exists.
+  # The fixture plants a nuisance the retired null could not survive: a
+  # "hot" HOG block that sits in diverged modules of every species
+  # regardless of trait.
+  set.seed(11)
+  k <- 6L                       # 2^6 = 64 labellings, p_min = 0.0156
+  sp1 <- paste0("A", seq_len(k))
+  sp2 <- paste0("P", seq_len(k))
+  group <- stats::setNames(rep(c("annual", "perennial"), each = k),
+                           c(sp1, sp2))
+  pairs <- data.frame(sp1 = sp1, sp2 = sp2,
+                      pair_name = paste0("pair", seq_len(k)),
+                      stringsAsFactors = FALSE)
+  hogs <- paste0("HOG", seq_len(40))
+
+  one_rep <- function() {
+    # Each side of each pair draws its diverged HOG set from the same
+    # distribution -- no trait effect -- with the hot block favoured.
+    wt <- c(rep(6, 8), rep(1, 32))
+    draw <- function() sample(hogs, 12L, prob = wt)
+    sides <- lapply(seq_len(k), function(i) {
+      list(annual = draw(), perennial = draw())
+    })
+
+    modules <- list()
+    orth <- list()
+    cls <- list()
+    for (i in seq_len(k)) {
+      for (side in c("annual", "perennial")) {
+        sp <- if (side == "annual") sp1[i] else sp2[i]
+        g <- paste0(sp, "_g", seq_along(sides[[i]][[side]]))
+        memb <- stats::setNames(rep(1L, length(g)), g)
+        modules[[sp]] <- list(
+          modules = memb,
+          module_genes = list(`1` = g),
+          n_modules = 1L,
+          modularity = 0.3,
+          graph = NULL,
+          method = "leiden",
+          params = list()
+        )
+        orth[[sp]] <- data.frame(Species1 = g, Species2 = g,
+                                 hog = sides[[i]][[side]],
+                                 stringsAsFactors = FALSE)
+      }
+      cls[[i]] <- data.frame(
+        pair_name = rep(pairs$pair_name[i], 2),
+        module = c("1", "1"),
+        reference = c(sp1[i], sp2[i]),
+        test = c(sp2[i], sp1[i]),
+        classification = c("diverged", "diverged"),
+        stringsAsFactors = FALSE
+      )
+    }
+    suppressWarnings(tag_permutation(
+      do.call(rbind, cls),
+      modules,
+      do.call(rbind, orth),
+      pairs,
+      group,
+      target_group = "annual",
+      min_recurrence = 2L
+    ))
+  }
+
+  ps <- vapply(seq_len(60), function(i) one_rep()$p_value, numeric(1))
+  # Exact tests are conservative on a discrete lattice, never
+  # anti-conservative. The retired null measured 0.17 here.
+  expect_lte(mean(ps <= 0.05), 0.05 + 3 * sqrt(0.05 * 0.95 / 60))
+  expect_lte(mean(ps <= 0.10), 0.10 + 3 * sqrt(0.10 * 0.90 / 60))
 })

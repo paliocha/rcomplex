@@ -1,25 +1,54 @@
 #' Permutation test for trait-specific module recurrence
 #'
 #' Tests whether HOGs recur in trait-specific modules across independent
-#' species pairs more than expected by chance. The null shuffles trait
-#' labels across species (preserving marginal frequencies), re-tags
-#' diverged modules -- those whose topology is not preserved in the
-#' partner network -- and counts HOG recurrence under the permuted
-#' labelling.
+#' species pairs more than expected by chance. The null swaps the two
+#' trait labels within each pair, re-tags diverged modules -- those whose
+#' topology is not preserved in the partner network -- and counts HOG
+#' recurrence under the relabelled design.
 #'
 #' @section Null model:
-#' Each permutation randomly reassigns trait labels to species,
-#' preserving the number of species per trait value. Module structure
-#' and gene content are held fixed --- only the trait-to-species
-#' mapping changes. A pair contributes HOGs for \code{target_group}
-#' only when exactly one of its two species carries that trait under
-#' the (permuted) labelling. If both or neither species carry the
-#' target trait, the pair contributes nothing. This ensures the test
-#' is sensitive to the trait-species association, not to module size
-#' or gene overlap alone.
+#' The design is a randomised block: the pair is the block, the two
+#' species in it are the two levels of the trait, and the pairs are the
+#' unit of replication. The null hypothesis is that which member of a
+#' pair carries \code{target_group} is unrelated to which of its modules
+#' diverge. Under that hypothesis the trait label is exchangeable
+#' \emph{within} a pair and not across pairs, so each draw independently
+#' either swaps a pair's two labels or leaves them alone. Module
+#' structure and gene content are held fixed.
+#'
+#' A pair contributes HOGs for \code{target_group} only when exactly one
+#' of its two species carries that trait. Every swap preserves each
+#' pair's pair of labels, so a pair that contributes under the observed
+#' labelling contributes under every draw --- the null stays inside the
+#' design that was actually run.
+#'
+#' Only pairs whose two species carry \emph{different} labels can be
+#' swapped; a swap within a pair whose species share a label is the
+#' identity. With \code{k} swappable pairs the null therefore has exactly
+#' \code{2^k} distinct labellings. When \code{2^k <= n_perm} the null is
+#' \strong{enumerated exactly} and \code{n_perm} is ignored; otherwise
+#' \code{n_perm} independent swap vectors are drawn. Either way the
+#' observed labelling is one of the points, so the smallest attainable
+#' p-value is \code{p_min} (\code{2^-k} when enumerated). \strong{A
+#' design with fewer than 5 swappable pairs cannot reach p < 0.05 no
+#' matter how strong the signal}, because \code{2^-4 = 0.0625}; the
+#' function warns when \code{p_min > 0.05}.
+#'
+#' Because a swap of \emph{every} pair maps the statistic for one trait
+#' value onto the statistic for the other, running the test for two
+#' complementary trait values reads two entries of the same null
+#' distribution. Those are not independent tests and must not be
+#' corrected as if they were.
 #'
 #' The test generalises to any number of trait values with arbitrary
-#' frequencies.
+#' frequencies. It requires a disjoint pairing: each species may appear
+#' in at most one pair, otherwise a within-pair swap would change another
+#' pair's labels.
+#'
+#' An earlier version permuted trait labels across all species without
+#' conditioning on the pairing. That null mixed the observed design with
+#' designs having fewer contributing pairs (for four pairs, 77\% of its
+#' support), which inflated its variance and made it anti-conservative.
 #'
 #' @param classification Data frame from
 #'   \code{\link{preservation_paired}()$classification}. Must contain
@@ -43,7 +72,10 @@
 #'   All species in \code{pairs} must have entries.
 #' @param target_group Character string: the trait value to test
 #'   recurrence for (e.g., \code{"annual"}).
-#' @param n_perm Number of permutations (default 1000).
+#' @param n_perm Number of swap vectors to draw when the null is too
+#'   large to enumerate (default 1000). Ignored, with a message, when
+#'   \code{2^k <= n_perm} for \code{k} swappable pairs, because the null
+#'   is then enumerated exactly.
 #' @param min_recurrence Minimum number of pairs in which a HOG must
 #'   appear to be counted as recurring (default 2).
 #'
@@ -51,16 +83,27 @@
 #'   \describe{
 #'     \item{observed}{Integer: number of HOGs recurring in
 #'       \code{>= min_recurrence} pairs for \code{target_group}.}
-#'     \item{null_distribution}{Integer vector of length
-#'       \code{n_perm}: recurrence counts under the null.}
-#'     \item{p_value}{One-sided p-value (conservative):
-#'       \code{(sum(null >= observed) + 1) / (n_perm + 1)}.}
+#'     \item{null_distribution}{Integer vector of recurrence counts under
+#'       the null: all \code{2^k} labellings when \code{exact} is
+#'       \code{TRUE}, otherwise \code{n_perm} sampled ones.}
+#'     \item{p_value}{One-sided p-value. When \code{exact} is
+#'       \code{TRUE} this is \code{mean(null >= observed)} over the
+#'       complete null, which already includes the observed labelling.
+#'       When sampled it is \code{(sum(null >= observed) + 1) /
+#'       (n_perm + 1)}.}
+#'     \item{p_min}{Smallest p-value this design can produce
+#'       (\code{2^-k} when enumerated, \code{1 / (n_perm + 1)} when
+#'       sampled). A \code{p_value} above \code{alpha} is uninformative
+#'       when \code{p_min} is also above it.}
+#'     \item{exact}{Logical: was the null enumerated?}
+#'     \item{n_swappable}{Number of pairs whose two species carry
+#'       different trait labels --- the \code{k} above.}
 #'     \item{recurrence_table}{Data frame with columns \code{hog} and
 #'       \code{n_pairs}: observed per-HOG recurrence counts (only
 #'       HOGs appearing in at least 1 pair).}
 #'     \item{target_group}{Echo of the input.}
 #'     \item{min_recurrence}{Echo of the input.}
-#'     \item{n_perm}{Echo of the input.}
+#'     \item{n_perm}{Number of null values actually used.}
 #'   }
 #'
 #' @examples
@@ -109,7 +152,20 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   if (!is.character(group) || is.null(names(group))) {
     stop("group must be a named character vector")
   }
-  all_sp <- unique(c(pairs$sp1, pairs$sp2))
+  # The within-pair swap null needs a disjoint pairing: swapping one
+  # pair's labels must not change another pair's. A species appearing
+  # twice makes the swaps dependent and the 2^k support wrong.
+  # A self-pair is also a duplicate, so diagnose it first.
+  if (any(pairs$sp1 == pairs$sp2)) {
+    stop("pairs must have two distinct species per row")
+  }
+  sp_all <- c(pairs$sp1, pairs$sp2)
+  dup_sp <- unique(sp_all[duplicated(sp_all)])
+  if (length(dup_sp) > 0L) {
+    stop("pairs must be disjoint (each species in at most one pair); ",
+         "repeated: ", paste(dup_sp, collapse = ", "))
+  }
+  all_sp <- unique(sp_all)
   missing_grp <- setdiff(all_sp, names(group))
   if (length(missing_grp) > 0L) {
     stop("group missing entries for: ",
@@ -265,26 +321,68 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
                                     n_pairs = integer(0))
   }
 
-  # --- Permutation loop ---
-  group_names <- names(group)
-  group_vals <- unname(group)
-  null_dist <- integer(n_perm)
+  # --- Null: swap the two trait labels within a pair, or not ---
+  # Only pairs whose species carry different labels can change under a
+  # swap; a swap inside a same-label pair is the identity, so including
+  # it would duplicate labellings and understate p_min.
+  swappable <- which(group[pairs$sp1] != group[pairs$sp2])
+  k <- length(swappable)
 
-  for (i in seq_len(n_perm)) {
-    perm_group <- stats::setNames(sample(group_vals), group_names)
-    null_dist[i] <- count_recurring(perm_group)
+  apply_swaps <- function(flip) {
+    grp <- group
+    idx <- swappable[flip]
+    if (length(idx) > 0L) {
+      a <- pairs$sp1[idx]
+      b <- pairs$sp2[idx]
+      grp[a] <- group[b]
+      grp[b] <- group[a]
+    }
+    grp
   }
 
-  # --- P-value (conservative one-sided) ---
-  p_value <- (sum(null_dist >= obs) + 1L) / (n_perm + 1L)
+  # 2^k fits in an integer for k <= 30; beyond that it is far past any
+  # n_perm a caller would pass, so the sampled branch takes over.
+  n_labellings <- if (k <= 30L) 2^k else Inf
+  exact <- n_labellings <= n_perm
+  if (exact) {
+    n_draw <- as.integer(n_labellings)
+    null_dist <- integer(n_draw)
+    for (i in seq_len(n_draw)) {
+      # bit i-1 of the counter selects which swappable pairs flip
+      bits <- as.logical(bitwAnd(i - 1L, bitwShiftL(1L, seq_len(k) - 1L)))
+      null_dist[i] <- count_recurring(apply_swaps(bits))
+    }
+    # The enumeration already contains the observed labelling, so no +1.
+    p_value <- sum(null_dist >= obs) / n_draw
+    p_min <- 1 / n_draw
+  } else {
+    n_draw <- n_perm
+    null_dist <- integer(n_draw)
+    for (i in seq_len(n_draw)) {
+      flip <- stats::runif(k) < 0.5
+      null_dist[i] <- count_recurring(apply_swaps(flip))
+    }
+    p_value <- (sum(null_dist >= obs) + 1L) / (n_draw + 1L)
+    p_min <- 1 / (n_draw + 1L)
+  }
+
+  if (p_min > 0.05) {
+    warning("only ", k, " swappable pair(s): the smallest attainable ",
+            "p-value is ", signif(p_min, 3), ", so p < 0.05 is ",
+            "unreachable for any signal. At least 5 swappable pairs ",
+            "are needed.")
+  }
 
   list(
     observed = obs,
     null_distribution = null_dist,
     p_value = p_value,
+    p_min = p_min,
+    exact = exact,
+    n_swappable = k,
     recurrence_table = recurrence_table,
     target_group = target_group,
     min_recurrence = min_recurrence,
-    n_perm = n_perm
+    n_perm = n_draw
   )
 }
