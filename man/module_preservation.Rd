@@ -91,12 +91,16 @@ measured bit-identical to Benjamini-Hochberg on this engine. Use
 \code{orthologs} alone, with no clique or coexpressolog resolution -- and
 report both results side by side (default \code{FALSE}). Costs the naive run
 plus \code{copy_draws} nested analyses; see \code{copy_draws}.
-Because resolution may only choose which paralog copy carries a label,
-the two runs must map the identical set of test-species genes; the
-returned table records whether they did. A large \code{Zsummary} gap with
-matching gene sets means the copy choice mattered; a mismatched gene set
-means the resolution layer is filtering rather than choosing, which is a
-bug.}
+Resolution may only choose which paralog copy carries a label, never
+which genes are \emph{mappable} -- but it can still change which genes are
+\emph{tested}, because a gene whose candidate labels tie in the majority
+vote is dropped under one map and rescued under the other. The
+returned table reports that as \code{same_projected_set} / \code{n_rescued} /
+\code{n_lost}; a mismatch is expected on multi-copy data, not a bug, and it
+means \code{Zsummary_delta} is not measured on a fixed gene set. The
+circularity check is the \code{p_copy} columns, which hold the projected set
+fixed and vary only the copy choice; read those rather than the delta
+when the sets differ.}
 
 \item{copy_draws}{Number of random copy choices drawn for the
 \code{sensitivity} comparison (default 200). Each draw resolves the same
@@ -147,7 +151,11 @@ structural check only), \code{same_projected_set} (whether the two runs
 tested the same genes, which resolution CAN change by rescuing genes
 from a tied majority vote), \code{n_rescued} and \code{n_lost} counting that
 difference, and \code{n_multi_copy} / \code{n_copy_draws} for the copy null
-(skipped, and its columns absent, when nothing is multi-copy).
+(\code{n_multi_copy} is \code{NA} with a \code{copy_null_skipped} reason when the
+null did not run: \code{"off"} for \code{copy_draws = 0}, \code{"coverage"} when
+the ortholog table could not hold the gene set fixed; it is \code{0}
+with reason \code{"no_multi_copy"} when there was genuinely nothing to
+vary).
 \code{size_mapped} is the deterministic consequence of the copy choice;
 \code{Zsummary_delta} also absorbs permutation-stream drift when the two
 runs have different block sizes.}

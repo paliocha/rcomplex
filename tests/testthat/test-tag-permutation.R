@@ -134,13 +134,15 @@ test_that("tag_permutation handles min_recurrence thresholds", {
   ))
   expect_equal(r3$observed, 3L)
 
-  # min_recurrence = 4: impossible with 3 pairs
-  r4 <- suppressWarnings(tag_permutation(
-    fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
-    n_perm = 50L, min_recurrence = 4L
-  ))
-  expect_equal(r4$observed, 0L)
+  # min_recurrence = 4 is impossible with 3 contributing pairs. That used
+  # to return observed = 0 with p = 1 in silence, which reads as a
+  # measured absence rather than an unsatisfiable request.
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, target_group = "annual",
+                    n_perm = 50L, min_recurrence = 4L),
+    "exceeds the number of pairs contributing"
+  )
 })
 
 
@@ -151,18 +153,24 @@ test_that("tag_permutation pair exclusion: both sides same trait", {
   all_annual <- stats::setNames(rep("annual", 6),
                                 names(fix$group))
 
-  result <- suppressWarnings(tag_permutation(
-    fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    all_annual, target_group = "annual",
-    n_perm = 50L, min_recurrence = 2L
-  ))
+  # No pair has exactly one annual, so nothing contributes and no HOG can
+  # reach two pairs -- an unsatisfiable request, now an error rather than
+  # a silent observed = 0 that reads as a measured absence.
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, all_annual, target_group = "annual",
+                    n_perm = 50L, min_recurrence = 2L),
+    "exceeds the number of pairs contributing"
+  )
 
-  expect_equal(result$observed, 0L)
-  # No pair has two different labels, so nothing is swappable and the
-  # null is the single observed labelling.
-  expect_equal(result$n_swappable, 0L)
-  expect_length(result$null_distribution, 1L)
-  expect_equal(result$p_min, 1)
+  # With nothing contributing, every min_recurrence is unsatisfiable, and
+  # the message says so by naming zero contributing pairs.
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, all_annual, target_group = "annual",
+                    n_perm = 50L, min_recurrence = 1L),
+    "contributing to the statistic [(]0[)]"
+  )
 })
 
 
@@ -313,18 +321,26 @@ test_that("the enumerated null is the exact 2^k label space", {
   expect_equal(result$p_value, mean(result$null_distribution >=
                                       result$observed))
 
-  # n_perm below the label space is the one case that does NOT enumerate:
-  # it falls back to sampling that many independent swap vectors, and the
-  # +1 correction returns because the observed labelling is not
-  # guaranteed to be among the draws.
-  small <- suppressWarnings(tag_permutation(
+  # Enumeration is decided on cost (at most 20 swappable pairs), not on
+  # n_perm, so lowering n_perm below the label space no longer demotes
+  # the null to sampling. This assertion is the reverse of what it was:
+  # keying the decision on n_perm meant raising n_perm for precision
+  # could flip an exact null to a sampled one.
+  small <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
     n_perm = 4L, min_recurrence = 2L
-  ))
-  expect_false(small$exact)
-  expect_length(small$null_distribution, 4L)
-  expect_equal(small$p_min, 1 / 5)
+  )))
+  expect_true(small$exact)
+  expect_length(small$null_distribution, 8L)
+  expect_equal(small$p_min, 1 / 8)
+  expect_equal(small$p_value, result$p_value)
+
+  # p_attainable is the floor after ties, which this fixture has.
+  expect_equal(result$p_attainable,
+               mean(result$null_distribution >=
+                      max(result$null_distribution)))
+  expect_gte(result$p_value, result$p_attainable)
 })
 
 
@@ -497,21 +513,18 @@ test_that("pair_sizes exposes the exchangeability condition", {
     skewed$modules[[sp]]$module_genes[["2"]] <-
       skewed$modules[[sp]]$module_genes[["2"]][1]
   }
-  # Two warnings fire here (the p_min floor and the size sweep), so
-  # collect both rather than letting expect_warning swallow the first.
-  warns <- character(0)
-  res <- withCallingHandlers(
-    suppressMessages(tag_permutation(
-      skewed$classification, skewed$modules, skewed$orthologs,
-      skewed$pairs, skewed$group, target_group = "annual",
-      min_recurrence = 2L
-    )),
-    warning = function(w) {
-      warns <<- c(warns, conditionMessage(w))
-      invokeRestart("muffleWarning")
-    }
-  )
-  expect_true(any(grepl("larger HOG set in all 3 swappable pairs", warns)))
+  res <- suppressMessages(suppressWarnings(tag_permutation(
+    skewed$classification, skewed$modules, skewed$orthologs,
+    skewed$pairs, skewed$group, target_group = "annual",
+    min_recurrence = 2L
+  )))
+  # A clean sweep of three pairs is a sign-test p of 0.125, which is above
+  # the advisory 0.10 threshold: the diagnostic is honestly underpowered
+  # at small k, exactly as p_min is. The value is still reported.
+  expect_equal(res$size_asymmetry_p,
+               stats::binom.test(3L, 3L, 0.5,
+                                 alternative = "greater")$p.value)
+  expect_gt(res$size_asymmetry_p, 0.10)
   expect_true(all(res$pair_sizes$n_hogs_target >
                     res$pair_sizes$n_hogs_partner))
 
@@ -527,4 +540,141 @@ test_that("pair_sizes exposes the exchangeability condition", {
   unswappable <- mixed$pair_sizes[!mixed$pair_sizes$swappable, ]
   expect_true(all(is.na(unswappable$n_hogs_target)))
   expect_true(all(is.na(unswappable$n_hogs_partner)))
+})
+
+
+# Fixture generalised to k pairs, for the resolution and floor tests.
+make_tag_perm_fixtures_k <- function(k) {
+  ann <- paste0("A", seq_len(k))
+  per <- paste0("P", seq_len(k))
+  group <- stats::setNames(rep(c("annual", "perennial"), each = k),
+                           c(ann, per))
+  pairs <- data.frame(
+    sp1 = ann, sp2 = per,
+    pair_name = paste0("pair", seq_len(k)),
+    stringsAsFactors = FALSE
+  )
+  mk <- function(sp) {
+    g <- paste0(sp, "_g", 1:6)
+    memb <- stats::setNames(rep(c(1L, 2L), each = 3L), g)
+    list(modules = memb, module_genes = split(names(memb), memb),
+         n_modules = 2L, modularity = 0.3, graph = NULL,
+         method = "leiden", params = list())
+  }
+  modules <- stats::setNames(lapply(c(ann, per), mk), c(ann, per))
+  orthologs <- data.frame(
+    Species1 = unlist(lapply(ann, function(s) paste0(s, "_g", 1:6))),
+    Species2 = unlist(lapply(per, function(s) paste0(s, "_g", 1:6))),
+    hog = rep(paste0("HOG", 1:6), k),
+    stringsAsFactors = FALSE
+  )
+  # Module 1 of each annual and module 2 of each perennial are diverged.
+  cls <- do.call(rbind, lapply(seq_len(k), function(i) {
+    data.frame(
+      pair_name = rep(pairs$pair_name[i], 4),
+      module = c("1", "2", "1", "2"),
+      reference = c(ann[i], ann[i], per[i], per[i]),
+      test = c(per[i], per[i], ann[i], ann[i]),
+      classification = c("diverged", "conserved",
+                         "conserved", "diverged"),
+      stringsAsFactors = FALSE
+    )
+  }))
+  list(classification = cls, modules = modules, orthologs = orthologs,
+       pairs = pairs, group = group)
+}
+
+
+test_that("p_min counts only pairs whose swap changes the statistic", {
+  # A pair with no diverged module on either side carries the same
+  # (empty) HOG set both ways, so its bit duplicates every labelling
+  # without adding a point of resolution. Counting it reported
+  # p_min = 1/32 at five pairs when nothing could score below 1/16 --
+  # a false resolution claim, and silent, which is exactly what this
+  # guard exists to refuse.
+  fix <- make_tag_perm_fixtures_k(5)
+  degen <- fix$classification$pair_name == "pair5"
+  fix$classification$classification[degen] <- "conserved"
+
+  res <- suppressMessages(suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual", min_recurrence = 2L
+  )))
+
+  expect_equal(res$n_swappable, 4L)      # not 5
+  expect_equal(res$n_contributing, 5L)   # it still feeds the statistic
+  expect_equal(res$p_min, 1 / 16)        # not 1/32
+  expect_length(res$null_distribution, 16L)
+  expect_gte(res$p_value, res$p_attainable)
+
+  # And the warning fires, naming the degenerate pair. Under the old
+  # definition p_min was 0.031 and no warning was raised at all.
+  warns <- character(0)
+  withCallingHandlers(
+    suppressMessages(tag_permutation(
+      fix$classification, fix$modules, fix$orthologs, fix$pairs,
+      fix$group, target_group = "annual", min_recurrence = 2L
+    )),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_true(any(grepl("carry the same HOG set on both sides", warns)))
+
+  # With all five pairs diverged the fifth bit is real again.
+  full <- make_tag_perm_fixtures_k(5)
+  res5 <- suppressMessages(suppressWarnings(tag_permutation(
+    full$classification, full$modules, full$orthologs, full$pairs,
+    full$group, target_group = "annual", min_recurrence = 2L
+  )))
+  expect_equal(res5$n_swappable, 5L)
+  expect_equal(res5$p_min, 1 / 32)
+  expect_length(res5$null_distribution, 32L)
+})
+
+
+test_that("enumeration is decided on cost, not on n_perm", {
+  # Ten pairs is 1024 labellings: previously the default n_perm = 1000
+  # sampled 1000 points from that space -- inexact, and slower than
+  # walking all of it.
+  fix <- make_tag_perm_fixtures_k(10)
+  res <- suppressMessages(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual",
+    n_perm = 1000L, min_recurrence = 2L
+  ))
+  expect_true(res$exact)
+  expect_length(res$null_distribution, 1024L)
+  expect_equal(res$p_min, 1 / 1024)
+  expect_equal(res$n_swappable, 10L)
+})
+
+
+test_that("tag_permutation rejects unusable n_perm and NA traits", {
+  fix <- make_tag_perm_fixtures()
+  call_with <- function(...) {
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, fix$group, target_group = "annual", ...)
+  }
+  # n_perm = 0 used to return p = 1 with p_min = 1 in silence; 3e9
+  # overflowed as.integer() to NA and died on an unrelated `if`.
+  expect_error(call_with(n_perm = 0L), "n_perm must be")
+  expect_error(call_with(n_perm = -5L), "n_perm must be")
+  expect_error(call_with(n_perm = c(10L, 20L)), "n_perm must be")
+  expect_error(call_with(min_recurrence = 0L), "min_recurrence must be")
+  # 3e9 is above .Machine$integer.max: clamped rather than overflowed to
+  # NA, and the null is enumerated anyway. (The p_min warning still
+  # fires -- three pairs.)
+  big <- suppressMessages(suppressWarnings(call_with(n_perm = 3e9)))
+  expect_true(big$exact)
+  expect_equal(big$n_perm, 8L)
+
+  bad <- fix$group
+  bad["P3"] <- NA_character_
+  expect_error(
+    tag_permutation(fix$classification, fix$modules, fix$orthologs,
+                    fix$pairs, bad, target_group = "annual"),
+    "NA trait values"
+  )
 })

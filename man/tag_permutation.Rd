@@ -45,21 +45,31 @@ All species in \code{pairs} must have entries.}
 recurrence for (e.g., \code{"annual"}).}
 
 \item{n_perm}{Number of swap vectors to draw when the null is too
-large to enumerate (default 1000). Ignored, with a message, when
-\code{2^k <= n_perm} for \code{k} swappable pairs, because the null
-is then enumerated exactly and sampling could only add noise.}
+large to enumerate (default 1000). Only used above 20 swappable
+pairs --- 21 disjoint pairs means 42 species --- so in practice the
+null is always enumerated and this argument is ignored, with a
+message when it was supplied explicitly. Enumeration is decided on
+cost rather than on \code{n_perm} so that raising \code{n_perm} for
+precision cannot demote the null from exact to sampled.}
 
 \item{min_recurrence}{Minimum number of pairs in which a HOG must
 appear to be counted as recurring (default 2). \strong{This does not
 scale with the number of pairs and should be raised as pairs are
-added.} A HOG lands in at least 2 of \code{k} sides by chance with
-probability \code{1 - (1 - p)^k - k p (1 - p)^(k - 1)}, which is
-about 0.03 at \code{k = 4} but 0.19 at \code{k = 10}: the statistic
+added.} Writing \code{p} for the chance that one HOG falls in a
+diverged module on one side of one pair, a HOG reaches at least 2 of
+\code{k} target sides by chance alone with probability
+\code{1 - (1 - p)^k - k p (1 - p)^(k - 1)}. At the \code{p = 0.08}
+of the eight-species Pooideae set that is about 0.03 at
+\code{k = 4} and 0.19 at \code{k = 10}: the statistic
 saturates on chance recurrence, and simulation shows power becoming
 non-monotone in \code{k} and collapsing by \code{k = 10}. Scaling it
 as \code{max(2, round(k / 2))} restores monotone power. The default
 is left at 2 for continuity, not because it is right at every
-\code{k}.}
+\code{k}. Exceeding the number of contributing pairs is an error:
+no HOG could recur in that many, so the statistic would be 0 under
+every labelling. At \code{min_recurrence = 1} the statistic
+degenerates to the size of the union of the chosen sides, a pure
+set-size measure.}
 }
 \value{
 A list with components:
@@ -78,6 +88,14 @@ When sampled it is \code{(sum(null >= observed) + 1) /
 (\code{2^-k} when enumerated, \code{1 / (n_perm + 1)} when
 sampled). A \code{p_value} above \code{alpha} is uninformative
 when \code{p_min} is also above it.}
+\item{p_attainable}{The floor after ties: labellings sharing a
+statistic cannot be separated, so nothing scores below the tail
+of the maximum. Equals \code{p_min} when the maximum is unique,
+and whenever the null was sampled.}
+\item{n_contributing}{Number of pairs feeding the statistic ---
+those with exactly one side in \code{target_group}. Differs from
+\code{n_swappable} when a contributing pair carries the same HOG
+set on both sides.}
 \item{exact}{Logical: was the null enumerated?}
 \item{n_swappable}{Number of pairs with exactly one side in
 \code{target_group} --- the \code{k} above. For a binary trait
@@ -86,8 +104,14 @@ this is every pair whose two labels differ.}
 with the target and partner sides named. The within-pair swap is
 exchangeable only if the target side is not systematically the
 larger one; if it is, the statistic reads set size rather than
-recurrence. A warning is emitted when the target side is larger
-in every swappable pair (and there are at least three).}
+recurrence.}
+\item{size_asymmetry_p}{One-sided sign-test p-value for the target
+side being the larger one across the non-tied swappable pairs.
+A warning is emitted when it is at or below 0.10 --- an advisory
+threshold, since like \code{p_min} this cannot reach 0.05 below
+five pairs. \code{NA} when
+every swappable pair is tied. This is a diagnostic on the null's
+exchangeability assumption, not part of the test.}
 \item{recurrence_table}{Data frame with columns \code{hog} and
 \code{n_pairs}: observed per-HOG recurrence counts (only
 HOGs appearing in at least 1 pair).}
@@ -120,14 +144,19 @@ pair's pair of labels, so a pair that contributes under the observed
 labelling contributes under every draw --- the null stays inside the
 design that was actually run.
 
-Only pairs with exactly one side in \code{target_group} can be
-swapped. A swap within a pair whose species share a label is the
-identity, and with three or more trait values a pair whose labels
-differ but where neither is the target contributes nothing under
-either orientation. With \code{k} swappable pairs the null therefore
-has exactly \code{2^k} distinct labellings. When
-\code{2^k <= n_perm} the null is
-\strong{enumerated exactly} and \code{n_perm} is ignored; otherwise
+A pair counts toward \code{k} only when swapping it changes the
+statistic: exactly one of its sides must carry \code{target_group},
+\emph{and} its two sides must carry different diverged-HOG sets. A
+swap within a pair whose species share a label is the identity; with
+three or more trait values a pair whose labels differ but where
+neither is the target contributes nothing under either orientation;
+and a pair whose two sides hold the same HOG set --- most often one
+with no diverged module above \code{min_module_size} on either side
+--- swaps to itself. Counting any of these would duplicate every
+labelling and halve the reported \code{p_min} without adding a point
+of resolution. With \code{k} swappable pairs the null therefore has
+exactly \code{2^k} distinct labellings. Up to 20 swappable pairs it is
+\strong{enumerated exactly} and \code{n_perm} is ignored; beyond that
 \code{n_perm} independent swap vectors are drawn. Either way the
 observed labelling is one of the points, so the smallest attainable
 p-value is \code{p_min} (\code{2^-k} when enumerated). \strong{A

@@ -388,8 +388,10 @@ test_that("classify_preservation validates its input", {
 # A HOG that is multi-copy on the reference side, spanning two modules: each
 # listed species-2 gene has one partner in module 1 and one in module 2, so the
 # naive map ties and .pres_project() drops it, while a clique resolves it to
-# module 1. Both maps still cover the same species-2 genes -- only the copy
-# choice differs -- which is exactly the case sensitivity exists to measure.
+# module 1. Both maps offer the same CANDIDATE species-2 genes, but the
+# PROJECTED sets differ by exactly those tie-rescued genes -- the resolved run
+# tests them and the naive run does not, which is why same_projected_set is
+# FALSE here and why the circularity check is p_copy rather than the delta.
 ambiguous_fixture <- function(fx, n_amb = 10L) {
   amb <- seq_len(n_amb)
   list(
@@ -1015,8 +1017,10 @@ test_that("preservation_paired output feeds tag_permutation directly", {
     n_perm = 50L, min_module_size = 3L, seed = 1
   ))
 
-  # One pair, so the conditional null has 2 labellings and p_min = 0.5;
-  # the unreachable-significance warning is expected here.
+  # Every module is diverged in both directions here, so the two sides of
+  # the pair project the same 160 HOGs and swapping the labels changes
+  # nothing: the null has one point and p_min = 1. Counting the pair
+  # anyway would report p_min = 0.5, a resolution the data does not have.
   tp <- suppressMessages(suppressWarnings(tag_permutation(
     res$classification, mods, fx$ortho, pairs,
     group = grp, target_group = "annual",
@@ -1024,8 +1028,11 @@ test_that("preservation_paired output feeds tag_permutation directly", {
   )))
 
   expect_true(all(c("observed", "p_value", "recurrence_table") %in% names(tp)))
-  expect_equal(tp$n_swappable, 1L)
-  expect_equal(tp$p_min, 0.5)
+  expect_equal(tp$n_contributing, 1L)
+  expect_equal(tp$n_swappable, 0L)
+  expect_equal(tp$p_min, 1)
+  expect_equal(tp$pair_sizes$n_hogs_target,
+               tp$pair_sizes$n_hogs_partner)
   expect_gte(tp$p_value, 0)
   expect_lte(tp$p_value, 1)
 

@@ -461,11 +461,18 @@ Multi-copy HOGs are reduced toward one counterpart per gene by
 species at once), then mutual-best coexpressologs. Whatever neither layer
 claims is carried as `unresolved`, and `module_preservation()` settles it
 by majority vote over the candidate labels, dropping ties. Resolution may
-only choose *which* paralog copy
-carries a module label, never which genes are mappable -- filtering the
-mappable set on coexpressolog evidence would select the tested genes on
-the statistic being tested. `module_preservation(sensitivity = TRUE)`
-re-runs under a naive map and checks that invariant held.
+only choose *which* paralog copy carries a module label, never which genes
+are **mappable** -- filtering the mappable set on coexpressolog evidence
+would select the tested genes on the statistic being tested.
+
+The mappable set is invariant by construction, but the **tested** set is
+not: a gene whose candidate labels tie in the majority vote is dropped
+under one map and rescued under the other, so the resolved and naive runs
+can score different gene sets. `module_preservation(sensitivity = TRUE)`
+reports that as `same_projected_set` / `n_rescued` / `n_lost` rather than
+asserting it away. The circularity defence is therefore the `p_copy`
+columns -- a null over random copy choices that holds the projected set
+fixed -- not the projected-set equality.
 
 Preservation is directional: whether A's modules survive in B is a
 different question from the reverse. `preservation_paired()` always runs

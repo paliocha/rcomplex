@@ -88,6 +88,50 @@ counterpart per gene before any module label is projected.
   on the argument --- but anyone acting on the "add pairs" advice above
   should raise it at the same time.
 
+- `tag_permutation()` counts a pair toward `k` only when swapping it
+  changes the statistic. A pair whose two sides carry the same
+  diverged-HOG set --- most often one with no diverged module above
+  `min_module_size` on either side, but also one diverged in both
+  directions onto the same HOGs --- swaps to itself, so its bit
+  duplicated every labelling and halved the reported `p_min` without
+  adding a point of resolution. At five pairs with one such pair the
+  function reported `p_min = 0.031` against a true floor of 0.0625 and
+  stayed silent, which is precisely the claim the guard exists to
+  refuse. **`p_value` is unchanged** --- the larger enumeration was an
+  exact duplicate of the reduced one --- but `p_min`, `n_swappable` and
+  `length(null_distribution)` move, and the warning now fires in cases
+  where it did not, naming the degenerate pairs. The return value gains
+  `p_attainable` (the floor after ties in the null, which can exceed
+  `2^-k`) and `n_contributing`.
+
+- The null is enumerated whenever there are at most 20 swappable pairs,
+  independent of `n_perm`. The decision was `2^k <= n_perm`, so at ten
+  pairs the default `n_perm = 1000` drew 1000 sampled points from a
+  1024-point space --- inexact, and slower than walking all of it --- and
+  raising `n_perm` for precision could flip the null from exact to
+  sampled. **For designs with 11-20 swappable pairs and `n_perm < 2^k`,
+  p-values change: they become exact.** Four-pair designs are unaffected.
+  `n_perm` is kept but now sizes only the sampled branch, which needs 21
+  disjoint pairs (42 species) to reach.
+
+- `tag_permutation()` errors instead of returning `p = 1` in silence when
+  `min_recurrence` exceeds the number of contributing pairs (the
+  statistic is then 0 under every labelling), when `n_perm` is not a
+  single positive number (`n_perm = 3e9` previously overflowed
+  `as.integer()` to `NA` and died on an unrelated `if` with "missing
+  value where TRUE/FALSE needed"), and when `group` holds `NA` for a
+  species under test. `pairs$pair_name` must also be unique --- a
+  duplicate left later pool slots `NULL` and failed with a message
+  naming neither argument.
+
+- `tag_permutation()` returns `$pair_sizes` and `$size_asymmetry_p`. The
+  within-pair swap is exchangeable only if the target side is not
+  systematically the larger one; simulation puts the rejection rate at
+  0.74 for a 13% systematic size excess with no recurrence signal at all.
+  The sign test over non-tied swappable pairs is advisory and, like
+  `p_min`, cannot reach 0.05 below five pairs. On the Pooideae set the
+  target side is larger in 2 of 4 pairs, so the condition holds.
+
 - Removed, with no deprecation shim: `compare_modules()` (with its
   `compare_modules_hypergeometric()` and `compare_modules_jaccard()`
   engines, `best_match_direction()` and `compute_best_matches()`),

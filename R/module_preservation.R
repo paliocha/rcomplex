@@ -132,12 +132,16 @@
 #'   `orthologs` alone, with no clique or coexpressolog resolution -- and
 #'   report both results side by side (default `FALSE`). Costs the naive run
 #'   plus `copy_draws` nested analyses; see `copy_draws`.
-#'   Because resolution may only choose which paralog copy carries a label,
-#'   the two runs must map the identical set of test-species genes; the
-#'   returned table records whether they did. A large `Zsummary` gap with
-#'   matching gene sets means the copy choice mattered; a mismatched gene set
-#'   means the resolution layer is filtering rather than choosing, which is a
-#'   bug.
+#'   Resolution may only choose which paralog copy carries a label, never
+#'   which genes are *mappable* -- but it can still change which genes are
+#'   *tested*, because a gene whose candidate labels tie in the majority
+#'   vote is dropped under one map and rescued under the other. The
+#'   returned table reports that as `same_projected_set` / `n_rescued` /
+#'   `n_lost`; a mismatch is expected on multi-copy data, not a bug, and it
+#'   means `Zsummary_delta` is not measured on a fixed gene set. The
+#'   circularity check is the `p_copy` columns, which hold the projected set
+#'   fixed and vary only the copy choice; read those rather than the delta
+#'   when the sets differ.
 #' @param copy_draws Number of random copy choices drawn for the
 #'   `sensitivity` comparison (default 200). Each draw resolves the same
 #'   candidate map by picking one species-1 partner per species-2 gene
@@ -184,7 +188,11 @@
 #'       tested the same genes, which resolution CAN change by rescuing genes
 #'       from a tied majority vote), `n_rescued` and `n_lost` counting that
 #'       difference, and `n_multi_copy` / `n_copy_draws` for the copy null
-#'       (skipped, and its columns absent, when nothing is multi-copy).
+#'       (`n_multi_copy` is `NA` with a `copy_null_skipped` reason when the
+#'       null did not run: `"off"` for `copy_draws = 0`, `"coverage"` when
+#'       the ortholog table could not hold the gene set fixed; it is `0`
+#'       with reason `"no_multi_copy"` when there was genuinely nothing to
+#'       vary).
 #'       `size_mapped` is the deterministic consequence of the copy choice;
 #'       `Zsummary_delta` also absorbs permutation-stream drift when the two
 #'       runs have different block sizes.}
@@ -422,7 +430,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
             min_module_size, binary
           )
         } else {
-          list(draws = NULL, n_multi = 0L)
+          list(draws = NULL, n_multi = NA_integer_, reason = "off")
         }
         if (!is.null(cn$p_copy.avg.weight)) {
           out$sensitivity$p_copy.avg.weight <- cn$p_copy.avg.weight
@@ -431,6 +439,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
           attr(out$sensitivity, "n_copy_draws") <- cn$n_draws
         } else {
           attr(out$sensitivity, "n_multi_copy") <- cn$n_multi
+          attr(out$sensitivity, "copy_null_skipped") <- cn$reason
         }
       }
     }
@@ -443,8 +452,12 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' Compare a resolved run against its naive-map counterpart (internal)
 #'
 #' Resolution may only change which paralog copy carries a module label, never
-#' which genes are mappable, so both runs must cover the identical set of
-#' test-species genes. That invariant is what keeps the circularity in check:
+#' which genes are *mappable*. It can still change which genes are *tested*,
+#' by rescuing genes whose candidate labels would otherwise tie in the
+#' majority vote, so the two runs need not project the identical set and a
+#' mismatch is reported rather than treated as a bug. The circularity defence
+#' is therefore the `p_copy` columns, a null over random copy choices holding
+#' the projected set fixed, not the projected-set equality:
 #' coexpressologs are defined by conserved neighbourhoods and preservation
 #' measures conserved topology, so a resolution layer that also filtered the
 #' mapped set would be selecting the tested genes on the statistic being
@@ -803,11 +816,14 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     warning("the ortholog table does not cover every projected gene (",
             length(setdiff(projected, names(by_g2))), " missing), so the ",
             "copy-choice null cannot hold the gene set fixed; skipping it")
-    return(list(draws = NULL, n_multi = 0L))
+    # NA, not 0: the map may be heavily multi-copy; the null was simply
+    # never run, and 0 would read as "there were no paralogs to check".
+    return(list(draws = NULL, n_multi = NA_integer_,
+                reason = "coverage"))
   }
   multi <- sum(lengths(by_g2) > 1L)
   if (multi == 0L) {
-    return(list(draws = NULL, n_multi = 0L))
+    return(list(draws = NULL, n_multi = 0L, reason = "no_multi_copy"))
   }
 
   draws <- vector("list", n_draws)
@@ -839,7 +855,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   }
   draws <- Filter(Negate(is.null), draws)
   if (length(draws) == 0L) {
-    return(list(draws = NULL, n_multi = multi))
+    return(list(draws = NULL, n_multi = multi, reason = "all_draws_failed"))
   }
 
   stat_p <- function(col) {
@@ -945,13 +961,20 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
   # FALSE and quietly demotes an otherwise significant module to
   # "moderate", which reads as a measurement rather than a missing
   # normaliser. Fall back to the raw scale for those rows and say so.
-  fell_back <- is.na(z_used) & !is.na(p$Zsummary) & testable
+  # Only significant rows can be affected: a row with q >= alpha is
+  # "diverged" whatever z_used says, so warning about it reports a
+  # threshold-scale hazard where the fallback is inert.
+  fell_back <- is.na(z_used) & !is.na(p$Zsummary) & significant
   if (any(fell_back)) {
     z_used[fell_back] <- p$Zsummary[fell_back]
+    where_fb <- paste(stats::na.omit(c(species, pair_name)),
+                      collapse = " / ")
     warning(sum(fell_back), " module(s) have no null correlation for ",
             "Zsummary_std, so the raw Zsummary was used against ",
-            "z_conserved for them; the cut point means a different ",
-            "number of null standard deviations there. Raise n_perm.")
+            "z_conserved for them",
+            if (nzchar(where_fb)) paste0(" [", where_fb, "]") else "",
+            "; the cut point means a different number of null standard ",
+            "deviations there. Raise n_perm.")
   }
   strong <- !is.na(z_used) & z_used >= z_conserved
   classification <- ifelse(!testable, "untested",
