@@ -139,7 +139,11 @@ counterpart per gene before any module label is projected.
   built from `orthologs` alone, no resolution -- and reports both results
   side by side with the attribute recording whether the two runs covered
   the identical test-species genes; a mismatch means the resolution layer
-  is filtering rather than choosing.
+  is filtering rather than choosing. Note the *tested* set can still differ:
+  resolving a copy rescues genes whose candidate labels would otherwise tie
+  in the majority vote, so the guard reports `same_projected_set` alongside,
+  and the circularity itself is measured by the `p_copy` columns -- a null
+  over random copy choices that holds the projected gene set fixed.
 - `classify_preservation(pres, alpha = 0.05, z_conserved = 10)`: conserved
   (`q.value < alpha` and `Zsummary >= z_conserved`), moderate
   (`q.value < alpha`, weaker), diverged (`q.value >= alpha`) and untested

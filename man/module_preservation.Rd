@@ -89,7 +89,8 @@ measured bit-identical to Benjamini-Hochberg on this engine. Use
 
 \item{sensitivity}{Re-run under a naive ortholog map -- one built from
 \code{orthologs} alone, with no clique or coexpressolog resolution -- and
-report both results side by side (default \code{FALSE}). Doubles the runtime.
+report both results side by side (default \code{FALSE}). Costs the naive run
+plus \code{copy_draws} nested analyses; see \code{copy_draws}.
 Because resolution may only choose which paralog copy carries a label,
 the two runs must map the identical set of test-species genes; the
 returned table records whether they did. A large \code{Zsummary} gap with

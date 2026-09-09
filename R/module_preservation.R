@@ -130,7 +130,8 @@
 #'   `calibrate = "none"` for the uncalibrated result.
 #' @param sensitivity Re-run under a naive ortholog map -- one built from
 #'   `orthologs` alone, with no clique or coexpressolog resolution -- and
-#'   report both results side by side (default `FALSE`). Doubles the runtime.
+#'   report both results side by side (default `FALSE`). Costs the naive run
+#'   plus `copy_draws` nested analyses; see `copy_draws`.
 #'   Because resolution may only choose which paralog copy carries a label,
 #'   the two runs must map the identical set of test-species genes; the
 #'   returned table records whether they did. A large `Zsummary` gap with
@@ -413,7 +414,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
         cn <- .pres_copy_null(
           out$preservation, modules_ref, net_ref, net_test, orthologs,
           genes_ref, genes_test, unique(out$projection$gene2), copy_draws,
-          min_module_size, binary
+          min_module_size, binary, n_cores
         )
         if (!is.null(cn$p_copy.avg.weight)) {
           out$sensitivity$p_copy.avg.weight <- cn$p_copy.avg.weight
@@ -642,14 +643,9 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   # points were set for a Zsummary built from medians over several statistics,
   # a quantity with a different null spread, so reading them against a raw
   # mean of two is reading them on an unknown scale.
-  n_cross <- res$cross_n
-  mu_d <- res$perm_mean[, d]
-  mu_c <- res$perm_mean[, cc]
-  sd_d <- res$perm_sd[, d]
-  sd_c <- res$perm_sd[, cc]
-  cov_dc <- ifelse(n_cross > 1L,
-                   res$cross_sum / n_cross - mu_d * mu_c, NA_real_)
-  rho <- ifelse(sd_d > 0 & sd_c > 0, cov_dc / (sd_d * sd_c), NA_real_)
+  # Computed in the kernel over the jointly scorable draws, so the covariance
+  # and both marginal spreads come from the same set and the same convention.
+  rho <- res$rho_null
   # rho is a sample correlation over n_perm draws, so a negative value is an
   # ordinary sampling outcome at small n_perm -- and sqrt(2 + 2*rho)/2 shrinks
   # toward 0 as it goes negative, which would inflate Zsummary_std without
@@ -784,7 +780,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' @noRd
 .pres_copy_null <- function(observed, modules_ref, net_ref, net_test,
                             orthologs, genes_ref, genes_test, projected,
-                            n_draws, min_module_size, binary) {
+                            n_draws, min_module_size, binary,
+                            n_cores = 1L) {
   cand <- resolve_ortholog_map(orthologs, genes_ref, genes_test)
   # Only candidates whose reference partner carries a module label can project,
   # and only the genes the run under test actually projected may enter -- a
@@ -824,7 +821,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
         module_preservation(
           modules_ref, net_ref, net_test, map = m, n_perm = 1L,
           min_module_size = min_module_size, binary = binary,
-          sensitivity = FALSE
+          sensitivity = FALSE, n_cores = n_cores
         )$preservation
       )),
       error = function(e) NULL

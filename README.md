@@ -475,8 +475,16 @@ both.
 
 | Classification | Criteria |
 |----------------|----------|
-| Conserved | q < alpha AND Zsummary >= `z_conserved` (default 10) |
-| Moderate | q < alpha AND Zsummary < `z_conserved` |
+| Conserved | q < alpha AND `Zsummary_std` >= `z_conserved` (default 10) |
+| Moderate | q < alpha AND `Zsummary_std` < `z_conserved` |
+
+`Zsummary_std` rather than `Zsummary`: the familiar 10 / 2 cut points were
+calibrated for a Zsummary built from medians over several statistics, and
+only two are available from an adjacency matrix, so the raw mean of two
+standardized values has null spread `sqrt(2 + 2*rho)/2` rather than 1 --
+about 0.71 here, since the two statistics are near-independent under the
+null. Dividing by it restores the threshold's intended meaning, "this many
+null standard deviations". `z_scale = "raw"` reads the older scale.
 | Diverged | q >= alpha |
 | Untested | q is NA -- nothing was measured |
 

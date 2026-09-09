@@ -253,6 +253,11 @@ struct NpcResult {
     std::vector<double> p_joint_d;
     std::vector<double> p_joint_c;
     std::vector<int> n_joint;
+    // Null correlation of the two statistics, computed on the SAME jointly
+    // scorable draws and with the same unbiased convention perm_sd uses.
+    // Mixing an ML covariance with unbiased marginal sds, over means taken on
+    // each margin's own scorable set, does not estimate a correlation.
+    std::vector<double> rho;
 };
 
 NpcResult npc_combine(const std::vector<double>& perm_pairs,
@@ -263,6 +268,7 @@ NpcResult npc_combine(const std::vector<double>& perm_pairs,
     out.p_joint_d.assign(n_mod, NA_REAL);
     out.p_joint_c.assign(n_mod, NA_REAL);
     out.n_joint.assign(n_mod, 0);
+    out.rho.assign(n_mod, NA_REAL);
 
     for (int k = 0; k < n_mod; ++k) {
         const std::size_t b = static_cast<std::size_t>(k) * kNStats;
@@ -317,6 +323,32 @@ NpcResult npc_combine(const std::vector<double>& perm_pairs,
             if (psi[e] <= psi[0]) ++at_or_below;
         }
         out.p_npc[k] = static_cast<double>(at_or_below) * inv;
+
+        // Correlation over the permutation draws only (entry 0 is observed).
+        const int nb = n - 1;
+        if (nb > 2) {
+            double m1 = 0.0;
+            double m2 = 0.0;
+            for (int e = 1; e < n; ++e) {
+                m1 += a1[e];
+                m2 += a2[e];
+            }
+            m1 /= nb;
+            m2 /= nb;
+            double s11 = 0.0;
+            double s22 = 0.0;
+            double s12 = 0.0;
+            for (int e = 1; e < n; ++e) {
+                const double d1 = a1[e] - m1;
+                const double d2 = a2[e] - m2;
+                s11 += d1 * d1;
+                s22 += d2 * d2;
+                s12 += d1 * d2;
+            }
+            if (s11 > 0.0 && s22 > 0.0) {
+                out.rho[k] = s12 / std::sqrt(s11 * s22);
+            }
+        }
     }
     return out;
 }
@@ -560,6 +592,7 @@ List run_preservation(WeightedNeighbors& g,
     }
 
     const NpcResult npc = npc_combine(perm_pairs, observed, n_perm, n_mod);
+    NumericVector rho_out(n_mod);
     NumericVector p_npc_out(n_mod);
     NumericMatrix p_joint_out(n_mod, 2);
     IntegerVector n_joint_out(n_mod);
@@ -568,6 +601,7 @@ List run_preservation(WeightedNeighbors& g,
         p_joint_out(k, 0) = npc.p_joint_d[k];
         p_joint_out(k, 1) = npc.p_joint_c[k];
         n_joint_out[k] = npc.n_joint[k];
+        rho_out[k] = npc.rho[k];
     }
 
     NumericVector cross_out(n_mod);
@@ -632,6 +666,7 @@ List run_preservation(WeightedNeighbors& g,
         Named("p_npc") = p_npc_out,
         Named("p_joint") = p_joint_out,
         Named("n_joint") = n_joint_out,
+        Named("rho_null") = rho_out,
         Named("perm_pairs") = store_perm
             ? Rcpp::wrap(perm_pairs) : Rcpp::wrap(R_NilValue),
         Named("scale") = scale
