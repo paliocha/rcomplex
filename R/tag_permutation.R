@@ -96,9 +96,10 @@
 #'   cost rather than on \code{n_perm} so that raising \code{n_perm} for
 #'   precision cannot demote the null from exact to sampled. See
 #'   \code{enum_max} to lower that ceiling.
-#' @param enum_max Largest number of swappable pairs to enumerate
-#'   (default 20). The enumeration is \code{2^enum_max} serial
-#'   evaluations of the statistic --- about a million at the default,
+#' @param enum_max Enumerate while the label space holds at most
+#'   \code{2^enum_max} labellings (default 20). That is
+#'   \code{2^enum_max} serial evaluations of the statistic in the worst
+#'   case --- about a million at the default,
 #'   which on Pooideae-sized HOG pools is tens of minutes --- so lower it
 #'   to fall back to \code{n_perm} sampled draws when that cost is not
 #'   worth an exact p-value. Values above 30 are refused.
@@ -186,20 +187,26 @@
 #'       statistic --- what \code{null_distribution} is compared against.
 #'       Equals \code{observed} when \code{statistic = "count"}.}
 #'     \item{n_labellings}{Size of the admissible label space, the
-#'       product over components. \code{2^k} for a disjoint design.}
+#'       product over components, which is \code{2^k}: a component with
+#'       at least one contrast admits at most two labellings, since the
+#'       seed species can only carry one of that contrast's two labels.}
 #'     \item{n_contributing}{Number of pairs feeding the statistic ---
-#'       those with exactly one side in \code{target_group}. Differs from
-#'       \code{n_swappable} when a contributing pair carries the same HOG
-#'       set on both sides.}
+#'       those with exactly one side in \code{target_group}. Exceeds
+#'       \code{n_swappable} both when contrasts are coupled into one
+#'       component and when a component's labellings all select the same
+#'       HOG sets.}
 #'     \item{exact}{Logical: was the null enumerated?}
-#'     \item{n_swappable}{Number of pairs with exactly one side in
-#'       \code{target_group} --- the \code{k} above. For a binary trait
-#'       this is every pair whose two labels differ.}
+#'     \item{n_swappable}{The \code{k} above: the number of
+#'       \emph{components} some relabelling moves, not a count of pairs.
+#'       For a disjoint design the two coincide.}
 #'     \item{pair_sizes}{Data frame of per-pair diverged-HOG set sizes,
-#'       with the target and partner sides named. The within-pair swap is
-#'       exchangeable only if the target side is not systematically the
-#'       larger one; if it is, the statistic reads set size rather than
-#'       recurrence.}
+#'       with the target and partner sides named. \code{block} gives the
+#'       component each contrast belongs to and \code{swappable} is a
+#'       property of that component, so it is \code{TRUE} for every
+#'       contrast in a component some relabelling moves. The relabelling
+#'       is exchangeable only if the target side is not systematically
+#'       the larger one; if it is, the statistic reads set size rather
+#'       than recurrence.}
 #'     \item{size_asymmetry_p}{One-sided sign-test p-value for the target
 #'       side being the larger one across the non-tied swappable pairs.
 #'       A warning is emitted when it is at or below 0.10 --- an advisory
@@ -470,9 +477,19 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   n_universe <- if (is.null(universe)) {
     length(unique(stats::na.omit(gene_to_hog)))
   } else if (is.numeric(universe) && length(universe) == 1L) {
+    if (is.na(universe) || !is.finite(universe) || universe < 1 ||
+          universe != round(universe) ||
+          universe > .Machine$integer.max) {
+      stop("universe must be a whole number of at least 1 and at most ",
+           .Machine$integer.max, ", or a vector of HOG identifiers")
+    }
     as.integer(universe)
   } else {
-    length(unique(universe))
+    if (length(universe) == 0L || all(is.na(universe))) {
+      stop("universe must be a whole number or a non-empty vector of ",
+           "HOG identifiers")
+    }
+    length(unique(stats::na.omit(universe)))
   }
   if (statistic == "excess" && n_universe <= 0L) {
     stop("statistic = \"excess\" needs a positive universe size")
@@ -599,12 +616,18 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
       null_dist[i] <- statistic_of(apply_labelling(pick_at(i - 1L)))
     }
     # The enumeration already contains the observed labelling, so no +1.
-    p_value <- sum(null_dist >= obs) / n_draw
+    # "excess" makes the null doubles whose expectation term is a
+    # convolution taken in contrast order, so two labellings that are
+    # mathematically tied need not be bitwise equal. An exact >= would
+    # drop such points from the tail (anti-conservative) and undercount
+    # tied maxima, weakening the p_attainable guard.
+    tol <- 1e-9 * max(1, abs(obs), max(abs(null_dist)))
+    p_value <- sum(null_dist >= obs - tol) / n_draw
     p_min <- 1 / n_draw
     # The floor this data actually reaches. Ties at the maximum raise it
     # above 1 / n_labellings: labellings sharing a statistic cannot be
     # separated, so nothing scores below their shared tail.
-    p_attainable <- sum(null_dist >= max(null_dist)) / n_draw
+    p_attainable <- sum(null_dist >= max(null_dist) - tol) / n_draw
   } else {
     n_draw <- n_perm
     null_dist <- numeric(n_draw)
@@ -612,17 +635,21 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
       pick <- vapply(radix, function(r) sample.int(r, 1L), integer(1))
       null_dist[i] <- statistic_of(apply_labelling(pick))
     }
-    p_value <- (sum(null_dist >= obs) + 1L) / (n_draw + 1L)
+    tol <- 1e-9 * max(1, abs(obs), max(abs(null_dist)))
+    p_value <- (sum(null_dist >= obs - tol) + 1L) / (n_draw + 1L)
     p_min <- 1 / (n_draw + 1L)
     p_attainable <- p_min
   }
 
   p_floor <- max(p_min, p_attainable)
   if (p_floor > 0.05) {
-    degenerate <- n_contributing - k
-    extra <- if (degenerate > 0L) {
-      paste0(" (", degenerate, " contributing pair(s) carry the same ",
-             "HOG set on both sides, so swapping them changes nothing)")
+    # Contributing contrasts sitting in a component that no relabelling
+    # moves. n_contributing - k would absorb the coupling as well, and
+    # would then claim pairs are degenerate when they are merely joined.
+    pinned <- sum(contributes & !informative[blocks$membership[pairs$sp1]])
+    extra <- if (pinned > 0L) {
+      paste0(" (", pinned, " contributing contrast(s) sit in a group no ",
+             "relabelling moves)")
     } else {
       ""
     }
@@ -630,17 +657,19 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
       # Enough labellings, but the statistic cannot tell them apart.
       # Prescribing more pairs here would point at the wrong cause.
       warning("ties in the null put the smallest attainable p-value at ",
-              signif(p_floor, 3), ": ", k, " swappable pair(s)", extra,
-              " give p_min = ", signif(p_min, 3), ", but the maximum is ",
+              signif(p_floor, 3), ": ", k, " independent contrast ",
+              "group(s)", extra, " give p_min = ", signif(p_min, 3),
+              ", but the maximum is ",
               "shared by ", round(p_attainable * length(null_dist)),
               " labellings, so p < 0.05 is unreachable for any signal. ",
               "More pairs will not help unless the statistic separates ",
               "them; see $null_distribution.")
     } else {
-      warning("only ", k, " swappable pair(s)", extra, ": the smallest ",
-              "attainable p-value is ", signif(p_floor, 3), ", so ",
-              "p < 0.05 is unreachable for any signal. At least 5 ",
-              "swappable pairs are needed.")
+      warning("only ", k, " independent contrast group(s)", extra,
+              " over ", n_contributing, " contributing contrast(s): the ",
+              "smallest attainable p-value is ", signif(p_floor, 3),
+              ", so p < 0.05 is unreachable for any signal. At least 5 ",
+              "independent groups are needed.")
     }
   }
 
@@ -681,10 +710,16 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # -- quietest at the k >= 5 where p_min finally allows a significant
   # result, and a single tie disarms it outright. A sign test over the
   # non-tied swappable pairs is the same question asked properly.
+  # Both counts must range over the same rows. Once contrasts can be
+  # coupled, a pinned component can hold a contributing contrast with
+  # unequal sides: that row would feed n_larger but not n_nontied, and
+  # binom.test() then stops with x > n, killing a complete analysis for
+  # the sake of an advisory diagnostic.
   larger <- pair_sizes$n_hogs_target > pair_sizes$n_hogs_partner
   tied <- pair_sizes$n_hogs_target == pair_sizes$n_hogs_partner
-  n_larger <- sum(larger & !tied, na.rm = TRUE)
-  n_nontied <- sum(!tied & pair_sizes$swappable, na.rm = TRUE)
+  countable <- !tied & pair_sizes$swappable & !is.na(tied)
+  n_larger <- sum(larger & countable, na.rm = TRUE)
+  n_nontied <- sum(countable, na.rm = TRUE)
   size_p <- if (n_nontied > 0L) {
     stats::binom.test(n_larger, n_nontied, 0.5,
                       alternative = "greater")$p.value

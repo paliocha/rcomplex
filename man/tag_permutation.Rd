@@ -117,9 +117,10 @@ selected sides forces the expectation above what disjoint sides can
 deliver and drives the statistic systematically negative. Ignored for
 \code{statistic = "count"}.}
 
-\item{enum_max}{Largest number of swappable pairs to enumerate
-(default 20). The enumeration is \code{2^enum_max} serial
-evaluations of the statistic --- about a million at the default,
+\item{enum_max}{Enumerate while the label space holds at most
+\code{2^enum_max} labellings (default 20). That is
+\code{2^enum_max} serial evaluations of the statistic in the worst
+case --- about a million at the default,
 which on Pooideae-sized HOG pools is tens of minutes --- so lower it
 to fall back to \code{n_perm} sampled draws when that cost is not
 worth an exact p-value. Values above 30 are refused.}
@@ -150,20 +151,26 @@ and whenever the null was sampled.}
 statistic --- what \code{null_distribution} is compared against.
 Equals \code{observed} when \code{statistic = "count"}.}
 \item{n_labellings}{Size of the admissible label space, the
-product over components. \code{2^k} for a disjoint design.}
+product over components, which is \code{2^k}: a component with
+at least one contrast admits at most two labellings, since the
+seed species can only carry one of that contrast's two labels.}
 \item{n_contributing}{Number of pairs feeding the statistic ---
-those with exactly one side in \code{target_group}. Differs from
-\code{n_swappable} when a contributing pair carries the same HOG
-set on both sides.}
+those with exactly one side in \code{target_group}. Exceeds
+\code{n_swappable} both when contrasts are coupled into one
+component and when a component's labellings all select the same
+HOG sets.}
 \item{exact}{Logical: was the null enumerated?}
-\item{n_swappable}{Number of pairs with exactly one side in
-\code{target_group} --- the \code{k} above. For a binary trait
-this is every pair whose two labels differ.}
+\item{n_swappable}{The \code{k} above: the number of
+\emph{components} some relabelling moves, not a count of pairs.
+For a disjoint design the two coincide.}
 \item{pair_sizes}{Data frame of per-pair diverged-HOG set sizes,
-with the target and partner sides named. The within-pair swap is
-exchangeable only if the target side is not systematically the
-larger one; if it is, the statistic reads set size rather than
-recurrence.}
+with the target and partner sides named. \code{block} gives the
+component each contrast belongs to and \code{swappable} is a
+property of that component, so it is \code{TRUE} for every
+contrast in a component some relabelling moves. The relabelling
+is exchangeable only if the target side is not systematically
+the larger one; if it is, the statistic reads set size rather
+than recurrence.}
 \item{size_asymmetry_p}{One-sided sign-test p-value for the target
 side being the larger one across the non-tied swappable pairs.
 A warning is emitted when it is at or below 0.10 --- an advisory

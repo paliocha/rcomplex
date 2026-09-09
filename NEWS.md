@@ -13,6 +13,13 @@ counterpart per gene before any module label is projected.
 
 ## Reproducibility
 
+- `tag_permutation()`'s sampled branch draws one admissible labelling per
+  component rather than a `runif(k)` swap vector, so under a fixed seed a
+  sampled null and its p-value move, as does the RNG stream position
+  afterwards. This affects only designs whose label space exceeds
+  `2^enum_max` (21 or more independent contrast groups); every smaller
+  design is enumerated and unaffected by the RNG entirely.
+
 - `detect_modules(seed = )` now reaches the parallel workers. Under the
   default `RNGkind` a forked `mclapply` child deletes `.Random.seed` and
   re-seeds from clock and PID, so `set.seed()` in the parent never reached

@@ -281,9 +281,8 @@ test_that("the null stays inside the observed design", {
   # leave enough pairs to meet min_recurrence = 2.
   fix <- make_tag_perm_fixtures()
 
-  # statistic = "count" so the null holds recurrence counts and the
-  # assertion reads directly; the default "excess" subtracts a size
-  # expectation and is exercised separately.
+  # "count" is the default; naming it here is redundant but keeps the
+  # assertion below legible next to the tests that pass "excess".
   result <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
     fix$group, target_group = "annual",
@@ -643,8 +642,8 @@ test_that("p_min counts only pairs whose swap changes the statistic", {
   expect_length(res$null_distribution, 16L)
   expect_gte(res$p_value, res$p_attainable)
 
-  # And the warning fires, naming the degenerate pair. Under the old
-  # definition p_min was 0.031 and no warning was raised at all.
+  # And the warning fires, naming the contrast no relabelling moves.
+  # Under the old definition p_min was 0.031 and nothing was raised.
   warns <- character(0)
   withCallingHandlers(
     suppressMessages(tag_permutation(
@@ -656,7 +655,7 @@ test_that("p_min counts only pairs whose swap changes the statistic", {
       invokeRestart("muffleWarning")
     }
   )
-  expect_true(any(grepl("carry the same HOG set on both sides", warns)))
+  expect_true(any(grepl("sit in a group no relabelling moves", warns)))
 
   # With all five pairs diverged the fifth bit is real again.
   full <- make_tag_perm_fixtures_k(5)
@@ -975,4 +974,128 @@ test_that("min_recurrence scales with the number of contrasts", {
                     min_recurrence = 0L),
     "min_recurrence must be"
   )
+})
+
+
+test_that("a coupled design runs end to end through tag_permutation", {
+  # Accepting a non-disjoint pairing was tested only against .tp_blocks()
+  # in isolation, leaving everything downstream uncovered for coupled
+  # input: the mixed-radix walk when there are fewer components than
+  # contrasts, apply_labelling() writing a whole component at once, and
+  # pair_sizes$block / $swappable derived through the membership map.
+  group <- c(A1 = "annual", P1 = "perennial", A2 = "annual",
+             A3 = "annual", P2 = "perennial")
+  # P1 is shared, so contrasts 1 and 2 are one component; contrast 3 is
+  # its own. Two components that move => 4 labellings, not 2^3.
+  pairs <- data.frame(
+    sp1 = c("A1", "P1", "A3"), sp2 = c("P1", "A2", "P2"),
+    pair_name = c("chainL", "chainR", "solo"), stringsAsFactors = FALSE
+  )
+  hogs <- paste0("H", seq_len(30))
+  set.seed(4)
+  sizes <- c(A1 = 12, P1 = 12, A2 = 12, A3 = 12, P2 = 12)
+  modules <- lapply(names(sizes), function(sp) {
+    g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
+    list(modules = stats::setNames(rep(1L, length(g)), g),
+         module_genes = list(`1` = g), n_modules = 1L, modularity = 0.3,
+         graph = NULL, method = "leiden", params = list())
+  })
+  names(modules) <- names(sizes)
+  orth <- do.call(rbind, lapply(names(sizes), function(sp) {
+    g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
+    data.frame(Species1 = g, Species2 = g,
+               hog = sample(hogs, sizes[[sp]]), stringsAsFactors = FALSE)
+  }))
+  cls <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
+    data.frame(pair_name = rep(pairs$pair_name[i], 2),
+               module = c("1", "1"),
+               reference = c(pairs$sp1[i], pairs$sp2[i]),
+               test = c(pairs$sp2[i], pairs$sp1[i]),
+               classification = c("diverged", "diverged"),
+               stringsAsFactors = FALSE)
+  }))
+
+  res <- suppressMessages(suppressWarnings(tag_permutation(
+    cls, modules, orth, pairs, group, target_group = "annual",
+    min_recurrence = 2L
+  )))
+
+  expect_equal(res$n_labellings, 4)
+  expect_equal(res$n_swappable, 2L)
+  expect_length(res$null_distribution, 4L)
+  expect_equal(res$p_min, 1 / 4)
+  expect_true(res$statistic_observed %in% res$null_distribution)
+  expect_gte(res$p_value, res$p_min)
+
+  # The two coupled contrasts share a block; the disjoint one does not.
+  expect_equal(res$pair_sizes$block[1], res$pair_sizes$block[2])
+  expect_false(res$pair_sizes$block[1] == res$pair_sizes$block[3])
+  expect_equal(nrow(res$pair_sizes), 3L)
+})
+
+
+test_that("a pinned component cannot crash the asymmetry diagnostic", {
+  # Once contrasts can be coupled, a pinned component (both species of a
+  # contrast sharing a label) can still hold a contributing contrast with
+  # unequal sides. Counting that row toward the sign test's successes but
+  # not its trials made binom.test() stop with x > n, killing a complete
+  # analysis for the sake of an advisory diagnostic.
+  group <- c(A1 = "annual", A2 = "annual", P1 = "perennial",
+             A3 = "annual", P2 = "perennial")
+  pairs <- data.frame(
+    sp1 = c("A1", "A2", "A3"), sp2 = c("A2", "P1", "P2"),
+    pair_name = c("pinned", "c2", "c3"), stringsAsFactors = FALSE
+  )
+  sizes <- c(A1 = 5, A2 = 30, P1 = 10, A3 = 30, P2 = 10)
+  hogs <- paste0("H", seq_len(40))
+  set.seed(5)
+  modules <- lapply(names(sizes), function(sp) {
+    g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
+    list(modules = stats::setNames(rep(1L, length(g)), g),
+         module_genes = list(`1` = g), n_modules = 1L, modularity = 0.3,
+         graph = NULL, method = "leiden", params = list())
+  })
+  names(modules) <- names(sizes)
+  orth <- do.call(rbind, lapply(names(sizes), function(sp) {
+    g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
+    data.frame(Species1 = g, Species2 = g,
+               hog = sample(hogs, sizes[[sp]]), stringsAsFactors = FALSE)
+  }))
+  cls <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
+    data.frame(pair_name = rep(pairs$pair_name[i], 2),
+               module = c("1", "1"),
+               reference = c(pairs$sp1[i], pairs$sp2[i]),
+               test = c(pairs$sp2[i], pairs$sp1[i]),
+               classification = c("diverged", "diverged"),
+               stringsAsFactors = FALSE)
+  }))
+
+  res <- suppressMessages(suppressWarnings(tag_permutation(
+    cls, modules, orth, pairs, group, target_group = "annual",
+    min_recurrence = 2L
+  )))
+  expect_true(is.numeric(res$p_value))
+  # The sign test ranges over the same rows for successes and trials.
+  n_nontied <- sum(res$pair_sizes$swappable &
+                     res$pair_sizes$n_hogs_target !=
+                       res$pair_sizes$n_hogs_partner, na.rm = TRUE)
+  expect_true(is.na(res$size_asymmetry_p) || n_nontied > 0L)
+})
+
+
+test_that(".tp_expected matches a hand-computed Poisson-binomial tail", {
+  # Two sides of 2 drawn from a universe of 4: each HOG is in a given
+  # side with probability 1/2, so it is in both with probability 1/4 and
+  # the expected number reaching 2 sides is 4 * 1/4 = 1.
+  expect_equal(.tp_expected(c(2, 2), 4L, 2L), 1)
+
+  # Three sides of 1 from a universe of 2: p = 1/2 each, P(>= 2 of 3) =
+  # 3*(1/2)^2*(1/2) + (1/2)^3 = 1/2, so the expectation is 2 * 1/2 = 1.
+  expect_equal(.tp_expected(c(1, 1, 1), 2L, 2L), 1)
+
+  # Degenerate inputs return 0 rather than propagating.
+  expect_equal(.tp_expected(numeric(0), 10L, 2L), 0)
+  expect_equal(.tp_expected(c(2, 2), 0L, 2L), 0)
+  # A threshold above the number of sides is unreachable.
+  expect_equal(.tp_expected(c(2, 2), 4L, 3L), 0)
 })
