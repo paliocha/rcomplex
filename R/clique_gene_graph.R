@@ -32,11 +32,15 @@
 #' genes that were never adjacent -- silently, since nothing downstream
 #' can tell a merged block from a real clique.
 #'
-#' Three independent signatures of such a merge are refused, because no
-#' one of them fires on its own: the repeated (id, species, gene) triple
-#' needs the colliding cliques to share a member, the shared id needs
-#' them to come from different HOGs, and the row-count check needs the
-#' input to carry `n_members` at all.
+#' Three independent signatures of such a merge are refused, since each
+#' misses cases the others catch: the repeated (id, species, gene)
+#' triple needs the colliding cliques to share a member, the shared id
+#' needs them to come from different HOGs, and the row-count check needs
+#' the input to carry `n_members` at all. Their union is not complete --
+#' a table without `n_members` whose colliding cliques come from one HOG
+#' and share no member passes all three. Give each
+#' [gene_clique_graph()] run a distinct `id_prefix` rather than relying
+#' on detection.
 #'
 #' @param cl_id Clique id of each row.
 #' @param mk_all Node key (species + gene) of each row.
@@ -58,15 +62,18 @@
   }
   if (!is.null(n_members)) {
     by_id <- split(as.integer(n_members), cl_id)
-    # A clique that declares one size and supplies another number of
-    # member rows is two blocks stacked, whatever their members are.
+    # Only MORE rows than declared can be a merge -- stacking two blocks
+    # adds rows, it never removes them. Fewer rows is a row-filtered
+    # table, which is a legitimate thing to hand this function, and
+    # refusing it was a regression that misdiagnosed the cause. A single
+    # clique_id declaring two different sizes is still two blocks.
     bad <- vapply(by_id, function(v) {
       u <- unique(v[!is.na(v)])
-      length(u) > 1L || (length(u) == 1L && u != length(v))
+      length(u) > 1L || (length(u) == 1L && length(v) > u)
     }, logical(1))
     if (any(bad)) {
       stop(
-        "cliques have a member row count contradicting n_members", hint
+        "cliques have more member rows than n_members declares", hint
       )
     }
   }

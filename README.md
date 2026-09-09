@@ -154,8 +154,9 @@ pres_all <- preservation_paired(modules, networks, orthologs, pairs,
 # Both label spaces belong to the species and their trait labels, not to
 # the pairs table: 4/4 over eight species gives choose(8, 4) = 70 free
 # labellings and 2^4 = 16 that permute only within a genus. Renaming the
-# two trait levels reproduces the statistic, so each floor is 2 over its
-# own count -- 2/70 = 0.029 free, 2/16 = 0.125 blocked. Read `p_blocked`
+# two trait levels reproduces the statistic, so each floor is AT LEAST 2
+# over its own count -- 2/70 = 0.029 free, 2/16 = 0.125 blocked, and
+# higher when further labellings tie at the maximum. Read `p_blocked`
 # as a check on the direction and rank of the effect; nothing can reach
 # alpha = 0.05 against it.
 pmt <- preservation_matrix_test(pres_all$classification, trait,

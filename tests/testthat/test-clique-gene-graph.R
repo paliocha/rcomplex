@@ -608,16 +608,24 @@ test_that("colliding cliques with no shared member are still refused", {
   e <- rbind(tri(c("a", "b", "c"), 0.5), tri(c("d", "ee", "f"), 0.01))
   tight <- gene_clique_graph(e, alpha_graph = 0.1)
   loose <- gene_clique_graph(e, alpha_graph = 0.9)
-  # Both runs number a clique HOG1_1, and the two have no gene in
-  # common, so the old triple guard saw nothing.
-  both <- rbind(tight, loose[loose$clique_id == "HOG1_1", ])
+  # Pick the loose clique that shares no gene with the tight one rather
+  # than assuming it is numbered HOG1_1. That numbering is
+  # igraph::max_cliques()'s enumeration order, which is not part of its
+  # contract, and the test would silently stop exercising the collision
+  # if it flipped.
+  tight_genes <- tight$gene
+  share <- vapply(split(loose$gene, loose$clique_id),
+                  function(g) any(g %in% tight_genes), logical(1))
+  disjoint_id <- names(share)[!share][1L]
+  expect_false(is.na(disjoint_id))
+  both <- rbind(tight, loose[loose$clique_id == disjoint_id, ])
   expect_equal(length(unique(both$clique_id)), 1L)
   expect_equal(anyDuplicated(paste(
     both$clique_id, both$species, both$gene
   )), 0L)
   expect_error(
     classify_gene_cliques(both, e, sp),
-    "row count contradicting n_members"
+    "more member rows than n_members declares"
   )
 })
 
@@ -982,6 +990,11 @@ test_that("classification cost is not multiplied by unrelated edges", {
   expect_equal(a$res$classification, b$res$classification)
   # One pass over the pair lookup, not one per clique. The regressed
   # form scanned n_cliques x n_edges, three orders of magnitude more.
+  # SCOPE: the shadowed `match` only sees calls that resolve through
+  # classify_gene_cliques()'s own body. `%in%` and any lookup inside
+  # .gcg_classify_one() are invisible to it, so this pins the vectorised
+  # pass where the fix lives and would NOT catch a regression that moved
+  # a per-clique lookup down into the helper.
   expect_lt(a$scanned, nrow(core) + 100)
   expect_lt(b$scanned, nrow(pad) + 100)
   expect_lt(b$scanned, n_cl * nrow(pad) / 100)
@@ -1059,4 +1072,39 @@ test_that("near-tied mean_q is counted as tied at both call sites", {
   res <- classify_gene_cliques(cl, e, c("SP_A", "SP_B", "SP_C"),
                                alpha_call = 0.9, alpha_graph = 0.9)
   expect_equal(unique(res$n_cliques_at_q_floor), 2L)
+})
+
+
+test_that("a row-filtered clique table is accepted, not called a merge", {
+  # The duplicate-id guard checked the row count in both directions, but
+  # a merge can only ADD rows. Refusing a table with FEWER rows than
+  # n_members declares rejected the legitimate case -- a caller who has
+  # subset the member rows -- and told them to set id_prefix, which is
+  # not the problem.
+  e <- data.frame(
+    gene1 = c("a", "a", "b"), gene2 = c("b", "c", "c"),
+    species1 = c("SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C"),
+    hog = "H1", q.value = 0.01, stringsAsFactors = FALSE
+  )
+  cl <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
+  expect_equal(nrow(cl), 3L)
+
+  trimmed <- cl[cl$species != "SP_C", , drop = FALSE]
+  expect_lt(nrow(trimmed), unique(trimmed$n_members))
+  expect_silent(rcomplex:::.gcg_check_clique_ids(
+    trimmed$clique_id, paste(trimmed$species, trimmed$gene),
+    trimmed$hog, trimmed$n_members
+  ))
+
+  # More rows than declared is still refused: that is a real merge.
+  doubled <- rbind(cl, cl)
+  doubled$gene <- paste0(doubled$gene, rep(c("", "_x"), each = nrow(cl)))
+  expect_error(
+    rcomplex:::.gcg_check_clique_ids(
+      doubled$clique_id, paste(doubled$species, doubled$gene),
+      doubled$hog, doubled$n_members
+    ),
+    "more member rows than n_members declares"
+  )
 })
