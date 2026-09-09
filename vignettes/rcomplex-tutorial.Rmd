@@ -314,40 +314,67 @@ pair rather than shuffling them across species. Every draw therefore
 keeps one annual and one perennial per pair, which is the design that
 was actually run.
 
-That makes the null small and exact. With `k` pairs carrying exactly one
-annual there are only `2^k` labellings, so `tag_permutation()`
-enumerates them and ignores `n_perm`. It also puts a hard floor under
-the p-value: the observed labelling is always one of the points, so
-`p_min = 2^-k`. **With fewer than five such pairs, `p < 0.05` is
-unreachable no matter how strong the signal** --- report `p_min`
-alongside `p_value` so a non-significant result is not mistaken for
-evidence of absence:
+Contrasts that share a species are coupled --- relabelling one changes
+the other --- so the unit of independence is the connected component of
+the graph whose nodes are species and whose edges are contrasts, not the
+contrast. Here the four genera are disjoint, so each is its own
+component and there are `2^4 = 16` labellings; a design reusing a species
+would simply have fewer, and is handled rather than refused.
+
+That makes the null small and exact, so `tag_permutation()` enumerates it
+and ignores `n_perm`. It also puts a hard floor under the p-value: the
+observed labelling is always one of the points, so `p_min` is one over
+the number of labellings. **With fewer than five independent contrast
+groups, `p < 0.05` is unreachable no matter how strong the signal**
+(`2^-4 = 0.0625`). Report `p_min` alongside `p_value` so a
+non-significant result is not mistaken for evidence of absence:
 
 ```{r module-parallel}
 parallel_test <- tag_permutation(
   mod_results$classification, modules, orthologs,
   pairs = phylo_pairs |> transmute(sp1 = annual, sp2 = perennial, pair_name),
-  group = trait_vec, target_group = "annual",
-  min_recurrence = 2L
+  group = trait_vec, target_group = "annual"
 )
 
 parallel_test$recurrence_table |>
   count(n_pairs, name = "n_hogs") |>
   show_table(caption = "HOG recurrence in modules diverged in the annual")
 
-cat("HOGs recurring in >= 2 pairs:", parallel_test$observed,
+cat("HOGs recurring in >=", parallel_test$min_recurrence, "pairs:",
+    parallel_test$observed,
     "\n  p =", sprintf("%.4f", parallel_test$p_value),
     if (parallel_test$exact) "(exact)" else "(sampled)",
-    "over", parallel_test$n_perm, "labellings from",
-    parallel_test$n_swappable, "swappable pairs",
+    "over", parallel_test$n_labellings, "labellings from",
+    parallel_test$n_swappable, "independent contrast group(s)",
     "\n  smallest attainable p:", sprintf("%.4f", parallel_test$p_min),
     if (parallel_test$p_min > 0.05) "-- significance unreachable" else "",
     "\n")
 ```
 
+`min_recurrence` was left at its default, which is half the contributing
+contrasts and at least 2 --- so 2 here. A constant would not describe a
+design of arbitrary size: the chance a HOG reaches two of `k` sides
+unaided is about 0.03 at four contrasts but 0.25 at twelve, so a fixed
+threshold lets the statistic saturate on chance recurrence as contrasts
+are added.
+
+Two things to check before believing the result. The relabelling is only
+exchangeable if the target side is not systematically the larger one, so
+inspect `$pair_sizes` and `$size_asymmetry_p`; and because the statistic
+is a raw count it responds strongly to how many HOGs the selected sides
+hold. `statistic = "excess"` subtracts the count expected from
+independent sides of those sizes, which helps when the sides are small
+relative to the HOG universe and over-corrects when they are not --- see
+`?tag_permutation` before relying on it.
+
+```{r module-parallel-sizes}
+show_table(parallel_test$pair_sizes,
+           caption = "Diverged-HOG set sizes per contrast")
+```
+
 Running the same test for `target_group = "perennial"` reads a second
-entry of the *same* null distribution --- swapping every pair maps one
-trait's statistic onto the other's --- so the two are not independent
+entry of the *same* null distribution --- relabelling every contrast maps
+one trait's statistic onto the other's --- so the two are not independent
 tests and must not be corrected as if they were.
 
 ### Hub genes and trait conservation
