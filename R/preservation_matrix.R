@@ -501,9 +501,11 @@ all_species_pairs <- function(species, sep = ".") {
 #'       q-values: `n_tests`, `n_distinct`, `q_floor`, `n_at_floor`,
 #'       `n_at_one`, plus `p_min_pres` and `q_floor_global` (both `NA`
 #'       without `n_perm_pres`). `n_distinct`, `n_at_floor` and `n_at_one`
-#'       are counted with the same relative tolerance
-#'       [pvalue_resolution()] uses, so the two agree on one
-#'       q-vector:
+#'       are counted with the tolerance [pvalue_resolution()] uses, so
+#'       the two agree on one q-vector --- relative for `n_distinct` and
+#'       `n_at_floor`, and a one-sided window below 1 for `n_at_one`,
+#'       which counts any q-value at or above 1 so that invalid input is
+#'       reported rather than dropped:
 #'       values within a few last bits of each other are one value
 #'       wobbled by arithmetic, not two resolvable ones. `n_tests`
 #'       counts every row of the supplied
@@ -618,7 +620,11 @@ preservation_matrix_test <- function(classification, group, block = NULL,
     n_distinct = q_ties$n_distinct,
     q_floor = if (n_tests > 0L) min(qv_ok) else NA_real_,
     n_at_floor = q_ties$n_at_min,
-    n_at_one = sum(abs(qv_ok - 1) <= sqrt(.Machine$double.eps)),
+    # >= 1 rather than a two-sided window: a q-value above 1 is invalid
+    # input, and silently dropping it out of the count would hide that
+    # rather than report it. The tolerance only pulls in values a few
+    # last bits below 1.
+    n_at_one = sum(qv_ok >= 1 - .tie_tol()),
     p_min_pres = p_min_pres,
     # No q-values means no multiplicity to correct, which is not the same as
     # a floor of zero.

@@ -67,7 +67,9 @@
 #'       the same relative tolerance as `n_at_min` so the two agree.}
 #'     \item{min}{The observed minimum.}
 #'     \item{n_at_min}{How many values are tied at that minimum.}
-#'     \item{n_at_one}{How many values are 1.}
+#'     \item{n_at_one}{How many values are at or above 1, within
+#'       tolerance. Values above 1 are invalid input and are counted
+#'       here rather than silently dropped.}
 #'     \item{n_perm, floor}{The supplied `n_perm` and the implied floor
 #'       `1 / (n_perm + 1)`; both `NULL`/`NA` when `n_perm` was not given.}
 #'     \item{floor_status}{`"at"`, `"above"` or `"below"` -- where the
@@ -145,7 +147,10 @@ pvalue_resolution <- function(p, n_perm = NULL) {
   grp <- .tol_groups(u, tol)
   min_obs <- u[1L]
   n_at_min <- sum(v <= max(u[grp == 1L]))
-  n_at_one <- sum(abs(v - 1) <= tol)
+  # >= 1, not a two-sided window: a value above 1 is invalid input and
+  # must be reported rather than dropped out of the count. Matches
+  # preservation_matrix_test()'s $saturation exactly.
+  n_at_one <- sum(v >= 1 - tol)
 
   floor_p <- NA_real_
   floor_status <- NA_character_
@@ -227,6 +232,13 @@ pvalue_resolution <- function(p, n_perm = NULL) {
 # not supplied and the observed minimum has to stand in for the floor.
 .min_credible_n_perm <- 99
 
+# The relative tolerance every tie count in this package compares with.
+# It lives here, once, because the counts drifted apart when the constant
+# was written out at each site: two diagnostics of one vector must not
+# disagree about which values are distinct.
+.tie_tol <- function() sqrt(.Machine$double.eps)
+
+
 
 #' Count values tied at the minimum, to floating-point tolerance
 #'
@@ -241,7 +253,7 @@ pvalue_resolution <- function(p, n_perm = NULL) {
 #' @param tol Relative tolerance.
 #' @return List with `n_distinct`, `min` and `n_at_min`.
 #' @noRd
-.tol_min_ties <- function(v, tol = sqrt(.Machine$double.eps)) {
+.tol_min_ties <- function(v, tol = .tie_tol()) {
   v <- v[!is.na(v)]
   if (length(v) == 0L) {
     return(list(n_distinct = 0L, min = NA_real_, n_at_min = 0L))

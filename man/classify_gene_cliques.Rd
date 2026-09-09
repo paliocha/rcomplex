@@ -21,7 +21,10 @@ any table with \code{clique_id}, \code{hog}, \code{species} and \code{gene} colu
 Combine runs at several \code{alpha_graph} values (with distinct
 \code{id_prefix}) to expose every tier: a clique complete at
 \code{alpha_call} need not be maximal on a looser graph. Two runs that
-collide on a \code{clique_id} are refused rather than merged.}
+collide on a \code{clique_id} are refused where the collision is
+detectable; detection is not complete, so give each
+\code{\link[=gene_clique_graph]{gene_clique_graph()}} run a distinct \code{id_prefix} rather than
+relying on it.}
 
 \item{edges}{The full, unfiltered co-expressolog table. It must not
 be pre-filtered on \code{q.value}: the gap tier needs to see rows that

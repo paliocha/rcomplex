@@ -23,7 +23,9 @@ An object of class \code{"pvalue_resolution"}: a list with
 the same relative tolerance as \code{n_at_min} so the two agree.}
 \item{min}{The observed minimum.}
 \item{n_at_min}{How many values are tied at that minimum.}
-\item{n_at_one}{How many values are 1.}
+\item{n_at_one}{How many values are at or above 1, within
+tolerance. Values above 1 are invalid input and are counted
+here rather than silently dropped.}
 \item{n_perm, floor}{The supplied \code{n_perm} and the implied floor
 \code{1 / (n_perm + 1)}; both \code{NULL}/\code{NA} when \code{n_perm} was not given.}
 \item{floor_status}{\code{"at"}, \code{"above"} or \code{"below"} -- where the

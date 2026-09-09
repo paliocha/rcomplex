@@ -1065,3 +1065,31 @@ test_that("$saturation counts near-ties the way pvalue_resolution does", {
   # and the exact comparisons the fix replaced would disagree
   expect_lt(res$saturation$n_distinct, length(unique(q)))
 })
+
+
+test_that("all three saturation counts match pvalue_resolution exactly", {
+  # The tolerance constant was written out at each site and the counts
+  # drifted apart; it now lives once in .tie_tol(). Pin the agreement
+  # itself rather than the constant, so a future divergence fails here.
+  eps <- .Machine$double.eps
+  q <- c(0.001, 0.5, 1, 1 - 1e-17, 0.001 * (1 + eps))
+  sp <- c("A", "B", "C", "D")
+  grp <- c(A = "x", B = "y", C = "x", D = "y")
+  pr <- rcomplex::all_species_pairs(sp)
+  cls <- data.frame(
+    reference = pr$sp1[1:5], test = pr$sp2[1:5],
+    Zsummary_std = c(5, 3, 4, 2, 6), q.value = q, module = "1",
+    stringsAsFactors = FALSE
+  )
+  res <- suppressWarnings(preservation_matrix_test(cls, group = grp))
+  pvr <- pvalue_resolution(q)
+  expect_identical(res$saturation$n_distinct, pvr$n_distinct)
+  expect_identical(res$saturation$n_at_floor, pvr$n_at_min)
+  expect_identical(res$saturation$n_at_one, pvr$n_at_one)
+
+  # A q-value above 1 is invalid input: counted, never silently dropped
+  # out of n_at_one by a two-sided window.
+  cls$q.value[5] <- 1.0000001
+  bad <- suppressWarnings(preservation_matrix_test(cls, group = grp))
+  expect_gte(bad$saturation$n_at_one, 3L)
+})

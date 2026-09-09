@@ -618,7 +618,14 @@ test_that("colliding cliques with no shared member are still refused", {
                   function(g) any(g %in% tight_genes), logical(1))
   disjoint_id <- names(share)[!share][1L]
   expect_false(is.na(disjoint_id))
-  both <- rbind(tight, loose[loose$clique_id == disjoint_id, ])
+  # Overwrite the id rather than selecting on it. Selecting still needed
+  # the disjoint loose clique to happen to carry the same number as the
+  # tight one, which is the enumeration-order assumption in a different
+  # spelling; if the order flipped, the fixture would build no collision
+  # and the test would fail while exercising nothing.
+  dis <- loose[loose$clique_id == disjoint_id, , drop = FALSE]
+  dis$clique_id <- tight$clique_id[1L]
+  both <- rbind(tight, dis)
   expect_equal(length(unique(both$clique_id)), 1L)
   expect_equal(anyDuplicated(paste(
     both$clique_id, both$species, both$gene
@@ -1065,6 +1072,13 @@ test_that("near-tied mean_q is counted as tied at both call sites", {
 
   cl <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
   expect_equal(length(unique(cl$clique_id)), 2L)
+  # The test only discriminates if the two mean_q really are a near-tie:
+  # distinct as doubles, but within the tolerance. Assert that rather
+  # than trusting the last-bit arithmetic to have come out that way.
+  mq <- sort(unique(cl$mean_q))
+  expect_equal(length(mq), 2L)
+  expect_gt(diff(mq), 0)
+  expect_lt(diff(mq), sqrt(.Machine$double.eps) * abs(mq[1L]))
   # Exact equality would report 1; the two mean_q differ only in the last
   # bits, so both cliques sit at the floor.
   expect_equal(attr(cl, "n_cliques_at_q_floor"), 2L)
@@ -1096,6 +1110,14 @@ test_that("a row-filtered clique table is accepted, not called a merge", {
     trimmed$clique_id, paste(trimmed$species, trimmed$gene),
     trimmed$hog, trimmed$n_members
   ))
+
+  # The regression was reported through classify_gene_cliques(), so pin
+  # that path too and not only the internal check.
+  e_sub <- e[e$species1 != "SP_C" & e$species2 != "SP_C", , drop = FALSE]
+  expect_silent(suppressMessages(classify_gene_cliques(
+    trimmed, e_sub, c("SP_A", "SP_B"), alpha_call = 0.9,
+    alpha_graph = 0.9
+  )))
 
   # More rows than declared is still refused: that is a real merge.
   doubled <- rbind(cl, cl)

@@ -92,9 +92,11 @@ both are counted over the \code{n_scored} draws rather than over the
 q-values: \code{n_tests}, \code{n_distinct}, \code{q_floor}, \code{n_at_floor},
 \code{n_at_one}, plus \code{p_min_pres} and \code{q_floor_global} (both \code{NA}
 without \code{n_perm_pres}). \code{n_distinct}, \code{n_at_floor} and \code{n_at_one}
-are counted with the same relative tolerance
-\code{\link[=pvalue_resolution]{pvalue_resolution()}} uses, so the two agree on one
-q-vector:
+are counted with the tolerance \code{\link[=pvalue_resolution]{pvalue_resolution()}} uses, so
+the two agree on one q-vector --- relative for \code{n_distinct} and
+\code{n_at_floor}, and a one-sided window below 1 for \code{n_at_one},
+which counts any q-value at or above 1 so that invalid input is
+reported rather than dropped:
 values within a few last bits of each other are one value
 wobbled by arithmetic, not two resolvable ones. \code{n_tests}
 counts every row of the supplied

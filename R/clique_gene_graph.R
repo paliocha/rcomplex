@@ -487,7 +487,10 @@ gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
 #'   Combine runs at several `alpha_graph` values (with distinct
 #'   `id_prefix`) to expose every tier: a clique complete at
 #'   `alpha_call` need not be maximal on a looser graph. Two runs that
-#'   collide on a `clique_id` are refused rather than merged.
+#'   collide on a `clique_id` are refused where the collision is
+#'   detectable; detection is not complete, so give each
+#'   [gene_clique_graph()] run a distinct `id_prefix` rather than
+#'   relying on it.
 #' @param edges The full, unfiltered co-expressolog table. It must not
 #'   be pre-filtered on `q.value`: the gap tier needs to see rows that
 #'   were tested and failed in order to refuse them.
