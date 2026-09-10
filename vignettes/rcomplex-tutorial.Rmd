@@ -187,13 +187,15 @@ For quick exploration without GPU, the `"analytical"` method uses
 pair-level Storey q-values (less statistically rigorous for multi-copy
 HOGs, but much faster). Since v0.2.0 its default `pi0_method =
 "randomized"` estimates the null proportion pi0 from randomized
-p-values drawn from the global RNG, so call `set.seed()` first for
-reproducible q-values:
+p-values. Those draws move the q-values, and with them every count
+thresholded on a q-value downstream, so pass `seed` and the call
+becomes reproducible on its own terms. Without a seed the draws come
+from the global RNG and the result depends on whatever the session
+happened to draw before:
 
 ```{r analytical-edges}
-set.seed(42)
 edges_analytical <- find_coexpressologs(networks, orthologs,
-  method = "analytical")
+  method = "analytical", seed = 42)
 cat("Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n")
 cat("Permutation:", sum(edges$type == "conserved"), "conserved edges\n")
 ```
