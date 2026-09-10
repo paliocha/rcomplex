@@ -62,14 +62,17 @@
 #'   contexts in the same session.
 #' @param max_consensus_iter Maximum number of consensus iterations for
 #'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
-#'   Typically converges in 2--5 iterations. Ignored when
-#'   \code{consensus_threshold} is numeric.
+#'   Iteration stops when the sweep reproduces its own input (a fixed
+#'   point) or when all resolutions agree; either usually happens within
+#'   5--15 iterations. Ignored when \code{consensus_threshold} is numeric.
 #' @param test_k1 Logical. Test the null hypothesis K = 1 (no community
 #'   structure) via permutation of the spectral norm of the excess
 #'   co-classification matrix. Default \code{TRUE}. Only used in adaptive
 #'   consensus mode.
 #' @param n_perm_k1 Number of permutations for the K = 1 test.
-#'   Default 100.
+#'   Default 100. Sets both the resolution of the p-value (its floor is
+#'   \code{1 / (n_perm_k1 + 1)}) and the power of the test; batches stop
+#'   early only when the remaining permutations cannot change the call.
 #' @param alpha_k1 Significance level for the K = 1 test.
 #'   Default 0.05.
 #'
@@ -126,11 +129,13 @@
 #' \dontrun{
 #' # Single resolution
 #' mods <- detect_modules(net, method = "leiden", resolution = 1.0)
-#' table(mods$modules)  # module sizes
+#' table(mods$modules) # module sizes
 #'
 #' # Multi-resolution consensus (Jeub et al. 2018)
-#' mods_consensus <- detect_modules(net, resolution = c(0.5, 1.0, 2.0),
-#'                                  n_cores = 4L)
+#' mods_consensus <- detect_modules(net,
+#'   resolution = c(0.5, 1.0, 2.0),
+#'   n_cores = 4L
+#' )
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -140,30 +145,32 @@ detect_modules <- function(net, ...) UseMethod("detect_modules")
 #' @rdname detect_modules
 #' @export
 detect_modules.default <- function(net,
-                           method = c("leiden", "infomap", "sbm"),
-                           resolution = 1.0,
-                           objective_function = c("CPM", "modularity"),
-                           n_iterations = 2L,
-                           nb_trials = 10L,
-                           seed = NULL,
-                           consensus_threshold = NULL,
-                           n_cores = 1L,
-                           max_consensus_iter = 10L,
-                           test_k1 = TRUE,
-                           n_perm_k1 = 100L,
-                           alpha_k1 = 0.05, ...) {
+                                   method = c("leiden", "infomap", "sbm"),
+                                   resolution = 1.0,
+                                   objective_function = c("CPM", "modularity"),
+                                   n_iterations = 2L,
+                                   nb_trials = 10L,
+                                   seed = NULL,
+                                   consensus_threshold = NULL,
+                                   n_cores = 1L,
+                                   max_consensus_iter = 10L,
+                                   test_k1 = TRUE,
+                                   n_perm_k1 = 100L,
+                                   alpha_k1 = 0.05, ...) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
 
   # Consensus mode: vector resolution triggers multi-resolution + consensus
   if (length(resolution) > 1L) {
-    if (method != "leiden")
+    if (method != "leiden") {
       stop("Consensus mode (vector resolution) only supported for method = \"leiden\"")
+    }
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
       objective_function, n_iterations, seed, as.integer(n_cores),
       as.integer(max_consensus_iter), test_k1, as.integer(n_perm_k1),
-      alpha_k1))
+      alpha_k1
+    ))
   }
 
   n_iterations <- as.integer(n_iterations)
@@ -205,13 +212,16 @@ detect_modules.default <- function(net,
     # from an unpredictable position.
     old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
     on.exit(assign(".Random.seed", old_rng, envir = globalenv()),
-            add = TRUE)
+      add = TRUE
+    )
   }
 
   if (method == "sbm") {
     if (!requireNamespace("sbm", quietly = TRUE)) {
-      stop("Package 'sbm' is required for method = \"sbm\". ",
-           "Install it with install.packages(\"sbm\")")
+      stop(
+        "Package 'sbm' is required for method = \"sbm\". ",
+        "Install it with install.packages(\"sbm\")"
+      )
     }
 
     if (.net_is_sparse(net)) {
@@ -220,7 +230,8 @@ detect_modules.default <- function(net,
     }
 
     fit <- sbm::estimateSimpleSBM(
-      adj, model = "gaussian", directed = FALSE,
+      adj,
+      model = "gaussian", directed = FALSE,
       estimOptions = list(verbosity = 0L, plot = FALSE)
     )
 
@@ -228,7 +239,8 @@ detect_modules.default <- function(net,
     module_genes <- split(names(membership), membership)
 
     g <- igraph::graph_from_adjacency_matrix(
-      adj, mode = "upper", weighted = TRUE, diag = FALSE
+      adj,
+      mode = "upper", weighted = TRUE, diag = FALSE
     )
 
     return(list(
@@ -244,7 +256,8 @@ detect_modules.default <- function(net,
 
   # Graph-based methods (leiden, infomap)
   g <- igraph::graph_from_adjacency_matrix(
-    adj, mode = "upper", weighted = TRUE, diag = FALSE
+    adj,
+    mode = "upper", weighted = TRUE, diag = FALSE
   )
 
   if (method == "leiden") {
@@ -262,7 +275,8 @@ detect_modules.default <- function(net,
     )
   } else {
     comm <- igraph::cluster_infomap(
-      g, e.weights = igraph::E(g)$weight, nb.trials = nb_trials
+      g,
+      e.weights = igraph::E(g)$weight, nb.trials = nb_trials
     )
     params <- list(nb_trials = nb_trials, seed = seed)
   }
@@ -301,8 +315,9 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
-        consensus_threshold >= 1)
+      consensus_threshold >= 1) {
       stop("consensus_threshold must be NULL (adaptive) or numeric in (0, 1)")
+    }
   }
 
   if (!is.list(net) || is.null(net$network)) {
@@ -348,18 +363,22 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 
   # Build original graph — then free the dense adjacency (~4.6 GB for N=24k)
   g <- igraph::graph_from_adjacency_matrix(
-    adj, mode = "upper", weighted = TRUE, diag = FALSE
+    adj,
+    mode = "upper", weighted = TRUE, diag = FALSE
   )
-  rm(adj); gc()
+  rm(adj)
+  gc()
 
   resolutions <- sort(resolutions)
   n_res <- length(resolutions)
 
   # If only one resolution after dedup, fall back to single-resolution
   if (n_res == 1L) {
-    return(detect_modules(net, method = "leiden", resolution = resolutions,
-                          objective_function = objective_function,
-                          n_iterations = n_iterations, seed = seed))
+    return(detect_modules(net,
+      method = "leiden", resolution = resolutions,
+      objective_function = objective_function,
+      n_iterations = n_iterations, seed = seed
+    ))
   }
 
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
@@ -376,20 +395,29 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     )
     mem <- igraph::membership(comm)
     names(mem) <- igraph::V(g)$name
-    list(mem = mem,
-         n_mod = length(unique(mem)),
-         quality = igraph::modularity(g, mem))
+    list(
+      mem = mem,
+      n_mod = length(unique(mem)),
+      quality = igraph::modularity(g, mem)
+    )
   }
 
   if (use_mc) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
-    on.exit({
-      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
-      else Sys.setenv(OMP_NUM_THREADS = old_omp)
-    }, add = TRUE)
+    on.exit(
+      {
+        if (is.na(old_omp)) {
+          Sys.unsetenv("OMP_NUM_THREADS")
+        } else {
+          Sys.setenv(OMP_NUM_THREADS = old_omp)
+        }
+      },
+      add = TRUE
+    )
     results <- parallel::mclapply(seq_len(n_res), run_initial,
-                                  mc.cores = n_cores)
+      mc.cores = n_cores
+    )
   } else {
     results <- lapply(seq_len(n_res), run_initial)
   }
@@ -401,8 +429,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   }
   failed <- vapply(results, is.null, logical(1))
   if (any(failed)) {
-    stop("Parallel workers returned NULL at resolutions: ",
-         paste(resolutions[failed], collapse = ", "))
+    stop(
+      "Parallel workers returned NULL at resolutions: ",
+      paste(resolutions[failed], collapse = ", ")
+    )
   }
 
   memberships <- lapply(results, `[[`, "mem")
@@ -413,7 +443,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   scan_ari_next <- rep(NA_real_, n_res)
   for (r in seq_len(n_res - 1L)) {
     scan_ari_next[r] <- igraph::compare(
-      memberships[[r]], memberships[[r + 1L]], method = "adjusted.rand"
+      memberships[[r]], memberships[[r + 1L]],
+      method = "adjusted.rand"
     )
   }
 
@@ -531,11 +562,33 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       # n_res == 1, but that case is caught by the early return above)
       converged <- all(vapply(seq_len(n_res - 1L), function(r) {
         igraph::compare(new_memberships[[r]], new_memberships[[r + 1L]],
-                        method = "adjusted.rand") > 0.999
+          method = "adjusted.rand"
+        ) > 0.999
       }, logical(1)))
 
+      # Or the sweep has reproduced its own input. The criterion above asks
+      # the K partitions to agree with EACH OTHER, which a stable
+      # disagreement between the coarsest and the finest resolution can deny
+      # forever: on 6 of 8 Pooideae networks the sweep stopped changing after
+      # ~10 iterations and every further iteration rebuilt the same
+      # co-classification, the same consensus graph and the same partitions
+      # until max_consensus_iter.
+      #
+      # This is a stopping heuristic, not a proof of a fixed point. The
+      # sweep is seeded per iteration (.task_seed(seed_root, 100L + iter,
+      # ri) in consensus_leiden_sweep()), so the map applied at iteration
+      # i + 1 is not the map applied at iteration i and one reproduction
+      # does not entail the next. What is checked is that stopping here
+      # agrees with running the full budget: on all 8 Pooideae networks the
+      # break fires at 5-12 iterations and returns the same partition, with
+      # the same n_modules, as max_consensus_iter = 1000.
+      settled <- identical(
+        lapply(new_memberships, .partition_id),
+        lapply(memberships, .partition_id)
+      )
+
       memberships <- new_memberships
-      if (converged) break
+      if (converged || settled) break
     }
 
     membership <- pick_best_partition(memberships, g)
@@ -599,12 +652,19 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
   if (.Platform$OS.type == "unix" && n_cores > 1L) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
-    on.exit({
-      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
-      else Sys.setenv(OMP_NUM_THREADS = old_omp)
-    }, add = TRUE)
+    on.exit(
+      {
+        if (is.na(old_omp)) {
+          Sys.unsetenv("OMP_NUM_THREADS")
+        } else {
+          Sys.setenv(OMP_NUM_THREADS = old_omp)
+        }
+      },
+      add = TRUE
+    )
     results <- parallel::mclapply(seq_along(resolutions), run_one,
-                                  mc.cores = n_cores)
+      mc.cores = n_cores
+    )
     errs <- which(vapply(results, inherits, logical(1), "try-error"))
     if (length(errs)) {
       e <- results[[errs[1L]]]
@@ -614,6 +674,19 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
   } else {
     lapply(seq_along(resolutions), run_one)
   }
+}
+
+
+#' Canonical form of a partition (internal)
+#'
+#' Relabels module IDs by first appearance, so two membership vectors that
+#' describe the same grouping under different labels compare identical.
+#' Leiden hands back arbitrary labels; comparing them raw would call a
+#' fixed point of the consensus iteration a change.
+#' @noRd
+.partition_id <- function(mem) {
+  mem <- as.integer(mem)
+  match(mem, unique(mem))
 }
 
 
@@ -627,53 +700,92 @@ pick_best_partition <- function(memberships, graph) {
 }
 
 
+#' Has the K = 1 decision stopped depending on the permutations still owed?
+#'
+#' TRUE once no outcome of the remaining \code{n_perm - n_done} permutations
+#' could move the final p-value across \code{alpha}, so stopping here gives
+#' the same call as running the whole budget.
+#'
+#' The rule this replaces stopped as soon as
+#' \code{(n_exceed + 1) / (n_done + 1)} crossed \code{alpha} -- a statement
+#' about the permutations run so far, not one the outstanding permutations
+#' have to agree with. A single exceedance in the first batch of 20 ended
+#' the test at p = 2/21 = 0.095 and collapsed the network to one module,
+#' where the full 100-permutation run would have finished at 2/101 = 0.020.
+#' Simulation over the stopping rule (200k draws per point): at a
+#' per-permutation exceedance probability of 0.01 the old rule called
+#' structure 82% of the time against 99.7% for the full budget.
+#' @noRd
+.k1_settled <- function(n_exceed, n_done, n_perm, alpha) {
+  p_floor <- (1 + n_exceed) / (1 + n_perm)
+  p_ceiling <- (1 + n_exceed + (n_perm - n_done)) / (1 + n_perm)
+  p_floor > alpha || p_ceiling < alpha
+}
+
+
 #' Test for community structure (K = 1 null) via spectral norm permutation
 #'
 #' Compares the leading eigenvalue of the sparse excess co-classification
 #' matrix against a null distribution from degree-preserving rewiring.
-#' Uses batch-based early stopping: once enough permutations have been
-#' completed without any exceedance (\code{ceil(1/alpha)} permutations
-#' with lambda_null < lambda_obs), the test concludes that structure is
-#' present without running all \code{n_perm} permutations.
+#' The \emph{decision} is the \code{n_perm}-permutation decision: batches
+#' stop early only when the permutations still owed cannot move the p-value
+#' across \code{alpha}, so \code{n_perm} governs the power of the test.
+#' The reported \code{p_value} is \code{(1 + n_exceed) / (1 + n_done)} over
+#' the permutations actually run, which on an early stop is coarser than the
+#' full budget would give -- \code{n_perm = 500} stopping at
+#' \code{n_done = 480} reports \code{1/481}, not \code{1/501}. Read
+#' \code{n_perm_completed} alongside it.
 #'
 #' @section Performance:
-#' Three optimizations reduce runtime vs naive implementation:
+#' Two optimizations reduce runtime vs naive implementation:
 #' \enumerate{
 #'   \item Rewiring uses 5 * |E| swap attempts (sufficient for mixing;
 #'     Greenhill, 2015).
-#'   \item Null Leiden sweeps use \code{n_iterations = 1} (partitions need
-#'     not be optimal for the null distribution).
-#'   \item Batch early stopping: permutations run in batches of
-#'     \code{n_cores}. After each batch, if \code{ceil(1/alpha)}
-#'     permutations have completed with zero exceedances, the test stops
-#'     early (p < alpha is guaranteed). Similarly, if exceedances
-#'     accumulate such that p > alpha is certain, the test stops.
+#'   \item Batch early stopping on the \code{ceil(1/alpha)} grid, using
+#'     \code{.k1_settled()}: a network with no structure accumulates
+#'     exceedances fast and stops within a batch or two, while a
+#'     significant call needs the full budget because one late exceedance
+#'     can still matter. Null Leiden sweeps deliberately use the same
+#'     \code{n_iterations} as the observed sweep -- an observed statistic
+#'     optimised harder than its own null is biased toward significance.
 #' }
 #'
 #' @noRd
 test_community_structure <- function(g, genes, resolutions, objective_function,
-                                      n_iterations, memberships_obs,
-                                      edge_list_0, n_perm = 100L,
-                                      n_cores = 1L, alpha = 0.05,
-                                      seed_root = 0L) {
+                                     n_iterations, memberships_obs,
+                                     edge_list_0, n_perm = 100L,
+                                     n_cores = 1L, alpha = 0.05,
+                                     seed_root = 0L) {
   n_genes <- length(genes)
   n_edges <- igraph::ecount(g)
 
-  lambda_obs <- sparse_excess_spectral_norm_cpp(memberships_obs, n_genes,
-                                                 edge_list_0, n_cores)
+  lambda_obs <- sparse_excess_spectral_norm_cpp(
+    memberships_obs, n_genes,
+    edge_list_0, n_cores
+  )
 
   run_one_perm <- function(b) {
     set.seed(.task_seed(seed_root, 2L, b))
     g_perm <- igraph::rewire(g, igraph::keeping_degseq(
-      niter = 5L * n_edges))
+      niter = 5L * n_edges
+    ))
     igraph::E(g_perm)$weight <- igraph::E(g)$weight[
-      sample.int(n_edges)]
+      sample.int(n_edges)
+    ]
 
     mems_perm <- lapply(resolutions, function(res) {
+      # Same n_iterations as the observed sweep. A null optimised less than
+      # the statistic it is judging lands too low, which tilts the test
+      # toward calling structure: over 20 degree-preserved rewirings of
+      # VBRO -- graphs with no module structure left -- lambda_obs
+      # (n_iterations = 2) outranked 60% of a null built at
+      # n_iterations = 1 but only 35% of a matched one, and the shift went
+      # the same way in 18 of the 20 graphs (sign test p = 1e-4).
       comm <- igraph::cluster_leiden(
-        g_perm, resolution = res,
+        g_perm,
+        resolution = res,
         objective_function = objective_function,
-        n_iterations = 1L
+        n_iterations = as.integer(n_iterations)
       )
       mem <- igraph::membership(comm)
       names(mem) <- igraph::V(g_perm)$name
@@ -685,9 +797,6 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
   }
 
-  # Minimum permutations before early stopping can trigger (ceil(1/alpha))
-  min_for_sig <- as.integer(ceiling(1 / alpha))
-
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
   # Batch on the significance grid, not on the core count: the early-stop rule
   # must be evaluated at the same points regardless of the machine. The batch
@@ -695,15 +804,21 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
   # unaffected -- but a batch of ceiling(1 / alpha) tasks cannot occupy more
   # than that many workers, so a large alpha_k1 on a many-core node leaves
   # cores idle during this test. Determinism is worth that.
-  batch_size <- max(1L, min_for_sig)
+  batch_size <- max(1L, as.integer(ceiling(1 / alpha)))
 
   if (use_mc) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
-    on.exit({
-      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
-      else Sys.setenv(OMP_NUM_THREADS = old_omp)
-    }, add = TRUE)
+    on.exit(
+      {
+        if (is.na(old_omp)) {
+          Sys.unsetenv("OMP_NUM_THREADS")
+        } else {
+          Sys.setenv(OMP_NUM_THREADS = old_omp)
+        }
+      },
+      add = TRUE
+    )
   }
 
   lambda_null <- numeric(n_perm)
@@ -716,7 +831,8 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 
     if (use_mc) {
       batch_vals <- unlist(parallel::mclapply(
-        batch_idx, run_one_perm, mc.cores = n_cores
+        batch_idx, run_one_perm,
+        mc.cores = n_cores
       ))
     } else {
       batch_vals <- vapply(batch_idx, run_one_perm, numeric(1))
@@ -726,11 +842,8 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     n_exceed <- n_exceed + sum(batch_vals >= lambda_obs)
     n_done <- batch_end
 
-    # Early stop: clear structure — p = 1/(n_done+1) < alpha
-    if (n_exceed == 0L && n_done >= min_for_sig) break
-    # Early stop: no structure — p = (n_exceed+1)/(n_done+1) > alpha
-    if (n_exceed > 0L && n_done >= min_for_sig &&
-        (n_exceed + 1L) / (n_done + 1L) > alpha) break
+    # Stop only once the permutations still owed cannot change the call.
+    if (.k1_settled(n_exceed, n_done, n_perm, alpha)) break
   }
 
   lambda_null <- lambda_null[seq_len(n_done)]
@@ -818,7 +931,8 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #' @examples
 #' \dontrun{
 #' hubs <- identify_module_hubs(modules, net, orthologs,
-#'                              comparison = summary$results)
+#'   comparison = summary$results
+#' )
 #' hubs[hubs$is_hub, ]
 #' }
 #'
@@ -831,16 +945,18 @@ identify_module_hubs <- function(modules, ...) {
 #' @rdname identify_module_hubs
 #' @export
 identify_module_hubs.default <- function(modules, net, orthologs = NULL,
-                                 comparison = NULL,
-                                 centrality = c("degree", "betweenness",
-                                                "eigenvector"),
-                                 top_n = NULL,
-                                 top_fraction = 0.1,
-                                 min_module_size = 3L, ...) {
+                                         comparison = NULL,
+                                         centrality = c(
+                                           "degree", "betweenness",
+                                           "eigenvector"
+                                         ),
+                                         top_n = NULL,
+                                         top_fraction = 0.1,
+                                         min_module_size = 3L, ...) {
   centrality <- match.arg(centrality)
 
   if (!is.list(modules) || is.null(modules$module_genes) ||
-        is.null(modules$graph) || is.null(modules$modules)) {
+    is.null(modules$graph) || is.null(modules$modules)) {
     stop("modules must be output from detect_modules()")
   }
   if (!is.list(net) || is.null(net$network)) {
@@ -866,9 +982,11 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   gene_conserv <- NULL
   hog_min_q <- NULL
   if (!is.null(comparison)) {
-    if (!all(c("Species1", "Species2", "hog",
-               "Species1.effect.size", "Species2.effect.size") %in%
-             names(comparison))) {
+    if (!all(c(
+      "Species1", "Species2", "hog",
+      "Species1.effect.size", "Species2.effect.size"
+    ) %in%
+      names(comparison))) {
       stop("comparison must be $results from summarize_comparison()")
     }
     # Auto-detect which column has our genes
@@ -879,12 +997,13 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 
     # Per-row geometric mean of effect sizes
     geo_eff <- sqrt(comparison$Species1.effect.size *
-                    comparison$Species2.effect.size)
+      comparison$Species2.effect.size)
 
     # Per-gene mean conservation effect (higher = more conserved)
     comp_genes <- comparison[[comp_col]]
     gene_conserv <- vapply(
-      split(geo_eff, comp_genes), mean, numeric(1), na.rm = TRUE
+      split(geo_eff, comp_genes), mean, numeric(1),
+      na.rm = TRUE
     )
 
     # Per-HOG minimum q-value (lower = more conserved)
@@ -905,7 +1024,8 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     if (!is.null(q1_col) && !is.null(q2_col)) {
       pair_q <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
       hog_min_q <- vapply(
-        split(pair_q, comparison$hog), min, numeric(1), na.rm = TRUE
+        split(pair_q, comparison$hog), min, numeric(1),
+        na.rm = TRUE
       )
     }
   }
@@ -957,15 +1077,19 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     sub_eig <- tryCatch(
       igraph::eigen_centrality(sub, weights = w)$vector,
       error = function(e) {
-        warning("eigen_centrality failed for module ", mod_id, ": ",
-                conditionMessage(e), "; using zero fallback")
+        warning(
+          "eigen_centrality failed for module ", mod_id, ": ",
+          conditionMessage(e), "; using zero fallback"
+        )
         stats::setNames(rep(0, length(genes)), genes)
       }
     )
 
     # Primary centrality for ranking/tie-breaking (tier 1)
     cent_vals <- switch(centrality,
-      degree = sub_str, betweenness = sub_btw, eigenvector = sub_eig
+      degree = sub_str,
+      betweenness = sub_btw,
+      eigenvector = sub_eig
     )
     # Alternative centrality (tier 3): betweenness if primary is degree,
     # degree otherwise — the most complementary pair
@@ -985,7 +1109,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
       mean_edge_weight = as.numeric(mean_ew),
       global_degree = as.numeric(global_str[genes]),
       rank = as.integer(rnk),
-      is_hub = FALSE,  # filled below
+      is_hub = FALSE, # filled below
       stringsAsFactors = FALSE
     )
   }
@@ -1013,7 +1137,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   }
 
   # Primary and alternative centrality column names for tie-breaking
-  primary_col <- centrality  # "degree", "betweenness", or "eigenvector"
+  primary_col <- centrality # "degree", "betweenness", or "eigenvector"
   alt_col <- if (centrality == "degree") "betweenness" else "degree"
 
   # Hub selection per module: tie-breaking cascade across all 6 tiers
@@ -1027,9 +1151,11 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     } else {
       max(1L, ceiling(top_fraction * n_mod))
     }
-    ord <- order(-result[[primary_col]][idx], -result$global_degree[idx],
-                 -result[[alt_col]][idx], -result$mean_edge_weight[idx],
-                 -result$conserv_eff[idx], result$hog_q[idx])
+    ord <- order(
+      -result[[primary_col]][idx], -result$global_degree[idx],
+      -result[[alt_col]][idx], -result$mean_edge_weight[idx],
+      -result$conserv_eff[idx], result$hog_q[idx]
+    )
     result$is_hub[idx[ord[seq_len(hub_cutoff)]]] <- TRUE
   }
 
@@ -1090,7 +1216,11 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   systematically higher and the unchanged default is slightly more
 #'   permissive.
 #' @param min_trait_fraction Minimum fraction of species (within a trait group)
-#'   where the HOG must be a hub for the group to count (default 0.5).
+#'   where the HOG must be a hub for the group to count (default 0.5). The
+#'   denominator is the size of the trait group -- every species of that
+#'   group in `hub_results` -- not just the ones carrying the HOG, so a HOG
+#'   confined to one of four annuals cannot reach 0.5 there. Lower the
+#'   threshold to admit accessory HOGs.
 #' @param correspondence_threshold Fraction of cross-trait hub pairs that must
 #'   have corresponding modules for the HOG to be classified as
 #'   `conserved_hub` rather than `rewired_hub` (default 0.5).
@@ -1101,7 +1231,9 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'     \item{classification}{Conservation category (see Classification
 #'       waterfall)}
 #'     \item{n_species_hub}{Number of species where the HOG is a hub}
-#'     \item{n_species_present}{Number of species where the HOG has genes}
+#'     \item{n_species_present}{Number of species where the HOG has genes.
+#'       Reported for context; it is not the `min_trait_fraction`
+#'       denominator.}
 #'     \item{hub_trait_groups}{Comma-separated trait groups where it qualifies
 #'       as hub (`NA` for non_hub)}
 #'     \item{n_corresponding}{Cross-trait hub pairs with corresponding modules
@@ -1127,7 +1259,8 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   ortho_AB, rownames(net_A$network), rownames(net_B$network)
 #' )
 #' corr <- list(SP_A.SP_B = module_correspondence(
-#'   mods_A, mods_B, map, sp_ref = "SP_A", sp_test = "SP_B"
+#'   mods_A, mods_B, map,
+#'   sp_ref = "SP_A", sp_test = "SP_B"
 #' ))
 #' classify_hub_conservation(hub_list, trait, module_comparisons = corr)
 #' }
@@ -1141,11 +1274,11 @@ classify_hub_conservation <- function(hub_results, ...) {
 #' @rdname classify_hub_conservation
 #' @export
 classify_hub_conservation.default <- function(hub_results, species_trait,
-                                      module_comparisons = NULL,
-                                      alpha = 0.05,
-                                      jaccard_threshold = 0.1,
-                                      min_trait_fraction = 0.5,
-                                      correspondence_threshold = 0.5, ...) {
+                                              module_comparisons = NULL,
+                                              alpha = 0.05,
+                                              jaccard_threshold = 0.1,
+                                              min_trait_fraction = 0.5,
+                                              correspondence_threshold = 0.5, ...) {
   # --- Validation ---
   if (!is.list(hub_results) || is.null(names(hub_results))) {
     stop("hub_results must be a named list keyed by species")
@@ -1158,15 +1291,19 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   }
   missing_sp <- setdiff(names(hub_results), names(species_trait))
   if (length(missing_sp) > 0) {
-    stop("species_trait missing entries for: ",
-         paste(missing_sp, collapse = ", "))
+    stop(
+      "species_trait missing entries for: ",
+      paste(missing_sp, collapse = ", ")
+    )
   }
   req_cols <- c("gene", "module", "is_hub", "hog", "degree")
   for (sp in names(hub_results)) {
     if (!is.data.frame(hub_results[[sp]]) ||
-          !all(req_cols %in% names(hub_results[[sp]]))) {
-      stop("hub_results[['", sp,
-           "']] must be output from identify_module_hubs() with orthologs")
+      !all(req_cols %in% names(hub_results[[sp]]))) {
+      stop(
+        "hub_results[['", sp,
+        "']] must be output from identify_module_hubs() with orthologs"
+      )
     }
   }
 
@@ -1187,7 +1324,9 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   tagged <- lapply(names(hub_results), function(sp) {
     hr <- hub_results[[sp]]
     hr <- hr[!is.na(hr$hog), , drop = FALSE]
-    if (nrow(hr) == 0L) return(NULL)
+    if (nrow(hr) == 0L) {
+      return(NULL)
+    }
     hr$species <- sp
     hr
   })
@@ -1202,7 +1341,21 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     max_centrality = numeric(0), best_hub_species = character(0),
     stringsAsFactors = FALSE
   )
-  if (is.null(stacked) || nrow(stacked) == 0L) return(empty)
+  if (is.null(stacked) || nrow(stacked) == 0L) {
+    return(empty)
+  }
+
+  # A species with no HOG-mapped gene still sits in the min_trait_fraction
+  # denominator, where it counts as non-hub for every HOG and depresses the
+  # whole trait group -- silently, if the caller forgot its ortholog table.
+  no_hog <- setdiff(names(hub_results), unique(stacked$species))
+  if (length(no_hog) > 0L) {
+    warning(
+      "no HOG-mapped genes in hub_results for: ",
+      paste(no_hog, collapse = ", "),
+      "; they count as non-hub in their trait group"
+    )
+  }
 
   # One row per (hog, species): is_hub (OR), hub_module, max_centrality
   hog_df <- do.call(rbind, lapply(
@@ -1227,10 +1380,17 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   rownames(hog_df) <- NULL
 
   # --- Pre-compute (hog x trait) hub fraction matrix ---
+  # The denominator is the size of the trait group, not the number of its
+  # species that carry the HOG. Dividing by the species present scores a HOG
+  # seen in one annual and a hub there as 1.0 -- the same as a hub in all
+  # four annuals -- so accessory HOGs are not comparable with core ones and
+  # sporadic_hub is unreachable for a HOG present in a single species.
   hog_df$trait <- trait_char[hog_df$species]
-  hub_frac <- tapply(hog_df$is_hub, list(hog_df$hog, hog_df$trait), mean)
-  hub_frac[is.na(hub_frac)] <- 0
-  is_hub_group <- hub_frac >= min_trait_fraction  # logical matrix
+  hub_n <- tapply(hog_df$is_hub, list(hog_df$hog, hog_df$trait), sum)
+  hub_n[is.na(hub_n)] <- 0
+  group_n <- lengths(species_by_trait)[colnames(hub_n)]
+  hub_frac <- sweep(hub_n, 2L, group_n, "/")
+  is_hub_group <- hub_frac >= min_trait_fraction # logical matrix
 
   # --- Pre-compute per-HOG aggregates ---
   hog_n_present <- tapply(hog_df$species, hog_df$hog, length)
@@ -1260,8 +1420,10 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     # is the failure this guard exists to prevent.
     nm <- names(module_comparisons)
     if (is.null(nm) || !all(nzchar(nm))) {
-      stop("module_comparisons must be a named list keyed by ",
-           "alphabetically sorted species pair (e.g. \"SP_A.SP_C\")")
+      stop(
+        "module_comparisons must be a named list keyed by ",
+        "alphabetically sorted species pair (e.g. \"SP_A.SP_C\")"
+      )
     }
     known_sp <- names(species_trait)
     valid_keys <- if (length(known_sp) >= 2L) {
@@ -1271,9 +1433,11 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     }
     bad_keys <- setdiff(nm, valid_keys)
     if (length(bad_keys) > 0L) {
-      stop("module_comparisons keys must be alphabetically sorted species ",
-           "pairs drawn from species_trait; unusable: ",
-           paste(bad_keys, collapse = ", "))
+      stop(
+        "module_comparisons keys must be alphabetically sorted species ",
+        "pairs drawn from species_trait; unusable: ",
+        paste(bad_keys, collapse = ", ")
+      )
     }
     # Orientation, when the producer recorded it. A transposed call --
     # module_correspondence(mods_B, mods_A, ...) filed under "A.B" -- passes
@@ -1294,10 +1458,12 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
         identical(k, rebuilt)
       }
       if (!ok) {
-        stop("module_comparisons[[\"", k, "\"]] was built with sp_ref = \"",
-             ref, "\"", if (!is.null(tst)) paste0(", sp_test = \"", tst, "\""),
-             "; module_sp1 must belong to the first species of the key, so ",
-             "the arguments or the key are wrong")
+        stop(
+          "module_comparisons[[\"", k, "\"]] was built with sp_ref = \"",
+          ref, "\"", if (!is.null(tst)) paste0(", sp_test = \"", tst, "\""),
+          "; module_sp1 must belong to the first species of the key, so ",
+          "the arguments or the key are wrong"
+        )
       }
     }
 
@@ -1305,14 +1471,16 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     for (k in nm) {
       pk <- module_comparisons[[k]]$pairs
       if (!is.data.frame(pk) || !all(req_corr %in% names(pk))) {
-        stop("module_comparisons[[\"", k, "\"]] must be a ",
-             "module_correspondence() result: a list with a `pairs` data ",
-             "frame carrying ", paste(req_corr, collapse = ", "))
+        stop(
+          "module_comparisons[[\"", k, "\"]] must be a ",
+          "module_correspondence() result: a list with a `pairs` data ",
+          "frame carrying ", paste(req_corr, collapse = ", ")
+        )
       }
     }
   }
 
-  corresp_lookup <- list()  # keyed by "SP_A.SP_C", values = named logical
+  corresp_lookup <- list() # keyed by "SP_A.SP_C", values = named logical
   if (!is.null(module_comparisons)) {
     for (pair_key in names(module_comparisons)) {
       pairs <- module_comparisons[[pair_key]]$pairs
@@ -1324,10 +1492,14 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 
   # O(1) module correspondence check
   check_correspondence <- function(sp_a, mod_a, sp_b, mod_b) {
-    if (length(corresp_lookup) == 0L) return(NA)
+    if (length(corresp_lookup) == 0L) {
+      return(NA)
+    }
     pair_key <- paste(sort(c(sp_a, sp_b)), collapse = ".")
     lkp <- corresp_lookup[[pair_key]]
-    if (is.null(lkp)) return(NA)
+    if (is.null(lkp)) {
+      return(NA)
+    }
     sorted <- sort(c(sp_a, sp_b))
     mod_key <- if (sp_a == sorted[1]) {
       paste(mod_a, mod_b, sep = "\x01")
@@ -1370,9 +1542,11 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
       }
       cross_pairs <- do.call(rbind, lapply(
         seq_len(ncol(pair_mat)), function(k) {
-          expand.grid(sp_a = hub_sp_by_group[[pair_mat[1, k]]],
-                      sp_b = hub_sp_by_group[[pair_mat[2, k]]],
-                      stringsAsFactors = FALSE)
+          expand.grid(
+            sp_a = hub_sp_by_group[[pair_mat[1, k]]],
+            sp_b = hub_sp_by_group[[pair_mat[2, k]]],
+            stringsAsFactors = FALSE
+          )
         }
       ))
 
@@ -1381,8 +1555,10 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
       corresp <- vapply(seq_len(n_cross_pairs), function(j) {
         mod_a <- h_df$hub_module[h_df$species == cross_pairs$sp_a[j]]
         mod_b <- h_df$hub_module[h_df$species == cross_pairs$sp_b[j]]
-        check_correspondence(cross_pairs$sp_a[j], mod_a,
-                             cross_pairs$sp_b[j], mod_b)
+        check_correspondence(
+          cross_pairs$sp_a[j], mod_a,
+          cross_pairs$sp_b[j], mod_b
+        )
       }, logical(1))
 
       if (all(is.na(corresp))) {
@@ -1392,7 +1568,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
         n_corresponding <- sum(corresp, na.rm = TRUE)
         n_available <- sum(!is.na(corresp))
         classification <- if (n_corresponding / n_available >=
-                              correspondence_threshold) {
+          correspondence_threshold) {
           "conserved_hub"
         } else {
           "rewired_hub"
@@ -1478,9 +1654,11 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 #' hubs <- characterize_hubs(hubs, mods, expr = expr_matrix)
 #'
 #' # With TF annotations
-#' tf_db <- data.frame(gene = c("AT1G01010", "AT2G02020"),
-#'                     is_tf = c(TRUE, TRUE),
-#'                     family = c("MYB", "WRKY"))
+#' tf_db <- data.frame(
+#'   gene = c("AT1G01010", "AT2G02020"),
+#'   is_tf = c(TRUE, TRUE),
+#'   family = c("MYB", "WRKY")
+#' )
 #' hubs <- characterize_hubs(hubs, mods, annotations = tf_db)
 #' }
 #'
@@ -1494,8 +1672,10 @@ characterize_hubs <- function(hub_result, modules = NULL,
   req_cols <- c("gene", "module", "degree", "global_degree", "betweenness")
   missing <- setdiff(req_cols, names(hub_result))
   if (length(missing) > 0L) {
-    stop("hub_result missing required columns: ",
-         paste(missing, collapse = ", "))
+    stop(
+      "hub_result missing required columns: ",
+      paste(missing, collapse = ", ")
+    )
   }
   if (!is.null(modules) && (!is.list(modules) || is.null(modules$modules))) {
     stop("modules must be output of detect_modules() or NULL")
@@ -1545,16 +1725,21 @@ characterize_hubs <- function(hub_result, modules = NULL,
   if (!is.null(annotations)) {
     dup_genes <- duplicated(annotations$gene)
     if (any(dup_genes)) {
-      warning("annotations contains duplicate gene entries; ",
-              "keeping first occurrence for each gene")
+      warning(
+        "annotations contains duplicate gene entries; ",
+        "keeping first occurrence for each gene"
+      )
       annotations <- annotations[!dup_genes, , drop = FALSE]
     }
     orig_order <- hub_result$gene
-    hub_result <- merge(hub_result, annotations, by = "gene",
-                        all.x = TRUE, sort = FALSE)
+    hub_result <- merge(hub_result, annotations,
+      by = "gene",
+      all.x = TRUE, sort = FALSE
+    )
     # Restore original row order
     hub_result <- hub_result[match(orig_order, hub_result$gene), ,
-                             drop = FALSE]
+      drop = FALSE
+    ]
     rownames(hub_result) <- NULL
   }
 

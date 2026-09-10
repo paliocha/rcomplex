@@ -106,3 +106,147 @@ test_that("a seeded call leaves the stream where set.seed(seed) put it", {
                            objective_function = "modularity"))
   expect_false(identical(before, get(".Random.seed", envir = globalenv())))
 })
+
+
+# ---- K = 1 stopping rule ------------------------------------------------
+# The rule these replace stopped after the first batch in every run: with
+# ceiling(1 / alpha) permutations done, zero exceedances ended the test and
+# so did one, for any alpha < 0.5. n_perm_k1 above that grid point changed
+# nothing, and one early exceedance sank a network that the full budget
+# would have called structured.
+
+test_that("a stop needs the outstanding permutations to be irrelevant", {
+  settled <- rcomplex:::.k1_settled
+
+  # one exceedance out of the first 20 still leaves p = 2/101 in reach
+  expect_false(settled(1L, 20L, 100L, 0.05))
+  expect_false(settled(4L, 20L, 100L, 0.05))
+  # five cannot: even a perfect remaining run finishes at 6/101 > 0.05
+  expect_true(settled(5L, 20L, 100L, 0.05))
+  # a clean first batch is not yet a decision either
+  expect_false(settled(0L, 20L, 100L, 0.05))
+  expect_true(settled(0L, 100L, 100L, 0.05))
+  # the decision the rule protects is the one the full budget would make
+  expect_true(settled(2L, 60L, 100L, 0.02))
+  expect_false(settled(0L, 60L, 100L, 0.02))
+})
+
+
+test_that("n_perm_k1 sets the resolution of the K = 1 p-value", {
+  skip_on_cran()
+
+  net <- make_ambiguous_net(n = 200L)
+  run <- function(np) {
+    detect_modules(net, resolution = c(0.5, 1.0, 1.5, 2.0),
+                   objective_function = "modularity", seed = 42L,
+                   test_k1 = TRUE, n_perm_k1 = np, alpha_k1 = 0.05,
+                   max_consensus_iter = 5L)$k1_test
+  }
+  k20 <- run(20L)
+  k100 <- run(100L)
+
+  expect_identical(k20$n_perm_completed, 20L)
+  expect_identical(k100$n_perm_completed, 100L)
+  expect_equal(k20$p_value, 1 / 21)
+  expect_equal(k100$p_value, 1 / 101)
+  expect_true(k100$has_structure)
+})
+
+
+test_that("the K = 1 null is optimised as hard as the observed sweep", {
+  skip_on_cran()
+
+  # A null partition found with fewer Leiden iterations than the observed
+  # one carries less structure for the same graph, so lambda_null lands
+  # low and the test leans toward calling structure that is not there.
+  seen <- new.env(parent = emptyenv())
+  seen$n_iterations <- integer(0)
+  real_leiden <- igraph::cluster_leiden
+  recorder <- function(graph, ..., n_iterations = 2L) {
+    seen$n_iterations <- c(seen$n_iterations, as.integer(n_iterations))
+    real_leiden(graph, ..., n_iterations = n_iterations)
+  }
+
+  g <- withr::with_seed(3L, igraph::sample_gnp(60L, 0.15))
+  igraph::V(g)$name <- paste0("G", seq_len(60L))
+  igraph::E(g)$weight <- withr::with_seed(
+    4L, stats::runif(igraph::ecount(g), 0.3, 1.0)
+  )
+  edge_list_0 <- igraph::as_edgelist(g, names = FALSE) - 1L
+  storage.mode(edge_list_0) <- "integer"
+  resolutions <- c(0.5, 1.0)
+  memberships <- lapply(resolutions, function(r) {
+    mem <- igraph::membership(igraph::cluster_leiden(
+      g, resolution = r, objective_function = "modularity",
+      n_iterations = 3L
+    ))
+    names(mem) <- igraph::V(g)$name
+    mem
+  })
+
+  testthat::with_mocked_bindings(
+    rcomplex:::test_community_structure(
+      g, igraph::V(g)$name, resolutions, "modularity", 3L, memberships,
+      edge_list_0, n_perm = 4L, n_cores = 1L, alpha = 0.05, seed_root = 1L
+    ),
+    cluster_leiden = recorder, .package = "igraph"
+  )
+
+  expect_gt(length(seen$n_iterations), 0L)
+  expect_identical(unique(seen$n_iterations), 3L)
+})
+
+
+# ---- consensus convergence ---------------------------------------------
+
+test_that("consensus iteration stops at a fixed point", {
+  skip_on_cran()
+
+  # This fixture holds a stable disagreement between the coarsest and the
+  # finest resolution: pairwise ARI sticks at 0.9585 from iteration 6 and
+  # never reaches 0.999, so the loop used to spend every iteration of
+  # max_consensus_iter rebuilding the partition it already had.
+  net <- make_ambiguous_net()
+  res <- seq(0.25, 2.5, by = 0.25)
+  run <- function(cap) {
+    detect_modules(net, resolution = res,
+                   objective_function = "modularity", seed = 42L,
+                   max_consensus_iter = cap, test_k1 = FALSE)
+  }
+  r_short <- run(40L)
+  r_long <- run(200L)
+
+  expect_lt(r_short$params$n_consensus_iterations, 40L)
+  expect_identical(r_short$params$n_consensus_iterations,
+                   r_long$params$n_consensus_iterations)
+  # stopping early must not move the answer
+  expect_identical(r_short$modules, r_long$modules)
+})
+
+
+test_that(".partition_id compares groupings, not Leiden's labels", {
+  pid <- rcomplex:::.partition_id
+
+  # Leiden hands back arbitrary module ids. Two sweeps that found the same
+  # grouping under different labels must compare identical, or the `settled`
+  # break in detect_modules_consensus() never fires and the loop burns every
+  # iteration of max_consensus_iter rebuilding the partition it already had.
+  expect_identical(pid(c(3, 3, 7, 7, 1)), pid(c(1, 1, 2, 2, 3)))
+  expect_identical(pid(c(9, 4, 4)), pid(c(1, 2, 2)))
+
+  # ...and it must stay injective on the grouping itself, or the loop would
+  # stop on a partition that is still moving.
+  expect_false(identical(pid(c(1, 1, 2, 2, 3)), pid(c(1, 2, 1, 2, 3))))
+  expect_false(identical(pid(c(1, 1, 2)), pid(c(1, 2, 2))))
+
+  # igraph::membership() carries vertex names; identical() is name-sensitive,
+  # so the canonical form must drop them.
+  a <- stats::setNames(c(2, 2, 5), c("g1", "g2", "g3"))
+  b <- stats::setNames(c(1, 1, 4), c("g1", "g2", "g3"))
+  expect_identical(pid(a), pid(b))
+  expect_null(names(pid(a)))
+
+  # Labels are assigned by first appearance, so the canonical form is always
+  # 1..K in order of first occurrence.
+  expect_identical(pid(c(8, 3, 8, 3, 5)), c(1L, 2L, 1L, 2L, 3L))
+})

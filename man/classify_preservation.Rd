@@ -43,10 +43,12 @@ standard deviations". Use \code{"raw"} only to reproduce older output.}
 }
 \value{
 A data frame with \code{module}, \code{species}, \code{pair_name},
-\code{classification}, \code{Zsummary}, \code{Zsummary_std}, \code{q.value}, \code{size} and
-\code{size_mapped}. \code{Zsummary_std} is the column the default
+\code{classification}, \code{Zsummary}, \code{Zsummary_std}, \code{medianRank}, \code{q.value},
+\code{size} and \code{size_mapped}. \code{Zsummary_std} is the column the default
 \code{z_scale = "standardized"} criterion is read against, so reproducing
-the call from \code{Zsummary} alone will not match.
+the call from \code{Zsummary} alone will not match. \code{medianRank} is carried
+through from \code{\link[=module_preservation]{module_preservation()}} and takes no part in the call; see
+\emph{Ordering modules} for when to read it instead.
 }
 \description{
 Turns \code{\link[=module_preservation]{module_preservation()}} output into a per-module call. The call is
@@ -71,6 +73,32 @@ are \code{NA} too. Such a module is reported \code{"untested"} rather than
 \code{"diverged"}: nothing was measured, so divergence would be a positive claim
 the data does not support. It is never called preserved on the density
 statistic alone.
+}
+
+\section{Ordering modules}{
+
+\code{Zsummary_std} decides the call, but it is not the only ordering worth
+reading. It is a Z-score, so its denominator is a permutation standard
+deviation, and that shrinks as a module grows: over 110 modules from 12
+Pooideae contrasts the null sd of \code{cor.degree} tracks mapped module size
+at Spearman -0.996 and that of \code{avg.weight} at -0.873. A large, weakly
+preserved module can therefore outrank a small, strongly preserved one.
+
+\code{medianRank} is the size-independent complement Langfelder et al. (2011)
+report next to \code{Zsummary} for exactly that reason. It ranks the observed
+\code{avg.weight} and \code{cor.degree} across the tested modules, 1 = strongest,
+and averages the two ranks; no permutation moment enters it, so module
+size cannot set its scale. Prefer \code{medianRank} when asking which modules
+are the best preserved \emph{relative to each other}, and \code{Zsummary_std} when
+asking how far from its own null any one module sits. The two are not
+redundant: on those same 12 contrasts they ordered 11\% of module pairs
+differently.
+
+\code{medianRank} ranks across the modules of \emph{one run}. Its scale is set by
+how many modules that run tested, so it is not comparable between runs --
+between the two directions of a contrast, or between contrasts in a
+\code{\link[=preservation_paired]{preservation_paired()}} table -- unless those runs tested equally many
+modules. It takes no part in the classification.
 }
 
 \examples{

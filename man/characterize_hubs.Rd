@@ -62,9 +62,11 @@ hubs <- characterize_hubs(hubs, mods)
 hubs <- characterize_hubs(hubs, mods, expr = expr_matrix)
 
 # With TF annotations
-tf_db <- data.frame(gene = c("AT1G01010", "AT2G02020"),
-                    is_tf = c(TRUE, TRUE),
-                    family = c("MYB", "WRKY"))
+tf_db <- data.frame(
+  gene = c("AT1G01010", "AT2G02020"),
+  is_tf = c(TRUE, TRUE),
+  family = c("MYB", "WRKY")
+)
 hubs <- characterize_hubs(hubs, mods, annotations = tf_db)
 }
 

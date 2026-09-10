@@ -46,8 +46,11 @@ results, used for paralog resolution.}
 }
 \value{
 A list with \code{classification} (one row per module per direction,
-carrying \code{pair_name}, \code{module}, \code{species}, \code{reference}, \code{test} and
-\code{classification}), \code{summary} (counts per contrast and direction) and \code{raw}
+carrying \code{pair_name}, \code{module}, \code{species}, \code{reference}, \code{test},
+\code{classification} and both ordering columns, \code{Zsummary_std} and
+\code{medianRank} -- the latter ranks within a direction, so it is not
+comparable across the rows of this table), \code{summary} (counts per
+contrast and direction) and \code{raw}
 (the \code{\link[=module_preservation]{module_preservation()}} results, keyed by \code{"<reference>.<test>"}).
 
 This table feeds \code{\link[=tag_permutation]{tag_permutation()}} directly: it selects the

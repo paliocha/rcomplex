@@ -412,6 +412,60 @@ test_that("classify_hub_conservation with module_comparisons detects conserved o
 })
 
 
+test_that("a species with no HOG-mapped genes is called out", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td, top_n = 1L)
+  hubs[["SP_B"]]$hog <- NA_character_
+
+  expect_warning(classify_hub_conservation(hubs, td$trait),
+                 "no HOG-mapped genes")
+})
+
+
+test_that("min_trait_fraction denominator is the trait group, not presence", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td, top_n = 1L)
+
+  # Two annual patterns that differ only in whether the HOG is also present
+  # in the second annual species. Both are a hub in one annual out of two,
+  # so both must score the same fraction; dividing by the species carrying
+  # the HOG scores the second one 1.0 and promotes it to a trait-specific
+  # hub on a single observation.
+  for (sp in names(hubs)) hubs[[sp]]$is_hub <- FALSE
+  hubs[["SP_A"]]$is_hub[hubs[["SP_A"]]$hog %in% c("HOG5", "HOG10")] <- TRUE
+  hubs[["SP_B"]] <- hubs[["SP_B"]][hubs[["SP_B"]]$hog != "HOG10", ]
+
+  res <- classify_hub_conservation(hubs, td$trait, min_trait_fraction = 0.75)
+  cls <- stats::setNames(res$classification, res$hog)
+
+  expect_equal(unname(cls[["HOG10"]]), unname(cls[["HOG5"]]))
+  expect_equal(unname(cls[["HOG10"]]), "sporadic_hub")
+  expect_true(is.na(res$hub_trait_groups[res$hog == "HOG10"]))
+  # The presence count still reports what it always did.
+  expect_equal(res$n_species_present[res$hog == "HOG10"], 3L)
+})
+
+
+test_that("min_trait_fraction counts absent species against the group", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td, top_n = 1L)
+
+  # Hub in the only annual that carries the HOG. Under the group-size
+  # denominator that is 1 of 2 annuals, which clears the 0.5 default but
+  # not 0.75; under the old presence denominator it was 1.0 either way.
+  for (sp in names(hubs)) hubs[[sp]]$is_hub <- FALSE
+  hubs[["SP_A"]]$is_hub[hubs[["SP_A"]]$hog == "HOG10"] <- TRUE
+  hubs[["SP_B"]] <- hubs[["SP_B"]][hubs[["SP_B"]]$hog != "HOG10", ]
+
+  lax <- classify_hub_conservation(hubs, td$trait, min_trait_fraction = 0.5)
+  expect_equal(lax$classification[lax$hog == "HOG10"],
+               "annual_specific_hub")
+  strict <- classify_hub_conservation(hubs, td$trait,
+                                      min_trait_fraction = 0.6)
+  expect_equal(strict$classification[strict$hog == "HOG10"], "sporadic_hub")
+})
+
+
 test_that("classify_hub_conservation min_trait_fraction works", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 1L)

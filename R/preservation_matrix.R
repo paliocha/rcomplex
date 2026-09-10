@@ -186,7 +186,7 @@ all_species_pairs <- function(species, sep = ".") {
 #' species. Everything a labelling cannot change --- which rows exist, their
 #' effect sizes, the block structure --- is captured once.
 #'
-#' Rows are partitioned by [.pmt_class_code()], the same helper the reported
+#' Rows are partitioned by `.pmt_class_code()`, the same helper the reported
 #' `$class_means` uses.
 #'
 #' @noRd

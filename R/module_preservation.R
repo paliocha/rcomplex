@@ -162,7 +162,12 @@
 #'       mixture recalibration described under `calibrate`), `q.value`
 #'       (Benjamini-Hochberg on `p.calibrated`, NOT on `p.value`),
 #'       `Z.avg.weight`, `Z.cor.degree`, `Zsummary`, `Zsummary_null_sd`,
-#'       `Zsummary_std` and `medianRank`.}
+#'       `Zsummary_std`, and `medianRank` -- the mean of the `avg.weight`
+#'       and `cor.degree` ranks across the tested modules, 1 = strongest.
+#'       No permutation moments enter it, so unlike `Zsummary` it carries no
+#'       module-size dependence; it is a rank *within one run* and so is not
+#'       comparable between runs that tested different numbers of modules.
+#'       [classify_preservation()] carries it through.}
 #'     \item{observed}{All six statistics per module, with permutation means
 #'       and standard deviations, plus `n_perm.<stat>` -- the number of
 #'       permutations each statistic was actually scored over, which can be
@@ -915,6 +920,30 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' the data does not support. It is never called preserved on the density
 #' statistic alone.
 #'
+#' @section Ordering modules:
+#' `Zsummary_std` decides the call, but it is not the only ordering worth
+#' reading. It is a Z-score, so its denominator is a permutation standard
+#' deviation, and that shrinks as a module grows: over 110 modules from 12
+#' Pooideae contrasts the null sd of `cor.degree` tracks mapped module size
+#' at Spearman -0.996 and that of `avg.weight` at -0.873. A large, weakly
+#' preserved module can therefore outrank a small, strongly preserved one.
+#'
+#' `medianRank` is the size-independent complement Langfelder et al. (2011)
+#' report next to `Zsummary` for exactly that reason. It ranks the observed
+#' `avg.weight` and `cor.degree` across the tested modules, 1 = strongest,
+#' and averages the two ranks; no permutation moment enters it, so module
+#' size cannot set its scale. Prefer `medianRank` when asking which modules
+#' are the best preserved *relative to each other*, and `Zsummary_std` when
+#' asking how far from its own null any one module sits. The two are not
+#' redundant: on those same 12 contrasts they ordered 11% of module pairs
+#' differently.
+#'
+#' `medianRank` ranks across the modules of *one run*. Its scale is set by
+#' how many modules that run tested, so it is not comparable between runs --
+#' between the two directions of a contrast, or between contrasts in a
+#' [preservation_paired()] table -- unless those runs tested equally many
+#' modules. It takes no part in the classification.
+#'
 #' @param pres Output of [module_preservation()].
 #' @param alpha Significance threshold for the combined q-value (default 0.05).
 #' @param z_conserved Cut point at or above which a significant module is
@@ -938,10 +967,12 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' @param pair_name Optional contrast label recorded in the `pair_name` column.
 #'
 #' @return A data frame with `module`, `species`, `pair_name`,
-#'   `classification`, `Zsummary`, `Zsummary_std`, `q.value`, `size` and
-#'   `size_mapped`. `Zsummary_std` is the column the default
+#'   `classification`, `Zsummary`, `Zsummary_std`, `medianRank`, `q.value`,
+#'   `size` and `size_mapped`. `Zsummary_std` is the column the default
 #'   `z_scale = "standardized"` criterion is read against, so reproducing
-#'   the call from `Zsummary` alone will not match.
+#'   the call from `Zsummary` alone will not match. `medianRank` is carried
+#'   through from [module_preservation()] and takes no part in the call; see
+#'   *Ordering modules* for when to read it instead.
 #'
 #' @examples
 #' \dontrun{
@@ -1017,6 +1048,16 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     Zsummary = p$Zsummary,
     Zsummary_std = if ("Zsummary_std" %in% names(p)) {
       p$Zsummary_std
+    } else {
+      rep(NA_real_, n)
+    },
+    # Carried, not recomputed: the ranks are over the tested modules, which
+    # is exactly this table's rows. Guarded because on a preservation object
+    # saved before medianRank existed the column is NULL, which data.frame()
+    # drops without a word -- the caller would get the silent absence this
+    # column was added to end.
+    medianRank = if ("medianRank" %in% names(p)) {
+      p$medianRank
     } else {
       rep(NA_real_, n)
     },
@@ -1164,8 +1205,11 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' @param ... Further arguments passed to [module_preservation()].
 #'
 #' @return A list with `classification` (one row per module per direction,
-#'   carrying `pair_name`, `module`, `species`, `reference`, `test` and
-#'   `classification`), `summary` (counts per contrast and direction) and `raw`
+#'   carrying `pair_name`, `module`, `species`, `reference`, `test`,
+#'   `classification` and both ordering columns, `Zsummary_std` and
+#'   `medianRank` -- the latter ranks within a direction, so it is not
+#'   comparable across the rows of this table), `summary` (counts per
+#'   contrast and direction) and `raw`
 #'   (the [module_preservation()] results, keyed by `"<reference>.<test>"`).
 #'
 #'   This table feeds [tag_permutation()] directly: it selects the

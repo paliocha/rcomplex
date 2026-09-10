@@ -383,6 +383,90 @@ test_that("classify_preservation validates its input", {
 })
 
 
+# ---- medianRank ----
+
+test_that("medianRank reaches the user through classify_preservation", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 100L, seed = 3
+  )
+  cls <- classify_preservation(pres)
+
+  expect_true("medianRank" %in% names(cls))
+  expect_equal(cls$module, pres$preservation$module)
+  expect_equal(cls$medianRank, pres$preservation$medianRank)
+})
+
+test_that("medianRank is the mean of the two observed-statistic ranks", {
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+    n_perm = 100L, seed = 3
+  )
+  p <- pres$preservation
+
+  # 1 = strongest, so the ranks run on the negated statistics.
+  rank_d <- rank(-p$avg.weight, na.last = "keep")
+  rank_c <- rank(-p$cor.degree, na.last = "keep")
+  expect_equal(p$medianRank, (rank_d + rank_c) / 2)
+  expect_gte(min(p$medianRank), 1)
+  expect_lte(max(p$medianRank), nrow(p))
+})
+
+test_that("medianRank carries no permutation moments", {
+  # The point of reporting it next to Zsummary: it is a rank of the observed
+  # statistics, so nothing about the null -- and hence nothing about the
+  # module-size-dependent null spread -- can move it. Zsummary does move.
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
+  args <- list(tm, fx$netA, fx$netB, fx$ortho, seed = 5)
+  few <- do.call(module_preservation, c(args, n_perm = 50L))
+  many <- do.call(module_preservation, c(args, n_perm = 500L))
+
+  expect_equal(few$preservation$medianRank, many$preservation$medianRank)
+  expect_false(isTRUE(all.equal(
+    few$preservation$Zsummary_std, many$preservation$Zsummary_std
+  )))
+})
+
+test_that("medianRank survives into a preservation_paired table", {
+  fx <- pres_fixture()
+  mods <- list(
+    A = true_modules(fx$netA, fx$mods),
+    B = true_modules(fx$netB, fx$mods)
+  )
+  nets <- list(A = fx$netA, B = fx$netB)
+  pairs <- data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE)
+
+  res <- preservation_paired(mods, nets, fx$ortho, pairs,
+    n_perm = 100L, seed = 1
+  )
+
+  expect_true("medianRank" %in% names(res$classification))
+  for (key in names(res$raw)) {
+    ref <- strsplit(key, ".", fixed = TRUE)[[1]][1]
+    got <- res$classification$medianRank[res$classification$reference == ref]
+    expect_equal(got, res$raw[[key]]$preservation$medianRank)
+  }
+})
+
+test_that("a preservation table without medianRank still classifies", {
+  # Objects saved before medianRank was carried through must not turn into a
+  # recycling error or a truncated data frame.
+  legacy <- list(preservation = data.frame(
+    module = c("1", "2"),
+    size = c(30L, 30L), size_mapped = c(20L, 20L),
+    Zsummary = c(15, 0.2), q.value = c(0.001, 0.9),
+    stringsAsFactors = FALSE
+  ))
+  cls <- classify_preservation(legacy)
+
+  expect_equal(nrow(cls), 2L)
+  expect_true(all(is.na(cls$medianRank)))
+})
+
+
 # ---- sensitivity: the circularity guard ----
 
 # A HOG that is multi-copy on the reference side, spanning two modules: each

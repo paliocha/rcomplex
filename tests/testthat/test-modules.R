@@ -667,8 +667,10 @@ test_that("K = 1 test accepts structure on planted partition", {
   expect_true(result$n_modules > 1)
   expect_true(!is.null(result$k1_test))
   expect_true(result$k1_test$p_value < 0.05)
-  # Early stopping: clear structure should stop at ceil(1/0.05) = 20 perms
-  expect_true(result$k1_test$n_perm_completed <= 20L)
+  # A significant call spends the whole budget: any one permutation still
+  # owed could exceed lambda_obs, so only an exhausted budget settles it
+  # (R/modules.R .k1_settled()). Early stopping is for the other direction.
+  expect_identical(result$k1_test$n_perm_completed, 100L)
   expect_equal(length(result$k1_test$lambda_null),
                result$k1_test$n_perm_completed)
 })

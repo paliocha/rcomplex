@@ -81,8 +81,9 @@ contexts in the same session.}
 
 \item{max_consensus_iter}{Maximum number of consensus iterations for
 adaptive mode (\code{consensus_threshold = NULL}). Default 10.
-Typically converges in 2--5 iterations. Ignored when
-\code{consensus_threshold} is numeric.}
+Iteration stops when the sweep reproduces its own input (a fixed
+point) or when all resolutions agree; either usually happens within
+5--15 iterations. Ignored when \code{consensus_threshold} is numeric.}
 
 \item{test_k1}{Logical. Test the null hypothesis K = 1 (no community
 structure) via permutation of the spectral norm of the excess
@@ -90,7 +91,9 @@ co-classification matrix. Default \code{TRUE}. Only used in adaptive
 consensus mode.}
 
 \item{n_perm_k1}{Number of permutations for the K = 1 test.
-Default 100.}
+Default 100. Sets both the resolution of the p-value (its floor is
+\code{1 / (n_perm_k1 + 1)}) and the power of the test; batches stop
+early only when the remaining permutations cannot change the call.}
 
 \item{alpha_k1}{Significance level for the K = 1 test.
 Default 0.05.}
@@ -150,11 +153,13 @@ Can detect both assortative and non-assortative structure.}
 \dontrun{
 # Single resolution
 mods <- detect_modules(net, method = "leiden", resolution = 1.0)
-table(mods$modules)  # module sizes
+table(mods$modules) # module sizes
 
 # Multi-resolution consensus (Jeub et al. 2018)
-mods_consensus <- detect_modules(net, resolution = c(0.5, 1.0, 2.0),
-                                 n_cores = 4L)
+mods_consensus <- detect_modules(net,
+  resolution = c(0.5, 1.0, 2.0),
+  n_cores = 4L
+)
 }
 
 }

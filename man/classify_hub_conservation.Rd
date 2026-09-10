@@ -49,7 +49,11 @@ systematically higher and the unchanged default is slightly more
 permissive.}
 
 \item{min_trait_fraction}{Minimum fraction of species (within a trait group)
-where the HOG must be a hub for the group to count (default 0.5).}
+where the HOG must be a hub for the group to count (default 0.5). The
+denominator is the size of the trait group -- every species of that
+group in \code{hub_results} -- not just the ones carrying the HOG, so a HOG
+confined to one of four annuals cannot reach 0.5 there. Lower the
+threshold to admit accessory HOGs.}
 
 \item{correspondence_threshold}{Fraction of cross-trait hub pairs that must
 have corresponding modules for the HOG to be classified as
@@ -62,7 +66,9 @@ A data frame with one row per HOG:
 \item{classification}{Conservation category (see Classification
 waterfall)}
 \item{n_species_hub}{Number of species where the HOG is a hub}
-\item{n_species_present}{Number of species where the HOG has genes}
+\item{n_species_present}{Number of species where the HOG has genes.
+Reported for context; it is not the \code{min_trait_fraction}
+denominator.}
 \item{hub_trait_groups}{Comma-separated trait groups where it qualifies
 as hub (\code{NA} for non_hub)}
 \item{n_corresponding}{Cross-trait hub pairs with corresponding modules
@@ -113,7 +119,8 @@ map <- resolve_ortholog_map(
   ortho_AB, rownames(net_A$network), rownames(net_B$network)
 )
 corr <- list(SP_A.SP_B = module_correspondence(
-  mods_A, mods_B, map, sp_ref = "SP_A", sp_test = "SP_B"
+  mods_A, mods_B, map,
+  sp_ref = "SP_A", sp_test = "SP_B"
 ))
 classify_hub_conservation(hub_list, trait, module_comparisons = corr)
 }
