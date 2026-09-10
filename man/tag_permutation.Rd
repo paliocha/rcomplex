@@ -15,7 +15,8 @@ tag_permutation(
   min_recurrence = NULL,
   statistic = c("count", "excess"),
   universe = NULL,
-  enum_max = 20L
+  enum_max = 20L,
+  seed = NULL
 )
 }
 \arguments{
@@ -125,6 +126,12 @@ case --- about a million at the default,
 which on Pooideae-sized HOG pools is tens of minutes --- so lower it
 to fall back to \code{n_perm} sampled draws when that cost is not
 worth an exact p-value. Values above 30 are refused.}
+
+\item{seed}{Integer seed for the sampled branch, or \code{NULL} (default)
+to draw from the ambient RNG stream and leave it advanced. A seed draws
+from a private stream and restores the caller's on exit, the
+package-wide contract described under \code{\link{detect_modules}}. An
+enumerated null draws nothing, so a seed changes nothing there.}
 }
 \value{
 A list with components:
@@ -274,19 +281,28 @@ support), which inflated its variance and made it anti-conservative.
 \examples{
 \dontrun{
 mod_results <- preservation_paired(modules, networks, orthologs,
-  pairs = data.frame(sp1 = c("BDIS", "HVUL"),
-                     sp2 = c("BSYL", "HJUB"),
-                     pair_name = c("Brachypodium", "Hordeum")),
-  group = c(BDIS = "annual", BSYL = "perennial",
-            HVUL = "annual", HJUB = "perennial"))
+  pairs = data.frame(
+    sp1 = c("BDIS", "HVUL"),
+    sp2 = c("BSYL", "HJUB"),
+    pair_name = c("Brachypodium", "Hordeum")
+  ),
+  group = c(
+    BDIS = "annual", BSYL = "perennial",
+    HVUL = "annual", HJUB = "perennial"
+  )
+)
 
 result <- tag_permutation(
   mod_results$classification, modules, orthologs,
-  pairs = data.frame(sp1 = c("BDIS", "HVUL"),
-                     sp2 = c("BSYL", "HJUB"),
-                     pair_name = c("Brachypodium", "Hordeum")),
-  group = c(BDIS = "annual", BSYL = "perennial",
-            HVUL = "annual", HJUB = "perennial"),
+  pairs = data.frame(
+    sp1 = c("BDIS", "HVUL"),
+    sp2 = c("BSYL", "HJUB"),
+    pair_name = c("Brachypodium", "Hordeum")
+  ),
+  group = c(
+    BDIS = "annual", BSYL = "perennial",
+    HVUL = "annual", HJUB = "perennial"
+  ),
   target_group = "annual"
 )
 result$p_value

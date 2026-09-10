@@ -58,15 +58,12 @@ the answer depends on \code{RNGkind} as well as on \code{seed}: a session that h
 set \code{RNGkind("L'Ecuyer-CMRG")} gets a different, still reproducible,
 partition. \code{RNGkind} is deliberately not pinned inside the function.
 
-With an explicit seed the global stream is left exactly where
-\code{set.seed(seed)} put it, so a seeded call does not displace the
-caller's stream by however much the clustering backend happened to
-consume. That is not the same as restoring the caller's pre-call
-state: \code{set.seed(seed)} has still happened, and anything drawn
-afterwards continues from there. With \code{seed = NULL} the stream
-advances -- by the one draw used to pick a root in consensus mode,
-and by whatever the backend consumed in single-resolution mode -- so
-consecutive unseeded calls still differ.}
+With an explicit seed the caller's stream is restored on exit, so the
+call is invisible to anything drawn afterwards: the clustering backend
+draws from a private stream started at \code{seed}. With \code{seed = NULL} the
+stream advances by exactly what was taken from it -- the one draw used
+to pick a root in consensus mode, whatever the backend consumed in
+single-resolution mode -- so consecutive unseeded calls still differ.}
 
 \item{consensus_threshold}{Threshold for consensus mode. \code{NULL}
 (default) uses iterative adaptive thresholding per Jeub et al. (2018):

@@ -54,10 +54,12 @@ test_that("zero-overlap rows are filtered by default", {
   )
 
   result <- summarize_comparison(comparison, pi0_method = "storey")
-  expect_equal(nrow(result$results), 3)  # rows 2 and 4 filtered
+  expect_equal(nrow(result$results), 3) # rows 2 and 4 filtered
 
-  result_no_filter <- summarize_comparison(comparison, pi0_method = "storey",
-                                           filter_zero = FALSE)
+  result_no_filter <- summarize_comparison(comparison,
+    pi0_method = "storey",
+    filter_zero = FALSE
+  )
   expect_equal(nrow(result_no_filter$results), 5)
 })
 
@@ -94,10 +96,14 @@ test_that("q-values are computed", {
     result$results$Species2.p.val.con))
 
   # Raw p-values should be unchanged
-  expect_equal(result$results$Species1.p.val.con,
-    c(0.001, 0.01, 0.02, 0.03, 0.04))
-  expect_equal(result$results$Species2.p.val.con,
-    c(0.002, 0.02, 0.03, 0.04, 0.05))
+  expect_equal(
+    result$results$Species1.p.val.con,
+    c(0.001, 0.01, 0.02, 0.03, 0.04)
+  )
+  expect_equal(
+    result$results$Species2.p.val.con,
+    c(0.002, 0.02, 0.03, 0.04, 0.05)
+  )
 })
 
 test_that("summary counts are correct", {
@@ -172,8 +178,10 @@ test_that("alternative='less' uses divergence p-values", {
   )
 
   # With alternative="less", should use .p.val.div for thresholding
-  result <- summarize_comparison(comparison, pi0_method = "storey",
-                                 alternative = "less", alpha = 0.05)
+  result <- summarize_comparison(comparison,
+    pi0_method = "storey",
+    alternative = "less", alpha = 0.05
+  )
 
   # filter_zero defaults to FALSE for "less"
   expect_equal(nrow(result$results), 5)
@@ -214,9 +222,11 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
   expect_equal(nrow(result$results), 3)
 
   # But can be overridden
-  result_filtered <- summarize_comparison(comparison, pi0_method = "storey",
-                                          alternative = "less",
-                                          filter_zero = TRUE)
+  result_filtered <- summarize_comparison(comparison,
+    pi0_method = "storey",
+    alternative = "less",
+    filter_zero = TRUE
+  )
   expect_equal(nrow(result_filtered$results), 1)
 })
 
@@ -241,13 +251,17 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
   expect_null(result1$edges)
 
   # With sp1/sp2: has $edges
-  result2 <- summarize_comparison(comparison, pi0_method = "storey",
-                                  sp1 = "SP_A", sp2 = "SP_B")
+  result2 <- summarize_comparison(comparison,
+    pi0_method = "storey",
+    sp1 = "SP_A", sp2 = "SP_B"
+  )
   expect_true(!is.null(result2$edges))
   expect_true(is.data.frame(result2$edges))
-  expect_true(all(c("gene1", "gene2", "species1", "species2",
-                     "hog", "q.value", "effect_size", "type") %in%
-                    names(result2$edges)))
+  expect_true(all(c(
+    "gene1", "gene2", "species1", "species2",
+    "hog", "q.value", "effect_size", "type"
+  ) %in%
+    names(result2$edges)))
   expect_true(all(result2$edges$species1 == "SP_A"))
   expect_true(all(result2$edges$species2 == "SP_B"))
 
@@ -266,10 +280,14 @@ test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
     Species1.effect.size = 3.0, Species2.effect.size = 2.5
   )
 
-  expect_error(summarize_comparison(comparison, sp1 = "SP_A"),
-               "Both sp1 and sp2")
-  expect_error(summarize_comparison(comparison, sp2 = "SP_B"),
-               "Both sp1 and sp2")
+  expect_error(
+    summarize_comparison(comparison, sp1 = "SP_A"),
+    "Both sp1 and sp2"
+  )
+  expect_error(
+    summarize_comparison(comparison, sp2 = "SP_B"),
+    "Both sp1 and sp2"
+  )
 })
 
 
@@ -284,14 +302,18 @@ test_that("summarize_comparison with sp1/sp2 returns empty $edges on zero rows",
     Species1.effect.size = c(1, 1), Species2.effect.size = c(1, 1)
   )
 
-  result <- summarize_comparison(comparison, pi0_method = "storey",
-                                 sp1 = "SP_A", sp2 = "SP_B")
+  result <- summarize_comparison(comparison,
+    pi0_method = "storey",
+    sp1 = "SP_A", sp2 = "SP_B"
+  )
   expect_equal(nrow(result$results), 0)
   expect_true(!is.null(result$edges))
   expect_equal(nrow(result$edges), 0)
-  expect_true(all(c("gene1", "gene2", "species1", "species2",
-                     "hog", "q.value", "effect_size", "type") %in%
-                    names(result$edges)))
+  expect_true(all(c(
+    "gene1", "gene2", "species1", "species2",
+    "hog", "q.value", "effect_size", "type"
+  ) %in%
+    names(result$edges)))
 })
 
 
@@ -308,10 +330,14 @@ test_that("summarize_comparison default estimates pi0 from randomized p-values",
 
   # q-values are the exact p-values' BH values scaled by the recorded pi0
   r <- s$results
-  expect_equal(r$Species1.q.val.con,
-               s$summary$pi0[["sp1"]] * p.adjust(r$Species1.p.val.con, "BH"))
-  expect_equal(r$Species2.q.val.con,
-               s$summary$pi0[["sp2"]] * p.adjust(r$Species2.p.val.con, "BH"))
+  expect_equal(
+    r$Species1.q.val.con,
+    s$summary$pi0[["sp1"]] * p.adjust(r$Species1.p.val.con, "BH")
+  )
+  expect_equal(
+    r$Species2.q.val.con,
+    s$summary$pi0[["sp2"]] * p.adjust(r$Species2.p.val.con, "BH")
+  )
 
   # reproducible under set.seed()
   set.seed(5)
@@ -321,9 +347,11 @@ test_that("summarize_comparison default estimates pi0 from randomized p-values",
   set.seed(6)
   d <- summarize_comparison(cmp, alternative = "less")
   expect_named(d$summary$pi0, c("sp1", "sp2"))
-  expect_equal(d$results$Species1.q.val.div,
-               d$summary$pi0[["sp1"]] *
-                 p.adjust(d$results$Species1.p.val.div, "BH"))
+  expect_equal(
+    d$results$Species1.q.val.div,
+    d$summary$pi0[["sp1"]] *
+      p.adjust(d$results$Species1.p.val.div, "BH")
+  )
 })
 
 
@@ -333,10 +361,14 @@ test_that("pi0_method = 'none' and 'storey' behave as documented", {
 
   none <- summarize_comparison(cmp, pi0_method = "none")
   expect_equal(unname(none$summary$pi0), c(1, 1))
-  expect_equal(none$results$Species1.q.val.con,
-               p.adjust(none$results$Species1.p.val.con, "BH"))
-  expect_equal(none$results$Species2.q.val.con,
-               p.adjust(none$results$Species2.p.val.con, "BH"))
+  expect_equal(
+    none$results$Species1.q.val.con,
+    p.adjust(none$results$Species1.p.val.con, "BH")
+  )
+  expect_equal(
+    none$results$Species2.q.val.con,
+    p.adjust(none$results$Species2.p.val.con, "BH")
+  )
 
   st <- summarize_comparison(cmp, pi0_method = "storey")
   ref <- compute_qvalues(st$results$Species1.p.val.con, pi0_method = "storey")
@@ -368,4 +400,84 @@ test_that("empty result records undefined pi0", {
   expect_equal(nrow(s$results), 0L)
   expect_named(s$summary$pi0, c("sp1", "sp2"))
   expect_true(all(is.na(s$summary$pi0)))
+})
+
+
+# ---- seed: reproducibility as a property of the call --------------------
+# The randomized-p draws behind pi0 used to come from the global RNG with
+# no way to pin them from the call site, so q-values -- and every count
+# thresholded on them downstream -- moved between runs unless the caller
+# remembered set.seed(). `seed` makes that a property of the call.
+
+test_that("summarize_comparison(seed = ) pins the randomized-p q-values", {
+  td <- make_graded_nets()
+  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+
+  # Guard against a vacuous test: the draw has to actually move pi0 on
+  # this fixture, or "different seeds differ" would prove nothing. It
+  # does -- pi0 spans about 0.73 to 0.89 over seeds 1:6.
+  pi0s <- vapply(1:6, function(s) {
+    summarize_comparison(cmp, seed = s)$summary$pi0[["sp1"]]
+  }, numeric(1))
+  expect_gt(diff(range(pi0s)), 0.05)
+
+  # same seed, two calls, identical q-values
+  a <- summarize_comparison(cmp, seed = 99)
+  expect_identical(summarize_comparison(cmp, seed = 99), a)
+
+  # a different seed moves pi0, and the q-values with it
+  b <- summarize_comparison(cmp, seed = 100)
+  expect_false(identical(a$summary$pi0, b$summary$pi0))
+  expect_false(identical(
+    a$results$Species1.q.val.con, b$results$Species1.q.val.con
+  ))
+
+  # seed = NULL reproduces the old behaviour exactly: seeding the
+  # session first and seeding the call give the same answer.
+  set.seed(99)
+  expect_identical(summarize_comparison(cmp), a)
+})
+
+
+test_that("a seed does not change the pi0-free methods' answers", {
+  td <- make_graded_nets()
+  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  # storey and none draw nothing, so a seed can only pin the stream
+  expect_identical(
+    summarize_comparison(cmp, pi0_method = "storey", seed = 3),
+    summarize_comparison(cmp, pi0_method = "storey")
+  )
+  expect_identical(
+    summarize_comparison(cmp, pi0_method = "none", seed = 3),
+    summarize_comparison(cmp, pi0_method = "none")
+  )
+})
+
+
+test_that("a seeded call restores the caller's stream", {
+  # Same contract as detect_modules() (test-module-determinism.R): a seed
+  # buys a private stream, so a later draw that has no seed of its own
+  # continues from the caller's own set.seed() rather than from wherever
+  # B rounds of pi0est() happened to leave things -- or from a position
+  # this function's seed decided.
+  td <- make_graded_nets()
+  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+
+  restored <- function(f) {
+    set.seed(7)
+    before <- get(".Random.seed", envir = globalenv())
+    f()
+    identical(before, get(".Random.seed", envir = globalenv()))
+  }
+  expect_true(restored(function() summarize_comparison(cmp, seed = 42)))
+  expect_true(restored(function() {
+    summarize_comparison(cmp, pi0_method = "storey", seed = 42)
+  }))
+
+  # seed = NULL must still advance the stream, or two unseeded calls in
+  # one session would silently share a pi0 draw.
+  set.seed(7)
+  before <- get(".Random.seed", envir = globalenv())
+  invisible(summarize_comparison(cmp))
+  expect_false(identical(before, get(".Random.seed", envir = globalenv())))
 })

@@ -458,8 +458,8 @@ all_species_pairs <- function(species, sep = ".") {
 #' @param n_perm Number of labellings to draw when a space is too large to
 #'   enumerate. `NULL` (default) means 10000 if it comes to that. Ignored, with
 #'   a message when it was supplied explicitly, for a space that is enumerated.
-#'   The sampled branch draws from the global RNG, so call
-#'   `set.seed()` beforehand for a reproducible p-value. Which
+#'   The sampled branch draws from the RNG, so pass `seed` (or call
+#'   `set.seed()` beforehand) for a reproducible p-value. Which
 #'   branch runs is decided by `enum_max` rather than by the
 #'   caller, so a design can cross into the sampled regime
 #'   without the call site changing.
@@ -474,6 +474,11 @@ all_species_pairs <- function(species, sep = ".") {
 #'   `$saturation` report `q_floor_global`, the smallest q-value a *global*
 #'   Benjamini-Hochberg correction over the whole matrix could reach,
 #'   `n_tests / (n_perm_pres + 1)`. `NULL` (default) leaves that field `NA`.
+#' @param seed Integer seed for the sampled branch, or `NULL` (default) to
+#'   draw from the ambient stream and leave it advanced. A seed draws from a
+#'   private stream and restores the caller's on exit, the package-wide
+#'   contract described under [detect_modules()]. An enumerated null draws
+#'   nothing, so a seed changes nothing there.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -541,7 +546,13 @@ preservation_matrix_test <- function(classification, group, block = NULL,
                                      exclude_within_block = TRUE,
                                      n_perm = NULL,
                                      enum_max = 50000L,
-                                     n_perm_pres = NULL) {
+                                     n_perm_pres = NULL,
+                                     seed = NULL) {
+  # Only the sampled branch draws, but the scope is opened unconditionally:
+  # enum_max decides which branch runs, so a caller cannot tell from the call
+  # site whether a seed matters. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
+
   # Captured before n_perm is defaulted: missing() reports FALSE once an
   # argument has been written to, so this cannot be asked for later.
   n_perm_supplied <- !is.null(n_perm)

@@ -50,6 +50,7 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) — SummarizedExperiment helpers |
 | `R/rcomplex-class.R` | S3 `rcomplex` container: constructor, print/summary, and a `.rcomplex` method for every pipeline generic registered in `NAMESPACE` |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
+| `R/rng.R` | `.seed_scope()` / `.seed_restore()` — the one RNG seeding contract every seeded entry point routes through |
 
 ### C++ layer (src/, RcppArmadillo + OpenMP)
 | File | Purpose |
@@ -101,7 +102,9 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `tests/testthat/test-reduce-orthogroups.R` | Paralog reduction |
 | `tests/testthat/test-se.R` | SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network) |
 | `tests/testthat/test-rcomplex-class.R` | S3 container construction, printing, method pass-through |
+| `tests/testthat/test-rng-contract.R` | The RNG seeding contract, table-driven over every seeded entry point |
 | `tests/testthat/helper-reference.R` | Pure-R reference implementations + shared net helpers (`sparse_net()`, ...) |
+| `tests/testthat/helper-rng-contract.R` | Fixtures and the seeded-entry-point table for the RNG contract test |
 | `tests/testthat/helper-clique-fixtures.R` | Shared clique test fixtures |
 
 ## Key Design Decisions
@@ -115,8 +118,11 @@ Rewired null networks from `coexpressolog_null()` are binary (`threshold = 1`, `
 ### Self-excluded urn
 The anchor gene is never its own neighbour, so it leaves the ortholog-mapped set (k) and the hypergeometric population (N - 1) in `compare_neighborhoods()`, both permutation engines, and the torch FE matrix. O(1/N) p-value shift vs canonical ComPlEx; the reported `*.p.val.con` keeps the canonical `x > 1` gate.
 
+### One RNG seeding contract
+Every exported function that consumes randomness takes `seed = NULL` and routes it through `.seed_scope()` (`R/rng.R`). The rule: **the caller's stream advances by exactly what the function drew from it, and by nothing else.** `seed = NULL` draws from the ambient stream and leaves it advanced (as `sample()` does); a seed draws from a private stream and restores the caller's on exit, byte for byte, including removing `.Random.seed` when it did not exist before. This replaced three coexisting contracts in 0.3.0 — pinning the exit state at `set.seed(seed)` (which handed a downstream unseeded draw a stream decided by the *upstream* function's seed), restoring the ambient stream, and a bare `set.seed(seed)` with no restore. Batch wrappers (`find_coexpressologs()`, `density_sweep()`, `preservation_paired()`) seed once and pass `seed = NULL` down, so their inner calls draw in sequence instead of all reusing one set of uniforms. `mclapply()` forks never propagate `.Random.seed` to the parent, so core-count reproducibility comes from `.task_seed()`, not from the ambient stream. `tests/testthat/test-rng-contract.R` enforces this table-driven over every seeded entry point and fails if a new one appears without joining the table.
+
 ### Randomized-p pi0 (pair level)
-Exact hypergeometric p-values pile up at 1 and force Storey's pi0 to 1. `summarize_comparison(pi0_method = "randomized")` (default) estimates pi0 on draws of `p.val.gt + U * p.val.eq` (exactly uniform under H0) and applies it to the exact p-values. Draws use the global RNG — `set.seed()` for reproducible q-values. HOG-level q-values stay `DiscreteQvalue::DQ(method = "Liang")` (Besag–Clifford p-values have discrete support).
+Exact hypergeometric p-values pile up at 1 and force Storey's pi0 to 1. `summarize_comparison(pi0_method = "randomized")` (default) estimates pi0 on draws of `p.val.gt + U * p.val.eq` (exactly uniform under H0) and applies it to the exact p-values. `summarize_comparison()`, `find_coexpressologs()` and `density_sweep()` take `seed` (default `NULL`) to pin those draws under the contract above. HOG-level q-values stay `DiscreteQvalue::DQ(method = "Liang")` (Besag–Clifford p-values have discrete support).
 
 ### pval_combine default "max"
 `comparison_to_edges()` / `summarize_comparison()` / `find_coexpressologs()` / `density_sweep()` combine directional q-values with `pmax` by default: both directions must be significant (reciprocal criterion of Netotea et al. 2014, the `Max.p.val` filter). `"min"` is the permissive either-direction option (pre-0.2.0 behaviour).

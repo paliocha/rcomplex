@@ -10,9 +10,13 @@ null_fx <- function(...) testthat::test_path("fixtures", "complex_py", ...)
 load_null_fixture <- local({
   cache <- NULL
   function() {
-    skip_if_not(all(file.exists(null_fx(c("ortho_pairs.tsv", "sp1_expr.tsv",
-                                          "sp2_expr.tsv")))))
-    if (!is.null(cache)) return(cache)
+    skip_if_not(all(file.exists(null_fx(c(
+      "ortho_pairs.tsv", "sp1_expr.tsv",
+      "sp2_expr.tsv"
+    )))))
+    if (!is.null(cache)) {
+      return(cache)
+    }
     read_expr <- function(file) {
       d <- read.delim(file, check.names = FALSE, stringsAsFactors = FALSE)
       x <- as.matrix(d[, -1])
@@ -48,10 +52,52 @@ test_that("coexpressolog_null requires sparse networks", {
   )
 })
 
+test_that("the seed is validated up front, and only where it must be", {
+  # Permutation b seeds with seed + b, so a seed within n_perm of the
+  # integer limit makes that sum NA and every affected worker dies inside
+  # set.seed(NA) -- an error naming neither the seed nor n_perm.
+  d <- make_cmp_nets()
+  nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
+  expect_error(
+    coexpressolog_null(nets, d$ortho,
+      n_perm = 5L, seed = .Machine$integer.max - 1L,
+      pi0_method = "none", pval_combine = "max"
+    ),
+    "at most .Machine\\$integer.max - n_perm"
+  )
+
+  # A seed that will not survive as.integer() has to be caught before the
+  # bound check: NA would slip past a comparison and reach set.seed(NA),
+  # and a length > 1 seed would error on the condition, not on the seed.
+  # Wrong length, wrong type and wrong magnitude report apart, so no
+  # message names a limit the value did not cross.
+  run_seed <- function(s) {
+    coexpressolog_null(nets, d$ortho,
+      n_perm = 5L, seed = s,
+      pi0_method = "none", pval_combine = "max"
+    )
+  }
+  expect_error(run_seed(c(1L, 2L)), "single value; got integer of length 2")
+  expect_error(run_seed("seven"), "set.seed\\(\\) accepts; got character")
+  expect_error(run_seed(NA), "set.seed\\(\\) accepts")
+  expect_error(run_seed(NA_integer_), "set.seed\\(\\) accepts")
+  # Coercion decides acceptance, not type: "7" and TRUE are legal seeds
+  # everywhere else in the package, so they have to be legal here too.
+  expect_equal(run_seed("7"), run_seed(7L))
+  expect_equal(run_seed(TRUE), run_seed(1L))
+  # Both signs overflow, and neither message may claim the value was
+  # merely too large.
+  expect_error(run_seed(3e9), "within \\+/- .Machine\\$integer.max")
+  expect_error(run_seed(3e9), "got 3e\\+09")
+  expect_error(run_seed(-3e9), "within \\+/- .Machine\\$integer.max")
+  expect_error(run_seed(-3e9), "got -3e\\+09")
+})
+
 test_that("observed conserved calls exceed the rewired null", {
   d <- load_null_fixture()
   res <- coexpressolog_null(
-    d$networks, d$ortho, n_perm = 19L, seed = 1L,
+    d$networks, d$ortho,
+    n_perm = 19L, seed = 1L,
     pval_combine = "max", pi0_method = "none"
   )
 
@@ -60,8 +106,10 @@ test_that("observed conserved calls exceed the rewired null", {
   expect_identical(res$statistic, c("sp1~sp2", "total"))
   expect_identical(
     names(res),
-    c("statistic", "observed", "null_mean", "null_sd", "null_max",
-      "fold", "p_emp")
+    c(
+      "statistic", "observed", "null_mean", "null_sd", "null_max",
+      "fold", "p_emp"
+    )
   )
 
   total <- res[res$statistic == "total", ]
@@ -74,10 +122,14 @@ test_that("observed conserved calls exceed the rewired null", {
   null_mat <- attr(res, "null")
   expect_identical(dim(null_mat), c(19L, 2L))
   expect_identical(colnames(null_mat), c("sp1~sp2", "total"))
-  expect_equal(res$null_mean, vapply(1:2, function(j) mean(null_mat[, j]),
-                                     numeric(1)))
-  expect_equal(res$null_max, vapply(1:2, function(j) max(null_mat[, j]),
-                                    numeric(1)))
+  expect_equal(res$null_mean, vapply(
+    1:2, function(j) mean(null_mat[, j]),
+    numeric(1)
+  ))
+  expect_equal(res$null_max, vapply(
+    1:2, function(j) max(null_mat[, j]),
+    numeric(1)
+  ))
 })
 
 test_that("shuffled orthologs give a non-significant null", {
@@ -86,7 +138,8 @@ test_that("shuffled orthologs give a non-significant null", {
   set.seed(99)
   ortho_shuf$Species2 <- sample(ortho_shuf$Species2)
   res <- coexpressolog_null(
-    d$networks, ortho_shuf, n_perm = 19L, seed = 1L,
+    d$networks, ortho_shuf,
+    n_perm = 19L, seed = 1L,
     pval_combine = "max", pi0_method = "none"
   )
   expect_gt(res$p_emp[res$statistic == "total"], 0.05)
@@ -96,11 +149,13 @@ test_that("n_cores = 2 reproduces the serial result", {
   skip_if(.Platform$OS.type != "unix")
   d <- load_null_fixture()
   res1 <- coexpressolog_null(
-    d$networks, d$ortho, n_perm = 5L, seed = 7L, n_cores = 1L,
+    d$networks, d$ortho,
+    n_perm = 5L, seed = 7L, n_cores = 1L,
     pval_combine = "max", pi0_method = "none"
   )
   res2 <- coexpressolog_null(
-    d$networks, d$ortho, n_perm = 5L, seed = 7L, n_cores = 2L,
+    d$networks, d$ortho,
+    n_perm = 5L, seed = 7L, n_cores = 2L,
     pval_combine = "max", pi0_method = "none"
   )
   expect_equal(res1, res2)
@@ -122,18 +177,23 @@ make_match_nets <- function() {
     }
     list(network = m, threshold = 5)
   }
-  list(networks = list(A = sparse_net(mk("A")), B = sparse_net(mk("B"))),
-       ortho = data.frame(Species1 = paste0("A", 1:8),
-                          Species2 = paste0("B", 1:8),
-                          hog = paste0("H", 1:8),
-                          stringsAsFactors = FALSE))
+  list(
+    networks = list(A = sparse_net(mk("A")), B = sparse_net(mk("B"))),
+    ortho = data.frame(
+      Species1 = paste0("A", 1:8),
+      Species2 = paste0("B", 1:8),
+      hog = paste0("H", 1:8),
+      stringsAsFactors = FALSE
+    )
+  )
 }
 
 
 test_that("null runs missing a species pair record 0 for the built-in statistic", {
   d <- make_match_nets()
   res <- coexpressolog_null(
-    d$networks, d$ortho, n_perm = 6L, seed = 1L,
+    d$networks, d$ortho,
+    n_perm = 6L, seed = 1L,
     pval_combine = "max", pi0_method = "none"
   )
   expect_identical(res$statistic, c("A~B", "total"))
@@ -147,16 +207,22 @@ test_that("null runs missing a species pair record 0 for the built-in statistic"
 test_that("a user statistic missing a name still errors", {
   d <- make_match_nets()
   per_pair <- function(edges) {
-    if (is.null(edges) || nrow(edges) == 0L) return(c(total = 0))
+    if (is.null(edges) || nrow(edges) == 0L) {
+      return(c(total = 0))
+    }
     pair <- paste(edges$species1, edges$species2, sep = "~")
-    counts <- vapply(split(edges$type == "conserved", pair), sum,
-                     numeric(1))
+    counts <- vapply(
+      split(edges$type == "conserved", pair), sum,
+      numeric(1)
+    )
     c(counts, total = sum(counts))
   }
   expect_error(
-    coexpressolog_null(d$networks, d$ortho, statistic = per_pair,
-                       n_perm = 6L, seed = 1L,
-                       pval_combine = "max", pi0_method = "none"),
+    coexpressolog_null(d$networks, d$ortho,
+      statistic = per_pair,
+      n_perm = 6L, seed = 1L,
+      pval_combine = "max", pi0_method = "none"
+    ),
     "statistic is missing"
   )
 })
@@ -168,7 +234,8 @@ test_that("the serial path restores the caller's RNG state", {
   before <- runif(5)
   set.seed(11)
   invisible(coexpressolog_null(
-    d$networks, d$ortho, n_perm = 2L, seed = 3L,
+    d$networks, d$ortho,
+    n_perm = 2L, seed = 3L,
     pval_combine = "max", pi0_method = "none"
   ))
   after <- runif(5)

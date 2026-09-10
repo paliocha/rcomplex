@@ -44,15 +44,12 @@
 #' loops, no multi-edges).
 #'
 #' Permutation \code{b} runs in a worker that calls
-#' \code{set.seed(seed + b)} first, so results are reproducible and
+#' \code{set.seed(root + b)} first, so results are reproducible and
 #' independent of \code{n_cores}. On Unix the permutations run under
-#' \code{parallel::mclapply()}; on Windows they run serially. The serial
-#' path saves and restores the caller's RNG state around the loop, so
-#' the ambient stream continues where the observed run left it. The
-#' observed run uses the
-#' ambient RNG: call \code{set.seed()} beforehand when \code{...}
-#' includes settings that draw from it (e.g. the default
-#' \code{pi0_method = "randomized"}). \code{method = "permutation"} in
+#' \code{parallel::mclapply()}; on Windows they run serially. The seed
+#' covers the observed run as well as the null runs, so \code{...}
+#' settings that draw --- the default \code{pi0_method = "randomized"},
+#' for one --- are pinned too. \code{method = "permutation"} in
 #' \code{...} is allowed but slow (a full permutation test per rewired
 #' network).
 #'
@@ -76,8 +73,20 @@
 #'   edge count of each thresholded network (default 10).
 #' @param n_cores Number of parallel workers for the permutation loop
 #'   (default 1).
-#' @param seed Integer base seed; worker \code{b} uses
-#'   \code{seed + b} (default 1).
+#' @param seed Integer base seed; worker \code{b} uses \code{seed + b}.
+#'   \code{NULL} (default) draws a base seed from the ambient RNG stream
+#'   and leaves it advanced by that one draw, so consecutive unseeded
+#'   calls give different nulls and a \code{set.seed()} in the caller's
+#'   script reproduces the whole run. With a seed the call draws from a
+#'   private stream and restores the caller's on exit --- the
+#'   package-wide contract, see \code{\link{detect_modules}}.
+#'
+#'   The default was \code{1L} before 0.3.0, which made every default
+#'   call return the same null and hid its Monte Carlo error.
+#'
+#'   A supplied seed must be at most
+#'   \code{.Machine$integer.max - n_perm}, since worker \code{b} seeds
+#'   with \code{seed + b}.
 #' @param ... Passed unchanged to \code{\link{find_coexpressologs}} for
 #'   both the observed and every null run (\code{species_pairs},
 #'   \code{method}, \code{alternative}, \code{alpha},
@@ -94,23 +103,27 @@
 #' @examples
 #' \dontrun{
 #' set.seed(1)
-#' res <- coexpressolog_null(networks, orthologs, n_perm = 100L,
-#'                           n_cores = 4L)
+#' res <- coexpressolog_null(networks, orthologs,
+#'   n_perm = 100L,
+#'   n_cores = 4L
+#' )
 #' res[res$statistic == "total", ]
 #' }
 #'
 #' @export
 coexpressolog_null <- function(networks, orthologs, statistic = NULL,
                                n_perm = 100L, swap_factor = 10L,
-                               n_cores = 1L, seed = 1L, ...) {
+                               n_cores = 1L, seed = NULL, ...) {
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
   }
   is_sparse <- vapply(networks, .net_is_sparse, logical(1))
   if (!all(is_sparse)) {
-    stop("coexpressolog_null() requires sparse networks; convert ",
-         paste(names(networks)[!is_sparse], collapse = ", "),
-         " with as_sparse_network()")
+    stop(
+      "coexpressolog_null() requires sparse networks; convert ",
+      paste(names(networks)[!is_sparse], collapse = ", "),
+      " with as_sparse_network()"
+    )
   }
   n_perm <- as.integer(n_perm)
   if (length(n_perm) != 1L || is.na(n_perm) || n_perm < 1L) {
@@ -124,6 +137,62 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     stop("statistic must be NULL or a function(edges) -> named numeric")
   }
 
+  # The base seed is drawn from the ambient stream when none was given, so
+  # the caller sees exactly one draw and consecutive unseeded calls differ.
+  # The scope covers the observed run too: with the default
+  # pi0_method = "randomized" that run draws, and leaving it outside the
+  # scope would make the observed statistic irreproducible under a seed.
+  # Worker b seeds with seed_root + b, so the root has to stay n_perm short
+  # of the integer limit: the sum would otherwise overflow to NA and every
+  # affected worker would die inside set.seed(NA). The drawn root is bounded
+  # by construction; a supplied one is checked here rather than left to fail
+  # per worker with an error naming neither the seed nor n_perm.
+  seed_max <- .Machine$integer.max - n_perm
+  if (is.null(seed)) {
+    seed_root <- sample.int(seed_max, 1L)
+  } else {
+    # Anything that will not survive as.integer() -- a double outside the
+    # integer range, a string that is not a number, NA, a vector -- has to
+    # be caught before the bound check, which would otherwise let NA
+    # through to set.seed(NA) and error on a length > 1 condition instead
+    # of on the seed.
+    #
+    # Coercion decides acceptance, and only the message is chosen by type.
+    # A rule like !is.numeric(seed) would reject seed = "7" and
+    # seed = TRUE, which set.seed() and therefore .seed_scope() accept, and
+    # would leave this the one seeded entry point in the package with its
+    # own idea of a legal seed. Wrong length, wrong type and wrong
+    # magnitude report apart, so no message names a limit the value did not
+    # cross: "at most 2147483647" is false of -3e9, which fails at the
+    # other end.
+    if (length(seed) != 1L) {
+      stop(
+        "seed must be NULL or a single value; got ", class(seed)[1L],
+        " of length ", length(seed)
+      )
+    }
+    seed_root <- suppressWarnings(as.integer(seed))
+    if (is.na(seed_root)) {
+      if (is.numeric(seed) && !is.na(seed)) {
+        stop(
+          "seed must lie within +/- .Machine$integer.max (",
+          .Machine$integer.max, "); got ", format(seed)
+        )
+      }
+      stop(
+        "seed must be NULL or a value set.seed() accepts; got ",
+        class(seed)[1L], " ", format(seed)
+      )
+    }
+    if (seed_root > seed_max) {
+      stop(
+        "seed must be at most .Machine$integer.max - n_perm (", seed_max,
+        ") because permutation b seeds with seed + b; got ", seed_root
+      )
+    }
+  }
+  .seed_scope(seed_root)
+
   observed <- statistic(find_coexpressologs(networks, orthologs, ...))
   if (!is.numeric(observed) || is.null(names(observed))) {
     stop("statistic must return a named numeric vector")
@@ -133,12 +202,16 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     a <- net$network
     a@x <- as.numeric(a@x >= net$threshold)
     a <- Matrix::drop0(a)
-    g <- igraph::graph_from_adjacency_matrix(a, mode = "undirected",
-                                             diag = FALSE)
+    g <- igraph::graph_from_adjacency_matrix(a,
+      mode = "undirected",
+      diag = FALSE
+    )
     g <- igraph::rewire(
       g,
-      igraph::keeping_degseq(loops = FALSE,
-                             niter = swap_factor * igraph::ecount(g))
+      igraph::keeping_degseq(
+        loops = FALSE,
+        niter = swap_factor * igraph::ecount(g)
+      )
     )
     a_perm <- igraph::as_adjacency_matrix(g, sparse = TRUE)
     dimnames(a_perm) <- dimnames(a)
@@ -146,61 +219,59 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
       methods::as(methods::as(a_perm, "dMatrix"), "generalMatrix"),
       "CsparseMatrix"
     )
-    modifyList(net, list(network = a_perm, threshold = 1,
-                         store_threshold = 1))
+    modifyList(net, list(
+      network = a_perm, threshold = 1,
+      store_threshold = 1
+    ))
   }
 
   one_perm <- function(b) {
-    set.seed(seed + b)
+    set.seed(seed_root + b)
     nets_perm <- lapply(networks, rewire_net)
     statistic(find_coexpressologs(nets_perm, orthologs, ...))
   }
 
+  # one_perm() calls set.seed() in the caller's session on the serial path
+  # (no fork), which is why the scope opened above covers the whole
+  # function rather than the observed run alone.
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
   if (use_mc) {
     null_list <- parallel::mclapply(seq_len(n_perm), one_perm,
-                                    mc.cores = n_cores,
-                                    mc.preschedule = FALSE)
+      mc.cores = n_cores,
+      mc.preschedule = FALSE
+    )
   } else {
-    # one_perm() calls set.seed() in the caller's session here (no fork):
-    # save/restore .Random.seed so the ambient stream continues where
-    # the observed run left it, exactly as under mclapply()
-    has_seed <- exists(".Random.seed", envir = globalenv(),
-                       inherits = FALSE)
-    old_seed <- if (has_seed) {
-      get(".Random.seed", envir = globalenv(), inherits = FALSE)
-    }
-    on.exit({
-      if (has_seed) {
-        assign(".Random.seed", old_seed, envir = globalenv())
-      } else if (exists(".Random.seed", envir = globalenv(),
-                        inherits = FALSE)) {
-        rm(".Random.seed", envir = globalenv())
-      }
-    }, add = TRUE)
     null_list <- lapply(seq_len(n_perm), one_perm)
   }
 
   errs <- which(vapply(null_list, inherits, logical(1), "try-error"))
   if (length(errs)) {
     e <- null_list[[errs[1L]]]
-    stop("permutation ", errs[1L], " failed: ",
-         conditionMessage(attr(e, "condition")))
+    stop(
+      "permutation ", errs[1L], " failed: ",
+      conditionMessage(attr(e, "condition"))
+    )
   }
   failed <- vapply(null_list, is.null, logical(1))
   if (any(failed)) {
-    stop("parallel workers returned NULL for permutations: ",
-         paste(which(failed), collapse = ", "))
+    stop(
+      "parallel workers returned NULL for permutations: ",
+      paste(which(failed), collapse = ", ")
+    )
   }
 
   nm <- names(observed)
-  null_mat <- matrix(NA_real_, nrow = n_perm, ncol = length(nm),
-                     dimnames = list(NULL, nm))
+  null_mat <- matrix(NA_real_,
+    nrow = n_perm, ncol = length(nm),
+    dimnames = list(NULL, nm)
+  )
   for (b in seq_len(n_perm)) {
     s <- null_list[[b]]
     if (!is.numeric(s) || is.null(names(s))) {
-      stop("permutation ", b,
-           " statistic did not return a named numeric vector")
+      stop(
+        "permutation ", b,
+        " statistic did not return a named numeric vector"
+      )
     }
     miss <- setdiff(nm, names(s))
     if (length(miss) > 0L) {
@@ -210,24 +281,33 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
         # observation of 0 conserved calls, not an error
         s[miss] <- 0
       } else {
-        stop("permutation ", b, " statistic is missing: ",
-             paste(miss, collapse = ", "))
+        stop(
+          "permutation ", b, " statistic is missing: ",
+          paste(miss, collapse = ", ")
+        )
       }
     }
     null_mat[b, ] <- s[nm]
   }
 
-  null_mean <- vapply(seq_along(nm), function(j) mean(null_mat[, j]),
-                      numeric(1))
-  null_sd <- vapply(seq_along(nm), function(j) stats::sd(null_mat[, j]),
-                    numeric(1))
-  null_max <- vapply(seq_along(nm), function(j) max(null_mat[, j]),
-                     numeric(1))
+  null_mean <- vapply(
+    seq_along(nm), function(j) mean(null_mat[, j]),
+    numeric(1)
+  )
+  null_sd <- vapply(
+    seq_along(nm), function(j) stats::sd(null_mat[, j]),
+    numeric(1)
+  )
+  null_max <- vapply(
+    seq_along(nm), function(j) max(null_mat[, j]),
+    numeric(1)
+  )
   p_emp <- vapply(seq_along(nm), function(j) {
     (1 + sum(null_mat[, j] >= observed[[j]])) / (n_perm + 1)
   }, numeric(1))
   fold <- ifelse(null_mean == 0, NA_real_,
-                 unname(observed) / null_mean)
+    unname(observed) / null_mean
+  )
 
   out <- data.frame(
     statistic = nm,

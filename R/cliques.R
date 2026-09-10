@@ -423,16 +423,18 @@ clique_stability <- function(edges, ...) UseMethod("clique_stability")
 
 #' @rdname clique_stability
 #' @export
-clique_stability.default <- function(edges, target_species,
-                                     species_trait = NULL,
-                                     all_species = target_species,
-                                     full_cliques = NULL,
-                                     min_species = length(target_species),
-                                     max_k = length(all_species) - 2L,
-                                     max_genes_per_sp = 10L,
-                                     jaccard_threshold = 0.8,
-                                     edge_type = "conserved", n_cores = 1L,
-                                     cost_weights = c(q = 1.0, effect = 0.0), ...) {
+clique_stability.default <- function(
+  edges, target_species,
+  species_trait = NULL,
+  all_species = target_species,
+  full_cliques = NULL,
+  min_species = length(target_species),
+  max_k = length(all_species) - 2L,
+  max_genes_per_sp = 10L,
+  jaccard_threshold = 0.8,
+  edge_type = "conserved", n_cores = 1L,
+  cost_weights = c(q = 1.0, effect = 0.0), ...
+) {
   # Validate inputs
   required_cols <- c(
     "gene1", "gene2", "species1", "species2", "hog",
@@ -568,8 +570,9 @@ clique_stability.default <- function(edges, target_species,
   sp_cols <- intersect(target_species, names(full_cliques))
   present_mat <- !is.na(full_cliques[, sp_cols, drop = FALSE])
 
-  sp_present <- apply(present_mat, 1L, \(row)
-  paste(sp_cols[row], collapse = ","))
+  sp_present <- apply(present_mat, 1L, function(row) {
+    paste(sp_cols[row], collapse = ",")
+  })
 
   if (!is.null(species_trait)) {
     trait_char <- as.character(species_trait[sp_cols])
@@ -1200,7 +1203,10 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' @param edge_type Edge type filter.
 #' @param jaccard_threshold Minimum Jaccard for clique matching (default 0.5).
 #' @param n_cores Number of parallel cores.
-#' @param seed Random seed for reproducibility.
+#' @param seed Random seed, or \code{NULL} (default) to draw from the
+#'   ambient RNG stream and leave it advanced. A seed draws from a private
+#'   stream and restores the caller's on exit, the package-wide contract
+#'   described under \code{\link{detect_modules}}.
 #' @param cost_weights Cost weights for \code{\link{find_cliques}}
 #'   (default \code{c(q = 1, effect = 0)}).
 #' @param pval_combine Directional q-value combination for the edge calls
@@ -1316,7 +1322,8 @@ clique_perturbation_test.default <- function(
     stop("noise_sd must be a non-negative scalar")
   }
 
-  if (!is.null(seed)) set.seed(seed)
+  # See .seed_scope() in R/rng.R for the package-wide contract.
+  .seed_scope(seed)
 
   if (is.null(species_pairs)) {
     species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
@@ -1459,7 +1466,10 @@ clique_perturbation_test.default <- function(
 #'   (default 0). Passed to \code{\link{find_cliques}}.
 #' @param edge_type Edge type filter.
 #' @param n_cores Number of parallel cores.
-#' @param seed Random seed for reproducibility.
+#' @param seed Random seed, or \code{NULL} (default) to draw from the
+#'   ambient RNG stream and leave it advanced. A seed draws from a private
+#'   stream and restores the caller's on exit, the package-wide contract
+#'   described under \code{\link{detect_modules}}.
 #' @param cost_weights Cost weights for \code{\link{find_cliques}}.
 #' @param edges Optional edge data frame (output of
 #'   \code{\link{find_coexpressologs}}). When provided, skips the
@@ -1564,7 +1574,8 @@ clique_intensity_test.default <- function(
     stop("orthologs must have columns: Species1, Species2, hog")
   }
 
-  if (!is.null(seed)) set.seed(seed)
+  # See .seed_scope() in R/rng.R for the package-wide contract.
+  .seed_scope(seed)
   if (is.null(species_pairs)) {
     species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
   }
@@ -1715,36 +1726,6 @@ clique_intensity_test.default <- function(
 #'   \item \strong{unclassified}: none of the above.
 #' }
 #'
-#' @section Choosing between the two clique classifiers:
-#' This function and \code{\link{classify_gene_cliques}} answer
-#' different questions; neither is deprecated in favour of the other.
-#'
-#' \code{classify_cliques()} works on the per-orthogroup \emph{species}
-#' graph. It asks which species are joined by conserved co-expression
-#' and whether that pattern respects the trait split, and it returns one
-#' row per HOG. \code{\link{find_cliques}} commits to one best gene
-#' assignment per species clique, so a multi-copy HOG still gets a
-#' single answer, and that answer is what \code{\link{clique_stability}}
-#' and \code{\link{clique_threshold_sweep}} consume -- the
-#' \code{stability_class} / \code{persistence} / \code{robust} columns
-#' exist only on this side.
-#'
-#' \code{\link{classify_gene_cliques}} works on the \emph{gene} graph
-#' built by \code{\link{gene_clique_graph}}. It asks which individual
-#' gene copies are mutually conserved, so one HOG can yield several
-#' overlapping cliques and the answer names paralogs rather than
-#' species. It applies the five-tier taxonomy of Rodriguez et al.
-#' (2026), with two explicit tolerance tiers (\code{partial_significant}
-#' for weak wiring, \code{partial_present} for a missing gene), and its
-#' \code{lineage} split is an argument rather than the trait vector, so
-#' it can be run against a clade partition the trait does not follow.
-#'
-#' Reach for \code{classify_gene_cliques()} when which copy sits in the
-#' conserved core matters, or when the published taxonomy is what has to
-#' be reported. Reach for \code{classify_cliques()} for a
-#' one-row-per-HOG trait summary wired into the stability and sweep
-#' machinery.
-#'
 #' @param edges Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
 #'   \code{effect_size}, and \code{type}. Must contain ALL edges
@@ -1798,16 +1779,6 @@ clique_intensity_test.default <- function(
 #' result <- classify_cliques(edges, target_species, species_trait)
 #' table(result$classification)
 #' }
-#'
-#' @seealso \code{\link{find_cliques}} for the species-graph backend
-#'   this wraps; \code{\link{classify_gene_cliques}} and
-#'   \code{\link{gene_clique_graph}} for the copy-level alternative
-#'   described above.
-#' @references
-#' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
-#' Comparative regulomics of wood formation across dicot and
-#' conifer trees. \emph{Nature Communications} 17(1).
-#' \doi{10.1038/s41467-026-75624-2}
 #'
 #' @param ... Additional arguments passed to the default method.
 #' @export

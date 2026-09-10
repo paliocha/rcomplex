@@ -73,11 +73,14 @@ to explore the co-expression neighborhood of a hub gene.
 }
 \examples{
 \dontrun{
-trait <- c(SP_A = "annual", SP_B = "annual",
-           SP_C = "perennial", SP_D = "perennial")
+trait <- c(
+  SP_A = "annual", SP_B = "annual",
+  SP_C = "perennial", SP_D = "perennial"
+)
 partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
-                                  species_trait = trait,
-                                  min_species = 2L, edges = edges)
+  species_trait = trait,
+  min_species = 2L, edges = edges
+)
 # Annual-only partners
 partners[partners$coexpressed_traits == "annual", ]
 }

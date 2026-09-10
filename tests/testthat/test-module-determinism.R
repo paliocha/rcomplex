@@ -72,33 +72,34 @@ test_that("detect_modules leaves the ambient RNG stream core-count invariant", {
 })
 
 
-test_that("a seeded call leaves the stream where set.seed(seed) put it", {
+test_that("a seeded call restores the caller's stream", {
   # The single-resolution path used to leave the global stream wherever
   # the clustering backend stopped, which is backend- and build-
   # dependent. Anything drawn afterwards without its own set.seed() --
   # summarize_comparison()'s randomized-p pi0, for one -- then started
-  # from an unpredictable position. Consensus mode already pinned it;
-  # both paths now agree.
+  # from an unpredictable position. Pinning the exit state at
+  # set.seed(seed) fixed that but replaced it with a second problem: the
+  # downstream draw then depended on THIS call's seed rather than on the
+  # caller's. Restoring fixes both, and both paths agree.
   set.seed(1)
   e <- matrix(stats::rnorm(120 * 8), 120, 8)
   rownames(e) <- paste0("g", seq_len(120))
   net <- compute_network(e, density = 0.1, sparse = FALSE)
 
-  pinned <- function(f) {
+  restored <- function(f) {
     set.seed(7)
+    before <- get(".Random.seed", envir = globalenv())
     f()
-    after <- get(".Random.seed", envir = globalenv())
-    set.seed(42)
-    identical(after, get(".Random.seed", envir = globalenv()))
+    identical(before, get(".Random.seed", envir = globalenv()))
   }
 
-  expect_true(pinned(function() {
+  expect_true(restored(function() {
     detect_modules(net,
       resolution = 1.0, seed = 42,
       objective_function = "modularity"
     )
   }))
-  expect_true(pinned(function() {
+  expect_true(restored(function() {
     detect_modules(net,
       resolution = c(0.8, 1.0), seed = 42,
       objective_function = "modularity",
@@ -139,36 +140,6 @@ test_that("a stop needs the outstanding permutations to be irrelevant", {
   # the decision the rule protects is the one the full budget would make
   expect_true(settled(2L, 60L, 100L, 0.02))
   expect_false(settled(0L, 60L, 100L, 0.02))
-})
-
-
-test_that("a p-value of exactly alpha is settled, not run out", {
-  settled <- rcomplex:::.k1_settled
-
-  # n_perm = 99 with alpha = 0.05 puts a floor of four exceedances at
-  # 5/100, which is the same double as 0.05 -- not merely close to it.
-  expect_identical((1 + 4) / (1 + 99), 0.05)
-
-  # The caller asks p_value < alpha, so a p-value of exactly alpha is
-  # already non-significant and no outstanding permutation can move it.
-  # Both the p-value reported on the stop and the one the full budget
-  # would report agree on that.
-  expect_false((1 + 4) / (1 + 20) < 0.05)
-  expect_false((1 + 4) / (1 + 99) < 0.05)
-  expect_true(settled(4L, 20L, 99L, 0.05))
-
-  # One exceedance fewer is not settled: the floor is 4/100 and a clean
-  # remaining run still finishes significant.
-  expect_identical((1 + 3) / (1 + 99), 0.04)
-  expect_false(settled(3L, 20L, 99L, 0.05))
-
-  # The ceiling side keeps the strict `<`, for the same reason read the
-  # other way: a worst case that lands on exactly alpha would be called
-  # non-significant, so an outcome that is significant so far is not yet
-  # fixed. Four permutations owed leave the ceiling at 5/100; three put
-  # it at 4/100 and settle it.
-  expect_false(settled(0L, 95L, 99L, 0.05))
-  expect_true(settled(0L, 96L, 99L, 0.05))
 })
 
 

@@ -14,8 +14,16 @@
 #'
 #' A failing `pi0est()` (e.g. every randomized p-value below the lambda
 #' range) counts as pi0 = 1 for that draw; a failing `qvalue()` fit falls
-#' back to pi0 = 1. Uses the global RNG: `set.seed()` before calling for a
-#' reproducible randomized pi0.
+#' back to pi0 = 1.
+#'
+#' The draws come from the global RNG and this helper takes no seed of
+#' its own: seeding is the caller's, one level up, which is what
+#' `summarize_comparison(seed = )` and `module_preservation(seed = )` do.
+#' A seed here instead of there would have to be reused across the two
+#' directional calls `summarize_comparison()` makes, giving Species1 and
+#' Species2 the same `U` draw, or be perturbed per call by some ad hoc
+#' offset. Seeding the caller keeps one seed covering every draw in the
+#' call while leaving the draws independent.
 #'
 #' @param pvals Numeric vector of p-values.
 #' @param p_rand_fn Function of no arguments returning one draw of
@@ -32,14 +40,18 @@ compute_qvalues <- function(pvals, p_rand_fn = NULL,
                             pi0_method = c("randomized", "storey", "none"),
                             B = 20L) {
   pi0_method <- match.arg(pi0_method)
-  if (length(pvals) < 2L) return(list(qvalues = pvals, pi0 = NA_real_))
+  if (length(pvals) < 2L) {
+    return(list(qvalues = pvals, pi0 = NA_real_))
+  }
 
   fit_bh <- function() qvalue::qvalue(pvals, pi0 = 1)
 
   fit <- if (pi0_method == "randomized") {
     if (!is.function(p_rand_fn)) {
-      stop("p_rand_fn must be a function returning randomized p-values ",
-           "when pi0_method = 'randomized'")
+      stop(
+        "p_rand_fn must be a function returning randomized p-values ",
+        "when pi0_method = 'randomized'"
+      )
     }
     B <- as.integer(B)
     if (length(B) != 1L || is.na(B) || B < 1L) {
@@ -103,8 +115,11 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' filtered rows. The columns `Species*.p.val.gt` /
 #' `.p.val.eq` from [compare_neighborhoods()] supply the two terms.
 #' `"storey"` estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
-#' `"none"` fixes pi0 = 1 (BH). The randomized estimate uses the global
-#' RNG: call `set.seed()` first for reproducible q-values.
+#' `"none"` fixes pi0 = 1 (BH). The randomized estimate is the only one
+#' that draws: pass `seed` to make the q-values a property of the call.
+#' With `seed = NULL` (the default) the draws come from the global RNG,
+#' so the q-values -- and every downstream call thresholded on them --
+#' move from run to run unless the caller seeded the session first.
 #'
 #' @param comparison Data frame from [compare_neighborhoods()].
 #' @param alternative Which tail to test: `"greater"` (default) for
@@ -123,6 +138,17 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   above), `"storey"` (from the exact p-values) or `"none"` (pi0 = 1,
 #'   Benjamini-Hochberg).
 #' @param B Number of randomized-p draws averaged for pi0 (default 20).
+#' @param seed Integer seed for the randomized-p draws, or \code{NULL}
+#'   (default) to draw from the global RNG. With a seed the q-values are
+#'   reproducible without the caller having to seed the session, which is
+#'   what makes every downstream count -- significant pairs, edges,
+#'   clique tiers -- reproducible too. \code{"storey"} and \code{"none"}
+#'   draw nothing, so a seed only pins the stream for them.
+#'
+#'   A seeded call draws from a private stream and restores the caller's
+#'   on exit, so it does not displace the caller by however many draws
+#'   \code{B} consumed and anything drawn afterwards continues from the
+#'   caller's own seed. Same contract as \code{\link{detect_modules}}.
 #' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
 #'   \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
 #'   directions significant -- the reciprocal criterion of Netotea et
@@ -156,8 +182,11 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'
 #' @examples
 #' \dontrun{
-#' set.seed(1)  # reproducible randomized pi0
-#' summary <- summarize_comparison(comparison, alternative = "greater")
+#' # seed pins the randomized pi0 draws, and so the q-values
+#' summary <- summarize_comparison(comparison,
+#'   alternative = "greater",
+#'   seed = 1
+#' )
 #' sig <- summary$results[summary$results$Species1.q.val.con < 0.05, ]
 #' summary$summary$gene_pairs$reciprocal
 #' summary$summary$pi0
@@ -169,10 +198,13 @@ summarize_comparison <- function(comparison,
                                  alpha = 0.05,
                                  filter_zero = NULL,
                                  sp1 = NULL, sp2 = NULL,
-                                 pi0_method = c("randomized", "storey",
-                                                "none"),
+                                 pi0_method = c(
+                                   "randomized", "storey",
+                                   "none"
+                                 ),
                                  B = 20L,
-                                 pval_combine = c("max", "min")) {
+                                 pval_combine = c("max", "min"),
+                                 seed = NULL) {
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
@@ -181,26 +213,37 @@ summarize_comparison <- function(comparison,
     stop("Both sp1 and sp2 must be provided, or neither.")
   }
 
+  # One seed covers both directional compute_qvalues() calls below, so
+  # Species1 and Species2 keep independent U draws. See .seed_scope() in
+  # R/rng.R for the package-wide contract.
+  .seed_scope(seed)
+
   if (is.null(filter_zero)) {
     filter_zero <- alternative == "greater"
   }
 
-  if (!all(c("Species1", "Species2", "hog",
-             "Species1.p.val.con", "Species2.p.val.con",
-             "Species1.p.val.div", "Species2.p.val.div",
-             "Species1.neigh.overlap",
-             "Species2.neigh.overlap") %in%
-             names(comparison))) {
+  if (!all(c(
+    "Species1", "Species2", "hog",
+    "Species1.p.val.con", "Species2.p.val.con",
+    "Species1.p.val.div", "Species2.p.val.div",
+    "Species1.neigh.overlap",
+    "Species2.neigh.overlap"
+  ) %in%
+    names(comparison))) {
     stop("comparison must be output from compare_neighborhoods()")
   }
   if (pi0_method == "randomized" &&
-      !all(c("Species1.p.val.gt", "Species1.p.val.eq",
-             "Species2.p.val.gt", "Species2.p.val.eq") %in%
-             names(comparison))) {
-    stop("pi0_method = 'randomized' needs the Species1/Species2.p.val.gt ",
-         "and .p.val.eq columns written by compare_neighborhoods() in ",
-         "rcomplex >= 0.2.0; rerun compare_neighborhoods() or use ",
-         "pi0_method = 'storey' or 'none'")
+    !all(c(
+      "Species1.p.val.gt", "Species1.p.val.eq",
+      "Species2.p.val.gt", "Species2.p.val.eq"
+    ) %in%
+      names(comparison))) {
+    stop(
+      "pi0_method = 'randomized' needs the Species1/Species2.p.val.gt ",
+      "and .p.val.eq columns written by compare_neighborhoods() in ",
+      "rcomplex >= 0.2.0; rerun compare_neighborhoods() or use ",
+      "pi0_method = 'storey' or 'none'"
+    )
   }
 
   # Select p-value columns based on alternative
@@ -238,7 +281,8 @@ summarize_comparison <- function(comparison,
         species1 = character(0), species2 = character(0),
         hog = character(0), q.value = numeric(0),
         effect_size = numeric(0), jaccard = numeric(0),
-        type = character(0))
+        type = character(0)
+      )
     }
     return(out)
   }
@@ -254,7 +298,9 @@ summarize_comparison <- function(comparison,
   q1_col <- sub("p\\.val", "q.val", sp1_col)
   q2_col <- sub("p\\.val", "q.val", sp2_col)
   rand_fn <- function(sp) {
-    if (pi0_method != "randomized") return(NULL)
+    if (pi0_method != "randomized") {
+      return(NULL)
+    }
     eq <- comparison[[paste0(sp, ".p.val.eq")]]
     base <- if (alternative == "greater") {
       comparison[[paste0(sp, ".p.val.gt")]]
@@ -304,7 +350,8 @@ summarize_comparison <- function(comparison,
 
   if (!is.null(sp1) && !is.null(sp2)) {
     out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha,
-                                     pval_combine = pval_combine)
+      pval_combine = pval_combine
+    )
   }
 
   out
@@ -357,13 +404,21 @@ adj_to_gpu <- function(net_mat, thr, dtype, device) {
   e <- .adj_edges(net_mat, thr)
   adj <- torch::torch_zeros(n, n, dtype = dtype, device = device)
   if (length(e$rows) > 0L) {
-    rows_t <- torch::torch_tensor(e$rows, dtype = torch::torch_long(),
-                                  device = device)
-    cols_t <- torch::torch_tensor(e$cols, dtype = torch::torch_long(),
-                                  device = device)
-    adj$index_put_(list(rows_t, cols_t),
-                   torch::torch_ones(length(e$rows), dtype = dtype,
-                                     device = device))
+    rows_t <- torch::torch_tensor(e$rows,
+      dtype = torch::torch_long(),
+      device = device
+    )
+    cols_t <- torch::torch_tensor(e$cols,
+      dtype = torch::torch_long(),
+      device = device
+    )
+    adj$index_put_(
+      list(rows_t, cols_t),
+      torch::torch_ones(length(e$rows),
+        dtype = dtype,
+        device = device
+      )
+    )
     rm(rows_t, cols_t)
   }
   adj
@@ -399,13 +454,21 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 
   # Ortholog indicator (n2 x n1)
   ortho <- torch::torch_zeros(n2, n1, dtype = dtype, device = device)
-  rows_t <- torch::torch_tensor(ortho_sp2_idx + 1L, dtype = torch::torch_long(),
-                                device = device)
-  cols_t <- torch::torch_tensor(ortho_sp1_idx + 1L, dtype = torch::torch_long(),
-                                device = device)
-  ortho$index_put_(list(rows_t, cols_t),
-                   torch::torch_ones(length(ortho_sp1_idx), dtype = dtype,
-                                     device = device))
+  rows_t <- torch::torch_tensor(ortho_sp2_idx + 1L,
+    dtype = torch::torch_long(),
+    device = device
+  )
+  cols_t <- torch::torch_tensor(ortho_sp1_idx + 1L,
+    dtype = torch::torch_long(),
+    device = device
+  )
+  ortho$index_put_(
+    list(rows_t, cols_t),
+    torch::torch_ones(length(ortho_sp1_idx),
+      dtype = dtype,
+      device = device
+    )
+  )
   rm(rows_t, cols_t)
 
   # Precompute neighborhood sizes (1-D vectors, negligible memory)
@@ -561,6 +624,14 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #' @param use_torch If `TRUE`, precompute the fold-enrichment matrix on GPU
 #'   via torch, then run permutations as fast table lookups. Requires the
 #'   \href{https://torch.mlverse.org/}{torch} package. Default `FALSE`.
+#' @param seed Integer seed for the permutation draws, or `NULL` (default)
+#'   to draw from the ambient RNG stream and leave it advanced. The C++
+#'   engine seeds one RNG per thread from R's stream before the parallel
+#'   region, so a seed reproduces the run at `n_cores = 1` only: above that
+#'   the OpenMP guided schedule decides which thread takes which HOG, and
+#'   the pairing of thread streams to HOGs still moves between runs. A
+#'   seeded call restores the caller's stream on exit --- the package-wide
+#'   contract, see [detect_modules()].
 #'
 #' @return A data frame with one row per HOG, ordered by p-value, with columns:
 #'   \describe{
@@ -588,7 +659,8 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #' @examples
 #' \dontrun{
 #' hog_results <- permutation_hog_test(net1, net2, comparison,
-#'                                     n_cores = 8L, use_torch = TRUE)
+#'   n_cores = 8L, use_torch = TRUE
+#' )
 #' significant <- hog_results[hog_results$q.value < 0.05, ]
 #' }
 #'
@@ -598,10 +670,15 @@ permutation_hog_test <- function(net1, net2, comparison,
                                  min_exceedances = 50L,
                                  max_permutations = 10000L,
                                  n_cores = 1L,
-                                 use_torch = FALSE) {
+                                 use_torch = FALSE,
+                                 seed = NULL) {
   alternative <- match.arg(alternative)
   min_exceedances <- as.integer(min_exceedances)
   max_permutations <- as.integer(max_permutations)
+
+  # The C++ engines seed their per-thread RNGs from R::runif, so the ambient
+  # stream is what they consume. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
 
   if (!is.list(net1) || is.null(net1$network)) {
     stop("net1 must be a network object from compute_network()")
@@ -609,19 +686,25 @@ permutation_hog_test <- function(net1, net2, comparison,
   if (!is.list(net2) || is.null(net2$network)) {
     stop("net2 must be a network object from compute_network()")
   }
-  required <- c("Species1", "Species2", "hog",
-                 "Species1.effect.size", "Species2.effect.size")
+  required <- c(
+    "Species1", "Species2", "hog",
+    "Species1.effect.size", "Species2.effect.size"
+  )
   missing_cols <- setdiff(required, names(comparison))
   if (length(missing_cols) > 0) {
-    stop("comparison missing required columns: ",
-         paste(missing_cols, collapse = ", "))
+    stop(
+      "comparison missing required columns: ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
   if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
-    stop("use_torch = TRUE requires the torch package ",
-         "(install.packages('torch'); torch::install_torch())")
+    stop(
+      "use_torch = TRUE requires the torch package ",
+      "(install.packages('torch'); torch::install_torch())"
+    )
   }
   if (use_torch && requireNamespace("torch", quietly = TRUE) &&
-      torch::backends_mps_is_available()) {
+    torch::backends_mps_is_available()) {
     mps_lossy <- vapply(list(net1, net2), function(net) {
       cm <- net$params$cor_method %||% ""
       nm <- net$params$norm_method %||% ""
@@ -629,11 +712,12 @@ permutation_hog_test <- function(net1, net2, comparison,
     }, logical(1))
     if (any(mps_lossy)) {
       warning("Input networks use Spearman + MR which can produce ",
-              "rank-swap artifacts in MPS float32. Consider recomputing ",
-              "networks with use_torch = FALSE or cor_method = 'pearson'. ",
-              "(This warning is heuristic: it checks network params, not ",
-              "whether MPS was actually used during compute_network().)",
-              call. = FALSE)
+        "rank-swap artifacts in MPS float32. Consider recomputing ",
+        "networks with use_torch = FALSE or cor_method = 'pearson'. ",
+        "(This warning is heuristic: it checks network params, not ",
+        "whether MPS was actually used during compute_network().)",
+        call. = FALSE
+      )
     }
   }
   if (nrow(comparison) == 0) {
@@ -667,7 +751,7 @@ permutation_hog_test <- function(net1, net2, comparison,
   # NA indices from missing genes would cause index_put_ failures in torch
   # and undefined behavior in C++.
   in_net <- comparison$Species1 %in% net1_genes &
-            comparison$Species2 %in% net2_genes
+    comparison$Species2 %in% net2_genes
   if (!all(in_net)) {
     n_dropped <- sum(!in_net)
     message("Dropped ", n_dropped, " ortholog pairs with genes not in networks")
@@ -702,10 +786,13 @@ permutation_hog_test <- function(net1, net2, comparison,
     )
     rm(net1_mat, net2_mat)
     .gpu_gc()
-    on.exit({
-      if (exists("combined", inherits = FALSE)) rm(combined)
-      gc()
-    }, add = TRUE)
+    on.exit(
+      {
+        if (exists("combined", inherits = FALSE)) rm(combined)
+        gc()
+      },
+      add = TRUE
+    )
     perm_result <- fe_hog_permutation_test_cpp(
       combined = combined,
       hog_sp1_list = hog_sp1_list,
@@ -749,20 +836,23 @@ permutation_hog_test <- function(net1, net2, comparison,
 
   result <- data.frame(
     hog = hog_names,
-    n_pairs    = vapply(hog_groups, length, integer(1)),
-    n_sp1      = vapply(hog_sp1_list, length, integer(1)),
-    n_sp2      = vapply(hog_sp2_list, length, integer(1)),
-    T_obs      = perm_result$T_obs,
-    n_perm     = perm_result$n_perm,
-    n_exceed   = perm_result$n_exceed,
-    mean_eff   = vapply(hog_groups, function(i) mean(eff[i]), double(1)),
-    p.value    = perm_result$p_value
+    n_pairs = vapply(hog_groups, length, integer(1)),
+    n_sp1 = vapply(hog_sp1_list, length, integer(1)),
+    n_sp2 = vapply(hog_sp2_list, length, integer(1)),
+    T_obs = perm_result$T_obs,
+    n_perm = perm_result$n_perm,
+    n_exceed = perm_result$n_exceed,
+    mean_eff = vapply(hog_groups, function(i) mean(eff[i]), double(1)),
+    p.value = perm_result$p_value
   )
   bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
 
-  result$q.value <- if (nrow(result) < 2L) result$p.value else {
+  result$q.value <- if (nrow(result) < 2L) {
+    result$p.value
+  } else {
     DiscreteQvalue::DQ(
-      result$p.value, ss = bc_support, method = "Liang"
+      result$p.value,
+      ss = bc_support, method = "Liang"
     )$q.values
   }
   result[order(result$p.value), ]

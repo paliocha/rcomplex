@@ -114,7 +114,10 @@ keep only the naive-map comparison.}
 
 \item{n_cores}{Number of OpenMP threads (default 1).}
 
-\item{seed}{Optional RNG seed. Results are independent of \code{n_cores}.}
+\item{seed}{Optional RNG seed. Results are independent of \code{n_cores}.
+\code{NULL} (default) draws from the ambient stream and leaves it advanced;
+a seed draws from a private stream and restores the caller's on exit,
+the package-wide contract described under \code{\link[=detect_modules]{detect_modules()}}.}
 }
 \value{
 A list with components:

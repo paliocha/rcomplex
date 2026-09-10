@@ -68,7 +68,10 @@ combinations of \code{target_species}.}
 
 \item{n_cores}{Number of parallel cores.}
 
-\item{seed}{Random seed for reproducibility.}
+\item{seed}{Random seed, or \code{NULL} (default) to draw from the
+ambient RNG stream and leave it advanced. A seed draws from a private
+stream and restores the caller's on exit, the package-wide contract
+described under \code{\link{detect_modules}}.}
 
 \item{cost_weights}{Cost weights for \code{\link{find_cliques}}
 (default \code{c(q = 1, effect = 0)}).}
