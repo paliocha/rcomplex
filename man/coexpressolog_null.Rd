@@ -51,7 +51,11 @@ private stream and restores the caller's on exit --- the
 package-wide contract, see \code{\link{detect_modules}}.
 
 The default was \code{1L} before 0.3.0, which made every default
-call return the same null and hid its Monte Carlo error.}
+call return the same null and hid its Monte Carlo error.
+
+A supplied seed must be at most
+\code{.Machine$integer.max - n_perm}, since worker \code{b} seeds
+with \code{seed + b}.}
 
 \item{...}{Passed unchanged to \code{\link{find_coexpressologs}} for
 both the observed and every null run (\code{species_pairs},

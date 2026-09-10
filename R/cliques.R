@@ -423,16 +423,18 @@ clique_stability <- function(edges, ...) UseMethod("clique_stability")
 
 #' @rdname clique_stability
 #' @export
-clique_stability.default <- function(edges, target_species,
-                                     species_trait = NULL,
-                                     all_species = target_species,
-                                     full_cliques = NULL,
-                                     min_species = length(target_species),
-                                     max_k = length(all_species) - 2L,
-                                     max_genes_per_sp = 10L,
-                                     jaccard_threshold = 0.8,
-                                     edge_type = "conserved", n_cores = 1L,
-                                     cost_weights = c(q = 1.0, effect = 0.0), ...) {
+clique_stability.default <- function(
+  edges, target_species,
+  species_trait = NULL,
+  all_species = target_species,
+  full_cliques = NULL,
+  min_species = length(target_species),
+  max_k = length(all_species) - 2L,
+  max_genes_per_sp = 10L,
+  jaccard_threshold = 0.8,
+  edge_type = "conserved", n_cores = 1L,
+  cost_weights = c(q = 1.0, effect = 0.0), ...
+) {
   # Validate inputs
   required_cols <- c(
     "gene1", "gene2", "species1", "species2", "hog",
@@ -568,8 +570,9 @@ clique_stability.default <- function(edges, target_species,
   sp_cols <- intersect(target_species, names(full_cliques))
   present_mat <- !is.na(full_cliques[, sp_cols, drop = FALSE])
 
-  sp_present <- apply(present_mat, 1L, \(row)
-  paste(sp_cols[row], collapse = ","))
+  sp_present <- apply(present_mat, 1L, function(row) {
+    paste(sp_cols[row], collapse = ",")
+  })
 
   if (!is.null(species_trait)) {
     trait_char <- as.character(species_trait[sp_cols])

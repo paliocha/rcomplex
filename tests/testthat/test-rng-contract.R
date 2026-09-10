@@ -17,6 +17,16 @@ ambient <- function() {
   }
 }
 
+# An entry point can appear more than once when one call site does not
+# reach all of its seeded paths, so failures name the variant too.
+case_label <- function(case) {
+  if (is.null(case$variant)) {
+    case$name
+  } else {
+    paste0(case$name, " [", case$variant, "]")
+  }
+}
+
 # Built once at file scope: every case below reuses it, and the loops run
 # each case several times.
 rng_fx <- local({
@@ -64,7 +74,7 @@ test_that("a seeded call restores the caller's ambient stream", {
     before <- ambient()
     invisible(case$call(42L))
     expect_identical(ambient(), before,
-      label = paste0(case$name, "() left the ambient stream where it was")
+      label = paste0(case_label(case), "() left the ambient stream alone")
     )
   }
 })
@@ -81,7 +91,7 @@ test_that("a seeded call with no ambient stream leaves none behind", {
     # clock-and-PID entropy into a continuation of this call's seed.
     expect_false(
       exists(".Random.seed", envir = globalenv(), inherits = FALSE),
-      label = paste0(case$name, "() created a .Random.seed")
+      label = paste0(case_label(case), "() created a .Random.seed")
     )
   }
   set.seed(1L)
@@ -96,7 +106,7 @@ test_that("a seed decides the result, the ambient stream does not", {
     set.seed(2L)
     b <- case$call(42L)
     expect_equal(a, b,
-      label = paste0(case$name, "() at seed 42 from two ambient states")
+      label = paste0(case_label(case), "() at seed 42, two ambient states")
     )
   }
 })
@@ -111,7 +121,7 @@ test_that("seed = NULL draws from the ambient stream and advances it", {
     before <- ambient()
     invisible(case$call(NULL))
     expect_false(identical(ambient(), before),
-      label = paste0(case$name, "(seed = NULL) advanced the stream")
+      label = paste0(case_label(case), "(seed = NULL) advanced the stream")
     )
 
     # And the caller's own set.seed() is what makes it reproducible.
@@ -120,7 +130,7 @@ test_that("seed = NULL draws from the ambient stream and advances it", {
     set.seed(3L)
     b <- case$call(NULL)
     expect_equal(a, b,
-      label = paste0(case$name, "(seed = NULL) under a caller's set.seed()")
+      label = paste0(case_label(case), "(NULL) under a caller's set.seed()")
     )
   }
 })

@@ -613,19 +613,21 @@ density_sweep <- function(networks, ...) UseMethod("density_sweep")
 
 #' @rdname density_sweep
 #' @export
-density_sweep.default <- function(networks, orthologs,
-                                  multipliers = seq(0.95, 1.05, by = 0.01),
-                                  method = c("permutation", "analytical"),
-                                  alternative = c("greater", "less"),
-                                  alpha = 0.05,
-                                  n_cores = 1L,
-                                  use_torch = FALSE,
-                                  min_exceedances = 50L,
-                                  max_permutations = 10000L,
-                                  species_pairs = NULL,
-                                  pi0_method = c("randomized", "storey", "none"),
-                                  pval_combine = c("max", "min"),
-                                  seed = NULL, ...) {
+density_sweep.default <- function(
+  networks, orthologs,
+  multipliers = seq(0.95, 1.05, by = 0.01),
+  method = c("permutation", "analytical"),
+  alternative = c("greater", "less"),
+  alpha = 0.05,
+  n_cores = 1L,
+  use_torch = FALSE,
+  min_exceedances = 50L,
+  max_permutations = 10000L,
+  species_pairs = NULL,
+  pi0_method = c("randomized", "storey", "none"),
+  pval_combine = c("max", "min"),
+  seed = NULL, ...
+) {
   method <- match.arg(method)
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)

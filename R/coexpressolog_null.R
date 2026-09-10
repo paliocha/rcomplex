@@ -83,6 +83,10 @@
 #'
 #'   The default was \code{1L} before 0.3.0, which made every default
 #'   call return the same null and hid its Monte Carlo error.
+#'
+#'   A supplied seed must be at most
+#'   \code{.Machine$integer.max - n_perm}, since worker \code{b} seeds
+#'   with \code{seed + b}.
 #' @param ... Passed unchanged to \code{\link{find_coexpressologs}} for
 #'   both the observed and every null run (\code{species_pairs},
 #'   \code{method}, \code{alternative}, \code{alpha},
@@ -138,12 +142,22 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   # The scope covers the observed run too: with the default
   # pi0_method = "randomized" that run draws, and leaving it outside the
   # scope would make the observed statistic irreproducible under a seed.
-  # The draw stops n_perm short of the integer limit: worker b seeds with
-  # seed_root + b, and an integer overflow there would give set.seed(NA).
+  # Worker b seeds with seed_root + b, so the root has to stay n_perm short
+  # of the integer limit: the sum would otherwise overflow to NA and every
+  # affected worker would die inside set.seed(NA). The drawn root is bounded
+  # by construction; a supplied one is checked here rather than left to fail
+  # per worker with an error naming neither the seed nor n_perm.
+  seed_max <- .Machine$integer.max - n_perm
   seed_root <- if (is.null(seed)) {
-    sample.int(.Machine$integer.max - n_perm, 1L)
+    sample.int(seed_max, 1L)
   } else {
     as.integer(seed)
+  }
+  if (!is.na(seed_root) && seed_root > seed_max) {
+    stop(
+      "seed must be at most .Machine$integer.max - n_perm (", seed_max,
+      ") because permutation b seeds with seed + b; got ", seed_root
+    )
   }
   .seed_scope(seed_root)
 

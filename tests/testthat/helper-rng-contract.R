@@ -200,6 +200,7 @@ rng_contract_cases <- function(fx) {
     ),
     list(
       name = "coexpressolog_null",
+      variant = "pi0 none",
       call = function(seed) {
         coexpressolog_null(sparse_nets, td$ortho,
           n_perm = 2L, swap_factor = 1L, seed = seed,
@@ -208,10 +209,39 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "coexpressolog_null",
+      variant = "pi0 randomized",
+      # The scope covers the observed run, not just the permutation loop.
+      # Under pi0_method = "none" the observed run draws nothing, so that
+      # is the only case that would notice the scope sliding back below it.
+      call = function(seed) {
+        coexpressolog_null(sparse_nets, td$ortho,
+          n_perm = 2L, swap_factor = 1L, seed = seed,
+          pi0_method = "randomized", pval_combine = "max"
+        )
+      }
+    ),
+    list(
       name = "detect_modules.default",
+      variant = "single resolution",
       call = function(seed) {
         detect_modules(mf$net_a,
           resolution = 1.0, objective_function = "modularity", seed = seed
+        )$modules
+      }
+    ),
+    list(
+      name = "detect_modules.default",
+      variant = "consensus",
+      # The consensus branch returns before the .seed_scope() in
+      # detect_modules.default() and carries its own inside
+      # detect_modules_consensus(), so the source grep cannot see it and
+      # the single-resolution case never reaches it.
+      call = function(seed) {
+        detect_modules(mf$net_a,
+          resolution = c(0.8, 1.0), objective_function = "modularity",
+          n_iterations = 1L, max_consensus_iter = 1L, test_k1 = FALSE,
+          seed = seed
         )$modules
       }
     ),
