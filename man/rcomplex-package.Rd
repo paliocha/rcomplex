@@ -35,7 +35,16 @@ preservation}
 \item{\code{\link[=clique_stability]{clique_stability()}}}{Leave-k-out jackknife stability}
 \item{\code{\link[=clique_persistence]{clique_persistence()}}}{Co-expressolog persistence scores}
 \item{\code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}}{Threshold sweep (convenience wrapper)}
-\item{\code{\link[=classify_cliques]{classify_cliques()}}}{HOG classification (convenience wrapper)}
+\item{\code{\link[=classify_cliques]{classify_cliques()}}}{HOG classification on the species graph
+(convenience wrapper): one row per HOG, trait-aware, and the input
+the stability and sweep rankings consume}
+\item{\code{\link[=gene_clique_graph]{gene_clique_graph()}}}{Maximal cliques of the per-orthogroup
+gene graph, one row per clique member}
+\item{\code{\link[=classify_gene_cliques]{classify_gene_cliques()}}}{Five-tier gene-clique taxonomy
+(Rodriguez et al. 2026): copy-level rather than HOG-level, so use
+it when which paralog sits in the conserved core matters, or when
+that published taxonomy has to be reported. Neither it nor
+\code{\link[=classify_cliques]{classify_cliques()}} replaces the other}
 \item{\code{\link[=characterize_hubs]{characterize_hubs()}}}{Regulatory potential metrics for hub genes}
 \item{\code{\link[=tag_permutation]{tag_permutation()}}}{Permutation test for trait-specific module recurrence}
 }

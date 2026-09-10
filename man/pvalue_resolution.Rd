@@ -23,9 +23,12 @@ An object of class \code{"pvalue_resolution"}: a list with
 the same relative tolerance as \code{n_at_min} so the two agree.}
 \item{min}{The observed minimum.}
 \item{n_at_min}{How many values are tied at that minimum.}
-\item{n_at_one}{How many values are at or above 1, within
-tolerance. Values above 1 are invalid input and are counted
-here rather than silently dropped.}
+\item{n_at_one}{How many values sit at 1, counted one-sided so the
+tolerance pulls in values a few last bits below 1. A value above
+1 cannot reach this count: \code{p} is required to lie in \verb{[0, 1]} and
+such a vector is rejected. The one-sided spelling is there to
+match \code{preservation_matrix_test()}'s \verb{$saturation}, which applies
+no such validation and does count invalid input.}
 \item{n_perm, floor}{The supplied \code{n_perm} and the implied floor
 \code{1 / (n_perm + 1)}; both \code{NULL}/\code{NA} when \code{n_perm} was not given.}
 \item{floor_status}{\code{"at"}, \code{"above"} or \code{"below"} -- where the

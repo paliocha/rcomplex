@@ -143,6 +143,27 @@ test_that("values at 1 are counted with the same tolerance", {
 })
 
 
+test_that("the tie tolerance comes from the shared helper", {
+  # The constant used to be written out here as well as in .tie_tol(),
+  # so the two had to be kept in step by hand. Pin the width of the
+  # n_at_one window against the helper: a change to .tie_tol() must move
+  # this function's counts along with preservation_matrix_test()'s.
+  tol <- rcomplex:::.tie_tol()
+
+  expect_identical(pvalue_resolution(c(0.5, 1, 1 - tol / 2))$n_at_one, 2L)
+  expect_identical(pvalue_resolution(c(0.5, 1, 1 - tol * 2))$n_at_one, 1L)
+})
+
+
+test_that("a value above 1 is rejected, never counted at 1", {
+  # The @return text for n_at_one used to promise that values above 1
+  # are counted here rather than dropped. They cannot be: validation
+  # refuses the vector first. Only preservation_matrix_test(), which
+  # does not validate, can report one.
+  expect_error(pvalue_resolution(c(0.5, 1.0000001)), "\\[0, 1\\]")
+})
+
+
 test_that("the floor comparison is relative, not absolute", {
   # 1.001e-6 is a thousandth above the 1/1000001 floor -- a mile away in
   # relative terms, but only 1e-9 in absolute ones, well inside

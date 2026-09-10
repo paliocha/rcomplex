@@ -2,9 +2,12 @@
 % Please edit documentation in R/clique_gene_graph.R
 \name{classify_gene_cliques}
 \alias{classify_gene_cliques}
+\alias{classify_gene_cliques.default}
 \title{Classify gene-graph cliques into conservation tiers}
 \usage{
-classify_gene_cliques(
+classify_gene_cliques(cliques, ...)
+
+\method{classify_gene_cliques}{default}(
   cliques,
   edges,
   species,
@@ -12,7 +15,8 @@ classify_gene_cliques(
   alpha_call = 0.1,
   alpha_graph = 0.9,
   max_gap = 1L,
-  cross_max = NULL
+  cross_max = NULL,
+  ...
 )
 }
 \arguments{
@@ -25,6 +29,8 @@ collide on a \code{clique_id} are refused where the collision is
 detectable; detection is not complete, so give each
 \code{\link[=gene_clique_graph]{gene_clique_graph()}} run a distinct \code{id_prefix} rather than
 relying on it.}
+
+\item{...}{Additional arguments passed to the default method.}
 
 \item{edges}{The full, unfiltered co-expressolog table. It must not
 be pre-filtered on \code{q.value}: the gap tier needs to see rows that

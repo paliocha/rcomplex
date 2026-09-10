@@ -174,6 +174,7 @@ The HOG-level q-values determine which edges are co-expressologs
 (conserved co-expression relationships):
 
 ```{r comparison}
+set.seed(1)
 n_cores <- min(4L, parallel::detectCores(logical = FALSE))
 
 edges <- find_coexpressologs(networks, orthologs,
@@ -183,15 +184,32 @@ cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
     sum(edges$type == "ns"), "non-significant\n")
 ```
 
+The permutation engine draws its gene-identity permutations from the
+global RNG, so the seed above pins the HOG q-values -- but only at
+`n_cores = 1`. Above one core the R seed is used to seed one RNG per
+worker thread, and the number of threads partitions the stream
+differently, so the conserved-edge count still drifts by a few tenths
+of a percent between runs on different machines. Set `n_cores = 1L` if
+the permutation numbers must be bit-reproducible.
+
 For quick exploration without GPU, the `"analytical"` method uses
 pair-level Storey q-values (less statistically rigorous for multi-copy
 HOGs, but much faster). Since v0.2.0 its default `pi0_method =
 "randomized"` estimates the null proportion pi0 from randomized
 p-values drawn from the global RNG, so call `set.seed()` first for
-reproducible q-values:
+reproducible q-values.
+
+The seed is not cosmetic here. `edges_analytical` is also the input to
+the gene-graph taxonomy in section 6, and the randomized-p draw shifts
+every q-value by a small amount, which moves a handful of edges across
+`alpha_graph` and changes the tier counts: on this dataset
+`complete_conserved` holds at 391 across seeds, but
+`partial_significant` and `unclassified` move by a few cliques. Without
+a seed those two numbers are not reproducible from one knit to the
+next:
 
 ```{r analytical-edges}
-set.seed(42)
+set.seed(1)
 edges_analytical <- find_coexpressologs(networks, orthologs,
   method = "analytical")
 cat("Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n")
@@ -841,8 +859,9 @@ five-tier taxonomy. Its two tolerance tiers cover different kinds of gap:
 `partial_significant` admits an edge to the graph at a loose threshold but
 counts it as evidence only at the strict one (weak wiring), while
 `partial_present` accepts a fully significant clique that is one species
-short (a missing gene). Neither is run here --- the waterfall in section 6
-uses the species-graph cliques throughout.
+short (a missing gene). Section 6 runs both backends: the species-graph
+waterfall first, then the gene-graph taxonomy on the same data, with
+guidance on which one answers which question.
 
 Using edges from the baseline density level, we find cliques and
 test their structural stability via leave-k-out jackknife. The
@@ -1022,6 +1041,87 @@ show_classification(result, "complete", show_cols,
 ```
 
 ###
+
+### The gene-graph taxonomy: which classifier to reach for
+
+`classify_cliques()` above and `classify_gene_cliques()` below answer
+different questions, and neither is deprecated in favour of the other.
+
+`classify_cliques()` works on the *species* graph. It asks, per HOG,
+which species are joined by conserved co-expression and whether that
+pattern respects the trait split, and it returns one row per HOG.
+Because `find_cliques()` commits to one best gene assignment per
+species clique, a multi-copy HOG still gets a single answer, and that
+answer is what `clique_stability()` and `clique_threshold_sweep()`
+consume -- the robustness ranking earlier in this section only exists
+on this side.
+
+`classify_gene_cliques()` works on the *gene* graph built by
+`gene_clique_graph()`. It asks which individual gene copies are
+mutually conserved, so one HOG can produce several overlapping cliques
+and the answer names paralogs rather than species. It applies the
+five-tier taxonomy of Rodriguez *et al.* (2026) with two explicit
+tolerance tiers, and its lineage split is an argument rather than the
+trait vector, so it can be run against a clade partition the trait does
+not follow. Reach for it when which copy sits in the conserved core
+matters, or when the published taxonomy is what you need to report;
+reach for `classify_cliques()` for a one-row-per-HOG trait summary
+wired into the stability and sweep machinery.
+
+The gene graph below is built from `edges_analytical`, not from the
+permutation `edges`. The tolerance tiers need q-values that reach up to
+`alpha_graph`, and the Besag--Clifford permutation q-values on this
+dataset stop just above 0.4 -- adaptive stopping never lets them climb
+higher -- so a graph at 0.9 would be the *complete* ortholog graph.
+That is not a corner case: enumerating it here produces roughly 13.7
+million clique-member rows and leaves `partial_significant` with
+nothing to relax against. The analytical q-values run up to 0.98, so
+the 0.9 graph is a genuine relaxation of the 0.1 calling threshold:
+
+```{r gene-cliques}
+gene_cliques <- gene_clique_graph(edges_analytical, min_size = 3L,
+                                  alpha_graph = 0.9)
+
+gene_tiers <- classify_gene_cliques(gene_cliques, edges_analytical,
+                                    species, lineage = trait_vec,
+                                    alpha_call = 0.1, alpha_graph = 0.9)
+
+gene_tiers |>
+  count(classification) |>
+  show_table(pageLength = 6, caption = "Gene-clique tiers")
+```
+
+`alpha_call = 0.1` is the function default and is looser than the
+`alpha = 0.05` used to call edges conserved in section 2, so these
+tiers are not a subset of the `type == "conserved"` rows.
+
+One permissive run is enough on this dataset: every clique the 0.1
+graph produces is re-found in the 0.9 graph, so row-binding a strict
+run only duplicates it (`complete_conserved` goes from 391 to exactly
+782). That is not guaranteed in general -- a clique maximal at the
+calling threshold can be absorbed into a larger one at the loose
+threshold -- so combine both runs, each with its own `id_prefix`, when
+the strict-graph cliques matter in their own right.
+
+`lineage_specific` and `differentiated` come back empty under
+`lineage = trait_vec`, and both absences are informative rather than a
+missing argument. `lineage_specific` would need a clique covering one
+entire life-cycle group with every species outside it *untestable*
+against the clique; a species that was compared and came back
+non-significant blocks the tier, and here every species pair is tested.
+`differentiated` would need each life-cycle group fully significant
+within itself while at most `cross_max` = 9 of the 16 cross-trait pairs
+are significant, which no clique on this dataset satisfies.
+
+`hog_class` collapses the per-clique tiers back to one row per HOG by
+the same precedence, which is the level the published scripts report:
+
+```{r gene-cliques-hog}
+gene_tiers |>
+  distinct(hog, hog_class) |>
+  count(hog_class) |>
+  show_table(pageLength = 6, caption = "Gene-clique tiers per HOG")
+```
 
 ### Clique robustness diagnostics
 

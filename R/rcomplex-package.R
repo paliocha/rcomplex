@@ -29,7 +29,16 @@
 #'   \item{[clique_stability()]}{Leave-k-out jackknife stability}
 #'   \item{[clique_persistence()]}{Co-expressolog persistence scores}
 #'   \item{[clique_threshold_sweep()]}{Threshold sweep (convenience wrapper)}
-#'   \item{[classify_cliques()]}{HOG classification (convenience wrapper)}
+#'   \item{[classify_cliques()]}{HOG classification on the species graph
+#'     (convenience wrapper): one row per HOG, trait-aware, and the input
+#'     the stability and sweep rankings consume}
+#'   \item{[gene_clique_graph()]}{Maximal cliques of the per-orthogroup
+#'     gene graph, one row per clique member}
+#'   \item{[classify_gene_cliques()]}{Five-tier gene-clique taxonomy
+#'     (Rodriguez et al. 2026): copy-level rather than HOG-level, so use
+#'     it when which paralog sits in the conserved core matters, or when
+#'     that published taxonomy has to be reported. Neither it nor
+#'     [classify_cliques()] replaces the other}
 #'   \item{[characterize_hubs()]}{Regulatory potential metrics for hub genes}
 #'   \item{[tag_permutation()]}{Permutation test for trait-specific module recurrence}
 #' }

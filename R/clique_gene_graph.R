@@ -216,9 +216,15 @@
 #' Comparative regulomics of wood formation across dicot and
 #' conifer trees. \emph{Nature Communications} 17(1).
 #' \doi{10.1038/s41467-026-75624-2}
+#' @param ... Additional arguments passed to the default method.
 #' @export
-gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
-                              id_prefix = "") {
+gene_clique_graph <- function(edges, ...) UseMethod("gene_clique_graph")
+
+#' @rdname gene_clique_graph
+#' @export
+gene_clique_graph.default <- function(edges, min_size = 3L,
+                                      alpha_graph = 0.1,
+                                      id_prefix = "", ...) {
   required <- c(
     "gene1", "gene2", "species1", "species2", "hog",
     "q.value"
@@ -559,11 +565,18 @@ gene_clique_graph <- function(edges, min_size = 3L, alpha_graph = 0.1,
 #' Comparative regulomics of wood formation across dicot and
 #' conifer trees. \emph{Nature Communications} 17(1).
 #' \doi{10.1038/s41467-026-75624-2}
+#' @param ... Additional arguments passed to the default method.
 #' @export
-classify_gene_cliques <- function(cliques, edges, species,
-                                  lineage = NULL, alpha_call = 0.1,
-                                  alpha_graph = 0.9, max_gap = 1L,
-                                  cross_max = NULL) {
+classify_gene_cliques <- function(cliques, ...) {
+  UseMethod("classify_gene_cliques")
+}
+
+#' @rdname classify_gene_cliques
+#' @export
+classify_gene_cliques.default <- function(cliques, edges, species,
+                                          lineage = NULL, alpha_call = 0.1,
+                                          alpha_graph = 0.9, max_gap = 1L,
+                                          cross_max = NULL, ...) {
   need_cl <- c("clique_id", "hog", "species", "gene")
   absent <- setdiff(need_cl, names(cliques))
   if (length(absent) > 0L) {

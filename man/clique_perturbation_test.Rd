@@ -116,7 +116,9 @@ seeded results are not comparable between the two storage classes.
 \examples{
 \dontrun{
 pert <- clique_perturbation_test(cliques, target_species, networks,
-                                  orthologs, n_boot = 50, noise_sd = 0.1)
+  orthologs,
+  n_boot = 50, noise_sd = 0.1
+)
 # Cliques surviving > 80\% of perturbations
 pert[pert$survival_rate >= 0.8, ]
 }

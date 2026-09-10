@@ -82,18 +82,37 @@ contexts in the same session.}
 \item{max_consensus_iter}{Maximum number of consensus iterations for
 adaptive mode (\code{consensus_threshold = NULL}). Default 10.
 Iteration stops when the sweep reproduces its own input (a fixed
-point) or when all resolutions agree; either usually happens within
-5--15 iterations. Ignored when \code{consensus_threshold} is numeric.}
+point) or when all resolutions agree. On the eight Pooideae networks
+that stopping rule was measured on it fired at 5--12 iterations, so
+the default cap of 10 cuts two of those eight off before it fires:
+at the default the loop may return a partition it had not finished
+settling. Raise it (20 is above every measured stop) when the
+returned \code{params$n_consensus_iterations} equals
+\code{max_consensus_iter} -- a truncated run always does, though a
+run that settles on the last allowed iteration does too.
+Ignored when \code{consensus_threshold} is numeric.}
 
 \item{test_k1}{Logical. Test the null hypothesis K = 1 (no community
 structure) via permutation of the spectral norm of the excess
 co-classification matrix. Default \code{TRUE}. Only used in adaptive
-consensus mode.}
+consensus mode. This is the expensive part of a
+\code{detect_modules()} call on a structured network: see
+\code{n_perm_k1} for what it costs and when to turn it off.}
 
 \item{n_perm_k1}{Number of permutations for the K = 1 test.
 Default 100. Sets both the resolution of the p-value (its floor is
 \code{1 / (n_perm_k1 + 1)}) and the power of the test; batches stop
-early only when the remaining permutations cannot change the call.}
+early only when the remaining permutations cannot change the call.
+An unstructured network accumulates exceedances fast and stops after
+a batch or two, but a structured one, which most real networks are,
+can only stop once no outstanding permutation matters, so it
+spends the whole budget. Each of those permutations rewires the graph
+degree-preservingly and runs the full Leiden sweep at the observed
+\code{n_iterations}, so the K = 1 test dominates the runtime and the
+peak memory of the call; the rewiring step has been the cause of
+out-of-memory kills on large networks. On a network already known to
+be structured, set \code{test_k1 = FALSE} rather than lowering
+\code{n_perm_k1}, which buys speed by weakening the test.}
 
 \item{alpha_k1}{Significance level for the K = 1 test.
 Default 0.05.}

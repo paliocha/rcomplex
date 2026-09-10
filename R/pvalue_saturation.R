@@ -67,9 +67,12 @@
 #'       the same relative tolerance as `n_at_min` so the two agree.}
 #'     \item{min}{The observed minimum.}
 #'     \item{n_at_min}{How many values are tied at that minimum.}
-#'     \item{n_at_one}{How many values are at or above 1, within
-#'       tolerance. Values above 1 are invalid input and are counted
-#'       here rather than silently dropped.}
+#'     \item{n_at_one}{How many values sit at 1, counted one-sided so the
+#'       tolerance pulls in values a few last bits below 1. A value above
+#'       1 cannot reach this count: `p` is required to lie in `[0, 1]` and
+#'       such a vector is rejected. The one-sided spelling is there to
+#'       match `preservation_matrix_test()`'s `$saturation`, which applies
+#'       no such validation and does count invalid input.}
 #'     \item{n_perm, floor}{The supplied `n_perm` and the implied floor
 #'       `1 / (n_perm + 1)`; both `NULL`/`NA` when `n_perm` was not given.}
 #'     \item{floor_status}{`"at"`, `"above"` or `"below"` -- where the
@@ -139,7 +142,10 @@ pvalue_resolution <- function(p, n_perm = NULL) {
   # 1/(n_perm + 1) is not representable in binary, so a p-value formed in
   # C++ and the same quantity recomputed here can differ in the last bits.
   # Every comparison against the floor is therefore relative, never `==`.
-  tol <- sqrt(.Machine$double.eps)
+  # The constant itself lives once, in .tie_tol(), so this function and
+  # preservation_matrix_test()'s $saturation cannot drift apart about
+  # which values of one vector are tied.
+  tol <- .tie_tol()
 
   # One grouping feeds both counts, so a printout cannot claim "6 distinct
   # (100%)" and "4 tied at the minimum" about the same six values.
@@ -147,9 +153,13 @@ pvalue_resolution <- function(p, n_perm = NULL) {
   grp <- .tol_groups(u, tol)
   min_obs <- u[1L]
   n_at_min <- sum(v <= max(u[grp == 1L]))
-  # >= 1, not a two-sided window: a value above 1 is invalid input and
-  # must be reported rather than dropped out of the count. Matches
-  # preservation_matrix_test()'s $saturation exactly.
+  # One-sided, not a two-sided window, so this count reads the same as
+  # preservation_matrix_test()'s $saturation on the same vector. Here the
+  # tolerance only pulls in values a few last bits below 1: anything above
+  # 1 was already rejected by the [0, 1] check above, so the one-sided
+  # form changes nothing at this site. It matters at the other one, which
+  # does not validate, and where a two-sided window would drop an invalid
+  # q-value out of the count instead of reporting it.
   n_at_one <- sum(v >= 1 - tol)
 
   floor_p <- NA_real_
@@ -237,7 +247,6 @@ pvalue_resolution <- function(p, n_perm = NULL) {
 # was written out at each site: two diagnostics of one vector must not
 # disagree about which values are distinct.
 .tie_tol <- function() sqrt(.Machine$double.eps)
-
 
 
 #' Count values tied at the minimum, to floating-point tolerance

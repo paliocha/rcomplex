@@ -54,7 +54,7 @@ rcx <- rcomplex(
 )
 rcx <- find_coexpressologs(rcx, method = "permutation")
 rcx <- find_cliques(rcx)
-rcx$edges     # access results directly
+rcx$edges # access results directly
 rcx$cliques
 }
 

@@ -2,15 +2,20 @@
 % Please edit documentation in R/clique_gene_graph.R
 \name{gene_clique_graph}
 \alias{gene_clique_graph}
+\alias{gene_clique_graph.default}
 \title{Maximal cliques of the per-orthogroup gene graph}
 \usage{
-gene_clique_graph(edges, min_size = 3L, alpha_graph = 0.1, id_prefix = "")
+gene_clique_graph(edges, ...)
+
+\method{gene_clique_graph}{default}(edges, min_size = 3L, alpha_graph = 0.1, id_prefix = "", ...)
 }
 \arguments{
 \item{edges}{Data frame of co-expressolog calls, as returned by
 \code{\link{find_coexpressologs}}: columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2}, \code{hog} and \code{q.value}. An \code{effect_size}
 column is used when present.}
+
+\item{...}{Additional arguments passed to the default method.}
 
 \item{min_size}{Minimum number of nodes in a reported clique
 (default 3, matching the published workflow).}

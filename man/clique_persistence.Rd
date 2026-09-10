@@ -49,7 +49,7 @@ signal survives at stricter density thresholds.
 \examples{
 \dontrun{
 result <- clique_persistence(cliques, target_species, networks, edges)
-result[result$persistence > 2.0, ]  # robust to 2x threshold tightening
+result[result$persistence > 2.0, ] # robust to 2x threshold tightening
 }
 
 }

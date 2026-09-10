@@ -12,8 +12,10 @@ make_rcx_fixtures <- function(n_sp = 3) {
   networks <- stats::setNames(lapply(sp, function(s) {
     expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
     rownames(expr) <- paste0(s, "_G", 1:20)
-    compute_network(expr, density = 0.1, mr_log_transform = FALSE,
-                    store_density = 0.2)
+    compute_network(expr,
+      density = 0.1, mr_log_transform = FALSE,
+      store_density = 0.2
+    )
   }), sp)
 
   # Orthologs: first 15 genes of each pair share HOGs
@@ -27,8 +29,10 @@ make_rcx_fixtures <- function(n_sp = 3) {
   })
   orthologs <- do.call(rbind, ortho_list)
 
-  list(species = sp, traits = traits, networks = networks,
-       orthologs = orthologs)
+  list(
+    species = sp, traits = traits, networks = networks,
+    orthologs = orthologs
+  )
 }
 
 
@@ -41,7 +45,7 @@ test_that("rcomplex constructor creates valid object", {
   expect_s3_class(rcx, "rcomplex")
   expect_equal(rcx$species, fix$species)
   expect_equal(rcx$traits, fix$traits)
-  expect_equal(length(rcx$species_pairs), 3)  # combn(3,2)
+  expect_equal(length(rcx$species_pairs), 3) # combn(3,2)
   expect_null(rcx$phylo_pairs)
   # All result slots are NULL
   expect_null(rcx$edges)
@@ -55,23 +59,37 @@ test_that("rcomplex constructor creates valid object", {
 
 test_that("rcomplex constructor validates species", {
   fix <- make_rcx_fixtures()
-  expect_error(rcomplex("A", fix$traits, fix$networks, fix$orthologs),
-               "at least 2")
-  expect_error(rcomplex(c("A", "A"), fix$traits, fix$networks, fix$orthologs),
-               "duplicates")
-  expect_error(rcomplex(1:3, fix$traits, fix$networks, fix$orthologs),
-               "character vector")
+  expect_error(
+    rcomplex("A", fix$traits, fix$networks, fix$orthologs),
+    "at least 2"
+  )
+  expect_error(
+    rcomplex(c("A", "A"), fix$traits, fix$networks, fix$orthologs),
+    "duplicates"
+  )
+  expect_error(
+    rcomplex(1:3, fix$traits, fix$networks, fix$orthologs),
+    "character vector"
+  )
 })
 
 
 test_that("rcomplex constructor validates traits", {
   fix <- make_rcx_fixtures()
-  expect_error(rcomplex(fix$species, c("a", "b", "c"),
-                         fix$networks, fix$orthologs),
-               "named")
-  expect_error(rcomplex(fix$species, c(SP_A = "annual"),
-                         fix$networks, fix$orthologs),
-               "traits missing species")
+  expect_error(
+    rcomplex(
+      fix$species, c("a", "b", "c"),
+      fix$networks, fix$orthologs
+    ),
+    "named"
+  )
+  expect_error(
+    rcomplex(
+      fix$species, c(SP_A = "annual"),
+      fix$networks, fix$orthologs
+    ),
+    "traits missing species"
+  )
 })
 
 
@@ -79,20 +97,28 @@ test_that("rcomplex constructor validates networks", {
   fix <- make_rcx_fixtures()
   bad_nets <- fix$networks
   names(bad_nets)[1] <- "WRONG"
-  expect_error(rcomplex(fix$species, fix$traits, bad_nets, fix$orthologs),
-               "network names must match")
+  expect_error(
+    rcomplex(fix$species, fix$traits, bad_nets, fix$orthologs),
+    "network names must match"
+  )
   bad_nets2 <- fix$networks
   bad_nets2[[1]]$threshold <- NULL
-  expect_error(rcomplex(fix$species, fix$traits, bad_nets2, fix$orthologs),
-               "threshold")
+  expect_error(
+    rcomplex(fix$species, fix$traits, bad_nets2, fix$orthologs),
+    "threshold"
+  )
 })
 
 
 test_that("rcomplex constructor validates orthologs", {
   fix <- make_rcx_fixtures()
-  expect_error(rcomplex(fix$species, fix$traits, fix$networks,
-                         data.frame(x = 1)),
-               "Species1, Species2, hog")
+  expect_error(
+    rcomplex(
+      fix$species, fix$traits, fix$networks,
+      data.frame(x = 1)
+    ),
+    "Species1, Species2, hog"
+  )
 })
 
 
@@ -100,12 +126,14 @@ test_that("rcomplex constructor validates species_pairs", {
   fix <- make_rcx_fixtures()
   expect_error(
     rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-             species_pairs = list(c("SP_A", "BOGUS"))),
+      species_pairs = list(c("SP_A", "BOGUS"))
+    ),
     "unknown species"
   )
   expect_error(
     rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-             species_pairs = list("SP_A")),
+      species_pairs = list("SP_A")
+    ),
     "length-2"
   )
 })
@@ -115,17 +143,20 @@ test_that("rcomplex constructor validates phylo_pairs", {
   fix <- make_rcx_fixtures()
   expect_error(
     rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-             phylo_pairs = data.frame(x = 1)),
+      phylo_pairs = data.frame(x = 1)
+    ),
     "sp1, sp2"
   )
   expect_error(
     rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-             phylo_pairs = data.frame(sp1 = "BOGUS", sp2 = "SP_A")),
+      phylo_pairs = data.frame(sp1 = "BOGUS", sp2 = "SP_A")
+    ),
     "unknown species"
   )
   # Auto-generates pair_name
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-                   phylo_pairs = data.frame(sp1 = "SP_A", sp2 = "SP_B"))
+    phylo_pairs = data.frame(sp1 = "SP_A", sp2 = "SP_B")
+  )
   expect_equal(rcx$phylo_pairs$pair_name, "SP_A.SP_B")
 })
 
@@ -202,8 +233,10 @@ test_that("classify_cliques dispatches on rcomplex", {
 test_that("detect_modules dispatches on rcomplex (loops species)", {
   fix <- make_rcx_fixtures()
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
-  rcx <- detect_modules(rcx, method = "leiden",
-                         objective_function = "modularity")
+  rcx <- detect_modules(rcx,
+    method = "leiden",
+    objective_function = "modularity"
+  )
   expect_s3_class(rcx, "rcomplex")
   expect_equal(length(rcx$modules), length(fix$species))
   expect_equal(names(rcx$modules), fix$species)
@@ -216,8 +249,10 @@ test_that("detect_modules dispatches on rcomplex (loops species)", {
 test_that("identify_module_hubs dispatches on rcomplex", {
   fix <- make_rcx_fixtures()
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
-  rcx <- detect_modules(rcx, method = "leiden",
-                         objective_function = "modularity")
+  rcx <- detect_modules(rcx,
+    method = "leiden",
+    objective_function = "modularity"
+  )
   rcx <- identify_module_hubs(rcx)
   expect_s3_class(rcx, "rcomplex")
   expect_equal(length(rcx$hubs), length(fix$species))
@@ -273,17 +308,23 @@ test_that("preservation_paired dispatches on rcomplex", {
   fix <- make_rcx_fixtures()
   phylo <- data.frame(sp1 = "SP_A", sp2 = "SP_B")
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-                   phylo_pairs = phylo)
-  rcx <- detect_modules(rcx, method = "leiden",
-                          objective_function = "modularity")
+    phylo_pairs = phylo
+  )
+  rcx <- detect_modules(rcx,
+    method = "leiden",
+    objective_function = "modularity"
+  )
   # classify_preservation() warns that some modules could not be tested on a
   # fixture this small.
   rcx <- suppressWarnings(
-    preservation_paired(rcx, min_module_size = 3L, n_perm = 99L, seed = 1))
+    preservation_paired(rcx, min_module_size = 3L, n_perm = 99L, seed = 1)
+  )
   expect_s3_class(rcx, "rcomplex")
   expect_true(is.data.frame(rcx$preservation$classification))
-  expect_setequal(names(rcx$preservation),
-                  c("classification", "summary", "raw"))
+  expect_setequal(
+    names(rcx$preservation),
+    c("classification", "summary", "raw")
+  )
   # Preservation is directional: both orientations always run.
   expect_setequal(names(rcx$preservation$raw), c("SP_A.SP_B", "SP_B.SP_A"))
 })
@@ -293,7 +334,8 @@ test_that("preservation_paired errors without modules", {
   fix <- make_rcx_fixtures()
   phylo <- data.frame(sp1 = "SP_A", sp2 = "SP_B")
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-                   phylo_pairs = phylo)
+    phylo_pairs = phylo
+  )
   expect_error(preservation_paired(rcx), "run detect_modules")
 })
 
@@ -301,8 +343,10 @@ test_that("preservation_paired errors without modules", {
 test_that("preservation_paired errors without phylo_pairs", {
   fix <- make_rcx_fixtures()
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
-  rcx <- detect_modules(rcx, method = "leiden",
-                          objective_function = "modularity")
+  rcx <- detect_modules(rcx,
+    method = "leiden",
+    objective_function = "modularity"
+  )
   expect_error(preservation_paired(rcx), "phylo_pairs not set")
 })
 
@@ -310,8 +354,10 @@ test_that("preservation_paired errors without phylo_pairs", {
 test_that("classify_hub_conservation dispatches on rcomplex", {
   fix <- make_rcx_fixtures()
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
-  rcx <- detect_modules(rcx, method = "leiden",
-                          objective_function = "modularity")
+  rcx <- detect_modules(rcx,
+    method = "leiden",
+    objective_function = "modularity"
+  )
   rcx <- identify_module_hubs(rcx)
   rcx <- classify_hub_conservation(rcx)
   expect_s3_class(rcx, "rcomplex")
@@ -323,11 +369,15 @@ test_that("the container builds a usable module correspondence", {
   fix <- make_rcx_fixtures()
   phylo <- data.frame(sp1 = "SP_A", sp2 = "SP_B")
   rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs,
-                   phylo_pairs = phylo)
-  rcx <- detect_modules(rcx, method = "leiden",
-                          objective_function = "modularity")
+    phylo_pairs = phylo
+  )
+  rcx <- detect_modules(rcx,
+    method = "leiden",
+    objective_function = "modularity"
+  )
   rcx <- suppressWarnings(
-    preservation_paired(rcx, min_module_size = 3L, n_perm = 99L, seed = 1))
+    preservation_paired(rcx, min_module_size = 3L, n_perm = 99L, seed = 1)
+  )
   rcx <- identify_module_hubs(rcx)
   rcx <- classify_hub_conservation(rcx)
 
@@ -336,7 +386,7 @@ test_that("the container builds a usable module correspondence", {
   # classify_hub_conservation() looks up.
   expect_equal(names(rcx$correspondence), "SP_A.SP_B")
   expect_true(all(c("module_sp1", "module_sp2", "jaccard", "q.value") %in%
-                    names(rcx$correspondence[["SP_A.SP_B"]]$pairs)))
+    names(rcx$correspondence[["SP_A.SP_B"]]$pairs)))
   expect_true(is.data.frame(rcx$hub_classification))
 })
 
@@ -378,4 +428,177 @@ test_that("run_pairwise_comparisons dispatches correctly as wrapper", {
   rcx <- run_pairwise_comparisons(rcx)
   expect_s3_class(rcx, "rcomplex")
   expect_true(!is.null(rcx$edges))
+})
+
+
+# --- Gene-clique taxonomy ---
+
+# The random 20-gene fixture yields 4 co-expressolog edges in total, far
+# too few for any 3-node gene clique, so the taxonomy methods get a
+# hand-built edge table carried on a real container. HOG1 is a complete
+# triangle at alpha_call, HOG2 only enters the graph at alpha_graph 0.9.
+make_gcg_edges <- function() {
+  data.frame(
+    gene1 = c(
+      "SP_A_G1", "SP_A_G1", "SP_B_G1",
+      "SP_A_G2", "SP_A_G2", "SP_B_G2"
+    ),
+    gene2 = c(
+      "SP_B_G1", "SP_C_G1", "SP_C_G1",
+      "SP_B_G2", "SP_C_G2", "SP_C_G2"
+    ),
+    species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_A", "SP_B"),
+    species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_C", "SP_C"),
+    hog = c(rep("HOG1", 3), rep("HOG2", 3)),
+    q.value = c(0.01, 0.02, 0.03, 0.5, 0.6, 0.7),
+    effect_size = c(3, 3, 3, 1, 1, 1),
+    stringsAsFactors = FALSE
+  )
+}
+
+
+make_gcg_rcx <- function() {
+  fix <- make_rcx_fixtures()
+  rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
+  rcx$edges <- make_gcg_edges()
+  rcx
+}
+
+
+test_that("gene_clique_graph dispatches on rcomplex", {
+  rcx <- gene_clique_graph(make_gcg_rcx())
+  expect_s3_class(rcx, "rcomplex")
+  expect_true(is.data.frame(rcx$gene_cliques))
+  expect_equal(unique(rcx$gene_cliques$clique_id), "HOG1_1")
+  expect_equal(nrow(rcx$gene_cliques), 3L)
+})
+
+
+test_that("gene_clique_graph.rcomplex passes ... to the default", {
+  rcx <- gene_clique_graph(make_gcg_rcx(),
+    alpha_graph = 0.9, id_prefix = "loose_"
+  )
+  expect_setequal(
+    unique(rcx$gene_cliques$clique_id),
+    c("loose_HOG1_1", "loose_HOG2_1")
+  )
+})
+
+
+test_that("gene_clique_graph.rcomplex equals the default method", {
+  ed <- make_gcg_edges()
+  rcx <- gene_clique_graph(make_gcg_rcx())
+  expect_equal(rcx$gene_cliques, gene_clique_graph(ed))
+})
+
+
+test_that("gene_clique_graph errors when edges not yet computed", {
+  fix <- make_rcx_fixtures()
+  rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
+  expect_error(gene_clique_graph(rcx), "run find_coexpressologs")
+})
+
+
+test_that("classify_gene_cliques dispatches on rcomplex", {
+  rcx <- gene_clique_graph(make_gcg_rcx())
+  rcx <- classify_gene_cliques(rcx)
+  expect_s3_class(rcx, "rcomplex")
+  expect_true(is.data.frame(rcx$gene_classification))
+  expect_equal(rcx$gene_classification$clique_id, "HOG1_1")
+  expect_equal(
+    rcx$gene_classification$classification, "complete_conserved"
+  )
+})
+
+
+test_that("classify_gene_cliques.rcomplex equals the default method", {
+  ed <- make_gcg_edges()
+  rcx <- classify_gene_cliques(gene_clique_graph(make_gcg_rcx()))
+  # The default call must be handed the same lineage the container
+  # supplies from x$traits, or this compares the container against a
+  # run with the lineage tiers switched off.
+  expect_equal(
+    rcx$gene_classification,
+    classify_gene_cliques(
+      gene_clique_graph(ed), ed, c("SP_A", "SP_B", "SP_C"),
+      lineage = make_rcx_fixtures()$traits
+    )
+  )
+})
+
+
+test_that("classify_gene_cliques errors on empty slots", {
+  fix <- make_rcx_fixtures()
+  rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
+  expect_error(classify_gene_cliques(rcx), "run find_coexpressologs")
+  rcx$edges <- make_gcg_edges()
+  expect_error(classify_gene_cliques(rcx), "run gene_clique_graph")
+})
+
+
+test_that("the taxonomy slots surface in print and summary", {
+  rcx <- classify_gene_cliques(gene_clique_graph(make_gcg_rcx()))
+  out <- capture.output(print(rcx))
+  expect_true(any(grepl("Gene cliques:   1 cliques, 3 members", out)))
+  expect_true(any(grepl("Gene taxonomy:  1 cliques", out)))
+
+  s <- summary(rcx)
+  expect_equal(s$n_gene_cliques, 1L)
+  expect_equal(
+    as.integer(s$gene_taxonomy_table[["complete_conserved"]]), 1L
+  )
+  sout <- capture.output(print(s))
+  expect_true(any(grepl("Gene cliques: 1", sout)))
+  expect_true(any(grepl("Gene clique taxonomy", sout)))
+})
+
+
+test_that("a fresh container has empty taxonomy slots", {
+  fix <- make_rcx_fixtures()
+  rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
+  expect_null(rcx$gene_cliques)
+  expect_null(rcx$gene_classification)
+  expect_true(all(c("gene_cliques", "gene_classification") %in% names(rcx)))
+  out <- capture.output(print(rcx))
+  expect_true(any(grepl("Gene cliques:   \\[pending\\]", out)))
+  expect_true(any(grepl("Gene taxonomy:  \\[pending\\]", out)))
+})
+
+
+test_that("the taxonomy chains through the container pipeline", {
+  rcx <- make_gcg_rcx() |>
+    gene_clique_graph() |>
+    classify_gene_cliques()
+  expect_s3_class(rcx, "rcomplex")
+  expect_true(!is.null(rcx$gene_cliques))
+  expect_true(!is.null(rcx$gene_classification))
+})
+
+
+test_that("classify_gene_cliques.rcomplex supplies the container traits", {
+  # classify_cliques.rcomplex passes x$traits; this method must too, or
+  # the container path runs at lineage = NULL and the lineage_specific
+  # and differentiated tiers are silently unreachable on an object that
+  # is already holding the trait vector they need.
+  rcx <- gene_clique_graph(make_gcg_rcx())
+  from_container <- classify_gene_cliques(rcx)$gene_classification
+  explicit <- classify_gene_cliques.default(
+    rcx$gene_cliques, rcx$edges, rcx$species,
+    lineage = rcx$traits
+  )
+  expect_equal(from_container, explicit)
+
+  # ...and an explicit lineage in ... still wins, without colliding with
+  # the supplied default.
+  flat <- stats::setNames(
+    rep("one", length(rcx$species)), rcx$species
+  )
+  overridden <- classify_gene_cliques(rcx, lineage = flat)
+  expect_equal(
+    overridden$gene_classification,
+    classify_gene_cliques.default(
+      rcx$gene_cliques, rcx$edges, rcx$species,
+      lineage = flat
+    )
+  )
 })

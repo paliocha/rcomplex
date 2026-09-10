@@ -18,8 +18,10 @@ encode_clique_edges <- function(edges, target_species) {
   gene_map <- stats::setNames(seq_along(all_genes) - 1L, all_genes)
 
   unique_hogs <- unique(edges$hog)
-  hog_map <- stats::setNames(seq_along(unique_hogs) - 1L,
-                              as.character(unique_hogs))
+  hog_map <- stats::setNames(
+    seq_along(unique_hogs) - 1L,
+    as.character(unique_hogs)
+  )
 
   # Convert to 0-based integer vectors
   edge_hog <- as.integer(hog_map[as.character(edges$hog)])
@@ -40,12 +42,14 @@ encode_clique_edges <- function(edges, target_species) {
   edge_qval <- as.numeric(edges$q.value[valid])
   edge_effect <- as.numeric(edges$effect_size[valid])
 
-  list(sp_map = sp_map, gene_map = gene_map, hog_map = hog_map,
-       all_genes = all_genes, unique_hogs = unique_hogs,
-       edge_hog = edge_hog, edge_g1 = edge_g1, edge_g2 = edge_g2,
-       edge_sp1 = edge_sp1, edge_sp2 = edge_sp2,
-       edge_qval = edge_qval, edge_effect = edge_effect,
-       any_valid = any_valid)
+  list(
+    sp_map = sp_map, gene_map = gene_map, hog_map = hog_map,
+    all_genes = all_genes, unique_hogs = unique_hogs,
+    edge_hog = edge_hog, edge_g1 = edge_g1, edge_g2 = edge_g2,
+    edge_sp1 = edge_sp1, edge_sp2 = edge_sp2,
+    edge_qval = edge_qval, edge_effect = edge_effect,
+    any_valid = any_valid
+  )
 }
 
 
@@ -60,12 +64,14 @@ compute_clique_edge_stats <- function(cliques, edges, target_species) {
   n <- nrow(cliques)
   intensity <- rep(NA_real_, n)
   coherence <- rep(NA_real_, n)
-  min_eff   <- rep(NA_real_, n)
+  min_eff <- rep(NA_real_, n)
 
   # Build edge lookup keyed by hog + sorted gene pair
   edge_key <- paste(edges$hog,
-                    pmin(edges$gene1, edges$gene2),
-                    pmax(edges$gene1, edges$gene2), sep = "\x01")
+    pmin(edges$gene1, edges$gene2),
+    pmax(edges$gene1, edges$gene2),
+    sep = "\x01"
+  )
   edge_idx <- stats::setNames(seq_len(nrow(edges)), edge_key)
 
   for (i in seq_len(n)) {
@@ -77,25 +83,29 @@ compute_clique_edge_stats <- function(cliques, edges, target_species) {
     # All pairs of genes in this clique
     pairs <- utils::combn(genes, 2L)
     keys <- paste(hog_i,
-                  pmin(pairs[1L, ], pairs[2L, ]),
-                  pmax(pairs[1L, ], pairs[2L, ]), sep = "\x01")
+      pmin(pairs[1L, ], pairs[2L, ]),
+      pmax(pairs[1L, ], pairs[2L, ]),
+      sep = "\x01"
+    )
     matched <- edge_idx[keys]
     matched <- matched[!is.na(matched)]
     if (length(matched) == 0L) next
 
     qvals <- edges$q.value[matched]
-    effs  <- edges$effect_size[matched]
+    effs <- edges$effect_size[matched]
 
     weights <- pmax(1 - qvals, .Machine$double.eps)
     gm <- exp(mean(log(weights)))
     am <- mean(weights)
     intensity[i] <- gm
     coherence[i] <- gm / am
-    min_eff[i]   <- min(effs)
+    min_eff[i] <- min(effs)
   }
 
-  data.frame(intensity = intensity, coherence = coherence,
-             min_effect_size = min_eff)
+  data.frame(
+    intensity = intensity, coherence = coherence,
+    min_effect_size = min_eff
+  )
 }
 
 
@@ -177,14 +187,16 @@ find_cliques <- function(edges, ...) UseMethod("find_cliques")
 #' @rdname find_cliques
 #' @export
 find_cliques.default <- function(edges, target_species,
-                         min_species = length(target_species),
-                         max_genes_per_sp = 10L,
-                         max_missing_edges = 0L,
-                         edge_type = "conserved",
-                         cost_weights = c(q = 1.0, effect = 0.0), ...) {
+                                 min_species = length(target_species),
+                                 max_genes_per_sp = 10L,
+                                 max_missing_edges = 0L,
+                                 edge_type = "conserved",
+                                 cost_weights = c(q = 1.0, effect = 0.0), ...) {
   # Validate inputs
-  required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
-                     "q.value", "effect_size")
+  required_cols <- c(
+    "gene1", "gene2", "species1", "species2", "hog",
+    "q.value", "effect_size"
+  )
   missing <- setdiff(required_cols, names(edges))
   if (length(missing) > 0) {
     stop("edges missing required columns: ", paste(missing, collapse = ", "))
@@ -199,13 +211,16 @@ find_cliques.default <- function(edges, target_species,
   }
 
   # Validate cost_weights
-  if (!is.numeric(cost_weights) || length(cost_weights) != 2L)
+  if (!is.numeric(cost_weights) || length(cost_weights) != 2L) {
     stop("cost_weights must be a named numeric vector of length 2")
+  }
   if (is.null(names(cost_weights)) ||
-      !all(c("q", "effect") %in% names(cost_weights)))
+    !all(c("q", "effect") %in% names(cost_weights))) {
     stop("cost_weights must have names 'q' and 'effect'")
-  if (any(cost_weights < 0))
+  }
+  if (any(cost_weights < 0)) {
     stop("cost_weights values must be >= 0")
+  }
   w_q <- as.double(cost_weights[["q"]])
   w_eff <- as.double(cost_weights[["effect"]])
 
@@ -213,11 +228,13 @@ find_cliques.default <- function(edges, target_species,
   empty_cols <- c(
     list(hog = character(0)),
     stats::setNames(lapply(target_species, \(x) character(0)), target_species),
-    list(n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
-         mean_effect_size = numeric(0), n_edges = integer(0),
-         n_missing = integer(0),
-         intensity = numeric(0), coherence = numeric(0),
-         min_effect_size = numeric(0))
+    list(
+      n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
+      mean_effect_size = numeric(0), n_edges = integer(0),
+      n_missing = integer(0),
+      intensity = numeric(0), coherence = numeric(0),
+      min_effect_size = numeric(0)
+    )
   )
   empty_result <- as.data.frame(empty_cols)
 
@@ -225,11 +242,15 @@ find_cliques.default <- function(edges, target_species,
   if ("type" %in% names(edges)) {
     edges <- edges[edges$type %in% edge_type, , drop = FALSE]
   }
-  if (nrow(edges) == 0) return(empty_result)
+  if (nrow(edges) == 0) {
+    return(empty_result)
+  }
 
   # Encode edges as 0-based integer vectors
   enc <- encode_clique_edges(edges, target_species)
-  if (!enc$any_valid) return(empty_result)
+  if (!enc$any_valid) {
+    return(empty_result)
+  }
 
   # Call C++
   result <- find_cliques_cpp(
@@ -242,15 +263,19 @@ find_cliques.default <- function(edges, target_species,
   )
 
   # Map back to strings
-  if (length(result$hog_idx) == 0) return(empty_result)
+  if (length(result$hog_idx) == 0) {
+    return(empty_result)
+  }
 
   # HOG names
   hog_names <- enc$unique_hogs[result$hog_idx + 1L]
 
   # Gene matrix: map 0-based indices back to gene names
-  gene_matrix <- result$genes  # IntegerMatrix (n_cliques x n_species)
-  gene_df <- as.data.frame(matrix(NA_character_, nrow = nrow(gene_matrix),
-                                  ncol = ncol(gene_matrix)))
+  gene_matrix <- result$genes # IntegerMatrix (n_cliques x n_species)
+  gene_df <- as.data.frame(matrix(NA_character_,
+    nrow = nrow(gene_matrix),
+    ncol = ncol(gene_matrix)
+  ))
   names(gene_df) <- target_species
   for (j in seq_len(ncol(gene_matrix))) {
     idx <- gene_matrix[, j]
@@ -373,14 +398,16 @@ find_cliques.default <- function(edges, target_species,
 #' \dontrun{
 #' # Structural stability for all cliques
 #' cliques <- find_cliques(edges, all_sp, min_species = 2L)
-#' stab    <- clique_stability(edges, all_sp,
-#'                             full_cliques = cliques)
+#' stab <- clique_stability(edges, all_sp,
+#'   full_cliques = cliques
+#' )
 #'
 #' # With trait annotation
 #' trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
-#' stab  <- clique_stability(edges, all_sp,
-#'                           species_trait = trait,
-#'                           full_cliques = cliques)
+#' stab <- clique_stability(edges, all_sp,
+#'   species_trait = trait,
+#'   full_cliques = cliques
+#' )
 #'
 #' # Cliques surviving any single species dropout
 #' k1 <- stab$stability[stab$stability$k == 1, ]
@@ -397,18 +424,20 @@ clique_stability <- function(edges, ...) UseMethod("clique_stability")
 #' @rdname clique_stability
 #' @export
 clique_stability.default <- function(edges, target_species,
-                             species_trait = NULL,
-                             all_species = target_species,
-                             full_cliques = NULL,
-                             min_species = length(target_species),
-                             max_k = length(all_species) - 2L,
-                             max_genes_per_sp = 10L,
-                             jaccard_threshold = 0.8,
-                             edge_type = "conserved", n_cores = 1L,
-                             cost_weights = c(q = 1.0, effect = 0.0), ...) {
+                                     species_trait = NULL,
+                                     all_species = target_species,
+                                     full_cliques = NULL,
+                                     min_species = length(target_species),
+                                     max_k = length(all_species) - 2L,
+                                     max_genes_per_sp = 10L,
+                                     jaccard_threshold = 0.8,
+                                     edge_type = "conserved", n_cores = 1L,
+                                     cost_weights = c(q = 1.0, effect = 0.0), ...) {
   # Validate inputs
-  required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
-                     "q.value", "effect_size")
+  required_cols <- c(
+    "gene1", "gene2", "species1", "species2", "hog",
+    "q.value", "effect_size"
+  )
   missing <- setdiff(required_cols, names(edges))
   if (length(missing) > 0) {
     stop("edges missing required columns: ", paste(missing, collapse = ", "))
@@ -428,8 +457,10 @@ clique_stability.default <- function(edges, target_species,
     }
     missing_sp <- setdiff(all_species, names(species_trait))
     if (length(missing_sp) > 0) {
-      stop("species_trait missing entries for: ",
-           paste(missing_sp, collapse = ", "))
+      stop(
+        "species_trait missing entries for: ",
+        paste(missing_sp, collapse = ", ")
+      )
     }
   }
   max_k <- as.integer(max_k)
@@ -465,21 +496,28 @@ clique_stability.default <- function(edges, target_species,
   if ("type" %in% names(edges)) {
     edges <- edges[edges$type %in% edge_type, , drop = FALSE]
   }
-  if (nrow(edges) == 0) return(empty_result)
+  if (nrow(edges) == 0) {
+    return(empty_result)
+  }
 
   # Encode edges with ALL species (full universe)
   enc <- encode_clique_edges(edges, all_species)
-  if (!enc$any_valid) return(empty_result)
+  if (!enc$any_valid) {
+    return(empty_result)
+  }
 
   # Compute full cliques if not provided
   if (is.null(full_cliques)) {
     full_cliques <- find_cliques(edges, target_species,
-                                 min_species = min_species,
-                                 max_genes_per_sp = max_genes_per_sp,
-                                 edge_type = edge_type,
-                                 cost_weights = cost_weights)
+      min_species = min_species,
+      max_genes_per_sp = max_genes_per_sp,
+      edge_type = edge_type,
+      cost_weights = cost_weights
+    )
   }
-  if (nrow(full_cliques) == 0) return(empty_result)
+  if (nrow(full_cliques) == 0) {
+    return(empty_result)
+  }
 
   # Re-encode full_cliques into all_species index space
   fc_hog_idx <- as.integer(enc$hog_map[as.character(full_cliques$hog)])
@@ -531,7 +569,7 @@ clique_stability.default <- function(edges, target_species,
   present_mat <- !is.na(full_cliques[, sp_cols, drop = FALSE])
 
   sp_present <- apply(present_mat, 1L, \(row)
-    paste(sp_cols[row], collapse = ","))
+  paste(sp_cols[row], collapse = ","))
 
   if (!is.null(species_trait)) {
     trait_char <- as.character(species_trait[sp_cols])
@@ -539,8 +577,11 @@ clique_stability.default <- function(edges, target_species,
 
     trait_annot <- vapply(seq_len(n_fc), \(i) {
       tv <- trait_char[present_mat[i, ]]
-      if (length(tv) == 0L) NA_character_
-      else paste(sort(unique(tv)), collapse = ",")
+      if (length(tv) == 0L) {
+        NA_character_
+      } else {
+        paste(sort(unique(tv)), collapse = ",")
+      }
     }, character(1))
 
     sole_rep_vec <- vapply(seq_len(n_fc), \(i) {
@@ -626,31 +667,39 @@ clique_stability.default <- function(edges, target_species,
 #' @examples
 #' \dontrun{
 #' result <- clique_persistence(cliques, target_species, networks, edges)
-#' result[result$persistence > 2.0, ]  # robust to 2x threshold tightening
+#' result[result$persistence > 2.0, ] # robust to 2x threshold tightening
 #' }
 #'
 #' @export
 clique_persistence <- function(cliques, target_species, networks, edges) {
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
-    stop("cliques must be a data frame from find_cliques(); got ",
-         paste(class(cliques), collapse = "/"))
+    stop(
+      "cliques must be a data frame from find_cliques(); got ",
+      paste(class(cliques), collapse = "/")
+    )
   }
   if (!is.list(networks) || is.null(names(networks))) {
-    stop("networks must be a named list keyed by species; got ",
-         paste(class(networks), collapse = "/"))
+    stop(
+      "networks must be a named list keyed by species; got ",
+      paste(class(networks), collapse = "/")
+    )
   }
   if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
   }
   missing_sp <- setdiff(target_species, names(cliques))
   if (length(missing_sp) > 0) {
-    stop("cliques missing columns for species: ",
-         paste(missing_sp, collapse = ", "))
+    stop(
+      "cliques missing columns for species: ",
+      paste(missing_sp, collapse = ", ")
+    )
   }
   missing_net <- setdiff(target_species, names(networks))
   if (length(missing_net) > 0) {
-    stop("networks missing entries for species: ",
-         paste(missing_net, collapse = ", "))
+    stop(
+      "networks missing entries for species: ",
+      paste(missing_net, collapse = ", ")
+    )
   }
   for (sp in target_species) {
     .net_check(networks[[sp]], networks[[sp]]$threshold)
@@ -658,8 +707,10 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
   ortho_cols <- c("gene1", "gene2", "species1", "species2")
   missing_cols <- setdiff(ortho_cols, names(edges))
   if (length(missing_cols) > 0) {
-    stop("edges missing required columns: ",
-         paste(missing_cols, collapse = ", "))
+    stop(
+      "edges missing required columns: ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
 
   # Pre-build ortholog lookup: ortho[["sp_a.sp_b"]][[gene_a]] -> c(gene_b, ...)
@@ -823,26 +874,30 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
 #' @examples
 #' \dontrun{
 #' sweep <- clique_threshold_sweep(cliques, target_species, networks,
-#'                                  orthologs, multipliers = c(1.5, 2, 5))
+#'   orthologs,
+#'   multipliers = c(1.5, 2, 5)
+#' )
 #' # Survival curve
-#' sapply(sort(unique(sweep$survival$multiplier)),
-#'        function(m) mean(sweep$survival$survived[sweep$survival$multiplier == m]))
+#' sapply(
+#'   sort(unique(sweep$survival$multiplier)),
+#'   function(m) mean(sweep$survival$survived[sweep$survival$multiplier == m])
+#' )
 #' }
 #'
 #' @export
 clique_threshold_sweep <- function(
-    cliques, target_species, networks, orthologs,
-    species_pairs = NULL,
-    multipliers = c(1.5, 2, 3, 5, 10),
-    alternative = c("greater", "less"),
-    alpha = 0.05,
-    min_species = length(target_species),
-    max_genes_per_sp = 10L,
-    max_missing_edges = 0L,
-    edge_type = "conserved",
-    jaccard_threshold = 0.5,
-    n_cores = 1L) {
-
+  cliques, target_species, networks, orthologs,
+  species_pairs = NULL,
+  multipliers = c(1.5, 2, 3, 5, 10),
+  alternative = c("greater", "less"),
+  alpha = 0.05,
+  min_species = length(target_species),
+  max_genes_per_sp = 10L,
+  max_missing_edges = 0L,
+  edge_type = "conserved",
+  jaccard_threshold = 0.5,
+  n_cores = 1L
+) {
   alternative <- match.arg(alternative)
 
   # --- Validation ---
@@ -857,8 +912,10 @@ clique_threshold_sweep <- function(
   }
   missing_net <- setdiff(target_species, names(networks))
   if (length(missing_net) > 0) {
-    stop("networks missing entries for: ",
-         paste(missing_net, collapse = ", "))
+    stop(
+      "networks missing entries for: ",
+      paste(missing_net, collapse = ", ")
+    )
   }
   for (sp in target_species) {
     .net_check(networks[[sp]], networks[[sp]]$threshold)
@@ -872,13 +929,16 @@ clique_threshold_sweep <- function(
         clique_idx = integer(0), hog = character(0),
         multiplier = numeric(0), survived = logical(0),
         jaccard = numeric(0), n_species_orig = integer(0),
-        n_species_new = integer(0)),
+        n_species_new = integer(0)
+      ),
       sweep_cliques = list(),
       sweep_edges = list(),
       persistence = data.frame(
         clique_idx = integer(0), hog = character(0),
         birth = numeric(0), death = numeric(0),
-        persistence = numeric(0))))
+        persistence = numeric(0)
+      )
+    ))
   }
 
   if (is.null(species_pairs)) {
@@ -908,11 +968,15 @@ clique_threshold_sweep <- function(
       sp_b <- pair[2]
 
       comparison <- tryCatch(
-        compare_neighborhoods(tight_nets[[sp_a]], tight_nets[[sp_b]],
-                              orthologs, n_cores),
+        compare_neighborhoods(
+          tight_nets[[sp_a]], tight_nets[[sp_b]],
+          orthologs, n_cores
+        ),
         error = function(e) {
-          warning("Pair ", sp_a, "-", sp_b, " at ", m, "x failed: ",
-                  conditionMessage(e))
+          warning(
+            "Pair ", sp_a, "-", sp_b, " at ", m, "x failed: ",
+            conditionMessage(e)
+          )
           NULL
         }
       )
@@ -923,17 +987,22 @@ clique_threshold_sweep <- function(
         # pinned for determinism across multipliers; pass-through is a
         # P2 hand-off
         summarize_comparison(comparison, alternative, alpha,
-                             pi0_method = "storey"),
+          pi0_method = "storey"
+        ),
         error = function(e) {
-          warning("Pair ", sp_a, "-", sp_b, " q-values at ", m,
-                  "x failed: ", conditionMessage(e))
+          warning(
+            "Pair ", sp_a, "-", sp_b, " q-values at ", m,
+            "x failed: ", conditionMessage(e)
+          )
           NULL
         }
       )
       if (is.null(summary_res) || nrow(summary_res$results) == 0) next
 
-      edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
-                                       alternative, alpha)
+      edges_df <- comparison_to_edges(
+        summary_res$results, sp_a, sp_b,
+        alternative, alpha
+      )
       pair_edges[[length(pair_edges) + 1L]] <- edges_df
     }
 
@@ -943,7 +1012,8 @@ clique_threshold_sweep <- function(
         species1 = character(0), species2 = character(0),
         hog = character(0), q.value = numeric(0),
         effect_size = numeric(0), jaccard = numeric(0),
-        type = character(0))
+        type = character(0)
+      )
     } else {
       all_edges <- do.call(rbind, pair_edges)
     }
@@ -952,10 +1022,11 @@ clique_threshold_sweep <- function(
 
     # Find cliques at this threshold
     new_cliques <- find_cliques(all_edges, target_species,
-                                 min_species = min_species,
-                                 max_genes_per_sp = max_genes_per_sp,
-                                 max_missing_edges = max_missing_edges,
-                                 edge_type = edge_type)
+      min_species = min_species,
+      max_genes_per_sp = max_genes_per_sp,
+      max_missing_edges = max_missing_edges,
+      edge_type = edge_type
+    )
     sweep_cliques[[m_key]] <- new_cliques
 
     # Match baseline cliques to new cliques
@@ -968,8 +1039,10 @@ clique_threshold_sweep <- function(
       if (nrow(new_cliques) > 0) {
         candidates <- which(new_cliques$hog == baseline_hog)
         for (j in candidates) {
-          jac <- jaccard_clique_match(cliques[i, ], new_cliques[j, ],
-                                       target_species)
+          jac <- jaccard_clique_match(
+            cliques[i, ], new_cliques[j, ],
+            target_species
+          )
           if (is.na(best_jaccard) || jac > best_jaccard) {
             best_jaccard <- jac
             best_n_sp <- new_cliques$n_species[j]
@@ -997,7 +1070,8 @@ clique_threshold_sweep <- function(
       clique_idx = integer(0), hog = character(0),
       multiplier = numeric(0), survived = logical(0),
       jaccard = numeric(0), n_species_orig = integer(0),
-      n_species_new = integer(0))
+      n_species_new = integer(0)
+    )
   }
   rownames(survival) <- NULL
 
@@ -1058,7 +1132,8 @@ clique_threshold_sweep <- function(
     persistence <- data.frame(
       clique_idx = integer(0), hog = character(0),
       birth = numeric(0), death = numeric(0),
-      persistence = numeric(0))
+      persistence = numeric(0)
+    )
   }
 
   list(
@@ -1157,7 +1232,9 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' @examples
 #' \dontrun{
 #' pert <- clique_perturbation_test(cliques, target_species, networks,
-#'                                   orthologs, n_boot = 50, noise_sd = 0.1)
+#'   orthologs,
+#'   n_boot = 50, noise_sd = 0.1
+#' )
 #' # Cliques surviving > 80% of perturbations
 #' pert[pert$survival_rate >= 0.8, ]
 #' }
@@ -1170,23 +1247,23 @@ clique_perturbation_test <- function(cliques, ...) {
 #' @rdname clique_perturbation_test
 #' @export
 clique_perturbation_test.default <- function(
-    cliques, target_species, networks, orthologs,
-    species_pairs = NULL,
-    n_boot = 100L,
-    noise_sd = 0.1,
-    alternative = c("greater", "less"),
-    alpha = 0.05,
-    min_species = length(target_species),
-    max_genes_per_sp = 10L,
-    max_missing_edges = 0L,
-    edge_type = "conserved",
-    jaccard_threshold = 0.5,
-    n_cores = 1L,
-    seed = NULL,
-    cost_weights = c(q = 1.0, effect = 0.0),
-    pval_combine = c("max", "min"),
-    pi0_method = c("storey", "randomized", "none"), ...) {
-
+  cliques, target_species, networks, orthologs,
+  species_pairs = NULL,
+  n_boot = 100L,
+  noise_sd = 0.1,
+  alternative = c("greater", "less"),
+  alpha = 0.05,
+  min_species = length(target_species),
+  max_genes_per_sp = 10L,
+  max_missing_edges = 0L,
+  edge_type = "conserved",
+  jaccard_threshold = 0.5,
+  n_cores = 1L,
+  seed = NULL,
+  cost_weights = c(q = 1.0, effect = 0.0),
+  pval_combine = c("max", "min"),
+  pi0_method = c("storey", "randomized", "none"), ...
+) {
   alternative <- match.arg(alternative)
   pval_combine <- match.arg(pval_combine)
   pi0_method <- match.arg(pi0_method)
@@ -1207,7 +1284,9 @@ clique_perturbation_test.default <- function(
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data frame from find_cliques()")
   }
-  if (nrow(cliques) == 0L || n_boot == 0L) return(empty_result)
+  if (nrow(cliques) == 0L || n_boot == 0L) {
+    return(empty_result)
+  }
 
   # --- Validation ---
   if (length(target_species) < 2) {
@@ -1218,13 +1297,16 @@ clique_perturbation_test.default <- function(
   }
   missing_net <- setdiff(target_species, names(networks))
   if (length(missing_net) > 0) {
-    stop("networks missing entries for: ",
-         paste(missing_net, collapse = ", "))
+    stop(
+      "networks missing entries for: ",
+      paste(missing_net, collapse = ", ")
+    )
   }
   for (sp in target_species) {
     net <- networks[[sp]]
-    if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
+    if (!is.list(net) || is.null(net$network) || is.null(net$threshold)) {
       stop("each network must have 'network' and 'threshold' elements")
+    }
     .net_check(net, net$threshold)
   }
   if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
@@ -1274,12 +1356,13 @@ clique_perturbation_test.default <- function(
     # 2. Re-run comparison pipeline (analytical = fast)
     edges_b <- tryCatch(
       find_coexpressologs(perturbed_networks, orthologs,
-                           species_pairs = species_pairs,
-                           method = "analytical",
-                           alternative = alternative,
-                           alpha = alpha, n_cores = n_cores,
-                           pval_combine = pval_combine,
-                           pi0_method = pi0_method),
+        species_pairs = species_pairs,
+        method = "analytical",
+        alternative = alternative,
+        alpha = alpha, n_cores = n_cores,
+        pval_combine = pval_combine,
+        pi0_method = pi0_method
+      ),
       error = function(e) NULL
     )
     if (is.null(edges_b) || nrow(edges_b) == 0L) next
@@ -1287,11 +1370,12 @@ clique_perturbation_test.default <- function(
     # 3. Re-find cliques
     cliques_b <- tryCatch(
       find_cliques(edges_b, target_species,
-                    min_species = min_species,
-                    max_genes_per_sp = max_genes_per_sp,
-                    max_missing_edges = max_missing_edges,
-                    edge_type = edge_type,
-                    cost_weights = cost_weights),
+        min_species = min_species,
+        max_genes_per_sp = max_genes_per_sp,
+        max_missing_edges = max_missing_edges,
+        edge_type = edge_type,
+        cost_weights = cost_weights
+      ),
       error = function(e) NULL
     )
     if (is.null(cliques_b) || nrow(cliques_b) == 0L) next
@@ -1301,8 +1385,10 @@ clique_perturbation_test.default <- function(
       best_jaccard <- -1
       candidates <- which(cliques_b$hog == cliques$hog[i])
       for (j in candidates) {
-        jac <- jaccard_clique_match(cliques[i, ], cliques_b[j, ],
-                                     target_species)
+        jac <- jaccard_clique_match(
+          cliques[i, ], cliques_b[j, ],
+          target_species
+        )
         if (jac > best_jaccard) best_jaccard <- jac
       }
 
@@ -1310,15 +1396,19 @@ clique_perturbation_test.default <- function(
         # Candidate found (sentinel is -1; Jaccard >= 0 means a HOG match)
         n_matched[i] <- n_matched[i] + 1L
         sum_jaccard[i] <- sum_jaccard[i] + best_jaccard
-        if (best_jaccard >= jaccard_threshold)
+        if (best_jaccard >= jaccard_threshold) {
           n_survived[i] <- n_survived[i] + 1L
+        }
       }
     }
   }
 
-  if (all(n_matched == 0L) && n_boot > 0L)
-    warning("no bootstrap iteration produced matching cliques; ",
-            "check networks/orthologs compatibility")
+  if (all(n_matched == 0L) && n_boot > 0L) {
+    warning(
+      "no bootstrap iteration produced matching cliques; ",
+      "check networks/orthologs compatibility"
+    )
+  }
 
   # Build output — mean_jaccard over matched iterations only
   data.frame(
@@ -1414,22 +1504,22 @@ clique_intensity_test <- function(cliques, ...) {
 #' @rdname clique_intensity_test
 #' @export
 clique_intensity_test.default <- function(
-    cliques, target_species, networks, orthologs,
-    species_pairs = NULL,
-    n_perm = 500L,
-    alternative = c("greater", "less"),
-    alpha = 0.05,
-    min_species = length(target_species),
-    max_genes_per_sp = 10L,
-    max_missing_edges = 0L,
-    edge_type = "conserved",
-    n_cores = 1L,
-    seed = NULL,
-    cost_weights = c(q = 1.0, effect = 0.0),
-    edges = NULL,
-    pval_combine = c("max", "min"),
-    pi0_method = c("storey", "randomized", "none"), ...) {
-
+  cliques, target_species, networks, orthologs,
+  species_pairs = NULL,
+  n_perm = 500L,
+  alternative = c("greater", "less"),
+  alpha = 0.05,
+  min_species = length(target_species),
+  max_genes_per_sp = 10L,
+  max_missing_edges = 0L,
+  edge_type = "conserved",
+  n_cores = 1L,
+  seed = NULL,
+  cost_weights = c(q = 1.0, effect = 0.0),
+  edges = NULL,
+  pval_combine = c("max", "min"),
+  pi0_method = c("storey", "randomized", "none"), ...
+) {
   alternative <- match.arg(alternative)
   pval_combine <- match.arg(pval_combine)
   pi0_method <- match.arg(pi0_method)
@@ -1444,42 +1534,56 @@ clique_intensity_test.default <- function(
     stringsAsFactors = FALSE
   )
 
-  if (!is.data.frame(cliques) || !"hog" %in% names(cliques))
+  if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data frame from find_cliques()")
-  if (nrow(cliques) == 0L || n_perm == 0L) return(empty_result)
-  if (length(target_species) < 2)
+  }
+  if (nrow(cliques) == 0L || n_perm == 0L) {
+    return(empty_result)
+  }
+  if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
-  if (!is.list(networks) || is.null(names(networks)))
+  }
+  if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
+  }
   missing_net <- setdiff(target_species, names(networks))
-  if (length(missing_net) > 0)
-    stop("networks missing entries for: ",
-         paste(missing_net, collapse = ", "))
+  if (length(missing_net) > 0) {
+    stop(
+      "networks missing entries for: ",
+      paste(missing_net, collapse = ", ")
+    )
+  }
   for (sp in target_species) {
     net <- networks[[sp]]
-    if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
+    if (!is.list(net) || is.null(net$network) || is.null(net$threshold)) {
       stop("each network must have 'network' and 'threshold' elements")
+    }
     .net_check(net, net$threshold)
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs)))
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
     stop("orthologs must have columns: Species1, Species2, hog")
+  }
 
   if (!is.null(seed)) set.seed(seed)
-  if (is.null(species_pairs))
+  if (is.null(species_pairs)) {
     species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
+  }
 
   # Compute baseline intensity
   if (is.null(edges)) {
     edges <- find_coexpressologs(networks, orthologs,
-                                  species_pairs = species_pairs,
-                                  method = "analytical",
-                                  alternative = alternative,
-                                  alpha = alpha, n_cores = n_cores,
-                                  pval_combine = pval_combine,
-                                  pi0_method = pi0_method)
+      species_pairs = species_pairs,
+      method = "analytical",
+      alternative = alternative,
+      alpha = alpha, n_cores = n_cores,
+      pval_combine = pval_combine,
+      pi0_method = pi0_method
+    )
   }
-  obs_stats <- compute_clique_edge_stats(cliques, edges,
-                                          target_species)
+  obs_stats <- compute_clique_edge_stats(
+    cliques, edges,
+    target_species
+  )
   observed_intensity <- obs_stats$intensity
   n_cliques <- nrow(cliques)
 
@@ -1495,23 +1599,25 @@ clique_intensity_test.default <- function(
 
     edges_p <- tryCatch(
       find_coexpressologs(networks, shuffled_orthologs,
-                           species_pairs = species_pairs,
-                           method = "analytical",
-                           alternative = alternative,
-                           alpha = alpha, n_cores = n_cores,
-                           pval_combine = pval_combine,
-                           pi0_method = pi0_method),
+        species_pairs = species_pairs,
+        method = "analytical",
+        alternative = alternative,
+        alpha = alpha, n_cores = n_cores,
+        pval_combine = pval_combine,
+        pi0_method = pi0_method
+      ),
       error = function(e) NULL
     )
     if (is.null(edges_p) || nrow(edges_p) == 0L) next
 
     cliques_p <- tryCatch(
       find_cliques(edges_p, target_species,
-                    min_species = min_species,
-                    max_genes_per_sp = max_genes_per_sp,
-                    max_missing_edges = max_missing_edges,
-                    edge_type = edge_type,
-                    cost_weights = cost_weights),
+        min_species = min_species,
+        max_genes_per_sp = max_genes_per_sp,
+        max_missing_edges = max_missing_edges,
+        edge_type = edge_type,
+        cost_weights = cost_weights
+      ),
       error = function(e) NULL
     )
     if (is.null(cliques_p) || nrow(cliques_p) == 0L) next
@@ -1523,15 +1629,18 @@ clique_intensity_test.default <- function(
       best_jaccard <- -1
       best_intensity <- NA_real_
       for (j in candidates) {
-        jac <- jaccard_clique_match(cliques[i, ], cliques_p[j, ],
-                                     target_species)
+        jac <- jaccard_clique_match(
+          cliques[i, ], cliques_p[j, ],
+          target_species
+        )
         if (jac > best_jaccard) {
           best_jaccard <- jac
           best_intensity <- stats_p$intensity[j]
         }
       }
-      if (best_jaccard >= 0 && !is.na(best_intensity))
+      if (best_jaccard >= 0 && !is.na(best_intensity)) {
         null_intensities[p, i] <- best_intensity
+      }
       # Unmatched permutations (sentinel -1) stay NA
     }
   }
@@ -1550,8 +1659,9 @@ clique_intensity_test.default <- function(
   }, numeric(1))
 
   z_score <- ifelse(!is.na(null_sd) & null_sd > 0,
-                    (observed_intensity - null_mean) / null_sd,
-                    NA_real_)
+    (observed_intensity - null_mean) / null_sd,
+    NA_real_
+  )
 
   # Empirical p-value over matched permutations
   upper_tail <- alternative == "greater"
@@ -1559,7 +1669,9 @@ clique_intensity_test.default <- function(
     vals <- null_intensities[, i]
     vals <- vals[!is.na(vals)]
     n_m <- length(vals)
-    if (n_m == 0L || is.na(observed_intensity[i])) return(NA_real_)
+    if (n_m == 0L || is.na(observed_intensity[i])) {
+      return(NA_real_)
+    }
     if (upper_tail) {
       (sum(vals >= observed_intensity[i]) + 1) / (n_m + 1)
     } else {
@@ -1602,6 +1714,36 @@ clique_intensity_test.default <- function(
 #'     within-group clique.
 #'   \item \strong{unclassified}: none of the above.
 #' }
+#'
+#' @section Choosing between the two clique classifiers:
+#' This function and \code{\link{classify_gene_cliques}} answer
+#' different questions; neither is deprecated in favour of the other.
+#'
+#' \code{classify_cliques()} works on the per-orthogroup \emph{species}
+#' graph. It asks which species are joined by conserved co-expression
+#' and whether that pattern respects the trait split, and it returns one
+#' row per HOG. \code{\link{find_cliques}} commits to one best gene
+#' assignment per species clique, so a multi-copy HOG still gets a
+#' single answer, and that answer is what \code{\link{clique_stability}}
+#' and \code{\link{clique_threshold_sweep}} consume -- the
+#' \code{stability_class} / \code{persistence} / \code{robust} columns
+#' exist only on this side.
+#'
+#' \code{\link{classify_gene_cliques}} works on the \emph{gene} graph
+#' built by \code{\link{gene_clique_graph}}. It asks which individual
+#' gene copies are mutually conserved, so one HOG can yield several
+#' overlapping cliques and the answer names paralogs rather than
+#' species. It applies the five-tier taxonomy of Rodriguez et al.
+#' (2026), with two explicit tolerance tiers (\code{partial_significant}
+#' for weak wiring, \code{partial_present} for a missing gene), and its
+#' \code{lineage} split is an argument rather than the trait vector, so
+#' it can be run against a clade partition the trait does not follow.
+#'
+#' Reach for \code{classify_gene_cliques()} when which copy sits in the
+#' conserved core matters, or when the published taxonomy is what has to
+#' be reported. Reach for \code{classify_cliques()} for a
+#' one-row-per-HOG trait summary wired into the stability and sweep
+#' machinery.
 #'
 #' @param edges Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
@@ -1657,6 +1799,16 @@ clique_intensity_test.default <- function(
 #' table(result$classification)
 #' }
 #'
+#' @seealso \code{\link{find_cliques}} for the species-graph backend
+#'   this wraps; \code{\link{classify_gene_cliques}} and
+#'   \code{\link{gene_clique_graph}} for the copy-level alternative
+#'   described above.
+#' @references
+#' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
+#' Comparative regulomics of wood formation across dicot and
+#' conifer trees. \emph{Nature Communications} 17(1).
+#' \doi{10.1038/s41467-026-75624-2}
+#'
 #' @param ... Additional arguments passed to the default method.
 #' @export
 classify_cliques <- function(edges, ...) UseMethod("classify_cliques")
@@ -1664,23 +1816,27 @@ classify_cliques <- function(edges, ...) UseMethod("classify_cliques")
 #' @rdname classify_cliques
 #' @export
 classify_cliques.default <- function(
-    edges, target_species, species_trait,
-    min_species = 2L,
-    max_genes_per_sp = 10L,
-    max_missing_edges = 0L,
-    edge_type = "conserved",
-    stability = NULL,
-    sweep = NULL,
-    min_stability_class = 0L,
-    min_persistence = 1.0, ...) {
-
+  edges, target_species, species_trait,
+  min_species = 2L,
+  max_genes_per_sp = 10L,
+  max_missing_edges = 0L,
+  edge_type = "conserved",
+  stability = NULL,
+  sweep = NULL,
+  min_stability_class = 0L,
+  min_persistence = 1.0, ...
+) {
   # --- Validation ---
-  required_cols <- c("gene1", "gene2", "species1", "species2", "hog",
-                     "q.value", "effect_size", "type")
+  required_cols <- c(
+    "gene1", "gene2", "species1", "species2", "hog",
+    "q.value", "effect_size", "type"
+  )
   missing_cols <- setdiff(required_cols, names(edges))
   if (length(missing_cols) > 0) {
-    stop("edges missing required columns: ",
-         paste(missing_cols, collapse = ", "))
+    stop(
+      "edges missing required columns: ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
   if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
@@ -1693,15 +1849,18 @@ classify_cliques.default <- function(
   }
   missing_sp <- setdiff(target_species, names(species_trait))
   if (length(missing_sp) > 0) {
-    stop("species_trait missing entries for: ",
-         paste(missing_sp, collapse = ", "))
+    stop(
+      "species_trait missing entries for: ",
+      paste(missing_sp, collapse = ", ")
+    )
   }
   min_species <- as.integer(min_species)
   if (min_species < 2L) stop("min_species must be >= 2")
 
   if (!is.null(stability)) {
-    if (!is.list(stability) || is.null(stability$stability))
+    if (!is.list(stability) || is.null(stability$stability)) {
       stop("stability must be output of clique_stability()")
+    }
   }
 
   trait_char <- as.character(species_trait[target_species])
@@ -1718,14 +1877,17 @@ classify_cliques.default <- function(
     persistence = numeric(0), robust = logical(0),
     stringsAsFactors = FALSE
   )
-  if (length(all_hogs) == 0) return(empty)
+  if (length(all_hogs) == 0) {
+    return(empty)
+  }
 
   # --- Steps 1+2: Find all cliques (complete + partial in one pass) ---
   all_cliques <- find_cliques(edges, target_species,
-                               min_species = min_species,
-                               max_genes_per_sp = max_genes_per_sp,
-                               max_missing_edges = max_missing_edges,
-                               edge_type = edge_type)
+    min_species = min_species,
+    max_genes_per_sp = max_genes_per_sp,
+    max_missing_edges = max_missing_edges,
+    edge_type = edge_type
+  )
 
   # Complete = all N species, no missing edges
   is_complete <- all_cliques$n_species == n_sp & all_cliques$n_missing == 0L
@@ -1741,7 +1903,10 @@ classify_cliques.default <- function(
     for (r in seq_len(nrow(hog_rows))) {
       spp <- target_species[!is.na(hog_rows[r, target_species])]
       traits_in <- unique(trait_char[spp])
-      if (length(traits_in) >= 2L) { any_cross <- TRUE; break }
+      if (length(traits_in) >= 2L) {
+        any_cross <- TRUE
+        break
+      }
     }
     if (any_cross) partial_hogs <- c(partial_hogs, h)
   }
@@ -1758,10 +1923,11 @@ classify_cliques.default <- function(
       next
     }
     wg <- find_cliques(edges, group_sp,
-                        min_species = min_species,
-                        max_genes_per_sp = max_genes_per_sp,
-                        max_missing_edges = max_missing_edges,
-                        edge_type = edge_type)
+      min_species = min_species,
+      max_genes_per_sp = max_genes_per_sp,
+      max_missing_edges = max_missing_edges,
+      edge_type = edge_type
+    )
     within_group_cliques[[group]] <- wg
     within_group_hogs[[group]] <- unique(wg$hog)
   }
@@ -1817,13 +1983,17 @@ classify_cliques.default <- function(
   best_per_hog <- function(cliques_df, hogs) {
     sub <- cliques_df[cliques_df$hog %in% hogs, , drop = FALSE]
     if (nrow(sub) == 0) {
-      return(data.frame(hog = character(0), n_species = integer(0),
-                        best_mean_q = numeric(0)))
+      return(data.frame(
+        hog = character(0), n_species = integer(0),
+        best_mean_q = numeric(0)
+      ))
     }
     sub <- sub[order(sub$mean_q), , drop = FALSE]
     sub <- sub[!duplicated(sub$hog), , drop = FALSE]
-    data.frame(hog = sub$hog, n_species = sub$n_species,
-               best_mean_q = sub$mean_q, stringsAsFactors = FALSE)
+    data.frame(
+      hog = sub$hog, n_species = sub$n_species,
+      best_mean_q = sub$mean_q, stringsAsFactors = FALSE
+    )
   }
 
   rows <- list()
@@ -1834,7 +2004,8 @@ classify_cliques.default <- function(
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "complete",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = NA_character_, stringsAsFactors = FALSE)
+      trait_groups = NA_character_, stringsAsFactors = FALSE
+    )
   }
 
   # Partial
@@ -1843,34 +2014,51 @@ classify_cliques.default <- function(
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "partial",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = NA_character_, stringsAsFactors = FALSE)
+      trait_groups = NA_character_, stringsAsFactors = FALSE
+    )
   }
 
   # Differentiated
   if (length(diff_hogs) > 0) {
     # Best within-group clique for each differentiated HOG
-    wg_summary <- do.call(rbind, lapply(within_group_cliques[trait_levels],
-      function(df) if (!is.null(df) && nrow(df) > 0)
-        df[, c("hog", "n_species", "mean_q"), drop = FALSE] else NULL))
+    wg_summary <- do.call(rbind, lapply(
+      within_group_cliques[trait_levels],
+      function(df) {
+        if (!is.null(df) && nrow(df) > 0) {
+          df[, c("hog", "n_species", "mean_q"), drop = FALSE]
+        } else {
+          NULL
+        }
+      }
+    ))
     info <- best_per_hog(wg_summary, diff_hogs)
     tg <- diff_groups[match(info$hog, diff_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "differentiated",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = tg, stringsAsFactors = FALSE)
+      trait_groups = tg, stringsAsFactors = FALSE
+    )
   }
 
   # Trait-specific
   if (length(ts_hogs) > 0) {
-    wg_summary2 <- do.call(rbind, lapply(within_group_cliques[trait_levels],
-      function(df) if (!is.null(df) && nrow(df) > 0)
-        df[, c("hog", "n_species", "mean_q"), drop = FALSE] else NULL))
+    wg_summary2 <- do.call(rbind, lapply(
+      within_group_cliques[trait_levels],
+      function(df) {
+        if (!is.null(df) && nrow(df) > 0) {
+          df[, c("hog", "n_species", "mean_q"), drop = FALSE]
+        } else {
+          NULL
+        }
+      }
+    ))
     info <- best_per_hog(wg_summary2, ts_hogs)
     tg <- ts_groups[match(info$hog, ts_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "trait_specific",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = tg, stringsAsFactors = FALSE)
+      trait_groups = tg, stringsAsFactors = FALSE
+    )
   }
 
   # Unclassified
@@ -1878,11 +2066,14 @@ classify_cliques.default <- function(
     rows[[length(rows) + 1L]] <- data.frame(
       hog = unclass_hogs, classification = "unclassified",
       n_species = NA_integer_, best_mean_q = NA_real_,
-      trait_groups = NA_character_, stringsAsFactors = FALSE)
+      trait_groups = NA_character_, stringsAsFactors = FALSE
+    )
   }
 
   out <- do.call(rbind, rows)
-  if (is.null(out)) return(empty)
+  if (is.null(out)) {
+    return(empty)
+  }
   rownames(out) <- NULL
 
   # --- Stability annotation ---
@@ -1908,12 +2099,13 @@ classify_cliques.default <- function(
   # --- Sweep annotation ---
   out$persistence <- NA_real_
   if (!is.null(sweep) && "persistence" %in% names(sweep) &&
-      nrow(sweep$persistence) > 0) {
+    nrow(sweep$persistence) > 0) {
     # Use formal birth/death persistence if available
     persist_df <- sweep$persistence
     # Best (max) persistence per HOG across clique indices
     best_persist <- tapply(persist_df$persistence, persist_df$hog, max,
-                           na.rm = FALSE)
+      na.rm = FALSE
+    )
     # NA-aware: if all values for a HOG are NA, tapply returns NA
     idx <- match(out$hog, names(best_persist))
     out$persistence[!is.na(idx)] <- best_persist[idx[!is.na(idx)]]
@@ -1934,14 +2126,18 @@ classify_cliques.default <- function(
   has_stab <- !is.null(stability$stability) && nrow(stability$stability) > 0
   has_sweep <- !is.null(sweep) &&
     (("persistence" %in% names(sweep) && nrow(sweep$persistence) > 0) ||
-     ("survival" %in% names(sweep) && nrow(sweep$survival) > 0))
+      ("survival" %in% names(sweep) && nrow(sweep$survival) > 0))
   if (has_stab || has_sweep) {
     stab_ok <- if (has_stab) {
       !is.na(out$stability_class) & out$stability_class >= min_stability_class
-    } else TRUE
+    } else {
+      TRUE
+    }
     sweep_ok <- if (has_sweep) {
       !is.na(out$persistence) & out$persistence >= min_persistence
-    } else TRUE
+    } else {
+      TRUE
+    }
     out$robust <- stab_ok & sweep_ok
   } else {
     out$robust <- NA
