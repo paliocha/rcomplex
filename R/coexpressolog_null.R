@@ -152,29 +152,36 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     seed_root <- sample.int(seed_max, 1L)
   } else {
     # Anything that will not survive as.integer() -- a double outside the
-    # integer range, a string, NA, a vector -- has to be caught before the
-    # bound check, which would otherwise let NA through to set.seed(NA) and
-    # error on a length > 1 condition instead of on the seed. Wrong length,
-    # wrong type and wrong magnitude report apart, so no message names a
-    # limit the value did not cross: 3e9 and -3e9 both overflow, but a
-    # message saying "at most 2147483647" is false of -3e9.
+    # integer range, a string that is not a number, NA, a vector -- has to
+    # be caught before the bound check, which would otherwise let NA
+    # through to set.seed(NA) and error on a length > 1 condition instead
+    # of on the seed.
+    #
+    # Coercion decides acceptance, and only the message is chosen by type.
+    # A rule like !is.numeric(seed) would reject seed = "7" and
+    # seed = TRUE, which set.seed() and therefore .seed_scope() accept, and
+    # would leave this the one seeded entry point in the package with its
+    # own idea of a legal seed. Wrong length, wrong type and wrong
+    # magnitude report apart, so no message names a limit the value did not
+    # cross: "at most 2147483647" is false of -3e9, which fails at the
+    # other end.
     if (length(seed) != 1L) {
       stop(
         "seed must be NULL or a single value; got ", class(seed)[1L],
         " of length ", length(seed)
       )
     }
-    if (!is.numeric(seed) || is.na(seed)) {
-      stop(
-        "seed must be NULL or a single non-NA number; got ",
-        class(seed)[1L], " ", format(seed)
-      )
-    }
     seed_root <- suppressWarnings(as.integer(seed))
     if (is.na(seed_root)) {
+      if (is.numeric(seed) && !is.na(seed)) {
+        stop(
+          "seed must lie within +/- .Machine$integer.max (",
+          .Machine$integer.max, "); got ", format(seed)
+        )
+      }
       stop(
-        "seed must lie within +/- .Machine$integer.max (",
-        .Machine$integer.max, "); got ", format(seed)
+        "seed must be NULL or a value set.seed() accepts; got ",
+        class(seed)[1L], " ", format(seed)
       )
     }
     if (seed_root > seed_max) {

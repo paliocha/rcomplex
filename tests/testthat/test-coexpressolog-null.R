@@ -52,7 +52,7 @@ test_that("coexpressolog_null requires sparse networks", {
   )
 })
 
-test_that("a seed that would overflow seed + b is rejected up front", {
+test_that("the seed is validated up front, and only where it must be", {
   # Permutation b seeds with seed + b, so a seed within n_perm of the
   # integer limit makes that sum NA and every affected worker dies inside
   # set.seed(NA) -- an error naming neither the seed nor n_perm.
@@ -71,22 +71,26 @@ test_that("a seed that would overflow seed + b is rejected up front", {
   # and a length > 1 seed would error on the condition, not on the seed.
   # Wrong length, wrong type and wrong magnitude report apart, so no
   # message names a limit the value did not cross.
-  run_bad <- function(s) {
+  run_seed <- function(s) {
     coexpressolog_null(nets, d$ortho,
       n_perm = 5L, seed = s,
       pi0_method = "none", pval_combine = "max"
     )
   }
-  expect_error(run_bad(c(1L, 2L)), "single value; got integer of length 2")
-  expect_error(run_bad("seven"), "single non-NA number; got character")
-  expect_error(run_bad(NA), "single non-NA number")
-  expect_error(run_bad(NA_integer_), "single non-NA number")
+  expect_error(run_seed(c(1L, 2L)), "single value; got integer of length 2")
+  expect_error(run_seed("seven"), "set.seed\\(\\) accepts; got character")
+  expect_error(run_seed(NA), "set.seed\\(\\) accepts")
+  expect_error(run_seed(NA_integer_), "set.seed\\(\\) accepts")
+  # Coercion decides acceptance, not type: "7" and TRUE are legal seeds
+  # everywhere else in the package, so they have to be legal here too.
+  expect_equal(run_seed("7"), run_seed(7L))
+  expect_equal(run_seed(TRUE), run_seed(1L))
   # Both signs overflow, and neither message may claim the value was
   # merely too large.
-  expect_error(run_bad(3e9), "within \\+/- .Machine\\$integer.max")
-  expect_error(run_bad(3e9), "got 3e\\+09")
-  expect_error(run_bad(-3e9), "within \\+/- .Machine\\$integer.max")
-  expect_error(run_bad(-3e9), "got -3e\\+09")
+  expect_error(run_seed(3e9), "within \\+/- .Machine\\$integer.max")
+  expect_error(run_seed(3e9), "got 3e\\+09")
+  expect_error(run_seed(-3e9), "within \\+/- .Machine\\$integer.max")
+  expect_error(run_seed(-3e9), "got -3e\\+09")
 })
 
 test_that("observed conserved calls exceed the rewired null", {
