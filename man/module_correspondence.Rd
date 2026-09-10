@@ -10,7 +10,8 @@ module_correspondence(
   map,
   qvalue_method = "randomized",
   sp_ref = NULL,
-  sp_test = NULL
+  sp_test = NULL,
+  seed = NULL
 )
 }
 \arguments{
@@ -28,6 +29,12 @@ uses elsewhere for discrete hypergeometric p-values.}
 \code{module_sp1} belongs to \code{modules_ref}, and that orientation cannot be
 recovered from the table, so supplying these lets
 \code{\link[=classify_hub_conservation]{classify_hub_conservation()}} catch a transposed call.}
+
+\item{seed}{Integer seed for the randomized-p draws behind pi0, or \code{NULL}
+(default) to draw from the ambient stream and leave it advanced. A seed
+draws from a private stream and restores the caller's on exit, the
+package-wide contract described under \code{\link[=detect_modules]{detect_modules()}}.
+\code{qvalue_method = "none"} draws nothing, so a seed changes nothing there.}
 }
 \value{
 A list with \code{pairs} -- a data frame of \code{module_sp1},
@@ -53,8 +60,10 @@ contributes three correlated draws to the same urn.
 }
 \examples{
 \dontrun{
-map <- resolve_ortholog_map(ortho, rownames(net_a$network),
-  rownames(net_b$network))
+map <- resolve_ortholog_map(
+  ortho, rownames(net_a$network),
+  rownames(net_b$network)
+)
 corr <- module_correspondence(mods_a, mods_b, map)
 subset(corr$pairs, q.value < 0.05)
 }

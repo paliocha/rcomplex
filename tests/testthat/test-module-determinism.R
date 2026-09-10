@@ -26,20 +26,22 @@ make_ambiguous_net <- function(n = 300L, seed = 7L) {
 
 test_that("consensus modules are bit-reproducible across core counts", {
   skip_on_cran()
-  skip_on_os("windows")  # mclapply falls back to serial
+  skip_on_os("windows") # mclapply falls back to serial
 
   net <- make_ambiguous_net()
   res <- seq(0.25, 2.5, by = 0.25)
   run <- function(nc) {
-    detect_modules(net, resolution = res, objective_function = "modularity",
-                   seed = 42L, n_cores = nc, max_consensus_iter = 10L,
-                   test_k1 = TRUE, n_perm_k1 = 100L, alpha_k1 = 0.05)
+    detect_modules(net,
+      resolution = res, objective_function = "modularity",
+      seed = 42L, n_cores = nc, max_consensus_iter = 10L,
+      test_k1 = TRUE, n_perm_k1 = 100L, alpha_k1 = 0.05
+    )
   }
 
-  r1  <- run(1L)
+  r1 <- run(1L)
   r2a <- run(2L)
   r2b <- run(2L)
-  r3  <- run(3L)
+  r3 <- run(3L)
 
   # (a) run-to-run stability at a fixed core count
   expect_identical(r2a$modules, r2b$modules)
@@ -60,50 +62,59 @@ test_that("detect_modules leaves the ambient RNG stream core-count invariant", {
   res <- c(0.5, 1.0, 1.5)
   after <- function(nc) {
     set.seed(99L)
-    detect_modules(net, resolution = res, objective_function = "modularity",
-                   seed = 42L, n_cores = nc, test_k1 = FALSE)
+    detect_modules(net,
+      resolution = res, objective_function = "modularity",
+      seed = 42L, n_cores = nc, test_k1 = FALSE
+    )
     runif(1L)
   }
   expect_identical(after(1L), after(2L))
 })
 
 
-test_that("a seeded call leaves the stream where set.seed(seed) put it", {
+test_that("a seeded call restores the caller's stream", {
   # The single-resolution path used to leave the global stream wherever
   # the clustering backend stopped, which is backend- and build-
   # dependent. Anything drawn afterwards without its own set.seed() --
   # summarize_comparison()'s randomized-p pi0, for one -- then started
-  # from an unpredictable position. Consensus mode already pinned it;
-  # both paths now agree.
+  # from an unpredictable position. Pinning the exit state at
+  # set.seed(seed) fixed that but replaced it with a second problem: the
+  # downstream draw then depended on THIS call's seed rather than on the
+  # caller's. Restoring fixes both, and both paths agree.
   set.seed(1)
   e <- matrix(stats::rnorm(120 * 8), 120, 8)
   rownames(e) <- paste0("g", seq_len(120))
   net <- compute_network(e, density = 0.1, sparse = FALSE)
 
-  pinned <- function(f) {
+  restored <- function(f) {
     set.seed(7)
+    before <- get(".Random.seed", envir = globalenv())
     f()
-    after <- get(".Random.seed", envir = globalenv())
-    set.seed(42)
-    identical(after, get(".Random.seed", envir = globalenv()))
+    identical(before, get(".Random.seed", envir = globalenv()))
   }
 
-  expect_true(pinned(function() {
-    detect_modules(net, resolution = 1.0, seed = 42,
-                   objective_function = "modularity")
+  expect_true(restored(function() {
+    detect_modules(net,
+      resolution = 1.0, seed = 42,
+      objective_function = "modularity"
+    )
   }))
-  expect_true(pinned(function() {
-    detect_modules(net, resolution = c(0.8, 1.0), seed = 42,
-                   objective_function = "modularity",
-                   n_iterations = 1L, max_consensus_iter = 1L)
+  expect_true(restored(function() {
+    detect_modules(net,
+      resolution = c(0.8, 1.0), seed = 42,
+      objective_function = "modularity",
+      n_iterations = 1L, max_consensus_iter = 1L
+    )
   }))
 
   # seed = NULL must still advance the stream, or consecutive unseeded
   # calls would return the same partition.
   set.seed(7)
   before <- get(".Random.seed", envir = globalenv())
-  invisible(detect_modules(net, resolution = 1.0, seed = NULL,
-                           objective_function = "modularity"))
+  invisible(detect_modules(net,
+    resolution = 1.0, seed = NULL,
+    objective_function = "modularity"
+  ))
   expect_false(identical(before, get(".Random.seed", envir = globalenv())))
 })
 
@@ -137,10 +148,12 @@ test_that("n_perm_k1 sets the resolution of the K = 1 p-value", {
 
   net <- make_ambiguous_net(n = 200L)
   run <- function(np) {
-    detect_modules(net, resolution = c(0.5, 1.0, 1.5, 2.0),
-                   objective_function = "modularity", seed = 42L,
-                   test_k1 = TRUE, n_perm_k1 = np, alpha_k1 = 0.05,
-                   max_consensus_iter = 5L)$k1_test
+    detect_modules(net,
+      resolution = c(0.5, 1.0, 1.5, 2.0),
+      objective_function = "modularity", seed = 42L,
+      test_k1 = TRUE, n_perm_k1 = np, alpha_k1 = 0.05,
+      max_consensus_iter = 5L
+    )$k1_test
   }
   k20 <- run(20L)
   k100 <- run(100L)
@@ -177,7 +190,8 @@ test_that("the K = 1 null is optimised as hard as the observed sweep", {
   resolutions <- c(0.5, 1.0)
   memberships <- lapply(resolutions, function(r) {
     mem <- igraph::membership(igraph::cluster_leiden(
-      g, resolution = r, objective_function = "modularity",
+      g,
+      resolution = r, objective_function = "modularity",
       n_iterations = 3L
     ))
     names(mem) <- igraph::V(g)$name
@@ -187,7 +201,8 @@ test_that("the K = 1 null is optimised as hard as the observed sweep", {
   testthat::with_mocked_bindings(
     rcomplex:::test_community_structure(
       g, igraph::V(g)$name, resolutions, "modularity", 3L, memberships,
-      edge_list_0, n_perm = 4L, n_cores = 1L, alpha = 0.05, seed_root = 1L
+      edge_list_0,
+      n_perm = 4L, n_cores = 1L, alpha = 0.05, seed_root = 1L
     ),
     cluster_leiden = recorder, .package = "igraph"
   )
@@ -209,16 +224,20 @@ test_that("consensus iteration stops at a fixed point", {
   net <- make_ambiguous_net()
   res <- seq(0.25, 2.5, by = 0.25)
   run <- function(cap) {
-    detect_modules(net, resolution = res,
-                   objective_function = "modularity", seed = 42L,
-                   max_consensus_iter = cap, test_k1 = FALSE)
+    detect_modules(net,
+      resolution = res,
+      objective_function = "modularity", seed = 42L,
+      max_consensus_iter = cap, test_k1 = FALSE
+    )
   }
   r_short <- run(40L)
   r_long <- run(200L)
 
   expect_lt(r_short$params$n_consensus_iterations, 40L)
-  expect_identical(r_short$params$n_consensus_iterations,
-                   r_long$params$n_consensus_iterations)
+  expect_identical(
+    r_short$params$n_consensus_iterations,
+    r_long$params$n_consensus_iterations
+  )
   # stopping early must not move the answer
   expect_identical(r_short$modules, r_long$modules)
 })

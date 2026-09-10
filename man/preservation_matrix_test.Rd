@@ -12,7 +12,8 @@ preservation_matrix_test(
   exclude_within_block = TRUE,
   n_perm = NULL,
   enum_max = 50000L,
-  n_perm_pres = NULL
+  n_perm_pres = NULL,
+  seed = NULL
 )
 }
 \arguments{
@@ -46,8 +47,8 @@ is deliberately no q-value option.}
 \item{n_perm}{Number of labellings to draw when a space is too large to
 enumerate. \code{NULL} (default) means 10000 if it comes to that. Ignored, with
 a message when it was supplied explicitly, for a space that is enumerated.
-The sampled branch draws from the global RNG, so call
-\code{set.seed()} beforehand for a reproducible p-value. Which
+The sampled branch draws from the RNG, so pass \code{seed} (or call
+\code{set.seed()} beforehand) for a reproducible p-value. Which
 branch runs is decided by \code{enum_max} rather than by the
 caller, so a design can cross into the sampled regime
 without the call site changing.}
@@ -64,6 +65,12 @@ behind \code{classification}, if known. Nothing in the test reads it; it lets
 \verb{$saturation} report \code{q_floor_global}, the smallest q-value a \emph{global}
 Benjamini-Hochberg correction over the whole matrix could reach,
 \code{n_tests / (n_perm_pres + 1)}. \code{NULL} (default) leaves that field \code{NA}.}
+
+\item{seed}{Integer seed for the sampled branch, or \code{NULL} (default) to
+draw from the ambient stream and leave it advanced. A seed draws from a
+private stream and restores the caller's on exit, the package-wide
+contract described under \code{\link[=detect_modules]{detect_modules()}}. An enumerated null draws
+nothing, so a seed changes nothing there.}
 }
 \value{
 A list with components:

@@ -42,15 +42,12 @@
 #'   set `RNGkind("L'Ecuyer-CMRG")` gets a different, still reproducible,
 #'   partition. `RNGkind` is deliberately not pinned inside the function.
 #'
-#'   With an explicit seed the global stream is left exactly where
-#'   `set.seed(seed)` put it, so a seeded call does not displace the
-#'   caller's stream by however much the clustering backend happened to
-#'   consume. That is not the same as restoring the caller's pre-call
-#'   state: `set.seed(seed)` has still happened, and anything drawn
-#'   afterwards continues from there. With `seed = NULL` the stream
-#'   advances -- by the one draw used to pick a root in consensus mode,
-#'   and by whatever the backend consumed in single-resolution mode -- so
-#'   consecutive unseeded calls still differ.
+#'   With an explicit seed the caller's stream is restored on exit, so the
+#'   call is invisible to anything drawn afterwards: the clustering backend
+#'   draws from a private stream started at `seed`. With `seed = NULL` the
+#'   stream advances by exactly what was taken from it -- the one draw used
+#'   to pick a root in consensus mode, whatever the backend consumed in
+#'   single-resolution mode -- so consecutive unseeded calls still differ.
 #' @param consensus_threshold Threshold for consensus mode. \code{NULL}
 #'   (default) uses iterative adaptive thresholding per Jeub et al. (2018):
 #'   subtracts the per-pair expected co-classification under random assignment
@@ -201,20 +198,13 @@ detect_modules.default <- function(net,
     stop("No edges above threshold; cannot detect modules")
   }
 
-  if (!is.null(seed)) {
-    set.seed(seed)
-    # Same contract as consensus mode, which pins the stream at the
-    # post-seed position (see detect_modules_consensus). Without this the
-    # single-resolution path left the stream wherever cluster_leiden() /
-    # cluster_infomap() / estimateSimpleSBM() stopped, which is
-    # backend- and build-dependent, so a downstream set.seed()-free draw
-    # -- summarize_comparison()'s randomized-p pi0, for one -- started
-    # from an unpredictable position.
-    old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
-    on.exit(assign(".Random.seed", old_rng, envir = globalenv()),
-      add = TRUE
-    )
-  }
+  # A seeded call runs cluster_leiden() / cluster_infomap() /
+  # estimateSimpleSBM() on a private stream and restores the caller's,
+  # so a downstream set.seed()-free draw -- summarize_comparison()'s
+  # randomized-p pi0, for one -- continues from the caller's own seed
+  # rather than from wherever the clustering backend happened to stop.
+  # See .seed_scope() in R/rng.R for the package-wide contract.
+  .seed_scope(seed)
 
   if (method == "sbm") {
     if (!requireNamespace("sbm", quietly = TRUE)) {
@@ -344,22 +334,18 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     stop("No edges above threshold; cannot detect modules")
   }
 
-  if (is.null(seed)) {
-    seed_root <- sample.int(.Machine$integer.max, 1L)
+  # The per-task set.seed() calls below run in the caller's session on the
+  # serial path (no fork) but not under mclapply, so the scope below restores
+  # the ambient stream on exit and leaves detect_modules() looking the same at
+  # any n_cores. With seed = NULL the root is drawn from the ambient stream
+  # first, so that one draw -- and only that one -- is what the caller sees,
+  # and consecutive unseeded calls still differ.
+  seed_root <- if (is.null(seed)) {
+    sample.int(.Machine$integer.max, 1L)
   } else {
-    set.seed(seed)
-    seed_root <- as.integer(seed)
+    as.integer(seed)
   }
-  # Per-task set.seed() below runs in the caller's session on the serial path
-  # (no fork) but not under mclapply, so restore the ambient stream on exit and
-  # leave detect_modules() looking the same at any n_cores. Snapshot taken
-  # after the seed handling: with an explicit seed the stream is left exactly
-  # where set.seed(seed) put it, and with seed = NULL it is left advanced by
-  # the one draw above, so consecutive unseeded calls still differ.
-  # Both branches above have seeded, so .Random.seed exists unconditionally
-  # here -- unlike coexpressolog_null(), which snapshots before seeding.
-  old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
-  on.exit(assign(".Random.seed", old_rng, envir = globalenv()), add = TRUE)
+  .seed_scope(seed_root)
 
   # Build original graph — then free the dense adjacency (~4.6 GB for N=24k)
   g <- igraph::graph_from_adjacency_matrix(

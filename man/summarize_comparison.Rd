@@ -54,12 +54,10 @@ what makes every downstream count -- significant pairs, edges,
 clique tiers -- reproducible too. \code{"storey"} and \code{"none"}
 draw nothing, so a seed only pins the stream for them.
 
-The global stream is left exactly where \code{set.seed(seed)} put
-it, the same contract as \code{\link{detect_modules}}, so a seeded
-call does not displace the caller's stream by however many draws
-\code{B} consumed. That is not the same as restoring the caller's
-pre-call state: \code{set.seed(seed)} has still happened, and
-anything drawn afterwards continues from there.}
+A seeded call draws from a private stream and restores the caller's
+on exit, so it does not displace the caller by however many draws
+\code{B} consumed and anything drawn afterwards continues from the
+caller's own seed. Same contract as \code{\link{detect_modules}}.}
 }
 \value{
 A list with components:

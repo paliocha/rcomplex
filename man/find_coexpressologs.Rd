@@ -90,9 +90,10 @@ which reproduces the run at \code{n_cores = 1} only: above that the
 OpenMP guided schedule decides which thread takes which HOG, so the
 pairing of thread streams to HOGs still moves between runs.
 
-The global stream is left exactly where \code{set.seed(seed)} put
-it, the same contract as \code{\link{detect_modules}} and
-\code{\link{summarize_comparison}}.}
+A seeded call draws from a private stream and restores the caller's
+on exit; with \code{seed = NULL} the draws come from the ambient
+stream and leave it advanced. Same contract as
+\code{\link{detect_modules}} and \code{\link{summarize_comparison}}.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},

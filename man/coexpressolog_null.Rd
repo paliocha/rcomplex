@@ -11,7 +11,7 @@ coexpressolog_null(
   n_perm = 100L,
   swap_factor = 10L,
   n_cores = 1L,
-  seed = 1L,
+  seed = NULL,
   ...
 )
 }
@@ -42,8 +42,16 @@ edge count of each thresholded network (default 10).}
 \item{n_cores}{Number of parallel workers for the permutation loop
 (default 1).}
 
-\item{seed}{Integer base seed; worker \code{b} uses
-\code{seed + b} (default 1).}
+\item{seed}{Integer base seed; worker \code{b} uses \code{seed + b}.
+\code{NULL} (default) draws a base seed from the ambient RNG stream
+and leaves it advanced by that one draw, so consecutive unseeded
+calls give different nulls and a \code{set.seed()} in the caller's
+script reproduces the whole run. With a seed the call draws from a
+private stream and restores the caller's on exit --- the
+package-wide contract, see \code{\link{detect_modules}}.
+
+The default was \code{1L} before 0.3.0, which made every default
+call return the same null and hid its Monte Carlo error.}
 
 \item{...}{Passed unchanged to \code{\link{find_coexpressologs}} for
 both the observed and every null run (\code{species_pairs},
@@ -82,23 +90,22 @@ carry no information after rewiring. Each network is rewired with
 loops, no multi-edges).
 
 Permutation \code{b} runs in a worker that calls
-\code{set.seed(seed + b)} first, so results are reproducible and
+\code{set.seed(root + b)} first, so results are reproducible and
 independent of \code{n_cores}. On Unix the permutations run under
-\code{parallel::mclapply()}; on Windows they run serially. The serial
-path saves and restores the caller's RNG state around the loop, so
-the ambient stream continues where the observed run left it. The
-observed run uses the
-ambient RNG: call \code{set.seed()} beforehand when \code{...}
-includes settings that draw from it (e.g. the default
-\code{pi0_method = "randomized"}). \code{method = "permutation"} in
+\code{parallel::mclapply()}; on Windows they run serially. The seed
+covers the observed run as well as the null runs, so \code{...}
+settings that draw --- the default \code{pi0_method = "randomized"},
+for one --- are pinned too. \code{method = "permutation"} in
 \code{...} is allowed but slow (a full permutation test per rewired
 network).
 }
 \examples{
 \dontrun{
 set.seed(1)
-res <- coexpressolog_null(networks, orthologs, n_perm = 100L,
-                          n_cores = 4L)
+res <- coexpressolog_null(networks, orthologs,
+  n_perm = 100L,
+  n_cores = 4L
+)
 res[res$statistic == "total", ]
 }
 

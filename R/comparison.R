@@ -351,9 +351,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   OpenMP guided schedule decides which thread takes which HOG, so the
 #'   pairing of thread streams to HOGs still moves between runs.
 #'
-#'   The global stream is left exactly where \code{set.seed(seed)} put
-#'   it, the same contract as \code{\link{detect_modules}} and
-#'   \code{\link{summarize_comparison}}.
+#'   A seeded call draws from a private stream and restores the caller's
+#'   on exit; with \code{seed = NULL} the draws come from the ambient
+#'   stream and leave it advanced. Same contract as
+#'   \code{\link{detect_modules}} and \code{\link{summarize_comparison}}.
 #' @param pval_combine Analytical method only: how the two directional
 #'   q-values are combined, passed to \code{\link{comparison_to_edges}}:
 #'   \code{"max"} (default; both directions significant -- the reciprocal
@@ -411,15 +412,8 @@ find_coexpressologs.default <- function(
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
   # in sequence from this one stream rather than all reusing the same
-  # uniforms. Same contract as detect_modules(): the stream is left at
-  # the post-seed position.
-  if (!is.null(seed)) {
-    set.seed(seed)
-    old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
-    on.exit(assign(".Random.seed", old_rng, envir = globalenv()),
-      add = TRUE
-    )
-  }
+  # uniforms. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
 
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
@@ -639,15 +633,8 @@ density_sweep.default <- function(networks, orthologs,
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue
-  # this stream. Same contract as detect_modules(): the stream is left
-  # at the post-seed position.
-  if (!is.null(seed)) {
-    set.seed(seed)
-    old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
-    on.exit(assign(".Random.seed", old_rng, envir = globalenv()),
-      add = TRUE
-    )
-  }
+  # this stream. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
 
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")

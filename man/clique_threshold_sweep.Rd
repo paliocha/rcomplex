@@ -101,10 +101,14 @@ the global RNG).
 \examples{
 \dontrun{
 sweep <- clique_threshold_sweep(cliques, target_species, networks,
-                                 orthologs, multipliers = c(1.5, 2, 5))
+  orthologs,
+  multipliers = c(1.5, 2, 5)
+)
 # Survival curve
-sapply(sort(unique(sweep$survival$multiplier)),
-       function(m) mean(sweep$survival$survived[sweep$survival$multiplier == m]))
+sapply(
+  sort(unique(sweep$survival$multiplier)),
+  function(m) mean(sweep$survival$survived[sweep$survival$multiplier == m])
+)
 }
 
 }

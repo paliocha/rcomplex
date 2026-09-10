@@ -1532,14 +1532,18 @@ test_that("find_coexpressologs(seed = ) is reproducible; seeds differ", {
 })
 
 
-test_that("find_coexpressologs pins the stream at set.seed(seed)", {
+test_that("find_coexpressologs restores the caller's stream", {
   td <- make_graded_nets()
   nets <- list(SP_A = td$net1, SP_B = td$net2)
   set.seed(7)
+  before <- get(".Random.seed", envir = globalenv())
   invisible(find_coexpressologs(nets, td$ortho, seed = 42))
-  after <- get(".Random.seed", envir = globalenv())
+  expect_identical(get(".Random.seed", envir = globalenv()), before)
+
+  # and it is genuinely restoration, not a coincidence of pinning: the
+  # exit state must not be the one set.seed(42) would give.
   set.seed(42)
-  expect_identical(after, get(".Random.seed", envir = globalenv()))
+  expect_false(identical(before, get(".Random.seed", envir = globalenv())))
 })
 
 
@@ -1563,8 +1567,7 @@ test_that("density_sweep(seed = ) is reproducible and pins level one", {
   expect_equal(a$edges[[1]]$q.value, direct$q.value)
 
   set.seed(7)
+  before <- get(".Random.seed", envir = globalenv())
   invisible(run(42))
-  after <- get(".Random.seed", envir = globalenv())
-  set.seed(42)
-  expect_identical(after, get(".Random.seed", envir = globalenv()))
+  expect_identical(get(".Random.seed", envir = globalenv()), before)
 })

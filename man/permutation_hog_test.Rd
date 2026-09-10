@@ -12,7 +12,8 @@ permutation_hog_test(
   min_exceedances = 50L,
   max_permutations = 10000L,
   n_cores = 1L,
-  use_torch = FALSE
+  use_torch = FALSE,
+  seed = NULL
 )
 }
 \arguments{
@@ -38,6 +39,15 @@ Higher values give more precise p-values but take longer (default 50).}
 \item{use_torch}{If \code{TRUE}, precompute the fold-enrichment matrix on GPU
 via torch, then run permutations as fast table lookups. Requires the
 \href{https://torch.mlverse.org/}{torch} package. Default \code{FALSE}.}
+
+\item{seed}{Integer seed for the permutation draws, or \code{NULL} (default)
+to draw from the ambient RNG stream and leave it advanced. The C++
+engine seeds one RNG per thread from R's stream before the parallel
+region, so a seed reproduces the run at \code{n_cores = 1} only: above that
+the OpenMP guided schedule decides which thread takes which HOG, and
+the pairing of thread streams to HOGs still moves between runs. A
+seeded call restores the caller's stream on exit --- the package-wide
+contract, see \code{\link[=detect_modules]{detect_modules()}}.}
 }
 \value{
 A data frame with one row per HOG, ordered by p-value, with columns:

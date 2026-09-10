@@ -100,6 +100,11 @@
 #'   cost rather than on \code{n_perm} so that raising \code{n_perm} for
 #'   precision cannot demote the null from exact to sampled. See
 #'   \code{enum_max} to lower that ceiling.
+#' @param seed Integer seed for the sampled branch, or \code{NULL} (default)
+#'   to draw from the ambient RNG stream and leave it advanced. A seed draws
+#'   from a private stream and restores the caller's on exit, the
+#'   package-wide contract described under \code{\link{detect_modules}}. An
+#'   enumerated null draws nothing, so a seed changes nothing there.
 #' @param enum_max Enumerate while the label space holds at most
 #'   \code{2^enum_max} labellings (default 20). That is
 #'   \code{2^enum_max} serial evaluations of the statistic in the worst
@@ -241,19 +246,28 @@
 #' @examples
 #' \dontrun{
 #' mod_results <- preservation_paired(modules, networks, orthologs,
-#'   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
-#'                      sp2 = c("BSYL", "HJUB"),
-#'                      pair_name = c("Brachypodium", "Hordeum")),
-#'   group = c(BDIS = "annual", BSYL = "perennial",
-#'             HVUL = "annual", HJUB = "perennial"))
+#'   pairs = data.frame(
+#'     sp1 = c("BDIS", "HVUL"),
+#'     sp2 = c("BSYL", "HJUB"),
+#'     pair_name = c("Brachypodium", "Hordeum")
+#'   ),
+#'   group = c(
+#'     BDIS = "annual", BSYL = "perennial",
+#'     HVUL = "annual", HJUB = "perennial"
+#'   )
+#' )
 #'
 #' result <- tag_permutation(
 #'   mod_results$classification, modules, orthologs,
-#'   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
-#'                      sp2 = c("BSYL", "HJUB"),
-#'                      pair_name = c("Brachypodium", "Hordeum")),
-#'   group = c(BDIS = "annual", BSYL = "perennial",
-#'             HVUL = "annual", HJUB = "perennial"),
+#'   pairs = data.frame(
+#'     sp1 = c("BDIS", "HVUL"),
+#'     sp2 = c("BSYL", "HJUB"),
+#'     pair_name = c("Brachypodium", "Hordeum")
+#'   ),
+#'   group = c(
+#'     BDIS = "annual", BSYL = "perennial",
+#'     HVUL = "annual", HJUB = "perennial"
+#'   ),
 #'   target_group = "annual"
 #' )
 #' result$p_value
@@ -266,19 +280,29 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
                             min_recurrence = NULL,
                             statistic = c("count", "excess"),
                             universe = NULL,
-                            enum_max = 20L) {
+                            enum_max = 20L,
+                            seed = NULL) {
+  # Only the sampled branch draws, but the scope is opened unconditionally:
+  # enum_max decides which branch runs, so a caller cannot tell from the call
+  # site whether a seed matters. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
+
   # Capture before n_perm is reassigned: missing() reports FALSE once an
   # argument has been written to, so this cannot be asked for later.
   n_perm_supplied <- !missing(n_perm)
   min_recurrence_in <- min_recurrence
   statistic <- match.arg(statistic)
   # --- Validation ---
-  req_cls <- c("pair_name", "module", "reference", "test",
-               "classification")
+  req_cls <- c(
+    "pair_name", "module", "reference", "test",
+    "classification"
+  )
   missing_cls <- setdiff(req_cls, names(classification))
   if (length(missing_cls) > 0L) {
-    stop("classification missing columns: ",
-         paste(missing_cls, collapse = ", "))
+    stop(
+      "classification missing columns: ",
+      paste(missing_cls, collapse = ", ")
+    )
   }
   if (!is.list(modules) || is.null(names(modules))) {
     stop("modules must be a named list keyed by species")
@@ -299,40 +323,53 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # duplicate silently leaves later slots NULL and dies later with an
   # error naming neither pairs nor pair_name.
   if (anyDuplicated(pairs$pair_name)) {
-    stop("pairs$pair_name must be unique; repeated: ",
-         paste(unique(pairs$pair_name[duplicated(pairs$pair_name)]),
-               collapse = ", "))
+    stop(
+      "pairs$pair_name must be unique; repeated: ",
+      paste(unique(pairs$pair_name[duplicated(pairs$pair_name)]),
+        collapse = ", "
+      )
+    )
   }
   all_sp <- unique(c(pairs$sp1, pairs$sp2))
   missing_grp <- setdiff(all_sp, names(group))
   if (length(missing_grp) > 0L) {
-    stop("group missing entries for: ",
-         paste(missing_grp, collapse = ", "))
+    stop(
+      "group missing entries for: ",
+      paste(missing_grp, collapse = ", ")
+    )
   }
   if (anyNA(group[all_sp])) {
-    stop("group has NA trait values for: ",
-         paste(all_sp[is.na(group[all_sp])], collapse = ", "))
+    stop(
+      "group has NA trait values for: ",
+      paste(all_sp[is.na(group[all_sp])], collapse = ", ")
+    )
   }
   missing_mod <- setdiff(all_sp, names(modules))
   if (length(missing_mod) > 0L) {
-    stop("modules missing entries for: ",
-         paste(missing_mod, collapse = ", "))
+    stop(
+      "modules missing entries for: ",
+      paste(missing_mod, collapse = ", ")
+    )
   }
   if (!is.character(target_group) || length(target_group) != 1L) {
     stop("target_group must be a single character string")
   }
   if (!target_group %in% group) {
-    stop("target_group '", target_group,
-         "' not found in group values: ",
-         paste(unique(group), collapse = ", "))
+    stop(
+      "target_group '", target_group,
+      "' not found in group values: ",
+      paste(unique(group), collapse = ", ")
+    )
   }
   # "conserved" belongs to both vocabularies, so testing for known levels
   # would pass any old table carrying one. Test for the old-only levels.
   retired_cls <- c("species_specific", "partially_conserved")
   if (any(classification$classification %in% retired_cls)) {
-    stop("classification uses the retired gene-overlap vocabulary (",
-         paste(retired_cls, collapse = "/"), "); expected the output of ",
-         "preservation_paired()")
+    stop(
+      "classification uses the retired gene-overlap vocabulary (",
+      paste(retired_cls, collapse = "/"), "); expected the output of ",
+      "preservation_paired()"
+    )
   }
   # Both checks are needed. Testing only for retired levels lets a foreign
   # vocabulary through (relabelled rows, "Diverged", another tool's output),
@@ -341,27 +378,37 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # below finds no diverged rows and returns observed = 0 with no error.
   known_cls <- c("conserved", "moderate", "diverged", "untested")
   if (!all(classification$classification %in% known_cls)) {
-    stop("classification$classification holds levels outside ",
-         paste(known_cls, collapse = "/"), "; expected the output of ",
-         "preservation_paired()")
+    stop(
+      "classification$classification holds levels outside ",
+      paste(known_cls, collapse = "/"), "; expected the output of ",
+      "preservation_paired()"
+    )
   }
-  miss_sp <- setdiff(unique(c(pairs$sp1, pairs$sp2)),
-                     unique(c(classification$reference,
-                              classification$test)))
+  miss_sp <- setdiff(
+    unique(c(pairs$sp1, pairs$sp2)),
+    unique(c(
+      classification$reference,
+      classification$test
+    ))
+  )
   if (length(miss_sp) > 0L) {
-    stop("classification has no rows for: ",
-         paste(miss_sp, collapse = ", "))
+    stop(
+      "classification has no rows for: ",
+      paste(miss_sp, collapse = ", ")
+    )
   }
   # preservation_paired() defaults pair_name to "sp1.sp2" while this function
   # requires the caller to supply it, so a mismatch is easy to produce and
   # would otherwise yield observed = 0 with no error.
   miss_pn <- setdiff(pairs$pair_name, unique(classification$pair_name))
   if (length(miss_pn) > 0L) {
-    stop("classification has no rows for pair_name: ",
-         paste(miss_pn, collapse = ", "))
+    stop(
+      "classification has no rows for pair_name: ",
+      paste(miss_pn, collapse = ", ")
+    )
   }
   if (!is.numeric(n_perm) || length(n_perm) != 1L || is.na(n_perm) ||
-        n_perm < 1) {
+    n_perm < 1) {
     stop("n_perm must be a single positive number")
   }
   # as.integer() overflows to NA above 2^31, which used to surface as
@@ -369,14 +416,14 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   n_perm <- as.integer(min(n_perm, .Machine$integer.max))
   if (!is.null(min_recurrence)) {
     if (!is.numeric(min_recurrence) || length(min_recurrence) != 1L ||
-          is.na(min_recurrence) || min_recurrence < 1) {
+      is.na(min_recurrence) || min_recurrence < 1) {
       stop("min_recurrence must be a single positive number or NULL")
     }
     min_recurrence <- as.integer(min_recurrence)
   }
   if (!is.numeric(enum_max) || length(enum_max) != 1L ||
-        is.na(enum_max) || enum_max < 0 || enum_max > 30 ||
-        enum_max != round(enum_max)) {
+    is.na(enum_max) || enum_max < 0 || enum_max > 30 ||
+    enum_max != round(enum_max)) {
     stop("enum_max must be a single whole number between 0 and 30")
   }
   enum_max <- as.integer(enum_max)
@@ -390,15 +437,18 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   multi_hog <- duplicated(gene_hog_df$gene)
   if (any(multi_hog)) {
     n_multi <- length(unique(gene_hog_df$gene[multi_hog]))
-    warning(n_multi, " gene(s) map to multiple HOGs; ",
-            "keeping first occurrence for each gene")
+    warning(
+      n_multi, " gene(s) map to multiple HOGs; ",
+      "keeping first occurrence for each gene"
+    )
   }
   gene_hog_df <- gene_hog_df[!duplicated(gene_hog_df$gene), , drop = FALSE]
   gene_to_hog <- stats::setNames(gene_hog_df$hog, gene_hog_df$gene)
 
   # --- Pre-compute HOG sets per (pair, side) ---
   ss <- classification[classification$classification == "diverged", ,
-                       drop = FALSE]
+    drop = FALSE
+  ]
 
   n_pairs <- nrow(pairs)
   hog_pool <- vector("list", n_pairs)
@@ -413,10 +463,11 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
 
     # sp1 side
     mods_sp1 <- ss_pair$module[ss_pair$reference == s1 &
-                                 ss_pair$test == s2]
+      ss_pair$test == s2]
     genes_sp1 <- if (length(mods_sp1) > 0L) {
       unlist(modules[[s1]]$module_genes[as.character(mods_sp1)],
-             use.names = FALSE)
+        use.names = FALSE
+      )
     } else {
       character(0)
     }
@@ -424,17 +475,20 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
 
     # sp2 side
     mods_sp2 <- ss_pair$module[ss_pair$reference == s2 &
-                                 ss_pair$test == s1]
+      ss_pair$test == s1]
     genes_sp2 <- if (length(mods_sp2) > 0L) {
       unlist(modules[[s2]]$module_genes[as.character(mods_sp2)],
-             use.names = FALSE)
+        use.names = FALSE
+      )
     } else {
       character(0)
     }
     hogs_sp2 <- unique(stats::na.omit(gene_to_hog[genes_sp2]))
 
-    hog_pool[[pn]] <- list(sp1 = hogs_sp1, sp2 = hogs_sp2,
-                           sp1_name = s1, sp2_name = s2)
+    hog_pool[[pn]] <- list(
+      sp1 = hogs_sp1, sp2 = hogs_sp2,
+      sp1_name = s1, sp2_name = s2
+    )
   }
 
   # --- Pair-level HOG selection (shared by counter and table builder) ---
@@ -457,8 +511,10 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   }
 
   # Which contrasts feed the statistic, and how deep a HOG must recur.
-  contributes <- unname(xor(group[pairs$sp1] == target_group,
-                            group[pairs$sp2] == target_group))
+  contributes <- unname(xor(
+    group[pairs$sp1] == target_group,
+    group[pairs$sp2] == target_group
+  ))
   n_contributing <- sum(contributes)
   # A fixed min_recurrence does not describe a design of arbitrary size.
   # The chance a HOG reaches two of k sides on its own grows steeply with
@@ -480,23 +536,29 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     min_recurrence <- max(2L, as.integer(ceiling(n_supplying / 2)))
   }
   if (min_recurrence > n_contributing) {
-    stop("min_recurrence (", min_recurrence, ") exceeds the number of ",
-         "pairs contributing to the statistic (", n_contributing,
-         "): no HOG can recur in that many pairs, so the statistic is 0 ",
-         "under every labelling and the p-value is 1 by construction")
+    stop(
+      "min_recurrence (", min_recurrence, ") exceeds the number of ",
+      "pairs contributing to the statistic (", n_contributing,
+      "): no HOG can recur in that many pairs, so the statistic is 0 ",
+      "under every labelling and the p-value is 1 by construction"
+    )
   }
   # The message belongs after the guard, or a design that is about to
   # error first announces a threshold it will never use.
   if (is.null(min_recurrence_in) && n_supplying > 0L) {
-    message("min_recurrence = ", min_recurrence, " (half of ",
-            n_supplying, " contrast(s) able to supply a HOG); pass it ",
-            "explicitly to override")
+    message(
+      "min_recurrence = ", min_recurrence, " (half of ",
+      n_supplying, " contrast(s) able to supply a HOG); pass it ",
+      "explicitly to override"
+    )
   }
 
   # --- Recurrence counter ---
   count_recurring <- function(grp) {
     all_hogs <- unlist(get_pair_hogs(grp))
-    if (length(all_hogs) == 0L) return(0L)
+    if (length(all_hogs) == 0L) {
+      return(0L)
+    }
     sum(tabulate(match(all_hogs, unique(all_hogs))) >= min_recurrence)
   }
 
@@ -507,16 +569,20 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     length(unique(stats::na.omit(gene_to_hog)))
   } else if (is.numeric(universe) && length(universe) == 1L) {
     if (is.na(universe) || !is.finite(universe) || universe < 1 ||
-          universe != round(universe) ||
-          universe > .Machine$integer.max) {
-      stop("universe must be a whole number of at least 1 and at most ",
-           .Machine$integer.max, ", or a vector of HOG identifiers")
+      universe != round(universe) ||
+      universe > .Machine$integer.max) {
+      stop(
+        "universe must be a whole number of at least 1 and at most ",
+        .Machine$integer.max, ", or a vector of HOG identifiers"
+      )
     }
     as.integer(universe)
   } else {
     if (length(universe) == 0L || all(is.na(universe))) {
-      stop("universe must be a whole number or a non-empty vector of ",
-           "HOG identifiers")
+      stop(
+        "universe must be a whole number or a non-empty vector of ",
+        "HOG identifiers"
+      )
     }
     length(unique(stats::na.omit(universe)))
   }
@@ -539,7 +605,9 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     } else {
       sum(tabulate(match(all_hogs, unique(all_hogs))) >= min_recurrence)
     }
-    if (statistic == "count") return(as.numeric(obs_n))
+    if (statistic == "count") {
+      return(as.numeric(obs_n))
+    }
     sizes <- vapply(sel, length, integer(1))
     sizes <- sizes[sizes > 0L]
     obs_n - .tp_expected(sizes, n_universe, min_recurrence)
@@ -553,15 +621,19 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   obs_all <- unlist(get_pair_hogs(group))
   if (length(obs_all) > 0L) {
     recurrence_table <- as.data.frame(table(obs_all),
-                                       stringsAsFactors = FALSE)
+      stringsAsFactors = FALSE
+    )
     names(recurrence_table) <- c("hog", "n_pairs")
     recurrence_table$n_pairs <- as.integer(recurrence_table$n_pairs)
     recurrence_table <- recurrence_table[order(-recurrence_table$n_pairs), ,
-                                          drop = FALSE]
+      drop = FALSE
+    ]
     rownames(recurrence_table) <- NULL
   } else {
-    recurrence_table <- data.frame(hog = character(0),
-                                    n_pairs = integer(0))
+    recurrence_table <- data.frame(
+      hog = character(0),
+      n_pairs = integer(0)
+    )
   }
 
   # --- Null: swap the two trait labels within a pair, or not ---
@@ -584,7 +656,9 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # cannot reach. Reduce such a component to one labelling.
   informative <- vapply(seq_along(blocks$labellings), function(ci) {
     labs <- blocks$labellings[[ci]]
-    if (length(labs) < 2L) return(FALSE)
+    if (length(labs) < 2L) {
+      return(FALSE)
+    }
     sigs <- vapply(labs, function(l) {
       grp <- group
       grp[names(l)] <- l
@@ -637,8 +711,10 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   if (exact) {
     n_draw <- as.integer(n_labellings)
     if (n_perm_supplied) {
-      message("null enumerated exactly over ", n_draw,
-              " labellings; n_perm = ", n_perm, " ignored")
+      message(
+        "null enumerated exactly over ", n_draw,
+        " labellings; n_perm = ", n_perm, " ignored"
+      )
     }
     null_dist <- numeric(n_draw)
     for (i in seq_len(n_draw)) {
@@ -681,8 +757,10 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     # would then claim pairs are degenerate when they are merely joined.
     pinned <- sum(contributes & !informative[blocks$membership[pairs$sp1]])
     extra <- if (pinned > 0L) {
-      paste0(" (", pinned, " contributing contrast(s) sit in a group no ",
-             "relabelling moves)")
+      paste0(
+        " (", pinned, " contributing contrast(s) sit in a group no ",
+        "relabelling moves)"
+      )
     } else {
       ""
     }
@@ -695,9 +773,11 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     too_few <- p_min > 0.05
     tied <- p_attainable > p_min && p_attainable > 0.05
     space <- if (exact) {
-      paste0(k, " independent contrast group(s)", extra, " over ",
-             n_contributing, " contributing contrast(s) give ",
-             n_draw, " labellings")
+      paste0(
+        k, " independent contrast group(s)", extra, " over ",
+        n_contributing, " contributing contrast(s) give ",
+        n_draw, " labellings"
+      )
     } else {
       paste0("a sampled null of ", n_draw, " draws")
     }
@@ -711,15 +791,21 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     }
     if (tied) {
       shared <- round(p_attainable * n_draw)
-      remedy <- c(remedy,
-                  paste0("the maximum is shared by ", shared, " of ",
-                         n_draw, " draws, so separating them matters ",
-                         "more than adding contrasts"))
+      remedy <- c(
+        remedy,
+        paste0(
+          "the maximum is shared by ", shared, " of ",
+          n_draw, " draws, so separating them matters ",
+          "more than adding contrasts"
+        )
+      )
     }
-    warning(space, ", so the smallest attainable p-value is ",
-            signif(p_floor, 3), " and p < 0.05 is unreachable for any ",
-            "signal: ", paste(remedy, collapse = "; "),
-            ". See $null_distribution.")
+    warning(
+      space, ", so the smallest attainable p-value is ",
+      signif(p_floor, 3), " and p < 0.05 is unreachable for any ",
+      "signal: ", paste(remedy, collapse = "; "),
+      ". See $null_distribution."
+    )
   }
 
   # The within-pair swap is only exchangeable if, under the null, the two
@@ -743,11 +829,13 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   )
   target_is_sp1 <- group[pairs$sp1] == target_group
   pair_sizes$n_hogs_target <- ifelse(target_is_sp1,
-                                     pair_sizes$n_hogs_sp1,
-                                     pair_sizes$n_hogs_sp2)
+    pair_sizes$n_hogs_sp1,
+    pair_sizes$n_hogs_sp2
+  )
   pair_sizes$n_hogs_partner <- ifelse(target_is_sp1,
-                                      pair_sizes$n_hogs_sp2,
-                                      pair_sizes$n_hogs_sp1)
+    pair_sizes$n_hogs_sp2,
+    pair_sizes$n_hogs_sp1
+  )
   # Keyed on `contributes`, not `swappable`: a pair can feed the
   # statistic while its swap is the identity, and it still has a
   # well-defined target side.
@@ -771,7 +859,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   n_nontied <- sum(countable, na.rm = TRUE)
   size_p <- if (n_nontied > 0L) {
     stats::binom.test(n_larger, n_nontied, 0.5,
-                      alternative = "greater")$p.value
+      alternative = "greater"
+    )$p.value
   } else {
     NA_real_
   }
@@ -780,11 +869,13 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # five pairs -- a clean sweep is p = 0.125 at k = 3 and 0.0625 at
   # k = 4. Read $size_asymmetry_p directly at small k.
   if (!is.na(size_p) && size_p <= 0.10) {
-    warning("the ", target_group, " side holds the larger HOG set in ",
-            n_larger, " of ", n_nontied, " swappable pairs with a size ",
-            "difference (sign test p = ", signif(size_p, 3), "), so the ",
-            "within-pair swap may not be exchangeable and this test may ",
-            "be reading set size rather than recurrence; see $pair_sizes")
+    warning(
+      "the ", target_group, " side holds the larger HOG set in ",
+      n_larger, " of ", n_nontied, " swappable pairs with a size ",
+      "difference (sign test p = ", signif(size_p, 3), "), so the ",
+      "within-pair swap may not be exchangeable and this test may ",
+      "be reading set size rather than recurrence; see $pair_sizes"
+    )
   }
 
   list(

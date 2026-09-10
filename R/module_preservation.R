@@ -153,6 +153,9 @@
 #'   keep only the naive-map comparison.
 #' @param n_cores Number of OpenMP threads (default 1).
 #' @param seed Optional RNG seed. Results are independent of `n_cores`.
+#'   `NULL` (default) draws from the ambient stream and leaves it advanced;
+#'   a seed draws from a private stream and restores the caller's on exit,
+#'   the package-wide contract described under [detect_modules()].
 #'
 #' @return A list with components:
 #'   \describe{
@@ -246,9 +249,11 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   if (is.na(n_perm) || n_perm < 1L) stop("n_perm must be >= 1")
   calibrate <- match.arg(calibrate)
   if (!is.null(qvalue_method)) {
-    warning("qvalue_method is deprecated and ignored: the Liang path was ",
-            "measured bit-identical to Benjamini-Hochberg on this engine. ",
-            "Use calibrate = \"none\" for the uncalibrated pmax + BH result.")
+    warning(
+      "qvalue_method is deprecated and ignored: the Liang path was ",
+      "measured bit-identical to Benjamini-Hochberg on this engine. ",
+      "Use calibrate = \"none\" for the uncalibrated pmax + BH result."
+    )
   }
   min_module_size <- as.integer(min_module_size)
   if (is.na(min_module_size) || min_module_size < 3L) {
@@ -257,6 +262,13 @@ module_preservation <- function(modules_ref, net_ref, net_test,
       "undefined below that)"
     )
   }
+
+  # Covers everything that draws: the C++ kernel's per-thread seeds, and the
+  # copy-choice null and naive-map run behind sensitivity = TRUE. Nothing
+  # between here and the kernel call consumes the stream, so a seeded run is
+  # bit-identical to the pre-0.3.0 set.seed() that sat just above it. See
+  # .seed_scope() in R/rng.R.
+  .seed_scope(seed)
 
   mat_ref <- .net_check(net_ref, net_ref$threshold)
   mat_test <- .net_check(net_test, net_test$threshold)
@@ -330,18 +342,23 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   coverage$reason <- ifelse(
     coverage$tested, NA_character_,
     ifelse(coverage$size_mapped == 0L, "no mapped gene",
-           paste0("fewer than min_module_size (", min_module_size,
-                  ") mapped genes"))
+      paste0(
+        "fewer than min_module_size (", min_module_size,
+        ") mapped genes"
+      )
+    )
   )
   rownames(coverage) <- NULL
 
   n_dropped <- sum(!coverage$tested)
   if (n_dropped > 0L) {
-    message(n_dropped, " of ", nrow(coverage), " reference modules were not ",
-            "tested (", sum(coverage$size_mapped == 0L), " with no mapped ",
-            "gene, ", sum(!coverage$tested & coverage$size_mapped > 0L),
-            " below min_module_size = ", min_module_size,
-            "); see $coverage")
+    message(
+      n_dropped, " of ", nrow(coverage), " reference modules were not ",
+      "tested (", sum(coverage$size_mapped == 0L), " with no mapped ",
+      "gene, ", sum(!coverage$tested & coverage$size_mapped > 0L),
+      " below min_module_size = ", min_module_size,
+      "); see $coverage"
+    )
   }
 
   rows_by_mod <- rows_by_mod[tested]
@@ -385,7 +402,6 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     )
   }
 
-  if (!is.null(seed)) set.seed(seed)
   res <- .pres_run(
     net_test, as.integer(keep_test - 1L), test_members,
     ref_kIM, ref_cc, ref_mar, n_perm, as.integer(n_cores),
@@ -400,29 +416,36 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 
   if (isTRUE(sensitivity)) {
     if (is.null(orthologs)) {
-      warning("sensitivity = TRUE needs 'orthologs' to build the naive map; ",
-              "skipping the comparison")
+      warning(
+        "sensitivity = TRUE needs 'orthologs' to build the naive map; ",
+        "skipping the comparison"
+      )
     } else if (!supplied_map && is.null(edges) && is.null(cliques)) {
       # Nothing resolved any copy, so the map already IS the naive map and a
       # second run would spend a full n_perm to report a delta of exactly zero.
-      warning("sensitivity = TRUE has nothing to compare: without 'edges', ",
-              "'cliques' or a supplied 'map' the resolved map is already the ",
-              "naive map; skipping the second run")
+      warning(
+        "sensitivity = TRUE has nothing to compare: without 'edges', ",
+        "'cliques' or a supplied 'map' the resolved map is already the ",
+        "naive map; skipping the second run"
+      )
     } else {
       naive_map <- resolve_ortholog_map(orthologs, genes_ref, genes_test)
       # The naive run must never discard the primary result: it can legitimately
       # stop(), e.g. when all its modules fall below min_module_size.
       naive <- tryCatch(
         module_preservation(
-          modules_ref, net_ref, net_test, orthologs = orthologs,
+          modules_ref, net_ref, net_test,
+          orthologs = orthologs,
           map = naive_map, n_perm = n_perm,
           min_module_size = min_module_size, binary = binary, alpha = alpha,
           calibrate = calibrate, sensitivity = FALSE,
           n_cores = n_cores, seed = seed
         ),
         error = function(e) {
-          warning("the naive-map run failed (", conditionMessage(e),
-                  "); skipping the sensitivity comparison")
+          warning(
+            "the naive-map run failed (", conditionMessage(e),
+            "); skipping the sensitivity comparison"
+          )
           NULL
         }
       )
@@ -478,17 +501,21 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   b <- naive$preservation
   idx <- match(a$module, b$module)
   if (anyNA(idx)) {
-    warning(sum(is.na(idx)), " module(s) tested under the resolved map were ",
-            "not tested under the naive map; their naive columns are NA")
+    warning(
+      sum(is.na(idx)), " module(s) tested under the resolved map were ",
+      "not tested under the naive map; their naive columns are NA"
+    )
   }
   # The reverse direction produces no NA and would otherwise pass silently,
   # yet it is the more alarming one: resolution lost a module the naive map
   # could test.
   lost <- setdiff(b$module, a$module)
   if (length(lost) > 0L) {
-    warning(length(lost), " module(s) tested under the naive map were not ",
-            "tested under the resolved map (", paste(lost, collapse = ", "),
-            "); paralog resolution concentrated their genes")
+    warning(
+      length(lost), " module(s) tested under the naive map were not ",
+      "tested under the resolved map (", paste(lost, collapse = ", "),
+      "); paralog resolution concentrated their genes"
+    )
   }
 
   out <- data.frame(
@@ -523,13 +550,15 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   attr(out, "n_lost") <- length(setdiff(nai_proj, res_proj))
 
   if (!same) {
-    warning("paralog resolution changed which test-species genes carry a ",
-            "module label: ", length(setdiff(res_proj, nai_proj)),
-            " rescued from a tied majority vote, ",
-            length(setdiff(nai_proj, res_proj)), " lost. The resolved and ",
-            "naive Zsummary are therefore not measured on the same gene set, ",
-            "so read Zsummary_delta with that in mind and prefer the p_copy ",
-            "columns, which hold the set fixed.")
+    warning(
+      "paralog resolution changed which test-species genes carry a ",
+      "module label: ", length(setdiff(res_proj, nai_proj)),
+      " rescued from a tied majority vote, ",
+      length(setdiff(nai_proj, res_proj)), " lost. The resolved and ",
+      "naive Zsummary are therefore not measured on the same gene set, ",
+      "so read Zsummary_delta with that in mind and prefer the p_copy ",
+      "columns, which hold the set fixed."
+    )
   }
   out
 }
@@ -658,7 +687,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     0
   }
   p_cal <- ifelse(is.na(res$p_npc), p_comb,
-                  w00 * res$p_npc + (1 - w00) * p_comb)
+    w00 * res$p_npc + (1 - w00) * p_comb
+  )
   q_comb <- .pres_qvalues(p_cal)
 
   # medianRank: rank of the observed statistics across modules, 1 = strongest.
@@ -822,13 +852,17 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   # genes, and then every draw would score fewer genes -- reintroducing the
   # set-size artefact this null exists to remove.
   if (!setequal(names(by_g2), projected)) {
-    warning("the ortholog table does not cover every projected gene (",
-            length(setdiff(projected, names(by_g2))), " missing), so the ",
-            "copy-choice null cannot hold the gene set fixed; skipping it")
+    warning(
+      "the ortholog table does not cover every projected gene (",
+      length(setdiff(projected, names(by_g2))), " missing), so the ",
+      "copy-choice null cannot hold the gene set fixed; skipping it"
+    )
     # NA, not 0: the map may be heavily multi-copy; the null was simply
     # never run, and 0 would read as "there were no paralogs to check".
-    return(list(draws = NULL, n_multi = NA_integer_,
-                reason = "coverage"))
+    return(list(
+      draws = NULL, n_multi = NA_integer_,
+      reason = "coverage"
+    ))
   }
   multi <- sum(lengths(by_g2) > 1L)
   if (multi == 0L) {
@@ -854,7 +888,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
         # only allocate per-thread buffers. The serial cost is this loop
         # over draws.
         module_preservation(
-          modules_ref, net_ref, net_test, map = m, n_perm = 1L,
+          modules_ref, net_ref, net_test,
+          map = m, n_perm = 1L,
           min_module_size = min_module_size, binary = binary,
           sensitivity = FALSE, n_cores = 1L
         )$preservation
@@ -866,9 +901,11 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   if (n_kept > 0L && n_kept < n_draws) {
     # p_copy is then a rank against a smaller null than requested, which
     # only the n_copy_draws attribute records.
-    warning(n_draws - n_kept, " of ", n_draws, " copy-choice draws ",
-            "failed; p_copy is computed against the ", n_kept,
-            " that succeeded")
+    warning(
+      n_draws - n_kept, " of ", n_draws, " copy-choice draws ",
+      "failed; p_copy is computed against the ", n_kept,
+      " that succeeded"
+    )
   }
   draws <- Filter(Negate(is.null), draws)
   if (length(draws) == 0L) {
@@ -1017,12 +1054,14 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
   if (any(fell_back)) {
     z_used[fell_back] <- p$Zsummary[fell_back]
 
-    warning(sum(fell_back), " module(s) have no null correlation for ",
-            "Zsummary_std, so the raw Zsummary was used against ",
-            "z_conserved for them",
-            if (nzchar(where)) paste0(" [", where, "]") else "",
-            "; the cut point means a different number of null standard ",
-            "deviations there. Raise n_perm.")
+    warning(
+      sum(fell_back), " module(s) have no null correlation for ",
+      "Zsummary_std, so the raw Zsummary was used against ",
+      "z_conserved for them",
+      if (nzchar(where)) paste0(" [", where, "]") else "",
+      "; the cut point means a different number of null standard ",
+      "deviations there. Raise n_perm."
+    )
   }
   strong <- !is.na(z_used) & z_used >= z_conserved
   classification <- ifelse(!testable, "untested",
@@ -1031,10 +1070,12 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
     )
   )
   if (any(!testable)) {
-    warning(sum(!testable), " module(s) could not be tested (a statistic was ",
-            "undefined); reported as \"untested\"",
-            if (nzchar(where)) paste0(" [", where, "]") else "",
-            ": ", paste(p$module[!testable], collapse = ", "))
+    warning(
+      sum(!testable), " module(s) could not be tested (a statistic was ",
+      "undefined); reported as \"untested\"",
+      if (nzchar(where)) paste0(" [", where, "]") else "",
+      ": ", paste(p$module[!testable], collapse = ", ")
+    )
   }
 
   # rep() rather than recycling: with zero modules the scalar species and
@@ -1095,6 +1136,11 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #'   `module_sp1` belongs to `modules_ref`, and that orientation cannot be
 #'   recovered from the table, so supplying these lets
 #'   [classify_hub_conservation()] catch a transposed call.
+#' @param seed Integer seed for the randomized-p draws behind pi0, or `NULL`
+#'   (default) to draw from the ambient stream and leave it advanced. A seed
+#'   draws from a private stream and restores the caller's on exit, the
+#'   package-wide contract described under [detect_modules()].
+#'   `qvalue_method = "none"` draws nothing, so a seed changes nothing there.
 #'
 #' @return A list with `pairs` -- a data frame of `module_sp1`,
 #'   `module_sp2`, `size_sp1`, `size_sp2`, `overlap`, `jaccard`, `p.value` and
@@ -1104,8 +1150,10 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #'
 #' @examples
 #' \dontrun{
-#' map <- resolve_ortholog_map(ortho, rownames(net_a$network),
-#'   rownames(net_b$network))
+#' map <- resolve_ortholog_map(
+#'   ortho, rownames(net_a$network),
+#'   rownames(net_b$network)
+#' )
 #' corr <- module_correspondence(mods_a, mods_b, map)
 #' subset(corr$pairs, q.value < 0.05)
 #' }
@@ -1113,7 +1161,11 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #' @export
 module_correspondence <- function(modules_ref, modules_test, map,
                                   qvalue_method = "randomized",
-                                  sp_ref = NULL, sp_test = NULL) {
+                                  sp_ref = NULL, sp_test = NULL,
+                                  seed = NULL) {
+  # The default qvalue_method draws uniforms for pi0. See R/rng.R.
+  .seed_scope(seed)
+
   for (nm in c("modules_ref", "modules_test")) {
     m <- get(nm)
     if (!is.list(m) || is.null(m$modules) || is.null(m$module_genes)) {
@@ -1202,6 +1254,16 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' @param edges,cliques Optional [find_coexpressologs()] and [find_cliques()]
 #'   results, used for paralog resolution.
 #' @param alpha,z_conserved Passed to [classify_preservation()].
+#' @param seed Integer seed for the whole run, or `NULL` (default) to draw
+#'   from the ambient stream and leave it advanced. The seed is applied once
+#'   here and the per-direction [module_preservation()] calls are left
+#'   unseeded, so the directions draw in sequence from one stream instead of
+#'   every one of them reusing the same permutations. A seeded call restores
+#'   the caller's stream on exit, the package-wide contract described under
+#'   [detect_modules()].
+#'
+#'   Before 0.3.0 `seed` reached [module_preservation()] through `...` and
+#'   handed every direction the identical seed.
 #' @param ... Further arguments passed to [module_preservation()].
 #'
 #' @return A list with `classification` (one row per module per direction,
@@ -1236,7 +1298,12 @@ preservation_paired <- function(modules, ...) {
 preservation_paired.default <- function(modules, networks, orthologs, pairs,
                                         group = NULL, edges = NULL,
                                         cliques = NULL, alpha = 0.05,
-                                        z_conserved = 10, ...) {
+                                        z_conserved = 10, seed = NULL, ...) {
+  # Seeded once for the whole run; the module_preservation() calls below
+  # leave seed at NULL and continue this stream, so the directions do not
+  # all reuse the same permutations. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
+
   if (!is.list(modules) || is.null(names(modules))) {
     stop("modules must be a named list keyed by species")
   }
@@ -1254,21 +1321,27 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
   # collide on that key and silently overwrite the earlier one.
   unordered <- paste(pmin(pairs$sp1, pairs$sp2), pmax(pairs$sp1, pairs$sp2))
   if (anyDuplicated(unordered) > 0L) {
-    stop("pairs lists the same species pair more than once (both directions ",
-         "of each contrast are run, so (A, B) and (B, A) are the same row): ",
-         paste(unique(unordered[duplicated(unordered)]), collapse = ", "))
+    stop(
+      "pairs lists the same species pair more than once (both directions ",
+      "of each contrast are run, so (A, B) and (B, A) are the same row): ",
+      paste(unique(unordered[duplicated(unordered)]), collapse = ", ")
+    )
   }
   species <- unique(c(pairs$sp1, pairs$sp2))
   missing_sp <- setdiff(species, intersect(names(modules), names(networks)))
   if (length(missing_sp) > 0L) {
-    stop("modules and networks must both cover: ",
-         paste(missing_sp, collapse = ", "))
+    stop(
+      "modules and networks must both cover: ",
+      paste(missing_sp, collapse = ", ")
+    )
   }
   if (!is.null(group)) {
     missing_grp <- setdiff(species, names(group))
     if (length(missing_grp) > 0L) {
-      stop("group missing entries for: ",
-           paste(missing_grp, collapse = ", "))
+      stop(
+        "group missing entries for: ",
+        paste(missing_grp, collapse = ", ")
+      )
     }
   }
   if (!"pair_name" %in% names(pairs)) {
@@ -1279,8 +1352,10 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
   class_list <- list()
 
   for (p in seq_len(nrow(pairs))) {
-    for (direction in list(c(pairs$sp1[p], pairs$sp2[p]),
-                           c(pairs$sp2[p], pairs$sp1[p]))) {
+    for (direction in list(
+      c(pairs$sp1[p], pairs$sp2[p]),
+      c(pairs$sp2[p], pairs$sp1[p])
+    )) {
       ref <- direction[1]
       test <- direction[2]
       key <- paste(ref, test, sep = ".")
@@ -1296,10 +1371,12 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
       )
       raw[[key]] <- pres
 
-      cls <- classify_preservation(pres, alpha = alpha,
-                                   z_conserved = z_conserved,
-                                   species = ref,
-                                   pair_name = pairs$pair_name[p])
+      cls <- classify_preservation(pres,
+        alpha = alpha,
+        z_conserved = z_conserved,
+        species = ref,
+        pair_name = pairs$pair_name[p]
+      )
       cls$reference <- ref
       cls$test <- test
       if (!is.null(group)) {
@@ -1310,7 +1387,8 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
         cls$group <- ifelse(
           cls$classification == "untested", "untested",
           ifelse(cls$classification != "diverged",
-                 "conserved", as.character(group[ref]))
+            "conserved", as.character(group[ref])
+          )
         )
       }
       class_list[[key]] <- cls

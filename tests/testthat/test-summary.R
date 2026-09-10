@@ -454,23 +454,23 @@ test_that("a seed does not change the pi0-free methods' answers", {
 })
 
 
-test_that("a seeded call leaves the stream where set.seed(seed) put it", {
-  # Same contract as detect_modules() (test-module-determinism.R): the
-  # stream is pinned at the post-seed position, so a later draw that has
-  # no seed of its own starts somewhere predictable instead of wherever
-  # B rounds of pi0est() happened to leave it.
+test_that("a seeded call restores the caller's stream", {
+  # Same contract as detect_modules() (test-module-determinism.R): a seed
+  # buys a private stream, so a later draw that has no seed of its own
+  # continues from the caller's own set.seed() rather than from wherever
+  # B rounds of pi0est() happened to leave things -- or from a position
+  # this function's seed decided.
   td <- make_graded_nets()
   cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
 
-  pinned <- function(f) {
+  restored <- function(f) {
     set.seed(7)
+    before <- get(".Random.seed", envir = globalenv())
     f()
-    after <- get(".Random.seed", envir = globalenv())
-    set.seed(42)
-    identical(after, get(".Random.seed", envir = globalenv()))
+    identical(before, get(".Random.seed", envir = globalenv()))
   }
-  expect_true(pinned(function() summarize_comparison(cmp, seed = 42)))
-  expect_true(pinned(function() {
+  expect_true(restored(function() summarize_comparison(cmp, seed = 42)))
+  expect_true(restored(function() {
     summarize_comparison(cmp, pi0_method = "storey", seed = 42)
   }))
 

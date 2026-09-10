@@ -145,12 +145,10 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   clique tiers -- reproducible too. \code{"storey"} and \code{"none"}
 #'   draw nothing, so a seed only pins the stream for them.
 #'
-#'   The global stream is left exactly where \code{set.seed(seed)} put
-#'   it, the same contract as \code{\link{detect_modules}}, so a seeded
-#'   call does not displace the caller's stream by however many draws
-#'   \code{B} consumed. That is not the same as restoring the caller's
-#'   pre-call state: \code{set.seed(seed)} has still happened, and
-#'   anything drawn afterwards continues from there.
+#'   A seeded call draws from a private stream and restores the caller's
+#'   on exit, so it does not displace the caller by however many draws
+#'   \code{B} consumed and anything drawn afterwards continues from the
+#'   caller's own seed. Same contract as \code{\link{detect_modules}}.
 #' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
 #'   \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
 #'   directions significant -- the reciprocal criterion of Netotea et
@@ -216,17 +214,9 @@ summarize_comparison <- function(comparison,
   }
 
   # One seed covers both directional compute_qvalues() calls below, so
-  # Species1 and Species2 keep independent U draws. Same contract as
-  # detect_modules(): the stream is pinned at the post-seed position, so
-  # a seeded call does not displace the caller's stream by however many
-  # draws B consumed.
-  if (!is.null(seed)) {
-    set.seed(seed)
-    old_rng <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
-    on.exit(assign(".Random.seed", old_rng, envir = globalenv()),
-      add = TRUE
-    )
-  }
+  # Species1 and Species2 keep independent U draws. See .seed_scope() in
+  # R/rng.R for the package-wide contract.
+  .seed_scope(seed)
 
   if (is.null(filter_zero)) {
     filter_zero <- alternative == "greater"
@@ -634,6 +624,14 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #' @param use_torch If `TRUE`, precompute the fold-enrichment matrix on GPU
 #'   via torch, then run permutations as fast table lookups. Requires the
 #'   \href{https://torch.mlverse.org/}{torch} package. Default `FALSE`.
+#' @param seed Integer seed for the permutation draws, or `NULL` (default)
+#'   to draw from the ambient RNG stream and leave it advanced. The C++
+#'   engine seeds one RNG per thread from R's stream before the parallel
+#'   region, so a seed reproduces the run at `n_cores = 1` only: above that
+#'   the OpenMP guided schedule decides which thread takes which HOG, and
+#'   the pairing of thread streams to HOGs still moves between runs. A
+#'   seeded call restores the caller's stream on exit --- the package-wide
+#'   contract, see [detect_modules()].
 #'
 #' @return A data frame with one row per HOG, ordered by p-value, with columns:
 #'   \describe{
@@ -672,10 +670,15 @@ permutation_hog_test <- function(net1, net2, comparison,
                                  min_exceedances = 50L,
                                  max_permutations = 10000L,
                                  n_cores = 1L,
-                                 use_torch = FALSE) {
+                                 use_torch = FALSE,
+                                 seed = NULL) {
   alternative <- match.arg(alternative)
   min_exceedances <- as.integer(min_exceedances)
   max_permutations <- as.integer(max_permutations)
+
+  # The C++ engines seed their per-thread RNGs from R::runif, so the ambient
+  # stream is what they consume. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
 
   if (!is.list(net1) || is.null(net1$network)) {
     stop("net1 must be a network object from compute_network()")

@@ -17,6 +17,7 @@ preservation_paired(modules, ...)
   cliques = NULL,
   alpha = 0.05,
   z_conserved = 10,
+  seed = NULL,
   ...
 )
 }
@@ -43,6 +44,17 @@ evidence.}
 results, used for paralog resolution.}
 
 \item{alpha, z_conserved}{Passed to \code{\link[=classify_preservation]{classify_preservation()}}.}
+
+\item{seed}{Integer seed for the whole run, or \code{NULL} (default) to draw
+from the ambient stream and leave it advanced. The seed is applied once
+here and the per-direction \code{\link[=module_preservation]{module_preservation()}} calls are left
+unseeded, so the directions draw in sequence from one stream instead of
+every one of them reusing the same permutations. A seeded call restores
+the caller's stream on exit, the package-wide contract described under
+\code{\link[=detect_modules]{detect_modules()}}.
+
+Before 0.3.0 \code{seed} reached \code{\link[=module_preservation]{module_preservation()}} through \code{...} and
+handed every direction the identical seed.}
 }
 \value{
 A list with \code{classification} (one row per module per direction,
