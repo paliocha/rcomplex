@@ -201,11 +201,16 @@ rng_contract_cases <- function(fx) {
     list(
       name = "coexpressolog_null",
       variant = "pi0 none",
+      # n_perm = 2 is far below the 19 permutations p < 0.05 needs, and an
+      # unseeded call announces the seed it drew; neither is what the
+      # contract is about, and the assertions are unaffected by both.
       call = function(seed) {
-        coexpressolog_null(sparse_nets, td$ortho,
-          n_perm = 2L, swap_factor = 1L, seed = seed,
-          pi0_method = "none", pval_combine = "max"
-        )
+        suppressMessages(suppressWarnings(
+          coexpressolog_null(sparse_nets, td$ortho,
+            n_perm = 2L, swap_factor = 1L, seed = seed,
+            pi0_method = "none", pval_combine = "max"
+          )
+        ))
       }
     ),
     list(
@@ -215,10 +220,12 @@ rng_contract_cases <- function(fx) {
       # Under pi0_method = "none" the observed run draws nothing, so that
       # is the only case that would notice the scope sliding back below it.
       call = function(seed) {
-        coexpressolog_null(sparse_nets, td$ortho,
-          n_perm = 2L, swap_factor = 1L, seed = seed,
-          pi0_method = "randomized", pval_combine = "max"
-        )
+        suppressMessages(suppressWarnings(
+          coexpressolog_null(sparse_nets, td$ortho,
+            n_perm = 2L, swap_factor = 1L, seed = seed,
+            pi0_method = "randomized", pval_combine = "max"
+          )
+        ))
       }
     ),
     list(

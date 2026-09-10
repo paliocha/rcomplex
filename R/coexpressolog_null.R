@@ -43,10 +43,11 @@
 #' \code{swap_factor * igraph::ecount(g)} swaps and stays simple (no
 #' loops, no multi-edges).
 #'
-#' Permutation \code{b} runs in a worker that calls
-#' \code{set.seed(root + b)} first, so results are reproducible and
-#' independent of \code{n_cores}. On Unix the permutations run under
-#' \code{parallel::mclapply()}; on Windows they run serially. The seed
+#' Permutation \code{b} runs in a worker that seeds itself from the base
+#' seed and its own index (the package-wide per-task seed derivation), so
+#' results are reproducible, independent of \code{n_cores}, and two
+#' neighbouring base seeds share no rewiring. On Unix the permutations run
+#' under \code{parallel::mclapply()}; on Windows they run serially. The seed
 #' covers the observed run as well as the null runs, so \code{...}
 #' settings that draw --- the default \code{pi0_method = "randomized"},
 #' for one --- are pinned too. \code{method = "permutation"} in
@@ -73,20 +74,24 @@
 #'   edge count of each thresholded network (default 10).
 #' @param n_cores Number of parallel workers for the permutation loop
 #'   (default 1).
-#' @param seed Integer base seed; worker \code{b} uses \code{seed + b}.
-#'   \code{NULL} (default) draws a base seed from the ambient RNG stream
-#'   and leaves it advanced by that one draw, so consecutive unseeded
-#'   calls give different nulls and a \code{set.seed()} in the caller's
-#'   script reproduces the whole run. With a seed the call draws from a
-#'   private stream and restores the caller's on exit --- the
-#'   package-wide contract, see \code{\link{detect_modules}}.
+#' @param seed Base seed for the run. \code{NULL} (default) draws one
+#'   from the ambient RNG stream and leaves it advanced by that one draw,
+#'   so consecutive unseeded calls give different nulls and a
+#'   \code{set.seed()} in the caller's script reproduces the whole run.
+#'   With a seed the call draws from a private stream and restores the
+#'   caller's on exit --- the package-wide contract, see
+#'   \code{\link{detect_modules}}.
 #'
-#'   The default was \code{1L} before 0.3.0, which made every default
-#'   call return the same null and hid its Monte Carlo error.
-#'
-#'   A supplied seed must be at most
-#'   \code{.Machine$integer.max - n_perm}, since worker \code{b} seeds
-#'   with \code{seed + b}.
+#'   What a default call guarantees is replayability, not a fixed null.
+#'   The seed actually used --- drawn or supplied --- is recorded as
+#'   \code{attr(result, "seed")}, and a drawn one is also announced in a
+#'   message, so any run can be reproduced exactly by passing that value
+#'   back as \code{seed}. Two default calls return different nulls; the
+#'   size of that difference is what \code{null_se} and the
+#'   \code{p_emp_lo} / \code{p_emp_hi} interval report. The default was
+#'   \code{1L} before 0.3.0, which pinned the null of every default call
+#'   while leaving the observed statistic free to drift, and hid the
+#'   Monte Carlo error entirely.
 #' @param ... Passed unchanged to \code{\link{find_coexpressologs}} for
 #'   both the observed and every null run (\code{species_pairs},
 #'   \code{method}, \code{alternative}, \code{alpha},
@@ -95,19 +100,32 @@
 #' @return Data frame with one row per statistic and columns
 #'   \code{statistic}, \code{observed}, \code{null_mean},
 #'   \code{null_sd}, \code{null_max}, \code{fold} (observed /
-#'   null_mean; \code{NA} when the null mean is 0) and \code{p_emp}
-#'   (\code{(1 + sum(null >= observed)) / (n_perm + 1)}). The
-#'   \code{n_perm x k} matrix of null statistics is attached as
-#'   \code{attr(, "null")}.
+#'   null_mean; \code{NA} when the null mean is 0), \code{p_emp}
+#'   (\code{(1 + n_ge) / (n_perm + 1)}), \code{n_ge} (null draws at or
+#'   above the observed value), \code{null_se}
+#'   (\code{null_sd / sqrt(n_perm)}, the Monte Carlo error of
+#'   \code{null_mean}; the relative error of \code{fold} is
+#'   \code{null_se / null_mean}, which is large whenever
+#'   \code{null_mean} is near 0) and \code{p_emp_lo} / \code{p_emp_hi},
+#'   an exact Clopper-Pearson 95\% interval for the exceedance
+#'   probability that \code{p_emp} estimates --- an interval on that
+#'   probability, not on \code{p_emp} itself. The \code{n_perm x k}
+#'   matrix of null statistics is attached as \code{attr(, "null")}, and
+#'   the base seed the run used as \code{attr(, "seed")}.
 #'
 #' @examples
 #' \dontrun{
-#' set.seed(1)
 #' res <- coexpressolog_null(networks, orthologs,
 #'   n_perm = 100L,
 #'   n_cores = 4L
 #' )
 #' res[res$statistic == "total", ]
+#'
+#' # replay that exact run, whether or not it was seeded
+#' same <- coexpressolog_null(networks, orthologs,
+#'   n_perm = 100L,
+#'   n_cores = 4L, seed = attr(res, "seed")
+#' )
 #' }
 #'
 #' @export
@@ -142,14 +160,16 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   # The scope covers the observed run too: with the default
   # pi0_method = "randomized" that run draws, and leaving it outside the
   # scope would make the observed statistic irreproducible under a seed.
-  # Worker b seeds with seed_root + b, so the root has to stay n_perm short
-  # of the integer limit: the sum would otherwise overflow to NA and every
-  # affected worker would die inside set.seed(NA). The drawn root is bounded
-  # by construction; a supplied one is checked here rather than left to fail
-  # per worker with an error naming neither the seed nor n_perm.
-  seed_max <- .Machine$integer.max - n_perm
+  # A drawn root is announced here rather than at the return, so a run that
+  # errors halfway through still names the seed that would reproduce it.
+  # The root is recorded on the result either way; that is what makes an
+  # unseeded run replayable at all.
   if (is.null(seed)) {
-    seed_root <- sample.int(seed_max, 1L)
+    seed_root <- sample.int(.Machine$integer.max, 1L)
+    message(
+      "coexpressolog_null(): drawn seed ", seed_root,
+      "; replay this run with seed = ", seed_root
+    )
   } else {
     # Anything that will not survive as.integer() -- a double outside the
     # integer range, a string that is not a number, NA, a vector -- has to
@@ -163,8 +183,8 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     # would leave this the one seeded entry point in the package with its
     # own idea of a legal seed. Wrong length, wrong type and wrong
     # magnitude report apart, so no message names a limit the value did not
-    # cross: "at most 2147483647" is false of -3e9, which fails at the
-    # other end.
+    # cross, and the magnitude message names both ends because -3e9 fails
+    # at the low one.
     if (length(seed) != 1L) {
       stop(
         "seed must be NULL or a single value; got ", class(seed)[1L],
@@ -182,12 +202,6 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
       stop(
         "seed must be NULL or a value set.seed() accepts; got ",
         class(seed)[1L], " ", format(seed)
-      )
-    }
-    if (seed_root > seed_max) {
-      stop(
-        "seed must be at most .Machine$integer.max - n_perm (", seed_max,
-        ") because permutation b seeds with seed + b; got ", seed_root
       )
     }
   }
@@ -226,7 +240,11 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   }
 
   one_perm <- function(b) {
-    set.seed(seed_root + b)
+    # Not set.seed(seed_root + b): that made the null at root r the null at
+    # root r + 1 shifted by one permutation, so "try another seed" reused
+    # all but one rewiring. .task_seed() also folds modulo 2^31 - 1, so a
+    # root near the integer limit cannot overflow to set.seed(NA).
+    set.seed(.task_seed(seed_root, 1L, b))
     nets_perm <- lapply(networks, rewire_net)
     statistic(find_coexpressologs(nets_perm, orthologs, ...))
   }
@@ -302,12 +320,58 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     seq_along(nm), function(j) max(null_mat[, j]),
     numeric(1)
   )
-  p_emp <- vapply(seq_along(nm), function(j) {
-    (1 + sum(null_mat[, j] >= observed[[j]])) / (n_perm + 1)
-  }, numeric(1))
+  n_ge <- vapply(seq_along(nm), function(j) {
+    sum(null_mat[, j] >= observed[[j]])
+  }, integer(1))
+  p_emp <- (1 + n_ge) / (n_perm + 1)
   fold <- ifelse(null_mean == 0, NA_real_,
     unname(observed) / null_mean
   )
+  # Monte Carlo error of the null mean, and an exact Clopper-Pearson 95%
+  # interval on the exceedance probability that p_emp estimates. Both come
+  # free from the null matrix, and together they say how much of the result
+  # is the data and how much is this particular seed. The endpoints are
+  # written out rather than left to qbeta(), whose shape arguments would be
+  # 0 there.
+  #
+  # A user statistic can return NA or NaN on a permutation -- mean() over
+  # a rewiring that called nothing conserved is NaN -- and then n_ge is
+  # NA. Such a row reports NA rather than aborting the run, so the
+  # subscripts below are NA-safe and the warning ignores those rows.
+  null_se <- null_sd / sqrt(n_perm)
+  ok <- !is.na(n_ge)
+  p_emp_lo <- ifelse(ok, 0, NA_real_)
+  pos <- ok & n_ge > 0L
+  p_emp_lo[pos] <- stats::qbeta(0.025, n_ge[pos], n_perm - n_ge[pos] + 1L)
+  p_emp_hi <- ifelse(ok, 1, NA_real_)
+  lt <- ok & n_ge < n_perm
+  p_emp_hi[lt] <- stats::qbeta(0.975, n_ge[lt] + 1L, n_perm - n_ge[lt])
+
+  # Two mutually exclusive ways this n_perm cannot support the call it is
+  # being asked to make: below 19 permutations no p_emp can reach 0.05 at
+  # all, and above it a p_emp under 0.05 whose interval still covers 0.05
+  # is a call the next seed may not repeat.
+  if (1 / (n_perm + 1) > 0.05) {
+    warning(
+      "the edge-swap null over ", n_perm,
+      " permutations has a smallest attainable p-value of ",
+      signif(1 / (n_perm + 1), 3),
+      ", so p < 0.05 is unreachable for any signal (use n_perm >= 19)"
+    )
+  } else {
+    weak <- !is.na(p_emp) & !is.na(p_emp_hi) &
+      p_emp < 0.05 & p_emp_hi >= 0.05
+    if (any(weak)) {
+      warning(
+        "p_emp < 0.05 at n_perm = ", n_perm, " for ",
+        paste(nm[weak], collapse = ", "),
+        ", but the 95% interval on the exceedance probability reaches ",
+        signif(max(p_emp_hi[weak]), 3),
+        ": those calls cannot be separated from non-significance at this ",
+        "n_perm"
+      )
+    }
+  }
 
   out <- data.frame(
     statistic = nm,
@@ -317,9 +381,14 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     null_max = null_max,
     fold = fold,
     p_emp = p_emp,
+    n_ge = n_ge,
+    null_se = null_se,
+    p_emp_lo = p_emp_lo,
+    p_emp_hi = p_emp_hi,
     row.names = NULL,
     stringsAsFactors = FALSE
   )
   attr(out, "null") <- null_mat
+  attr(out, "seed") <- seed_root
   out
 }

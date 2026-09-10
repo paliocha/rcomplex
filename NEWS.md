@@ -45,6 +45,40 @@ counterpart per gene before any module label is projected.
   expect different K = 1 numbers, and a flipped verdict rewrites the whole
   partition.**
 
+- `coexpressolog_null(seed = )` now defaults to `NULL` instead of `1L`, and
+  every run records the base seed it used as `attr(result, "seed")` (a drawn
+  one is also announced in a message). The old default pinned the null of
+  every default call while the observed statistic, computed above the
+  `set.seed()`, drifted from call to call --- so it advertised a
+  reproducibility it did not deliver, and hid the Monte Carlo error of the
+  null behind a single fixed draw. A default call is now reproducible from
+  its own result: pass the recorded seed back. **Two default calls no longer
+  return the same null.** Measured on the eight-species vignette pipeline at
+  `n_perm = 100`, eight fresh seeds moved `fold` on the total by 7.7% (259.3
+  to 280.0) and by up to 177% on a single species pair, while `p_emp` did
+  not move at all --- one value, the `1/(n_perm + 1)` floor, on all 29
+  statistics at all 8 seeds.
+
+- `coexpressolog_null()` gains four columns after `p_emp`: `n_ge` (null
+  draws at or above the observed value), `null_se` (`null_sd/sqrt(n_perm)`,
+  the Monte Carlo error of `null_mean`, and hence the denominator error
+  behind `fold`), and `p_emp_lo` / `p_emp_hi`, an exact Clopper-Pearson 95%
+  interval for the exceedance probability. It also warns once per call: at
+  `n_perm < 19` no `p_emp` can reach 0.05 at all, and above that any
+  `p_emp < 0.05` whose interval still covers 0.05 is a call the next seed
+  may not repeat. Anything pinning `names()` on the result sees four more
+  columns; the original seven keep their names and positions.
+
+- `coexpressolog_null()` derives each permutation's seed from the base seed
+  and the permutation index rather than from `seed + b`. The old form made
+  the null at seed *s* + 1 the null at seed *s* shifted by one permutation
+  (verified: 5 of 6 permutations shared), so "try another seed" reused all
+  but one rewiring. **Every seeded run's null changes numerically, `seed =
+  1L` included** --- a one-time renumbering; stored nulls and any published
+  `fold` or `null_mean` need a rerun, though no `p_emp` moved on real data.
+  The `seed <= .Machine$integer.max - n_perm` restriction is gone with the
+  overflow it guarded; the length and coercion checks are unchanged.
+
 ## Breaking changes
 
 - `tag_permutation()` no longer permutes trait labels across all species.

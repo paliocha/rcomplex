@@ -1726,6 +1726,36 @@ clique_intensity_test.default <- function(
 #'   \item \strong{unclassified}: none of the above.
 #' }
 #'
+#' @section Choosing between the two clique classifiers:
+#' This function and \code{\link{classify_gene_cliques}} answer
+#' different questions; neither is deprecated in favour of the other.
+#'
+#' \code{classify_cliques()} works on the per-orthogroup \emph{species}
+#' graph. It asks which species are joined by conserved co-expression
+#' and whether that pattern respects the trait split, and it returns one
+#' row per HOG. \code{\link{find_cliques}} commits to one best gene
+#' assignment per species clique, so a multi-copy HOG still gets a
+#' single answer, and that answer is what \code{\link{clique_stability}}
+#' and \code{\link{clique_threshold_sweep}} consume -- the
+#' \code{stability_class} / \code{persistence} / \code{robust} columns
+#' exist only on this side.
+#'
+#' \code{\link{classify_gene_cliques}} works on the \emph{gene} graph
+#' built by \code{\link{gene_clique_graph}}. It asks which individual
+#' gene copies are mutually conserved, so one HOG can yield several
+#' overlapping cliques and the answer names paralogs rather than
+#' species. It applies the five-tier taxonomy of Rodriguez et al.
+#' (2026), with two explicit tolerance tiers (\code{partial_significant}
+#' for weak wiring, \code{partial_present} for a missing gene), and its
+#' \code{lineage} split is an argument rather than the trait vector, so
+#' it can be run against a clade partition the trait does not follow.
+#'
+#' Reach for \code{classify_gene_cliques()} when which copy sits in the
+#' conserved core matters, or when the published taxonomy is what has to
+#' be reported. Reach for \code{classify_cliques()} for a
+#' one-row-per-HOG trait summary wired into the stability and sweep
+#' machinery.
+#'
 #' @param edges Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
 #'   \code{effect_size}, and \code{type}. Must contain ALL edges
@@ -1779,6 +1809,16 @@ clique_intensity_test.default <- function(
 #' result <- classify_cliques(edges, target_species, species_trait)
 #' table(result$classification)
 #' }
+#'
+#' @seealso \code{\link{find_cliques}} for the species-graph backend
+#'   this wraps; \code{\link{classify_gene_cliques}} and
+#'   \code{\link{gene_clique_graph}} for the copy-level alternative
+#'   described above.
+#' @references
+#' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
+#' Comparative regulomics of wood formation across dicot and
+#' conifer trees. \emph{Nature Communications} 17(1).
+#' \doi{10.1038/s41467-026-75624-2}
 #'
 #' @param ... Additional arguments passed to the default method.
 #' @export
