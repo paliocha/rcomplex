@@ -151,22 +151,29 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   if (is.null(seed)) {
     seed_root <- sample.int(seed_max, 1L)
   } else {
-    # Anything that will not survive as.integer() -- a double past the
+    # Anything that will not survive as.integer() -- a double outside the
     # integer range, a string, NA, a vector -- has to be caught before the
     # bound check, which would otherwise let NA through to set.seed(NA) and
-    # error on a length > 1 condition instead of on the seed. The two
-    # failures are reported apart: "a single integer" is misleading for
-    # 3e9, which is a single number and fails on the range instead.
+    # error on a length > 1 condition instead of on the seed. Wrong length,
+    # wrong type and wrong magnitude report apart, so no message names a
+    # limit the value did not cross: 3e9 and -3e9 both overflow, but a
+    # message saying "at most 2147483647" is false of -3e9.
     if (length(seed) != 1L) {
       stop(
         "seed must be NULL or a single value; got ", class(seed)[1L],
         " of length ", length(seed)
       )
     }
+    if (!is.numeric(seed) || is.na(seed)) {
+      stop(
+        "seed must be NULL or a single non-NA number; got ",
+        class(seed)[1L], " ", format(seed)
+      )
+    }
     seed_root <- suppressWarnings(as.integer(seed))
     if (is.na(seed_root)) {
       stop(
-        "seed must be a non-NA value at most .Machine$integer.max (",
+        "seed must lie within +/- .Machine$integer.max (",
         .Machine$integer.max, "); got ", format(seed)
       )
     }
