@@ -148,16 +148,26 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   # by construction; a supplied one is checked here rather than left to fail
   # per worker with an error naming neither the seed nor n_perm.
   seed_max <- .Machine$integer.max - n_perm
-  seed_root <- if (is.null(seed)) {
-    sample.int(seed_max, 1L)
+  if (is.null(seed)) {
+    seed_root <- sample.int(seed_max, 1L)
   } else {
-    as.integer(seed)
-  }
-  if (!is.na(seed_root) && seed_root > seed_max) {
-    stop(
-      "seed must be at most .Machine$integer.max - n_perm (", seed_max,
-      ") because permutation b seeds with seed + b; got ", seed_root
-    )
+    # Anything that will not survive as.integer() -- a double past the
+    # integer range, a string, NA, a vector -- has to be caught before the
+    # bound check, which would otherwise let NA through to set.seed(NA) and
+    # error on a length > 1 condition instead of on the seed.
+    seed_root <- suppressWarnings(as.integer(seed))
+    if (length(seed_root) != 1L || is.na(seed_root)) {
+      stop(
+        "seed must be NULL or a single integer; got ", class(seed)[1L],
+        " of length ", length(seed)
+      )
+    }
+    if (seed_root > seed_max) {
+      stop(
+        "seed must be at most .Machine$integer.max - n_perm (", seed_max,
+        ") because permutation b seeds with seed + b; got ", seed_root
+      )
+    }
   }
   .seed_scope(seed_root)
 

@@ -65,6 +65,20 @@ test_that("a seed that would overflow seed + b is rejected up front", {
     ),
     "at most .Machine\\$integer.max - n_perm"
   )
+
+  # A seed that will not survive as.integer() has to be caught before the
+  # bound check: NA would slip past a comparison and reach set.seed(NA),
+  # and a length > 1 seed would error on the condition, not on the seed.
+  bad <- list(3e9, NA, NA_integer_, "seven", c(1L, 2L))
+  for (s in bad) {
+    expect_error(
+      coexpressolog_null(nets, d$ortho,
+        n_perm = 5L, seed = s,
+        pi0_method = "none", pval_combine = "max"
+      ),
+      "seed must be NULL or a single integer"
+    )
+  }
 })
 
 test_that("observed conserved calls exceed the rewired null", {
