@@ -532,6 +532,9 @@ hotspots$topology_supported <-
   hotspots$topology_pair_agreement >= 3L &
   hotspots$direction == hotspots$topology_direction
 
+species_columns <- c(
+  "BDIS", "BSYL", "HVUL", "HJUB", "BMAX", "BMED", "VBRO", "FPRA"
+)
 annotation_columns <- c(
   "locusName", "best_arabi_gene", "best_arabi_defline",
   "best_rice_gene", "best_rice_defline"
@@ -549,7 +552,7 @@ annotation_summary <- annotation_summary[
 hotspots <- merge(
   hotspots,
   selected[c(
-    "hog", "BDIS", "locus", "mean_effect_size",
+    "hog", species_columns, "locus", "mean_effect_size",
     "max_q", "n_multicopy_species"
   )],
   by.x = "anchor_hog",
