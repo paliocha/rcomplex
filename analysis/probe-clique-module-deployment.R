@@ -32,6 +32,7 @@ suppressPackageStartupMessages({
 
 args <- commandArgs(trailingOnly = TRUE)
 rebuild <- "--rebuild" %in% args
+rewiring_screen <- "--rewiring-screen" %in% args
 
 config <- list(
   seed = 1L,
@@ -48,6 +49,12 @@ config <- list(
 
 dir.create("analysis/cache", recursive = TRUE, showWarnings = FALSE)
 dir.create("analysis/output", recursive = TRUE, showWarnings = FALSE)
+run_output_dir <- if (rewiring_screen) {
+  file.path("analysis/cache", "rewiring-screen")
+} else {
+  file.path("analysis", "output")
+}
+dir.create(run_output_dir, recursive = TRUE, showWarnings = FALSE)
 
 cache_file <- file.path(
   "analysis/cache",
@@ -76,6 +83,15 @@ run_stage <- function(label, value) {
 }
 
 write_table <- function(x, filename) {
+  utils::write.csv(
+    x,
+    file.path(run_output_dir, filename),
+    row.names = FALSE,
+    na = ""
+  )
+}
+
+write_result_table <- function(x, filename) {
   utils::write.csv(
     x,
     file.path("analysis/output", filename),
@@ -444,24 +460,44 @@ ranked_candidates <- ranked_candidates[
   drop = FALSE
 ]
 
-multicopy_rows <- which(ranked_candidates$n_multicopy_species > 0L)
-take_multicopy <- head(
-  multicopy_rows,
-  config$target_multicopy_anchors
-)
-remaining <- setdiff(seq_len(nrow(ranked_candidates)), take_multicopy)
-take <- c(
-  take_multicopy,
-  head(remaining, config$max_anchors - length(take_multicopy))
-)
-selected <- ranked_candidates[take, , drop = FALSE]
-selected <- selected[order(match(take, seq_len(nrow(ranked_candidates)))), ]
+if (rewiring_screen) {
+  selected <- ranked_candidates[
+    ranked_candidates$n_species == length(species),
+    ,
+    drop = FALSE
+  ]
+} else {
+  multicopy_rows <- which(ranked_candidates$n_multicopy_species > 0L)
+  take_multicopy <- head(
+    multicopy_rows,
+    config$target_multicopy_anchors
+  )
+  remaining <- setdiff(seq_len(nrow(ranked_candidates)), take_multicopy)
+  take <- c(
+    take_multicopy,
+    head(remaining, config$max_anchors - length(take_multicopy))
+  )
+  selected <- ranked_candidates[take, , drop = FALSE]
+  selected <- selected[
+    order(match(take, seq_len(nrow(ranked_candidates)))),
+    ,
+    drop = FALSE
+  ]
+}
 selected$anchor_id <- sprintf("anchor_%02d", seq_len(nrow(selected)))
-selected$selection_stratum <- ifelse(
-  selected$n_multicopy_species > 0L,
-  "multi-copy-resolved",
-  "strongest-remainder"
-)
+if (rewiring_screen) {
+  selected$selection_stratum <- ifelse(
+    selected$n_multicopy_species > 0L,
+    "complete-multi-copy-resolved",
+    "complete-single-copy"
+  )
+} else {
+  selected$selection_stratum <- ifelse(
+    selected$n_multicopy_species > 0L,
+    "multi-copy-resolved",
+    "strongest-remainder"
+  )
+}
 rownames(selected) <- NULL
 
 local_tables <- list()
@@ -870,10 +906,18 @@ context_diagnostic <- data.frame(
     "strongest thresholded anchor edge;",
     "stable gene-ID tie break; unresolved if no anchor edge"
   ),
-  anchor_selection_note = paste(
-    "12 strongest candidates, including six multi-copy-resolved anchors;",
-    "all selected anchors span all eight species"
-  ),
+  anchor_selection_note = if (rewiring_screen) {
+    paste(
+      nrow(selected),
+      "unique complete eight-species HOG anchors;",
+      "one strongest clique assignment retained per HOG"
+    )
+  } else {
+    paste(
+      "12 strongest candidates, including six multi-copy-resolved anchors;",
+      "all selected anchors span all eight species"
+    )
+  },
   decision = context$reason
 )
 
@@ -1395,6 +1439,7 @@ topology_metric_info <- data.frame(
 
 topology_exact_rows <- list()
 topology_phylo_rows <- list()
+topology_availability_rows <- list()
 for (anchor_id in selected$anchor_id) {
   anchor_pairs <- topology_pairs[
     topology_pairs$anchor_id == anchor_id,
@@ -1407,7 +1452,19 @@ for (anchor_id in selected$anchor_id) {
     metric <- topology_metric_info$metric[metric_index]
     metric_type <- topology_metric_info$metric_type[metric_index]
     values <- anchor_pairs[[metric]]
-    stopifnot(all(is.finite(values)))
+    topology_availability_rows[[
+      length(topology_availability_rows) + 1L
+    ]] <- data.frame(
+      anchor_id = anchor_id,
+      anchor_hog = unique(anchor_pairs$anchor_hog),
+      metric = metric,
+      n_species_pairs = length(values),
+      n_finite_pairs = sum(is.finite(values)),
+      available_for_exact_test = all(is.finite(values))
+    )
+    if (!all(is.finite(values))) {
+      next
+    }
 
     statistic <- function(annual_species) {
       concordant <- (anchor_pairs$species1 %in% annual_species) ==
@@ -1499,6 +1556,7 @@ for (anchor_id in selected$anchor_id) {
   }
 }
 topology_trait_exact <- safe_rbind(topology_exact_rows)
+topology_metric_availability <- safe_rbind(topology_availability_rows)
 topology_trait_exact$q_bh <- stats::p.adjust(
   topology_trait_exact$p_value,
   method = "BH"
@@ -1631,6 +1689,14 @@ stopifnot(
 deployment_species <- data.frame()
 deployment_sister_contrasts <- data.frame()
 deployment_sister_summary <- data.frame()
+deployment_rewiring_candidates <- data.frame(
+  anchor_id = character(),
+  tissue = character(),
+  feature = character(),
+  majority_direction = character(),
+  median_annual_minus_perennial = numeric(),
+  pair_consistency = numeric()
+)
 if (context$ok) {
   deployment_species_rows <- list()
   deployment_groups <- split(
@@ -1738,7 +1804,162 @@ if (context$ok) {
     deployment_sister_contrasts$tissue,
     deployment_sister_contrasts$feature
   ) == 4L))
+
+  deployment_rewiring_candidates <- deployment_sister_summary
+  deployment_rewiring_candidates$pair_consistency <-
+    deployment_rewiring_candidates$n_agreeing_with_majority / 4
+  deployment_rewiring_candidates$absolute_median_contrast <- abs(
+    deployment_rewiring_candidates$median_annual_minus_perennial
+  )
+  deployment_rewiring_candidates <- deployment_rewiring_candidates[
+    order(
+      -deployment_rewiring_candidates$n_agreeing_with_majority,
+      -deployment_rewiring_candidates$absolute_median_contrast,
+      deployment_rewiring_candidates$anchor_hog,
+      deployment_rewiring_candidates$tissue,
+      deployment_rewiring_candidates$feature
+    ),
+    ,
+    drop = FALSE
+  ]
+  deployment_rewiring_candidates$discovery_rank <- seq_len(
+    nrow(deployment_rewiring_candidates)
+  )
 }
+
+topology_rewiring_candidates <- topology_trait_exact[
+  order(
+    topology_trait_exact$p_value,
+    -topology_trait_exact$signed_statistic,
+    topology_trait_exact$anchor_hog,
+    topology_trait_exact$metric
+  ),
+  ,
+  drop = FALSE
+]
+topology_rewiring_candidates$discovery_rank <- seq_len(
+  nrow(topology_rewiring_candidates)
+)
+
+topology_sister_candidates <- topology_sister_summary
+topology_sister_candidates$pair_consistency <-
+  topology_sister_candidates$n_agreeing_with_majority / 4
+topology_sister_candidates$absolute_median_contrast <- abs(
+  topology_sister_candidates$median_annual_minus_perennial
+)
+topology_sister_candidates <-
+  topology_sister_candidates[
+    order(
+      -topology_sister_candidates$n_agreeing_with_majority,
+      -topology_sister_candidates$absolute_median_contrast,
+      topology_sister_candidates$anchor_hog,
+      topology_sister_candidates$feature
+    ),
+    ,
+    drop = FALSE
+  ]
+topology_sister_candidates$discovery_rank <- seq_len(
+  nrow(topology_sister_candidates)
+)
+
+best_topology <- topology_rewiring_candidates[
+  !duplicated(topology_rewiring_candidates$anchor_id),
+  ,
+  drop = FALSE
+]
+best_sister_topology <- topology_sister_candidates[
+  topology_sister_candidates$feature !=
+    "largest_component_fraction",
+  ,
+  drop = FALSE
+]
+best_sister_topology <- best_sister_topology[
+  !duplicated(best_sister_topology$anchor_id),
+  ,
+  drop = FALSE
+]
+best_deployment <- deployment_rewiring_candidates[
+  !duplicated(deployment_rewiring_candidates$anchor_id),
+  ,
+  drop = FALSE
+]
+
+convergent_candidates <- selected[c(
+  "anchor_id", "hog", "BDIS", "n_multicopy_species"
+)]
+names(convergent_candidates)[2L] <- "anchor_hog"
+convergent_candidates <- merge(
+  convergent_candidates,
+  data.frame(
+    anchor_id = best_topology$anchor_id,
+    topology_metric = best_topology$metric,
+    topology_signed_statistic = best_topology$signed_statistic,
+    topology_exact_p = best_topology$p_value,
+    topology_screen_q = best_topology$q_bh
+  ),
+  by = "anchor_id",
+  all.x = TRUE,
+  sort = FALSE
+)
+convergent_candidates <- merge(
+  convergent_candidates,
+  data.frame(
+    anchor_id = best_sister_topology$anchor_id,
+    sister_topology_feature = best_sister_topology$feature,
+    sister_topology_direction = best_sister_topology$majority_direction,
+    sister_topology_median = best_sister_topology[[
+      "median_annual_minus_perennial"
+    ]],
+    sister_topology_consistency = best_sister_topology$pair_consistency
+  ),
+  by = "anchor_id",
+  all.x = TRUE,
+  sort = FALSE
+)
+convergent_candidates <- merge(
+  convergent_candidates,
+  data.frame(
+    anchor_id = best_deployment$anchor_id,
+    deployment_tissue = best_deployment$tissue,
+    deployment_feature = best_deployment$feature,
+    deployment_direction = best_deployment$majority_direction,
+    deployment_median = best_deployment[[
+      "median_annual_minus_perennial"
+    ]],
+    deployment_consistency = best_deployment$pair_consistency
+  ),
+  by = "anchor_id",
+  all.x = TRUE,
+  sort = FALSE
+)
+convergent_candidates$topology_discovery_signal <-
+  convergent_candidates$topology_exact_p <= 4 / 70
+convergent_candidates$sister_topology_signal <-
+  convergent_candidates$sister_topology_consistency == 1
+convergent_candidates$deployment_signal <-
+  convergent_candidates$deployment_consistency == 1
+convergent_candidates$n_convergent_signals <- rowSums(
+  convergent_candidates[c(
+    "topology_discovery_signal",
+    "sister_topology_signal",
+    "deployment_signal"
+  )],
+  na.rm = TRUE
+)
+convergent_candidates <- convergent_candidates[
+  order(
+    -convergent_candidates$n_convergent_signals,
+    convergent_candidates$topology_exact_p,
+    -abs(convergent_candidates$sister_topology_median),
+    -abs(convergent_candidates$deployment_median),
+    convergent_candidates$anchor_hog
+  ),
+  ,
+  drop = FALSE
+]
+convergent_candidates$discovery_rank <- seq_len(
+  nrow(convergent_candidates)
+)
 append_timing(
   "life_history_descriptive_analysis",
   proc.time()[["elapsed"]] - life_history_start
@@ -1808,6 +2029,10 @@ write_table(
   "life-history-topology-exact.csv"
 )
 write_table(
+  topology_metric_availability,
+  "life-history-topology-metric-availability.csv"
+)
+write_table(
   topology_phylo_pairs,
   "life-history-topology-phylogenetic-pairs.csv"
 )
@@ -1819,6 +2044,20 @@ write_table(
   topology_sister_summary,
   "life-history-topology-sister-summary.csv"
 )
+if (rewiring_screen) {
+  write_result_table(
+    topology_rewiring_candidates,
+    "rewiring-topology-candidates.csv"
+  )
+  write_result_table(
+    topology_sister_candidates,
+    "rewiring-topology-sister-candidates.csv"
+  )
+  write_result_table(
+    convergent_candidates,
+    "rewiring-convergent-candidates.csv"
+  )
+}
 write_table(context_diagnostic, "context-diagnostic.csv")
 if (context$ok) {
   write_table(context$replicate_counts, "context-replicate-coverage.csv")
@@ -1836,6 +2075,12 @@ if (context$ok) {
     deployment_sister_summary,
     "life-history-deployment-sister-summary.csv"
   )
+  if (rewiring_screen) {
+    write_result_table(
+      deployment_rewiring_candidates,
+      "rewiring-deployment-candidates.csv"
+    )
+  }
   write_table(
     background_summary,
     "background-expression-diagnostic.csv"
@@ -1877,6 +2122,16 @@ cat(
 )
 cat(
   sprintf(
+    paste0(
+      "Exact topology availability: %d/%d anchor-metric combinations ",
+      "retain all 28 species pairs.\n"
+    ),
+    sum(topology_metric_availability$available_for_exact_test),
+    nrow(topology_metric_availability)
+  )
+)
+cat(
+  sprintf(
     "Candidate cliques: %d spanning >= %d species\n",
     nrow(candidate_cliques),
     config$min_clique_species
@@ -1885,7 +2140,15 @@ cat(
 print(clique_sizes, row.names = FALSE)
 cat(
   sprintf(
-    "Selected anchors: %d (%d resolve >=1 multi-copy species)\n",
+    paste0(
+      "%s: %d unique HOGs ",
+      "(%d resolve >=1 multi-copy species)\n"
+    ),
+    if (rewiring_screen) {
+      "Complete-anchor discovery screen"
+    } else {
+      "Feasibility anchor subset"
+    },
     nrow(selected),
     sum(selected$n_multicopy_species > 0L)
   )
@@ -1998,8 +2261,9 @@ cat(
 cat(
   sprintf(
     paste0(
-      "Selected-anchor scope: %d/%d span all eight species; this strong ",
-      "complete-conservation screen is biased against gross disruption.\n"
+      "Anchor scope: %d/%d span all eight species. The conserved anchor ",
+      "enables comparison, but gross loss of the anchor itself is outside ",
+      "this screen.\n"
     ),
     sum(selected$n_species == length(species)),
     nrow(selected)
@@ -2062,18 +2326,46 @@ if (context$ok) {
   print(deployment_sister_overview, row.names = FALSE)
 }
 
-cat("\nRepresentative anchors\n")
-print(
-  utils::head(
-    representative[c(
-      "anchor_id", "hog", "n_species", "n_multicopy_species",
-      "n_recurrent_hogs", "recurrent_coverage",
-      "internal_edge_density", "has_pairwise_edge_correlation"
-    )],
-    6L
-  ),
-  row.names = FALSE
-)
+if (rewiring_screen) {
+  cat("\nLeading topology rewiring candidates\n")
+  print(
+    utils::head(
+      topology_rewiring_candidates[c(
+        "discovery_rank", "anchor_id", "anchor_hog", "metric",
+        "signed_statistic", "p_value", "q_bh"
+      )],
+      12L
+    ),
+    row.names = FALSE
+  )
+
+  cat("\nCross-domain discovery candidates\n")
+  print(
+    utils::head(
+      convergent_candidates[c(
+        "discovery_rank", "anchor_hog", "BDIS",
+        "n_convergent_signals", "topology_metric",
+        "topology_exact_p", "sister_topology_direction",
+        "deployment_direction"
+      )],
+      12L
+    ),
+    row.names = FALSE
+  )
+} else {
+  cat("\nRepresentative anchors\n")
+  print(
+    utils::head(
+      representative[c(
+        "anchor_id", "hog", "n_species", "n_multicopy_species",
+        "n_recurrent_hogs", "recurrent_coverage",
+        "internal_edge_density", "has_pairwise_edge_correlation"
+      )],
+      6L
+    ),
+    row.names = FALSE
+  )
+}
 
 cat("\nTimings (seconds)\n")
 print(timings, row.names = FALSE)
@@ -2098,3 +2390,11 @@ cat(
   " contrasts summarize four paired differences, not independent rows.\n",
   sep = ""
 )
+if (rewiring_screen) {
+  cat(
+    "- Candidate ranks are discovery outputs from this same eight-species",
+    " data set. They prioritize follow-up but do not independently validate",
+    " annual/perennial rewiring.\n",
+    sep = ""
+  )
+}
