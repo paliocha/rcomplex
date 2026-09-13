@@ -870,7 +870,41 @@ context_diagnostic <- data.frame(
     "strongest thresholded anchor edge;",
     "stable gene-ID tie break; unresolved if no anchor edge"
   ),
+  anchor_selection_note = paste(
+    "12 strongest candidates, including six multi-copy-resolved anchors;",
+    "all selected anchors span all eight species"
+  ),
   decision = context$reason
+)
+
+species_metadata <- safe_rbind(lapply(species, function(sp) {
+  col_data <- as.data.frame(SummarizedExperiment::colData(se_list[[sp]]))
+  stopifnot(
+    length(unique(col_data$life_cycle)) == 1L,
+    length(unique(col_data$pair)) == 1L
+  )
+  data.frame(
+    species = sp,
+    life_cycle = as.character(unique(col_data$life_cycle)),
+    phylogenetic_pair = as.character(unique(col_data$pair))
+  )
+}))
+life_cycle <- stats::setNames(
+  species_metadata$life_cycle,
+  species_metadata$species
+)
+phylogenetic_pair <- stats::setNames(
+  species_metadata$phylogenetic_pair,
+  species_metadata$species
+)
+stopifnot(
+  all(table(life_cycle)[c("annual", "perennial")] == 4L),
+  all(table(phylogenetic_pair) == 2L),
+  all(vapply(
+    split(species_metadata, species_metadata$phylogenetic_pair),
+    \(x) setequal(x$life_cycle, c("annual", "perennial")),
+    logical(1)
+  ))
 )
 
 if (context$ok) {
@@ -1199,27 +1233,6 @@ if (context$ok) {
   ]
   stopifnot(length(valid_background_hogs) > 2L)
 
-  species_metadata <- safe_rbind(lapply(species, function(sp) {
-    col_data <- as.data.frame(SummarizedExperiment::colData(se_list[[sp]]))
-    stopifnot(
-      length(unique(col_data$life_cycle)) == 1L,
-      length(unique(col_data$pair)) == 1L
-    )
-    data.frame(
-      species = sp,
-      life_cycle = as.character(unique(col_data$life_cycle)),
-      phylogenetic_pair = as.character(unique(col_data$pair))
-    )
-  }))
-  life_cycle <- stats::setNames(
-    species_metadata$life_cycle,
-    species_metadata$species
-  )
-  phylogenetic_pair <- stats::setNames(
-    species_metadata$phylogenetic_pair,
-    species_metadata$species
-  )
-
   background_summary_rows <- list()
   background_kernel_rows <- list()
   background_pc_rows <- list()
@@ -1365,6 +1378,372 @@ if (context$ok) {
   )
 }
 
+life_history_start <- proc.time()[["elapsed"]]
+balanced_annual_sets <- utils::combn(species, 4L, simplify = FALSE)
+stopifnot(length(balanced_annual_sets) == 70L)
+
+topology_metric_info <- data.frame(
+  metric = c(
+    "neighborhood_jaccard",
+    "module_edge_jaccard",
+    "matched_edge_correlation",
+    "matched_edge_mean_abs_log_threshold_distance"
+  ),
+  metric_type = c("similarity", "similarity", "similarity", "distance"),
+  stringsAsFactors = FALSE
+)
+
+topology_exact_rows <- list()
+topology_phylo_rows <- list()
+for (anchor_id in selected$anchor_id) {
+  anchor_pairs <- topology_pairs[
+    topology_pairs$anchor_id == anchor_id,
+    ,
+    drop = FALSE
+  ]
+  stopifnot(nrow(anchor_pairs) == choose(length(species), 2L))
+
+  for (metric_index in seq_len(nrow(topology_metric_info))) {
+    metric <- topology_metric_info$metric[metric_index]
+    metric_type <- topology_metric_info$metric_type[metric_index]
+    values <- anchor_pairs[[metric]]
+    stopifnot(all(is.finite(values)))
+
+    statistic <- function(annual_species) {
+      concordant <- (anchor_pairs$species1 %in% annual_species) ==
+        (anchor_pairs$species2 %in% annual_species)
+      if (metric_type == "distance") {
+        mean(values[!concordant]) - mean(values[concordant])
+      } else {
+        mean(values[concordant]) - mean(values[!concordant])
+      }
+    }
+
+    observed <- statistic(names(life_cycle)[life_cycle == "annual"])
+    null <- vapply(balanced_annual_sets, statistic, numeric(1))
+    tolerance <- 1e-9 * max(1, abs(observed), max(abs(null)))
+    n_ge <- sum(null >= observed - tolerance)
+    n_tied_observed <- sum(abs(null - observed) <= tolerance)
+    n_tied_max <- sum(null >= max(null) - tolerance)
+    observed_concordant <- life_cycle[anchor_pairs$species1] ==
+      life_cycle[anchor_pairs$species2]
+
+    topology_exact_rows[[length(topology_exact_rows) + 1L]] <- data.frame(
+      anchor_id = anchor_id,
+      anchor_hog = unique(anchor_pairs$anchor_hog),
+      metric = metric,
+      metric_type = metric_type,
+      statistic_orientation = if (metric_type == "distance") {
+        "discordant_minus_concordant"
+      } else {
+        "concordant_minus_discordant"
+      },
+      concordant_mean = mean(values[observed_concordant]),
+      discordant_mean = mean(values[!observed_concordant]),
+      signed_statistic = observed,
+      p_value = n_ge / length(null),
+      p_min = 1 / length(null),
+      p_attainable = n_tied_max / length(null),
+      rank_from_top = n_ge,
+      n_tied_observed = n_tied_observed,
+      n_tied_max = n_tied_max,
+      n_distinct_statistics = length(unique(signif(null, 12L))),
+      n_labellings = length(null),
+      global_flip_multiplicity = 2L,
+      blocked_label_space = 16L,
+      blocked_p_min = 1 / 16,
+      blocked_p_attainable_at_best = 2 / 16,
+      blocked_p_below_0.05_attainable = FALSE
+    )
+    stopifnot(n_tied_observed >= 2L, n_tied_max >= 2L)
+
+    for (pair_name in unique(species_metadata$phylogenetic_pair)) {
+      pair_metadata <- species_metadata[
+        species_metadata$phylogenetic_pair == pair_name,
+        ,
+        drop = FALSE
+      ]
+      annual_species <- pair_metadata$species[
+        pair_metadata$life_cycle == "annual"
+      ]
+      perennial_species <- pair_metadata$species[
+        pair_metadata$life_cycle == "perennial"
+      ]
+      row <- (
+        anchor_pairs$species1 == annual_species &
+          anchor_pairs$species2 == perennial_species
+      ) | (
+        anchor_pairs$species1 == perennial_species &
+          anchor_pairs$species2 == annual_species
+      )
+      stopifnot(sum(row) == 1L)
+      value <- values[row]
+      topology_phylo_rows[[length(topology_phylo_rows) + 1L]] <- data.frame(
+        anchor_id = anchor_id,
+        anchor_hog = unique(anchor_pairs$anchor_hog),
+        metric = metric,
+        metric_type = metric_type,
+        phylogenetic_pair = pair_name,
+        annual_species = annual_species,
+        perennial_species = perennial_species,
+        metric_value = value,
+        direction_normalized_value = if (metric_type == "distance") {
+          -value
+        } else {
+          value
+        },
+        blocked_label_space = 16L,
+        blocked_p_attainable_at_best = 2 / 16
+      )
+    }
+  }
+}
+topology_trait_exact <- safe_rbind(topology_exact_rows)
+topology_trait_exact$q_bh <- stats::p.adjust(
+  topology_trait_exact$p_value,
+  method = "BH"
+)
+topology_phylo_pairs <- safe_rbind(topology_phylo_rows)
+within_pair_median <- aggregate(
+  metric_value ~ anchor_id + metric,
+  topology_phylo_pairs,
+  stats::median
+)
+names(within_pair_median)[3L] <- "within_phylogenetic_pair_median"
+topology_trait_exact <- merge(
+  topology_trait_exact,
+  within_pair_median,
+  by = c("anchor_id", "metric"),
+  all.x = TRUE,
+  sort = FALSE
+)
+topology_trait_exact <- topology_trait_exact[order(
+  match(topology_trait_exact$anchor_id, selected$anchor_id),
+  match(topology_trait_exact$metric, topology_metric_info$metric)
+), ]
+
+summarize_signed_contrasts <- function(data, group_columns) {
+  key <- do.call(paste, c(data[group_columns], sep = "\x1e"))
+  rows <- lapply(split(seq_len(nrow(data)), key), function(index) {
+    values <- data$annual_minus_perennial[index]
+    n_positive <- sum(values > 0)
+    n_negative <- sum(values < 0)
+    n_equal <- sum(values == 0)
+    majority_direction <- if (n_positive > n_negative) {
+      "annual_higher"
+    } else if (n_negative > n_positive) {
+      "perennial_higher"
+    } else {
+      "mixed_or_tied"
+    }
+    result <- data[index[1L], group_columns, drop = FALSE]
+    result$median_annual_minus_perennial <- stats::median(values)
+    result$n_annual_higher <- n_positive
+    result$n_perennial_higher <- n_negative
+    result$n_equal <- n_equal
+    result$majority_direction <- majority_direction
+    result$n_agreeing_with_majority <- max(n_positive, n_negative)
+    result
+  })
+  result <- safe_rbind(rows)
+  rownames(result) <- NULL
+  result
+}
+
+topology_feature_info <- data.frame(
+  feature = c(
+    "recurrent_coverage",
+    "anchor_module_mean_strength_ratio",
+    "internal_edge_density",
+    "largest_component_fraction"
+  ),
+  interpretation = c(
+    "fraction of recurrent HOGs resolved as anchor neighbors",
+    "mean threshold-normalized anchor strength over present recurrent HOGs",
+    "edge density among anchor-resolved recurrent-HOG copies",
+    "fraction of resolved HOGs in the largest connected component"
+  ),
+  stringsAsFactors = FALSE
+)
+
+topology_sister_rows <- list()
+for (anchor_id in selected$anchor_id) {
+  anchor_topology <- topology[topology$anchor_id == anchor_id, ]
+  for (feature_index in seq_len(nrow(topology_feature_info))) {
+    feature <- topology_feature_info$feature[feature_index]
+    for (pair_name in unique(species_metadata$phylogenetic_pair)) {
+      pair_metadata <- species_metadata[
+        species_metadata$phylogenetic_pair == pair_name,
+        ,
+        drop = FALSE
+      ]
+      annual_species <- pair_metadata$species[
+        pair_metadata$life_cycle == "annual"
+      ]
+      perennial_species <- pair_metadata$species[
+        pair_metadata$life_cycle == "perennial"
+      ]
+      annual_value <- anchor_topology[
+        anchor_topology$species == annual_species,
+        feature
+      ]
+      perennial_value <- anchor_topology[
+        anchor_topology$species == perennial_species,
+        feature
+      ]
+      stopifnot(
+        length(annual_value) == 1L,
+        length(perennial_value) == 1L
+      )
+      topology_sister_rows[[length(topology_sister_rows) + 1L]] <-
+        data.frame(
+          anchor_id = anchor_id,
+          anchor_hog = unique(anchor_topology$anchor_hog),
+          feature = feature,
+          interpretation = topology_feature_info$interpretation[
+            feature_index
+          ],
+          phylogenetic_pair = pair_name,
+          annual_species = annual_species,
+          perennial_species = perennial_species,
+          annual_value = annual_value,
+          perennial_value = perennial_value,
+          annual_minus_perennial = annual_value - perennial_value
+        )
+    }
+  }
+}
+topology_sister_contrasts <- safe_rbind(topology_sister_rows)
+topology_sister_summary <- summarize_signed_contrasts(
+  topology_sister_contrasts,
+  c("anchor_id", "anchor_hog", "feature", "interpretation")
+)
+stopifnot(
+  all(topology_trait_exact$n_labellings == 70L),
+  all(topology_trait_exact$n_tied_observed >= 2L),
+  all(topology_trait_exact$p_attainable >= 2 / 70),
+  all(table(
+    topology_sister_contrasts$anchor_id,
+    topology_sister_contrasts$feature
+  ) == 4L)
+)
+
+deployment_species <- data.frame()
+deployment_sister_contrasts <- data.frame()
+deployment_sister_summary <- data.frame()
+if (context$ok) {
+  deployment_species_rows <- list()
+  deployment_groups <- split(
+    seq_len(nrow(deployment)),
+    paste(deployment$anchor_id, deployment$species, deployment$tissue)
+  )
+  for (index in deployment_groups) {
+    rows <- deployment[index, , drop = FALSE]
+    rows <- rows[order(rows$day), , drop = FALSE]
+    stopifnot(
+      nrow(rows) == length(context$time_levels),
+      length(unique(rows$day)) == nrow(rows)
+    )
+    deployment_species_rows[[length(deployment_species_rows) + 1L]] <-
+      data.frame(
+        anchor_id = rows$anchor_id[1L],
+        anchor_hog = rows$anchor_hog[1L],
+        species = rows$species[1L],
+        tissue = rows$tissue[1L],
+        n_time_points = nrow(rows),
+        mean_activity = mean(rows$module_score_mean),
+        early_to_late = rows$module_score_mean[nrow(rows)] -
+          rows$module_score_mean[1L],
+        early_day = rows$day[1L],
+        late_day = rows$day[nrow(rows)]
+      )
+  }
+  deployment_species <- safe_rbind(deployment_species_rows)
+
+  deployment_feature_info <- data.frame(
+    feature = c("mean_activity", "early_to_late"),
+    interpretation = c(
+      "equal-time-point mean module activity within tissue",
+      "last minus first matched time-point module activity"
+    ),
+    stringsAsFactors = FALSE
+  )
+  deployment_sister_rows <- list()
+  for (anchor_id in selected$anchor_id) {
+    anchor_deployment <- deployment_species[
+      deployment_species$anchor_id == anchor_id,
+      ,
+      drop = FALSE
+    ]
+    for (tissue in sort(unique(anchor_deployment$tissue))) {
+      tissue_deployment <- anchor_deployment[
+        anchor_deployment$tissue == tissue,
+        ,
+        drop = FALSE
+      ]
+      for (feature_index in seq_len(nrow(deployment_feature_info))) {
+        feature <- deployment_feature_info$feature[feature_index]
+        for (pair_name in unique(species_metadata$phylogenetic_pair)) {
+          pair_metadata <- species_metadata[
+            species_metadata$phylogenetic_pair == pair_name,
+            ,
+            drop = FALSE
+          ]
+          annual_species <- pair_metadata$species[
+            pair_metadata$life_cycle == "annual"
+          ]
+          perennial_species <- pair_metadata$species[
+            pair_metadata$life_cycle == "perennial"
+          ]
+          annual_value <- tissue_deployment[
+            tissue_deployment$species == annual_species,
+            feature
+          ]
+          perennial_value <- tissue_deployment[
+            tissue_deployment$species == perennial_species,
+            feature
+          ]
+          stopifnot(
+            length(annual_value) == 1L,
+            length(perennial_value) == 1L
+          )
+          deployment_sister_rows[[
+            length(deployment_sister_rows) + 1L
+          ]] <- data.frame(
+            anchor_id = anchor_id,
+            anchor_hog = unique(tissue_deployment$anchor_hog),
+            tissue = tissue,
+            feature = feature,
+            interpretation = deployment_feature_info$interpretation[
+              feature_index
+            ],
+            phylogenetic_pair = pair_name,
+            annual_species = annual_species,
+            perennial_species = perennial_species,
+            annual_value = annual_value,
+            perennial_value = perennial_value,
+            annual_minus_perennial = annual_value - perennial_value
+          )
+        }
+      }
+    }
+  }
+  deployment_sister_contrasts <- safe_rbind(deployment_sister_rows)
+  deployment_sister_summary <- summarize_signed_contrasts(
+    deployment_sister_contrasts,
+    c("anchor_id", "anchor_hog", "tissue", "feature", "interpretation")
+  )
+  stopifnot(all(table(
+    deployment_sister_contrasts$anchor_id,
+    deployment_sister_contrasts$tissue,
+    deployment_sister_contrasts$feature
+  ) == 4L))
+}
+append_timing(
+  "life_history_descriptive_analysis",
+  proc.time()[["elapsed"]] - life_history_start
+)
+
 clique_sizes <- as.data.frame(table(candidate_cliques$n_species))
 names(clique_sizes) <- c("n_species", "n_candidate_cliques")
 clique_sizes$n_species <- as.integer(as.character(clique_sizes$n_species))
@@ -1424,11 +1803,39 @@ write_table(module_hogs, "module-hog-support.csv")
 write_table(module_membership, "module-membership.csv")
 write_table(topology, "topology-profiles.csv")
 write_table(topology_pairs, "topology-pairwise.csv")
+write_table(
+  topology_trait_exact,
+  "life-history-topology-exact.csv"
+)
+write_table(
+  topology_phylo_pairs,
+  "life-history-topology-phylogenetic-pairs.csv"
+)
+write_table(
+  topology_sister_contrasts,
+  "life-history-topology-sister-contrasts.csv"
+)
+write_table(
+  topology_sister_summary,
+  "life-history-topology-sister-summary.csv"
+)
 write_table(context_diagnostic, "context-diagnostic.csv")
 if (context$ok) {
   write_table(context$replicate_counts, "context-replicate-coverage.csv")
   write_table(deployment, "deployment-profiles.csv")
   write_table(deployment_pairs, "deployment-pairwise.csv")
+  write_table(
+    deployment_species,
+    "life-history-deployment-species.csv"
+  )
+  write_table(
+    deployment_sister_contrasts,
+    "life-history-deployment-sister-contrasts.csv"
+  )
+  write_table(
+    deployment_sister_summary,
+    "life-history-deployment-sister-summary.csv"
+  )
   write_table(
     background_summary,
     "background-expression-diagnostic.csv"
@@ -1588,6 +1995,73 @@ cat(
   )
 )
 
+cat(
+  sprintf(
+    paste0(
+      "Selected-anchor scope: %d/%d span all eight species; this strong ",
+      "complete-conservation screen is biased against gross disruption.\n"
+    ),
+    sum(selected$n_species == length(species)),
+    nrow(selected)
+  )
+)
+cat(
+  sprintf(
+    paste0(
+      "Exact free topology relabelling: 70 balanced assignments, naive ",
+      "p_min %.4f, global-flip attainable floor at least %.4f; ",
+      "%d/%d rows have p <= 0.05 (%d after BH).\n"
+    ),
+    1 / 70,
+    2 / 70,
+    sum(topology_trait_exact$p_value <= 0.05),
+    nrow(topology_trait_exact),
+    sum(topology_trait_exact$q_bh <= 0.05)
+  )
+)
+cat(
+  paste0(
+    "Within-pair relabelling is not tested: four sister pairs give 16 ",
+    "labellings and a global-flip floor of at least 2/16 = 0.125.\n"
+  )
+)
+
+exact_overview <- safe_rbind(lapply(
+  topology_metric_info$metric,
+  function(metric) {
+    rows <- topology_trait_exact$metric == metric
+    data.frame(
+      metric = metric,
+      median_signed_statistic = stats::median(
+        topology_trait_exact$signed_statistic[rows]
+      ),
+      minimum_exact_p = min(topology_trait_exact$p_value[rows]),
+      median_exact_rank = stats::median(
+        topology_trait_exact$rank_from_top[rows]
+      )
+    )
+  }
+))
+cat("\nTrait-concordant versus trait-discordant topology\n")
+print(exact_overview, row.names = FALSE)
+
+topology_sister_overview <- aggregate(
+  median_annual_minus_perennial ~ feature,
+  topology_sister_summary,
+  stats::median
+)
+cat("\nMedian annual-minus-perennial sister contrasts across anchors\n")
+print(topology_sister_overview, row.names = FALSE)
+if (context$ok) {
+  deployment_sister_overview <- aggregate(
+    median_annual_minus_perennial ~ tissue + feature,
+    deployment_sister_summary,
+    stats::median
+  )
+  cat("\nDeployment sister contrasts across anchors\n")
+  print(deployment_sister_overview, row.names = FALSE)
+}
+
 cat("\nRepresentative anchors\n")
 print(
   utils::head(
@@ -1620,5 +2094,7 @@ cat(
   " and is a sensitivity covariate only; it does not replace phylogeny.\n",
   "- Kernel correlations use the 28 species pairs descriptively; the four",
   " named phylogenetic pairs each contain opposite life cycles.\n",
+  "- Exact topology relabelling keeps each 28-pair matrix intact. Sister",
+  " contrasts summarize four paired differences, not independent rows.\n",
   sep = ""
 )

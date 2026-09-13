@@ -1,0 +1,49 @@
+"anchor_id","anchor_hog","tissue","feature","interpretation","median_annual_minus_perennial","n_annual_higher","n_perennial_higher","n_equal","majority_direction","n_agreeing_with_majority"
+"anchor_01","HOG:0020610","leaf","early_to_late","last minus first matched time-point module activity",-0.0294733173978264,2,2,0,"mixed_or_tied",2
+"anchor_01","HOG:0020610","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0373427764301698,3,1,0,"annual_higher",3
+"anchor_01","HOG:0020610","root","early_to_late","last minus first matched time-point module activity",0.0751220609432596,3,1,0,"annual_higher",3
+"anchor_01","HOG:0020610","root","mean_activity","equal-time-point mean module activity within tissue",0.010251018648867,2,2,0,"mixed_or_tied",2
+"anchor_02","HOG:0020076","leaf","early_to_late","last minus first matched time-point module activity",-0.0389719823198171,1,3,0,"perennial_higher",3
+"anchor_02","HOG:0020076","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0297915880628083,3,1,0,"annual_higher",3
+"anchor_02","HOG:0020076","root","early_to_late","last minus first matched time-point module activity",0.0748014218241888,3,1,0,"annual_higher",3
+"anchor_02","HOG:0020076","root","mean_activity","equal-time-point mean module activity within tissue",0.0120096160217343,2,2,0,"mixed_or_tied",2
+"anchor_03","HOG:0011532","leaf","early_to_late","last minus first matched time-point module activity",-0.00354462542093409,2,2,0,"mixed_or_tied",2
+"anchor_03","HOG:0011532","leaf","mean_activity","equal-time-point mean module activity within tissue",0.00497234895652587,2,2,0,"mixed_or_tied",2
+"anchor_03","HOG:0011532","root","early_to_late","last minus first matched time-point module activity",0.0958487585094152,3,1,0,"annual_higher",3
+"anchor_03","HOG:0011532","root","mean_activity","equal-time-point mean module activity within tissue",0.0204966930259253,2,2,0,"mixed_or_tied",2
+"anchor_04","HOG:0019394","leaf","early_to_late","last minus first matched time-point module activity",-0.0248673850333492,2,2,0,"mixed_or_tied",2
+"anchor_04","HOG:0019394","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0439203216804612,3,1,0,"annual_higher",3
+"anchor_04","HOG:0019394","root","early_to_late","last minus first matched time-point module activity",0.0448558632813184,3,1,0,"annual_higher",3
+"anchor_04","HOG:0019394","root","mean_activity","equal-time-point mean module activity within tissue",0.0322715591962938,3,1,0,"annual_higher",3
+"anchor_05","HOG:0006205","leaf","early_to_late","last minus first matched time-point module activity",-0.0273300297627216,1,3,0,"perennial_higher",3
+"anchor_05","HOG:0006205","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0057768596831671,2,2,0,"mixed_or_tied",2
+"anchor_05","HOG:0006205","root","early_to_late","last minus first matched time-point module activity",0.0857001671584005,3,1,0,"annual_higher",3
+"anchor_05","HOG:0006205","root","mean_activity","equal-time-point mean module activity within tissue",0.0268989132545446,2,2,0,"mixed_or_tied",2
+"anchor_06","HOG:0028766","leaf","early_to_late","last minus first matched time-point module activity",-0.0536246220163193,1,3,0,"perennial_higher",3
+"anchor_06","HOG:0028766","leaf","mean_activity","equal-time-point mean module activity within tissue",0.049454873617026,3,1,0,"annual_higher",3
+"anchor_06","HOG:0028766","root","early_to_late","last minus first matched time-point module activity",0.0594676422763274,3,1,0,"annual_higher",3
+"anchor_06","HOG:0028766","root","mean_activity","equal-time-point mean module activity within tissue",0.0155438535132843,4,0,0,"annual_higher",4
+"anchor_07","HOG:0011862","leaf","early_to_late","last minus first matched time-point module activity",-0.0241258336268778,1,3,0,"perennial_higher",3
+"anchor_07","HOG:0011862","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0397365680899279,3,1,0,"annual_higher",3
+"anchor_07","HOG:0011862","root","early_to_late","last minus first matched time-point module activity",0.0403055640680072,3,1,0,"annual_higher",3
+"anchor_07","HOG:0011862","root","mean_activity","equal-time-point mean module activity within tissue",0.0125617443945171,3,1,0,"annual_higher",3
+"anchor_08","HOG:0006123","leaf","early_to_late","last minus first matched time-point module activity",-0.0077596977957104,2,2,0,"mixed_or_tied",2
+"anchor_08","HOG:0006123","leaf","mean_activity","equal-time-point mean module activity within tissue",0.00777335908663235,2,2,0,"mixed_or_tied",2
+"anchor_08","HOG:0006123","root","early_to_late","last minus first matched time-point module activity",0.0489580426996081,3,1,0,"annual_higher",3
+"anchor_08","HOG:0006123","root","mean_activity","equal-time-point mean module activity within tissue",0.0075118513499221,2,2,0,"mixed_or_tied",2
+"anchor_09","HOG:0029484","leaf","early_to_late","last minus first matched time-point module activity",-0.0323770160796308,1,3,0,"perennial_higher",3
+"anchor_09","HOG:0029484","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0675515543422776,3,1,0,"annual_higher",3
+"anchor_09","HOG:0029484","root","early_to_late","last minus first matched time-point module activity",0.0460145577849546,2,2,0,"mixed_or_tied",2
+"anchor_09","HOG:0029484","root","mean_activity","equal-time-point mean module activity within tissue",0.0296092079534888,3,1,0,"annual_higher",3
+"anchor_10","HOG:0023085","leaf","early_to_late","last minus first matched time-point module activity",-0.0238269562291218,1,3,0,"perennial_higher",3
+"anchor_10","HOG:0023085","leaf","mean_activity","equal-time-point mean module activity within tissue",0.012391302261524,2,2,0,"mixed_or_tied",2
+"anchor_10","HOG:0023085","root","early_to_late","last minus first matched time-point module activity",0.0709965958394217,3,1,0,"annual_higher",3
+"anchor_10","HOG:0023085","root","mean_activity","equal-time-point mean module activity within tissue",0.0119492802159148,2,2,0,"mixed_or_tied",2
+"anchor_11","HOG:0026770","leaf","early_to_late","last minus first matched time-point module activity",-0.0392216756958717,1,3,0,"perennial_higher",3
+"anchor_11","HOG:0026770","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0347570867294009,4,0,0,"annual_higher",4
+"anchor_11","HOG:0026770","root","early_to_late","last minus first matched time-point module activity",0.0296164755196497,3,1,0,"annual_higher",3
+"anchor_11","HOG:0026770","root","mean_activity","equal-time-point mean module activity within tissue",0.0301864617476674,3,1,0,"annual_higher",3
+"anchor_12","HOG:0012056","leaf","early_to_late","last minus first matched time-point module activity",-0.0261802262462141,1,3,0,"perennial_higher",3
+"anchor_12","HOG:0012056","leaf","mean_activity","equal-time-point mean module activity within tissue",0.0167040200942224,4,0,0,"annual_higher",4
+"anchor_12","HOG:0012056","root","early_to_late","last minus first matched time-point module activity",0.0420025834035033,3,1,0,"annual_higher",3
+"anchor_12","HOG:0012056","root","mean_activity","equal-time-point mean module activity within tissue",0.0152436848499449,2,2,0,"mixed_or_tied",2
