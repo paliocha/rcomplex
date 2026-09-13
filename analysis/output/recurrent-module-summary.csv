@@ -1,0 +1,13 @@
+"anchor_id","anchor_hog","n_species","recurrence_cutoff","n_candidate_neighbor_hogs","n_recurrent_hogs","median_species_support","has_pairwise_edge_correlation"
+"anchor_01","HOG:0020610",8,4,276,157,7,TRUE
+"anchor_02","HOG:0020076",8,4,267,147,7,TRUE
+"anchor_03","HOG:0011532",8,4,259,147,7,TRUE
+"anchor_04","HOG:0019394",8,4,268,156,7,TRUE
+"anchor_05","HOG:0006205",8,4,273,144,7,TRUE
+"anchor_06","HOG:0028766",8,4,264,149,7,TRUE
+"anchor_07","HOG:0011862",8,4,269,151,7,TRUE
+"anchor_08","HOG:0006123",8,4,260,149,7,TRUE
+"anchor_09","HOG:0029484",8,4,275,140,7,TRUE
+"anchor_10","HOG:0023085",8,4,268,142,7,TRUE
+"anchor_11","HOG:0026770",8,4,271,142,7,TRUE
+"anchor_12","HOG:0012056",8,4,264,142,7,TRUE

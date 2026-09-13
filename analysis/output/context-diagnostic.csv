@@ -1,0 +1,2 @@
+"context_matching_available","ordered_axis_available","deployment_primary","combined_deployment","recurrent_hog_copy_rule","decision"
+TRUE,TRUE,"tissue_specific","within_tissue_centered","strongest thresholded anchor edge; stable gene-ID tie break; unresolved if no anchor edge","Exact tissue x time-point categories match all species; day orders the shared grid, so no registration or warping is used."
