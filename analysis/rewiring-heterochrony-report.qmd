@@ -166,13 +166,15 @@ candidates <- merge(
 )
 
 database_links <- function(gene) {
+  phytozome_gene <- sub("\\.v3\\.2$", "", gene)
   ifelse(
     is.na(gene) | !nzchar(gene),
     "",
     paste0(
-      "[Ensembl](",
-      "https://plants.ensembl.org/Multi/Search/Results?q=",
-      utils::URLencode(gene, reserved = TRUE),
+      "[Phytozome](",
+      "https://phytozome-next.jgi.doe.gov/report/gene/",
+      "Bdistachyon_v3_2/",
+      phytozome_gene,
       ") \u00b7 [UniProt](",
       "https://www.uniprot.org/uniprotkb?query=",
       utils::URLencode(gene, reserved = TRUE),
@@ -187,6 +189,11 @@ database_links <- function(gene) {
 candidates$database_links <- database_links(
   candidates$bdis_selected_gene
 )
+candidates$annotation[candidates$anchor_hog == "HOG:0026234"] <-
+  paste(
+    "Zeta-carotene desaturase; upstream carotenoid precursor",
+    "supply for strigolactone biosynthesis"
+  )
 candidates$display_label <- paste0(
   candidates$anchor_hog,
   ifelse(
@@ -341,6 +348,23 @@ gt::gt(top_table) |>
     page_size_default = 15
   )
 ```
+
+::: {.callout-tip}
+## A carotenoid-to-strigolactone candidate
+
+`HOG:0026234` is the ζ-carotene desaturase represented by
+[`Bradi1g54390`](https://phytozome-next.jgi.doe.gov/report/gene/Bdistachyon_v3_2/Bradi1g54390).
+It supplies the carotenoid pathway that produces β-carotene, the upstream
+substrate from which D27, CCD7/MAX3, and CCD8/MAX4 initiate strigolactone
+biosynthesis. Its signal should therefore be interpreted as potential
+**carotenoid precursor allocation**, not as a strigolactone-specific enzymatic
+step. In this screen the candidate transcript itself does not show a strong
+root phase shift, but its recurrent module shifts later in annuals
+(`Δ phase = 0.205`, 4/4 sister pairs). This is compatible with altered timing
+of a carotenoid-derived hormone program and merits targeted examination
+alongside D27, CCD7, CCD8, and MAX1 orthologues
+([Alder et al. 2012](https://doi.org/10.1126/science.1218094)).
+:::
 
 ## Distribution across tissues
 
@@ -735,8 +759,9 @@ annotation$bdis_link <- ifelse(
   !is.na(annotation$bdis_gene) & nzchar(annotation$bdis_gene),
   paste0(
     "[", annotation$bdis_gene, "](",
-    "https://plants.ensembl.org/Multi/Search/Results?q=",
-    utils::URLencode(annotation$bdis_gene, reserved = TRUE),
+    "https://phytozome-next.jgi.doe.gov/report/gene/",
+    "Bdistachyon_v3_2/",
+    sub("\\.v3\\.2$", "", annotation$bdis_gene),
     ")"
   ),
   ifelse(
@@ -744,11 +769,9 @@ annotation$bdis_link <- ifelse(
       nzchar(annotation$bdis_selected_gene),
     paste0(
       "[", annotation$bdis_selected_gene, "](",
-      "https://plants.ensembl.org/Multi/Search/Results?q=",
-      utils::URLencode(
-        annotation$bdis_selected_gene,
-        reserved = TRUE
-      ),
+      "https://phytozome-next.jgi.doe.gov/report/gene/",
+      "Bdistachyon_v3_2/",
+      sub("\\.v3\\.2$", "", annotation$bdis_selected_gene),
       ")"
     ),
     ""
