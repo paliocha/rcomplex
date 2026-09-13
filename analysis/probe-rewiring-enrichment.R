@@ -41,6 +41,7 @@ screen_dir <- file.path("analysis", "cache", "rewiring-screen")
 output_dir <- file.path("analysis", "output")
 required_inputs <- c(
   "selected-anchors.csv",
+  "life-history-topology-exact.csv",
   "life-history-topology-sister-contrasts.csv",
   "life-history-deployment-sister-contrasts.csv"
 )
@@ -73,6 +74,7 @@ write_result <- function(x, filename) {
 }
 
 selected <- read_screen("selected-anchors.csv")
+topology_exact <- read_screen("life-history-topology-exact.csv")
 topology_contrasts <- read_screen(
   "life-history-topology-sister-contrasts.csv"
 )
@@ -156,13 +158,13 @@ stopifnot(
   !anyDuplicated(rankings[c("ranking", "anchor_hog")])
 )
 
-annotation <- utils::read.delim(
+annotation_all <- utils::read.delim(
   annotation_file,
   check.names = FALSE,
   stringsAsFactors = FALSE
 )
 required_annotation_columns <- c("locusName", "GO")
-if (!all(required_annotation_columns %in% names(annotation))) {
+if (!all(required_annotation_columns %in% names(annotation_all))) {
   stop(
     "Annotation file must contain columns: ",
     paste(required_annotation_columns, collapse = ", ")
@@ -170,10 +172,10 @@ if (!all(required_annotation_columns %in% names(annotation))) {
 }
 
 selected$locus <- sub("[.]v3[.]2$", "", selected$BDIS)
-annotation <- annotation[
-  annotation$locusName %in% selected$locus &
-    !is.na(annotation$GO) &
-    nzchar(annotation$GO),
+annotation <- annotation_all[
+  annotation_all$locusName %in% selected$locus &
+    !is.na(annotation_all$GO) &
+    nzchar(annotation_all$GO),
   c("locusName", "GO"),
   drop = FALSE
 ]
@@ -390,12 +392,205 @@ perennial_main <- perennial[
   drop = FALSE
 ]
 
+main_deployment <- enrichment[
+  enrichment$main_pathway &
+    enrichment$padj_within_ranking < 0.05 &
+    grepl("^(leaf|root)_", enrichment$ranking),
+  ,
+  drop = FALSE
+]
+leading_edge_rows <- lapply(seq_len(nrow(main_deployment)), function(index) {
+  hogs <- strsplit(
+    main_deployment$leadingEdge[index],
+    ";",
+    fixed = TRUE
+  )[[1L]]
+  data.frame(
+    anchor_hog = hogs,
+    ranking = main_deployment$ranking[index],
+    go_id = main_deployment$go_id[index],
+    term = main_deployment$TERM[index],
+    pathway_direction = main_deployment$direction[index],
+    pathway_fdr = main_deployment$padj_within_ranking[index],
+    stringsAsFactors = FALSE
+  )
+})
+leading_edges <- do.call(rbind, leading_edge_rows)
+leading_edges <- merge(
+  leading_edges,
+  rankings[c(
+    "ranking", "anchor_hog", "score",
+    "n_annual_higher", "n_perennial_higher"
+  )],
+  by = c("ranking", "anchor_hog"),
+  all.x = TRUE,
+  sort = FALSE
+)
+
+topology_exact <- topology_exact[
+  order(
+    topology_exact$p_value,
+    -topology_exact$signed_statistic,
+    topology_exact$anchor_hog
+  ),
+  ,
+  drop = FALSE
+]
+best_exact <- topology_exact[
+  !duplicated(topology_exact$anchor_hog),
+  ,
+  drop = FALSE
+]
+topology_rankings <- rankings[
+  rankings$ranking %in% topology_features,
+  ,
+  drop = FALSE
+]
+topology_rankings$pair_agreement <- pmax(
+  topology_rankings$n_annual_higher,
+  topology_rankings$n_perennial_higher
+)
+topology_rankings <- topology_rankings[
+  order(
+    -topology_rankings$pair_agreement,
+    -abs(topology_rankings$score),
+    topology_rankings$anchor_hog,
+    topology_rankings$ranking
+  ),
+  ,
+  drop = FALSE
+]
+best_topology <- topology_rankings[
+  !duplicated(topology_rankings$anchor_hog),
+  ,
+  drop = FALSE
+]
+
+hotspot_groups <- split(
+  seq_len(nrow(leading_edges)),
+  paste(
+    leading_edges$pathway_direction,
+    leading_edges$anchor_hog,
+    sep = "\x1f"
+  )
+)
+hotspot_rows <- lapply(hotspot_groups, function(index) {
+  rows <- leading_edges[index, , drop = FALSE]
+  data.frame(
+    direction = rows$pathway_direction[1L],
+    anchor_hog = rows$anchor_hog[1L],
+    n_main_pathways = length(unique(paste(rows$ranking, rows$go_id))),
+    n_deployment_rankings = length(unique(rows$ranking)),
+    best_pathway_fdr = min(rows$pathway_fdr),
+    max_deployment_pair_agreement = max(pmax(
+      rows$n_annual_higher,
+      rows$n_perennial_higher
+    )),
+    pathway_terms = paste(sort(unique(rows$term)), collapse = ";"),
+    stringsAsFactors = FALSE
+  )
+})
+hotspots <- do.call(rbind, hotspot_rows)
+rownames(hotspots) <- NULL
+hotspots <- merge(
+  hotspots,
+  best_exact[c(
+    "anchor_hog", "metric", "signed_statistic", "p_value"
+  )],
+  by = "anchor_hog",
+  all.x = TRUE,
+  sort = FALSE
+)
+names(hotspots)[names(hotspots) == "metric"] <- "topology_metric"
+names(hotspots)[names(hotspots) == "signed_statistic"] <-
+  "topology_group_separation"
+names(hotspots)[names(hotspots) == "p_value"] <- "topology_exact_p"
+hotspots <- merge(
+  hotspots,
+  best_topology[c(
+    "anchor_hog", "ranking", "score", "pair_agreement", "direction"
+  )],
+  by = "anchor_hog",
+  all.x = TRUE,
+  sort = FALSE,
+  suffixes = c("", "_topology")
+)
+names(hotspots)[names(hotspots) == "ranking"] <- "topology_feature"
+names(hotspots)[names(hotspots) == "score"] <- "topology_median"
+names(hotspots)[names(hotspots) == "pair_agreement"] <-
+  "topology_pair_agreement"
+names(hotspots)[names(hotspots) == "direction_topology"] <-
+  "topology_direction"
+
+hotspots$topology_direction <- ifelse(
+  hotspots$topology_median > 0,
+  "annual",
+  ifelse(hotspots$topology_median < 0, "perennial", "neutral")
+)
+hotspots$topology_supported <-
+  hotspots$topology_exact_p <= 4 / 35 &
+  hotspots$topology_pair_agreement >= 3L &
+  hotspots$direction == hotspots$topology_direction
+
+annotation_columns <- c(
+  "locusName", "best_arabi_gene", "best_arabi_defline",
+  "best_rice_gene", "best_rice_defline"
+)
+annotation_summary <- unique(annotation_all[
+  annotation_all$locusName %in% selected$locus,
+  annotation_columns,
+  drop = FALSE
+])
+annotation_summary <- annotation_summary[
+  !duplicated(annotation_summary$locusName),
+  ,
+  drop = FALSE
+]
+hotspots <- merge(
+  hotspots,
+  selected[c(
+    "hog", "BDIS", "locus", "mean_effect_size",
+    "max_q", "n_multicopy_species"
+  )],
+  by.x = "anchor_hog",
+  by.y = "hog",
+  all.x = TRUE,
+  sort = FALSE
+)
+hotspots <- merge(
+  hotspots,
+  annotation_summary,
+  by.x = "locus",
+  by.y = "locusName",
+  all.x = TRUE,
+  sort = FALSE
+)
+hotspots <- hotspots[
+  order(
+    hotspots$direction,
+    -hotspots$topology_supported,
+    -hotspots$n_deployment_rankings,
+    -hotspots$n_main_pathways,
+    hotspots$best_pathway_fdr,
+    -abs(hotspots$topology_median),
+    hotspots$anchor_hog
+  ),
+  ,
+  drop = FALSE
+]
+hotspots$hotspot_rank_within_direction <- ave(
+  seq_len(nrow(hotspots)),
+  hotspots$direction,
+  FUN = seq_along
+)
+
 write_result(rankings, "rewiring-hog-rankings.csv")
 write_result(enrichment, "rewiring-gsea-all.csv")
 write_result(annual, "rewiring-gsea-annual.csv")
 write_result(perennial, "rewiring-gsea-perennial.csv")
 write_result(annual_main, "rewiring-gsea-annual-main.csv")
 write_result(perennial_main, "rewiring-gsea-perennial-main.csv")
+write_result(hotspots, "rewiring-hot-hogs.csv")
 
 cat("Rewiring HOG enrichment\n")
 cat("========================\n")
@@ -417,6 +612,11 @@ cat(
   sum(enrichment$padj_global < 0.05),
   "\n"
 )
+cat(
+  "Directionally matched pathway-leading HOGs with topology support:",
+  sum(hotspots$topology_supported),
+  "\n"
+)
 
 show_results <- function(x, direction_label) {
   cat("\n", direction_label, "-leaning pathways\n", sep = "")
@@ -430,6 +630,30 @@ show_results <- function(x, direction_label) {
 show_results(annual_main, "Annual")
 show_results(perennial_main, "Perennial")
 
+show_hotspots <- function(direction_label) {
+  rows <- hotspots[
+    hotspots$direction == tolower(direction_label) &
+      hotspots$topology_supported,
+    ,
+    drop = FALSE
+  ]
+  cat("\n", direction_label, " cross-layer HOG hotspots\n", sep = "")
+  print(
+    utils::head(
+      rows[c(
+        "anchor_hog", "BDIS", "best_arabi_defline",
+        "n_main_pathways", "n_deployment_rankings",
+        "topology_feature", "topology_pair_agreement"
+      )],
+      10L
+    ),
+    row.names = FALSE
+  )
+}
+
+show_hotspots("Annual")
+show_hotspots("Perennial")
+
 cat(
   "\nGuardrails:\n",
   "- Positive NES is annual-leaning; negative NES is perennial-leaning.\n",
@@ -437,6 +661,9 @@ cat(
   "- Rankings use median sister-pair contrasts, not discrete p-values.\n",
   "- Each HOG appears once; GO mapping uses its BDIS representative.\n",
   "- GO ancestors are included, and tested sets contain 10-100 HOGs.\n",
+  "- Hotspots require a significant deployment leading edge plus",
+  " same-direction topology in at least 3/4 sister pairs and an exact",
+  " topology rank no worse than 8/70.\n",
   "- fgsea is a pathway-discovery layer. Pair consistency is descriptive",
   " and does not create independent replication.\n",
   sep = ""
