@@ -33,7 +33,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -88,7 +88,7 @@
 <li>
 <strong>Gene / HOG level</strong> – Are individual genes’ co-expression neighborhoods preserved across species?</li>
 <li>
-<strong>Module level</strong> – Are higher-order communities (modules) of co-expressed genes conserved, partially conserved, or species-specific?</li>
+<strong>Module level</strong> – Does a module’s internal wiring – its connection density and which genes are its hubs – survive in the other species’ network?</li>
 <li>
 <strong>Clique level</strong> – Which fully connected subsets of ortholog groups are conserved, and how robust is their trait exclusivity to species removal?</li>
 </ul>
@@ -161,24 +161,86 @@
 <span></span>
 <span><span class="va">mod2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">net2</span>, resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Compare modules across species (hypergeometric or Jaccard permutation)</span></span>
-<span><span class="va">comp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_modules.html">compare_modules</a></span><span class="op">(</span><span class="va">mod1</span>, <span class="va">mod2</span>, <span class="va">orthologs</span>, method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span>
+<span><span class="co"># Does mod1's wiring survive in species 2? Preservation is DIRECTIONAL:</span></span>
+<span><span class="co"># this asks about SP_A's modules in SP_B's network, which is a different</span></span>
+<span><span class="co"># question from the reverse. Run both to get both answers.</span></span>
+<span><span class="co"># edges_AB feeds the paralog resolver: without it the ortholog map runs no</span></span>
+<span><span class="co"># resolution layer and every multi-copy HOG stays unresolved.</span></span>
+<span><span class="va">pres</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/module_preservation.html">module_preservation</a></span><span class="op">(</span><span class="va">mod1</span>, <span class="va">net1</span>, <span class="va">net2</span>, <span class="va">orthologs</span>,</span>
+<span>                            edges <span class="op">=</span> <span class="va">edges_AB</span>,</span>
+<span>                            sp_ref <span class="op">=</span> <span class="st">"SP_A"</span>, sp_test <span class="op">=</span> <span class="st">"SP_B"</span>,</span>
+<span>                            n_perm <span class="op">=</span> <span class="fl">10000L</span>, n_cores <span class="op">=</span> <span class="fl">4L</span>, seed <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span></span>
+<span><span class="va">pres</span><span class="op">$</span><span class="va">preservation</span>  <span class="co"># avg.weight, cor.degree, Zsummary, q.value per module</span></span>
 <span></span>
-<span><span class="co"># Classify: conserved, partially conserved, or species-specific</span></span>
-<span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_modules.html">classify_modules</a></span><span class="op">(</span><span class="va">comp</span><span class="op">)</span></span>
+<span><span class="co"># Classify: the call comes from the combined permutation q-value over</span></span>
+<span><span class="co"># avg.weight (module density) and cor.degree (hub identity), combined</span></span>
+<span><span class="co"># with pmax so both must be significant. Four classes: conserved</span></span>
+<span><span class="co"># (q &lt; alpha, Zsummary &gt;= 10), moderate (q &lt; alpha, Zsummary &lt; 10),</span></span>
+<span><span class="co"># diverged (q &gt;= alpha), untested (q is NA -- nothing was measured).</span></span>
+<span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_preservation.html">classify_preservation</a></span><span class="op">(</span><span class="va">pres</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Identify hub genes within modules (6-tier tie-breaking cascade)</span></span>
+<span><span class="co"># PRIMARY trait test. It steps outside the two-species example above,</span></span>
+<span><span class="co"># because the test needs a clade: from here `networks`, `modules`,</span></span>
+<span><span class="co"># `orthologs` and `edges` are the eight-species versions, keyed by</span></span>
+<span><span class="co"># species.</span></span>
+<span><span class="va">annual_sp</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BDIS"</span>, <span class="st">"HVUL"</span>, <span class="st">"BMAX"</span>, <span class="st">"VBRO"</span><span class="op">)</span></span>
+<span><span class="va">perennial_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BSYL"</span>, <span class="st">"HJUB"</span>, <span class="st">"BMED"</span>, <span class="st">"FPRA"</span><span class="op">)</span></span>
+<span><span class="va">all_sp</span>       <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">annual_sp</span>, <span class="va">perennial_sp</span><span class="op">)</span></span>
+<span><span class="va">trait</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"annual"</span>, <span class="st">"perennial"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, <span class="va">all_sp</span><span class="op">)</span></span>
+<span><span class="va">genus</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Brachypodium"</span>, <span class="st">"Hordeum"</span>, <span class="st">"Briza"</span>, <span class="st">"Festuca"</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>                  <span class="va">all_sp</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Run preservation for EVERY species pair, then ask whether</span></span>
+<span><span class="co"># trait-discordant pairs are the less-preserved ones. All pairs rather</span></span>
+<span><span class="co"># than a designated few is not a matter of extra resolution -- it is what</span></span>
+<span><span class="co"># makes the test exist. The statistic is the concordant mean minus the</span></span>
+<span><span class="co"># discordant mean, and a designated annual-vs-perennial table holds no</span></span>
+<span><span class="co"># trait-concordant pair at all, so the concordant side is empty and</span></span>
+<span><span class="co"># preservation_matrix_test() errors instead of running. Only the</span></span>
+<span><span class="co"># between-genus pairs supply same-trait contrasts.</span></span>
+<span><span class="va">pairs</span>    <span class="op">&lt;-</span> <span class="fu"><a href="reference/all_species_pairs.html">all_species_pairs</a></span><span class="op">(</span><span class="va">all_sp</span><span class="op">)</span></span>
+<span><span class="va">pres_all</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/preservation_paired.html">preservation_paired</a></span><span class="op">(</span><span class="va">modules</span>, <span class="va">networks</span>, <span class="va">orthologs</span>, <span class="va">pairs</span>,</span>
+<span>                                group <span class="op">=</span> <span class="va">trait</span>, edges <span class="op">=</span> <span class="va">edges</span>,</span>
+<span>                                n_cores <span class="op">=</span> <span class="fl">4L</span>, seed <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># The statistic averages Zsummary_std -- the standardised effect size --</span></span>
+<span><span class="co"># and never the q-value. `block` names the phylogenetic group (a genus),</span></span>
+<span><span class="co"># which enables the conservative within-block null and drops the</span></span>
+<span><span class="co"># within-block pairs, where trait and phylogeny are confounded.</span></span>
+<span><span class="co"># Both label spaces belong to the species and their trait labels, not to</span></span>
+<span><span class="co"># the pairs table: 4/4 over eight species gives choose(8, 4) = 70 free</span></span>
+<span><span class="co"># labellings and 2^4 = 16 that permute only within a genus. Renaming the</span></span>
+<span><span class="co"># two trait levels reproduces the statistic, so each floor is AT LEAST 2</span></span>
+<span><span class="co"># over its own count -- 2/70 = 0.029 free, 2/16 = 0.125 blocked, and</span></span>
+<span><span class="co"># higher when further labellings tie at the maximum. Read `p_blocked`</span></span>
+<span><span class="co"># as a check on the direction and rank of the effect; nothing can reach</span></span>
+<span><span class="co"># alpha = 0.05 against it.</span></span>
+<span><span class="va">pmt</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/preservation_matrix_test.html">preservation_matrix_test</a></span><span class="op">(</span><span class="va">pres_all</span><span class="op">$</span><span class="va">classification</span>, <span class="va">trait</span>,</span>
+<span>                                block <span class="op">=</span> <span class="va">genus</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">pmt</span><span class="op">$</span><span class="va">observed</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">p_free</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">p_blocked</span><span class="op">)</span></span>
+<span><span class="va">pmt</span><span class="op">$</span><span class="va">class_means</span>   <span class="co"># the class means the statistic is built from</span></span>
+<span><span class="va">pmt</span><span class="op">$</span><span class="va">saturation</span>    <span class="co"># resolution left in the q-values behind it</span></span>
+<span></span>
+<span><span class="co"># Identify hub genes within modules (6-tier tie-breaking cascade).</span></span>
+<span><span class="co"># Back to the two-species example: mod1/mod2 and net1/net2 again.</span></span>
 <span><span class="va">hubs1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod1</span>, <span class="va">net1</span>, <span class="va">orthologs</span>,</span>
 <span>                              comparison <span class="op">=</span> <span class="va">summary</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span>
 <span><span class="va">hubs2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/identify_module_hubs.html">identify_module_hubs</a></span><span class="op">(</span><span class="va">mod2</span>, <span class="va">net2</span>, <span class="va">orthologs</span>,</span>
 <span>                              comparison <span class="op">=</span> <span class="va">summary</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span>
 <span><span class="va">hubs1</span><span class="op">[</span><span class="va">hubs1</span><span class="op">$</span><span class="va">is_hub</span>, <span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Classify hub conservation across traits</span></span>
+<span><span class="co"># Classify hub conservation across traits. This needs module</span></span>
+<span><span class="co"># correspondence ("which module matches which"), not the preservation</span></span>
+<span><span class="co"># call. Reuse the map module_preservation() already resolved rather than</span></span>
+<span><span class="co"># rebuilding a naive one -- a bare resolve_ortholog_map() with no edges</span></span>
+<span><span class="co"># or cliques runs no resolution layer at all.</span></span>
 <span><span class="va">trait</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>SP_A <span class="op">=</span> <span class="st">"annual"</span>, SP_B <span class="op">=</span> <span class="st">"perennial"</span><span class="op">)</span></span>
+<span><span class="va">corr</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/module_correspondence.html">module_correspondence</a></span><span class="op">(</span><span class="va">mod1</span>, <span class="va">mod2</span>, <span class="va">pres</span><span class="op">$</span><span class="va">map</span>,</span>
+<span>                              sp_ref <span class="op">=</span> <span class="st">"SP_A"</span>, sp_test <span class="op">=</span> <span class="st">"SP_B"</span><span class="op">)</span></span>
 <span><span class="va">hub_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_hub_conservation.html">classify_hub_conservation</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>SP_A <span class="op">=</span> <span class="va">hubs1</span>, SP_B <span class="op">=</span> <span class="va">hubs2</span><span class="op">)</span>, <span class="va">trait</span>,</span>
-<span>  module_comparisons <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"SP_A.SP_B"</span> <span class="op">=</span> <span class="va">comp</span><span class="op">)</span></span>
+<span>  <span class="co"># The list key must be the ALPHABETICALLY SORTED species pair.</span></span>
+<span>  module_comparisons <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"SP_A.SP_B"</span> <span class="op">=</span> <span class="va">corr</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">hub_class</span><span class="op">[</span><span class="va">hub_class</span><span class="op">$</span><span class="va">classification</span> <span class="op">!=</span> <span class="st">"non_hub"</span>, <span class="op">]</span></span>
 <span></span>
@@ -190,9 +252,23 @@
 <span><span class="va">partners</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grepl</a></span><span class="op">(</span><span class="st">","</span>, <span class="va">partners</span><span class="op">$</span><span class="va">coexpressed_traits</span><span class="op">)</span>, <span class="op">]</span>       <span class="co"># cross-trait partners</span></span></code></pre></div>
 </div>
 <div class="section level3">
+<h3 id="p-value-saturation">P-value saturation<a class="anchor" aria-label="anchor" href="#p-value-saturation"></a>
+</h3>
+<p>A permutation p-value cannot go below <code>1 / (n_perm + 1)</code>, because the observed labelling is one of the draws. Every test whose true p-value lies below that floor comes back holding exactly it, and Benjamini- Hochberg maps a tied block of inputs to a tied block of outputs. On the eight-species Pooideae run at <code>n_perm = 2000</code>, the 511 module-directions produced only 172 distinct q-values: 35 tied at the floor of 0.00071 and 20 at exactly 1.0. Among those 35, <code>Zsummary_std</code> ranged from 6.4 to 66.7 – a tenfold spread in effect size that the q-value cannot see.</p>
+<p>So: <strong>rank, weight and order on <code>Zsummary_std</code>; use <code>p</code> and <code>q</code> for the significance call only.</strong> <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> follows that rule, and <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> reports how much resolution any p- or q-value vector has left, so the tie count can be published next to the p-value.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/pvalue_resolution.html">pvalue_resolution</a></span><span class="op">(</span><span class="va">pres_all</span><span class="op">$</span><span class="va">classification</span><span class="op">$</span><span class="va">q.value</span><span class="op">)</span></span>
+<span><span class="co"># 511 values, 172 distinct, 35 tied at the minimum, 20 at 1</span></span>
+<span></span>
+<span><span class="co"># With n_perm it also says whether the tie is the sampling or the data.</span></span>
+<span><span class="co"># It must be the n_perm the p-values were actually computed with -- 10000</span></span>
+<span><span class="co"># for the module_preservation() call above.</span></span>
+<span><span class="fu"><a href="reference/pvalue_resolution.html">pvalue_resolution</a></span><span class="op">(</span><span class="va">pres</span><span class="op">$</span><span class="va">preservation</span><span class="op">$</span><span class="va">p.value</span>, n_perm <span class="op">=</span> <span class="fl">10000L</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
 <h3 id="clique-level-analysis">Clique-level analysis<a class="anchor" aria-label="anchor" href="#clique-level-analysis"></a>
 </h3>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Species and trait definitions</span></span>
 <span><span class="va">annual_sp</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BDIS"</span>, <span class="st">"HVUL"</span>, <span class="st">"BMAX"</span>, <span class="st">"VBRO"</span><span class="op">)</span></span>
 <span><span class="va">perennial_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BSYL"</span>, <span class="st">"HJUB"</span>, <span class="st">"BMED"</span>, <span class="st">"FPRA"</span><span class="op">)</span></span>
@@ -226,7 +302,24 @@
 <span></span>
 <span><span class="co"># Permutation null for clique intensity</span></span>
 <span><span class="va">z_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/clique_intensity_test.html">clique_intensity_test</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">annual_sp</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
-<span>                                 edges <span class="op">=</span> <span class="va">edges</span>, n_perm <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></code></pre></div>
+<span>                                 edges <span class="op">=</span> <span class="va">edges</span>, n_perm <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Gene-graph backend: maximal cliques of the per-HOG GENE graph, then the</span></span>
+<span><span class="co"># published five-tier taxonomy. Row-bind a strict and a loose graph (with</span></span>
+<span><span class="co"># distinct id_prefix) so both tolerance tiers can be reached -- a clique</span></span>
+<span><span class="co"># that is maximal at one threshold need not be maximal at the other.</span></span>
+<span><span class="va">gene_cl</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="reference/gene_clique_graph.html">gene_clique_graph</a></span><span class="op">(</span><span class="va">edges</span>, alpha_graph <span class="op">=</span> <span class="fl">0.1</span>, id_prefix <span class="op">=</span> <span class="st">"strict_"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="reference/gene_clique_graph.html">gene_clique_graph</a></span><span class="op">(</span><span class="va">edges</span>, alpha_graph <span class="op">=</span> <span class="fl">0.9</span>, id_prefix <span class="op">=</span> <span class="st">"loose_"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">genus</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Brachypodium"</span>, <span class="st">"Hordeum"</span>, <span class="st">"Briza"</span>, <span class="st">"Festuca"</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>                  <span class="va">all_sp</span><span class="op">)</span></span>
+<span><span class="co"># `edges` here must be the FULL, unfiltered table: the gap tier needs to</span></span>
+<span><span class="co"># see pairs that were tested and failed in order to refuse them.</span></span>
+<span><span class="va">gene_classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_gene_cliques.html">classify_gene_cliques</a></span><span class="op">(</span><span class="va">gene_cl</span>, <span class="va">edges</span>, <span class="va">all_sp</span>,</span>
+<span>                                      lineage <span class="op">=</span> <span class="va">genus</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="reference/find_cliques.html">find_cliques()</a></code> and <code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> are different computations, not two spellings of one. <code><a href="reference/find_cliques.html">find_cliques()</a></code> builds cliques of a per-orthogroup <em>species</em> graph and returns the single best gene assignment; <code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> builds maximal cliques of the per-orthogroup <em>gene</em> graph, as published by <a href="https://doi.org/10.1038/s41467-026-75624-2" class="external-link">Rodriguez <em>et al.</em> (2026)</a>, so a multi-copy HOG can yield several. Every hard-coded constant of the six-species original is replaced by a formula in the number of species <code>S</code>: 15 becomes <code>choose(S, 2)</code>, 11 becomes <code>choose(S - 1, 2) + 1</code>, 10 becomes <code>choose(S - g, 2)</code>.</p>
+<p>The point of <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> is that it tolerates annotation gaps, and there are two orthogonal kinds of gap under two names. <code>partial_significant</code> is <strong>weak wiring</strong>: the edge is admitted to the graph at the loose threshold (<code>alpha_graph</code>, default 0.9) but counted as evidence only at the strict one (<code>alpha_call</code>, default 0.1), so the clique stays intact. <code>partial_present</code> is <strong>a missing gene</strong>: a fully significant clique that is one species short. Each species pair is tracked in three states – significant, tested but not significant, and never tested – so the second tier never silently absorbs the first, and a pair that was never compared is not read as evidence of divergence.</p>
 </div>
 </div>
 <div class="section level2">
@@ -325,16 +418,50 @@
 <td>Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus</td>
 </tr>
 <tr class="odd">
-<td><code><a href="reference/compare_modules.html">compare_modules()</a></code></td>
-<td>Cross-species module overlap (hypergeometric or Jaccard permutation)</td>
+<td><code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code></td>
+<td>Reduce multi-copy HOGs toward one counterpart per gene (cliques, then coexpressologs); the rest stay <code>unresolved</code>
+</td>
 </tr>
 <tr class="even">
-<td><code><a href="reference/classify_modules.html">classify_modules()</a></code></td>
-<td>Three-tier module conservation classification</td>
+<td><code><a href="reference/module_preservation.html">module_preservation()</a></code></td>
+<td>Permutation test of module density and hub identity in the other species’ network</td>
 </tr>
 <tr class="odd">
+<td><code><a href="reference/classify_preservation.html">classify_preservation()</a></code></td>
+<td>Four-tier preservation classification (conserved / moderate / diverged / untested)</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/module_correspondence.html">module_correspondence()</a></code></td>
+<td>Match modules across species by ortholog overlap on the resolved map</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/preservation_paired.html">preservation_paired()</a></code></td>
+<td>Batch module preservation across species pairs, both directions</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code></td>
+<td>Build the all-pairs <code>pairs</code> table for <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code></td>
+<td>Primary trait test: relabelling null on the all-pairs preservation matrix (ranks on <code>Zsummary_std</code>)</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code></td>
+<td>How much resolution a set of p- or q-values has left (ties at the permutation floor)</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/tag_permutation.html">tag_permutation()</a></code></td>
+<td>Secondary: do the same HOGs recur in diverged modules across pairs? (floor <code>2^-k</code>, <code>k</code> = connected components of the contrast graph, not contrasts; needs <code>k &gt;= 5</code>)</td>
+</tr>
+<tr class="even">
 <td><code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code></td>
 <td>Within-module hub identification with 6-tier conservation-aware tie-breaking</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/characterize_hubs.html">characterize_hubs()</a></code></td>
+<td>Regulatory-potential metrics for hub genes (bridge fraction, betweenness/degree ratio)</td>
 </tr>
 <tr class="even">
 <td><code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code></td>
@@ -346,7 +473,15 @@
 </tr>
 <tr class="even">
 <td><code><a href="reference/find_cliques.html">find_cliques()</a></code></td>
-<td>C++ clique detection via Bron-Kerbosch with Tomita pivoting</td>
+<td>C++ clique detection via Bron-Kerbosch with Tomita pivoting (species graph, one best gene assignment)</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code></td>
+<td>Maximal cliques of the per-HOG gene graph (Rodriguez et al., 2026)</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code></td>
+<td>Five-tier taxonomy for gene-graph cliques, tolerating weak wiring (<code>partial_significant</code>) and a missing gene (<code>partial_present</code>)</td>
 </tr>
 <tr class="odd">
 <td><code><a href="reference/clique_stability.html">clique_stability()</a></code></td>
@@ -409,7 +544,7 @@
 <h3 id="paralog-reduction-optional">Paralog reduction (optional)<a class="anchor" aria-label="anchor" href="#paralog-reduction-optional"></a>
 </h3>
 <p>Multi-copy gene families often contain recent duplicates with nearly identical expression. <code><a href="reference/reduce_orthogroups.html">reduce_orthogroups()</a></code> merges these within each HOG using Ward.D2 hierarchical clustering on Pearson correlation distance (1 - r). Paralogs above <code>cor_threshold</code> (default 0.7) are replaced by their averaged expression. Subfunctionalized copies with distinct expression programs are preserved as separate clusters.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">reduced</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/reduce_orthogroups.html">reduce_orthogroups</a></span><span class="op">(</span><span class="va">expr1</span>, <span class="va">orthologs</span>, cor_threshold <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span></span>
 <span><span class="va">net1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">reduced</span><span class="op">$</span><span class="va">expr_matrix</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -417,10 +552,10 @@
 <h3 id="summarizedexperiment-integration">SummarizedExperiment integration<a class="anchor" aria-label="anchor" href="#summarizedexperiment-integration"></a>
 </h3>
 <p><code><a href="reference/compute_network.html">compute_network()</a></code> is an S4 generic that accepts either a numeric matrix or a <code>SummarizedExperiment</code>. When passed an SE, it extracts the specified assay and proceeds as usual:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">net1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compute_network.html">compute_network</a></span><span class="op">(</span><span class="va">se1</span>, assay <span class="op">=</span> <span class="st">"vst.count"</span>, norm_method <span class="op">=</span> <span class="st">"MR"</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code> derives ortholog pairs by matching HOG identifiers in <code>rowData()</code> of two SE objects, producing the same data frame format as <code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code>:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/extract_orthologs.html">extract_orthologs</a></span><span class="op">(</span><span class="va">se1</span>, <span class="va">se2</span>, hog_col <span class="op">=</span> <span class="st">"hog"</span><span class="op">)</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_neighborhoods.html">compare_neighborhoods</a></span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">orthologs</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -468,17 +603,29 @@
 <p>The sparse edge-restricted co-classification (step 3) replaces the dense N x N matrix, reducing memory from ~3.2 GB to ~48 MB for N = 20K genes at 3% density. Re-running the full resolution sweep on the consensus graph (step 5) avoids the resolution limit that afflicts single-resolution Leiden on dense graphs (Fortunato &amp; Barthélemy, 2007).</p>
 </div>
 <div class="section level3">
-<h3 id="module-comparison">Module comparison<a class="anchor" aria-label="anchor" href="#module-comparison"></a>
+<h3 id="module-preservation">Module preservation<a class="anchor" aria-label="anchor" href="#module-preservation"></a>
 </h3>
-<p><code><a href="reference/compare_modules.html">compare_modules()</a></code> supports two methods:</p>
+<p>Gene overlap is the wrong test for module conservation. A module whose genes all have orthologs in the same partner module scores as conserved even when none of the edges between them survived – membership was kept, the wiring was gone. Connectivity, not membership, is what selection acts on (Mähler <em>et al.</em>, 2017). The overlap hypergeometric was also anti-conservative on multi-copy HOGs: one HOG with three paralogs contributed three correlated draws to the same urn.</p>
+<p><code><a href="reference/module_preservation.html">module_preservation()</a></code> instead asks whether a reference module’s topology survives in the test species’ network, using the pair of statistics NetRep computes when only an adjacency matrix is available (Ritchie <em>et al.</em>, 2016):</p>
 <ul>
 <li>
-<strong>Hypergeometric</strong>: Maps module genes through the ortholog table and tests overlap with <code><a href="https://rdrr.io/r/stats/Hypergeometric.html" class="external-link">phyper()</a></code>. Q-values via Storey (2003).</li>
+<strong><code>avg.weight</code></strong> = <code>sum(kIM) / (m^2 - m)</code> – the module’s connection density among its mapped genes.</li>
 <li>
-<strong>Jaccard + permutation</strong>: Computes observed Jaccard index on ortholog-mappable genes. The null permutes the ortholog mapping (Fisher-Yates shuffle), preserving module and network structure. Batched permutation shares one shuffle per iteration across all active pairs. Q-values via Liang (2016) discrete method.</li>
+<strong><code>cor.degree</code></strong> – Pearson correlation of intramodular connectivity (kIM) between the reference and test networks: is hub identity conserved?</li>
 </ul>
-<p><code><a href="reference/classify_modules.html">classify_modules()</a></code> assigns each module to one of three categories:</p>
+<p><code>meanClusterCoeff</code> and <code>meanMAR</code> are reported as diagnostics only and take no part in the call. A hard-thresholded MR network leaves the surviving edge weights nearly constant (max/min ratio about 1.04 at density 0.03), so both lose their dynamic range; including them in a median-of-three collapsed a density signal of Z = 124 to Z = 5.3 and misclassified a perfectly preserved module.</p>
+<p>The null shuffles gene identities while holding edges constant, handing each module a contiguous block of the shuffled genes of its own size. Only ortholog-mappable test-species genes enter the shuffle – NetRep’s overlap null model. P-values are one-sided, <code>(exceedances + 1) / (permutations + 1)</code>, and combined across the two statistics with <code>pmax</code>, so a module is preserved only when both are significant – the same reciprocal criterion as <code>pval_combine = "max"</code> elsewhere in the package. <code>n_perm</code> (default 10000) therefore sets the p-value floor at <code>1 / (n_perm + 1)</code>: at 1000 permutations every strongly preserved module ties at the floor and cannot be ranked.</p>
+<p><code>pmax</code> is a valid p-value for this intersection-union null, but it is calibrated against a bound rather than the joint null, and measured on this engine it ran roughly 400x conservative – the smallest q-value it could emit was 0.10. The reported <code>p.calibrated</code> blends <code>pmax</code> with the permutation joint null of the two statistics in proportion to the estimated fraction of modules null on <em>both</em>, which is a super-uniform bound for any dependence structure. The rejection region is unchanged – still <code>max(p1, p2) &lt;= c</code> – so this recalibrates the statistic rather than replacing it, and <code>calibrate = "none"</code> recovers the raw <code>pmax</code>. Q-values are Benjamini-Hochberg on <code>p.calibrated</code>.</p>
+<p><code>Zsummary = (Z_avg.weight + Z_cor.degree) / 2</code> is reported alongside for continuity with the WGCNA literature (Langfelder <em>et al.</em>, 2011); on adjacency-only inputs this is the GWENA <code>z_summary()</code> formula reduced to the statistics available.</p>
+<p>Multi-copy HOGs are reduced toward one counterpart per gene by <code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code>: cliques first (globally consistent across every species at once), then mutual-best coexpressologs. Whatever neither layer claims is carried as <code>unresolved</code>, and <code><a href="reference/module_preservation.html">module_preservation()</a></code> settles it by majority vote over the candidate labels, dropping ties. Resolution may only choose <em>which</em> paralog copy carries a module label, never which genes are <strong>mappable</strong> – filtering the mappable set on coexpressolog evidence would select the tested genes on the statistic being tested.</p>
+<p>The mappable set is invariant by construction, but the <strong>tested</strong> set is not: a gene whose candidate labels tie in the majority vote is dropped under one map and rescued under the other, so the resolved and naive runs can score different gene sets. <code>module_preservation(sensitivity = TRUE)</code> reports that as <code>same_projected_set</code> / <code>n_rescued</code> / <code>n_lost</code> rather than asserting it away. The circularity defence is therefore the <code>p_copy</code> columns – a null over random copy choices that holds the projected set fixed – not the projected-set equality.</p>
+<p>Preservation is directional: whether A’s modules survive in B is a different question from the reverse. <code><a href="reference/preservation_paired.html">preservation_paired()</a></code> always runs both.</p>
+<p><code><a href="reference/classify_preservation.html">classify_preservation()</a></code> assigns each module to one of four categories:</p>
 <table class="table">
+<colgroup>
+<col width="61%">
+<col width="38%">
+</colgroup>
 <thead><tr class="header">
 <th>Classification</th>
 <th>Criteria</th>
@@ -486,18 +633,26 @@
 <tbody>
 <tr class="odd">
 <td>Conserved</td>
-<td>Best-match q &lt; alpha AND Jaccard &gt;= threshold</td>
+<td>q &lt; alpha AND <code>Zsummary_std</code> &gt;= <code>z_conserved</code> (default 10)</td>
 </tr>
 <tr class="even">
-<td>Partially conserved</td>
-<td>Best-match q &lt; alpha AND Jaccard &lt; threshold</td>
+<td>Moderate</td>
+<td>q &lt; alpha AND <code>Zsummary_std</code> &lt; <code>z_conserved</code>
+</td>
 </tr>
 <tr class="odd">
-<td>Species-specific</td>
-<td>No significant match in the other species</td>
+<td>Diverged</td>
+<td>q &gt;= alpha</td>
+</tr>
+<tr class="even">
+<td>Untested</td>
+<td>q is NA – nothing was measured</td>
 </tr>
 </tbody>
 </table>
+<p><code>Zsummary_std</code> rather than <code>Zsummary</code>: the familiar 10 / 2 cut points were calibrated for a Zsummary built from medians over several statistics, and only two are available from an adjacency matrix, so the raw mean of two standardized values has null spread <code>sqrt(2 + 2*rho)/2</code> rather than 1 – about 0.71 here, since the two statistics are near-independent under the null. Dividing by it restores the threshold’s intended meaning, “this many null standard deviations”. <code>z_scale = "raw"</code> reads the older scale.</p>
+<p><code>cor.degree</code> is undefined when intramodular connectivity is constant in either network, which leaves the <code>pmax</code> combination and hence the q-value <code>NA</code>. Such a module is reported untested rather than diverged: divergence would be a positive claim the data does not support.</p>
+<p><code><a href="reference/module_correspondence.html">module_correspondence()</a></code> answers the separate “which module corresponds to which” question, which <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code> needs. It cross-tabulates the two species’ modules over the resolved map and tests each module pair with <code><a href="https://rdrr.io/r/stats/Hypergeometric.html" class="external-link">phyper()</a></code>. Because the resolved map contributes one draw per test gene instead of one per paralog, this hypergeometric is no longer anti-conservative. Its q-values default to the randomized-p pi0 estimator, which draws from the global RNG: seed first, or the <code>conserved_hub</code> / <code>rewired_hub</code> split downstream will move between runs. Jaccard is computed on the one-to-one projected map, so values run systematically higher than under the retired gene-overlap engine and the unchanged <code>jaccard_threshold = 0.1</code> is now slightly more permissive.</p>
 </div>
 <div class="section level3">
 <h3 id="hub-identification">Hub identification<a class="anchor" aria-label="anchor" href="#hub-identification"></a>
@@ -622,7 +777,18 @@
 <tr class="even">
 <td><code>R/modules.R</code></td>
 <td>
-<code><a href="reference/detect_modules.html">detect_modules()</a></code>, <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>, <code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>
+<code><a href="reference/detect_modules.html">detect_modules()</a></code>, <code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>, <code><a href="reference/characterize_hubs.html">characterize_hubs()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>R/ortholog_map.R</code></td>
+<td>
+<code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code> – paralog resolution waterfall (cliques, coexpressologs, unresolved remainder)</td>
+</tr>
+<tr class="even">
+<td><code>R/module_preservation.R</code></td>
+<td>
+<code><a href="reference/module_preservation.html">module_preservation()</a></code>, <code><a href="reference/classify_preservation.html">classify_preservation()</a></code>, <code><a href="reference/module_correspondence.html">module_correspondence()</a></code>, <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>
 </td>
 </tr>
 <tr class="odd">
@@ -693,8 +859,8 @@
 <td>GPU-precomputed FE permutation engine</td>
 </tr>
 <tr class="odd">
-<td><code>src/module_jaccard_permutation.cpp</code></td>
-<td>Batched Jaccard permutation engine</td>
+<td><code>src/module_preservation.cpp</code></td>
+<td>Module preservation permutation kernel (dense and sparse entry points)</td>
 </tr>
 <tr class="even">
 <td><code>src/find_cliques_common.h</code></td>
@@ -734,6 +900,12 @@
 <li>Lancichinetti, A. &amp; Fortunato, S. (2012). Consensus clustering in complex networks. <em>Scientific Reports</em>, 2, 336. <a href="https://doi.org/10.1038/srep00336" class="external-link">doi:10.1038/srep00336</a>
 </li>
 <li>Jeub, L. G. S., Sporns, O. &amp; Fortunato, S. (2018). Multiresolution consensus clustering in networks. <em>Scientific Reports</em>, 8, 3259. <a href="https://doi.org/10.1038/s41598-018-21352-7" class="external-link">doi:10.1038/s41598-018-21352-7</a>
+</li>
+<li>Langfelder, P., Luo, R., Oldham, M. C. &amp; Horvath, S. (2011). Is my network module preserved and reproducible? <em>PLoS Computational Biology</em>, 7(1), e1001057. <a href="https://doi.org/10.1371/journal.pcbi.1001057" class="external-link">doi:10.1371/journal.pcbi.1001057</a>
+</li>
+<li>Ritchie, S. C. <em>et al.</em> (2016). A scalable permutation approach reveals replication and preservation patterns of network modules in large datasets. <em>Cell Systems</em>, 3(1), 71–82. <a href="https://doi.org/10.1016/j.cels.2016.06.012" class="external-link">doi:10.1016/j.cels.2016.06.012</a>
+</li>
+<li>Mähler, N. <em>et al.</em> (2017). Gene co-expression network connectivity is an important determinant of selective constraint. <em>PLoS Genetics</em>, 13(4), e1006402. <a href="https://doi.org/10.1371/journal.pgen.1006402" class="external-link">doi:10.1371/journal.pgen.1006402</a>
 </li>
 <li>Senbabaoglu, Y. <em>et al.</em> (2014). Critical limitations of consensus clustering in class discovery. <em>Scientific Reports</em>, 4, 6207. <a href="https://doi.org/10.1038/srep06207" class="external-link">doi:10.1038/srep06207</a>
 </li>

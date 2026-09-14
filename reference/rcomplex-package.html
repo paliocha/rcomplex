@@ -19,7 +19,7 @@ testing conservation at gene, module, and clique levels."><!-- mathjax --><scrip
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -104,11 +104,21 @@ testing conservation at gene, module, and clique levels.</p>
 <dt><code><a href="detect_modules.html">detect_modules()</a></code></dt>
 <dd><p>Community detection with consensus</p></dd>
 
-<dt><code><a href="compare_modules.html">compare_modules()</a></code></dt>
-<dd><p>Cross-species module comparison</p></dd>
+<dt><code><a href="resolve_ortholog_map.html">resolve_ortholog_map()</a></code></dt>
+<dd><p>Paralog-resolved ortholog map</p></dd>
 
-<dt><code><a href="classify_modules.html">classify_modules()</a></code></dt>
-<dd><p>Module conservation classification</p></dd>
+<dt><code><a href="module_preservation.html">module_preservation()</a></code></dt>
+<dd><p>Cross-species module topology
+preservation</p></dd>
+
+<dt><code><a href="classify_preservation.html">classify_preservation()</a></code></dt>
+<dd><p>Module preservation classification</p></dd>
+
+<dt><code><a href="module_correspondence.html">module_correspondence()</a></code></dt>
+<dd><p>Cross-species module matching</p></dd>
+
+<dt><code><a href="preservation_paired.html">preservation_paired()</a></code></dt>
+<dd><p>Module preservation over species pairs</p></dd>
 
 <dt><code><a href="identify_module_hubs.html">identify_module_hubs()</a></code></dt>
 <dd><p>Within-module hub gene identification</p></dd>
@@ -129,7 +139,20 @@ testing conservation at gene, module, and clique levels.</p>
 <dd><p>Threshold sweep (convenience wrapper)</p></dd>
 
 <dt><code><a href="classify_cliques.html">classify_cliques()</a></code></dt>
-<dd><p>HOG classification (convenience wrapper)</p></dd>
+<dd><p>HOG classification on the species graph
+(convenience wrapper): one row per HOG, trait-aware, and the input
+the stability and sweep rankings consume</p></dd>
+
+<dt><code><a href="gene_clique_graph.html">gene_clique_graph()</a></code></dt>
+<dd><p>Maximal cliques of the per-orthogroup
+gene graph, one row per clique member</p></dd>
+
+<dt><code><a href="classify_gene_cliques.html">classify_gene_cliques()</a></code></dt>
+<dd><p>Five-tier gene-clique taxonomy
+(Rodriguez et al. 2026): copy-level rather than HOG-level, so use
+it when which paralog sits in the conserved core matters, or when
+that published taxonomy has to be reported. Neither it nor
+<code><a href="classify_cliques.html">classify_cliques()</a></code> replaces the other</p></dd>
 
 <dt><code><a href="characterize_hubs.html">characterize_hubs()</a></code></dt>
 <dd><p>Regulatory potential metrics for hub genes</p></dd>

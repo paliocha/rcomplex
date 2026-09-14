@@ -32,7 +32,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -271,23 +271,44 @@ precomputed on GPU, reducing each permutation to fast table lookups.</p>
 <p>The HOG-level q-values determine which edges are co-expressologs
 (conserved co-expression relationships):</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">n_cores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fl">4L</span>, <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span>logical <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">n_cores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fl">4L</span>, <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span>logical <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_coexpressologs.html">find_coexpressologs</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"permutation"</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span>, <span class="st">"edges:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved,"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"ns"</span><span class="op">)</span>, <span class="st">"non-significant\n"</span><span class="op">)</span></span></code></pre></div>
+<p>The permutation engine draws its gene-identity permutations from the
+global RNG, so the seed above pins the HOG q-values – but only at
+<code>n_cores = 1</code>. Above one core the R seed is used to seed one
+RNG per worker thread, and OpenMP’s <code>schedule(guided)</code>
+assigns HOGs to threads dynamically, based on runtime timing. So which
+HOG draws from which thread’s stream is not fixed by the seed, the
+machine, or the core count: two knits on the very same machine with the
+same <code>n_cores</code> can still give different conserved-edge
+counts. Set <code>n_cores = 1L</code> if the permutation numbers must be
+bit-reproducible.</p>
 <p>For quick exploration without GPU, the <code>"analytical"</code>
 method uses pair-level Storey q-values (less statistically rigorous for
 multi-copy HOGs, but much faster). Since v0.2.0 its default
 <code>pi0_method = "randomized"</code> estimates the null proportion pi0
-from randomized p-values drawn from the global RNG, so call
-<code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> first for reproducible q-values:</p>
+from randomized p-values. Those draws move the q-values, and with them
+every count thresholded on a q-value downstream, so pass
+<code>seed</code> and the call becomes reproducible on its own terms.
+Without a seed the draws come from the global RNG and the result depends
+on whatever the session happened to draw before.</p>
+<p>The seed is not cosmetic here. <code>edges_analytical</code> is also
+the input to the gene-graph taxonomy in section 6, and the randomized-p
+draw shifts every q-value by a small amount, which moves a handful of
+edges across <code>alpha_graph</code> and changes the tier counts: on
+this dataset <code>complete_conserved</code> holds at 391 across seeds,
+but <code>partial_significant</code> and <code>unclassified</code> move
+by a few cliques. Those two numbers are only reproducible from one knit
+to the next because of the <code>seed</code> below.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
-<span><span class="va">edges_analytical</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_coexpressologs.html">find_coexpressologs</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"analytical"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">edges_analytical</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_coexpressologs.html">find_coexpressologs</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>  method <span class="op">=</span> <span class="st">"analytical"</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Analytical:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges_analytical</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Permutation:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -295,10 +316,18 @@ from randomized p-values drawn from the global RNG, so call
 <h2 id="module-level-analysis">3. Module-level analysis<a class="anchor" aria-label="anchor" href="#module-level-analysis"></a>
 </h2>
 <p>To identify regulatory signatures of parallel life-cycle evolution,
-we detect modules in all eight species and compare across each of the
-four phylogenetic pairs. Module-level conservation reveals whether the
-same co-regulatory programs are used independently in annual
-lineages.</p>
+we detect modules in all eight species and test preservation across each
+of the four phylogenetic pairs. Module-level conservation reveals
+whether the same co-regulatory programs are used independently in annual
+lineages. Preservation is directional – whether one species’ modules
+keep their wiring in the partner network is a different question from
+the reverse – so both directions are run for every pair, and every pair
+contributes two sets of rows instead of one. Preservation is run over
+<em>all</em> 28 species pairs, not only the four within-genus contrasts:
+the primary trait test weighs same-trait pairs against different-trait
+ones, and a within-genus table holds no same-trait pair at all. The four
+within-genus contrasts are still used, by the secondary HOG-recurrence
+test at the end of the section.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">phylo_pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tribble.html" class="external-link">tribble</a></span><span class="op">(</span></span>
 <span>  <span class="op">~</span><span class="va">pair_name</span>,        <span class="op">~</span><span class="va">annual</span>, <span class="op">~</span><span class="va">perennial</span>,</span>
@@ -349,49 +378,283 @@ resolutions and how consecutive partitions agree (ARI):</p>
 <code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">modules</span><span class="op">$</span><span class="va">BDIS</span><span class="op">$</span><span class="va">resolution_scan</span>, caption <span class="op">=</span> <span class="st">"Resolution scan (BDIS)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="module-comparison-across-phylogenetic-pairs">Module comparison across phylogenetic pairs<a class="anchor" aria-label="anchor" href="#module-comparison-across-phylogenetic-pairs"></a>
+<h3 id="module-preservation-across-phylogenetic-pairs">Module preservation across phylogenetic pairs<a class="anchor" aria-label="anchor" href="#module-preservation-across-phylogenetic-pairs"></a>
 </h3>
-<p><code><a href="../reference/compare_modules_paired.html">compare_modules_paired()</a></code> wraps the full comparison
-pipeline into a single call: for each pair it runs Jaccard permutation
-(shuffling the ortholog mapping), classifies modules as conserved /
-species-specific, tags group-specificity from the <code>group</code>
-vector, and auto-coarsens the finer-grained partition when the
-module-count ratio exceeds 2-fold:</p>
+<p><code><a href="../reference/preservation_paired.html">preservation_paired()</a></code> wraps the full preservation
+pipeline into a single call. For each pair, in both directions, it asks
+whether the reference species’ modules keep their wiring in the partner
+network: module density (<code>avg.weight</code>) and hub identity
+(<code>cor.degree</code>) are each tested against a gene-identity
+permutation null and combined with <code>pmax</code>, so a module counts
+as preserved only when both statistics are significant. Every module is
+then labelled <code>conserved</code> (significant with
+<code>Zsummary</code> at or above 10), <code>moderate</code>
+(significant but weaker), <code>diverged</code> (not significant), or
+<code>untested</code> – a statistic was undefined, so nothing was
+measured, which is not the same as a positive claim of divergence. With
+a <code>group</code> vector, diverged modules are attributed to the
+trait group of the species that owns them and preserved ones to
+<code>"conserved"</code>, while untested modules are carried as their
+own level rather than folded into a trait. There is no matched-scale
+table any more: preservation projects one species’ modules onto the
+other’s network instead of comparing two partitions, so a module-count
+ratio has nothing left to correct for.</p>
+<p>Run it over <em>every</em> pair of species, not only the four
+within-genus contrasts. The extra 24 pairs are what the trait test in
+the next section consumes, and it consumes them because it has nothing
+to work with otherwise. Its statistic is the mean preservation of
+trait-<em>concordant</em> pairs minus that of trait-<em>discordant</em>
+ones, and in this design every within-genus pair is one annual against
+one perennial: a designated four-contrast table is discordant end to
+end, so the concordant mean is taken over an empty set and
+<code><a href="../reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> stops rather than returning a
+number. Only the between-genus pairs supply annual-annual and
+perennial-perennial contrasts. The cost is linear in pairs: seven times
+the preservation runs.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mod_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_modules_paired.html">compare_modules_paired</a></span><span class="op">(</span></span>
-<span>  <span class="va">modules</span>, <span class="va">orthologs</span>,</span>
-<span>  pairs <span class="op">=</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>sp1 <span class="op">=</span> <span class="va">annual</span>, sp2 <span class="op">=</span> <span class="va">perennial</span>, <span class="va">pair_name</span><span class="op">)</span>,</span>
+<code class="sourceCode R"><span><span class="co"># `cliques` is not built until section 5, so paralogs are resolved from</span></span>
+<span><span class="co"># the coexpressolog edges alone here.</span></span>
+<span><span class="va">mod_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/preservation_paired.html">preservation_paired</a></span><span class="op">(</span></span>
+<span>  <span class="va">modules</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>  pairs <span class="op">=</span> <span class="fu"><a href="../reference/all_species_pairs.html">all_species_pairs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">modules</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  group <span class="op">=</span> <span class="va">trait_vec</span>,</span>
-<span>  matched_scale <span class="op">=</span> <span class="cn">TRUE</span>, coarsen_ratio <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"jaccard"</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span></span>
+<span>  edges <span class="op">=</span> <span class="va">edges</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span>, seed <span class="op">=</span> <span class="fl">42</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">show_table</span><span class="op">(</span><span class="va">mod_results</span><span class="op">$</span><span class="va">module_counts</span>,</span>
-<span>           caption <span class="op">=</span> <span class="st">"Module count ratio per pair"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>species <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">modules</span><span class="op">)</span>,</span>
+<span>       trait <span class="op">=</span> <span class="va">trait_vec</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">modules</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>       n_modules <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_int</a></span><span class="op">(</span><span class="va">modules</span>, \<span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">n_modules</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Modules per species"</span><span class="op">)</span></span>
+<span></span>
 <span><span class="fu">show_table</span><span class="op">(</span><span class="va">mod_results</span><span class="op">$</span><span class="va">summary</span>,</span>
-<span>           caption <span class="op">=</span> <span class="st">"Module conservation: natural vs matched scale"</span><span class="op">)</span></span></code></pre></div>
-<p>Do any HOGs consistently land in annual-specific modules across
-independent lineages? That would be strong evidence for parallel re-use
-of regulatory programs. <code><a href="../reference/tag_permutation.html">tag_permutation()</a></code> tests this
-formally: trait labels are shuffled across species (preserving marginal
-frequencies), and HOG recurrence is recomputed under each permuted
-labelling. A pair contributes HOGs only when exactly one of its species
-carries the target trait, so the null correctly accounts for the paired
-design:</p>
+<span>           caption <span class="op">=</span> <span class="st">"Module preservation by contrast, direction and group"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="is-divergence-associated-with-the-trait">Is divergence associated with the trait?<a class="anchor" aria-label="anchor" href="#is-divergence-associated-with-the-trait"></a>
+</h3>
+<p>The primary trait test asks one question of the whole preservation
+matrix: <strong>are trait-discordant species pairs the less-preserved
+ones?</strong> <code><a href="../reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> averages
+<code>Zsummary_std</code> over the module-directions of concordant pairs
+(both annual, or both perennial) and of discordant pairs (one of each),
+takes the difference, and refers it to a null that relabels the species’
+traits. A positive statistic means discordant pairs are less preserved,
+which is the biological hypothesis, so the test is one-sided upward.</p>
+<p>Two things make this the primary analysis rather than an extra
+one.</p>
+<p>First, it uses <strong>every</strong> pairwise comparison instead of
+a designated few, which is what gives the statistic a concordant side to
+average at all. All 28 pairs are run and 24 contribute rows (the four
+within-genus ones are dropped, for the reason given below); of those 24,
+12 are trait-concordant and 12 discordant. Restricted to the four
+within-genus contrasts there would be no concordant pair anywhere in the
+table, and the function refuses such a table outright – with
+<code>exclude_within_block = TRUE</code> because the exclusion empties
+it, with <code>FALSE</code> because one side of the difference is then
+empty.</p>
+<p>The two label spaces are a property of the eight species and their
+trait labels, not of the pairs table, so neither of them is something
+the all-pairs run buys. Splitting four annual labels among eight species
+gives <code>choose(8, 4) = 70</code> free labellings, and permuting only
+within the four genera gives <code>2^4 = 16</code>. What the floor is
+<em>not</em> is one over those counts: renaming the two trait levels
+reproduces the statistic exactly, so at least two labellings tie at the
+maximum and the smallest attainable p-value is
+<code>2 / n_labellings</code> – 2/70 = 0.029 free, 2/16 = 0.125 blocked.
+<code>$free$p_attainable</code> and <code>$blocked$p_attainable</code>
+report whichever floor actually binds, and the function warns when it
+exceeds 0.05.</p>
+<p>Both nulls are reported: <code>p_free</code> over all 70 labellings,
+and <code>p_blocked</code> over the 16 that permute only within a genus,
+which holds the phylogeny fixed. Their agreement is the diagnostic. A
+free p-value far below the blocked one would mean the larger label space
+bought its resolution by breaking phylogenetic control rather than by
+measuring the trait. Read <code>p_blocked</code> as that check on
+direction and rank only: its floor of 0.125 puts significance out of
+reach for any signal, so a non-significant blocked p-value is not
+evidence against the free one.</p>
+<p>Second, it ranks on <code>Zsummary_std</code>, the standardised
+effect size, and never on the q-value – see the saturation note below
+for why that is not a stylistic choice.</p>
+<p>Within-genus pairs are dropped by default. In this design every
+within-genus pair is trait-discordant and every trait-concordant pair is
+between-genus, so trait status and phylogenetic distance are perfectly
+confounded there, and the confound runs <em>against</em> the hypothesis:
+close relatives are better preserved, which pulls those discordant rows
+upward and masks a real effect. The exclusion is by genus membership,
+which no relabelling changes, so the null stays valid.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">genus_vec</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">phylo_pairs</span><span class="op">$</span><span class="va">pair_name</span>, <span class="fl">2L</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">phylo_pairs</span><span class="op">$</span><span class="va">annual</span>, <span class="va">phylo_pairs</span><span class="op">$</span><span class="va">perennial</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">pmt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/preservation_matrix_test.html">preservation_matrix_test</a></span><span class="op">(</span></span>
+<span>  <span class="va">mod_results</span><span class="op">$</span><span class="va">classification</span>, <span class="va">trait_vec</span>, block <span class="op">=</span> <span class="va">genus_vec</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">show_table</span><span class="op">(</span><span class="va">pmt</span><span class="op">$</span><span class="va">class_means</span>,</span>
+<span>           caption <span class="op">=</span> <span class="st">"Mean Zsummary_std by pair class"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"mean Zsummary_std, concordant - discordant:"</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">observed</span><span class="op">)</span>,</span>
+<span>    <span class="st">"\n  p, free labelling null   :"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">p_free</span><span class="op">)</span>,</span>
+<span>    <span class="st">" (floor"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">free</span><span class="op">$</span><span class="va">p_attainable</span><span class="op">)</span>, <span class="st">")"</span>,</span>
+<span>    <span class="st">"\n  p, within-genus null     :"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">p_blocked</span><span class="op">)</span>,</span>
+<span>    <span class="st">" (floor"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">blocked</span><span class="op">$</span><span class="va">p_attainable</span><span class="op">)</span>, <span class="st">")"</span>,</span>
+<span>    <span class="co"># n_pairs counts the pairs left after the exclusion, while n_excluded</span></span>
+<span>    <span class="co"># counts dropped ROWS, so the two must not be read as one sum.</span></span>
+<span>    <span class="st">"\n  module-directions used:"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">n_rows</span>, <span class="st">"over"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">n_pairs</span>,</span>
+<span>    <span class="st">"between-genus pairs"</span>,</span>
+<span>    <span class="st">"\n  module-directions dropped as within-genus:"</span>, <span class="va">pmt</span><span class="op">$</span><span class="va">n_excluded</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
+<p>Every module-direction counts once, so a heavily partitioned species
+contributes more rows than a coarsely partitioned one. That is
+deliberate — the module is the unit and more modules is more evidence —
+but check <code>$rows_per_pair</code> before believing a result that one
+species could be driving.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">pmt</span><span class="op">$</span><span class="va">rows_per_pair</span>,</span>
+<span>           caption <span class="op">=</span> <span class="st">"Module-directions contributed by each species pair"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="a-note-on-p-value-saturation">A note on p-value saturation<a class="anchor" aria-label="anchor" href="#a-note-on-p-value-saturation"></a>
+</h3>
+<p>A permutation p-value cannot fall below
+<code>1 / (n_perm + 1)</code>, because the observed labelling is itself
+one of the draws. Every test whose true p-value lies below that floor
+comes back holding exactly it, and Benjamini-Hochberg maps a tied block
+of inputs onto a tied block of outputs. The
+<code><a href="../reference/preservation_paired.html">preservation_paired()</a></code> call above left <code>n_perm</code>
+at the <code><a href="../reference/module_preservation.html">module_preservation()</a></code> default of 10000, so no
+p-value behind it can fall below 1/10001 and every module whose true
+p-value is smaller comes back holding exactly that. The chunk below
+counts the q-value block those ties produce, a little above the p-floor
+once Benjamini-Hochberg has scaled it, and a second block at exactly 1.
+Both counts move with <code>n_perm</code> – on the full eight-species
+set the floor ties fall from 35 at <code>n_perm = 2000</code> to 7 at
+<code>n_perm = 20000</code> – so read the numbers the chunk prints
+rather than any fixed pair. What does not move is that the tied modules
+are not equivalent: <code>Zsummary_std</code> spreads them over an order
+of magnitude while the q-value orders none of them.</p>
+<p>That is why every statistic above ranks on <code>Zsummary_std</code>
+and why <code>p</code> and <code>q</code> appear only in the
+significance call. <code><a href="../reference/pvalue_resolution.html">pvalue_resolution()</a></code> puts a number on it,
+so the tie count can be reported next to the p-value and a reader can
+see the resolution the test actually had:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/pvalue_resolution.html">pvalue_resolution</a></span><span class="op">(</span><span class="va">mod_results</span><span class="op">$</span><span class="va">classification</span><span class="op">$</span><span class="va">q.value</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="secondary-do-the-same-orthogroups-recur-in-diverged-modules">Secondary: do the same orthogroups recur in diverged modules?<a class="anchor" aria-label="anchor" href="#secondary-do-the-same-orthogroups-recur-in-diverged-modules"></a>
+</h3>
+<p>The matrix test above asks whether divergence <em>tracks the
+trait</em>. It says nothing about <strong>which</strong> genes are
+involved, or whether the same ones are involved twice.
+<code><a href="../reference/tag_permutation.html">tag_permutation()</a></code> asks that narrower question: do
+particular HOGs consistently land in modules diverged in the annual
+across independent lineages? A yes would be evidence for parallel re-use
+of the same regulatory programs, which is a stronger and more specific
+claim than the matrix test makes. It is a secondary analysis here, not a
+deprecated one — nothing else in the package answers it.</p>
+<p>Its design is a randomised block — the phylogenetic pair is the
+block, its two species are the two levels of the trait, and the pairs
+are the replication — so the null swaps the two trait labels
+<em>within</em> each pair rather than shuffling them across species.
+Every draw therefore keeps one annual and one perennial per pair, which
+is the design that was actually run. Contrasts that share a species are
+coupled, so the unit of independence is the connected component of the
+graph whose nodes are species and whose edges are contrasts. Here the
+four genera are disjoint, so each is its own component, giving at most
+<code>2^4 = 16</code> labellings. It is <em>at most</em> because a
+component whose labellings all select the same HOG sets adds no
+resolution and is collapsed — read <code>$n_labellings</code> and
+<code>$n_swappable</code> rather than assuming <code>2^k</code>.</p>
+<p><strong>That is also its structural limit, and it is worth stating
+plainly.</strong> The observed labelling is always one of the points in
+the null, so the smallest attainable p-value is one over the number of
+labellings. With four independent contrast groups that is
+<code>1 / 16 = 0.0625</code>, so <strong>this test cannot return
+<code>p &lt; 0.05</code> no matter how strong the signal</strong>. Five
+or more groups are needed before significance is even attainable. Report
+<code>p_min</code> alongside <code>p_value</code> so a non-significant
+result is not read as evidence of absence.</p>
+<p>Do not carry that floor across to the matrix test, whose blocked null
+happens to have 16 points as well. The two floors differ by a factor of
+two, and which way round is not arbitrary: swapping the trait labels of
+<em>every</em> species reproduces the matrix test’s statistic exactly,
+so its maximum is always shared by at least two labellings and its floor
+is <code>2 / 16 = 0.125</code>; the same global swap maps this test’s
+annual-side statistic onto its perennial-side one, which guarantees no
+tie at all, so its floor stays <code>1 / 16 = 0.0625</code>. Neither
+test reaches 0.05 within blocks. What the matrix test has instead is its
+free null over all 70 labellings, floor <code>2 / 70 = 0.029</code>;
+this one has only the within-pair swap, since a free shuffle would draw
+designs that are not the paired one the data came from.</p>
+<p>It is run on the four within-genus contrasts, not on the all-pairs
+table: the within-pair swap is what makes the null exact, and it needs
+the paired design. <code>pair_name</code> has to name the contrasts as
+<code>mod_results$classification</code> does, which since the all-pairs
+run above is <code>"&lt;sp1&gt;.&lt;sp2&gt;"</code> rather than the
+genus label.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">parallel_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/tag_permutation.html">tag_permutation</a></span><span class="op">(</span></span>
 <span>  <span class="va">mod_results</span><span class="op">$</span><span class="va">classification</span>, <span class="va">modules</span>, <span class="va">orthologs</span>,</span>
-<span>  pairs <span class="op">=</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>sp1 <span class="op">=</span> <span class="va">annual</span>, sp2 <span class="op">=</span> <span class="va">perennial</span>, <span class="va">pair_name</span><span class="op">)</span>,</span>
-<span>  group <span class="op">=</span> <span class="va">trait_vec</span>, target_group <span class="op">=</span> <span class="st">"annual"</span>,</span>
-<span>  n_perm <span class="op">=</span> <span class="fl">1000L</span>, min_recurrence <span class="op">=</span> <span class="fl">2L</span></span>
+<span>  pairs <span class="op">=</span> <span class="va">phylo_pairs</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span>sp1 <span class="op">=</span> <span class="va">annual</span>, sp2 <span class="op">=</span> <span class="va">perennial</span>,</span>
+<span>              pair_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">annual</span>, <span class="va">perennial</span>, sep <span class="op">=</span> <span class="st">"."</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  group <span class="op">=</span> <span class="va">trait_vec</span>, target_group <span class="op">=</span> <span class="st">"annual"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">parallel_test</span><span class="op">$</span><span class="va">recurrence_table</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">n_pairs</span>, name <span class="op">=</span> <span class="st">"n_hogs"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"HOG recurrence in annual-specific modules across pairs"</span><span class="op">)</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"HOG recurrence in modules diverged in the annual"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"HOGs recurring in &gt;= 2 pairs:"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">observed</span>,</span>
-<span>    <span class="st">"(permutation p ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>, <span class="st">")\n"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"HOGs recurring in &gt;="</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">min_recurrence</span>, <span class="st">"pairs:"</span>,</span>
+<span>    <span class="va">parallel_test</span><span class="op">$</span><span class="va">observed</span>,</span>
+<span>    <span class="st">"\n  p ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>,</span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">parallel_test</span><span class="op">$</span><span class="va">exact</span><span class="op">)</span> <span class="st">"(exact)"</span> <span class="kw">else</span> <span class="st">"(sampled)"</span>,</span>
+<span>    <span class="st">"over"</span>,</span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">parallel_test</span><span class="op">$</span><span class="va">exact</span><span class="op">)</span> <span class="va">parallel_test</span><span class="op">$</span><span class="va">n_labellings</span></span>
+<span>    <span class="kw">else</span> <span class="va">parallel_test</span><span class="op">$</span><span class="va">n_perm</span>,</span>
+<span>    <span class="st">"labellings from"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">n_swappable</span>,</span>
+<span>    <span class="st">"independent contrast group(s)"</span>,</span>
+<span>    <span class="st">"\n  smallest attainable p:"</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">parallel_test</span><span class="op">$</span><span class="va">p_min</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_attainable</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">parallel_test</span><span class="op">$</span><span class="va">p_min</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_attainable</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0.05</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="st">"-- significance unreachable"</span></span>
+<span>    <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
+<span>      <span class="st">""</span></span>
+<span>    <span class="op">}</span>,</span>
+<span>    <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
+<p><code>min_recurrence</code> was left at its default, which is half
+the contrasts able to supply a HOG, rounded up and floored at 2 — so 2
+here. A constant would not describe a design of arbitrary size: at a
+per-side rate of about 0.08, the chance a HOG reaches two of
+<code>k</code> sides unaided is roughly 0.03 at four contrasts but 0.25
+at twelve, so a fixed threshold lets the statistic saturate on chance
+recurrence as contrasts are added.</p>
+<p>Two things to check before believing the result. The relabelling is
+only exchangeable if the target side is not systematically the larger
+one, so inspect <code>$pair_sizes</code> and
+<code>$size_asymmetry_p</code>; and because the statistic is a raw count
+it responds strongly to how many HOGs the selected sides hold.
+<code>statistic = "excess"</code> subtracts the count expected from
+independent sides of those sizes, which helps when the sides are small
+relative to the HOG universe and over-corrects when they are not — see
+<code><a href="../reference/tag_permutation.html">?tag_permutation</a></code> before relying on it.</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">show_table</span><span class="op">(</span><span class="va">parallel_test</span><span class="op">$</span><span class="va">pair_sizes</span>,</span>
+<span>           caption <span class="op">=</span> <span class="st">"Diverged-HOG set sizes per contrast"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"size-asymmetry sign test p:"</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">size_asymmetry_p</span><span class="op">)</span>,</span>
+<span>    <span class="st">"\n  (advisory at 0.10; like p_min it cannot reach 0.05 below five"</span>,</span>
+<span>    <span class="st">"contrast groups)\n"</span><span class="op">)</span></span></code></pre></div>
+<p>Running the same test for <code>target_group = "perennial"</code>
+reads a second entry of the <em>same</em> null distribution —
+relabelling every contrast maps one trait’s statistic onto the other’s —
+so the two are not independent tests and must not be corrected as if
+they were.</p>
 </div>
 <div class="section level3">
 <h3 id="hub-genes-and-trait-conservation">Hub genes and trait conservation<a class="anchor" aria-label="anchor" href="#hub-genes-and-trait-conservation"></a>
@@ -413,7 +676,7 @@ connectivity). When an expression matrix is provided, it also computes
 the <strong>coefficient of variation</strong> – regulators tend to show
 higher expression variability than their targets because they drive
 transcriptional changes.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">species_data</span> <span class="op">&lt;-</span> <span class="va">species_data</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>hubs <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/pmap.html" class="external-link">pmap</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">species</span>, <span class="va">modules</span>, <span class="va">network</span>, <span class="va">reduced</span><span class="op">)</span>,</span>
 <span>    \<span class="op">(</span><span class="va">sp</span>, <span class="va">mod</span>, <span class="va">net</span>, <span class="va">red</span><span class="op">)</span></span>
@@ -425,11 +688,50 @@ transcriptional changes.</p>
 <span>            n_hubs  <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_int</a></span><span class="op">(</span><span class="va">hubs</span>, \<span class="op">(</span><span class="va">h</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">h</span><span class="op">$</span><span class="va">is_hub</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>            n_genes <span class="op">=</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map.html" class="external-link">map_int</a></span><span class="op">(</span><span class="va">hubs</span>, <span class="va">nrow</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Hub genes per species"</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">hub_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_hub_conservation.html">classify_hub_conservation</a></span><span class="op">(</span></span>
+<p>Deciding whether a HOG is a hub of <em>the same</em> module in two
+species is a separate question from preservation, and
+<code><a href="../reference/module_correspondence.html">module_correspondence()</a></code> answers it: it projects the
+resolved one-to-one ortholog map through both partitions and tests each
+module pair with a hypergeometric. Because the resolved map contributes
+one draw per test gene rather than one per paralog, the test is no
+longer anti-conservative on multi-copy HOGs, and its
+<code>jaccard</code> values run systematically higher than the retired
+gene-overlap engine’s – the unchanged
+<code>jaccard_threshold = 0.1</code> inside
+<code><a href="../reference/classify_hub_conservation.html">classify_hub_conservation()</a></code> is therefore slightly more
+permissive than it used to be. The q-values default to randomized-pi0
+estimation and draw from the global RNG, so the
+<code>conserved_hub</code> / <code>rewired_hub</code> verdicts are
+seed-dependent; <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> first.</p>
+<p><code><a href="../reference/classify_hub_conservation.html">classify_hub_conservation()</a></code> looks each species pair up
+under its alphabetically sorted key, which is a real bug fixed here: the
+old raw comparison list was keyed in the order the pairs were written
+(<code>"HVUL.HJUB"</code>, <code>"VBRO.FPRA"</code>), so two of the four
+pairs never matched a lookup and their hub calls silently degraded to
+<code>multi_trait_hub</code>.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Keyed on the ALPHABETICALLY SORTED pair, with module_sp1 belonging to</span></span>
+<span><span class="co"># the first of the two species -- that is what the lookup inside</span></span>
+<span><span class="co"># classify_hub_conservation() expects. preservation_paired() already ran</span></span>
+<span><span class="co"># the sorted direction and returns the map it resolved for it, so reuse</span></span>
+<span><span class="co"># that rather than resolving a second time.</span></span>
+<span><span class="va">correspondence</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">phylo_pairs</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">phylo_pairs</span><span class="op">$</span><span class="va">annual</span><span class="op">[</span><span class="va">i</span><span class="op">]</span>, <span class="va">phylo_pairs</span><span class="op">$</span><span class="va">perennial</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">sp</span>, collapse <span class="op">=</span> <span class="st">"."</span><span class="op">)</span></span>
+<span>  <span class="va">gene_map</span> <span class="op">&lt;-</span> <span class="va">mod_results</span><span class="op">$</span><span class="va">raw</span><span class="op">[[</span><span class="va">key</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">map</span></span>
+<span></span>
+<span>  <span class="va">correspondence</span><span class="op">[[</span><span class="va">key</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span></span>
+<span>    <span class="fu"><a href="../reference/module_correspondence.html">module_correspondence</a></span><span class="op">(</span><span class="va">modules</span><span class="op">[[</span><span class="va">sp</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">]</span>, <span class="va">modules</span><span class="op">[[</span><span class="va">sp</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span><span class="op">]</span>, <span class="va">gene_map</span>,</span>
+<span>                          sp_ref <span class="op">=</span> <span class="va">sp</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, sp_test <span class="op">=</span> <span class="va">sp</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">hub_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_hub_conservation.html">classify_hub_conservation</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/enframe.html" class="external-link">deframe</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">species_data</span>, <span class="va">species</span>, <span class="va">hubs</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  <span class="va">trait_vec</span>,</span>
-<span>  module_comparisons <span class="op">=</span> <span class="va">mod_results</span><span class="op">$</span><span class="va">raw</span></span>
+<span>  module_comparisons <span class="op">=</span> <span class="va">correspondence</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">hub_class</span> <span class="op">|&gt;</span></span>
@@ -440,7 +742,7 @@ transcriptional changes.</p>
 from highly-connected effectors. We aggregate
 <code>bridge_fraction</code>, <code>bt_degree_ratio</code>, and
 expression <code>cv</code> to the HOG level:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">hub_regulatory</span> <span class="op">&lt;-</span> <span class="va">species_data</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">species</span>, <span class="va">trait</span>, <span class="va">hubs</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/unnest.html" class="external-link">unnest</a></span><span class="op">(</span><span class="va">hubs</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -465,7 +767,7 @@ the <code>annual_specific_hub</code>,
 classes – are candidates for parallel regulatory evolution. Ranking by
 <code>bridge_fraction</code> and <code>bt_degree_ratio</code>
 prioritizes those most likely to be true regulators:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">hub_class</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">classification</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"annual_specific_hub"</span>,</span>
 <span>                                <span class="st">"perennial_specific_hub"</span>,</span>
@@ -486,7 +788,7 @@ each species, extracts co-expression neighbors from the network, maps
 them back to HOGs, and aggregates across species. The
 <code>coexpressed_traits</code> column makes trait-group filtering
 straightforward:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">candidate</span> <span class="op">&lt;-</span> <span class="va">hub_class</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">classification</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"annual_specific_hub"</span>,</span>
 <span>                                <span class="st">"perennial_specific_hub"</span>,</span>
@@ -552,10 +854,18 @@ to a ~0.96x multiplier on this dataset; the default 5% store would sit
 at ~0.975x, i.e. exactly at the loosest level).</p>
 <p>The permutation pipeline is re-run at each level because network
 neighborhoods change with the threshold, altering the HOG-level
-q-values:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">sweep</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/density_sweep.html">density_sweep</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
-<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="fl">1.025</span>, by <span class="op">=</span> <span class="fl">0.005</span><span class="op">)</span>,</span>
+q-values. The floor is derived from the networks themselves rather than
+assumed from the prose above, so the chunk keeps working if the
+expression matrices or <code><a href="../reference/reduce_orthogroups.html">reduce_orthogroups()</a></code> output shift
+the raw-MR quantiles:</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">multipliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="fl">1.025</span>, by <span class="op">=</span> <span class="fl">0.005</span><span class="op">)</span></span>
+<span><span class="va">store_floor</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">networks</span>, \<span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="va">n</span><span class="op">$</span><span class="va">store_threshold</span> <span class="op">/</span> <span class="va">n</span><span class="op">$</span><span class="va">threshold</span>,</span>
+<span>                          <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">multipliers</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="va">store_floor</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">sweep</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/density_sweep.html">density_sweep</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
+<span>  multipliers <span class="op">=</span> <span class="va">multipliers</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"permutation"</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Edge survival across density levels</span></span>
@@ -570,7 +880,7 @@ q-values:</p>
 <p>The mean effective density masks species-level variation. Because
 each species has a different MR distribution shape, a uniform threshold
 multiplier produces different effective densities across species:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">baseline_densities</span> <span class="op">&lt;-</span> <span class="va">sweep</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">multiplier</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">species_densities</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -620,12 +930,27 @@ this by separating within-trait from cross-trait cliques in the
 waterfall, but cliques are not weighted by phylogenetic distance. For
 the current dataset this is acceptable: each genus contributes exactly
 one species per trait, limiting phylogenetic confounding.</p>
+<p><strong>A second backend.</strong> <code><a href="../reference/find_cliques.html">find_cliques()</a></code>, used
+below, builds cliques of a per-orthogroup <em>species</em> graph and
+returns one best gene assignment each. <code><a href="../reference/gene_clique_graph.html">gene_clique_graph()</a></code>
+builds maximal cliques of the per-orthogroup <em>gene</em> graph
+instead, following Rodriguez <em>et al.</em> (2026, <a href="doi:10.1038/s41467-026-75624-2" class="uri">doi:10.1038/s41467-026-75624-2</a>), so a multi-copy HOG can
+yield several overlapping cliques, and
+<code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> applies that paper’s five-tier
+taxonomy. Its two tolerance tiers cover different kinds of gap:
+<code>partial_significant</code> admits an edge to the graph at a loose
+threshold but counts it as evidence only at the strict one (weak
+wiring), while <code>partial_present</code> accepts a fully significant
+clique that is one species short (a missing gene). Section 6 runs both
+backends: the species-graph waterfall first, then the gene-graph
+taxonomy on the same data, with guidance on which one answers which
+question.</p>
 <p>Using edges from the baseline density level, we find cliques and test
 their structural stability via leave-k-out jackknife. The jackknife
 removes k species at a time and checks whether each clique’s gene
 assignments are preserved (purely structural, trait-agnostic). Trait
 annotations are added post-hoc:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use the baseline (1.0x) edges for clique detection and stability</span></span>
 <span><span class="va">robust_edges</span> <span class="op">&lt;-</span> <span class="va">sweep</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">multiplier</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/pluck.html" class="external-link">pluck</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Using"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">robust_edges</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges at"</span>,</span>
@@ -647,7 +972,7 @@ or more species, as these require coordinated conservation across
 multiple independent lineages.</p>
 <p>The conserved edges feeding into clique detection come from three
 types of species pair:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">focal_set</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">phylo_pairs</span><span class="op">$</span><span class="va">annual</span>, <span class="va">phylo_pairs</span><span class="op">$</span><span class="va">perennial</span><span class="op">)</span></span>
 <span><span class="va">robust_edges</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -662,7 +987,7 @@ types of species pair:</p>
 <span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">pair_type</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu">show_table</span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Conserved edges by pair type"</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Jackknife stability (all k from 1 to N-2)</span></span>
 <span><span class="va">max_k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">species</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2L</span></span>
 <span><span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_stability.html">clique_stability</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>,</span>
@@ -685,7 +1010,7 @@ types of species pair:</p>
 category by robustness. The waterfall assigns each HOG to exactly one
 class: complete &gt; partial &gt; differentiated &gt; trait_specific
 &gt; unclassified.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_cliques.html">classify_cliques</a></span><span class="op">(</span><span class="va">robust_edges</span>, <span class="va">species</span>, <span class="va">trait_vec</span>,</span>
 <span>                            min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>                            stability <span class="op">=</span> <span class="va">stab</span><span class="op">)</span></span>
@@ -696,7 +1021,7 @@ class: complete &gt; partial &gt; differentiated &gt; trait_specific
 <p>Restricting to cliques spanning 3 or more species (excluding
 single-edge 2-species signals) gives a clearer picture of multi-lineage
 conservation:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">n_species</span> <span class="op">&gt;=</span> <span class="fl">3</span> <span class="op">|</span> <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">n_species</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -722,7 +1047,7 @@ have a clique</li>
 <p>The robustness ranking comes from combining density sweep survival
 with stability class. HOGs classified at a stricter density level with
 high stability class are the strongest findings:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Count how many density levels each HOG's edges survive</span></span>
 <span><span class="va">hog_survival</span> <span class="op">&lt;-</span> <span class="va">sweep</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span><span class="va">multiplier</span>,</span>
@@ -765,34 +1090,113 @@ robust.</p>
 <div class="section level4">
 <h4 id="partial">Partial<a class="anchor" aria-label="anchor" href="#partial"></a>
 </h4>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"partial"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Partial HOGs (cross-trait cliques)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="trait-specific">Trait-specific<a class="anchor" aria-label="anchor" href="#trait-specific"></a>
 </h4>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"trait_specific"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Trait-specific HOGs (one lineage only)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="differentiated">Differentiated<a class="anchor" aria-label="anchor" href="#differentiated"></a>
 </h4>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"differentiated"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Differentiated HOGs (within-group conservation, cross-group divergence)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="complete">Complete<a class="anchor" aria-label="anchor" href="#complete"></a>
 </h4>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">show_classification</span><span class="op">(</span><span class="va">result</span>, <span class="st">"complete"</span>, <span class="va">show_cols</span>,</span>
 <span>                    <span class="st">"Complete HOGs (all 8 species)"</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level3">
 <h3 id="section-1"></h3>
+</div>
+<div class="section level3">
+<h3 id="the-gene-graph-taxonomy-which-classifier-to-reach-for">The gene-graph taxonomy: which classifier to reach for<a class="anchor" aria-label="anchor" href="#the-gene-graph-taxonomy-which-classifier-to-reach-for"></a>
+</h3>
+<p><code><a href="../reference/classify_cliques.html">classify_cliques()</a></code> above and
+<code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> below answer different questions,
+and neither is deprecated in favour of the other.</p>
+<p><code><a href="../reference/classify_cliques.html">classify_cliques()</a></code> works on the <em>species</em> graph.
+It asks, per HOG, which species are joined by conserved co-expression
+and whether that pattern respects the trait split, and it returns one
+row per HOG. Because <code><a href="../reference/find_cliques.html">find_cliques()</a></code> commits to one best
+gene assignment per species clique, a multi-copy HOG still gets a single
+answer, and that answer is what <code><a href="../reference/clique_stability.html">clique_stability()</a></code> and
+<code><a href="../reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code> consume – the robustness ranking
+earlier in this section only exists on this side.</p>
+<p><code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> works on the <em>gene</em> graph
+built by <code><a href="../reference/gene_clique_graph.html">gene_clique_graph()</a></code>. It asks which individual gene
+copies are mutually conserved, so one HOG can produce several
+overlapping cliques and the answer names paralogs rather than species.
+It applies the five-tier taxonomy of Rodriguez <em>et al.</em> (2026)
+with two explicit tolerance tiers, and its lineage split is an argument
+rather than the trait vector, so it can be run against a clade partition
+the trait does not follow. Reach for it when which copy sits in the
+conserved core matters, or when the published taxonomy is what you need
+to report; reach for <code><a href="../reference/classify_cliques.html">classify_cliques()</a></code> for a
+one-row-per-HOG trait summary wired into the stability and sweep
+machinery.</p>
+<p>The gene graph below is built from <code>edges_analytical</code>, not
+from the permutation <code>edges</code>. The tolerance tiers need
+q-values that reach up to <code>alpha_graph</code>, and the
+Besag–Clifford permutation q-values on this dataset stop just above 0.4
+– adaptive stopping never lets them climb higher – so a graph at 0.9
+would be the <em>complete</em> ortholog graph. That is not a corner
+case: enumerating it here produces roughly 13.7 million clique-member
+rows and leaves <code>partial_significant</code> with nothing to relax
+against. The analytical q-values run up to 0.98, so the 0.9 graph is a
+genuine relaxation of the 0.1 calling threshold:</p>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">gene_cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gene_clique_graph.html">gene_clique_graph</a></span><span class="op">(</span><span class="va">edges_analytical</span>, min_size <span class="op">=</span> <span class="fl">3L</span>,</span>
+<span>                                  alpha_graph <span class="op">=</span> <span class="fl">0.9</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">gene_tiers</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_gene_cliques.html">classify_gene_cliques</a></span><span class="op">(</span><span class="va">gene_cliques</span>, <span class="va">edges_analytical</span>,</span>
+<span>                                    <span class="va">species</span>, lineage <span class="op">=</span> <span class="va">trait_vec</span>,</span>
+<span>                                    alpha_call <span class="op">=</span> <span class="fl">0.1</span>, alpha_graph <span class="op">=</span> <span class="fl">0.9</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">gene_tiers</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">classification</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>pageLength <span class="op">=</span> <span class="fl">6</span>, caption <span class="op">=</span> <span class="st">"Gene-clique tiers"</span><span class="op">)</span></span></code></pre></div>
+<p><code>alpha_call = 0.1</code> is the function default and is looser
+than the <code>alpha = 0.05</code> used to call edges conserved in
+section 2, so these tiers are not a subset of the
+<code>type == "conserved"</code> rows.</p>
+<p>One permissive run is enough on this dataset: every clique the 0.1
+graph produces is re-found in the 0.9 graph, so row-binding a strict run
+only duplicates it (<code>complete_conserved</code> goes from 391 to
+exactly 782). That is not guaranteed in general – a clique maximal at
+the calling threshold can be absorbed into a larger one at the loose
+threshold – so combine both runs, each with its own
+<code>id_prefix</code>, when the strict-graph cliques matter in their
+own right.</p>
+<p><code>lineage_specific</code> and <code>differentiated</code> come
+back empty under <code>lineage = trait_vec</code>, and both absences are
+informative rather than a missing argument.
+<code>lineage_specific</code> would need a clique covering one entire
+life-cycle group with every species outside it <em>untestable</em>
+against the clique; a species that was compared and came back
+non-significant blocks the tier, and here every species pair is tested.
+<code>differentiated</code> would need each life-cycle group fully
+significant within itself while at most <code>cross_max</code> = 9 of
+the 16 cross-trait pairs are significant, which no clique on this
+dataset satisfies.</p>
+<p><code>hog_class</code> collapses the per-clique tiers back to one row
+per HOG by the same precedence, which is the level the published scripts
+report:</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">gene_tiers</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/distinct.html" class="external-link">distinct</a></span><span class="op">(</span><span class="va">hog</span>, <span class="va">hog_class</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">hog_class</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_table</span><span class="op">(</span>pageLength <span class="op">=</span> <span class="fl">6</span>, caption <span class="op">=</span> <span class="st">"Gene-clique tiers per HOG"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="clique-robustness-diagnostics">Clique robustness diagnostics<a class="anchor" aria-label="anchor" href="#clique-robustness-diagnostics"></a>
@@ -814,7 +1218,7 @@ the default <code>c(q = 1, effect = 0)</code> minimises mean q-value,
 while <code>c(q = 1, effect = 1)</code> uses a composite cost
 <code>q * mean_q - effect * mean_effect</code> that also rewards large
 effect sizes:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Intensity and coherence are already in cliques from find_cliques()</span></span>
 <span><span class="va">cliques</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">hog</span>, <span class="va">n_species</span>, <span class="va">mean_q</span>, <span class="va">intensity</span>, <span class="va">coherence</span>, <span class="va">min_effect_size</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -834,7 +1238,7 @@ neighborhood overlap. This complements the hypergeometric q-value with a
 non-parametric measure of neighborhood similarity (range 0–1). Large
 effect size with low Jaccard suggests enrichment driven by a small
 shared subset rather than broad neighborhood overlap:</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">robust_edges</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">hog</span>, <span class="va">gene1</span>, <span class="va">gene2</span>, <span class="va">species1</span>, <span class="va">species2</span>, <span class="va">q.value</span>, <span class="va">effect_size</span>, <span class="va">jaccard</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -851,10 +1255,15 @@ persistence of <code>NA</code> means the clique survived all tested
 multipliers. Unlike the density sweep survival count, persistence
 captures the continuous range of thresholds over which each clique
 lives:</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">sweep_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_threshold_sweep.html">clique_threshold_sweep</a></span><span class="op">(</span></span>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># clique_threshold_sweep() scales the same baseline threshold as the</span></span>
+<span><span class="co"># density sweep above (raw MR, tightly compressed near the top of the</span></span>
+<span><span class="co"># distribution), so its multipliers live in the same near-1 band --</span></span>
+<span><span class="co"># c(1.5, 2, 3, ...) would push every level past the empty-network</span></span>
+<span><span class="co"># threshold this dataset hits above ~1.03x.</span></span>
+<span><span class="va">sweep_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_threshold_sweep.html">clique_threshold_sweep</a></span><span class="op">(</span></span>
 <span>  <span class="va">cliques</span>, <span class="va">species</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
-<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">5</span>, <span class="fl">10</span><span class="op">)</span>,</span>
+<span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.005</span>, <span class="fl">1.01</span>, <span class="fl">1.015</span>, <span class="fl">1.02</span>, <span class="fl">1.025</span><span class="op">)</span>,</span>
 <span>  min_species <span class="op">=</span> <span class="fl">2L</span>, n_cores <span class="op">=</span> <span class="va">n_cores</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -870,7 +1279,7 @@ clique survives (Jaccard &gt;= threshold to its perturbed counterpart).
 This tests robustness to measurement noise without recomputing
 correlations from scratch. Cliques with high <code>survival_rate</code>
 are insensitive to small perturbations in edge weights:</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pert</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_perturbation_test.html">clique_perturbation_test</a></span><span class="op">(</span></span>
 <span>  <span class="va">cliques</span>, <span class="va">species</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">100</span>, noise_sd <span class="op">=</span> <span class="fl">0.1</span>,</span>
@@ -891,7 +1300,7 @@ intensity of the best-matching clique (by Jaccard) is recorded. The
 Z-score and empirical p-value test whether the observed gene-to-gene
 correspondence produces stronger co-expression conservation than random
 mappings:</p>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">intens</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clique_intensity_test.html">clique_intensity_test</a></span><span class="op">(</span></span>
 <span>  <span class="va">cliques</span>, <span class="va">species</span>, <span class="va">networks</span>, <span class="va">orthologs</span>,</span>
 <span>  n_perm <span class="op">=</span> <span class="fl">500</span>, min_species <span class="op">=</span> <span class="fl">2L</span>,</span>
@@ -918,7 +1327,7 @@ biologically meaningful co-expression conservation.</p>
 draw on a shared, latent regulatory architecture inherited from
 perennial ancestors. The analyses above provide several lines of
 evidence:</p>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_complete</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"complete"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">n_partial</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"partial"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">n_differentiated</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span> <span class="op">==</span> <span class="st">"differentiated"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -940,8 +1349,10 @@ evidence:</p>
 <span>    <span class="va">n_robust</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/exists.html" class="external-link">exists</a></span><span class="op">(</span><span class="st">"parallel_test"</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nParallel module signal: "</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">observed</span>,</span>
-<span>      <span class="st">" HOGs recur in annual-specific modules across &gt;= 2 pairs (p = "</span>,</span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>, <span class="st">")\n"</span>, sep <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span>
+<span>      <span class="st">" HOGs recur in modules diverged in the annual across &gt;= 2 pairs (p = "</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_value</span><span class="op">)</span>, <span class="st">", floor "</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.4f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">parallel_test</span><span class="op">$</span><span class="va">p_min</span>,</span>
+<span>                          <span class="va">parallel_test</span><span class="op">$</span><span class="va">p_attainable</span><span class="op">)</span><span class="op">)</span>, <span class="st">")\n"</span>, sep <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <p><strong>Differentiated HOGs</strong> are the strongest candidates for
 regulatory divergence: the same ortholog group has co-expression
@@ -951,8 +1362,8 @@ shared ancestral regulatory architecture that has been independently
 remodelled in each annual lineage.</p>
 <p><strong>Trait-specific HOGs</strong> (annual-only or perennial-only
 cliques) may encode lineage-specific regulatory modules. The formal
-permutation test above addresses whether annual-specific modules share
-HOGs across independent lineages more than expected by chance. A
+permutation test above addresses whether modules diverged in the annual
+share HOGs across independent lineages more than expected by chance. A
 significant result supports the hypothesis that annuality draws on a
 shared regulatory toolkit rather than arising from independent <em>de
 novo</em> rewiring in each lineage.</p>
@@ -985,7 +1396,7 @@ data.</p>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
 </h2>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
   </div>

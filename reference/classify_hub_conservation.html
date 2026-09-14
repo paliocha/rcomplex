@@ -20,7 +20,7 @@ annual / perennial)."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -104,9 +104,16 @@ trait groups, e.g. <code>c(SP_A = "annual", SP_B = "annual", SP_C = "perennial",
 
 
 <dt id="arg-module-comparisons">module_comparisons<a class="anchor" aria-label="anchor" href="#arg-module-comparisons"></a></dt>
-<dd><p>Optional named list of <code><a href="compare_modules.html">compare_modules()</a></code> outputs
-keyed by alphabetically sorted species pair (e.g. <code>"SP_A.SP_C"</code>).
-Required for the conserved_hub vs rewired_hub distinction.</p></dd>
+<dd><p>Optional named list of
+<code><a href="module_correspondence.html">module_correspondence()</a></code> outputs keyed by alphabetically sorted species
+pair (e.g. <code>"SP_A.SP_C"</code>). Required for the conserved_hub vs rewired_hub
+distinction. Two things the caller must now satisfy themselves: each
+element must be built with the alphabetically first species as
+<code>modules_ref</code>, and <code><a href="module_correspondence.html">module_correspondence()</a></code> needs a map from
+<code><a href="resolve_ortholog_map.html">resolve_ortholog_map()</a></code>, so the networks are required for the gene
+universes. Pass <code>sp_ref</code> / <code>sp_test</code> to <code><a href="module_correspondence.html">module_correspondence()</a></code> and
+that orientation is checked here instead of taken on trust. A module
+pair absent from the table counts as not corresponding.</p></dd>
 
 
 <dt id="arg-alpha">alpha<a class="anchor" aria-label="anchor" href="#arg-alpha"></a></dt>
@@ -115,12 +122,20 @@ Required for the conserved_hub vs rewired_hub distinction.</p></dd>
 
 <dt id="arg-jaccard-threshold">jaccard_threshold<a class="anchor" aria-label="anchor" href="#arg-jaccard-threshold"></a></dt>
 <dd><p>Jaccard threshold for module correspondence
-(default 0.1).</p></dd>
+(default 0.1). <code><a href="module_correspondence.html">module_correspondence()</a></code> computes this over the
+one-to-one paralog-resolved projection, whereas the retired gene-overlap
+engine used the paralog-expanded mappable set, so values now run
+systematically higher and the unchanged default is slightly more
+permissive.</p></dd>
 
 
 <dt id="arg-min-trait-fraction">min_trait_fraction<a class="anchor" aria-label="anchor" href="#arg-min-trait-fraction"></a></dt>
 <dd><p>Minimum fraction of species (within a trait group)
-where the HOG must be a hub for the group to count (default 0.5).</p></dd>
+where the HOG must be a hub for the group to count (default 0.5). The
+denominator is the size of the trait group – every species of that
+group in <code>hub_results</code> – not just the ones carrying the HOG, so a HOG
+confined to one of four annuals cannot reach 0.5 there. Lower the
+threshold to admit accessory HOGs.</p></dd>
 
 
 <dt id="arg-correspondence-threshold">correspondence_threshold<a class="anchor" aria-label="anchor" href="#arg-correspondence-threshold"></a></dt>
@@ -142,7 +157,9 @@ waterfall)</p></dd>
 <dd><p>Number of species where the HOG is a hub</p></dd>
 
 <dt>n_species_present</dt>
-<dd><p>Number of species where the HOG has genes</p></dd>
+<dd><p>Number of species where the HOG has genes.
+Reported for context; it is not the <code>min_trait_fraction</code>
+denominator.</p></dd>
 
 <dt>hub_trait_groups</dt>
 <dd><p>Comma-separated trait groups where it qualifies
@@ -204,6 +221,17 @@ unknown (<code>module_comparisons</code> not provided).</p></dd>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">trait</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>SP_A <span class="op">=</span> <span class="st">"annual"</span>, SP_B <span class="op">=</span> <span class="st">"perennial"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">classify_hub_conservation</span><span class="op">(</span><span class="va">hub_list</span>, <span class="va">trait</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># With module correspondence, for the conserved_hub / rewired_hub split.</span></span></span>
+<span class="r-in"><span><span class="co"># The list key must be the alphabetically sorted species pair.</span></span></span>
+<span class="r-in"><span><span class="va">map</span> <span class="op">&lt;-</span> <span class="fu"><a href="resolve_ortholog_map.html">resolve_ortholog_map</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="va">ortho_AB</span>, <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">net_A</span><span class="op">$</span><span class="va">network</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">net_B</span><span class="op">$</span><span class="va">network</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">corr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>SP_A.SP_B <span class="op">=</span> <span class="fu"><a href="module_correspondence.html">module_correspondence</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="va">mods_A</span>, <span class="va">mods_B</span>, <span class="va">map</span>,</span></span>
+<span class="r-in"><span>  sp_ref <span class="op">=</span> <span class="st">"SP_A"</span>, sp_test <span class="op">=</span> <span class="st">"SP_B"</span></span></span>
+<span class="r-in"><span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">classify_hub_conservation</span><span class="op">(</span><span class="va">hub_list</span>, <span class="va">trait</span>, module_comparisons <span class="op">=</span> <span class="va">corr</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

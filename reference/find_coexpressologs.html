@@ -19,7 +19,7 @@ find_cliques."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/li
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -83,6 +83,7 @@ the results into a single edge data frame ready for
 <span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span>,</span>
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"randomized"</span>, <span class="st">"storey"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -152,8 +153,7 @@ permutation method (default 50).</p></dd>
 pair-level Storey q-values, passed to
 <code><a href="summarize_comparison.html">summarize_comparison</a></code>: <code>"randomized"</code> (default),
 <code>"storey"</code> or <code>"none"</code> (Benjamini-Hochberg). The default
-draws from the global RNG; call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> first for
-reproducible calls.</p></dd>
+draws; pass <code>seed</code> to pin those draws.</p></dd>
 
 
 <dt id="arg-pval-combine">pval_combine<a class="anchor" aria-label="anchor" href="#arg-pval-combine"></a></dt>
@@ -163,6 +163,28 @@ q-values are combined, passed to <code><a href="comparison_to_edges.html">compar
 criterion of Netotea et al. (2014), the <code>Max.p.val</code> filter of
 the original ComPlEx) or <code>"min"</code> (permissive; either direction,
 denser edge supply for <code><a href="find_cliques.html">find_cliques</a></code>).</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Integer seed for the call's random draws, or <code>NULL</code>
+(default) to draw from the global RNG. Seeding here makes the call
+reproducible, and with it every downstream count thresholded on
+<code>q.value</code>. The seed is applied once, for the whole species-pair
+loop, rather than being handed to each
+<code><a href="summarize_comparison.html">summarize_comparison</a></code> call: one seeded stream flows
+through the pairs in order, so each pair draws its own uniforms
+instead of every pair reusing the same ones.</p>
+<p>What a seed buys differs by method. Under <code>"analytical"</code> it
+pins the randomized-p draws behind pi0, and the result is
+reproducible at any <code>n_cores</code>. Under <code>"permutation"</code> it
+pins the per-thread seeds that the C++ engines draw from R's RNG,
+which reproduces the run at <code>n_cores = 1</code> only: above that the
+OpenMP guided schedule decides which thread takes which HOG, so the
+pairing of thread streams to HOGs still moves between runs.</p>
+<p>A seeded call draws from a private stream and restores the caller's
+on exit; with <code>seed = NULL</code> the draws come from the ambient
+stream and leave it advanced. Same contract as
+<code><a href="detect_modules.html">detect_modules</a></code> and <code><a href="summarize_comparison.html">summarize_comparison</a></code>.</p></dd>
 
 </dl></div>
     <div id="value">
@@ -205,9 +227,8 @@ when the expression matrices are restricted the same way beforehand
     <div id="ref-examples">
     <h2>Examples</h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Fast analytical path</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu">find_coexpressologs</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Fast analytical path; seed pins the randomized pi0 draws</span></span></span>
+<span class="r-in"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu">find_coexpressologs</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Canonical ComPlEx calls: reciprocal criterion (default) + plain BH</span></span></span>
 <span class="r-in"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu">find_coexpressologs</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>, pi0_method <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span></span></span>
@@ -217,7 +238,8 @@ when the expression matrices are restricted the same way beforehand
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Rigorous permutation path with GPU</span></span></span>
 <span class="r-in"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu">find_coexpressologs</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span></span>
-<span class="r-in"><span>  method <span class="op">=</span> <span class="st">"permutation"</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span>, n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  method <span class="op">=</span> <span class="st">"permutation"</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span>, n_cores <span class="op">=</span> <span class="fl">4L</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

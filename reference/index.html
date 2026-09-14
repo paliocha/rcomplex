@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -61,6 +61,10 @@
           <p class="section-desc"></p>
         </th>
       </tr></tbody><tbody><tr><td>
+          <p><code><a href="all_species_pairs.html">all_species_pairs()</a></code> </p>
+        </td>
+        <td><p>All unordered species pairs as a <code>pairs</code> data frame</p></td>
+      </tr><tr><td>
           <p><code><a href="as_sparse_network.html">as_sparse_network()</a></code> </p>
         </td>
         <td><p>Convert a dense network object to the sparse representation</p></td>
@@ -73,13 +77,17 @@
         </td>
         <td><p>Classify HOGs by clique conservation pattern</p></td>
       </tr><tr><td>
+          <p><code><a href="classify_gene_cliques.html">classify_gene_cliques()</a></code> </p>
+        </td>
+        <td><p>Classify gene-graph cliques into conservation tiers</p></td>
+      </tr><tr><td>
           <p><code><a href="classify_hub_conservation.html">classify_hub_conservation()</a></code> </p>
         </td>
         <td><p>Classify hub gene conservation across species and traits</p></td>
       </tr><tr><td>
-          <p><code><a href="classify_modules.html">classify_modules()</a></code> </p>
+          <p><code><a href="classify_preservation.html">classify_preservation()</a></code> </p>
         </td>
-        <td><p>Classify modules by conservation status</p></td>
+        <td><p>Classify modules as conserved, moderately preserved, or diverged</p></td>
       </tr><tr><td>
           <p><code><a href="clique_intensity_test.html">clique_intensity_test()</a></code> </p>
         </td>
@@ -101,21 +109,9 @@
         </td>
         <td><p>Structural survival of cliques across stricter density thresholds</p></td>
       </tr><tr><td>
-          <p><code><a href="coarsen_modules.html">coarsen_modules()</a></code> </p>
-        </td>
-        <td><p>Coarsen a module partition to fewer modules</p></td>
-      </tr><tr><td>
           <p><code><a href="coexpressolog_null.html">coexpressolog_null()</a></code> </p>
         </td>
         <td><p>Degree-preserving edge-swap null for co-expressolog statistics</p></td>
-      </tr><tr><td>
-          <p><code><a href="compare_modules.html">compare_modules()</a></code> </p>
-        </td>
-        <td><p>Compare co-expression modules across species</p></td>
-      </tr><tr><td>
-          <p><code><a href="compare_modules_paired.html">compare_modules_paired()</a></code> </p>
-        </td>
-        <td><p>Compare modules across contrasting conditions</p></td>
       </tr><tr><td>
           <p><code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code> </p>
         </td>
@@ -149,6 +145,10 @@
         </td>
         <td><p>Find co-expressologs across all species pairs</p></td>
       </tr><tr><td>
+          <p><code><a href="gene_clique_graph.html">gene_clique_graph()</a></code> </p>
+        </td>
+        <td><p>Maximal cliques of the per-orthogroup gene graph</p></td>
+      </tr><tr><td>
           <p><code><a href="get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code> </p>
         </td>
         <td><p>Query co-expression partners of a candidate HOG across species</p></td>
@@ -156,6 +156,14 @@
           <p><code><a href="identify_module_hubs.html">identify_module_hubs()</a></code> </p>
         </td>
         <td><p>Identify hub genes within co-expression modules</p></td>
+      </tr><tr><td>
+          <p><code><a href="module_correspondence.html">module_correspondence()</a></code> </p>
+        </td>
+        <td><p>Match modules across species by ortholog overlap</p></td>
+      </tr><tr><td>
+          <p><code><a href="module_preservation.html">module_preservation()</a></code> </p>
+        </td>
+        <td><p>Test whether co-expression modules are preserved across species</p></td>
       </tr><tr><td>
           <p><code><a href="mr_block.html">mr_block()</a></code> </p>
         </td>
@@ -171,7 +179,19 @@
       </tr><tr><td>
           <p><code><a href="prepare_orthologs.html">prepare_orthologs()</a></code> </p>
         </td>
-        <td><p>Extract pairwise orthologs with paralog-reduced gene names</p></td>
+        <td><p>Extract pairwise orthologs, optionally with paralog-reduced gene names</p></td>
+      </tr><tr><td>
+          <p><code><a href="preservation_matrix_test.html">preservation_matrix_test()</a></code> </p>
+        </td>
+        <td><p>Trait relabelling test on the all-pairs preservation matrix</p></td>
+      </tr><tr><td>
+          <p><code><a href="preservation_paired.html">preservation_paired()</a></code> </p>
+        </td>
+        <td><p>Run module preservation across many species pairs</p></td>
+      </tr><tr><td>
+          <p><code><a href="pvalue_resolution.html">pvalue_resolution()</a></code> </p>
+        </td>
+        <td><p>How much resolution is left in a set of p-values</p></td>
       </tr><tr><td>
           <p><code><a href="rcomplex.html">rcomplex()</a></code> </p>
         </td>
@@ -180,6 +200,10 @@
           <p><code><a href="reduce_orthogroups.html">reduce_orthogroups()</a></code> </p>
         </td>
         <td><p>Reduce orthogroups by merging correlated paralogs</p></td>
+      </tr><tr><td>
+          <p><code><a href="resolve_ortholog_map.html">resolve_ortholog_map()</a></code> </p>
+        </td>
+        <td><p>Resolve paralog copies in an ortholog map</p></td>
       </tr><tr><td>
           <p><code><a href="summarize_comparison.html">summarize_comparison()</a></code> </p>
         </td>

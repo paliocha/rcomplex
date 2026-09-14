@@ -19,7 +19,7 @@ downstream conservation analysis with classify_hub_conservation()."><!-- mathjax
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -209,7 +209,8 @@ degree; degree otherwise)</p></li>
     <h2>Examples</h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="va">hubs</span> <span class="op">&lt;-</span> <span class="fu">identify_module_hubs</span><span class="op">(</span><span class="va">modules</span>, <span class="va">net</span>, <span class="va">orthologs</span>,</span></span>
-<span class="r-in"><span>                             comparison <span class="op">=</span> <span class="va">summary</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  comparison <span class="op">=</span> <span class="va">summary</span><span class="op">$</span><span class="va">results</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">hubs</span><span class="op">[</span><span class="va">hubs</span><span class="op">$</span><span class="va">is_hub</span>, <span class="op">]</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

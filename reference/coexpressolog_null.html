@@ -25,7 +25,7 @@ null distribution."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/aj
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -86,7 +86,7 @@ null distribution.</p>
 <span>  n_perm <span class="op">=</span> <span class="fl">100L</span>,</span>
 <span>  swap_factor <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  seed <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -134,8 +134,28 @@ edge count of each thresholded network (default 10).</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Integer base seed; worker <code>b</code> uses
-<code>seed + b</code> (default 1).</p></dd>
+<dd><p>Base seed for the run. <code>NULL</code> (default) draws one
+from the ambient RNG stream and leaves it advanced by that one draw,
+so consecutive unseeded calls give different nulls and a
+<code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> in the caller's script reproduces the whole run.
+With a seed the call draws from a private stream and restores the
+caller's on exit — the package-wide contract, see
+<code><a href="detect_modules.html">detect_modules</a></code>.</p>
+<p>What a default call guarantees is replayability, not a fixed null.
+The seed actually used — drawn or supplied — is recorded as
+<code>attr(result, "seed")</code>, and a drawn one is also announced in a
+message, so any run can be reproduced exactly by passing that value
+back as <code>seed</code>. Two default calls return different nulls; the
+size of that difference is what <code>null_se</code> and the
+<code>p_emp_lo</code> / <code>p_emp_hi</code> interval report. The default was
+<code>1L</code> before 0.3.0, which pinned the null of every default call
+while leaving the observed statistic free to drift, and hid the
+Monte Carlo error entirely.</p>
+<p>Two seeds exactly <code>2^31 - 1</code> apart (both legal, since a seed may
+lie anywhere in <code>+/- .Machine$integer.max</code>) give every rewiring
+permutation the same seed, so the null is identical for the two runs
+even though the observed statistic is not: see the aliasing note under
+<code>.task_seed()</code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -150,10 +170,18 @@ both the observed and every null run (<code>species_pairs</code>,
     <p>Data frame with one row per statistic and columns
 <code>statistic</code>, <code>observed</code>, <code>null_mean</code>,
 <code>null_sd</code>, <code>null_max</code>, <code>fold</code> (observed /
-null_mean; <code>NA</code> when the null mean is 0) and <code>p_emp</code>
-(<code>(1 + sum(null &gt;= observed)) / (n_perm + 1)</code>). The
-<code>n_perm x k</code> matrix of null statistics is attached as
-<code>attr(, "null")</code>.</p>
+null_mean; <code>NA</code> when the null mean is 0), <code>p_emp</code>
+(<code>(1 + n_ge) / (n_perm + 1)</code>), <code>n_ge</code> (null draws at or
+above the observed value), <code>null_se</code>
+(<code>null_sd / sqrt(n_perm)</code>, the Monte Carlo error of
+<code>null_mean</code>; the relative error of <code>fold</code> is
+<code>null_se / null_mean</code>, which is large whenever
+<code>null_mean</code> is near 0) and <code>p_emp_lo</code> / <code>p_emp_hi</code>,
+an exact Clopper-Pearson 95\<!-- % interval for the exceedance -->
+probability that <code>p_emp</code> estimates — an interval on that
+probability, not on <code>p_emp</code> itself. The <code>n_perm x k</code>
+matrix of null statistics is attached as <code>attr(, "null")</code>, and
+the base seed the run used as <code>attr(, "seed")</code>.</p>
     </div>
     <div id="details">
     <h2>Details</h2>
@@ -166,16 +194,14 @@ only membership-based consumers are valid downstream; edge weights
 carry no information after rewiring. Each network is rewired with
 <code>swap_factor * igraph::ecount(g)</code> swaps and stays simple (no
 loops, no multi-edges).</p>
-<p>Permutation <code>b</code> runs in a worker that calls
-<code>set.seed(seed + b)</code> first, so results are reproducible and
-independent of <code>n_cores</code>. On Unix the permutations run under
-<code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code>; on Windows they run serially. The serial
-path saves and restores the caller's RNG state around the loop, so
-the ambient stream continues where the observed run left it. The
-observed run uses the
-ambient RNG: call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> beforehand when <code>...</code>
-includes settings that draw from it (e.g. the default
-<code>pi0_method = "randomized"</code>). <code>method = "permutation"</code> in
+<p>Permutation <code>b</code> runs in a worker that seeds itself from the base
+seed and its own index (the package-wide per-task seed derivation), so
+results are reproducible, independent of <code>n_cores</code>, and two
+neighbouring base seeds share no rewiring. On Unix the permutations run
+under <code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code>; on Windows they run serially. The seed
+covers the observed run as well as the null runs, so <code>...</code>
+settings that draw — the default <code>pi0_method = "randomized"</code>,
+for one — are pinned too. <code>method = "permutation"</code> in
 <code>...</code> is allowed but slow (a full permutation test per rewired
 network).</p>
     </div>
@@ -183,10 +209,17 @@ network).</p>
     <div id="ref-examples">
     <h2>Examples</h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">coexpressolog_null</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>, n_perm <span class="op">=</span> <span class="fl">100L</span>,</span></span>
-<span class="r-in"><span>                          n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">coexpressolog_null</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span></span>
+<span class="r-in"><span>  n_perm <span class="op">=</span> <span class="fl">100L</span>,</span></span>
+<span class="r-in"><span>  n_cores <span class="op">=</span> <span class="fl">4L</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res</span><span class="op">[</span><span class="va">res</span><span class="op">$</span><span class="va">statistic</span> <span class="op">==</span> <span class="st">"total"</span>, <span class="op">]</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># replay that exact run, whether or not it was seeded</span></span></span>
+<span class="r-in"><span><span class="va">same</span> <span class="op">&lt;-</span> <span class="fu">coexpressolog_null</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span></span>
+<span class="r-in"><span>  n_perm <span class="op">=</span> <span class="fl">100L</span>,</span></span>
+<span class="r-in"><span>  n_cores <span class="op">=</span> <span class="fl">4L</span>, seed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"seed"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

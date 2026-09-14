@@ -19,7 +19,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -75,7 +75,8 @@
 <span>  min_exceedances <span class="op">=</span> <span class="fl">50L</span>,</span>
 <span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -120,6 +121,17 @@ Higher values give more precise p-values but take longer (default 50).</p></dd>
 <dd><p>If <code>TRUE</code>, precompute the fold-enrichment matrix on GPU
 via torch, then run permutations as fast table lookups. Requires the
 <a href="https://torch.mlverse.org/" class="external-link">torch</a> package. Default <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Integer seed for the permutation draws, or <code>NULL</code> (default)
+to draw from the ambient RNG stream and leave it advanced. The C++
+engine seeds one RNG per thread from R's stream before the parallel
+region, so a seed reproduces the run at <code>n_cores = 1</code> only: above that
+the OpenMP guided schedule decides which thread takes which HOG, and
+the pairing of thread streams to HOGs still moves between runs. A
+seeded call restores the caller's stream on exit — the package-wide
+contract, see <code><a href="detect_modules.html">detect_modules()</a></code>.</p></dd>
 
 </dl></div>
     <div id="value">
@@ -240,7 +252,8 @@ homogeneous discrete p-values. <em>Biometrics</em>, 72(2), 639–648.
     <h2>Examples</h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="va">hog_results</span> <span class="op">&lt;-</span> <span class="fu">permutation_hog_test</span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">comparison</span>,</span></span>
-<span class="r-in"><span>                                    n_cores <span class="op">=</span> <span class="fl">8L</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  n_cores <span class="op">=</span> <span class="fl">8L</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">significant</span> <span class="op">&lt;-</span> <span class="va">hog_results</span><span class="op">[</span><span class="va">hog_results</span><span class="op">$</span><span class="va">q.value</span> <span class="op">&lt;</span> <span class="fl">0.05</span>, <span class="op">]</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

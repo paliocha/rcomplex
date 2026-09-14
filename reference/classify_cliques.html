@@ -20,7 +20,7 @@ detection parameters per step, call find_cliques() directly."><!-- mathjax --><s
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -207,6 +207,50 @@ a within-group clique, but no cross-group conserved edge exists.</p></li>
 within-group clique.</p></li>
 <li><p><strong>unclassified</strong>: none of the above.</p></li>
 </ol></div>
+    <div id="choosing-between-the-two-clique-classifiers">
+    <h2>Choosing between the two clique classifiers</h2>
+
+
+<p>This function and <code><a href="classify_gene_cliques.html">classify_gene_cliques</a></code> answer
+different questions; neither is deprecated in favour of the other.</p>
+<p><code>classify_cliques()</code> works on the per-orthogroup <em>species</em>
+graph. It asks which species are joined by conserved co-expression
+and whether that pattern respects the trait split, and it returns one
+row per HOG. <code><a href="find_cliques.html">find_cliques</a></code> commits to one best gene
+assignment per species clique, so a multi-copy HOG still gets a
+single answer, and that answer is what <code><a href="clique_stability.html">clique_stability</a></code>
+and <code><a href="clique_threshold_sweep.html">clique_threshold_sweep</a></code> consume – the
+<code>stability_class</code> / <code>persistence</code> / <code>robust</code> columns
+exist only on this side.</p>
+<p><code><a href="classify_gene_cliques.html">classify_gene_cliques</a></code> works on the <em>gene</em> graph
+built by <code><a href="gene_clique_graph.html">gene_clique_graph</a></code>. It asks which individual
+gene copies are mutually conserved, so one HOG can yield several
+overlapping cliques and the answer names paralogs rather than
+species. It applies the five-tier taxonomy of Rodriguez et al.
+(2026), with two explicit tolerance tiers (<code>partial_significant</code>
+for weak wiring, <code>partial_present</code> for a missing gene), and its
+<code>lineage</code> split is an argument rather than the trait vector, so
+it can be run against a clade partition the trait does not follow.</p>
+<p>Reach for <code><a href="classify_gene_cliques.html">classify_gene_cliques()</a></code> when which copy sits in the
+conserved core matters, or when the published taxonomy is what has to
+be reported. Reach for <code>classify_cliques()</code> for a
+one-row-per-HOG trait summary wired into the stability and sweep
+machinery.</p>
+    </div>
+    <div id="references">
+    <h2>References</h2>
+    <p>Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
+Comparative regulomics of wood formation across dicot and
+conifer trees. <em>Nature Communications</em> 17(1).
+<a href="https://doi.org/10.1038/s41467-026-75624-2" class="external-link">doi:10.1038/s41467-026-75624-2</a></p>
+    </div>
+    <div id="see-also">
+    <h2>See also</h2>
+    <div class="dont-index"><p><code><a href="find_cliques.html">find_cliques</a></code> for the species-graph backend
+this wraps; <code><a href="classify_gene_cliques.html">classify_gene_cliques</a></code> and
+<code><a href="gene_clique_graph.html">gene_clique_graph</a></code> for the copy-level alternative
+described above.</p></div>
+    </div>
 
     <div id="ref-examples">
     <h2>Examples</h2>

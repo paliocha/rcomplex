@@ -18,7 +18,7 @@ the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM)."><!-- mathjax 
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -126,7 +126,22 @@ other methods.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Random seed for reproducibility (default <code>NULL</code>).</p></dd>
+<dd><p>Random seed for reproducibility (default <code>NULL</code>).</p>
+<p>With a seed, the result is reproducible and identical at any <code>n_cores</code>:
+every parallel task derives its own RNG stream from the seed and its task
+index, so the answer does not depend on how the work was distributed.
+Two limits are worth knowing. Reproducibility holds for one machine and
+one igraph build – the partition is a function of what
+<code><a href="https://r.igraph.org/reference/cluster_leiden.html" class="external-link">igraph::cluster_leiden()</a></code> draws, so an igraph upgrade may move it. And
+the answer depends on <code>RNGkind</code> as well as on <code>seed</code>: a session that has
+set <code>RNGkind("L'Ecuyer-CMRG")</code> gets a different, still reproducible,
+partition. <code>RNGkind</code> is deliberately not pinned inside the function.</p>
+<p>With an explicit seed the caller's stream is restored on exit, so the
+call is invisible to anything drawn afterwards: the clustering backend
+draws from a private stream started at <code>seed</code>. With <code>seed = NULL</code> the
+stream advances by exactly what was taken from it – the one draw used
+to pick a root in consensus mode, whatever the backend consumed in
+single-resolution mode – so consecutive unseeded calls still differ.</p></dd>
 
 
 <dt id="arg-consensus-threshold">consensus_threshold<a class="anchor" aria-label="anchor" href="#arg-consensus-threshold"></a></dt>
@@ -147,20 +162,42 @@ contexts in the same session.</p></dd>
 <dt id="arg-max-consensus-iter">max_consensus_iter<a class="anchor" aria-label="anchor" href="#arg-max-consensus-iter"></a></dt>
 <dd><p>Maximum number of consensus iterations for
 adaptive mode (<code>consensus_threshold = NULL</code>). Default 10.
-Typically converges in 2–5 iterations. Ignored when
-<code>consensus_threshold</code> is numeric.</p></dd>
+Iteration stops when the sweep reproduces its own input (a fixed
+point) or when all resolutions agree. On the eight Pooideae networks
+that stopping rule was measured on it fired at 5–12 iterations, so
+the default cap of 10 cuts two of those eight off before it fires:
+at the default the loop may return a partition it had not finished
+settling. Raise it (20 is above every measured stop) when the
+returned <code>params$n_consensus_iterations</code> equals
+<code>max_consensus_iter</code> – a truncated run always does, though a
+run that settles on the last allowed iteration does too.
+Ignored when <code>consensus_threshold</code> is numeric.</p></dd>
 
 
 <dt id="arg-test-k-">test_k1<a class="anchor" aria-label="anchor" href="#arg-test-k-"></a></dt>
 <dd><p>Logical. Test the null hypothesis K = 1 (no community
 structure) via permutation of the spectral norm of the excess
 co-classification matrix. Default <code>TRUE</code>. Only used in adaptive
-consensus mode.</p></dd>
+consensus mode. This is the expensive part of a
+<code>detect_modules()</code> call on a structured network: see
+<code>n_perm_k1</code> for what it costs and when to turn it off.</p></dd>
 
 
 <dt id="arg-n-perm-k-">n_perm_k1<a class="anchor" aria-label="anchor" href="#arg-n-perm-k-"></a></dt>
 <dd><p>Number of permutations for the K = 1 test.
-Default 100.</p></dd>
+Default 100. Sets both the resolution of the p-value (its floor is
+<code>1 / (n_perm_k1 + 1)</code>) and the power of the test; batches stop
+early only when the remaining permutations cannot change the call.
+An unstructured network accumulates exceedances fast and stops after
+a batch or two, but a structured one, which most real networks are,
+can only stop once no outstanding permutation matters, so it
+spends the whole budget. Each of those permutations rewires the graph
+degree-preservingly and runs the full Leiden sweep at the observed
+<code>n_iterations</code>, so the K = 1 test dominates the runtime and the
+peak memory of the call; the rewiring step has been the cause of
+out-of-memory kills on large networks. On a network already known to
+be structured, set <code>test_k1 = FALSE</code> rather than lowering
+<code>n_perm_k1</code>, which buys speed by weakening the test.</p></dd>
 
 
 <dt id="arg-alpha-k-">alpha_k1<a class="anchor" aria-label="anchor" href="#arg-alpha-k-"></a></dt>
@@ -260,11 +297,13 @@ clustering in class discovery. <em>Scientific Reports</em>, 4, 6207.
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="co"># Single resolution</span></span></span>
 <span class="r-in"><span><span class="va">mods</span> <span class="op">&lt;-</span> <span class="fu">detect_modules</span><span class="op">(</span><span class="va">net</span>, method <span class="op">=</span> <span class="st">"leiden"</span>, resolution <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">mods</span><span class="op">$</span><span class="va">modules</span><span class="op">)</span>  <span class="co"># module sizes</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">mods</span><span class="op">$</span><span class="va">modules</span><span class="op">)</span> <span class="co"># module sizes</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Multi-resolution consensus (Jeub et al. 2018)</span></span></span>
-<span class="r-in"><span><span class="va">mods_consensus</span> <span class="op">&lt;-</span> <span class="fu">detect_modules</span><span class="op">(</span><span class="va">net</span>, resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>                                 n_cores <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">mods_consensus</span> <span class="op">&lt;-</span> <span class="fu">detect_modules</span><span class="op">(</span><span class="va">net</span>,</span></span>
+<span class="r-in"><span>  resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  n_cores <span class="op">=</span> <span class="fl">4L</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

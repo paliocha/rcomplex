@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -61,14 +61,17 @@
 <p>This file provides guidance to Claude Code when working with code in this repository.</p>
 <div class="section level2">
 <h2 id="project-overview">Project Overview<a class="anchor" aria-label="anchor" href="#project-overview"></a></h2>
-<p>rcomplex is an R package for comparative co-expression network analysis across species. It maps orthologous genes (via ortholog groups / HOGs from OrthoFinder, FastOMA, PLAZA, etc.), builds co-expression networks independently per species, then tests conservation at three levels:</p>
+<p>rcomplex is an R package for comparative co-expression network analysis across species. It maps orthologous genes (via ortholog groups / HOGs from OrthoFinder, FastOMA, PLAZA, etc.), builds co-expression networks independently per species, then tests conservation at four levels:</p>
 <ul><li>
 <strong>Gene / HOG-level</strong>: Hypergeometric tests with q-value correction (<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> + <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>), gene-identity permutation with adaptive stopping (<code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>), batch orchestration (<code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code>, <code><a href="reference/density_sweep.html">density_sweep()</a></code>), degree-preserving edge-swap null (<code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code>)</li>
 <li>
-<strong>Module-level</strong>: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, cross-species comparison via hypergeometric or Jaccard permutation tests, module hubs + conservation</li>
+<strong>Module-level</strong>: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, connectivity preservation testing (<code><a href="reference/module_preservation.html">module_preservation()</a></code> — permutation null on <code>avg.weight</code> + <code>cor.degree</code>) over paralog-resolved ortholog maps (<code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code>), module correspondence (<code><a href="reference/module_correspondence.html">module_correspondence()</a></code>), module hubs + conservation</li>
 <li>
-<strong>Clique-level</strong>: C++ Bron-Kerbosch / Tomita clique detection, leave-k-out jackknife stability for trait-exclusive cliques, threshold sweep, HOG conservation classification</li>
-</ul><p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>.</p>
+<strong>Clique-level</strong>: two backends. The <em>species</em> graph (<code><a href="reference/find_cliques.html">find_cliques()</a></code> — C++ Bron-Kerbosch / Tomita plus a backtracker that picks one best gene assignment per species clique) carries leave-k-out jackknife stability for trait-exclusive cliques, persistence, threshold sweep, perturbation and intensity tests, and <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>. The per-HOG <em>gene</em> graph (<code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code>) enumerates every maximal clique, one per paralog combination, and feeds the five-tier taxonomy of <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code>
+</li>
+<li>
+<strong>Trait-level</strong>: <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> — relabelling null over an all-pairs preservation matrix (<code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code> + <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>), reported under a free and a phylogeny-blocked null; <code><a href="reference/tag_permutation.html">tag_permutation()</a></code> — recurrence of HOGs in diverged modules across designated contrasts. <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> reports how much resolution a finite label space leaves</li>
+</ul><p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>. The gene-graph clique taxonomy follows <a href="https://doi.org/10.1038/s41467-026-75624-2" class="external-link">Rodriguez <em>et al.</em>, 2026</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="build--test">Build &amp; Test<a class="anchor" aria-label="anchor" href="#build--test"></a></h2>
@@ -76,8 +79,9 @@
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::document()'</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="ex">R</span> CMD INSTALL .</span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span></span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">R</span> CMD build . <span class="kw">&amp;&amp;</span> <span class="ex">R</span> CMD check <span class="at">--no-manual</span> rcomplex_0.2.0.tar.gz   <span class="co"># expect "Status: OK"</span></span></code></pre></div>
-<p>Check the built tarball, not the source directory — <code>Authors@R</code> only expands at build time, so <code>R CMD check .</code> fails with “Author/Maintainer missing”. <code>--no-manual</code> avoids needing pdflatex. The historical <code>R_ext/Boolean.h</code> warning no longer appears with clang 22.</p>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'lintr::lint_package()'</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="ex">R</span> CMD build . <span class="kw">&amp;&amp;</span> <span class="ex">R</span> CMD check <span class="at">--no-manual</span> rcomplex_0.3.0.tar.gz   <span class="co"># expect "Status: OK"</span></span></code></pre></div>
+<p>Check the built tarball, not the source directory — <code>Authors@R</code> only expands at build time, so <code>R CMD check .</code> fails with “Author/Maintainer missing”. <code>--no-manual</code> avoids needing pdflatex. The historical <code>R_ext/Boolean.h</code> warning no longer appears with clang 22. CI runs <code><a href="https://lintr.r-lib.org/reference/lint.html" class="external-link">lintr::lint_package()</a></code> with <code>LINTR_ERROR_ON_LINT</code> and there is no <code>.lintr</code> file, so any lint fails the build — keep lines at or under 80 characters.</p>
 </div>
 <div class="section level2">
 <h2 id="package-architecture">Package Architecture<a class="anchor" aria-label="anchor" href="#package-architecture"></a></h2>
@@ -110,22 +114,47 @@
 <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, <code>compute_qvalues()</code> (randomized-p pi0), torch FE helpers</td>
 </tr><tr class="even"><td><code>R/modules.R</code></td>
 <td>
-<code><a href="reference/detect_modules.html">detect_modules()</a></code> (single + consensus), <code><a href="reference/compare_modules.html">compare_modules()</a></code>, <code><a href="reference/compare_modules_paired.html">compare_modules_paired()</a></code>, <code><a href="reference/classify_modules.html">classify_modules()</a></code>, <code><a href="reference/coarsen_modules.html">coarsen_modules()</a></code>, <code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>, <code><a href="reference/characterize_hubs.html">characterize_hubs()</a></code>
+<code><a href="reference/detect_modules.html">detect_modules()</a></code> (single + consensus), <code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>, <code><a href="reference/characterize_hubs.html">characterize_hubs()</a></code>
 </td>
+</tr><tr class="odd"><td><code>R/ortholog_map.R</code></td>
+<td>
+<code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code> — reduce multi-copy HOGs toward one counterpart per gene (cliques, then mutual-best coexpressologs); anything left is carried as <code>unresolved</code> and settled by majority vote inside <code><a href="reference/module_preservation.html">module_preservation()</a></code> / <code><a href="reference/module_correspondence.html">module_correspondence()</a></code>
+</td>
+</tr><tr class="even"><td><code>R/module_preservation.R</code></td>
+<td>
+<code><a href="reference/module_preservation.html">module_preservation()</a></code>, <code><a href="reference/classify_preservation.html">classify_preservation()</a></code>, <code><a href="reference/module_correspondence.html">module_correspondence()</a></code>, <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>
+</td>
+</tr><tr class="odd"><td><code>R/preservation_matrix.R</code></td>
+<td>
+<code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code> — every <code>choose(n, 2)</code> contrast as a <code>pairs</code> table; <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> — trait relabelling null over the all-pairs preservation matrix (free + within-block, enumerated below <code>enum_max</code> and sampled above it)</td>
+</tr><tr class="even"><td><code>R/pvalue_saturation.R</code></td>
+<td>
+<code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> — distinct values, ties at the minimum and at 1, and permutation-floor status (<code>permutation-limited</code> / <code>evidence-limited</code> / below floor) of a p- or q-vector</td>
 </tr><tr class="odd"><td><code>R/tag_permutation.R</code></td>
 <td>
 <code><a href="reference/tag_permutation.html">tag_permutation()</a></code> — trait-specific module recurrence test</td>
-</tr><tr class="even"><td><code>R/cliques.R</code></td>
+</tr><tr class="even"><td><code>R/tag_blocks.R</code></td>
+<td>Internal exchangeability blocks for <code><a href="reference/tag_permutation.html">tag_permutation()</a></code>: <code>.tp_blocks()</code> (connected components of the species/contrast graph), <code>.tp_block_labellings()</code>, <code>.tp_expected()</code>
+</td>
+</tr><tr class="odd"><td><code>R/cliques.R</code></td>
 <td>
 <code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>, <code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code>, <code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code>, <code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code>, <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>
+</td>
+</tr><tr class="even"><td><code>R/clique_gene_graph.R</code></td>
+<td>
+<code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> — maximal cliques of the per-HOG (species, gene) graph, every paralog combination reported; <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> — five-tier conservation taxonomy with thresholds derived from <code>length(species)</code>
 </td>
 </tr><tr class="odd"><td><code>R/se_methods.R</code></td>
 <td>
 <code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code>, <code>build_se()</code> (internal) — SummarizedExperiment helpers</td>
 </tr><tr class="even"><td><code>R/rcomplex-class.R</code></td>
-<td>S3 <code>rcomplex</code> container: constructor, print/summary, <code>.rcomplex</code> methods for 9 pipeline functions</td>
+<td>S3 <code>rcomplex</code> container: constructor, print/summary, and a <code>.rcomplex</code> method for every pipeline generic registered in <code>NAMESPACE</code>
+</td>
 </tr><tr class="odd"><td><code>R/rcomplex-package.R</code></td>
 <td>Package-level roxygen, namespace imports</td>
+</tr><tr class="even"><td><code>R/rng.R</code></td>
+<td>
+<code>.seed_scope()</code> / <code>.seed_restore()</code> — the one RNG seeding contract every seeded entry point routes through</td>
 </tr></tbody></table></div>
 <div class="section level3">
 <h3 id="c-layer-src-rcpparmadillo--openmp">C++ layer (src/, RcppArmadillo + OpenMP)<a class="anchor" aria-label="anchor" href="#c-layer-src-rcpparmadillo--openmp"></a></h3>
@@ -147,8 +176,8 @@
 <td>HOG permutation engine (bit-vector/flag-vector, Besag &amp; Clifford); dense + sparse entry points</td>
 </tr><tr class="even"><td><code>src/fe_permutation.cpp</code></td>
 <td>GPU-precomputed FE permutation engine</td>
-</tr><tr class="odd"><td><code>src/module_jaccard_permutation.cpp</code></td>
-<td>Batched Jaccard permutation engine</td>
+</tr><tr class="odd"><td><code>src/module_preservation.cpp</code></td>
+<td>Module preservation permutation engine (<code>avg.weight</code>, <code>cor.degree</code>, plus diagnostics) and per-gene intramodular statistics; dense + sparse entry points</td>
 </tr><tr class="even"><td><code>src/reduce_orthogroups.cpp</code></td>
 <td>Ward.D2 paralog merging</td>
 </tr><tr class="odd"><td><code>src/coclassification.cpp</code></td>
@@ -189,13 +218,27 @@
 <td>
 <code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code> cross-species partner queries</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-modules.R</code></td>
-<td>Module detection, comparison, classification, consensus</td>
-</tr><tr class="even"><td><code>tests/testthat/test-module-hubs.R</code></td>
+<td>Module detection and consensus</td>
+</tr><tr class="even"><td><code>tests/testthat/test-module-determinism.R</code></td>
+<td>Consensus determinism on a deliberately ambiguous network: bit-reproducible across core counts, ambient RNG stream unchanged, K = 1 null resolution, consensus fixed point</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-ortholog-map.R</code></td>
+<td>Paralog resolution layers, precedence, mappable-set invariant</td>
+</tr><tr class="even"><td><code>tests/testthat/test-module-preservation.R</code></td>
+<td>Preservation kernel vs R reference, null calibration, classification, correspondence, paired directions</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-preservation-matrix.R</code></td>
+<td>
+<code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code>, all-pairs relabelling test: label-space sizes and floors, binary difference vs multilevel dispersion, within-block exclusion, saturation reporting</td>
+</tr><tr class="even"><td><code>tests/testthat/test-pvalue-saturation.R</code></td>
+<td>
+<code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> counts, floor status, off-grid detection, <code>suggested_n_perm</code>, print method</td>
+</tr><tr class="odd"><td><code>tests/testthat/test-module-hubs.R</code></td>
 <td>Hub identification, tie-breaking, hub conservation</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-tag-permutation.R</code></td>
+</tr><tr class="even"><td><code>tests/testthat/test-tag-permutation.R</code></td>
 <td>Trait-specific module recurrence test</td>
-</tr><tr class="even"><td><code>tests/testthat/test-cliques.R</code></td>
+</tr><tr class="odd"><td><code>tests/testthat/test-cliques.R</code></td>
 <td>Clique detection (igraph + C++ backends)</td>
+</tr><tr class="even"><td><code>tests/testthat/test-clique-gene-graph.R</code></td>
+<td>Gene-graph cliques and the five-tier taxonomy: tier waterfall, <code>missing_reason</code> states, derived thresholds, duplicate-row collapse, q-floor diagnostics</td>
 </tr><tr class="odd"><td><code>tests/testthat/test-stability.R</code></td>
 <td>Leave-k-out jackknife stability</td>
 </tr><tr class="even"><td><code>tests/testthat/test-threshold-sweep.R</code></td>
@@ -212,8 +255,12 @@
 <td>SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network)</td>
 </tr><tr class="even"><td><code>tests/testthat/test-rcomplex-class.R</code></td>
 <td>S3 container construction, printing, method pass-through</td>
-</tr><tr class="odd"><td><code>tests/testthat/helper-reference.R</code></td>
+</tr><tr class="odd"><td><code>tests/testthat/test-rng-contract.R</code></td>
+<td>The RNG seeding contract, table-driven over every seeded entry point</td>
+</tr><tr class="even"><td><code>tests/testthat/helper-reference.R</code></td>
 <td>Pure-R reference implementations + shared net helpers (<code>sparse_net()</code>, …)</td>
+</tr><tr class="odd"><td><code>tests/testthat/helper-rng-contract.R</code></td>
+<td>Fixtures and the seeded-entry-point table for the RNG contract test</td>
 </tr><tr class="even"><td><code>tests/testthat/helper-clique-fixtures.R</code></td>
 <td>Shared clique test fixtures</td>
 </tr></tbody></table></div>
@@ -233,8 +280,12 @@
 <p>The anchor gene is never its own neighbour, so it leaves the ortholog-mapped set (k) and the hypergeometric population (N - 1) in <code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, both permutation engines, and the torch FE matrix. O(1/N) p-value shift vs canonical ComPlEx; the reported <code>*.p.val.con</code> keeps the canonical <code>x &gt; 1</code> gate.</p>
 </div>
 <div class="section level3">
+<h3 id="one-rng-seeding-contract">One RNG seeding contract<a class="anchor" aria-label="anchor" href="#one-rng-seeding-contract"></a></h3>
+<p>Every exported function that consumes randomness takes <code>seed = NULL</code> and routes it through <code>.seed_scope()</code> (<code>R/rng.R</code>). The rule: <strong>the caller’s stream advances by exactly what the function drew from it, and by nothing else.</strong> <code>seed = NULL</code> draws from the ambient stream and leaves it advanced (as <code><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample()</a></code> does); a seed draws from a private stream and restores the caller’s on exit, byte for byte, including removing <code>.Random.seed</code> when it did not exist before. This replaced three coexisting contracts in 0.3.0 — pinning the exit state at <code>set.seed(seed)</code> (which handed a downstream unseeded draw a stream decided by the <em>upstream</em> function’s seed), restoring the ambient stream, and a bare <code>set.seed(seed)</code> with no restore. Batch wrappers (<code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code>, <code><a href="reference/density_sweep.html">density_sweep()</a></code>, <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>) seed once and pass <code>seed = NULL</code> down, so their inner calls draw in sequence instead of all reusing one set of uniforms. <code>mclapply()</code> forks never propagate <code>.Random.seed</code> to the parent, so core-count reproducibility comes from <code>.task_seed()</code>, not from the ambient stream. <code>tests/testthat/test-rng-contract.R</code> enforces this table-driven over every seeded entry point and fails if a new one appears without joining the table.</p>
+</div>
+<div class="section level3">
 <h3 id="randomized-p-pi0-pair-level">Randomized-p pi0 (pair level)<a class="anchor" aria-label="anchor" href="#randomized-p-pi0-pair-level"></a></h3>
-<p>Exact hypergeometric p-values pile up at 1 and force Storey’s pi0 to 1. <code>summarize_comparison(pi0_method = "randomized")</code> (default) estimates pi0 on draws of <code>p.val.gt + U * p.val.eq</code> (exactly uniform under H0) and applies it to the exact p-values. Draws use the global RNG — <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> for reproducible q-values. HOG-level q-values stay <code>DiscreteQvalue::DQ(method = "Liang")</code> (Besag–Clifford p-values have discrete support).</p>
+<p>Exact hypergeometric p-values pile up at 1 and force Storey’s pi0 to 1. <code>summarize_comparison(pi0_method = "randomized")</code> (default) estimates pi0 on draws of <code>p.val.gt + U * p.val.eq</code> (exactly uniform under H0) and applies it to the exact p-values. <code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code> and <code><a href="reference/density_sweep.html">density_sweep()</a></code> take <code>seed</code> (default <code>NULL</code>) to pin those draws under the contract above. HOG-level q-values stay <code>DiscreteQvalue::DQ(method = "Liang")</code> (Besag–Clifford p-values have discrete support).</p>
 </div>
 <div class="section level3">
 <h3 id="pval_combine-default-max">pval_combine default “max”<a class="anchor" aria-label="anchor" href="#pval_combine-default-max"></a></h3>
@@ -251,6 +302,22 @@
 <div class="section level3">
 <h3 id="hog-level-testing-uses-permutation-not-fishers-method">HOG-level testing uses permutation, not Fisher’s method<a class="anchor" aria-label="anchor" href="#hog-level-testing-uses-permutation-not-fishers-method"></a></h3>
 <p>Fisher’s method is anti-conservative for multi-copy HOGs (correlated tests). <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code> permutes gene identities instead.</p>
+</div>
+<div class="section level3">
+<h3 id="module-level-testing-measures-connectivity-not-membership">Module-level testing measures connectivity, not membership<a class="anchor" aria-label="anchor" href="#module-level-testing-measures-connectivity-not-membership"></a></h3>
+<p>Gene overlap called a module conserved whenever its membership survived, even when the wiring inside it was gone. <code><a href="reference/module_preservation.html">module_preservation()</a></code> permutes gene identities with the edges held fixed and tests <code>avg.weight</code> (module density) and <code>cor.degree</code> (Pearson correlation of intramodular connectivity), combined with <code>pmax</code> so both must be significant. <code>pmax</code> is valid for that intersection-union null but was measured ~400x conservative, so the combined p-value is first recalibrated against the permutation joint null of the two statistics (<code>p.calibrated</code>, argument <code>calibrate</code>) and q-values are Benjamini-Hochberg on that; <code><a href="reference/classify_preservation.html">classify_preservation()</a></code> reads its cut point against <code>Zsummary_std</code>, which has unit null variance, not raw <code>Zsummary</code>. <code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code> may only choose <em>which</em> paralog copy carries a label, never which genes are <strong>mappable</strong> — but it can still change which genes are <strong>tested</strong>, by rescuing genes whose candidate labels would otherwise tie in the majority vote. The circularity defence therefore rests on the <code>p_copy</code> columns of <code>sensitivity</code>, a null over random copy choices holding the projected gene set fixed, not on the mappable-set invariant.</p>
+</div>
+<div class="section level3">
+<h3 id="two-clique-backends-because-they-answer-different-questions">Two clique backends, because they answer different questions<a class="anchor" aria-label="anchor" href="#two-clique-backends-because-they-answer-different-questions"></a></h3>
+<p><code><a href="reference/find_cliques.html">find_cliques()</a></code> cliques the <em>species</em> graph — nodes are species, edges are species pairs joined by a co-expressolog — and the C++ backtracker returns <strong>one</strong> best gene assignment per species clique (fewest missing edges first, then the lowest composite cost <code>cost_weights["q"] * mean_q - cost_weights["effect"] * mean_effect</code>, whose <code>c(q = 1, effect = 0)</code> default is mean-q only). That single-object-per-clique shape is what <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>, <code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code> and <code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code> need: each asks what happens to <em>a</em> clique under resampling. It cannot say which paralog combinations form cliques, because it reports one. <code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> cliques the per-HOG <em>gene</em> graph instead — nodes are (species, gene) pairs, edges are the co-expressolog calls — and enumerates every maximal clique, so a multi-copy HOG contributes each combination separately. That is what the published taxonomy needs. Because co-expressolog edges are cross-species, a clique normally carries at most one gene per species; <code>n_species</code> records this rather than assuming it, so a caller who supplies within-species edges sees <code>n_species &lt; n_members</code> instead of silently wrong species-pair arithmetic. <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> then runs a five-tier waterfall (<code>complete_conserved</code>, <code>lineage_specific</code>, <code>partial_significant</code>, <code>partial_present</code>, <code>differentiated</code>, else <code>unclassified</code>), first match wins, with every threshold derived from <code>length(species)</code> — e.g. <code>partial_significant</code> tolerates <code>S - 2</code> non-significant edges, the largest tolerance under which no member can be isolated. A clique maximal on the strict graph need not be maximal on a looser one, so the intended use is to combine <code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> runs at several <code>alpha_graph</code> values under distinct <code>id_prefix</code> values. The tiers separate absent evidence from negative evidence: <code>missing_reason</code> is <code>absent</code> / <code>untested</code> / <code>tested_ns</code> / <code>extendable</code>, which is why <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> takes the <strong>unfiltered</strong> edge table — a gap tier has to see the rows that were tested and failed in order to refuse them.</p>
+</div>
+<div class="section level3">
+<h3 id="trait-level-testing-is-all-pairs-preservation-not-hog-recurrence">Trait-level testing is all-pairs preservation, not HOG recurrence<a class="anchor" aria-label="anchor" href="#trait-level-testing-is-all-pairs-preservation-not-hog-recurrence"></a></h3>
+<p>Two trait-level tests with different units. <code><a href="reference/tag_permutation.html">tag_permutation()</a></code> asks whether HOGs recur in <em>diverged</em> modules across designated contrasts; its null swaps the two trait labels within each contrast, so the label space is the product over connected components of the species/contrast graph (<code>R/tag_blocks.R</code>) — <code>2^k</code> for a disjoint pairing, the special case rather than the assumption — and <code>2^-4 = 0.0625</code> means a design with fewer than five independent contrast groups cannot reach p &lt; 0.05 however strong the signal. <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> drops the recurrence requirement: it reads <code>Zsummary_std</code> from every <code>choose(n, 2)</code> contrast of an all-pairs <code><a href="reference/preservation_paired.html">preservation_paired()</a></code> run, and the unit is the module-direction, not the HOG. The statistic is <code>mean(Zsummary_std | concordant) - mean(Zsummary_std | discordant)</code> for two trait levels (one-sided upward, positive meaning discordant pairs are the less preserved), and for more levels the row-weighted between-class SD of the class means, with concordant rows pooled so the binary case is exactly the difference. Running <em>all</em> pairs is what buys the resolution: eight species split 4/4 give <code>choose(8, 4) = 70</code> free labellings against the 16 a within-genus null over four genera of two can reach. Both nulls are reported — <code>p_free</code> over all species, <code>p_blocked</code> within <code>block</code> — because their agreement is the phylogenetic-control diagnostic: a free p-value far below the blocked one bought its resolution by breaking phylogenetic control. Within-block pairs are excluded by default, since in a paired design every within-genus pair is trait-discordant and every concordant pair is between-genus, so trait status and phylogenetic distance are perfectly confounded and the confound runs <em>against</em> the hypothesis; the exclusion is by block membership, which no relabelling changes, so the null stays valid. The statistic never reads <code>p.value</code> or <code>q.value</code>.</p>
+</div>
+<div class="section level3">
+<h3 id="permutation-p-values-saturate-by-design">Permutation p-values saturate by design<a class="anchor" aria-label="anchor" href="#permutation-p-values-saturate-by-design"></a></h3>
+<p>A relabelling p-value cannot go below the tail of the maximum of a <strong>finite</strong> label space, and that space is a property of the species set, not of how long the analysis runs. Relabellings that leave every pair’s concordance alone reproduce the statistic exactly — swapping the two trait values everywhere is one — so a binary design always carries at least a twofold tie at the top: <code>p_attainable</code> is 2/70 = 0.029 free on eight species split 4/4 and 2/16 = 0.125 inside four blocks of two, and no amount of sampling lowers either. <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> reports <code>p_min</code>, <code>p_attainable</code>, <code>n_tied_max</code> and <code>exact</code> per null and warns when the binding floor exceeds 0.05; a null whose space exceeds <code>enum_max</code> is sampled and then reports its floor over draws (<code>1 / (n_perm + 1)</code>), which can sit far below the floor the design really imposes — only <code>exact = TRUE</code> bounds the design. Downstream q-values collapse the same way: on the eight-species Pooideae run, 511 module-directions took 172 distinct q-values with 35 tied at the floor of 0.00071 and 20 at exactly 1, and among those 35 <code>Zsummary_std</code> spanned 6.4 to 66.7 — a tenfold range of effect the q-value cannot see. <code><a href="reference/preservation_paired.html">preservation_paired()</a></code> also corrects BH <em>within</em> each contrast, which under-corrects an all-pairs matrix by roughly the number of contrasts, and a global BH could not put any module below <code>n_tests / (n_perm + 1)</code> (0.26 for 511 tests at <code>n_perm = 2000</code>); pass <code>n_perm_pres</code> and <code>$saturation$q_floor_global</code> reports that number. <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> exists to report this resolution wherever a p-value is reported. Rank on <code>Zsummary_std</code>, which is standardised to unit null variance; reserve p and q for the significance call.</p>
 </div>
 <div class="section level3">
 <h3 id="iterative-consensus-module-detection">Iterative consensus module detection<a class="anchor" aria-label="anchor" href="#iterative-consensus-module-detection"></a></h3>
