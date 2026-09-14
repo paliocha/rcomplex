@@ -11,6 +11,18 @@ NetRep computes when only an adjacency matrix is available (Ritchie et al.
 2016), and `resolve_ortholog_map()` reduces each multi-copy HOG to one
 counterpart per gene before any module label is projected.
 
+## Orthology
+
+- `prepare_orthologs()` no longer requires `reduce_orthogroups()` output.
+  `reductions` now defaults to `NULL`, which skips paralog-correlation
+  collapse entirely and keeps every gene at its original identity. Paralog
+  reduction is lossy by design -- correlated paralogs are averaged into one
+  representative -- which is the right trade-off for consumers that need one
+  counterpart per gene (module preservation, the species-graph clique
+  backend), but it removes exactly the per-paralog resolution that
+  `gene_clique_graph()` / `classify_gene_cliques()` are built to resolve.
+  Call `prepare_orthologs(se_list)` without `reductions` for that workflow.
+
 ## Reproducibility
 
 - `detect_modules(seed = )` on a single resolution now leaves the global
