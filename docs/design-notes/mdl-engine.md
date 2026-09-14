@@ -102,6 +102,25 @@ for license metadata) — not assumed from memory. DOIs resolve at
   author's extension of the MDL simplification idea to time-varying
   networks. Not needed for a first static-network port; noted for
   completeness since the user supplied it directly.
+- **Baltakienė, M., Baltakys, K., Cardamone, D., Parisi, F.,
+  Radicioni, T., Torricelli, M., van Lidth de Jeude, J. A. & Saracco,
+  F.** "Maximum entropy approach to link prediction in bipartite
+  networks." `arXiv:1805.04307` (2018)
+  (<https://arxiv.org/abs/1805.04307>). **Preprint only — confirmed
+  via OpenAlex (`is_published: false`) never appeared in a
+  peer-reviewed venue; no separate DOI beyond the arXiv one
+  (`10.48550/arXiv.1805.04307`).** A Complexity72h workshop product
+  (IMT Lucca). Uses the bipartite configuration model (BiCM) maximum-
+  entropy null to score/predict links in a bipartite graph — the same
+  entropy-null-model lineage as the Tumminello statistically-
+  validated-network approach below, applied to the bipartite case.
+  Potentially relevant to this package's species x HOG structure
+  (which is itself bipartite before per-species network projection),
+  but orthogonal to the MDL backbone port in Section 3: BiCM scores
+  edges against an entropy null, it does not compress/select a
+  backbone by description length. Not needed for a first static-graph
+  MDL port; noted for completeness since the user supplied it
+  directly.
 
 ### Supporting literature already cited in `R/coexpressolog-strength.R` (cross-referenced here for a future MDL design-notes header, not the porting source)
 
