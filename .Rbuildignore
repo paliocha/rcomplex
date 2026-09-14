@@ -9,6 +9,7 @@
 ^rcomplex\.Rcheck$
 ^rcomplex.*\.tar\.gz$
 ^docs$
+^dev$
 ^doc$
 ^Meta$
 ^NOTES_.*\.md$
