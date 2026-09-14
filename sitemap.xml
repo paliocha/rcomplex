@@ -24,6 +24,7 @@
 <url><loc>/reference/clique_stability.html</loc></url>
 <url><loc>/reference/clique_threshold_sweep.html</loc></url>
 <url><loc>/reference/coexpressolog_null.html</loc></url>
+<url><loc>/reference/coexpressolog_strength.html</loc></url>
 <url><loc>/reference/compare_neighborhoods.html</loc></url>
 <url><loc>/reference/compare_neighborhoods_cpp.html</loc></url>
 <url><loc>/reference/compare_neighborhoods_sparse_cpp.html</loc></url>
@@ -66,6 +67,7 @@
 <url><loc>/reference/reduce_orthogroups_cpp.html</loc></url>
 <url><loc>/reference/resolve_ortholog_map.html</loc></url>
 <url><loc>/reference/sparse_excess_spectral_norm_cpp.html</loc></url>
+<url><loc>/reference/suggest_reference_density.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
 <url><loc>/reference/tag_permutation.html</loc></url>
 </urlset>

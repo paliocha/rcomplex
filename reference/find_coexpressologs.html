@@ -84,6 +84,7 @@ the results into a single edge data frame ready for
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"randomized"</span>, <span class="st">"storey"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  out_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -186,13 +187,35 @@ on exit; with <code>seed = NULL</code> the draws come from the ambient
 stream and leave it advanced. Same contract as
 <code><a href="detect_modules.html">detect_modules</a></code> and <code><a href="summarize_comparison.html">summarize_comparison</a></code>.</p></dd>
 
+
+<dt id="arg-out-file">out_file<a class="anchor" aria-label="anchor" href="#arg-out-file"></a></dt>
+<dd><p>Optional path to a CSV file. When supplied, each
+species pair's edge table is appended to <code>out_file</code> via
+<code><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></code> as soon as it is computed, instead
+of being accumulated in memory and combined with <code><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind()</a></code> at
+the end. This keeps peak memory bounded by one pair's edge table
+rather than the whole run, which matters for many species / dense
+networks. Any existing file at <code>out_file</code> is overwritten (not
+appended to) at the start of the call. When <code>out_file</code> is
+used, this function always creates <code>out_file</code> – including a
+header-only file when no species pair produces any edges – and
+returns <code>out_file</code> (invisibly) instead of a data frame; read
+the result back with e.g. <code>data.table::fread(out_file)</code>.
+Not supported on the <code>rcomplex</code> S3 method (see
+<code>find_coexpressologs.rcomplex</code>), which stores the in-memory
+edge table on <code>$edges</code>. Default <code>NULL</code> keeps the original
+in-memory behaviour.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     <p>Data frame with columns <code>gene1</code>, <code>gene2</code>,
 <code>species1</code>, <code>species2</code>, <code>hog</code>, <code>q.value</code>,
 <code>effect_size</code>, <code>jaccard</code>, <code>type</code>. Ready for
-<code><a href="find_cliques.html">find_cliques</a></code> or <code><a href="classify_cliques.html">classify_cliques</a></code>.</p>
+<code><a href="find_cliques.html">find_cliques</a></code> or <code><a href="classify_cliques.html">classify_cliques</a></code>. When
+<code>out_file</code> is supplied, the edge table is streamed to that
+file instead (always created, even when empty), and <code>out_file</code>
+is returned (invisibly).</p>
     </div>
     <div id="methods">
     <h2>Methods</h2>
@@ -240,6 +263,10 @@ when the expression matrices are restricted the same way beforehand
 <span class="r-in"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu">find_coexpressologs</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span></span>
 <span class="r-in"><span>  method <span class="op">=</span> <span class="st">"permutation"</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span>, n_cores <span class="op">=</span> <span class="fl">4L</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Stream edges to disk instead of holding every pair in memory</span></span></span>
+<span class="r-in"><span><span class="fu">find_coexpressologs</span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>, out_file <span class="op">=</span> <span class="st">"edges.csv"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"edges.csv"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

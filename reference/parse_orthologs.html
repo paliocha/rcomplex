@@ -98,6 +98,20 @@ optionally gzipped).</p></dd>
 
 
 </dl></div>
+    <div id="details">
+    <h2>Details</h2>
+    <p>Implemented with <span class="pkg">data.table</span> (<code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></code> only)
+rather than <span class="pkg">dplyr</span>/<span class="pkg">tidyr</span> (used through rcomplex 0.3.0). This
+was the only site in the package using either package, so the switch
+drops both from Imports; it is a dependency-economy change
+(data.table has zero hard dependencies), not a hot-path optimization –
+this parser runs once per ortholog file, not inside any permutation or
+per-replicate loop. <code>hog</code> ids are assigned by the sorted order of each
+row's full <code>gene_content</code> string, matching the previous
+<code><a href="https://dplyr.tidyverse.org/reference/context.html" class="external-link">dplyr::cur_group_id()</a></code> convention (which numbers groups by sorted
+key, not order of appearance) so pipelines that persist HOG ids across
+a rerun see the same numbering.</p>
+    </div>
 
     <div id="ref-examples">
     <h2>Examples</h2>
