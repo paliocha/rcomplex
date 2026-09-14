@@ -136,14 +136,16 @@ stab <- clique_stability(edges, target_species,
 \dontrun{
 # Structural stability for all cliques
 cliques <- find_cliques(edges, all_sp, min_species = 2L)
-stab    <- clique_stability(edges, all_sp,
-                            full_cliques = cliques)
+stab <- clique_stability(edges, all_sp,
+  full_cliques = cliques
+)
 
 # With trait annotation
 trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
-stab  <- clique_stability(edges, all_sp,
-                          species_trait = trait,
-                          full_cliques = cliques)
+stab <- clique_stability(edges, all_sp,
+  species_trait = trait,
+  full_cliques = cliques
+)
 
 # Cliques surviving any single species dropout
 k1 <- stab$stability[stab$stability$k == 1, ]

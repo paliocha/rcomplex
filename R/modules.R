@@ -31,6 +31,23 @@
 #' @param nb_trials Number of Infomap attempts; best result is kept
 #'   (default 10). Ignored for other methods.
 #' @param seed Random seed for reproducibility (default `NULL`).
+#'
+#'   With a seed, the result is reproducible and identical at any `n_cores`:
+#'   every parallel task derives its own RNG stream from the seed and its task
+#'   index, so the answer does not depend on how the work was distributed.
+#'   Two limits are worth knowing. Reproducibility holds for one machine and
+#'   one igraph build -- the partition is a function of what
+#'   `igraph::cluster_leiden()` draws, so an igraph upgrade may move it. And
+#'   the answer depends on `RNGkind` as well as on `seed`: a session that has
+#'   set `RNGkind("L'Ecuyer-CMRG")` gets a different, still reproducible,
+#'   partition. `RNGkind` is deliberately not pinned inside the function.
+#'
+#'   With an explicit seed the caller's stream is restored on exit, so the
+#'   call is invisible to anything drawn afterwards: the clustering backend
+#'   draws from a private stream started at `seed`. With `seed = NULL` the
+#'   stream advances by exactly what was taken from it -- the one draw used
+#'   to pick a root in consensus mode, whatever the backend consumed in
+#'   single-resolution mode -- so consecutive unseeded calls still differ.
 #' @param consensus_threshold Threshold for consensus mode. \code{NULL}
 #'   (default) uses iterative adaptive thresholding per Jeub et al. (2018):
 #'   subtracts the per-pair expected co-classification under random assignment
@@ -42,14 +59,36 @@
 #'   contexts in the same session.
 #' @param max_consensus_iter Maximum number of consensus iterations for
 #'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
-#'   Typically converges in 2--5 iterations. Ignored when
-#'   \code{consensus_threshold} is numeric.
+#'   Iteration stops when the sweep reproduces its own input (a fixed
+#'   point) or when all resolutions agree. On the eight Pooideae networks
+#'   that stopping rule was measured on it fired at 5--12 iterations, so
+#'   the default cap of 10 cuts two of those eight off before it fires:
+#'   at the default the loop may return a partition it had not finished
+#'   settling. Raise it (20 is above every measured stop) when the
+#'   returned \code{params$n_consensus_iterations} equals
+#'   \code{max_consensus_iter} -- a truncated run always does, though a
+#'   run that settles on the last allowed iteration does too.
+#'   Ignored when \code{consensus_threshold} is numeric.
 #' @param test_k1 Logical. Test the null hypothesis K = 1 (no community
 #'   structure) via permutation of the spectral norm of the excess
 #'   co-classification matrix. Default \code{TRUE}. Only used in adaptive
-#'   consensus mode.
+#'   consensus mode. This is the expensive part of a
+#'   \code{detect_modules()} call on a structured network: see
+#'   \code{n_perm_k1} for what it costs and when to turn it off.
 #' @param n_perm_k1 Number of permutations for the K = 1 test.
-#'   Default 100.
+#'   Default 100. Sets both the resolution of the p-value (its floor is
+#'   \code{1 / (n_perm_k1 + 1)}) and the power of the test; batches stop
+#'   early only when the remaining permutations cannot change the call.
+#'   An unstructured network accumulates exceedances fast and stops after
+#'   a batch or two, but a structured one, which most real networks are,
+#'   can only stop once no outstanding permutation matters, so it
+#'   spends the whole budget. Each of those permutations rewires the graph
+#'   degree-preservingly and runs the full Leiden sweep at the observed
+#'   \code{n_iterations}, so the K = 1 test dominates the runtime and the
+#'   peak memory of the call; the rewiring step has been the cause of
+#'   out-of-memory kills on large networks. On a network already known to
+#'   be structured, set \code{test_k1 = FALSE} rather than lowering
+#'   \code{n_perm_k1}, which buys speed by weakening the test.
 #' @param alpha_k1 Significance level for the K = 1 test.
 #'   Default 0.05.
 #'
@@ -106,11 +145,13 @@
 #' \dontrun{
 #' # Single resolution
 #' mods <- detect_modules(net, method = "leiden", resolution = 1.0)
-#' table(mods$modules)  # module sizes
+#' table(mods$modules) # module sizes
 #'
 #' # Multi-resolution consensus (Jeub et al. 2018)
-#' mods_consensus <- detect_modules(net, resolution = c(0.5, 1.0, 2.0),
-#'                                  n_cores = 4L)
+#' mods_consensus <- detect_modules(net,
+#'   resolution = c(0.5, 1.0, 2.0),
+#'   n_cores = 4L
+#' )
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -120,30 +161,32 @@ detect_modules <- function(net, ...) UseMethod("detect_modules")
 #' @rdname detect_modules
 #' @export
 detect_modules.default <- function(net,
-                           method = c("leiden", "infomap", "sbm"),
-                           resolution = 1.0,
-                           objective_function = c("CPM", "modularity"),
-                           n_iterations = 2L,
-                           nb_trials = 10L,
-                           seed = NULL,
-                           consensus_threshold = NULL,
-                           n_cores = 1L,
-                           max_consensus_iter = 10L,
-                           test_k1 = TRUE,
-                           n_perm_k1 = 100L,
-                           alpha_k1 = 0.05, ...) {
+                                   method = c("leiden", "infomap", "sbm"),
+                                   resolution = 1.0,
+                                   objective_function = c("CPM", "modularity"),
+                                   n_iterations = 2L,
+                                   nb_trials = 10L,
+                                   seed = NULL,
+                                   consensus_threshold = NULL,
+                                   n_cores = 1L,
+                                   max_consensus_iter = 10L,
+                                   test_k1 = TRUE,
+                                   n_perm_k1 = 100L,
+                                   alpha_k1 = 0.05, ...) {
   method <- match.arg(method)
   objective_function <- match.arg(objective_function)
 
   # Consensus mode: vector resolution triggers multi-resolution + consensus
   if (length(resolution) > 1L) {
-    if (method != "leiden")
+    if (method != "leiden") {
       stop("Consensus mode (vector resolution) only supported for method = \"leiden\"")
+    }
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
       objective_function, n_iterations, seed, as.integer(n_cores),
       as.integer(max_consensus_iter), test_k1, as.integer(n_perm_k1),
-      alpha_k1))
+      alpha_k1
+    ))
   }
 
   n_iterations <- as.integer(n_iterations)
@@ -174,12 +217,20 @@ detect_modules.default <- function(net,
     stop("No edges above threshold; cannot detect modules")
   }
 
-  if (!is.null(seed)) set.seed(seed)
+  # A seeded call runs cluster_leiden() / cluster_infomap() /
+  # estimateSimpleSBM() on a private stream and restores the caller's,
+  # so a downstream set.seed()-free draw -- summarize_comparison()'s
+  # randomized-p pi0, for one -- continues from the caller's own seed
+  # rather than from wherever the clustering backend happened to stop.
+  # See .seed_scope() in R/rng.R for the package-wide contract.
+  .seed_scope(seed)
 
   if (method == "sbm") {
     if (!requireNamespace("sbm", quietly = TRUE)) {
-      stop("Package 'sbm' is required for method = \"sbm\". ",
-           "Install it with install.packages(\"sbm\")")
+      stop(
+        "Package 'sbm' is required for method = \"sbm\". ",
+        "Install it with install.packages(\"sbm\")"
+      )
     }
 
     if (.net_is_sparse(net)) {
@@ -188,7 +239,8 @@ detect_modules.default <- function(net,
     }
 
     fit <- sbm::estimateSimpleSBM(
-      adj, model = "gaussian", directed = FALSE,
+      adj,
+      model = "gaussian", directed = FALSE,
       estimOptions = list(verbosity = 0L, plot = FALSE)
     )
 
@@ -196,7 +248,8 @@ detect_modules.default <- function(net,
     module_genes <- split(names(membership), membership)
 
     g <- igraph::graph_from_adjacency_matrix(
-      adj, mode = "upper", weighted = TRUE, diag = FALSE
+      adj,
+      mode = "upper", weighted = TRUE, diag = FALSE
     )
 
     return(list(
@@ -212,7 +265,8 @@ detect_modules.default <- function(net,
 
   # Graph-based methods (leiden, infomap)
   g <- igraph::graph_from_adjacency_matrix(
-    adj, mode = "upper", weighted = TRUE, diag = FALSE
+    adj,
+    mode = "upper", weighted = TRUE, diag = FALSE
   )
 
   if (method == "leiden") {
@@ -230,7 +284,8 @@ detect_modules.default <- function(net,
     )
   } else {
     comm <- igraph::cluster_infomap(
-      g, e.weights = igraph::E(g)$weight, nb.trials = nb_trials
+      g,
+      e.weights = igraph::E(g)$weight, nb.trials = nb_trials
     )
     params <- list(nb_trials = nb_trials, seed = seed)
   }
@@ -269,8 +324,9 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
-        consensus_threshold >= 1)
+      consensus_threshold >= 1) {
       stop("consensus_threshold must be NULL (adaptive) or numeric in (0, 1)")
+    }
   }
 
   if (!is.list(net) || is.null(net$network)) {
@@ -297,28 +353,45 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     stop("No edges above threshold; cannot detect modules")
   }
 
-  if (!is.null(seed)) set.seed(seed)
+  # The per-task set.seed() calls below run in the caller's session on the
+  # serial path (no fork) but not under mclapply, so the scope below restores
+  # the ambient stream on exit and leaves detect_modules() looking the same at
+  # any n_cores. With seed = NULL the root is drawn from the ambient stream
+  # first, so that one draw -- and only that one -- is what the caller sees,
+  # and consecutive unseeded calls still differ.
+  seed_root <- if (is.null(seed)) {
+    sample.int(.Machine$integer.max, 1L)
+  } else {
+    as.integer(seed)
+  }
+  .seed_scope(seed_root)
 
   # Build original graph — then free the dense adjacency (~4.6 GB for N=24k)
   g <- igraph::graph_from_adjacency_matrix(
-    adj, mode = "upper", weighted = TRUE, diag = FALSE
+    adj,
+    mode = "upper", weighted = TRUE, diag = FALSE
   )
-  rm(adj); gc()
+  rm(adj)
+  gc()
 
   resolutions <- sort(resolutions)
   n_res <- length(resolutions)
 
   # If only one resolution after dedup, fall back to single-resolution
   if (n_res == 1L) {
-    return(detect_modules(net, method = "leiden", resolution = resolutions,
-                          objective_function = objective_function,
-                          n_iterations = n_iterations, seed = seed))
+    return(detect_modules(net,
+      method = "leiden", resolution = resolutions,
+      objective_function = objective_function,
+      n_iterations = n_iterations, seed = seed
+    ))
   }
 
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
 
   # ---- Initial Leiden sweep on original graph ----
-  run_initial <- function(res) {
+  run_initial <- function(ri) {
+    set.seed(.task_seed(seed_root, 1L, ri))
+    res <- resolutions[[ri]]
     comm <- igraph::cluster_leiden(
       g,
       resolution = res,
@@ -327,21 +400,31 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     )
     mem <- igraph::membership(comm)
     names(mem) <- igraph::V(g)$name
-    list(mem = mem,
-         n_mod = length(unique(mem)),
-         quality = igraph::modularity(g, mem))
+    list(
+      mem = mem,
+      n_mod = length(unique(mem)),
+      quality = igraph::modularity(g, mem)
+    )
   }
 
   if (use_mc) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
-    on.exit({
-      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
-      else Sys.setenv(OMP_NUM_THREADS = old_omp)
-    }, add = TRUE)
-    results <- parallel::mclapply(resolutions, run_initial, mc.cores = n_cores)
+    on.exit(
+      {
+        if (is.na(old_omp)) {
+          Sys.unsetenv("OMP_NUM_THREADS")
+        } else {
+          Sys.setenv(OMP_NUM_THREADS = old_omp)
+        }
+      },
+      add = TRUE
+    )
+    results <- parallel::mclapply(seq_len(n_res), run_initial,
+      mc.cores = n_cores
+    )
   } else {
-    results <- lapply(resolutions, run_initial)
+    results <- lapply(seq_len(n_res), run_initial)
   }
 
   errs <- which(vapply(results, inherits, logical(1), "try-error"))
@@ -351,8 +434,10 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   }
   failed <- vapply(results, is.null, logical(1))
   if (any(failed)) {
-    stop("Parallel workers returned NULL at resolutions: ",
-         paste(resolutions[failed], collapse = ", "))
+    stop(
+      "Parallel workers returned NULL at resolutions: ",
+      paste(resolutions[failed], collapse = ", ")
+    )
   }
 
   memberships <- lapply(results, `[[`, "mem")
@@ -363,7 +448,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   scan_ari_next <- rep(NA_real_, n_res)
   for (r in seq_len(n_res - 1L)) {
     scan_ari_next[r] <- igraph::compare(
-      memberships[[r]], memberships[[r + 1L]], method = "adjusted.rand"
+      memberships[[r]], memberships[[r + 1L]],
+      method = "adjusted.rand"
     )
   }
 
@@ -408,7 +494,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       )
 
       consensus_mems <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, n_cores
+        g_consensus, resolutions, n_iterations, n_cores,
+        seed_root = seed_root, iter = 0L
       )
       membership <- pick_best_partition(consensus_mems, g)
     }
@@ -417,7 +504,8 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     if (test_k1) {
       k1_result <- test_community_structure(
         g, genes, resolutions, objective_function, n_iterations,
-        memberships, edge_list_0, n_perm_k1, n_cores, alpha_k1
+        memberships, edge_list_0, n_perm_k1, n_cores, alpha_k1,
+        seed_root = seed_root
       )
       if (!k1_result$has_structure) {
         membership <- stats::setNames(rep(1L, n_genes), genes)
@@ -471,18 +559,41 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       )
 
       new_memberships <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, n_cores
+        g_consensus, resolutions, n_iterations, n_cores,
+        seed_root = seed_root, iter = iter
       )
 
       # Convergence: all K partitions are ~identical (vacuously true for
       # n_res == 1, but that case is caught by the early return above)
       converged <- all(vapply(seq_len(n_res - 1L), function(r) {
         igraph::compare(new_memberships[[r]], new_memberships[[r + 1L]],
-                        method = "adjusted.rand") > 0.999
+          method = "adjusted.rand"
+        ) > 0.999
       }, logical(1)))
 
+      # Or the sweep has reproduced its own input. The criterion above asks
+      # the K partitions to agree with EACH OTHER, which a stable
+      # disagreement between the coarsest and the finest resolution can deny
+      # forever: on 6 of 8 Pooideae networks the sweep stopped changing after
+      # ~10 iterations and every further iteration rebuilt the same
+      # co-classification, the same consensus graph and the same partitions
+      # until max_consensus_iter.
+      #
+      # This is a stopping heuristic, not a proof of a fixed point. The
+      # sweep is seeded per iteration (.task_seed(seed_root, 100L + iter,
+      # ri) in consensus_leiden_sweep()), so the map applied at iteration
+      # i + 1 is not the map applied at iteration i and one reproduction
+      # does not entail the next. What is checked is that stopping here
+      # agrees with running the full budget: on all 8 Pooideae networks the
+      # break fires at 5-12 iterations and returns the same partition, with
+      # the same n_modules, as max_consensus_iter = 1000.
+      settled <- identical(
+        lapply(new_memberships, .partition_id),
+        lapply(memberships, .partition_id)
+      )
+
       memberships <- new_memberships
-      if (converged) break
+      if (converged || settled) break
     }
 
     membership <- pick_best_partition(memberships, g)
@@ -526,10 +637,12 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 #' singletons. Modularity is the correct objective per Jeub et al. (2018).
 #' @noRd
 consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
-                                   n_cores = 1L) {
+                                   n_cores = 1L, seed_root = 0L, iter = 0L) {
   vertex_names <- igraph::V(graph)$name
 
-  run_one <- function(res) {
+  run_one <- function(ri) {
+    set.seed(.task_seed(seed_root, 100L + iter, ri))
+    res <- resolutions[[ri]]
     comm <- igraph::cluster_leiden(
       graph,
       resolution = res,
@@ -544,11 +657,19 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
   if (.Platform$OS.type == "unix" && n_cores > 1L) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
-    on.exit({
-      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
-      else Sys.setenv(OMP_NUM_THREADS = old_omp)
-    }, add = TRUE)
-    results <- parallel::mclapply(resolutions, run_one, mc.cores = n_cores)
+    on.exit(
+      {
+        if (is.na(old_omp)) {
+          Sys.unsetenv("OMP_NUM_THREADS")
+        } else {
+          Sys.setenv(OMP_NUM_THREADS = old_omp)
+        }
+      },
+      add = TRUE
+    )
+    results <- parallel::mclapply(seq_along(resolutions), run_one,
+      mc.cores = n_cores
+    )
     errs <- which(vapply(results, inherits, logical(1), "try-error"))
     if (length(errs)) {
       e <- results[[errs[1L]]]
@@ -556,8 +677,21 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
     }
     results
   } else {
-    lapply(resolutions, run_one)
+    lapply(seq_along(resolutions), run_one)
   }
+}
+
+
+#' Canonical form of a partition (internal)
+#'
+#' Relabels module IDs by first appearance, so two membership vectors that
+#' describe the same grouping under different labels compare identical.
+#' Leiden hands back arbitrary labels; comparing them raw would call a
+#' fixed point of the consensus iteration a change.
+#' @noRd
+.partition_id <- function(mem) {
+  mem <- as.integer(mem)
+  match(mem, unique(mem))
 }
 
 
@@ -571,51 +705,97 @@ pick_best_partition <- function(memberships, graph) {
 }
 
 
+#' Has the K = 1 decision stopped depending on the permutations still owed?
+#'
+#' TRUE once no outcome of the remaining \code{n_perm - n_done} permutations
+#' could move the final p-value across \code{alpha}, so stopping here gives
+#' the same call as running the whole budget.
+#'
+#' The rule this replaces stopped as soon as
+#' \code{(n_exceed + 1) / (n_done + 1)} crossed \code{alpha} -- a statement
+#' about the permutations run so far, not one the outstanding permutations
+#' have to agree with. A single exceedance in the first batch of 20 ended
+#' the test at p = 2/21 = 0.095 and collapsed the network to one module,
+#' where the full 100-permutation run would have finished at 2/101 = 0.020.
+#' Simulation over the stopping rule (200k draws per point): at a
+#' per-permutation exceedance probability of 0.01 the old rule called
+#' structure 82% of the time against 99.7% for the full budget.
+#' @noRd
+.k1_settled <- function(n_exceed, n_done, n_perm, alpha) {
+  p_floor <- (1 + n_exceed) / (1 + n_perm)
+  p_ceiling <- (1 + n_exceed + (n_perm - n_done)) / (1 + n_perm)
+  # Both comparisons are the mirror of `p_value < alpha` in the caller, so
+  # `p == alpha` counts as settled: at n_perm = 99 and alpha = 0.05 four
+  # exceedances put p_floor at exactly 5/100, the same double as 0.05, and
+  # the call can no longer change however the outstanding permutations
+  # fall. `p_floor > alpha` there burned 79 permutations for nothing.
+  p_floor >= alpha || p_ceiling < alpha
+}
+
+
 #' Test for community structure (K = 1 null) via spectral norm permutation
 #'
 #' Compares the leading eigenvalue of the sparse excess co-classification
 #' matrix against a null distribution from degree-preserving rewiring.
-#' Uses batch-based early stopping: once enough permutations have been
-#' completed without any exceedance (\code{ceil(1/alpha)} permutations
-#' with lambda_null < lambda_obs), the test concludes that structure is
-#' present without running all \code{n_perm} permutations.
+#' The \emph{decision} is the \code{n_perm}-permutation decision: batches
+#' stop early only when the permutations still owed cannot move the p-value
+#' across \code{alpha}, so \code{n_perm} governs the power of the test.
+#' The reported \code{p_value} is \code{(1 + n_exceed) / (1 + n_done)} over
+#' the permutations actually run, which on an early stop is coarser than the
+#' full budget would give -- \code{n_perm = 500} stopping at
+#' \code{n_done = 480} reports \code{1/481}, not \code{1/501}. Read
+#' \code{n_perm_completed} alongside it.
 #'
 #' @section Performance:
-#' Three optimizations reduce runtime vs naive implementation:
+#' Two optimizations reduce runtime vs naive implementation:
 #' \enumerate{
 #'   \item Rewiring uses 5 * |E| swap attempts (sufficient for mixing;
 #'     Greenhill, 2015).
-#'   \item Null Leiden sweeps use \code{n_iterations = 1} (partitions need
-#'     not be optimal for the null distribution).
-#'   \item Batch early stopping: permutations run in batches of
-#'     \code{n_cores}. After each batch, if \code{ceil(1/alpha)}
-#'     permutations have completed with zero exceedances, the test stops
-#'     early (p < alpha is guaranteed). Similarly, if exceedances
-#'     accumulate such that p > alpha is certain, the test stops.
+#'   \item Batch early stopping on the \code{ceil(1/alpha)} grid, using
+#'     \code{.k1_settled()}: a network with no structure accumulates
+#'     exceedances fast and stops within a batch or two, while a
+#'     significant call needs the full budget because one late exceedance
+#'     can still matter. Null Leiden sweeps deliberately use the same
+#'     \code{n_iterations} as the observed sweep -- an observed statistic
+#'     optimised harder than its own null is biased toward significance.
 #' }
 #'
 #' @noRd
 test_community_structure <- function(g, genes, resolutions, objective_function,
-                                      n_iterations, memberships_obs,
-                                      edge_list_0, n_perm = 100L,
-                                      n_cores = 1L, alpha = 0.05) {
+                                     n_iterations, memberships_obs,
+                                     edge_list_0, n_perm = 100L,
+                                     n_cores = 1L, alpha = 0.05,
+                                     seed_root = 0L) {
   n_genes <- length(genes)
   n_edges <- igraph::ecount(g)
 
-  lambda_obs <- sparse_excess_spectral_norm_cpp(memberships_obs, n_genes,
-                                                 edge_list_0, n_cores)
+  lambda_obs <- sparse_excess_spectral_norm_cpp(
+    memberships_obs, n_genes,
+    edge_list_0, n_cores
+  )
 
   run_one_perm <- function(b) {
+    set.seed(.task_seed(seed_root, 2L, b))
     g_perm <- igraph::rewire(g, igraph::keeping_degseq(
-      niter = 5L * n_edges))
+      niter = 5L * n_edges
+    ))
     igraph::E(g_perm)$weight <- igraph::E(g)$weight[
-      sample.int(n_edges)]
+      sample.int(n_edges)
+    ]
 
     mems_perm <- lapply(resolutions, function(res) {
+      # Same n_iterations as the observed sweep. A null optimised less than
+      # the statistic it is judging lands too low, which tilts the test
+      # toward calling structure: over 20 degree-preserved rewirings of
+      # VBRO -- graphs with no module structure left -- lambda_obs
+      # (n_iterations = 2) outranked 60% of a null built at
+      # n_iterations = 1 but only 35% of a matched one, and the shift went
+      # the same way in 18 of the 20 graphs (sign test p = 1e-4).
       comm <- igraph::cluster_leiden(
-        g_perm, resolution = res,
+        g_perm,
+        resolution = res,
         objective_function = objective_function,
-        n_iterations = 1L
+        n_iterations = as.integer(n_iterations)
       )
       mem <- igraph::membership(comm)
       names(mem) <- igraph::V(g_perm)$name
@@ -627,19 +807,28 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
   }
 
-  # Minimum permutations before early stopping can trigger (ceil(1/alpha))
-  min_for_sig <- as.integer(ceiling(1 / alpha))
-
   use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
-  batch_size <- if (use_mc) n_cores else max(1L, min_for_sig)
+  # Batch on the significance grid, not on the core count: the early-stop rule
+  # must be evaluated at the same points regardless of the machine. The batch
+  # is still spread over mc.cores below, so on typical hardware concurrency is
+  # unaffected -- but a batch of ceiling(1 / alpha) tasks cannot occupy more
+  # than that many workers, so a large alpha_k1 on a many-core node leaves
+  # cores idle during this test. Determinism is worth that.
+  batch_size <- max(1L, as.integer(ceiling(1 / alpha)))
 
   if (use_mc) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
-    on.exit({
-      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS")
-      else Sys.setenv(OMP_NUM_THREADS = old_omp)
-    }, add = TRUE)
+    on.exit(
+      {
+        if (is.na(old_omp)) {
+          Sys.unsetenv("OMP_NUM_THREADS")
+        } else {
+          Sys.setenv(OMP_NUM_THREADS = old_omp)
+        }
+      },
+      add = TRUE
+    )
   }
 
   lambda_null <- numeric(n_perm)
@@ -652,7 +841,8 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 
     if (use_mc) {
       batch_vals <- unlist(parallel::mclapply(
-        batch_idx, run_one_perm, mc.cores = n_cores
+        batch_idx, run_one_perm,
+        mc.cores = n_cores
       ))
     } else {
       batch_vals <- vapply(batch_idx, run_one_perm, numeric(1))
@@ -662,11 +852,8 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     n_exceed <- n_exceed + sum(batch_vals >= lambda_obs)
     n_done <- batch_end
 
-    # Early stop: clear structure — p = 1/(n_done+1) < alpha
-    if (n_exceed == 0L && n_done >= min_for_sig) break
-    # Early stop: no structure — p = (n_exceed+1)/(n_done+1) > alpha
-    if (n_exceed > 0L && n_done >= min_for_sig &&
-        (n_exceed + 1L) / (n_done + 1L) > alpha) break
+    # Stop only once the permutations still owed cannot change the call.
+    if (.k1_settled(n_exceed, n_done, n_perm, alpha)) break
   }
 
   lambda_null <- lambda_null[seq_len(n_done)]
@@ -678,758 +865,6 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     p_value = p_value,
     has_structure = p_value < alpha,
     n_perm_completed = n_done
-  )
-}
-
-
-#' Compare co-expression modules across species
-#'
-#' Tests all pairs of modules between two species for significant overlap of
-#' ortholog-mapped genes, using either Jaccard + permutation or hypergeometric
-#' tests.
-#'
-#' @section Jaccard + permutation method (recommended):
-#' Computes observed Jaccard index between ortholog-mapped module_i genes and
-#' module_j genes (restricted to ortholog-mappable genes). The null permutes
-#' the ortholog mapping (which sp1 genes map to which sp2 genes) using
-#' Besag-Clifford adaptive stopping. Q-values use the Liang (2016) discrete
-#' method via [DiscreteQvalue::DQ()].
-#'
-#' @section Hypergeometric method:
-#' For each (module_i, module_j) pair, maps module_i genes to species 2 via
-#' orthologs, then tests overlap with module_j using [stats::phyper()].
-#' Q-values are computed via [qvalue::qvalue()]. The hypergeometric assumes
-#' independent sampling, which is violated when orthologs have multi-copy
-#' HOGs (one sp1 gene mapping to multiple sp2 genes). This inflates
-#' overlap relative to the hypergeometric expectation, making the test
-#' **anti-conservative** for conserved modules. The Jaccard permutation
-#' null avoids this by preserving module structure and ortholog count
-#' while shuffling gene identity.
-#'
-#' @param modules1 Module detection result for species 1
-#'   (output of [detect_modules()]).
-#' @param modules2 Module detection result for species 2
-#'   (output of [detect_modules()]).
-#' @param orthologs Data frame with columns `Species1`, `Species2`, and
-#'   `hog` (output of [parse_orthologs()]).
-#' @param method Test method: `"jaccard"` (default) or `"hypergeometric"`.
-#' @param min_exceedances Besag-Clifford stopping parameter for Jaccard method
-#'   (default 50).
-#' @param max_permutations Maximum permutations for Jaccard method
-#'   (default 10000).
-#' @param n_cores Number of threads for Jaccard permutation (default 1).
-#'
-#' @return A list with components:
-#'   \describe{
-#'     \item{pairs}{Data frame with one row per module pair, including
-#'       `module_sp1`, `module_sp2`, `size_sp1`, `size_sp2`, `overlap`,
-#'       `jaccard`, `p.value`, `q.value`}
-#'     \item{best_matches}{Data frame with best match per module
-#'       (from both species directions)}
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' mod_comp <- compare_modules(modules_A, modules_B, orthologs)
-#' mod_comp$pairs[mod_comp$pairs$q.value < 0.05, ]
-#' }
-#'
-#' @export
-compare_modules <- function(modules1, modules2, orthologs,
-                            method = c("jaccard", "hypergeometric"),
-                            min_exceedances = 50L,
-                            max_permutations = 10000L,
-                            n_cores = 1L) {
-  method <- match.arg(method)
-  min_exceedances <- as.integer(min_exceedances)
-  max_permutations <- as.integer(max_permutations)
-  if (!is.list(modules1) || is.null(modules1$module_genes)) {
-    stop("modules1 must be output from detect_modules()")
-  }
-  if (!is.list(modules2) || is.null(modules2$module_genes)) {
-    stop("modules2 must be output from detect_modules()")
-  }
-  if (!all(c("Species1", "Species2") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2")
-  }
-
-  mg1 <- modules1$module_genes
-  mg2 <- modules2$module_genes
-
-  # Filter orthologs to genes present in both module sets
-  ortho <- orthologs[orthologs$Species1 %in% names(modules1$modules) &
-                       orthologs$Species2 %in% names(modules2$modules), ,
-                     drop = FALSE]
-  ortho <- unique(ortho[, c("Species1", "Species2"), drop = FALSE])
-
-  if (nrow(ortho) == 0L) {
-    stop("No orthologs found in both module sets")
-  }
-
-  sp2_mappable <- unique(ortho$Species2)
-  sp1_to_sp2 <- split(ortho$Species2, ortho$Species1)
-
-  if (method == "hypergeometric") {
-    pairs <- compare_modules_hypergeometric(
-      mg1, mg2, sp1_to_sp2, sp2_mappable
-    )
-  } else {
-    pairs <- compare_modules_jaccard(
-      mg1, mg2, ortho, sp2_mappable, sp1_to_sp2,
-      min_exceedances, max_permutations, n_cores
-    )
-  }
-
-  best <- compute_best_matches(pairs)
-  list(pairs = pairs, best_matches = best)
-}
-
-
-#' Hypergeometric module comparison (internal)
-#' @noRd
-compare_modules_hypergeometric <- function(mg1, mg2, sp1_to_sp2, sp2_mappable) {
-  mod_names1 <- names(mg1)
-  mod_names2 <- names(mg2)
-  n1 <- length(mod_names1)
-  n2 <- length(mod_names2)
-  N <- length(sp2_mappable)
-
-  # Binary membership matrices: rows = sp2_mappable genes, cols = modules
-  # M1: sp1 modules mapped to sp2 space; M2: sp2 modules in mappable space
-  sp2_idx <- stats::setNames(seq_along(sp2_mappable), sp2_mappable)
-  M1 <- matrix(0L, nrow = N, ncol = n1)
-  M2 <- matrix(0L, nrow = N, ncol = n2)
-
-  k_vec <- integer(n1)  # mapped set size per sp1 module
-  for (i in seq_len(n1)) {
-    mapped <- unique(unlist(sp1_to_sp2[mg1[[i]]], use.names = FALSE))
-    if (!is.null(mapped)) {
-      hits <- sp2_idx[mapped]
-      hits <- hits[!is.na(hits)]
-      M1[hits, i] <- 1L
-      k_vec[i] <- length(hits)
-    }
-  }
-
-  m_vec <- integer(n2)  # mappable set size per sp2 module
-  for (j in seq_len(n2)) {
-    hits <- sp2_idx[mg2[[j]]]
-    hits <- hits[!is.na(hits)]
-    M2[hits, j] <- 1L
-    m_vec[j] <- length(hits)
-  }
-
-  # All overlaps at once via BLAS (n1 x n2 matrix)
-  overlap_mat <- crossprod(M1, M2)
-
-  # Expand to pair vectors (column-major: i varies fastest)
-  idx_i <- rep(seq_len(n1), n2)
-  idx_j <- rep(seq_len(n2), each = n1)
-  ol <- as.integer(overlap_mat)
-  k <- k_vec[idx_i]
-  m <- m_vec[idx_j]
-  un <- k + m - ol
-
-  pairs <- data.frame(
-    module_sp1 = mod_names1[idx_i],
-    module_sp2 = mod_names2[idx_j],
-    size_sp1 = vapply(mg1, length, integer(1))[idx_i],
-    size_sp2 = vapply(mg2, length, integer(1))[idx_j],
-    overlap = ol,
-    jaccard = ifelse(un > 0L, ol / un, 0),
-    p.value = ifelse(ol > 0L & k > 0L & m > 0L,
-                     stats::phyper(ol - 1L, m, N - m, k, lower.tail = FALSE),
-                     1)
-  )
-
-  n_pairs <- nrow(pairs)
-  pairs$q.value <- if (n_pairs < 2L) pairs$p.value else {
-    compute_qvalues(pairs$p.value, pi0_method = "storey")$qvalues
-  }
-  pairs
-}
-
-
-#' Jaccard + permutation module comparison (internal)
-#' @noRd
-compare_modules_jaccard <- function(mg1, mg2, ortho, sp2_mappable,
-                                    sp1_to_sp2,
-                                    min_exceedances, max_permutations,
-                                    n_cores) {
-  mod_names1 <- names(mg1)
-  mod_names2 <- names(mg2)
-
-  # Integer-index mapping for sp2 genes (mappable only)
-  sp2_idx_map <- stats::setNames(seq_along(sp2_mappable) - 1L, sp2_mappable)
-  n_sp2 <- length(sp2_mappable)
-
-  # Unique sp1 genes and their indices
-  sp1_unique <- unique(ortho$Species1)
-  sp1_idx_map <- stats::setNames(seq_along(sp1_unique) - 1L, sp1_unique)
-
-  # Per ortholog row: sp1 unique gene index and sp2 gene index
-  ortho_sp1_int <- as.integer(sp1_idx_map[ortho$Species1])
-  ortho_sp2_int <- as.integer(sp2_idx_map[ortho$Species2])
-
-  # Per sp2 module: mappable gene indices
-  mod_sp2_sets <- lapply(mg2, function(genes) {
-    as.integer(sp2_idx_map[intersect(genes, sp2_mappable)])
-  })
-
-  # Per sp1 module: unique sp1 gene indices (for C++ permutation)
-  mod1_sp1_genes <- lapply(mg1, function(genes) {
-    as.integer(sp1_idx_map[intersect(genes, sp1_unique)])
-  })
-
-  # Compute observed Jaccard for all pairs via crossprod
-  n1 <- length(mod_names1)
-  n2 <- length(mod_names2)
-  n_pairs <- n1 * n2
-
-  # Binary membership matrices (0-based sp2 indices -> 1-based rows)
-  M1 <- matrix(0L, nrow = n_sp2, ncol = n1)
-  k_vec <- integer(n1)
-  for (i in seq_len(n1)) {
-    mapped <- unique(unlist(sp1_to_sp2[mg1[[i]]], use.names = FALSE))
-    if (!is.null(mapped)) {
-      hits <- sp2_idx_map[mapped]
-      hits <- hits[!is.na(hits)] + 1L  # 0-based -> 1-based row index
-      M1[hits, i] <- 1L
-      k_vec[i] <- length(hits)
-    }
-  }
-
-  M2 <- matrix(0L, nrow = n_sp2, ncol = n2)
-  m_vec <- integer(n2)
-  for (j in seq_len(n2)) {
-    genes_j <- mod_sp2_sets[[j]]
-    if (length(genes_j) > 0L) {
-      M2[genes_j + 1L, j] <- 1L  # 0-based -> 1-based row index
-      m_vec[j] <- length(genes_j)
-    }
-  }
-
-  overlap_mat <- crossprod(M1, M2)  # n1 x n2
-
-  # Expand to pair vectors (column-major: i varies fastest)
-  idx_i <- rep(seq_len(n1), n2)
-  idx_j <- rep(seq_len(n2), each = n1)
-  obs_overlap <- as.integer(overlap_mat)
-  k <- k_vec[idx_i]
-  m <- m_vec[idx_j]
-  un <- k + m - obs_overlap
-  obs_jaccard <- ifelse(un > 0L, obs_overlap / un, 0)
-
-  perm_result <- module_jaccard_permutation_cpp(
-    ortho_sp1_gene = ortho_sp1_int,
-    ortho_sp2_gene = ortho_sp2_int,
-    n_sp1_unique = length(sp1_unique),
-    n_sp2_universe = n_sp2,
-    mod1_sp1_genes = mod1_sp1_genes,
-    mod_sp2_sets = mod_sp2_sets,
-    mod_i_idx = idx_i - 1L,
-    mod_j_idx = idx_j - 1L,
-    obs_jaccard = obs_jaccard,
-    min_exceedances = min_exceedances,
-    max_permutations = max_permutations,
-    n_cores = n_cores
-  )
-
-  pairs <- data.frame(
-    module_sp1 = mod_names1[idx_i],
-    module_sp2 = mod_names2[idx_j],
-    size_sp1 = vapply(mg1, length, integer(1))[idx_i],
-    size_sp2 = vapply(mg2, length, integer(1))[idx_j],
-    overlap = obs_overlap, jaccard = obs_jaccard,
-    p.value = perm_result$p_value
-  )
-
-  # Discrete q-values (Liang 2016) for Besag-Clifford p-values
-  bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
-
-  pairs$q.value <- if (n_pairs < 2L) pairs$p.value else {
-    DiscreteQvalue::DQ(
-      pairs$p.value, ss = bc_support, method = "Liang"
-    )$q.values
-  }
-  pairs
-}
-
-
-#' Extract best match per module in one direction (internal)
-#' @noRd
-best_match_direction <- function(pairs, from_col, to_col, species_label) {
-  do.call(rbind, lapply(
-    split(pairs, pairs[[from_col]]),
-    function(df) {
-      best <- df[which.min(df$p.value), , drop = FALSE]
-      data.frame(
-        module = best[[from_col]],
-        species = species_label,
-        best_match = best[[to_col]],
-        overlap = best$overlap,
-        jaccard = best$jaccard,
-        p.value = best$p.value,
-        q.value = best$q.value,
-        n_significant = sum(df$q.value < 0.05)
-      )
-    }
-  ))
-}
-
-
-#' Compute best matches for each module (internal)
-#' @noRd
-compute_best_matches <- function(pairs) {
-  if (nrow(pairs) == 0L) {
-    return(data.frame(
-      module = character(0), species = character(0),
-      best_match = character(0), overlap = integer(0),
-      jaccard = numeric(0), p.value = numeric(0),
-      q.value = numeric(0), n_significant = integer(0)
-    ))
-  }
-
-  result <- rbind(
-    best_match_direction(pairs, "module_sp1", "module_sp2", "sp1"),
-    best_match_direction(pairs, "module_sp2", "module_sp1", "sp2")
-  )
-  rownames(result) <- NULL
-  result
-}
-
-
-#' Classify modules by conservation status
-#'
-#' Classifies each module as conserved, partially conserved, or
-#' species-specific based on cross-species module comparison results.
-#'
-#' @section Classification criteria:
-#' \describe{
-#'   \item{Conserved}{Best-match q-value < `alpha` AND Jaccard >= `jaccard_threshold`}
-#'   \item{Partially conserved}{Best-match q-value < `alpha` AND
-#'     Jaccard < `jaccard_threshold` (module split or merged across species)}
-#'   \item{Species-specific}{No significant match (best-match q-value >= `alpha`)}
-#' }
-#'
-#' @param module_comparison Output of [compare_modules()].
-#' @param alpha Significance threshold for q-values (default 0.05).
-#' @param jaccard_threshold Minimum Jaccard index to call a module conserved
-#'   (default 0.1).
-#'
-#' @return A data frame with one row per module (from both species), including:
-#'   \describe{
-#'     \item{module}{Module identifier}
-#'     \item{species}{Which species this module belongs to (`"sp1"` or `"sp2"`)}
-#'     \item{classification}{One of `"conserved"`, `"partially_conserved"`,
-#'       or `"species_specific"`}
-#'     \item{best_match}{Best matching module in the other species}
-#'     \item{best_jaccard}{Jaccard index with best match}
-#'     \item{best_q}{Q-value for best match}
-#'     \item{n_significant}{Number of significant matches in the other species}
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' classes <- classify_modules(mod_comp)
-#' table(classes$classification)  # conserved / partially / species_specific
-#' }
-#'
-#' @export
-classify_modules <- function(module_comparison,
-                             alpha = 0.05,
-                             jaccard_threshold = 0.1) {
-  if (!is.list(module_comparison) ||
-        !all(c("pairs", "best_matches") %in% names(module_comparison))) {
-    stop("module_comparison must be output from compare_modules()")
-  }
-
-  best <- module_comparison$best_matches
-
-  if (nrow(best) == 0L) {
-    return(data.frame(
-      module = character(0), species = character(0),
-      classification = character(0), best_match = character(0),
-      best_jaccard = numeric(0), best_q = numeric(0),
-      n_significant = integer(0)
-    ))
-  }
-
-  significant <- best$q.value < alpha
-  classification <- ifelse(
-    !significant, "species_specific",
-    ifelse(best$jaccard >= jaccard_threshold,
-           "conserved", "partially_conserved")
-  )
-
-  data.frame(
-    module = best$module,
-    species = best$species,
-    classification = classification,
-    best_match = best$best_match,
-    best_jaccard = best$jaccard,
-    best_q = best$q.value,
-    n_significant = best$n_significant
-  )
-}
-
-
-#' Coarsen a module partition to fewer modules
-#'
-#' Merges modules in a fine-grained partition to a target count by
-#' hierarchical clustering on inter-module edge density. This produces
-#' matched-granularity partitions for fair cross-species comparison when
-#' species have intrinsically different modular structure.
-#'
-#' @section Algorithm:
-#' \enumerate{
-#'   \item Compute inter-module edge density for all module pairs:
-#'     \code{n_edges(i,j) / (size_i * size_j)}.
-#'   \item Hierarchical clustering (complete linkage) on distance
-#'     \code{1 - D / max(D)}.
-#'   \item Cut the dendrogram at \code{target_n_modules}.
-#'   \item Relabel module assignments contiguously and recompute
-#'     module gene lists, modularity, and sizes.
-#' }
-#'
-#' @param modules Output of [detect_modules()].
-#' @param target_n_modules Integer, desired number of modules after
-#'   coarsening. Must be at least 1 and less than the current number
-#'   of modules.
-#'
-#' @return A list compatible with [detect_modules()] output (usable
-#'   directly with [compare_modules()]), with additional components:
-#'   \describe{
-#'     \item{merge_map}{Data frame with columns \code{original_module}
-#'       and \code{coarsened_module} mapping old to new module IDs.}
-#'     \item{merge_dendrogram}{The [hclust] object used for merging.}
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' mods <- detect_modules(net, resolution = seq(0.25, 2.5, by = 0.25))
-#' mods$n_modules  # 52
-#' coarse <- coarsen_modules(mods, target_n_modules = 15)
-#' coarse$n_modules  # 15
-#' }
-#'
-#' @export
-coarsen_modules <- function(modules, target_n_modules) {
-  if (!is.list(modules) || is.null(modules$modules) ||
-      is.null(modules$module_genes) || is.null(modules$graph)) {
-    stop("modules must be output from detect_modules()")
-  }
-
-  target_n_modules <- as.integer(target_n_modules)
-  if (is.na(target_n_modules) || target_n_modules < 1L)
-    stop("target_n_modules must be a finite integer >= 1")
-
-  n_current <- modules$n_modules
-  if (target_n_modules >= n_current) return(modules)
-
-  g <- modules$graph
-  mem <- modules$modules
-  mg <- modules$module_genes
-  mod_ids <- names(mg)
-  n_mod <- length(mod_ids)
-
-  # Module sizes
-  mod_sizes <- vapply(mg, length, integer(1))
-
-  # Inter-module edge density via vectorized tabulation
-  el <- igraph::as_edgelist(g, names = TRUE)
-  mod_idx <- stats::setNames(seq_len(n_mod), mod_ids)
-  i_mod <- mod_idx[as.character(mem[el[, 1]])]
-  j_mod <- mod_idx[as.character(mem[el[, 2]])]
-
-  # Keep only inter-module edges, count by (i, j) pair.
-  # Row-major linear index; matrix() fills column-major so D is
-  # transposed, but D + t(D) symmetrizes immediately after.
-  inter <- i_mod != j_mod
-  counts <- tabulate(
-    (i_mod[inter] - 1L) * n_mod + j_mod[inter],
-    nbins = n_mod * n_mod
-  )
-  D <- matrix(counts, n_mod, n_mod)
-  D <- D + t(D)  # symmetrize (each undirected edge counted once)
-
-  # Normalize: edge density = n_edges / (size_i * size_j)
-  size_outer <- outer(mod_sizes, mod_sizes)
-  diag(size_outer) <- 1  # avoid division by zero on diagonal
-  D <- D / size_outer
-  diag(D) <- 0
-
-  # Hierarchical clustering (complete linkage on 1 - normalized density)
-  max_d <- max(D)
-  if (max_d == 0) {
-    warning("No inter-module edges; merging by module order")
-    dist_mat <- stats::dist(seq_len(n_mod))
-  } else {
-    dist_mat <- stats::as.dist(1 - D / max_d)
-  }
-  hc <- stats::hclust(dist_mat, method = "complete")
-  new_groups <- stats::cutree(hc, k = target_n_modules)
-
-  # Build merge map
-  merge_map <- data.frame(
-    original_module = mod_ids,
-    coarsened_module = as.integer(new_groups),
-    stringsAsFactors = FALSE
-  )
-
-  # Relabel gene-level membership
-  group_lookup <- stats::setNames(new_groups, mod_ids)
-  new_mem <- group_lookup[as.character(mem)]
-  names(new_mem) <- names(mem)
-  new_mem <- as.integer(new_mem)
-  names(new_mem) <- names(mem)
-
-  new_module_genes <- split(names(new_mem), new_mem)
-
-  list(
-    modules = new_mem,
-    module_genes = new_module_genes,
-    n_modules = length(new_module_genes),
-    modularity = igraph::modularity(g, new_mem),
-    graph = g,
-    method = paste0(modules$method, "_coarsened"),
-    params = c(modules$params, list(
-      coarsened_from = n_current,
-      target_n_modules = target_n_modules
-    )),
-    merge_map = merge_map,
-    merge_dendrogram = hc
-  )
-}
-
-
-#' Compare modules across contrasting conditions
-#'
-#' Wraps [compare_modules()], [classify_modules()], and optionally
-#' [coarsen_modules()] into a single call that processes all contrasts
-#' (species pairs, tissue pairs, condition pairs, etc.), tags group-
-#' specificity, and performs matched-scale comparison when module
-#' counts differ substantially.
-#'
-#' @param modules Named list of [detect_modules()] outputs. Names are
-#'   sample/species/condition identifiers.
-#' @param orthologs Data frame with columns `Species1`, `Species2`,
-#'   and `hog`.
-#' @param pairs Data frame defining contrasts. Must have columns `sp1`
-#'   and `sp2` (identifiers matching names of `modules`). An optional
-#'   `pair_name` column is used for labelling; if absent,
-#'   `"sp1.sp2"` is generated.
-#' @param group Optional named character vector mapping identifiers to
-#'   group labels (e.g., `c(BDIS = "annual", BSYL = "perennial")` for
-#'   species, or `c(leaf = "source", root = "sink")` for tissues).
-#'   When provided, species-specific modules are tagged with the group
-#'   label of their side. All identifiers in `pairs` must have entries
-#'   in this vector.
-#' @param method Comparison method passed to [compare_modules()]:
-#'   `"jaccard"` (default) or `"hypergeometric"`.
-#' @param matched_scale Logical. If `TRUE` (default), contrasts whose
-#'   module-count ratio exceeds `coarsen_ratio` are re-compared at
-#'   matched granularity via [coarsen_modules()].
-#' @param coarsen_ratio Numeric threshold for triggering coarsening
-#'   (default 2). Only used when `matched_scale = TRUE`.
-#' @param alpha Significance level for [classify_modules()] (default
-#'   0.05).
-#' @param jaccard_threshold Minimum Jaccard for a module to be called
-#'   conserved (default 0.1).
-#' @param min_exceedances Besag-Clifford parameter for Jaccard method
-#'   (default 50).
-#' @param max_permutations Maximum permutations for Jaccard method
-#'   (default 10000).
-#' @param n_cores Number of threads (default 1).
-#'
-#' @return A list with components:
-#'   \describe{
-#'     \item{classification}{Data frame with columns `pair_name`,
-#'       `module`, `species`, `classification`, `group` (if `group`
-#'       provided), `best_match`, `best_jaccard`, `best_q`,
-#'       `n_significant`.}
-#'     \item{matched_classification}{Same structure at matched scale,
-#'       or `NULL` if no contrast exceeds `coarsen_ratio`.}
-#'     \item{summary}{Group-aggregated counts per contrast and scale.}
-#'     \item{module_counts}{Data frame with `pair_name`, `n_sp1`,
-#'       `n_sp2`, `ratio`.}
-#'     \item{raw}{Named list of per-contrast [compare_modules()]
-#'       outputs, keyed as `"sp1.sp2"`. Compatible with
-#'       \code{\link{classify_hub_conservation}}.}
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' # Species-pair contrasts with trait groups
-#' mod_results <- compare_modules_paired(
-#'   modules, orthologs,
-#'   pairs = data.frame(sp1 = c("BDIS", "HVUL"),
-#'                      sp2 = c("BSYL", "HJUB")),
-#'   group = c(BDIS = "annual", BSYL = "perennial",
-#'             HVUL = "annual", HJUB = "perennial"),
-#'   method = "jaccard", n_cores = 4L
-#' )
-#'
-#' # Tissue contrasts (no trait grouping)
-#' mod_results <- compare_modules_paired(
-#'   modules, orthologs,
-#'   pairs = data.frame(sp1 = "leaf", sp2 = "root")
-#' )
-#' }
-#'
-#' @param ... Additional arguments passed to the default method.
-#' @export
-compare_modules_paired <- function(modules, ...) {
-  UseMethod("compare_modules_paired")
-}
-
-#' @rdname compare_modules_paired
-#' @export
-compare_modules_paired.default <- function(modules, orthologs, pairs,
-                                   group = NULL,
-                                   method = c("jaccard", "hypergeometric"),
-                                   matched_scale = TRUE,
-                                   coarsen_ratio = 2,
-                                   alpha = 0.05,
-                                   jaccard_threshold = 0.1,
-                                   min_exceedances = 50L,
-                                   max_permutations = 10000L,
-                                   n_cores = 1L, ...) {
-  method <- match.arg(method)
-  if (!is.list(modules) || is.null(names(modules)))
-    stop("modules must be a named list keyed by identifier")
-  if (!all(c("sp1", "sp2") %in% names(pairs)))
-    stop("pairs must have columns 'sp1' and 'sp2'")
-  missing_sp <- setdiff(c(pairs$sp1, pairs$sp2), names(modules))
-  if (length(missing_sp))
-    stop("identifiers not found in modules: ",
-         paste(missing_sp, collapse = ", "))
-
-  if (!"pair_name" %in% names(pairs))
-    pairs$pair_name <- paste(pairs$sp1, pairs$sp2, sep = ".")
-
-  has_group <- !is.null(group)
-  if (has_group) {
-    missing_grp <- setdiff(c(pairs$sp1, pairs$sp2), names(group))
-    if (length(missing_grp))
-      stop("group missing entries for: ",
-           paste(missing_grp, collapse = ", "))
-  }
-
-  # Tag one contrast's classification with group info
-  tag_classification <- function(cls, s1, s2, pair_name) {
-    cls$pair_name <- pair_name
-    if (has_group) {
-      cls$group <- ifelse(
-        cls$classification != "species_specific", "conserved",
-        ifelse(cls$species == "sp1", group[s1], group[s2])
-      )
-    }
-    cls
-  }
-
-  # Process each contrast
-  n_pairs <- nrow(pairs)
-  raw_list <- vector("list", n_pairs)
-  class_list <- vector("list", n_pairs)
-  matched_list <- vector("list", n_pairs)
-  n_sp1 <- integer(n_pairs)
-  n_sp2 <- integer(n_pairs)
-
-  for (p in seq_len(n_pairs)) {
-    s1 <- pairs$sp1[p]
-    s2 <- pairs$sp2[p]
-    pn <- pairs$pair_name[p]
-    m1 <- modules[[s1]]
-    m2 <- modules[[s2]]
-    n_sp1[p] <- m1$n_modules
-    n_sp2[p] <- m2$n_modules
-
-    comp <- compare_modules(m1, m2, orthologs, method = method,
-                            min_exceedances = min_exceedances,
-                            max_permutations = max_permutations,
-                            n_cores = n_cores)
-    raw_list[[p]] <- comp
-    class_list[[p]] <- tag_classification(
-      classify_modules(comp, alpha = alpha,
-                       jaccard_threshold = jaccard_threshold),
-      s1, s2, pn
-    )
-
-    ratio <- max(n_sp1[p], n_sp2[p]) / max(1L, min(n_sp1[p], n_sp2[p]))
-    if (matched_scale && ratio > coarsen_ratio) {
-      target <- min(n_sp1[p], n_sp2[p])
-      cm1 <- if (m1$n_modules > target) coarsen_modules(m1, target) else m1
-      cm2 <- if (m2$n_modules > target) coarsen_modules(m2, target) else m2
-      comp_m <- compare_modules(cm1, cm2, orthologs, method = method,
-                                min_exceedances = min_exceedances,
-                                max_permutations = max_permutations,
-                                n_cores = n_cores)
-      matched_list[[p]] <- tag_classification(
-        classify_modules(comp_m, alpha = alpha,
-                         jaccard_threshold = jaccard_threshold),
-        s1, s2, pn
-      )
-    }
-  }
-
-  names(raw_list) <- paste(pairs$sp1, pairs$sp2, sep = ".")
-  classification <- do.call(rbind, class_list)
-
-  matched_notnull <- !vapply(matched_list, is.null, logical(1))
-  matched_classification <- if (any(matched_notnull)) {
-    do.call(rbind, matched_list[matched_notnull])
-  }
-
-  # Summary table (bind_rows-safe: union column sets, fill missing with 0)
-  ratios <- pmax(n_sp1, n_sp2) / pmax(1L, pmin(n_sp1, n_sp2))
-  module_counts <- data.frame(
-    pair_name = pairs$pair_name,
-    n_sp1 = n_sp1, n_sp2 = n_sp2,
-    ratio = round(ratios, 1),
-    stringsAsFactors = FALSE
-  )
-
-  build_summary <- function(cls, scale_label) {
-    if (is.null(cls) || nrow(cls) == 0L) return(NULL)
-    count_col <- if (has_group) "group" else "classification"
-    agg <- stats::aggregate(
-      stats::as.formula(paste("module ~", "pair_name +", count_col)),
-      data = cls, FUN = length
-    )
-    names(agg)[3] <- "n"
-    wide <- stats::reshape(agg, idvar = "pair_name",
-                           timevar = count_col, direction = "wide")
-    names(wide) <- sub("^n\\.", "", names(wide))
-    wide[is.na(wide)] <- 0L
-    wide$scale <- scale_label
-    wide
-  }
-
-  summary_parts <- Filter(Negate(is.null), list(
-    build_summary(classification, "natural"),
-    build_summary(matched_classification, "matched")
-  ))
-  if (length(summary_parts) > 0L) {
-    # Union columns across scales (matched may lack some group levels)
-    all_cols <- unique(unlist(lapply(summary_parts, names)))
-    summary_parts <- lapply(summary_parts, function(df) {
-      missing <- setdiff(all_cols, names(df))
-      for (col in missing) df[[col]] <- 0L
-      df[all_cols]
-    })
-    summary_df <- do.call(rbind, summary_parts)
-    rownames(summary_df) <- NULL
-  } else {
-    summary_df <- NULL
-  }
-
-  list(
-    classification = classification,
-    matched_classification = matched_classification,
-    summary = summary_df,
-    module_counts = module_counts,
-    raw = raw_list
   )
 }
 
@@ -1506,7 +941,8 @@ compare_modules_paired.default <- function(modules, orthologs, pairs,
 #' @examples
 #' \dontrun{
 #' hubs <- identify_module_hubs(modules, net, orthologs,
-#'                              comparison = summary$results)
+#'   comparison = summary$results
+#' )
 #' hubs[hubs$is_hub, ]
 #' }
 #'
@@ -1519,16 +955,18 @@ identify_module_hubs <- function(modules, ...) {
 #' @rdname identify_module_hubs
 #' @export
 identify_module_hubs.default <- function(modules, net, orthologs = NULL,
-                                 comparison = NULL,
-                                 centrality = c("degree", "betweenness",
-                                                "eigenvector"),
-                                 top_n = NULL,
-                                 top_fraction = 0.1,
-                                 min_module_size = 3L, ...) {
+                                         comparison = NULL,
+                                         centrality = c(
+                                           "degree", "betweenness",
+                                           "eigenvector"
+                                         ),
+                                         top_n = NULL,
+                                         top_fraction = 0.1,
+                                         min_module_size = 3L, ...) {
   centrality <- match.arg(centrality)
 
   if (!is.list(modules) || is.null(modules$module_genes) ||
-        is.null(modules$graph) || is.null(modules$modules)) {
+    is.null(modules$graph) || is.null(modules$modules)) {
     stop("modules must be output from detect_modules()")
   }
   if (!is.list(net) || is.null(net$network)) {
@@ -1554,9 +992,11 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   gene_conserv <- NULL
   hog_min_q <- NULL
   if (!is.null(comparison)) {
-    if (!all(c("Species1", "Species2", "hog",
-               "Species1.effect.size", "Species2.effect.size") %in%
-             names(comparison))) {
+    if (!all(c(
+      "Species1", "Species2", "hog",
+      "Species1.effect.size", "Species2.effect.size"
+    ) %in%
+      names(comparison))) {
       stop("comparison must be $results from summarize_comparison()")
     }
     # Auto-detect which column has our genes
@@ -1567,12 +1007,13 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 
     # Per-row geometric mean of effect sizes
     geo_eff <- sqrt(comparison$Species1.effect.size *
-                    comparison$Species2.effect.size)
+      comparison$Species2.effect.size)
 
     # Per-gene mean conservation effect (higher = more conserved)
     comp_genes <- comparison[[comp_col]]
     gene_conserv <- vapply(
-      split(geo_eff, comp_genes), mean, numeric(1), na.rm = TRUE
+      split(geo_eff, comp_genes), mean, numeric(1),
+      na.rm = TRUE
     )
 
     # Per-HOG minimum q-value (lower = more conserved)
@@ -1593,7 +1034,8 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     if (!is.null(q1_col) && !is.null(q2_col)) {
       pair_q <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
       hog_min_q <- vapply(
-        split(pair_q, comparison$hog), min, numeric(1), na.rm = TRUE
+        split(pair_q, comparison$hog), min, numeric(1),
+        na.rm = TRUE
       )
     }
   }
@@ -1645,15 +1087,19 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     sub_eig <- tryCatch(
       igraph::eigen_centrality(sub, weights = w)$vector,
       error = function(e) {
-        warning("eigen_centrality failed for module ", mod_id, ": ",
-                conditionMessage(e), "; using zero fallback")
+        warning(
+          "eigen_centrality failed for module ", mod_id, ": ",
+          conditionMessage(e), "; using zero fallback"
+        )
         stats::setNames(rep(0, length(genes)), genes)
       }
     )
 
     # Primary centrality for ranking/tie-breaking (tier 1)
     cent_vals <- switch(centrality,
-      degree = sub_str, betweenness = sub_btw, eigenvector = sub_eig
+      degree = sub_str,
+      betweenness = sub_btw,
+      eigenvector = sub_eig
     )
     # Alternative centrality (tier 3): betweenness if primary is degree,
     # degree otherwise — the most complementary pair
@@ -1673,7 +1119,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
       mean_edge_weight = as.numeric(mean_ew),
       global_degree = as.numeric(global_str[genes]),
       rank = as.integer(rnk),
-      is_hub = FALSE,  # filled below
+      is_hub = FALSE, # filled below
       stringsAsFactors = FALSE
     )
   }
@@ -1701,7 +1147,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   }
 
   # Primary and alternative centrality column names for tie-breaking
-  primary_col <- centrality  # "degree", "betweenness", or "eigenvector"
+  primary_col <- centrality # "degree", "betweenness", or "eigenvector"
   alt_col <- if (centrality == "degree") "betweenness" else "degree"
 
   # Hub selection per module: tie-breaking cascade across all 6 tiers
@@ -1715,9 +1161,11 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     } else {
       max(1L, ceiling(top_fraction * n_mod))
     }
-    ord <- order(-result[[primary_col]][idx], -result$global_degree[idx],
-                 -result[[alt_col]][idx], -result$mean_edge_weight[idx],
-                 -result$conserv_eff[idx], result$hog_q[idx])
+    ord <- order(
+      -result[[primary_col]][idx], -result$global_degree[idx],
+      -result[[alt_col]][idx], -result$mean_edge_weight[idx],
+      -result$conserv_eff[idx], result$hog_q[idx]
+    )
     result$is_hub[idx[ord[seq_len(hub_cutoff)]]] <- TRUE
   }
 
@@ -1760,14 +1208,29 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #' @param species_trait Named character or factor vector mapping species to
 #'   trait groups, e.g. `c(SP_A = "annual", SP_B = "annual",
 #'   SP_C = "perennial", SP_D = "perennial")`.
-#' @param module_comparisons Optional named list of [compare_modules()] outputs
-#'   keyed by alphabetically sorted species pair (e.g. `"SP_A.SP_C"`).
-#'   Required for the conserved_hub vs rewired_hub distinction.
+#' @param module_comparisons Optional named list of
+#'   [module_correspondence()] outputs keyed by alphabetically sorted species
+#'   pair (e.g. `"SP_A.SP_C"`). Required for the conserved_hub vs rewired_hub
+#'   distinction. Two things the caller must now satisfy themselves: each
+#'   element must be built with the alphabetically first species as
+#'   `modules_ref`, and [module_correspondence()] needs a map from
+#'   [resolve_ortholog_map()], so the networks are required for the gene
+#'   universes. Pass `sp_ref` / `sp_test` to [module_correspondence()] and
+#'   that orientation is checked here instead of taken on trust. A module
+#'   pair absent from the table counts as not corresponding.
 #' @param alpha Significance threshold for module correspondence (default 0.05).
 #' @param jaccard_threshold Jaccard threshold for module correspondence
-#'   (default 0.1).
+#'   (default 0.1). [module_correspondence()] computes this over the
+#'   one-to-one paralog-resolved projection, whereas the retired gene-overlap
+#'   engine used the paralog-expanded mappable set, so values now run
+#'   systematically higher and the unchanged default is slightly more
+#'   permissive.
 #' @param min_trait_fraction Minimum fraction of species (within a trait group)
-#'   where the HOG must be a hub for the group to count (default 0.5).
+#'   where the HOG must be a hub for the group to count (default 0.5). The
+#'   denominator is the size of the trait group -- every species of that
+#'   group in `hub_results` -- not just the ones carrying the HOG, so a HOG
+#'   confined to one of four annuals cannot reach 0.5 there. Lower the
+#'   threshold to admit accessory HOGs.
 #' @param correspondence_threshold Fraction of cross-trait hub pairs that must
 #'   have corresponding modules for the HOG to be classified as
 #'   `conserved_hub` rather than `rewired_hub` (default 0.5).
@@ -1778,7 +1241,9 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'     \item{classification}{Conservation category (see Classification
 #'       waterfall)}
 #'     \item{n_species_hub}{Number of species where the HOG is a hub}
-#'     \item{n_species_present}{Number of species where the HOG has genes}
+#'     \item{n_species_present}{Number of species where the HOG has genes.
+#'       Reported for context; it is not the `min_trait_fraction`
+#'       denominator.}
 #'     \item{hub_trait_groups}{Comma-separated trait groups where it qualifies
 #'       as hub (`NA` for non_hub)}
 #'     \item{n_corresponding}{Cross-trait hub pairs with corresponding modules
@@ -1797,6 +1262,17 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #' )
 #' trait <- c(SP_A = "annual", SP_B = "perennial")
 #' classify_hub_conservation(hub_list, trait)
+#'
+#' # With module correspondence, for the conserved_hub / rewired_hub split.
+#' # The list key must be the alphabetically sorted species pair.
+#' map <- resolve_ortholog_map(
+#'   ortho_AB, rownames(net_A$network), rownames(net_B$network)
+#' )
+#' corr <- list(SP_A.SP_B = module_correspondence(
+#'   mods_A, mods_B, map,
+#'   sp_ref = "SP_A", sp_test = "SP_B"
+#' ))
+#' classify_hub_conservation(hub_list, trait, module_comparisons = corr)
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -1808,11 +1284,12 @@ classify_hub_conservation <- function(hub_results, ...) {
 #' @rdname classify_hub_conservation
 #' @export
 classify_hub_conservation.default <- function(hub_results, species_trait,
-                                      module_comparisons = NULL,
-                                      alpha = 0.05,
-                                      jaccard_threshold = 0.1,
-                                      min_trait_fraction = 0.5,
-                                      correspondence_threshold = 0.5, ...) {
+                                              module_comparisons = NULL,
+                                              alpha = 0.05,
+                                              jaccard_threshold = 0.1,
+                                              min_trait_fraction = 0.5,
+                                              correspondence_threshold = 0.5,
+                                              ...) {
   # --- Validation ---
   if (!is.list(hub_results) || is.null(names(hub_results))) {
     stop("hub_results must be a named list keyed by species")
@@ -1825,15 +1302,19 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   }
   missing_sp <- setdiff(names(hub_results), names(species_trait))
   if (length(missing_sp) > 0) {
-    stop("species_trait missing entries for: ",
-         paste(missing_sp, collapse = ", "))
+    stop(
+      "species_trait missing entries for: ",
+      paste(missing_sp, collapse = ", ")
+    )
   }
   req_cols <- c("gene", "module", "is_hub", "hog", "degree")
   for (sp in names(hub_results)) {
     if (!is.data.frame(hub_results[[sp]]) ||
-          !all(req_cols %in% names(hub_results[[sp]]))) {
-      stop("hub_results[['", sp,
-           "']] must be output from identify_module_hubs() with orthologs")
+      !all(req_cols %in% names(hub_results[[sp]]))) {
+      stop(
+        "hub_results[['", sp,
+        "']] must be output from identify_module_hubs() with orthologs"
+      )
     }
   }
 
@@ -1854,7 +1335,9 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   tagged <- lapply(names(hub_results), function(sp) {
     hr <- hub_results[[sp]]
     hr <- hr[!is.na(hr$hog), , drop = FALSE]
-    if (nrow(hr) == 0L) return(NULL)
+    if (nrow(hr) == 0L) {
+      return(NULL)
+    }
     hr$species <- sp
     hr
   })
@@ -1869,7 +1352,21 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     max_centrality = numeric(0), best_hub_species = character(0),
     stringsAsFactors = FALSE
   )
-  if (is.null(stacked) || nrow(stacked) == 0L) return(empty)
+  if (is.null(stacked) || nrow(stacked) == 0L) {
+    return(empty)
+  }
+
+  # A species with no HOG-mapped gene still sits in the min_trait_fraction
+  # denominator, where it counts as non-hub for every HOG and depresses the
+  # whole trait group -- silently, if the caller forgot its ortholog table.
+  no_hog <- setdiff(names(hub_results), unique(stacked$species))
+  if (length(no_hog) > 0L) {
+    warning(
+      "no HOG-mapped genes in hub_results for: ",
+      paste(no_hog, collapse = ", "),
+      "; they count as non-hub in their trait group"
+    )
+  }
 
   # One row per (hog, species): is_hub (OR), hub_module, max_centrality
   hog_df <- do.call(rbind, lapply(
@@ -1894,10 +1391,17 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   rownames(hog_df) <- NULL
 
   # --- Pre-compute (hog x trait) hub fraction matrix ---
+  # The denominator is the size of the trait group, not the number of its
+  # species that carry the HOG. Dividing by the species present scores a HOG
+  # seen in one annual and a hub there as 1.0 -- the same as a hub in all
+  # four annuals -- so accessory HOGs are not comparable with core ones and
+  # sporadic_hub is unreachable for a HOG present in a single species.
   hog_df$trait <- trait_char[hog_df$species]
-  hub_frac <- tapply(hog_df$is_hub, list(hog_df$hog, hog_df$trait), mean)
-  hub_frac[is.na(hub_frac)] <- 0
-  is_hub_group <- hub_frac >= min_trait_fraction  # logical matrix
+  hub_n <- tapply(hog_df$is_hub, list(hog_df$hog, hog_df$trait), sum)
+  hub_n[is.na(hub_n)] <- 0
+  group_n <- lengths(species_by_trait)[colnames(hub_n)]
+  hub_frac <- sweep(hub_n, 2L, group_n, "/")
+  is_hub_group <- hub_frac >= min_trait_fraction # logical matrix
 
   # --- Pre-compute per-HOG aggregates ---
   hog_n_present <- tapply(hog_df$species, hog_df$hog, length)
@@ -1916,7 +1420,78 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   )
 
   # --- Pre-build module correspondence lookup per species pair ---
-  corresp_lookup <- list()  # keyed by "SP_A.SP_C", values = named logical
+  # Validate first: an element without a $pairs data frame (what
+  # preservation_paired()$raw gives you) would otherwise leave is_match as
+  # logical(0) and report every HOG as NA, indistinguishable from having
+  # supplied no comparison at all.
+  if (!is.null(module_comparisons)) {
+    # Keys first. An unnamed list makes the loops below iterate over NULL and
+    # a wrongly-ordered key never matches the sorted lookup, and both leave
+    # every HOG at NA -- indistinguishable from supplying no comparison, which
+    # is the failure this guard exists to prevent.
+    nm <- names(module_comparisons)
+    if (is.null(nm) || !all(nzchar(nm))) {
+      stop(
+        "module_comparisons must be a named list keyed by ",
+        "alphabetically sorted species pair (e.g. \"SP_A.SP_C\")"
+      )
+    }
+    known_sp <- names(species_trait)
+    valid_keys <- if (length(known_sp) >= 2L) {
+      apply(utils::combn(sort(known_sp), 2L), 2L, paste, collapse = ".")
+    } else {
+      character(0)
+    }
+    bad_keys <- setdiff(nm, valid_keys)
+    if (length(bad_keys) > 0L) {
+      stop(
+        "module_comparisons keys must be alphabetically sorted species ",
+        "pairs drawn from species_trait; unusable: ",
+        paste(bad_keys, collapse = ", ")
+      )
+    }
+    # Orientation, when the producer recorded it. A transposed call --
+    # module_correspondence(mods_B, mods_A, ...) filed under "A.B" -- passes
+    # the name and shape checks and then matches lookups with module_sp1 and
+    # module_sp2 swapped, giving wrong verdicts rather than a detectable NA.
+    for (k in nm) {
+      ref <- module_comparisons[[k]]$sp_ref
+      if (is.null(ref)) next
+      tst <- module_comparisons[[k]]$sp_test
+      # Rebuild the key from the recorded labels rather than splitting it.
+      # Splitting on "." mangles species names that contain one, and
+      # comparing the pair as a whole also catches a sp_test naming a third
+      # species, which a first-element check would pass.
+      rebuilt <- if (is.null(tst)) NULL else paste(c(ref, tst), collapse = ".")
+      ok <- if (is.null(rebuilt)) {
+        startsWith(k, paste0(ref, "."))
+      } else {
+        identical(k, rebuilt)
+      }
+      if (!ok) {
+        stop(
+          "module_comparisons[[\"", k, "\"]] was built with sp_ref = \"",
+          ref, "\"", if (!is.null(tst)) paste0(", sp_test = \"", tst, "\""),
+          "; module_sp1 must belong to the first species of the key, so ",
+          "the arguments or the key are wrong"
+        )
+      }
+    }
+
+    req_corr <- c("module_sp1", "module_sp2", "jaccard", "q.value")
+    for (k in nm) {
+      pk <- module_comparisons[[k]]$pairs
+      if (!is.data.frame(pk) || !all(req_corr %in% names(pk))) {
+        stop(
+          "module_comparisons[[\"", k, "\"]] must be a ",
+          "module_correspondence() result: a list with a `pairs` data ",
+          "frame carrying ", paste(req_corr, collapse = ", ")
+        )
+      }
+    }
+  }
+
+  corresp_lookup <- list() # keyed by "SP_A.SP_C", values = named logical
   if (!is.null(module_comparisons)) {
     for (pair_key in names(module_comparisons)) {
       pairs <- module_comparisons[[pair_key]]$pairs
@@ -1928,10 +1503,14 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 
   # O(1) module correspondence check
   check_correspondence <- function(sp_a, mod_a, sp_b, mod_b) {
-    if (length(corresp_lookup) == 0L) return(NA)
+    if (length(corresp_lookup) == 0L) {
+      return(NA)
+    }
     pair_key <- paste(sort(c(sp_a, sp_b)), collapse = ".")
     lkp <- corresp_lookup[[pair_key]]
-    if (is.null(lkp)) return(NA)
+    if (is.null(lkp)) {
+      return(NA)
+    }
     sorted <- sort(c(sp_a, sp_b))
     mod_key <- if (sp_a == sorted[1]) {
       paste(mod_a, mod_b, sep = "\x01")
@@ -1974,9 +1553,11 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
       }
       cross_pairs <- do.call(rbind, lapply(
         seq_len(ncol(pair_mat)), function(k) {
-          expand.grid(sp_a = hub_sp_by_group[[pair_mat[1, k]]],
-                      sp_b = hub_sp_by_group[[pair_mat[2, k]]],
-                      stringsAsFactors = FALSE)
+          expand.grid(
+            sp_a = hub_sp_by_group[[pair_mat[1, k]]],
+            sp_b = hub_sp_by_group[[pair_mat[2, k]]],
+            stringsAsFactors = FALSE
+          )
         }
       ))
 
@@ -1985,8 +1566,10 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
       corresp <- vapply(seq_len(n_cross_pairs), function(j) {
         mod_a <- h_df$hub_module[h_df$species == cross_pairs$sp_a[j]]
         mod_b <- h_df$hub_module[h_df$species == cross_pairs$sp_b[j]]
-        check_correspondence(cross_pairs$sp_a[j], mod_a,
-                             cross_pairs$sp_b[j], mod_b)
+        check_correspondence(
+          cross_pairs$sp_a[j], mod_a,
+          cross_pairs$sp_b[j], mod_b
+        )
       }, logical(1))
 
       if (all(is.na(corresp))) {
@@ -1996,7 +1579,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
         n_corresponding <- sum(corresp, na.rm = TRUE)
         n_available <- sum(!is.na(corresp))
         classification <- if (n_corresponding / n_available >=
-                              correspondence_threshold) {
+          correspondence_threshold) {
           "conserved_hub"
         } else {
           "rewired_hub"
@@ -2082,9 +1665,11 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 #' hubs <- characterize_hubs(hubs, mods, expr = expr_matrix)
 #'
 #' # With TF annotations
-#' tf_db <- data.frame(gene = c("AT1G01010", "AT2G02020"),
-#'                     is_tf = c(TRUE, TRUE),
-#'                     family = c("MYB", "WRKY"))
+#' tf_db <- data.frame(
+#'   gene = c("AT1G01010", "AT2G02020"),
+#'   is_tf = c(TRUE, TRUE),
+#'   family = c("MYB", "WRKY")
+#' )
 #' hubs <- characterize_hubs(hubs, mods, annotations = tf_db)
 #' }
 #'
@@ -2098,8 +1683,10 @@ characterize_hubs <- function(hub_result, modules = NULL,
   req_cols <- c("gene", "module", "degree", "global_degree", "betweenness")
   missing <- setdiff(req_cols, names(hub_result))
   if (length(missing) > 0L) {
-    stop("hub_result missing required columns: ",
-         paste(missing, collapse = ", "))
+    stop(
+      "hub_result missing required columns: ",
+      paste(missing, collapse = ", ")
+    )
   }
   if (!is.null(modules) && (!is.list(modules) || is.null(modules$modules))) {
     stop("modules must be output of detect_modules() or NULL")
@@ -2149,18 +1736,98 @@ characterize_hubs <- function(hub_result, modules = NULL,
   if (!is.null(annotations)) {
     dup_genes <- duplicated(annotations$gene)
     if (any(dup_genes)) {
-      warning("annotations contains duplicate gene entries; ",
-              "keeping first occurrence for each gene")
+      warning(
+        "annotations contains duplicate gene entries; ",
+        "keeping first occurrence for each gene"
+      )
       annotations <- annotations[!dup_genes, , drop = FALSE]
     }
     orig_order <- hub_result$gene
-    hub_result <- merge(hub_result, annotations, by = "gene",
-                        all.x = TRUE, sort = FALSE)
+    hub_result <- merge(hub_result, annotations,
+      by = "gene",
+      all.x = TRUE, sort = FALSE
+    )
     # Restore original row order
     hub_result <- hub_result[match(orig_order, hub_result$gene), ,
-                             drop = FALSE]
+      drop = FALSE
+    ]
     rownames(hub_result) <- NULL
   }
 
   hub_result
+}
+
+
+#' Avalanche-mix a value into [0, 2^31 - 2] (internal)
+#'
+#' A Thomas Wang-style integer hash, reimplemented with `%%` so every
+#' `bitwXor`/`bitwShiftR` argument stays inside 2^31 - 1 (never exceeding the
+#' 32-bit signed range). The two internal multiplications do exceed 2^53 in
+#' double precision and so round before the `%%`; this is a source of
+#' rounding, not overflow (`x %% p` after the multiply always lands back in
+#' `[0, p)`), and the avalanche property below does not depend on those
+#' products being exact. Two rounds of xor-shift plus modular
+#' multiplication are what make this a permutation with no useful linear
+#' structure left in it: unlike a bare `root + k * index` term, there is no
+#' fixed offset `d` with `.hash32(x + d) - .hash32(x)` constant across `x`,
+#' which is the property `.task_seed()` needs from it.
+#'
+#' @noRd
+.hash32 <- function(x) {
+  p <- 2147483647
+  x <- as.integer(x %% p)
+  x <- bitwXor(x, bitwShiftR(x, 15L))
+  x <- as.integer((as.numeric(x) * 2246822519) %% p)
+  x <- bitwXor(x, bitwShiftR(x, 13L))
+  x <- as.integer((as.numeric(x) * 3266489917) %% p)
+  bitwXor(x, bitwShiftR(x, 16L))
+}
+
+#' Deterministic per-task RNG seed (internal)
+#'
+#' Maps (root, stream, index) to a legal R seed, so every parallel task seeds
+#' itself from its own identity rather than inheriting one. That is what makes
+#' the result independent of how mclapply chunks the work: with the default
+#' RNGkind a forked child runs parallel:::mc.set.stream(), whose non-L'Ecuyer
+#' branch deletes .Random.seed, and the child then re-seeds from clock and PID
+#' at its first draw. igraph::cluster_leiden() consumes the R stream, so
+#' set.seed() in the parent reaches no worker at n_cores > 1.
+#'
+#' `root`, `stream` and `index` are each run through `.hash32()` before being
+#' combined, rather than combined directly with fixed multipliers. A direct
+#' `root + 2654435761 * stream + 40503 * index` form is affine in `root` and
+#' `index`, so any two roots exactly 40503 apart (mod 2^31 - 1) alias: the
+#' whole permutation vector at root `r + 40503` reproduces the one at root
+#' `r`, shifted by one index -- the same failure `.task_seed()` was written
+#' to remove from `seed_root + b`, just at a rarer, silent distance. Hashing
+#' each argument first breaks that: two hashed roots differing by a fixed
+#' amount no longer differ by that same amount at every index, so no root
+#' pair can alias more than a single, coincidental index.
+#'
+#' The arithmetic is done in doubles and folded modulo 2^31 - 1 so it cannot
+#' overflow integer range: a naive root + offset form gives NA for a seed near
+#' the limit, and set.seed(NA) errors. Products stay exact in double
+#' (2654435761 * 1e6 is well under 2^53).
+#'
+#' `.hash32(root)` folds `root %% p` before hashing, so it is periodic in
+#' `root` with period `p = 2^31 - 1`, not just aliased at the 40503 distance
+#' above: any two roots exactly `p` apart -- both legal, since callers such as
+#' `coexpressolog_null()` accept a seed in `+/- .Machine$integer.max` -- give
+#' `.task_seed()` the same value at every `(stream, index)`, so their null
+#' permutations are identical even though `set.seed(root)` for the two
+#' observed runs is not. A caller sweeping seeds across that span would see
+#' the observed statistic move while the null it is compared against does
+#' not.
+#'
+#' Streams: 1 = initial sweep, 2 = K=1 permutations, 100 + iter = consensus
+#' sweep at that iteration. The consensus stream must vary with iter because
+#' the same resolutions are re-run on a different graph each round.
+#'
+#' @noRd
+.task_seed <- function(root, stream, index) {
+  p <- 2147483647
+  r <- .hash32(root)
+  s <- .hash32((as.numeric(stream) * 2654435761) %% p)
+  i <- .hash32((as.numeric(index) * 40503) %% p)
+  as.integer((as.numeric(r) + as.numeric(s) + as.numeric(i)) %% p)
 }

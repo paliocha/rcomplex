@@ -203,29 +203,76 @@ hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, 
     .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
 }
 
-#' Permutation-based Jaccard test for module comparison (batched)
+#' Module preservation permutation engine (dense)
 #'
-#' Tests each module pair for significant Jaccard overlap using ortholog-mapping
-#' permutation with Besag-Clifford adaptive stopping.  Uses batched permutation:
-#' one shuffle per iteration shared across all active pairs.
-#'
-#' @param ortho_sp1_gene 0-based index of each ortholog's sp1 unique gene
-#' @param ortho_sp2_gene 0-based sp2 gene index for each ortholog row
-#' @param n_sp1_unique Number of unique sp1 genes in ortholog table
-#' @param n_sp2_universe Total number of sp2 genes in index space
-#' @param mod1_sp1_genes List of integer vectors: sp1 unique gene indices per sp1 module
-#' @param mod_sp2_sets List of integer vectors: sp2 indices per sp2 module
-#' @param mod_i_idx 0-based index into mod1_sp1_genes for each pair
-#' @param mod_j_idx 0-based index into mod_sp2_sets for each pair
-#' @param obs_jaccard Observed Jaccard for each pair
-#' @param min_exceedances Besag-Clifford stopping parameter
-#' @param max_permutations Maximum permutations
-#' @param n_cores Number of OpenMP threads
-#' @return DataFrame with n_perm, n_exceed, p_value per pair
+#' @param net Dense network matrix.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the ortholog-mappable genes.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module, ordered to match the reference vectors.
+#' @param ref_kIM,ref_CC,ref_MAR Lists of numeric vectors: the reference
+#'   network's per-gene statistics, one vector per module.
+#' @param n_perm Number of permutations.
+#' @param n_cores Number of OpenMP threads.
+#' @param binary Treat every surviving edge as weight 1.
+#' @param store_perm Return the raw per-permutation statistic pairs.
+#' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
+#'   p_value, p_npc, p_joint, n_joint, scale.
 #'
 #' @keywords internal
-module_jaccard_permutation_cpp <- function(ortho_sp1_gene, ortho_sp2_gene, n_sp1_unique, n_sp2_universe, mod1_sp1_genes, mod_sp2_sets, mod_i_idx, mod_j_idx, obs_jaccard, min_exceedances, max_permutations, n_cores) {
-    .Call(`_rcomplex_module_jaccard_permutation_cpp`, ortho_sp1_gene, ortho_sp2_gene, n_sp1_unique, n_sp2_universe, mod1_sp1_genes, mod_sp2_sets, mod_i_idx, mod_j_idx, obs_jaccard, min_exceedances, max_permutations, n_cores)
+module_preservation_dense_cpp <- function(net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm) {
+    .Call(`_rcomplex_module_preservation_dense_cpp`, net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm)
+}
+
+#' Module preservation permutation engine (sparse)
+#'
+#' @param p,i,x dgCMatrix slots.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the ortholog-mappable genes.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module, ordered to match the reference vectors.
+#' @param ref_kIM,ref_CC,ref_MAR Lists of numeric vectors: the reference
+#'   network's per-gene statistics, one vector per module.
+#' @param n_perm Number of permutations.
+#' @param n_cores Number of OpenMP threads.
+#' @param binary Treat every surviving edge as weight 1.
+#' @param store_perm Return the raw per-permutation statistic pairs.
+#' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
+#'   p_value, p_npc, p_joint, n_joint, scale.
+#'
+#' @keywords internal
+module_preservation_sparse_cpp <- function(p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm) {
+    .Call(`_rcomplex_module_preservation_sparse_cpp`, p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm)
+}
+
+#' Per-gene intramodular statistics (dense)
+#'
+#' @param net Dense network matrix.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the genes to induce on.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module.
+#' @param binary Treat every surviving edge as weight 1.
+#' @return List with kIM, CC, MAR (one value per induced gene) and scale.
+#'
+#' @keywords internal
+module_gene_stats_dense_cpp <- function(net, thr, keep, module_members, binary) {
+    .Call(`_rcomplex_module_gene_stats_dense_cpp`, net, thr, keep, module_members, binary)
+}
+
+#' Per-gene intramodular statistics (sparse)
+#'
+#' @param p,i,x dgCMatrix slots.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the genes to induce on.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module.
+#' @param binary Treat every surviving edge as weight 1.
+#' @return List with kIM, CC, MAR (one value per induced gene) and scale.
+#'
+#' @keywords internal
+module_gene_stats_sparse_cpp <- function(p, i, x, thr, keep, module_members, binary) {
+    .Call(`_rcomplex_module_gene_stats_sparse_cpp`, p, i, x, thr, keep, module_members, binary)
 }
 
 #' Cached mutual rank transformation

@@ -105,7 +105,8 @@ degree; degree otherwise)
 \examples{
 \dontrun{
 hubs <- identify_module_hubs(modules, net, orthologs,
-                             comparison = summary$results)
+  comparison = summary$results
+)
 hubs[hubs$is_hub, ]
 }
 

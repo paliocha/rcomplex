@@ -15,8 +15,10 @@ sim_pairs <- function(seed = 1, n = 2000, N = 30000, alt_rate = 0.3) {
   k <- pmin(N - 1, pmax(2, round(exp(rnorm(n, log(500), 0.9)))))
   alt <- runif(n) < alt_rate
   x <- rhyper(n, m, N - m, k)
-  x[alt] <- pmin(pmin(m, k)[alt],
-                 x[alt] + rpois(sum(alt), 3 + 0.5 * m[alt] * k[alt] / N))
+  x[alt] <- pmin(
+    pmin(m, k)[alt],
+    x[alt] + rpois(sum(alt), 3 + 0.5 * m[alt] * k[alt] / N)
+  )
   list(
     alt = alt,
     p = phyper(x - 1, m, N - m, k, lower.tail = FALSE),
@@ -78,8 +80,10 @@ test_that("randomized pi0 is reproducible under set.seed and needs p_rand_fn", {
   c <- compute_qvalues(s$p, rand_fn(s), pi0_method = "randomized", B = 5L)
   expect_false(identical(a$pi0, c$pi0))
 
-  expect_error(compute_qvalues(s$p, pi0_method = "randomized"),
-               "p_rand_fn")
+  expect_error(
+    compute_qvalues(s$p, pi0_method = "randomized"),
+    "p_rand_fn"
+  )
   expect_error(compute_qvalues(s$p, rand_fn(s), pi0_method = "bogus"))
 })
 
@@ -94,8 +98,10 @@ test_that("degenerate inputs fall back gracefully", {
   # range) -> fallback pi0 = 1 (BH) instead of an error
   p <- c(0.001, 0.002, 0.003, 0.5, 0.6)
   set.seed(4)
-  r <- compute_qvalues(p, function() rep(1e-4, 5), pi0_method = "randomized",
-                       B = 3L)
+  r <- compute_qvalues(p, function() rep(1e-4, 5),
+    pi0_method = "randomized",
+    B = 3L
+  )
   expect_equal(r$pi0, 1)
   expect_equal(r$qvalues, p.adjust(p, "BH"))
 })
@@ -143,4 +149,18 @@ test_that("filter_zero does not deflate the randomized pi0 (null-only, small E[X
   expect_gt(min(s$summary$pi0), 0.9)
   expect_equal(sum(s$results$Species1.q.val.con < 0.05), 0L)
   expect_equal(sum(s$results$Species2.q.val.con < 0.05), 0L)
+
+  # Why compute_qvalues() has no seed of its own: summarize_comparison()
+  # seeds once and lets the stream run through both directional calls.
+  # Here the two directions carry identical p-value columns, so a seed
+  # inside compute_qvalues() -- necessarily the same value for both
+  # calls -- would hand them the same U and force pi0[sp1] == pi0[sp2].
+  # One seed one level up keeps the draws independent.
+  seeded <- summarize_comparison(cmp, seed = 32)
+  expect_identical(seeded, s)
+  expect_identical(cmp$Species1.p.val.gt, cmp$Species2.p.val.gt)
+  expect_identical(cmp$Species1.p.val.eq, cmp$Species2.p.val.eq)
+  expect_false(identical(
+    seeded$summary$pi0[["sp1"]], seeded$summary$pi0[["sp2"]]
+  ))
 })

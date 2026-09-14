@@ -21,6 +21,7 @@ find_coexpressologs(networks, ...)
   max_permutations = 10000L,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  seed = NULL,
   ...
 )
 
@@ -63,8 +64,7 @@ permutation method (default 50).}
 pair-level Storey q-values, passed to
 \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
-draws from the global RNG; call \code{set.seed()} first for
-reproducible calls.}
+draws; pass \code{seed} to pin those draws.}
 
 \item{pval_combine}{Analytical method only: how the two directional
 q-values are combined, passed to \code{\link{comparison_to_edges}}:
@@ -72,6 +72,28 @@ q-values are combined, passed to \code{\link{comparison_to_edges}}:
 criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 the original ComPlEx) or \code{"min"} (permissive; either direction,
 denser edge supply for \code{\link{find_cliques}}).}
+
+\item{seed}{Integer seed for the call's random draws, or \code{NULL}
+(default) to draw from the global RNG. Seeding here makes the call
+reproducible, and with it every downstream count thresholded on
+\code{q.value}. The seed is applied once, for the whole species-pair
+loop, rather than being handed to each
+\code{\link{summarize_comparison}} call: one seeded stream flows
+through the pairs in order, so each pair draws its own uniforms
+instead of every pair reusing the same ones.
+
+What a seed buys differs by method. Under \code{"analytical"} it
+pins the randomized-p draws behind pi0, and the result is
+reproducible at any \code{n_cores}. Under \code{"permutation"} it
+pins the per-thread seeds that the C++ engines draw from R's RNG,
+which reproduces the run at \code{n_cores = 1} only: above that the
+OpenMP guided schedule decides which thread takes which HOG, so the
+pairing of thread streams to HOGs still moves between runs.
+
+A seeded call draws from a private stream and restores the caller's
+on exit; with \code{seed = NULL} the draws come from the ambient
+stream and leave it advanced. Same contract as
+\code{\link{detect_modules}} and \code{\link{summarize_comparison}}.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
@@ -110,9 +132,8 @@ when the expression matrices are restricted the same way beforehand
 
 \examples{
 \dontrun{
-# Fast analytical path
-set.seed(1)
-edges <- find_coexpressologs(networks, orthologs)
+# Fast analytical path; seed pins the randomized pi0 draws
+edges <- find_coexpressologs(networks, orthologs, seed = 1)
 
 # Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
 edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
@@ -122,7 +143,8 @@ edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 
 # Rigorous permutation path with GPU
 edges <- find_coexpressologs(networks, orthologs,
-  method = "permutation", use_torch = TRUE, n_cores = 4L)
+  method = "permutation", use_torch = TRUE, n_cores = 4L
+)
 }
 
 }

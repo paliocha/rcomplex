@@ -364,6 +364,8 @@ test_that("classify_hub_conservation without module_comparisons uses multi_trait
 
 
 test_that("classify_hub_conservation with module_comparisons detects conserved or rewired", {
+  # module_correspondence() q-values draw from the global RNG.
+  set.seed(42)
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 5L)
 
@@ -381,8 +383,13 @@ test_that("classify_hub_conservation with module_comparisons detects conserved o
     if (!ortho_key %in% names(td$orthologs)) {
       ortho_key <- paste(sp2, sp1, sep = ".")
     }
-    mod_comps[[key]] <- compare_modules(
-      td$mods[[sp1]], td$mods[[sp2]], td$orthologs[[ortho_key]]
+    map <- resolve_ortholog_map(
+      td$orthologs[[ortho_key]],
+      rownames(td$nets[[sp1]]$network),
+      rownames(td$nets[[sp2]]$network)
+    )
+    mod_comps[[key]] <- module_correspondence(
+      td$mods[[sp1]], td$mods[[sp2]], map
     )
   }
 
@@ -396,6 +403,66 @@ test_that("classify_hub_conservation with module_comparisons detects conserved o
   # At least check that the function runs without error
   expect_true(is.data.frame(result))
   expect_true(all(!is.na(result$classification)))
+  # A live correspondence must actually reach the lookup: n_corresponding is
+  # reset to NA when the key misses, which is how the old unsorted keying
+  # failed. n_cross_pairs is set regardless, so it proves nothing here.
+  expect_false(all(is.na(result$n_corresponding)))
+  expect_true(any(result$classification %in%
+                    c("conserved_hub", "rewired_hub")))
+})
+
+
+test_that("a species with no HOG-mapped genes is called out", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td, top_n = 1L)
+  hubs[["SP_B"]]$hog <- NA_character_
+
+  expect_warning(classify_hub_conservation(hubs, td$trait),
+                 "no HOG-mapped genes")
+})
+
+
+test_that("min_trait_fraction denominator is the trait group, not presence", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td, top_n = 1L)
+
+  # Two annual patterns that differ only in whether the HOG is also present
+  # in the second annual species. Both are a hub in one annual out of two,
+  # so both must score the same fraction; dividing by the species carrying
+  # the HOG scores the second one 1.0 and promotes it to a trait-specific
+  # hub on a single observation.
+  for (sp in names(hubs)) hubs[[sp]]$is_hub <- FALSE
+  hubs[["SP_A"]]$is_hub[hubs[["SP_A"]]$hog %in% c("HOG5", "HOG10")] <- TRUE
+  hubs[["SP_B"]] <- hubs[["SP_B"]][hubs[["SP_B"]]$hog != "HOG10", ]
+
+  res <- classify_hub_conservation(hubs, td$trait, min_trait_fraction = 0.75)
+  cls <- stats::setNames(res$classification, res$hog)
+
+  expect_equal(unname(cls[["HOG10"]]), unname(cls[["HOG5"]]))
+  expect_equal(unname(cls[["HOG10"]]), "sporadic_hub")
+  expect_true(is.na(res$hub_trait_groups[res$hog == "HOG10"]))
+  # The presence count still reports what it always did.
+  expect_equal(res$n_species_present[res$hog == "HOG10"], 3L)
+})
+
+
+test_that("min_trait_fraction counts absent species against the group", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td, top_n = 1L)
+
+  # Hub in the only annual that carries the HOG. Under the group-size
+  # denominator that is 1 of 2 annuals, which clears the 0.5 default but
+  # not 0.75; under the old presence denominator it was 1.0 either way.
+  for (sp in names(hubs)) hubs[[sp]]$is_hub <- FALSE
+  hubs[["SP_A"]]$is_hub[hubs[["SP_A"]]$hog == "HOG10"] <- TRUE
+  hubs[["SP_B"]] <- hubs[["SP_B"]][hubs[["SP_B"]]$hog != "HOG10", ]
+
+  lax <- classify_hub_conservation(hubs, td$trait, min_trait_fraction = 0.5)
+  expect_equal(lax$classification[lax$hog == "HOG10"],
+               "annual_specific_hub")
+  strict <- classify_hub_conservation(hubs, td$trait,
+                                      min_trait_fraction = 0.6)
+  expect_equal(strict$classification[strict$hog == "HOG10"], "sporadic_hub")
 })
 
 
@@ -429,6 +496,11 @@ test_that("classify_hub_conservation validates inputs", {
   expect_error(classify_hub_conservation(hubs,
                  c(SP_A = "annual", SP_B = "annual")),
                "missing entries")
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_A.SP_C = list(raw = 1))),
+    "must be a module_correspondence\\(\\) result"
+  )
 })
 
 
@@ -749,5 +821,70 @@ test_that("characterize_hubs validates inputs", {
   expect_error(
     characterize_hubs(hubs, td$mods[[sp]], annotations = data.frame(x = 1)),
     "gene"
+  )
+})
+
+
+test_that("classify_hub_conservation rejects unusable comparison keys", {
+  td <- make_hub_test_data()
+  hubs <- make_hub_results(td)
+  map <- resolve_ortholog_map(
+    td$orthologs[["SP_A.SP_C"]],
+    rownames(td$nets$SP_A$network), rownames(td$nets$SP_C$network)
+  )
+  corr <- module_correspondence(td$mods$SP_A, td$mods$SP_C, map)
+
+  # An unnamed list makes the lookup loop iterate over NULL, leaving every HOG
+  # at NA -- the same silent degradation as supplying nothing.
+  expect_error(
+    classify_hub_conservation(hubs, td$trait, module_comparisons = list(corr)),
+    "must be a named list"
+  )
+  # A reversed key passes the shape check but never matches the sorted lookup.
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_C.SP_A = corr)),
+    "alphabetically sorted species"
+  )
+  # Worse than a bad key: transposed arguments under a VALID key pass every
+  # other check and then match lookups with module_sp1/module_sp2 swapped,
+  # giving wrong verdicts instead of a detectable NA.
+  flipped <- corr
+  flipped$sp_ref <- "SP_C"
+  flipped$sp_test <- "SP_A"
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_A.SP_C = flipped)),
+    "arguments or the key are wrong"
+  )
+  # A sp_test naming a third species is the same class of silent wrong
+  # verdict, and a first-element check would pass it.
+  third <- corr
+  third$sp_ref <- "SP_A"
+  third$sp_test <- "SP_D"
+  expect_error(
+    classify_hub_conservation(hubs, td$trait,
+      module_comparisons = list(SP_A.SP_C = third)),
+    "arguments or the key are wrong"
+  )
+})
+
+test_that("orientation check survives species names containing a dot", {
+  # Splitting the key on "." would make "A.thaliana.O.sativa" look transposed
+  # and reject a correctly oriented table.
+  trait <- c(A.thaliana = "annual", O.sativa = "perennial")
+  corr <- list(pairs = data.frame(
+    module_sp1 = "1", module_sp2 = "1", jaccard = 0.5, q.value = 0.01,
+    stringsAsFactors = FALSE
+  ), sp_ref = "A.thaliana", sp_test = "O.sativa")
+  hubs <- list(
+    A.thaliana = data.frame(gene = "a1", module = 1L, is_hub = TRUE,
+                            hog = "H1", degree = 1, stringsAsFactors = FALSE),
+    O.sativa = data.frame(gene = "o1", module = 1L, is_hub = TRUE,
+                          hog = "H1", degree = 1, stringsAsFactors = FALSE)
+  )
+  expect_no_error(
+    classify_hub_conservation(hubs, trait,
+      module_comparisons = list("A.thaliana.O.sativa" = corr))
   )
 })

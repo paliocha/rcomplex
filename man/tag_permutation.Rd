@@ -12,14 +12,25 @@ tag_permutation(
   group,
   target_group,
   n_perm = 1000L,
-  min_recurrence = 2L
+  min_recurrence = NULL,
+  statistic = c("count", "excess"),
+  universe = NULL,
+  enum_max = 20L,
+  seed = NULL
 )
 }
 \arguments{
 \item{classification}{Data frame from
-\code{\link{compare_modules_paired}()$classification}. Must
-contain columns \code{pair_name}, \code{module}, \code{species}
-(\code{"sp1"} or \code{"sp2"}), and \code{classification}.}
+\code{\link{preservation_paired}()$classification}. Must contain
+columns \code{pair_name}, \code{module}, \code{reference},
+\code{test} and \code{classification}. \code{reference} names the
+species whose modules the row describes and \code{test} the partner
+network they were tested in; \code{classification} is one of
+\code{"conserved"}, \code{"moderate"}, \code{"diverged"} or
+\code{"untested"}, and only \code{"diverged"} rows contribute.
+Preservation only reports modules with at least
+\code{min_module_size} mapped genes, so the HOG pool is smaller than
+the retired gene-overlap engine's.}
 
 \item{modules}{Named list of \code{\link{detect_modules}} outputs.
 Names must include all species referenced by \code{pairs}.}
@@ -37,67 +48,261 @@ All species in \code{pairs} must have entries.}
 \item{target_group}{Character string: the trait value to test
 recurrence for (e.g., \code{"annual"}).}
 
-\item{n_perm}{Number of permutations (default 1000).}
+\item{n_perm}{Number of labellings to draw when the null is too large
+to enumerate (default 1000). Only used when the label space exceeds
+\code{2^enum_max}, which needs 21 independent contrast groups at the
+default --- 42 species if they are disjoint --- so in practice the
+null is always enumerated and this argument is ignored, with a
+message when it was supplied explicitly. Enumeration is decided on
+cost rather than on \code{n_perm} so that raising \code{n_perm} for
+precision cannot demote the null from exact to sampled. See
+\code{enum_max} to lower that ceiling.}
 
 \item{min_recurrence}{Minimum number of pairs in which a HOG must
-appear to be counted as recurring (default 2).}
+appear to be counted as recurring. \code{NULL} (default) uses half
+the contributing contrasts, at least 2 --- which is 2 for a
+four-contrast design, so small designs behave as they did when the
+default was the constant 2. A constant does not describe a design of
+arbitrary size. Writing \code{p} for the chance that one HOG falls in a
+diverged module on one side of one pair, a HOG reaches at least 2 of
+\code{k} target sides by chance alone with probability
+\code{1 - (1 - p)^k - k p (1 - p)^(k - 1)}. At the \code{p = 0.08}
+of the eight-species Pooideae set that is about 0.03 at
+\code{k = 4} and 0.19 at \code{k = 10}: the statistic
+saturates on chance recurrence, and simulation shows power becoming
+non-monotone in \code{k} and collapsing by \code{k = 10}. Scaling it
+as \code{max(2, round(k / 2))} restores monotone power, and is what
+\code{NULL} does. Exceeding the number of contributing pairs is an
+error:
+no HOG could recur in that many, so the statistic would be 0 under
+every labelling. At \code{min_recurrence = 1} the statistic
+degenerates to the size of the union of the chosen sides, a pure
+set-size measure.}
+
+\item{statistic}{Either \code{"count"} (default) or \code{"excess"}.
+Inference is exact under both --- the permutation null is recomputed
+on whichever is chosen --- so this is a power choice, not a validity
+one. \code{observed} is the recurrence count either way and
+\code{statistic_observed} is the value actually tested.
+
+\code{"count"} is the raw number of recurring HOGs. It scales with
+how many HOGs the selected sides happen to hold, so a contrast whose
+two sides differ greatly in size dominates the null, which then ranks
+labellings largely by set size. Measured on the eight-species
+Pooideae set, 98\\% of the variance of the count null is explained by
+the total size of the selected sides.
+
+\code{"excess"} subtracts the count expected from independent sides
+of exactly those sizes, as a Poisson-binomial upper tail over
+\code{universe}. \strong{Whether this helps depends on the regime,
+and it can make matters worse.} It works when the sides are small
+relative to the universe --- on the Pooideae set it cuts the variance
+explained by set size from 0.98 to 0.33 and moves the observed
+labelling from 6th to 3rd of 16. It over-corrects when the sides
+between them account for most of the universe, because the
+independence model then predicts far more overlap than disjoint sides
+can produce: on a simulated design whose sides nearly partition the
+universe, the size dependence rises rather than falls (measured 0.97
+to 0.999 as the sides were made more disjoint). Check
+\code{$pair_sizes} against \code{universe} before trusting it, and
+treat a large negative \code{statistic_observed} as a sign that the
+universe is too small.}
+
+\item{universe}{Reference universe for \code{statistic = "excess"}:
+a count, or a vector of HOG identifiers whose distinct values are
+counted. Defaults to every HOG in \code{orthologs}. \strong{This is
+not identifiable from the data} --- it is the set of HOGs that could
+have appeared in a diverged module, which the data cannot report ---
+and the correction is sensitive to it, so it is an argument rather
+than something inferred. A universe at or below the union of the
+selected sides forces the expectation above what disjoint sides can
+deliver and drives the statistic systematically negative. Ignored for
+\code{statistic = "count"}.}
+
+\item{enum_max}{Enumerate while the label space holds at most
+\code{2^enum_max} labellings (default 20). That is
+\code{2^enum_max} serial evaluations of the statistic in the worst
+case --- about a million at the default,
+which on Pooideae-sized HOG pools is tens of minutes --- so lower it
+to fall back to \code{n_perm} sampled draws when that cost is not
+worth an exact p-value. Values above 30 are refused.}
+
+\item{seed}{Integer seed for the sampled branch, or \code{NULL} (default)
+to draw from the ambient RNG stream and leave it advanced. A seed draws
+from a private stream and restores the caller's on exit, the
+package-wide contract described under \code{\link{detect_modules}}. An
+enumerated null draws nothing, so a seed changes nothing there.}
 }
 \value{
 A list with components:
 \describe{
 \item{observed}{Integer: number of HOGs recurring in
 \code{>= min_recurrence} pairs for \code{target_group}.}
-\item{null_distribution}{Integer vector of length
-\code{n_perm}: recurrence counts under the null.}
-\item{p_value}{One-sided p-value (conservative):
-\code{(sum(null >= observed) + 1) / (n_perm + 1)}.}
+\item{null_distribution}{Integer vector of recurrence counts under
+the null: all \code{2^k} labellings when \code{exact} is
+\code{TRUE}, otherwise \code{n_perm} sampled ones.}
+\item{p_value}{One-sided p-value, comparing
+\code{statistic_observed} --- not \code{observed} --- against
+\code{null_distribution}, which is a double vector. When
+\code{exact} is \code{TRUE} this is
+\code{mean(null >= statistic_observed)} over the complete null,
+which already includes the observed labelling; when sampled it
+is \code{(sum(null >= statistic_observed) + 1) / (n_perm + 1)}.
+The comparison carries a tolerance, since under
+\code{statistic = "excess"} mathematically tied labellings need
+not be bitwise equal.}
+\item{p_min}{Smallest p-value this design can produce
+(\code{2^-k} when enumerated, \code{1 / (n_perm + 1)} when
+sampled). A \code{p_value} above \code{alpha} is uninformative
+when \code{p_min} is also above it.}
+\item{p_attainable}{The floor after ties: labellings sharing a
+statistic cannot be separated, so nothing scores below the tail
+of the maximum. Equals \code{p_min} when the maximum is unique,
+and whenever the null was sampled.}
+\item{statistic}{Echo of the input.}
+\item{statistic_observed}{The observed value of the chosen
+statistic --- what \code{null_distribution} is compared against.
+Equals \code{observed} when \code{statistic = "count"}.}
+\item{n_labellings}{Size of the admissible label space, the
+product over components, which is \code{2^k}: a component with
+at least one contrast admits at most two labellings, since the
+seed species can only carry one of that contrast's two labels.}
+\item{n_contributing}{Number of pairs feeding the statistic ---
+those with exactly one side in \code{target_group}. Exceeds
+\code{n_swappable} both when contrasts are coupled into one
+component and when a component's labellings all select the same
+HOG sets.}
+\item{exact}{Logical: was the null enumerated?}
+\item{n_swappable}{The \code{k} above: the number of
+\emph{components} some relabelling moves, not a count of pairs.
+For a disjoint design the two coincide.}
+\item{pair_sizes}{Data frame with one row per contrast and
+columns \code{pair_name}, \code{sp1}, \code{sp2},
+\code{n_hogs_sp1}, \code{n_hogs_sp2}, \code{contributes},
+\code{block}, \code{swappable}, \code{n_hogs_target} and
+\code{n_hogs_partner}. The last two are \code{NA} on rows that
+do not contribute, since those have no target side.
+\code{block} gives the
+component each contrast belongs to and \code{swappable} is a
+property of that component, so it is \code{TRUE} for every
+contrast in a component some relabelling moves. The relabelling
+is exchangeable only if the target side is not systematically
+the larger one; if it is, the statistic reads set size rather
+than recurrence.}
+\item{size_asymmetry_p}{One-sided sign-test p-value for the target
+side being the larger one across the non-tied contrasts in
+components some relabelling moves.
+A warning is emitted when it is at or below 0.10 --- an advisory
+threshold, since like \code{p_min} this cannot reach 0.05 below
+five pairs. \code{NA} when
+every swappable pair is tied. This is a diagnostic on the null's
+exchangeability assumption, not part of the test.}
 \item{recurrence_table}{Data frame with columns \code{hog} and
 \code{n_pairs}: observed per-HOG recurrence counts (only
 HOGs appearing in at least 1 pair).}
 \item{target_group}{Echo of the input.}
-\item{min_recurrence}{Echo of the input.}
-\item{n_perm}{Echo of the input.}
+\item{min_recurrence}{The threshold actually used --- the
+resolved value, not an echo, when the input was \code{NULL}.}
+\item{n_perm}{Number of null values actually used.}
 }
 }
 \description{
 Tests whether HOGs recur in trait-specific modules across independent
-species pairs more than expected by chance. The null shuffles trait
-labels across species (preserving marginal frequencies), re-tags
-species-specific modules, and counts HOG recurrence under the
-permuted labelling.
+species pairs more than expected by chance. The null swaps the two
+trait labels within each pair, re-tags diverged modules -- those whose
+topology is not preserved in the partner network -- and counts HOG
+recurrence under the relabelled design.
 }
 \section{Null model}{
 
-Each permutation randomly reassigns trait labels to species,
-preserving the number of species per trait value. Module structure
-and gene content are held fixed --- only the trait-to-species
-mapping changes. A pair contributes HOGs for \code{target_group}
-only when exactly one of its two species carries that trait under
-the (permuted) labelling. If both or neither species carry the
-target trait, the pair contributes nothing. This ensures the test
-is sensitive to the trait-species association, not to module size
-or gene overlap alone.
+The design is a randomised block: the pair is the block, the two
+species in it are the two levels of the trait, and the pairs are the
+unit of replication. The null hypothesis is that which member of a
+pair carries \code{target_group} is unrelated to which of its modules
+diverge. Under that hypothesis the trait label is exchangeable
+\emph{within} a pair and not across pairs, so each draw independently
+either swaps a pair's two labels or leaves them alone. Module
+structure and gene content are held fixed.
 
-The test generalises to any number of trait values with arbitrary
-frequencies.
+A pair contributes HOGs for \code{target_group} only when exactly one
+of its two species carries that trait. Every swap preserves each
+pair's pair of labels, so a pair that contributes under the observed
+labelling contributes under every draw --- the null stays inside the
+design that was actually run.
+
+A component counts toward \code{k} only when relabelling it changes
+the statistic. A contrast whose two species share a label is pinned;
+with three or more trait values a contrast whose labels differ but
+where neither is the target contributes nothing under either
+orientation; and a component whose labellings all select the same HOG
+sets --- most often one with no diverged module above
+\code{min_module_size} on either side --- adds no resolution.
+Counting any of these would multiply the label space without
+separating anything, and \code{p_min} would then claim a floor the
+design cannot reach. The label space is enumerated exactly while it
+holds at most \code{2^enum_max} labellings, and \code{n_perm} is then
+ignored; beyond that \code{n_perm} labellings are drawn, one
+admissible labelling per component. Either way the
+observed labelling is one of the points, so the smallest attainable
+p-value is \code{p_min} (\code{2^-k} when enumerated). \strong{A
+design with fewer than 5 independent contrast groups cannot reach
+p < 0.05 no matter how strong the signal}, because
+\code{2^-4 = 0.0625}. The function warns whenever
+\code{max(p_min, p_attainable)} exceeds 0.05, naming whichever of the
+two --- too small a label space, or ties within it --- actually
+binds.
+
+Because a swap of \emph{every} pair maps the statistic for one trait
+value onto the statistic for the other, running the test for two
+complementary trait values reads two entries of the same null
+distribution. Those are not independent tests and must not be
+corrected as if they were.
+
+Contrasts sharing a species are \emph{coupled}: relabelling one
+changes the other, so they cannot be swapped independently. The unit of
+independence is therefore the connected component of the graph whose
+nodes are species and whose edges are contrasts, and the null is the
+product over components of each component's admissible labellings. A
+component's labelling is fixed by the label given to any one of its
+species, since each contrast then forces its partner, so enumerating
+the alphabet for one species and propagating finds them all. A disjoint
+pairing gives one component per contrast with two labellings each, which
+is where \code{2^k} comes from --- the special case, not the
+assumption. The test generalises to any number of trait values with
+arbitrary frequencies, to unbalanced designs, and to species appearing
+in several contrasts.
+
+An earlier version permuted trait labels across all species without
+conditioning on the pairing. That null mixed the observed design with
+designs having fewer contributing pairs (for four pairs, 77\\% of its
+support), which inflated its variance and made it anti-conservative.
 }
 
 \examples{
 \dontrun{
-mod_results <- compare_modules_paired(modules, orthologs,
-  pairs = data.frame(sp1 = c("BDIS", "HVUL"),
-                     sp2 = c("BSYL", "HJUB"),
-                     pair_name = c("Brachypodium", "Hordeum")),
-  group = c(BDIS = "annual", BSYL = "perennial",
-            HVUL = "annual", HJUB = "perennial"))
+mod_results <- preservation_paired(modules, networks, orthologs,
+  pairs = data.frame(
+    sp1 = c("BDIS", "HVUL"),
+    sp2 = c("BSYL", "HJUB"),
+    pair_name = c("Brachypodium", "Hordeum")
+  ),
+  group = c(
+    BDIS = "annual", BSYL = "perennial",
+    HVUL = "annual", HJUB = "perennial"
+  )
+)
 
 result <- tag_permutation(
   mod_results$classification, modules, orthologs,
-  pairs = data.frame(sp1 = c("BDIS", "HVUL"),
-                     sp2 = c("BSYL", "HJUB"),
-                     pair_name = c("Brachypodium", "Hordeum")),
-  group = c(BDIS = "annual", BSYL = "perennial",
-            HVUL = "annual", HJUB = "perennial"),
+  pairs = data.frame(
+    sp1 = c("BDIS", "HVUL"),
+    sp2 = c("BSYL", "HJUB"),
+    pair_name = c("Brachypodium", "Hordeum")
+  ),
+  group = c(
+    BDIS = "annual", BSYL = "perennial",
+    HVUL = "annual", HJUB = "perennial"
+  ),
   target_group = "annual"
 )
 result$p_value

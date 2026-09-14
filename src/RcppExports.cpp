@@ -196,25 +196,79 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// module_jaccard_permutation_cpp
-Rcpp::DataFrame module_jaccard_permutation_cpp(const Rcpp::IntegerVector& ortho_sp1_gene, const Rcpp::IntegerVector& ortho_sp2_gene, int n_sp1_unique, int n_sp2_universe, const Rcpp::List& mod1_sp1_genes, const Rcpp::List& mod_sp2_sets, const Rcpp::IntegerVector& mod_i_idx, const Rcpp::IntegerVector& mod_j_idx, const Rcpp::NumericVector& obs_jaccard, int min_exceedances, int max_permutations, int n_cores);
-RcppExport SEXP _rcomplex_module_jaccard_permutation_cpp(SEXP ortho_sp1_geneSEXP, SEXP ortho_sp2_geneSEXP, SEXP n_sp1_uniqueSEXP, SEXP n_sp2_universeSEXP, SEXP mod1_sp1_genesSEXP, SEXP mod_sp2_setsSEXP, SEXP mod_i_idxSEXP, SEXP mod_j_idxSEXP, SEXP obs_jaccardSEXP, SEXP min_exceedancesSEXP, SEXP max_permutationsSEXP, SEXP n_coresSEXP) {
+// module_preservation_dense_cpp
+Rcpp::List module_preservation_dense_cpp(const arma::mat& net, double thr, const Rcpp::IntegerVector& keep, const Rcpp::List& module_members, const Rcpp::List& ref_kIM, const Rcpp::List& ref_CC, const Rcpp::List& ref_MAR, int n_perm, int n_cores, bool binary, bool store_perm);
+RcppExport SEXP _rcomplex_module_preservation_dense_cpp(SEXP netSEXP, SEXP thrSEXP, SEXP keepSEXP, SEXP module_membersSEXP, SEXP ref_kIMSEXP, SEXP ref_CCSEXP, SEXP ref_MARSEXP, SEXP n_permSEXP, SEXP n_coresSEXP, SEXP binarySEXP, SEXP store_permSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type ortho_sp1_gene(ortho_sp1_geneSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type ortho_sp2_gene(ortho_sp2_geneSEXP);
-    Rcpp::traits::input_parameter< int >::type n_sp1_unique(n_sp1_uniqueSEXP);
-    Rcpp::traits::input_parameter< int >::type n_sp2_universe(n_sp2_universeSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::List& >::type mod1_sp1_genes(mod1_sp1_genesSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::List& >::type mod_sp2_sets(mod_sp2_setsSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type mod_i_idx(mod_i_idxSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type mod_j_idx(mod_j_idxSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type obs_jaccard(obs_jaccardSEXP);
-    Rcpp::traits::input_parameter< int >::type min_exceedances(min_exceedancesSEXP);
-    Rcpp::traits::input_parameter< int >::type max_permutations(max_permutationsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type net(netSEXP);
+    Rcpp::traits::input_parameter< double >::type thr(thrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type keep(keepSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type module_members(module_membersSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type ref_kIM(ref_kIMSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type ref_CC(ref_CCSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type ref_MAR(ref_MARSEXP);
+    Rcpp::traits::input_parameter< int >::type n_perm(n_permSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(module_jaccard_permutation_cpp(ortho_sp1_gene, ortho_sp2_gene, n_sp1_unique, n_sp2_universe, mod1_sp1_genes, mod_sp2_sets, mod_i_idx, mod_j_idx, obs_jaccard, min_exceedances, max_permutations, n_cores));
+    Rcpp::traits::input_parameter< bool >::type binary(binarySEXP);
+    Rcpp::traits::input_parameter< bool >::type store_perm(store_permSEXP);
+    rcpp_result_gen = Rcpp::wrap(module_preservation_dense_cpp(net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm));
+    return rcpp_result_gen;
+END_RCPP
+}
+// module_preservation_sparse_cpp
+Rcpp::List module_preservation_sparse_cpp(const Rcpp::IntegerVector& p, const Rcpp::IntegerVector& i, const Rcpp::NumericVector& x, double thr, const Rcpp::IntegerVector& keep, const Rcpp::List& module_members, const Rcpp::List& ref_kIM, const Rcpp::List& ref_CC, const Rcpp::List& ref_MAR, int n_perm, int n_cores, bool binary, bool store_perm);
+RcppExport SEXP _rcomplex_module_preservation_sparse_cpp(SEXP pSEXP, SEXP iSEXP, SEXP xSEXP, SEXP thrSEXP, SEXP keepSEXP, SEXP module_membersSEXP, SEXP ref_kIMSEXP, SEXP ref_CCSEXP, SEXP ref_MARSEXP, SEXP n_permSEXP, SEXP n_coresSEXP, SEXP binarySEXP, SEXP store_permSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type i(iSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type thr(thrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type keep(keepSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type module_members(module_membersSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type ref_kIM(ref_kIMSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type ref_CC(ref_CCSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type ref_MAR(ref_MARSEXP);
+    Rcpp::traits::input_parameter< int >::type n_perm(n_permSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    Rcpp::traits::input_parameter< bool >::type binary(binarySEXP);
+    Rcpp::traits::input_parameter< bool >::type store_perm(store_permSEXP);
+    rcpp_result_gen = Rcpp::wrap(module_preservation_sparse_cpp(p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm));
+    return rcpp_result_gen;
+END_RCPP
+}
+// module_gene_stats_dense_cpp
+Rcpp::List module_gene_stats_dense_cpp(const arma::mat& net, double thr, const Rcpp::IntegerVector& keep, const Rcpp::List& module_members, bool binary);
+RcppExport SEXP _rcomplex_module_gene_stats_dense_cpp(SEXP netSEXP, SEXP thrSEXP, SEXP keepSEXP, SEXP module_membersSEXP, SEXP binarySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type net(netSEXP);
+    Rcpp::traits::input_parameter< double >::type thr(thrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type keep(keepSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type module_members(module_membersSEXP);
+    Rcpp::traits::input_parameter< bool >::type binary(binarySEXP);
+    rcpp_result_gen = Rcpp::wrap(module_gene_stats_dense_cpp(net, thr, keep, module_members, binary));
+    return rcpp_result_gen;
+END_RCPP
+}
+// module_gene_stats_sparse_cpp
+Rcpp::List module_gene_stats_sparse_cpp(const Rcpp::IntegerVector& p, const Rcpp::IntegerVector& i, const Rcpp::NumericVector& x, double thr, const Rcpp::IntegerVector& keep, const Rcpp::List& module_members, bool binary);
+RcppExport SEXP _rcomplex_module_gene_stats_sparse_cpp(SEXP pSEXP, SEXP iSEXP, SEXP xSEXP, SEXP thrSEXP, SEXP keepSEXP, SEXP module_membersSEXP, SEXP binarySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type i(iSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type thr(thrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type keep(keepSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type module_members(module_membersSEXP);
+    Rcpp::traits::input_parameter< bool >::type binary(binarySEXP);
+    rcpp_result_gen = Rcpp::wrap(module_gene_stats_sparse_cpp(p, i, x, thr, keep, module_members, binary));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -325,7 +379,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_find_cliques_stability_cpp", (DL_FUNC) &_rcomplex_find_cliques_stability_cpp, 18},
     {"_rcomplex_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_cpp, 13},
     {"_rcomplex_hog_permutation_test_sparse_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_sparse_cpp, 17},
-    {"_rcomplex_module_jaccard_permutation_cpp", (DL_FUNC) &_rcomplex_module_jaccard_permutation_cpp, 12},
+    {"_rcomplex_module_preservation_dense_cpp", (DL_FUNC) &_rcomplex_module_preservation_dense_cpp, 11},
+    {"_rcomplex_module_preservation_sparse_cpp", (DL_FUNC) &_rcomplex_module_preservation_sparse_cpp, 13},
+    {"_rcomplex_module_gene_stats_dense_cpp", (DL_FUNC) &_rcomplex_module_gene_stats_dense_cpp, 5},
+    {"_rcomplex_module_gene_stats_sparse_cpp", (DL_FUNC) &_rcomplex_module_gene_stats_sparse_cpp, 7},
     {"_rcomplex_mutual_rank_transform_cached_cpp", (DL_FUNC) &_rcomplex_mutual_rank_transform_cached_cpp, 3},
     {"_rcomplex_mutual_rank_inplace_cpp", (DL_FUNC) &_rcomplex_mutual_rank_inplace_cpp, 4},
     {"_rcomplex_compare_neighborhoods_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_cpp, 9},

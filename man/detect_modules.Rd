@@ -46,7 +46,24 @@ other methods.}
 \item{nb_trials}{Number of Infomap attempts; best result is kept
 (default 10). Ignored for other methods.}
 
-\item{seed}{Random seed for reproducibility (default \code{NULL}).}
+\item{seed}{Random seed for reproducibility (default \code{NULL}).
+
+With a seed, the result is reproducible and identical at any \code{n_cores}:
+every parallel task derives its own RNG stream from the seed and its task
+index, so the answer does not depend on how the work was distributed.
+Two limits are worth knowing. Reproducibility holds for one machine and
+one igraph build -- the partition is a function of what
+\code{igraph::cluster_leiden()} draws, so an igraph upgrade may move it. And
+the answer depends on \code{RNGkind} as well as on \code{seed}: a session that has
+set \code{RNGkind("L'Ecuyer-CMRG")} gets a different, still reproducible,
+partition. \code{RNGkind} is deliberately not pinned inside the function.
+
+With an explicit seed the caller's stream is restored on exit, so the
+call is invisible to anything drawn afterwards: the clustering backend
+draws from a private stream started at \code{seed}. With \code{seed = NULL} the
+stream advances by exactly what was taken from it -- the one draw used
+to pick a root in consensus mode, whatever the backend consumed in
+single-resolution mode -- so consecutive unseeded calls still differ.}
 
 \item{consensus_threshold}{Threshold for consensus mode. \code{NULL}
 (default) uses iterative adaptive thresholding per Jeub et al. (2018):
@@ -61,16 +78,38 @@ contexts in the same session.}
 
 \item{max_consensus_iter}{Maximum number of consensus iterations for
 adaptive mode (\code{consensus_threshold = NULL}). Default 10.
-Typically converges in 2--5 iterations. Ignored when
-\code{consensus_threshold} is numeric.}
+Iteration stops when the sweep reproduces its own input (a fixed
+point) or when all resolutions agree. On the eight Pooideae networks
+that stopping rule was measured on it fired at 5--12 iterations, so
+the default cap of 10 cuts two of those eight off before it fires:
+at the default the loop may return a partition it had not finished
+settling. Raise it (20 is above every measured stop) when the
+returned \code{params$n_consensus_iterations} equals
+\code{max_consensus_iter} -- a truncated run always does, though a
+run that settles on the last allowed iteration does too.
+Ignored when \code{consensus_threshold} is numeric.}
 
 \item{test_k1}{Logical. Test the null hypothesis K = 1 (no community
 structure) via permutation of the spectral norm of the excess
 co-classification matrix. Default \code{TRUE}. Only used in adaptive
-consensus mode.}
+consensus mode. This is the expensive part of a
+\code{detect_modules()} call on a structured network: see
+\code{n_perm_k1} for what it costs and when to turn it off.}
 
 \item{n_perm_k1}{Number of permutations for the K = 1 test.
-Default 100.}
+Default 100. Sets both the resolution of the p-value (its floor is
+\code{1 / (n_perm_k1 + 1)}) and the power of the test; batches stop
+early only when the remaining permutations cannot change the call.
+An unstructured network accumulates exceedances fast and stops after
+a batch or two, but a structured one, which most real networks are,
+can only stop once no outstanding permutation matters, so it
+spends the whole budget. Each of those permutations rewires the graph
+degree-preservingly and runs the full Leiden sweep at the observed
+\code{n_iterations}, so the K = 1 test dominates the runtime and the
+peak memory of the call; the rewiring step has been the cause of
+out-of-memory kills on large networks. On a network already known to
+be structured, set \code{test_k1 = FALSE} rather than lowering
+\code{n_perm_k1}, which buys speed by weakening the test.}
 
 \item{alpha_k1}{Significance level for the K = 1 test.
 Default 0.05.}
@@ -130,11 +169,13 @@ Can detect both assortative and non-assortative structure.}
 \dontrun{
 # Single resolution
 mods <- detect_modules(net, method = "leiden", resolution = 1.0)
-table(mods$modules)  # module sizes
+table(mods$modules) # module sizes
 
 # Multi-resolution consensus (Jeub et al. 2018)
-mods_consensus <- detect_modules(net, resolution = c(0.5, 1.0, 2.0),
-                                 n_cores = 4L)
+mods_consensus <- detect_modules(net,
+  resolution = c(0.5, 1.0, 2.0),
+  n_cores = 4L
+)
 }
 
 }

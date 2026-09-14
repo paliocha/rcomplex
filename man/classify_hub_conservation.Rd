@@ -28,17 +28,32 @@ provided so the \code{hog} column is populated).}
 \item{species_trait}{Named character or factor vector mapping species to
 trait groups, e.g. \code{c(SP_A = "annual", SP_B = "annual", SP_C = "perennial", SP_D = "perennial")}.}
 
-\item{module_comparisons}{Optional named list of \code{\link[=compare_modules]{compare_modules()}} outputs
-keyed by alphabetically sorted species pair (e.g. \code{"SP_A.SP_C"}).
-Required for the conserved_hub vs rewired_hub distinction.}
+\item{module_comparisons}{Optional named list of
+\code{\link[=module_correspondence]{module_correspondence()}} outputs keyed by alphabetically sorted species
+pair (e.g. \code{"SP_A.SP_C"}). Required for the conserved_hub vs rewired_hub
+distinction. Two things the caller must now satisfy themselves: each
+element must be built with the alphabetically first species as
+\code{modules_ref}, and \code{\link[=module_correspondence]{module_correspondence()}} needs a map from
+\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}, so the networks are required for the gene
+universes. Pass \code{sp_ref} / \code{sp_test} to \code{\link[=module_correspondence]{module_correspondence()}} and
+that orientation is checked here instead of taken on trust. A module
+pair absent from the table counts as not corresponding.}
 
 \item{alpha}{Significance threshold for module correspondence (default 0.05).}
 
 \item{jaccard_threshold}{Jaccard threshold for module correspondence
-(default 0.1).}
+(default 0.1). \code{\link[=module_correspondence]{module_correspondence()}} computes this over the
+one-to-one paralog-resolved projection, whereas the retired gene-overlap
+engine used the paralog-expanded mappable set, so values now run
+systematically higher and the unchanged default is slightly more
+permissive.}
 
 \item{min_trait_fraction}{Minimum fraction of species (within a trait group)
-where the HOG must be a hub for the group to count (default 0.5).}
+where the HOG must be a hub for the group to count (default 0.5). The
+denominator is the size of the trait group -- every species of that
+group in \code{hub_results} -- not just the ones carrying the HOG, so a HOG
+confined to one of four annuals cannot reach 0.5 there. Lower the
+threshold to admit accessory HOGs.}
 
 \item{correspondence_threshold}{Fraction of cross-trait hub pairs that must
 have corresponding modules for the HOG to be classified as
@@ -51,7 +66,9 @@ A data frame with one row per HOG:
 \item{classification}{Conservation category (see Classification
 waterfall)}
 \item{n_species_hub}{Number of species where the HOG is a hub}
-\item{n_species_present}{Number of species where the HOG has genes}
+\item{n_species_present}{Number of species where the HOG has genes.
+Reported for context; it is not the \code{min_trait_fraction}
+denominator.}
 \item{hub_trait_groups}{Comma-separated trait groups where it qualifies
 as hub (\code{NA} for non_hub)}
 \item{n_corresponding}{Cross-trait hub pairs with corresponding modules
@@ -95,6 +112,17 @@ hub_list <- list(
 )
 trait <- c(SP_A = "annual", SP_B = "perennial")
 classify_hub_conservation(hub_list, trait)
+
+# With module correspondence, for the conserved_hub / rewired_hub split.
+# The list key must be the alphabetically sorted species pair.
+map <- resolve_ortholog_map(
+  ortho_AB, rownames(net_A$network), rownames(net_B$network)
+)
+corr <- list(SP_A.SP_B = module_correspondence(
+  mods_A, mods_B, map,
+  sp_ref = "SP_A", sp_test = "SP_B"
+))
+classify_hub_conservation(hub_list, trait, module_comparisons = corr)
 }
 
 }

@@ -11,7 +11,7 @@ coexpressolog_null(
   n_perm = 100L,
   swap_factor = 10L,
   n_cores = 1L,
-  seed = 1L,
+  seed = NULL,
   ...
 )
 }
@@ -42,8 +42,30 @@ edge count of each thresholded network (default 10).}
 \item{n_cores}{Number of parallel workers for the permutation loop
 (default 1).}
 
-\item{seed}{Integer base seed; worker \code{b} uses
-\code{seed + b} (default 1).}
+\item{seed}{Base seed for the run. \code{NULL} (default) draws one
+from the ambient RNG stream and leaves it advanced by that one draw,
+so consecutive unseeded calls give different nulls and a
+\code{set.seed()} in the caller's script reproduces the whole run.
+With a seed the call draws from a private stream and restores the
+caller's on exit --- the package-wide contract, see
+\code{\link{detect_modules}}.
+
+What a default call guarantees is replayability, not a fixed null.
+The seed actually used --- drawn or supplied --- is recorded as
+\code{attr(result, "seed")}, and a drawn one is also announced in a
+message, so any run can be reproduced exactly by passing that value
+back as \code{seed}. Two default calls return different nulls; the
+size of that difference is what \code{null_se} and the
+\code{p_emp_lo} / \code{p_emp_hi} interval report. The default was
+\code{1L} before 0.3.0, which pinned the null of every default call
+while leaving the observed statistic free to drift, and hid the
+Monte Carlo error entirely.
+
+Two seeds exactly \code{2^31 - 1} apart (both legal, since a seed may
+lie anywhere in \code{+/- .Machine$integer.max}) give every rewiring
+permutation the same seed, so the null is identical for the two runs
+even though the observed statistic is not: see the aliasing note under
+\code{.task_seed()}.}
 
 \item{...}{Passed unchanged to \code{\link{find_coexpressologs}} for
 both the observed and every null run (\code{species_pairs},
@@ -54,10 +76,18 @@ both the observed and every null run (\code{species_pairs},
 Data frame with one row per statistic and columns
 \code{statistic}, \code{observed}, \code{null_mean},
 \code{null_sd}, \code{null_max}, \code{fold} (observed /
-null_mean; \code{NA} when the null mean is 0) and \code{p_emp}
-(\code{(1 + sum(null >= observed)) / (n_perm + 1)}). The
-\code{n_perm x k} matrix of null statistics is attached as
-\code{attr(, "null")}.
+null_mean; \code{NA} when the null mean is 0), \code{p_emp}
+(\code{(1 + n_ge) / (n_perm + 1)}), \code{n_ge} (null draws at or
+above the observed value), \code{null_se}
+(\code{null_sd / sqrt(n_perm)}, the Monte Carlo error of
+\code{null_mean}; the relative error of \code{fold} is
+\code{null_se / null_mean}, which is large whenever
+\code{null_mean} is near 0) and \code{p_emp_lo} / \code{p_emp_hi},
+an exact Clopper-Pearson 95\\% interval for the exceedance
+probability that \code{p_emp} estimates --- an interval on that
+probability, not on \code{p_emp} itself. The \code{n_perm x k}
+matrix of null statistics is attached as \code{attr(, "null")}, and
+the base seed the run used as \code{attr(, "seed")}.
 }
 \description{
 Tests whether an observed co-expressolog statistic exceeds what
@@ -81,25 +111,30 @@ carry no information after rewiring. Each network is rewired with
 \code{swap_factor * igraph::ecount(g)} swaps and stays simple (no
 loops, no multi-edges).
 
-Permutation \code{b} runs in a worker that calls
-\code{set.seed(seed + b)} first, so results are reproducible and
-independent of \code{n_cores}. On Unix the permutations run under
-\code{parallel::mclapply()}; on Windows they run serially. The serial
-path saves and restores the caller's RNG state around the loop, so
-the ambient stream continues where the observed run left it. The
-observed run uses the
-ambient RNG: call \code{set.seed()} beforehand when \code{...}
-includes settings that draw from it (e.g. the default
-\code{pi0_method = "randomized"}). \code{method = "permutation"} in
+Permutation \code{b} runs in a worker that seeds itself from the base
+seed and its own index (the package-wide per-task seed derivation), so
+results are reproducible, independent of \code{n_cores}, and two
+neighbouring base seeds share no rewiring. On Unix the permutations run
+under \code{parallel::mclapply()}; on Windows they run serially. The seed
+covers the observed run as well as the null runs, so \code{...}
+settings that draw --- the default \code{pi0_method = "randomized"},
+for one --- are pinned too. \code{method = "permutation"} in
 \code{...} is allowed but slow (a full permutation test per rewired
 network).
 }
 \examples{
 \dontrun{
-set.seed(1)
-res <- coexpressolog_null(networks, orthologs, n_perm = 100L,
-                          n_cores = 4L)
+res <- coexpressolog_null(networks, orthologs,
+  n_perm = 100L,
+  n_cores = 4L
+)
 res[res$statistic == "total", ]
+
+# replay that exact run, whether or not it was seeded
+same <- coexpressolog_null(networks, orthologs,
+  n_perm = 100L,
+  n_cores = 4L, seed = attr(res, "seed")
+)
 }
 
 }

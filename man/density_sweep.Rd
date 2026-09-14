@@ -21,6 +21,7 @@ density_sweep(networks, ...)
   species_pairs = NULL,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  seed = NULL,
   ...
 )
 }
@@ -60,13 +61,24 @@ level. Defaults to all pairwise combinations.}
 
 \item{pi0_method}{Passed to \code{\link{find_coexpressologs}} (used
 by the analytical method): \code{"randomized"} (default),
-\code{"storey"} or \code{"none"}. The default draws from the
-global RNG; call \code{set.seed()} first for reproducible q-values.}
+\code{"storey"} or \code{"none"}. The default draws; pass
+\code{seed} to pin those draws.}
 
 \item{pval_combine}{Passed to \code{\link{find_coexpressologs}}:
 \code{"max"} (default) requires both directions to be significant
 (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
 calls a pair when either direction is significant.}
+
+\item{seed}{Integer seed for the sweep's random draws, or \code{NULL}
+(default) to draw from the global RNG. Applied once here, so the
+whole sweep is one reproducible unit: the multipliers are visited in
+order and each \code{\link{find_coexpressologs}} call continues the
+same stream, which keeps a level's draws independent of its
+neighbours' while making the sweep as a whole repeatable. Because
+nothing is drawn before the first multiplier, a sweep seeded with
+\code{s} reproduces \code{find_coexpressologs(seed = s)} exactly at
+its first level. See \code{\link{find_coexpressologs}} for what a
+seed does and does not pin under each \code{method}.}
 }
 \value{
 A data frame with columns \code{multiplier},
@@ -88,7 +100,8 @@ For each multiplier, every network's threshold is scaled by
 \examples{
 \dontrun{
 sweep <- density_sweep(networks, orthologs,
-                        method = "permutation", use_torch = TRUE)
+  method = "permutation", use_torch = TRUE
+)
 }
 
 }

@@ -261,3 +261,45 @@ test_that("prepare_orthologs works with three species", {
   expect_equal(nrow(ortho), 4)
   expect_setequal(ortho$hog, c("HOG1", "HOG1", "HOG1", "HOG2"))
 })
+
+
+test_that("prepare_orthologs with reductions = NULL skips paralog reduction", {
+  # SP_A carries two paralogs (A1, A2) in HOG1 -- with a reduction they
+  # would collapse to one representative; without one, both must survive
+  # as separate co-expressolog candidates against every SP_B partner.
+  se_a <- build_se(make_long_data("SP_A", c("A1", "A2", "A3"),
+                                  paste0("S", 1:4),
+                                  c("HOG1", "HOG1", "HOG2")), "SP_A")
+  se_b <- build_se(make_long_data("SP_B", c("B1", "B2"),
+                                  paste0("S", 1:4),
+                                  c("HOG1", "HOG2")), "SP_B")
+
+  ortho <- prepare_orthologs(list(SP_A = se_a, SP_B = se_b))
+
+  expect_true(is.data.frame(ortho))
+  expect_equal(names(ortho), c("Species1", "Species2", "hog"))
+
+  hog1_rows <- ortho[ortho$hog == "HOG1", ]
+  # Both A1 and A2 paralogs paired against B1, unmerged.
+  expect_setequal(hog1_rows$Species1, c("A1", "A2"))
+  expect_equal(nrow(hog1_rows), 2)
+
+  hog2_rows <- ortho[ortho$hog == "HOG2", ]
+  expect_equal(hog2_rows$Species1, "A3")
+  expect_equal(hog2_rows$Species2, "B2")
+})
+
+
+test_that("prepare_orthologs(reductions = NULL) needs no gene_map", {
+  # Regression guard: omitting reductions must not require any $gene_map,
+  # unlike the reduced path.
+  se_a <- build_se(make_long_data("SP_A", c("A1"), paste0("S", 1:4),
+                                  c("HOG1")), "SP_A")
+  se_b <- build_se(make_long_data("SP_B", c("B1"), paste0("S", 1:4),
+                                  c("HOG1")), "SP_B")
+
+  expect_no_error(prepare_orthologs(list(SP_A = se_a, SP_B = se_b)))
+  expect_no_error(
+    prepare_orthologs(list(SP_A = se_a, SP_B = se_b), reductions = NULL)
+  )
+})

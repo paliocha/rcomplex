@@ -159,57 +159,78 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
 }
 
 
-#' Extract pairwise orthologs with paralog-reduced gene names
+#' Extract pairwise orthologs, optionally with paralog-reduced gene names
 #'
 #' Convenience wrapper that calls \code{\link{extract_orthologs}} for every
-#' species pair and maps gene names through the gene maps produced by
-#' \code{\link{reduce_orthogroups}}.  This replaces ~20 lines of boilerplate
-#' when combining SummarizedExperiment objects with paralog reduction outputs.
+#' species pair and, when \code{reductions} is supplied, maps gene names
+#' through the gene maps produced by \code{\link{reduce_orthogroups}}.  This
+#' replaces ~20 lines of boilerplate when combining SummarizedExperiment
+#' objects with paralog reduction outputs.
+#'
+#' Paralog reduction is a lossy step: correlated paralogs are averaged into
+#' one representative gene, so per-paralog identity is gone by the time
+#' \code{orthologs} reaches downstream consumers. That trade-off pays for
+#' itself for consumers that need one counterpart per gene (module
+#' preservation, the species-graph clique backend), but the gene-graph
+#' clique backend (\code{\link{gene_clique_graph}} /
+#' \code{\link{classify_gene_cliques}}) is built to resolve which paralog
+#' copy is conserved, and needs every original paralog as its own node to do
+#' that. Pass \code{reductions = NULL} (the default) to skip paralog
+#' reduction entirely and keep every gene at its original identity.
 #'
 #' @param se_list Named list of
 #'   \code{\link[SummarizedExperiment]{SummarizedExperiment}} objects, keyed
 #'   by species code.
 #' @param reductions Named list of \code{\link{reduce_orthogroups}} outputs,
-#'   keyed by the same species codes as \code{se_list}.
-#'   Each element must contain a \code{$gene_map} data frame with columns
-#'   \code{original} and \code{representative}.
+#'   keyed by the same species codes as \code{se_list}, or \code{NULL}
+#'   (the default) to skip paralog reduction and keep original gene
+#'   identities. When supplied, each element must contain a \code{$gene_map}
+#'   data frame with columns \code{original} and \code{representative}.
 #' @param hog_col Column name in \code{rowData} containing HOG identifiers
 #'   (default \code{"hog"}).
 #'
 #' @return A data frame with columns \code{Species1}, \code{Species2}, and
-#'   \code{hog}, where gene names have been replaced by their reduced
-#'   representatives.  Duplicate rows (arising when multiple original genes
-#'   map to the same representative) are removed.
+#'   \code{hog}. When \code{reductions} is supplied, gene names have been
+#'   replaced by their reduced representatives and duplicate rows (arising
+#'   when multiple original genes map to the same representative) are
+#'   removed; when \code{reductions} is \code{NULL}, every original paralog
+#'   pair within a shared HOG is retained as its own row.
 #'
 #' @examples
 #' \dontrun{
+#' # With paralog reduction
 #' ortho <- prepare_orthologs(se_list, reductions)
-#' head(ortho)
+#'
+#' # Without paralog reduction -- keeps every paralog, for gene_clique_graph()
+#' ortho_full <- prepare_orthologs(se_list)
+#' head(ortho_full)
 #' }
 #'
 #' @export
-prepare_orthologs <- function(se_list, reductions, hog_col = "hog") {
+prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
   # --- validation ---
   if (!is.list(se_list) || is.null(names(se_list))) {
     stop("se_list must be a named list")
   }
-  if (!is.list(reductions) || is.null(names(reductions))) {
-    stop("reductions must be a named list")
-  }
-  missing_sp <- setdiff(names(se_list), names(reductions))
-  if (length(missing_sp) > 0) {
-    stop("reductions missing species present in se_list: ",
-         paste(missing_sp, collapse = ", "))
-  }
-  for (sp in names(se_list)) {
-    if (is.null(reductions[[sp]]$gene_map)) {
-      stop("reductions[['", sp, "']] must have a $gene_map element")
-    }
-  }
-
   sp_names <- names(se_list)
   if (length(sp_names) < 2) {
     stop("se_list must contain at least two species")
+  }
+
+  if (!is.null(reductions)) {
+    if (!is.list(reductions) || is.null(names(reductions))) {
+      stop("reductions must be a named list")
+    }
+    missing_sp <- setdiff(names(se_list), names(reductions))
+    if (length(missing_sp) > 0) {
+      stop("reductions missing species present in se_list: ",
+           paste(missing_sp, collapse = ", "))
+    }
+    for (sp in names(se_list)) {
+      if (is.null(reductions[[sp]]$gene_map)) {
+        stop("reductions[['", sp, "']] must have a $gene_map element")
+      }
+    }
   }
 
   pairs <- utils::combn(sp_names, 2, simplify = FALSE)
@@ -220,7 +241,7 @@ prepare_orthologs <- function(se_list, reductions, hog_col = "hog") {
 
     ortho <- extract_orthologs(se_list[[sp1]], se_list[[sp2]],
                                hog_col = hog_col)
-    if (nrow(ortho) == 0) return(ortho)
+    if (nrow(ortho) == 0 || is.null(reductions)) return(ortho)
 
     # Map Species1 through sp1 gene_map
     gm1 <- reductions[[sp1]]$gene_map

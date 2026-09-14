@@ -18,3 +18,4 @@
 ^\.roborev\.toml$
 ^prepare_data$
 ^\.code-review-graph$
+^src/.*\.tmp[^/]*$

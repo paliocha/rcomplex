@@ -18,15 +18,17 @@ test_that("compare_neighborhoods returns correct structure", {
 
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 30)
-  expected_cols <- c("Species1", "Species2", "hog",
-                     "Species1.neigh", "Species1.ortho.neigh",
-                     "Species1.neigh.overlap", "Species1.p.val.con",
-                     "Species1.p.val.div", "Species1.effect.size",
-                     "Species1.jaccard",
-                     "Species2.neigh", "Species2.ortho.neigh",
-                     "Species2.neigh.overlap", "Species2.p.val.con",
-                     "Species2.p.val.div", "Species2.effect.size",
-                     "Species2.jaccard")
+  expected_cols <- c(
+    "Species1", "Species2", "hog",
+    "Species1.neigh", "Species1.ortho.neigh",
+    "Species1.neigh.overlap", "Species1.p.val.con",
+    "Species1.p.val.div", "Species1.effect.size",
+    "Species1.jaccard",
+    "Species2.neigh", "Species2.ortho.neigh",
+    "Species2.neigh.overlap", "Species2.p.val.con",
+    "Species2.p.val.div", "Species2.effect.size",
+    "Species2.jaccard"
+  )
   expect_true(all(expected_cols %in% names(result)))
 })
 
@@ -102,15 +104,18 @@ test_that("C++ comparison matches R reference", {
     )
     expect_equal(
       cpp_result$Species1.p.val.con[i],
-      ref$Species1.p.val.con, tolerance = 1e-12
+      ref$Species1.p.val.con,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species1.p.val.div[i],
-      ref$Species1.p.val.div, tolerance = 1e-12
+      ref$Species1.p.val.div,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species1.effect.size[i],
-      ref$Species1.effect.size, tolerance = 1e-12
+      ref$Species1.effect.size,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species2.neigh[i],
@@ -126,39 +131,48 @@ test_that("C++ comparison matches R reference", {
     )
     expect_equal(
       cpp_result$Species2.p.val.con[i],
-      ref$Species2.p.val.con, tolerance = 1e-12
+      ref$Species2.p.val.con,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species2.p.val.div[i],
-      ref$Species2.p.val.div, tolerance = 1e-12
+      ref$Species2.p.val.div,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species2.effect.size[i],
-      ref$Species2.effect.size, tolerance = 1e-12
+      ref$Species2.effect.size,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species1.jaccard[i],
-      ref$Species1.jaccard, tolerance = 1e-12
+      ref$Species1.jaccard,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species2.jaccard[i],
-      ref$Species2.jaccard, tolerance = 1e-12
+      ref$Species2.jaccard,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species1.p.val.gt[i],
-      ref$Species1.p.val.gt, tolerance = 1e-12
+      ref$Species1.p.val.gt,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species1.p.val.eq[i],
-      ref$Species1.p.val.eq, tolerance = 1e-12
+      ref$Species1.p.val.eq,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species2.p.val.gt[i],
-      ref$Species2.p.val.gt, tolerance = 1e-12
+      ref$Species2.p.val.gt,
+      tolerance = 1e-12
     )
     expect_equal(
       cpp_result$Species2.p.val.eq[i],
-      ref$Species2.p.val.eq, tolerance = 1e-12
+      ref$Species2.p.val.eq,
+      tolerance = 1e-12
     )
   }
 })
@@ -179,9 +193,9 @@ test_that("self-excluded urn: anchor leaves the mapped set and the population", 
     m
   }
   a <- mk("A")
-  for (j in 2:4) a <- link(a, 1, j)          # N1(A1) = {A2, A3, A4}
+  for (j in 2:4) a <- link(a, 1, j) # N1(A1) = {A2, A3, A4}
   b <- mk("B")
-  for (j in c(2:4, 7)) b <- link(b, 1, j)    # N2(B1) = {B2, B3, B4, B7}
+  for (j in c(2:4, 7)) b <- link(b, 1, j) # N2(B1) = {B2, B3, B4, B7}
   net1 <- list(network = a, threshold = 0.5)
   net2 <- list(network = b, threshold = 0.5)
   ortho <- data.frame(
@@ -305,8 +319,10 @@ test_that("orthologs not in network are filtered", {
 })
 
 test_that("input validation works for compare_neighborhoods", {
-  expect_error(compare_neighborhoods(list(), list(), data.frame()),
-               "network object")
+  expect_error(
+    compare_neighborhoods(list(), list(), data.frame()),
+    "network object"
+  )
 })
 
 test_that("divergence p-values detect disjoint neighborhoods", {
@@ -537,9 +553,11 @@ test_that("comparison_to_edges produces correct edge format", {
 
   edges <- comparison_to_edges(comp, "SP_A", "SP_B")
 
-  expect_equal(names(edges), c("gene1", "gene2", "species1", "species2",
-                                "hog", "q.value", "effect_size", "jaccard",
-                                "type"))
+  expect_equal(names(edges), c(
+    "gene1", "gene2", "species1", "species2",
+    "hog", "q.value", "effect_size", "jaccard",
+    "type"
+  ))
   expect_equal(edges$gene1, c("A1", "A2"))
   expect_equal(edges$species1, c("SP_A", "SP_A"))
   expect_equal(edges$species2, c("SP_B", "SP_B"))
@@ -601,8 +619,10 @@ test_that("run_pairwise_comparisons returns combined edges for 2 species", {
   )
 
   expect_true(is.data.frame(result))
-  expect_true(all(c("gene1", "gene2", "species1", "species2", "hog",
-                     "q.value", "effect_size", "type") %in% names(result)))
+  expect_true(all(c(
+    "gene1", "gene2", "species1", "species2", "hog",
+    "q.value", "effect_size", "type"
+  ) %in% names(result)))
   expect_true(all(result$species1 == "SP_A"))
   expect_true(all(result$species2 == "SP_B"))
 })
@@ -619,12 +639,16 @@ test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
   nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
 
   ortho <- data.frame(
-    Species1 = c(paste0("A_", sprintf("%03d", 1:20)),
-                 paste0("A_", sprintf("%03d", 1:20)),
-                 paste0("B_", sprintf("%03d", 1:20))),
-    Species2 = c(paste0("B_", sprintf("%03d", 1:20)),
-                 paste0("C_", sprintf("%03d", 1:20)),
-                 paste0("C_", sprintf("%03d", 1:20))),
+    Species1 = c(
+      paste0("A_", sprintf("%03d", 1:20)),
+      paste0("A_", sprintf("%03d", 1:20)),
+      paste0("B_", sprintf("%03d", 1:20))
+    ),
+    Species2 = c(
+      paste0("B_", sprintf("%03d", 1:20)),
+      paste0("C_", sprintf("%03d", 1:20)),
+      paste0("C_", sprintf("%03d", 1:20))
+    ),
     hog = rep(paste0("HOG", 1:20), 3)
   )
 
@@ -639,9 +663,13 @@ test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
 
 test_that("run_pairwise_comparisons validates inputs", {
   expect_error(
-    run_pairwise_comparisons(list(A = list(network = matrix(0))),
-                              data.frame(Species1 = "a",
-                                         Species2 = "b", hog = 1)),
+    run_pairwise_comparisons(
+      list(A = list(network = matrix(0))),
+      data.frame(
+        Species1 = "a",
+        Species2 = "b", hog = 1
+      )
+    ),
     "at least 2 species"
   )
   expect_error(
@@ -673,7 +701,8 @@ test_that("run_pairwise_comparisons with custom species_pairs", {
 
   # Only compare A vs B, skip A-C and B-C
   result <- run_pairwise_comparisons(nets, ortho,
-                                      species_pairs = list(c("SP_A", "SP_B")))
+    species_pairs = list(c("SP_A", "SP_B"))
+  )
 
   if (nrow(result) > 0) {
     expect_true(all(result$species1 == "SP_A" & result$species2 == "SP_B"))
@@ -684,7 +713,7 @@ test_that("run_pairwise_comparisons with custom species_pairs", {
 # --- Shared fixtures for find_coexpressologs / density_sweep ---
 
 make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
-                                  density = 0.1) {
+                                 density = 0.1) {
   set.seed(42)
   expr1 <- matrix(rnorm(n1 * 10), nrow = n1, ncol = 10)
   rownames(expr1) <- paste0("A_", sprintf("%03d", seq_len(n1)))
@@ -712,7 +741,8 @@ test_that("find_coexpressologs default method is analytical", {
   result_default <- find_coexpressologs(fix$nets, fix$ortho)
   set.seed(1)
   result_explicit <- find_coexpressologs(fix$nets, fix$ortho,
-                                          method = "analytical")
+    method = "analytical"
+  )
   expect_identical(result_default, result_explicit)
 })
 
@@ -723,9 +753,11 @@ test_that("find_coexpressologs with method='permutation' returns correct structu
   result <- find_coexpressologs(fix$nets, fix$ortho, method = "permutation")
 
   expect_true(is.data.frame(result))
-  expect_true(all(c("gene1", "gene2", "species1", "species2",
-                     "hog", "q.value", "effect_size", "type")
-                  %in% names(result)))
+  expect_true(all(c(
+    "gene1", "gene2", "species1", "species2",
+    "hog", "q.value", "effect_size", "type"
+  )
+  %in% names(result)))
   expect_true(all(result$type %in% c("conserved", "ns")))
 })
 
@@ -735,13 +767,15 @@ test_that("find_coexpressologs alternative='less' produces 'diverged' labels", {
   fix <- make_coexpr_fixtures()
 
   result_perm <- find_coexpressologs(fix$nets, fix$ortho,
-                                      method = "permutation",
-                                      alternative = "less")
+    method = "permutation",
+    alternative = "less"
+  )
   expect_true(all(result_perm$type %in% c("diverged", "ns")))
 
   result_anal <- find_coexpressologs(fix$nets, fix$ortho,
-                                      method = "analytical",
-                                      alternative = "less")
+    method = "analytical",
+    alternative = "less"
+  )
   expect_true(all(result_anal$type %in% c("diverged", "ns")))
 })
 
@@ -758,8 +792,10 @@ test_that("density_sweep returns correct structure", {
 
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 3)
-  expect_true(all(c("multiplier", "eff_density", "n_significant", "edges",
-                     "species_densities") %in% names(result)))
+  expect_true(all(c(
+    "multiplier", "eff_density", "n_significant", "edges",
+    "species_densities"
+  ) %in% names(result)))
   expect_equal(result$multiplier, mults)
   expect_true(is.numeric(result$eff_density))
   expect_true(is.integer(result$n_significant))
@@ -807,14 +843,20 @@ test_that("density_sweep validates inputs", {
     "networks must be a named list"
   )
   expect_error(
-    density_sweep(list(A = list(network = matrix(0), threshold = 1)),
-                   dummy_ortho),
+    density_sweep(
+      list(A = list(network = matrix(0), threshold = 1)),
+      dummy_ortho
+    ),
     "networks must contain at least 2 species"
   )
   expect_error(
-    density_sweep(list(A = list(network = matrix(0)),
-                        B = list(network = matrix(0), threshold = 1)),
-                   dummy_ortho),
+    density_sweep(
+      list(
+        A = list(network = matrix(0)),
+        B = list(network = matrix(0), threshold = 1)
+      ),
+      dummy_ortho
+    ),
     "each network must have 'network' and 'threshold' elements"
   )
 
@@ -822,12 +864,14 @@ test_that("density_sweep validates inputs", {
   net_b <- list(network = matrix(0, 2, 2), threshold = 1)
   expect_error(
     density_sweep(list(A = net_a, B = net_b), dummy_ortho,
-                   multipliers = character(0)),
+      multipliers = character(0)
+    ),
     "multipliers must be a non-empty numeric vector"
   )
   expect_error(
     density_sweep(list(A = net_a, B = net_b), dummy_ortho,
-                   multipliers = -1),
+      multipliers = -1
+    ),
     "all multipliers must be positive"
   )
   expect_error(
@@ -909,8 +953,10 @@ test_that("sparse compare_neighborhoods equals dense (hand-built nets)", {
   )
 
   res_d <- compare_neighborhoods(net1, net2, ortho)
-  res_s <- compare_neighborhoods(sparse_net(net1), sparse_net(net2),
-                                 ortho)
+  res_s <- compare_neighborhoods(
+    sparse_net(net1), sparse_net(net2),
+    ortho
+  )
   expect_equal(res_s, res_d)
 })
 
@@ -938,10 +984,14 @@ test_that("sparse compare_neighborhoods with tighter threshold equals dense", {
   res_base <- compare_neighborhoods(td$net1, td$net2, td$ortho)
   expect_gt(sum(res_d$Species1.neigh.overlap), 0L)
   expect_gt(sum(res_d$Species2.neigh.overlap), 0L)
-  expect_lt(sum(res_d$Species1.neigh.overlap),
-            sum(res_base$Species1.neigh.overlap))
-  expect_lt(sum(res_d$Species2.neigh.overlap),
-            sum(res_base$Species2.neigh.overlap))
+  expect_lt(
+    sum(res_d$Species1.neigh.overlap),
+    sum(res_base$Species1.neigh.overlap)
+  )
+  expect_lt(
+    sum(res_d$Species2.neigh.overlap),
+    sum(res_base$Species2.neigh.overlap)
+  )
 })
 
 
@@ -965,12 +1015,18 @@ test_that("compare_neighborhoods rejects non-dgCMatrix Matrix classes", {
   ortho <- data.frame(Species1 = "A_001", Species2 = "B_001", hog = 1)
   ortho_rev <- data.frame(Species1 = "B_001", Species2 = "A_001", hog = 1)
 
-  expect_error(compare_neighborhoods(net_dsc, net2_s, ortho),
-               "network must be a dgCMatrix")
-  expect_error(compare_neighborhoods(net_dgt, net2_s, ortho),
-               "network must be a dgCMatrix")
-  expect_error(compare_neighborhoods(net2_s, net_dsc, ortho_rev),
-               "network must be a dgCMatrix")
+  expect_error(
+    compare_neighborhoods(net_dsc, net2_s, ortho),
+    "network must be a dgCMatrix"
+  )
+  expect_error(
+    compare_neighborhoods(net_dgt, net2_s, ortho),
+    "network must be a dgCMatrix"
+  )
+  expect_error(
+    compare_neighborhoods(net2_s, net_dsc, ortho_rev),
+    "network must be a dgCMatrix"
+  )
 })
 
 
@@ -978,10 +1034,14 @@ test_that("compare_neighborhoods rejects mixed dense/sparse inputs", {
   td <- make_cmp_nets()
   net1_s <- sparse_net(td$net1)
   net2_s <- sparse_net(td$net2)
-  expect_error(compare_neighborhoods(net1_s, td$net2, td$ortho),
-               "both dense or both sparse")
-  expect_error(compare_neighborhoods(td$net1, net2_s, td$ortho),
-               "both dense or both sparse")
+  expect_error(
+    compare_neighborhoods(net1_s, td$net2, td$ortho),
+    "both dense or both sparse"
+  )
+  expect_error(
+    compare_neighborhoods(td$net1, net2_s, td$ortho),
+    "both dense or both sparse"
+  )
 })
 
 
@@ -993,32 +1053,42 @@ test_that("store guard errors when threshold is below store_threshold", {
   # no store_threshold -> fallback guard on the smallest stored value
   net1_s$store_threshold <- NULL
   net1_loose <- modifyList(net1_s, list(threshold = td$net1$threshold * 0.5))
-  expect_error(compare_neighborhoods(net1_loose, net2_s, td$ortho),
-               "below the smallest stored value")
+  expect_error(
+    compare_neighborhoods(net1_loose, net2_s, td$ortho),
+    "below the smallest stored value"
+  )
 
   # exact equality with the smallest stored value passes
   thr_min <- min(net1_s$network@x)
   net1_min_s <- modifyList(net1_s, list(threshold = thr_min))
   net1_min_d <- modifyList(td$net1, list(threshold = thr_min))
-  expect_equal(compare_neighborhoods(net1_min_s, net2_s, td$ortho),
-               compare_neighborhoods(net1_min_d, td$net2, td$ortho))
+  expect_equal(
+    compare_neighborhoods(net1_min_s, net2_s, td$ortho),
+    compare_neighborhoods(net1_min_d, td$net2, td$ortho)
+  )
 
   net1_guarded <- modifyList(net1_s, list(
     store_threshold = td$net1$threshold, store_density = 0.1,
     threshold = td$net1$threshold * 0.5
   ))
-  expect_error(compare_neighborhoods(net1_guarded, net2_s, td$ortho),
-               "\\(store_density = 0.1\\); recompute")
+  expect_error(
+    compare_neighborhoods(net1_guarded, net2_s, td$ortho),
+    "\\(store_density = 0.1\\); recompute"
+  )
 
   # store_density absent -> no parenthetical in the message
   net1_guarded$store_density <- NULL
-  expect_error(compare_neighborhoods(net1_guarded, net2_s, td$ortho),
-               "stored threshold [^(]*; recompute")
+  expect_error(
+    compare_neighborhoods(net1_guarded, net2_s, td$ortho),
+    "stored threshold [^(]*; recompute"
+  )
 
   # threshold at or above store_threshold passes
   net1_ok <- modifyList(net1_guarded, list(threshold = td$net1$threshold))
-  expect_equal(compare_neighborhoods(net1_ok, net2_s, td$ortho),
-               compare_neighborhoods(td$net1, td$net2, td$ortho))
+  expect_equal(
+    compare_neighborhoods(net1_ok, net2_s, td$ortho),
+    compare_neighborhoods(td$net1, td$net2, td$ortho)
+  )
 })
 
 
@@ -1032,20 +1102,26 @@ test_that("sparse compare_neighborhoods rejects malformed dgCMatrix slots", {
   # empty p
   m <- good
   m@p <- integer(0)
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "slot p must have length >= 1")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "slot p must have length >= 1"
+  )
 
   # p[n] != length(x)
   m <- good
   m@p[n + 1L] <- m@p[n + 1L] - 1L
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "p\\[n\\] = .* length\\(x\\) = ")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "p\\[n\\] = .* length\\(x\\) = "
+  )
 
   # length(i) != length(x)
   m <- good
   m@i <- m@i[-1L]
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "length\\(i\\) = ")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "length\\(i\\) = "
+  )
 
   # duplicate row indices within a column (sparseMatrix(check = FALSE) sums
   # duplicates in Matrix >= 1.5, so build them by slot assignment)
@@ -1053,26 +1129,34 @@ test_that("sparse compare_neighborhoods rejects malformed dgCMatrix slots", {
   first_col <- which(diff(m@p) >= 2L)[1L]
   k <- m@p[first_col] + 1L
   m@i[k + 1L] <- m@i[k]
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "strictly increasing")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "strictly increasing"
+  )
 
   # row index out of range
   m <- good
   m@i[length(m@i)] <- n
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "strictly increasing")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "strictly increasing"
+  )
 
   # a p entry above length(x) with intact endpoints: p must be verified
   # non-decreasing for the WHOLE vector before any row-index scan, or the
   # validator itself reads i[] out of bounds for the inflated column
   m <- good
   m@p[2L] <- length(m@x) + 50L
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "non-decreasing")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "non-decreasing"
+  )
 
   # a well-formed network still passes
-  expect_equal(compare_neighborhoods(with_net(good), net2_s, td$ortho),
-               compare_neighborhoods(td$net1, td$net2, td$ortho))
+  expect_equal(
+    compare_neighborhoods(with_net(good), net2_s, td$ortho),
+    compare_neighborhoods(td$net1, td$net2, td$ortho)
+  )
 })
 
 
@@ -1088,13 +1172,13 @@ test_that("sparse compare_neighborhoods edge cases equal dense", {
     rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
     set <- function(a, b, v) m[a, b] <<- m[b, a] <<- v
     set(1, 2, 0.9)
-    set(1, 3, 0.5)   # exactly at thr
-    set(1, 4, 0.4)   # stored (>= thr_store) but below thr
+    set(1, 3, 0.5) # exactly at thr
+    set(1, 4, 0.4) # stored (>= thr_store) but below thr
     set(2, 3, 0.9)
-    set(5, 6, 0.5)   # exactly at thr
-    set(5, 8, 0.2)   # below thr_store: never stored
+    set(5, 6, 0.5) # exactly at thr
+    set(5, 8, 0.2) # below thr_store: never stored
     if (!is.null(extra)) set(extra[1], extra[2], extra[3])
-    diag(m) <- 1     # gene 7 isolated
+    diag(m) <- 1 # gene 7 isolated
     m
   }
   net1 <- list(network = build("A"), threshold = thr)
@@ -1134,20 +1218,26 @@ test_that("sparse networks must be square with identical row/col names", {
     dimnames = list(rownames(good), c(colnames(good), "extra"))
   )
   expect_s4_class(wide, "dgCMatrix")
-  expect_error(compare_neighborhoods(with_net(wide), net2_s, td$ortho),
-               "square")
+  expect_error(
+    compare_neighborhoods(with_net(wide), net2_s, td$ortho),
+    "square"
+  )
 
   # missing column names
   m <- good
   dimnames(m) <- list(rownames(good), NULL)
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "row and column names")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "row and column names"
+  )
 
   # row/col names differ
   m <- good
   dimnames(m) <- list(rownames(good), rev(colnames(good)))
-  expect_error(compare_neighborhoods(with_net(m), net2_s, td$ortho),
-               "row and column names")
+  expect_error(
+    compare_neighborhoods(with_net(m), net2_s, td$ortho),
+    "row and column names"
+  )
 })
 
 
@@ -1174,12 +1264,16 @@ test_that("find_coexpressologs passes pi0_method through to summarize_comparison
   pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
   cmp <- cmp[pool, ]
   # default combine is "max" (D2, reciprocal criterion)
-  bh <- pmax(p.adjust(cmp$Species1.p.val.con, "BH"),
-             p.adjust(cmp$Species2.p.val.con, "BH"))
+  bh <- pmax(
+    p.adjust(cmp$Species1.p.val.con, "BH"),
+    p.adjust(cmp$Species2.p.val.con, "BH")
+  )
 
   edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
-  idx <- match(paste(cmp$Species1, cmp$Species2),
-               paste(edges$gene1, edges$gene2))
+  idx <- match(
+    paste(cmp$Species1, cmp$Species2),
+    paste(edges$gene1, edges$gene2)
+  )
   expect_false(anyNA(idx))
   expect_equal(edges$q.value[idx], bh)
 
@@ -1210,32 +1304,45 @@ test_that("comparison_to_edges combines directional q-values by min or max", {
   expect_equal(e_min$type, c("conserved", "ns", "conserved"))
   expect_equal(e_max$type, c("conserved", "ns", "ns"))
   expect_error(comparison_to_edges(comp, "SP_A", "SP_B",
-                                   pval_combine = "mean"))
+    pval_combine = "mean"
+  ))
 
   # NA in one direction: the other direction's value is used either way
   comp$Species2.q.val.con[1] <- NA
   expect_equal(comparison_to_edges(comp, "SP_A", "SP_B",
-                                   pval_combine = "max")$q.value[1], 0.01)
+    pval_combine = "max"
+  )$q.value[1], 0.01)
   expect_equal(comparison_to_edges(comp, "SP_A", "SP_B",
-                                   pval_combine = "min")$q.value[1], 0.01)
+    pval_combine = "min"
+  )$q.value[1], 0.01)
 })
 
 
 test_that("summarize_comparison and find_coexpressologs pass pval_combine through", {
   td <- make_graded_nets()
   cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
-  s <- summarize_comparison(cmp, sp1 = "A", sp2 = "B", pi0_method = "none",
-                            pval_combine = "max")
-  expect_equal(s$edges,
-               comparison_to_edges(s$results, "A", "B", pval_combine = "max"))
-  expect_equal(s$edges$q.value,
-               pmax(s$results$Species1.q.val.con, s$results$Species2.q.val.con))
+  s <- summarize_comparison(cmp,
+    sp1 = "A", sp2 = "B", pi0_method = "none",
+    pval_combine = "max"
+  )
+  expect_equal(
+    s$edges,
+    comparison_to_edges(s$results, "A", "B", pval_combine = "max")
+  )
+  expect_equal(
+    s$edges$q.value,
+    pmax(s$results$Species1.q.val.con, s$results$Species2.q.val.con)
+  )
 
   nets <- list(A = td$net1, B = td$net2)
-  e_min <- find_coexpressologs(nets, td$ortho, pi0_method = "none",
-                               pval_combine = "min")
-  e_max <- find_coexpressologs(nets, td$ortho, pi0_method = "none",
-                               pval_combine = "max")
+  e_min <- find_coexpressologs(nets, td$ortho,
+    pi0_method = "none",
+    pval_combine = "min"
+  )
+  e_max <- find_coexpressologs(nets, td$ortho,
+    pi0_method = "none",
+    pval_combine = "max"
+  )
   expect_equal(e_max$q.value, s$edges$q.value)
   expect_true(all(e_max$q.value >= e_min$q.value))
   called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
@@ -1258,29 +1365,45 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
   mat_b <- matrix(0, n_b, n_b, dimnames = list(gb, gb))
   mat_b[1:8, 1:8] <- 10
   diag(mat_b) <- 0
-  nets <- list(SP_A = list(network = mat_a, threshold = 5),
-               SP_B = list(network = mat_b, threshold = 5))
-  ortho <- data.frame(Species1 = paste0("A", 1:25),
-                      Species2 = paste0("B", 1:25),
-                      hog = paste0("HOG", 1:25),
-                      stringsAsFactors = FALSE)
+  nets <- list(
+    SP_A = list(network = mat_a, threshold = 5),
+    SP_B = list(network = mat_b, threshold = 5)
+  )
+  ortho <- data.frame(
+    Species1 = paste0("A", 1:25),
+    Species2 = paste0("B", 1:25),
+    hog = paste0("HOG", 1:25),
+    stringsAsFactors = FALSE
+  )
 
   # unknown values must error, not vanish into `...`
   expect_error(suppressMessages(density_sweep(
-    nets, ortho, multipliers = 1.0, pi0_method = "bogus")))
+    nets, ortho,
+    multipliers = 1.0, pi0_method = "bogus"
+  )))
   expect_error(suppressMessages(density_sweep(
-    nets, ortho, multipliers = 1.0, pval_combine = "mean")))
+    nets, ortho,
+    multipliers = 1.0, pval_combine = "mean"
+  )))
 
   sw_min <- suppressMessages(density_sweep(
-    nets, ortho, multipliers = 1.0, method = "analytical",
-    pi0_method = "none", pval_combine = "min"))
+    nets, ortho,
+    multipliers = 1.0, method = "analytical",
+    pi0_method = "none", pval_combine = "min"
+  ))
   sw_max <- suppressMessages(density_sweep(
-    nets, ortho, multipliers = 1.0, method = "analytical",
-    pi0_method = "none", pval_combine = "max"))
-  e_min <- find_coexpressologs(nets, ortho, pi0_method = "none",
-                               pval_combine = "min")
-  e_max <- find_coexpressologs(nets, ortho, pi0_method = "none",
-                               pval_combine = "max")
+    nets, ortho,
+    multipliers = 1.0, method = "analytical",
+    pi0_method = "none", pval_combine = "max"
+  ))
+  e_min <- find_coexpressologs(nets, ortho,
+    pi0_method = "none",
+    pval_combine = "min"
+  )
+  e_max <- find_coexpressologs(nets, ortho,
+    pi0_method = "none",
+    pval_combine = "max"
+  )
   expect_equal(sw_min$edges[[1]], e_min)
   expect_equal(sw_max$edges[[1]], e_max)
   expect_true(any(sw_max$edges[[1]]$q.value != sw_min$edges[[1]]$q.value))
@@ -1292,8 +1415,10 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
   u <- runif(1)
   set.seed(9)
   invisible(suppressMessages(density_sweep(
-    nets, ortho, multipliers = 1.0, method = "analytical",
-    pi0_method = "none")))
+    nets, ortho,
+    multipliers = 1.0, method = "analytical",
+    pi0_method = "none"
+  )))
   expect_identical(runif(1), u)
 })
 
@@ -1308,7 +1433,8 @@ test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
   )
   expect_identical(
     comparison_to_edges(comp, "SP_A", "SP_B"),
-    comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "max"))
+    comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "max")
+  )
 
   # asymmetric network sizes so the two directional q-values differ
   n_a <- 40
@@ -1321,30 +1447,127 @@ test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
   mat_b <- matrix(0, n_b, n_b, dimnames = list(gb, gb))
   mat_b[1:8, 1:8] <- 10
   diag(mat_b) <- 0
-  nets <- list(SP_A = list(network = mat_a, threshold = 5),
-               SP_B = list(network = mat_b, threshold = 5))
-  ortho <- data.frame(Species1 = paste0("A", 1:25),
-                      Species2 = paste0("B", 1:25),
-                      hog = paste0("HOG", 1:25),
-                      stringsAsFactors = FALSE)
+  nets <- list(
+    SP_A = list(network = mat_a, threshold = 5),
+    SP_B = list(network = mat_b, threshold = 5)
+  )
+  ortho <- data.frame(
+    Species1 = paste0("A", 1:25),
+    Species2 = paste0("B", 1:25),
+    hog = paste0("HOG", 1:25),
+    stringsAsFactors = FALSE
+  )
 
   cmp <- compare_neighborhoods(nets$SP_A, nets$SP_B, ortho)
-  s_def <- summarize_comparison(cmp, sp1 = "SP_A", sp2 = "SP_B",
-                                pi0_method = "none")
-  s_max <- summarize_comparison(cmp, sp1 = "SP_A", sp2 = "SP_B",
-                                pi0_method = "none", pval_combine = "max")
+  s_def <- summarize_comparison(cmp,
+    sp1 = "SP_A", sp2 = "SP_B",
+    pi0_method = "none"
+  )
+  s_max <- summarize_comparison(cmp,
+    sp1 = "SP_A", sp2 = "SP_B",
+    pi0_method = "none", pval_combine = "max"
+  )
   expect_identical(s_def$edges, s_max$edges)
 
   e_def <- find_coexpressologs(nets, ortho, pi0_method = "none")
-  e_max <- find_coexpressologs(nets, ortho, pi0_method = "none",
-                               pval_combine = "max")
-  e_min <- find_coexpressologs(nets, ortho, pi0_method = "none",
-                               pval_combine = "min")
+  e_max <- find_coexpressologs(nets, ortho,
+    pi0_method = "none",
+    pval_combine = "max"
+  )
+  e_min <- find_coexpressologs(nets, ortho,
+    pi0_method = "none",
+    pval_combine = "min"
+  )
   expect_identical(e_def, e_max)
   expect_true(any(e_def$q.value != e_min$q.value))
 
   sw_def <- suppressMessages(density_sweep(
-    nets, ortho, multipliers = 1.0, method = "analytical",
-    pi0_method = "none"))
+    nets, ortho,
+    multipliers = 1.0, method = "analytical",
+    pi0_method = "none"
+  ))
   expect_equal(sw_def$edges[[1]], e_max)
+})
+
+
+# ---- seed threading (analytical path) -----------------------------------
+# find_coexpressologs() and density_sweep() seed once for the whole loop
+# and leave `seed` at NULL in the calls below them, so pairs and
+# multipliers draw in sequence from one stream instead of every level
+# reusing the same uniforms.
+
+test_that("a seed on find_coexpressologs reaches summarize_comparison", {
+  td <- make_graded_nets()
+  nets <- list(SP_A = td$net1, SP_B = td$net2)
+  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+
+  s <- summarize_comparison(cmp,
+    alternative = "greater", alpha = 0.05,
+    seed = 11
+  )
+  direct <- comparison_to_edges(s$results, "SP_A", "SP_B", "greater",
+    0.05,
+    pval_combine = "max"
+  )
+  wrapped <- find_coexpressologs(nets, td$ortho,
+    method = "analytical", seed = 11
+  )
+  expect_equal(wrapped$q.value, direct$q.value)
+  expect_identical(wrapped$type, direct$type)
+})
+
+
+test_that("find_coexpressologs(seed = ) is reproducible; seeds differ", {
+  td <- make_graded_nets()
+  nets <- list(SP_A = td$net1, SP_B = td$net2)
+
+  a <- find_coexpressologs(nets, td$ortho, seed = 5)
+  expect_identical(find_coexpressologs(nets, td$ortho, seed = 5), a)
+  b <- find_coexpressologs(nets, td$ortho, seed = 6)
+  expect_false(identical(a$q.value, b$q.value))
+
+  # seed = NULL reproduces the old behaviour exactly
+  set.seed(5)
+  expect_identical(find_coexpressologs(nets, td$ortho), a)
+})
+
+
+test_that("find_coexpressologs restores the caller's stream", {
+  td <- make_graded_nets()
+  nets <- list(SP_A = td$net1, SP_B = td$net2)
+  set.seed(7)
+  before <- get(".Random.seed", envir = globalenv())
+  invisible(find_coexpressologs(nets, td$ortho, seed = 42))
+  expect_identical(get(".Random.seed", envir = globalenv()), before)
+
+  # and it is genuinely restoration, not a coincidence of pinning: the
+  # exit state must not be the one set.seed(42) would give.
+  set.seed(42)
+  expect_false(identical(before, get(".Random.seed", envir = globalenv())))
+})
+
+
+test_that("density_sweep(seed = ) is reproducible and pins level one", {
+  td <- make_graded_nets()
+  nets <- list(SP_A = td$net1, SP_B = td$net2)
+  run <- function(s) {
+    suppressMessages(density_sweep(nets, td$ortho,
+      multipliers = c(1, 1.02), method = "analytical", seed = s
+    ))
+  }
+  a <- run(3)
+  expect_identical(run(3), a)
+  expect_false(identical(a$edges[[1]]$q.value, run(4)$edges[[1]]$q.value))
+
+  # nothing is drawn before the first multiplier, so level one reproduces
+  # a bare find_coexpressologs() at the same seed
+  direct <- find_coexpressologs(nets, td$ortho,
+    method = "analytical", seed = 3
+  )
+  expect_equal(a$edges[[1]]$q.value, direct$q.value)
+
+  set.seed(7)
+  before <- get(".Random.seed", envir = globalenv())
+  invisible(run(42))
+  expect_identical(get(".Random.seed", envir = globalenv()), before)
 })

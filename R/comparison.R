@@ -90,8 +90,10 @@
 #' @examples
 #' \dontrun{
 #' comparison <- compare_neighborhoods(net_A, net_B, orthologs)
-#' head(comparison[, c("Species1", "Species2", "hog",
-#'                      "Species1.effect.size")])
+#' head(comparison[, c(
+#'   "Species1", "Species2", "hog",
+#'   "Species1.effect.size"
+#' )])
 #' }
 #'
 #' @export
@@ -116,11 +118,14 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   net2_genes <- rownames(net2_mat)
 
   # Filter orthologs to genes present in both networks and deduplicate
-  orthologs <- orthologs[orthologs$Species1 %in% net1_genes &
-                           orthologs$Species2 %in% net2_genes, ,
-                         drop = FALSE]
+  orthologs <- orthologs[
+    orthologs$Species1 %in% net1_genes &
+      orthologs$Species2 %in% net2_genes, ,
+    drop = FALSE
+  ]
   orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
-                                drop = FALSE])
+    drop = FALSE
+  ])
 
   if (nrow(orthologs) == 0) {
     stop("No orthologs found in both networks")
@@ -233,24 +238,28 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   q1_col <- paste0("Species1.q.val.", suffix)
   q2_col <- paste0("Species2.q.val.", suffix)
 
-  required <- c("Species1", "Species2", "hog",
-                 "Species1.effect.size", "Species2.effect.size",
-                 q1_col, q2_col)
+  required <- c(
+    "Species1", "Species2", "hog",
+    "Species1.effect.size", "Species2.effect.size",
+    q1_col, q2_col
+  )
   missing_cols <- setdiff(required, names(comparison))
   if (length(missing_cols) > 0) {
-    stop("comparison missing required columns: ",
-         paste(missing_cols, collapse = ", "),
-         ". Did you pass summarize_comparison()$results?")
+    stop(
+      "comparison missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      ". Did you pass summarize_comparison()$results?"
+    )
   }
 
   combine <- if (pval_combine == "min") pmin else pmax
   q_comb <- combine(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
   q_comb[is.infinite(q_comb)] <- NA_real_
   eff_geo <- sqrt(comparison$Species1.effect.size *
-                  comparison$Species2.effect.size)
+    comparison$Species2.effect.size)
 
   has_jaccard <- all(c("Species1.jaccard", "Species2.jaccard") %in%
-                     names(comparison))
+    names(comparison))
   jacc_geo <- if (has_jaccard) {
     sqrt(comparison$Species1.jaccard * comparison$Species2.jaccard)
   } else {
@@ -324,8 +333,28 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   pair-level Storey q-values, passed to
 #'   \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 #'   \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
-#'   draws from the global RNG; call \code{set.seed()} first for
-#'   reproducible calls.
+#'   draws; pass \code{seed} to pin those draws.
+#' @param seed Integer seed for the call's random draws, or \code{NULL}
+#'   (default) to draw from the global RNG. Seeding here makes the call
+#'   reproducible, and with it every downstream count thresholded on
+#'   \code{q.value}. The seed is applied once, for the whole species-pair
+#'   loop, rather than being handed to each
+#'   \code{\link{summarize_comparison}} call: one seeded stream flows
+#'   through the pairs in order, so each pair draws its own uniforms
+#'   instead of every pair reusing the same ones.
+#'
+#'   What a seed buys differs by method. Under \code{"analytical"} it
+#'   pins the randomized-p draws behind pi0, and the result is
+#'   reproducible at any \code{n_cores}. Under \code{"permutation"} it
+#'   pins the per-thread seeds that the C++ engines draw from R's RNG,
+#'   which reproduces the run at \code{n_cores = 1} only: above that the
+#'   OpenMP guided schedule decides which thread takes which HOG, so the
+#'   pairing of thread streams to HOGs still moves between runs.
+#'
+#'   A seeded call draws from a private stream and restores the caller's
+#'   on exit; with \code{seed = NULL} the draws come from the ambient
+#'   stream and leave it advanced. Same contract as
+#'   \code{\link{detect_modules}} and \code{\link{summarize_comparison}}.
 #' @param pval_combine Analytical method only: how the two directional
 #'   q-values are combined, passed to \code{\link{comparison_to_edges}}:
 #'   \code{"max"} (default; both directions significant -- the reciprocal
@@ -340,9 +369,8 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'
 #' @examples
 #' \dontrun{
-#' # Fast analytical path
-#' set.seed(1)
-#' edges <- find_coexpressologs(networks, orthologs)
+#' # Fast analytical path; seed pins the randomized pi0 draws
+#' edges <- find_coexpressologs(networks, orthologs, seed = 1)
 #'
 #' # Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
 #' edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
@@ -352,7 +380,8 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'
 #' # Rigorous permutation path with GPU
 #' edges <- find_coexpressologs(networks, orthologs,
-#'   method = "permutation", use_torch = TRUE, n_cores = 4L)
+#'   method = "permutation", use_torch = TRUE, n_cores = 4L
+#' )
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -362,22 +391,29 @@ find_coexpressologs <- function(networks, ...) UseMethod("find_coexpressologs")
 #' @rdname find_coexpressologs
 #' @export
 find_coexpressologs.default <- function(
-    networks, orthologs,
-    species_pairs = NULL,
-    method = c("analytical", "permutation"),
-    alternative = c("greater", "less"),
-    alpha = 0.05,
-    n_cores = 1L,
-    use_torch = FALSE,
-    min_exceedances = 50L,
-    max_permutations = 10000L,
-    pi0_method = c("randomized", "storey", "none"),
-    pval_combine = c("max", "min"), ...) {
-
+  networks, orthologs,
+  species_pairs = NULL,
+  method = c("analytical", "permutation"),
+  alternative = c("greater", "less"),
+  alpha = 0.05,
+  n_cores = 1L,
+  use_torch = FALSE,
+  min_exceedances = 50L,
+  max_permutations = 10000L,
+  pi0_method = c("randomized", "storey", "none"),
+  pval_combine = c("max", "min"),
+  seed = NULL, ...
+) {
   method <- match.arg(method)
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
+
+  # Seeded once here, not per pair: the loop below leaves seed at its
+  # NULL default in every summarize_comparison() call, so the pairs draw
+  # in sequence from this one stream rather than all reusing the same
+  # uniforms. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
 
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
@@ -398,7 +434,8 @@ find_coexpressologs.default <- function(
     species1 = character(0), species2 = character(0),
     hog = character(0), q.value = numeric(0),
     effect_size = numeric(0), jaccard = numeric(0),
-    type = character(0))
+    type = character(0)
+  )
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   n_pairs <- length(species_pairs)
@@ -417,8 +454,10 @@ find_coexpressologs.default <- function(
     }
 
     comparison <- tryCatch(
-      compare_neighborhoods(networks[[sp_a]], networks[[sp_b]],
-                            orthologs, n_cores),
+      compare_neighborhoods(
+        networks[[sp_a]], networks[[sp_b]],
+        orthologs, n_cores
+      ),
       error = function(e) {
         warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
         NULL
@@ -429,29 +468,36 @@ find_coexpressologs.default <- function(
     if (method == "analytical") {
       summary_res <- tryCatch(
         summarize_comparison(comparison, alternative, alpha,
-                             pi0_method = pi0_method),
+          pi0_method = pi0_method
+        ),
         error = function(e) {
-          warning("Pair ", sp_a, "-", sp_b,
-                  " q-value computation failed: ", conditionMessage(e))
+          warning(
+            "Pair ", sp_a, "-", sp_b,
+            " q-value computation failed: ", conditionMessage(e)
+          )
           NULL
         }
       )
       if (is.null(summary_res) || nrow(summary_res$results) == 0) next
       edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
-                                       alternative, alpha,
-                                       pval_combine = pval_combine)
+        alternative, alpha,
+        pval_combine = pval_combine
+      )
     } else {
       # Permutation path: HOG-level permutation test
       hog_res <- tryCatch(
         permutation_hog_test(networks[[sp_a]], networks[[sp_b]],
-                             comparison, alternative,
-                             min_exceedances = min_exceedances,
-                             max_permutations = max_permutations,
-                             n_cores = n_cores,
-                             use_torch = use_torch),
+          comparison, alternative,
+          min_exceedances = min_exceedances,
+          max_permutations = max_permutations,
+          n_cores = n_cores,
+          use_torch = use_torch
+        ),
         error = function(e) {
-          warning("Pair ", sp_a, "-", sp_b,
-                  " permutation test failed: ", conditionMessage(e))
+          warning(
+            "Pair ", sp_a, "-", sp_b,
+            " permutation test failed: ", conditionMessage(e)
+          )
           NULL
         }
       )
@@ -461,9 +507,9 @@ find_coexpressologs.default <- function(
       hog_q <- stats::setNames(hog_res$q.value, hog_res$hog)
       q_vals <- hog_q[comparison$hog]
       eff <- sqrt(comparison$Species1.effect.size *
-                  comparison$Species2.effect.size)
+        comparison$Species2.effect.size)
       jacc <- sqrt(comparison$Species1.jaccard *
-                   comparison$Species2.jaccard)
+        comparison$Species2.jaccard)
 
       edges_df <- data.frame(
         gene1 = comparison$Species1,
@@ -475,7 +521,8 @@ find_coexpressologs.default <- function(
         effect_size = eff,
         jaccard = jacc,
         type = ifelse(!is.na(q_vals) & q_vals < alpha,
-                      type_label, "ns")
+          type_label, "ns"
+        )
       )
     }
 
@@ -483,7 +530,9 @@ find_coexpressologs.default <- function(
     pair_edges[[idx]] <- edges_df
   }
 
-  if (idx == 0L) return(empty_result)
+  if (idx == 0L) {
+    return(empty_result)
+  }
   do.call(rbind, pair_edges[seq_len(idx)])
 }
 
@@ -525,8 +574,18 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   level. Defaults to all pairwise combinations.
 #' @param pi0_method Passed to \code{\link{find_coexpressologs}} (used
 #'   by the analytical method): \code{"randomized"} (default),
-#'   \code{"storey"} or \code{"none"}. The default draws from the
-#'   global RNG; call \code{set.seed()} first for reproducible q-values.
+#'   \code{"storey"} or \code{"none"}. The default draws; pass
+#'   \code{seed} to pin those draws.
+#' @param seed Integer seed for the sweep's random draws, or \code{NULL}
+#'   (default) to draw from the global RNG. Applied once here, so the
+#'   whole sweep is one reproducible unit: the multipliers are visited in
+#'   order and each \code{\link{find_coexpressologs}} call continues the
+#'   same stream, which keeps a level's draws independent of its
+#'   neighbours' while making the sweep as a whole repeatable. Because
+#'   nothing is drawn before the first multiplier, a sweep seeded with
+#'   \code{s} reproduces \code{find_coexpressologs(seed = s)} exactly at
+#'   its first level. See \code{\link{find_coexpressologs}} for what a
+#'   seed does and does not pin under each \code{method}.
 #' @param pval_combine Passed to \code{\link{find_coexpressologs}}:
 #'   \code{"max"} (default) requires both directions to be significant
 #'   (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
@@ -544,7 +603,8 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #' @examples
 #' \dontrun{
 #' sweep <- density_sweep(networks, orthologs,
-#'                         method = "permutation", use_torch = TRUE)
+#'   method = "permutation", use_torch = TRUE
+#' )
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -553,40 +613,53 @@ density_sweep <- function(networks, ...) UseMethod("density_sweep")
 
 #' @rdname density_sweep
 #' @export
-density_sweep.default <- function(networks, orthologs,
-                           multipliers = seq(0.95, 1.05, by = 0.01),
-                           method = c("permutation", "analytical"),
-                           alternative = c("greater", "less"),
-                           alpha = 0.05,
-                           n_cores = 1L,
-                           use_torch = FALSE,
-                           min_exceedances = 50L,
-                           max_permutations = 10000L,
-                           species_pairs = NULL,
-                           pi0_method = c("randomized", "storey", "none"),
-                           pval_combine = c("max", "min"), ...) {
-
+density_sweep.default <- function(
+  networks, orthologs,
+  multipliers = seq(0.95, 1.05, by = 0.01),
+  method = c("permutation", "analytical"),
+  alternative = c("greater", "less"),
+  alpha = 0.05,
+  n_cores = 1L,
+  use_torch = FALSE,
+  min_exceedances = 50L,
+  max_permutations = 10000L,
+  species_pairs = NULL,
+  pi0_method = c("randomized", "storey", "none"),
+  pval_combine = c("max", "min"),
+  seed = NULL, ...
+) {
   method <- match.arg(method)
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
 
-  if (!is.list(networks) || is.null(names(networks)))
+  # Seeded once for the whole sweep; the per-multiplier
+  # find_coexpressologs() calls below leave seed at NULL and continue
+  # this stream. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
+
+  if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
-  if (length(networks) < 2L)
+  }
+  if (length(networks) < 2L) {
     stop("networks must contain at least 2 species")
+  }
   for (sp in names(networks)) {
     net <- networks[[sp]]
-    if (!is.list(net) || is.null(net$network) || is.null(net$threshold))
+    if (!is.list(net) || is.null(net$network) || is.null(net$threshold)) {
       stop("each network must have 'network' and 'threshold' elements")
+    }
     .net_check(net, net$threshold)
   }
-  if (!is.numeric(multipliers) || length(multipliers) == 0L)
+  if (!is.numeric(multipliers) || length(multipliers) == 0L) {
     stop("multipliers must be a non-empty numeric vector")
-  if (any(multipliers <= 0))
+  }
+  if (any(multipliers <= 0)) {
     stop("all multipliers must be positive")
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs)))
+  }
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
     stop("orthologs must have columns: Species1, Species2, hog")
+  }
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
 
@@ -608,8 +681,9 @@ density_sweep.default <- function(networks, orthologs,
     m <- multipliers[i]
     message("Threshold sweep: multiplier ", m)
 
-    tight_nets <- lapply(networks, function(net)
-      modifyList(net, list(threshold = net$threshold * m)))
+    tight_nets <- lapply(networks, function(net) {
+      modifyList(net, list(threshold = net$threshold * m))
+    })
 
     densities <- vapply(tight_nets, function(net) {
       # .net_check() also fires the store guard: a multiplier below the
@@ -640,8 +714,10 @@ density_sweep.default <- function(networks, orthologs,
         pval_combine = pval_combine
       ),
       error = function(e) {
-        warning("density_sweep: multiplier ", m, " failed: ",
-                conditionMessage(e))
+        warning(
+          "density_sweep: multiplier ", m, " failed: ",
+          conditionMessage(e)
+        )
         NULL
       }
     )
@@ -718,21 +794,24 @@ density_sweep.default <- function(networks, orthologs,
 #'
 #' @examples
 #' \dontrun{
-#' trait <- c(SP_A = "annual", SP_B = "annual",
-#'            SP_C = "perennial", SP_D = "perennial")
+#' trait <- c(
+#'   SP_A = "annual", SP_B = "annual",
+#'   SP_C = "perennial", SP_D = "perennial"
+#' )
 #' partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
-#'                                   species_trait = trait,
-#'                                   min_species = 2L, edges = edges)
+#'   species_trait = trait,
+#'   min_species = 2L, edges = edges
+#' )
 #' # Annual-only partners
 #' partners[partners$coexpressed_traits == "annual", ]
 #' }
 #'
 #' @export
 get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
-                                  species = names(networks),
-                                  species_trait = NULL,
-                                  min_species = 2L,
-                                  edges = NULL) {
+                                 species = names(networks),
+                                 species_trait = NULL,
+                                 min_species = 2L,
+                                 edges = NULL) {
   # --- Input validation ---
   if (!is.character(candidate_hog) || length(candidate_hog) != 1L) {
     stop("candidate_hog must be a single character string")
@@ -752,8 +831,10 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
   if (!is.null(species_trait)) {
     missing_trait <- setdiff(species, names(species_trait))
     if (length(missing_trait) > 0L) {
-      stop("species_trait missing entries for: ",
-           paste(missing_trait, collapse = ", "))
+      stop(
+        "species_trait missing entries for: ",
+        paste(missing_trait, collapse = ", ")
+      )
     }
   }
 
@@ -821,7 +902,9 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
       ph_genes <- nbr_by_hog[[ph]]
       max(vapply(candidate_genes, function(cg) {
         own <- intersect(ph_genes, nbrs_by_cg[[cg]])
-        if (length(own) == 0L) return(-Inf)
+        if (length(own) == 0L) {
+          return(-Inf)
+        }
         mean(net_mat[own, cg])
       }, numeric(1)))
     }, numeric(1))
@@ -890,17 +973,23 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     edge_by_hog <- split(edges, edges$hog)
     partner_conserved <- vapply(agg$partner_hog, function(ph) {
       e <- edge_by_hog[[ph]]
-      if (is.null(e)) return(FALSE)
+      if (is.null(e)) {
+        return(FALSE)
+      }
       any(e$type == "conserved", na.rm = TRUE)
     }, logical(1))
     partner_mean_effect <- vapply(agg$partner_hog, function(ph) {
       e <- edge_by_hog[[ph]]
-      if (is.null(e)) return(NA_real_)
+      if (is.null(e)) {
+        return(NA_real_)
+      }
       mean(e$effect_size, na.rm = TRUE)
     }, numeric(1))
     partner_min_q <- vapply(agg$partner_hog, function(ph) {
       e <- edge_by_hog[[ph]]
-      if (is.null(e) || all(is.na(e$q.value))) return(NA_real_)
+      if (is.null(e) || all(is.na(e$q.value))) {
+        return(NA_real_)
+      }
       min(e$q.value, na.rm = TRUE)
     }, numeric(1))
 

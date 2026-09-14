@@ -23,15 +23,28 @@ testing conservation at gene, module, and clique levels.
 \item{\code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}}{Query co-expression partners of a candidate HOG}
 \item{\code{\link[=permutation_hog_test]{permutation_hog_test()}}}{HOG-level permutation test}
 \item{\code{\link[=detect_modules]{detect_modules()}}}{Community detection with consensus}
-\item{\code{\link[=compare_modules]{compare_modules()}}}{Cross-species module comparison}
-\item{\code{\link[=classify_modules]{classify_modules()}}}{Module conservation classification}
+\item{\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}}{Paralog-resolved ortholog map}
+\item{\code{\link[=module_preservation]{module_preservation()}}}{Cross-species module topology
+preservation}
+\item{\code{\link[=classify_preservation]{classify_preservation()}}}{Module preservation classification}
+\item{\code{\link[=module_correspondence]{module_correspondence()}}}{Cross-species module matching}
+\item{\code{\link[=preservation_paired]{preservation_paired()}}}{Module preservation over species pairs}
 \item{\code{\link[=identify_module_hubs]{identify_module_hubs()}}}{Within-module hub gene identification}
 \item{\code{\link[=classify_hub_conservation]{classify_hub_conservation()}}}{Hub conservation across traits}
 \item{\code{\link[=find_cliques]{find_cliques()}}}{C++ clique detection (Bron-Kerbosch)}
 \item{\code{\link[=clique_stability]{clique_stability()}}}{Leave-k-out jackknife stability}
 \item{\code{\link[=clique_persistence]{clique_persistence()}}}{Co-expressolog persistence scores}
 \item{\code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}}{Threshold sweep (convenience wrapper)}
-\item{\code{\link[=classify_cliques]{classify_cliques()}}}{HOG classification (convenience wrapper)}
+\item{\code{\link[=classify_cliques]{classify_cliques()}}}{HOG classification on the species graph
+(convenience wrapper): one row per HOG, trait-aware, and the input
+the stability and sweep rankings consume}
+\item{\code{\link[=gene_clique_graph]{gene_clique_graph()}}}{Maximal cliques of the per-orthogroup
+gene graph, one row per clique member}
+\item{\code{\link[=classify_gene_cliques]{classify_gene_cliques()}}}{Five-tier gene-clique taxonomy
+(Rodriguez et al. 2026): copy-level rather than HOG-level, so use
+it when which paralog sits in the conserved core matters, or when
+that published taxonomy has to be reported. Neither it nor
+\code{\link[=classify_cliques]{classify_cliques()}} replaces the other}
 \item{\code{\link[=characterize_hubs]{characterize_hubs()}}}{Regulatory potential metrics for hub genes}
 \item{\code{\link[=tag_permutation]{tag_permutation()}}}{Permutation test for trait-specific module recurrence}
 }

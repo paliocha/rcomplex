@@ -17,15 +17,28 @@
 #'   \item{[get_coexpressed_hogs()]}{Query co-expression partners of a candidate HOG}
 #'   \item{[permutation_hog_test()]}{HOG-level permutation test}
 #'   \item{[detect_modules()]}{Community detection with consensus}
-#'   \item{[compare_modules()]}{Cross-species module comparison}
-#'   \item{[classify_modules()]}{Module conservation classification}
+#'   \item{[resolve_ortholog_map()]}{Paralog-resolved ortholog map}
+#'   \item{[module_preservation()]}{Cross-species module topology
+#'     preservation}
+#'   \item{[classify_preservation()]}{Module preservation classification}
+#'   \item{[module_correspondence()]}{Cross-species module matching}
+#'   \item{[preservation_paired()]}{Module preservation over species pairs}
 #'   \item{[identify_module_hubs()]}{Within-module hub gene identification}
 #'   \item{[classify_hub_conservation()]}{Hub conservation across traits}
 #'   \item{[find_cliques()]}{C++ clique detection (Bron-Kerbosch)}
 #'   \item{[clique_stability()]}{Leave-k-out jackknife stability}
 #'   \item{[clique_persistence()]}{Co-expressolog persistence scores}
 #'   \item{[clique_threshold_sweep()]}{Threshold sweep (convenience wrapper)}
-#'   \item{[classify_cliques()]}{HOG classification (convenience wrapper)}
+#'   \item{[classify_cliques()]}{HOG classification on the species graph
+#'     (convenience wrapper): one row per HOG, trait-aware, and the input
+#'     the stability and sweep rankings consume}
+#'   \item{[gene_clique_graph()]}{Maximal cliques of the per-orthogroup
+#'     gene graph, one row per clique member}
+#'   \item{[classify_gene_cliques()]}{Five-tier gene-clique taxonomy
+#'     (Rodriguez et al. 2026): copy-level rather than HOG-level, so use
+#'     it when which paralog sits in the conserved core matters, or when
+#'     that published taxonomy has to be reported. Neither it nor
+#'     [classify_cliques()] replaces the other}
 #'   \item{[characterize_hubs()]}{Regulatory potential metrics for hub genes}
 #'   \item{[tag_permutation()]}{Permutation test for trait-specific module recurrence}
 #' }

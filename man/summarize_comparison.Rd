@@ -13,7 +13,8 @@ summarize_comparison(
   sp2 = NULL,
   pi0_method = c("randomized", "storey", "none"),
   B = 20L,
-  pval_combine = c("max", "min")
+  pval_combine = c("max", "min"),
+  seed = NULL
 )
 }
 \arguments{
@@ -45,6 +46,18 @@ Benjamini-Hochberg).}
 \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
+
+\item{seed}{Integer seed for the randomized-p draws, or \code{NULL}
+(default) to draw from the global RNG. With a seed the q-values are
+reproducible without the caller having to seed the session, which is
+what makes every downstream count -- significant pairs, edges,
+clique tiers -- reproducible too. \code{"storey"} and \code{"none"}
+draw nothing, so a seed only pins the stream for them.
+
+A seeded call draws from a private stream and restores the caller's
+on exit, so it does not displace the caller by however many draws
+\code{B} consumed and anything drawn afterwards continues from the
+caller's own seed. Same contract as \code{\link{detect_modules}}.}
 }
 \value{
 A list with components:
@@ -87,14 +100,20 @@ and deflates pi0), while the q-values themselves are computed on the
 filtered rows. The columns \code{Species*.p.val.gt} /
 \code{.p.val.eq} from \code{\link[=compare_neighborhoods]{compare_neighborhoods()}} supply the two terms.
 \code{"storey"} estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
-\code{"none"} fixes pi0 = 1 (BH). The randomized estimate uses the global
-RNG: call \code{set.seed()} first for reproducible q-values.
+\code{"none"} fixes pi0 = 1 (BH). The randomized estimate is the only one
+that draws: pass \code{seed} to make the q-values a property of the call.
+With \code{seed = NULL} (the default) the draws come from the global RNG,
+so the q-values -- and every downstream call thresholded on them --
+move from run to run unless the caller seeded the session first.
 }
 
 \examples{
 \dontrun{
-set.seed(1)  # reproducible randomized pi0
-summary <- summarize_comparison(comparison, alternative = "greater")
+# seed pins the randomized pi0 draws, and so the q-values
+summary <- summarize_comparison(comparison,
+  alternative = "greater",
+  seed = 1
+)
 sig <- summary$results[summary$results$Species1.q.val.con < 0.05, ]
 summary$summary$gene_pairs$reciprocal
 summary$summary$pi0
