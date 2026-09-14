@@ -787,7 +787,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   }
 
   p_floor <- max(p_min, p_attainable)
-  if (p_floor > 0.05) {
+  if (p_floor >= 0.05) {
     # Contributing contrasts sitting in a component that no relabelling
     # moves. n_contributing - k would absorb the coupling as well, and
     # would then claim pairs are degenerate when they are merely joined.
@@ -806,8 +806,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     # prescribe more contrasts when the knob is n_perm; blaming ties when
     # p_min alone already exceeds 0.05 would deny that more contrasts
     # help, which they do.
-    too_few <- p_min > 0.05
-    tied <- p_attainable > p_min && p_attainable > 0.05
+    too_few <- p_min >= 0.05
+    tied <- p_attainable > p_min && p_attainable >= 0.05
     space <- if (exact) {
       paste0(
         k, " independent contrast group(s)", extra, " over ",
@@ -830,7 +830,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
       remedy <- c(remedy, if (exact) {
         "at least 5 independent contrast groups are needed"
       } else {
-        paste0("n_perm must be at least 19 (it is ", n_perm, ")")
+        paste0("n_perm must be at least 20 (it is ", n_perm, ")")
       })
     }
     if (tied) {

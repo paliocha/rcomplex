@@ -27,6 +27,16 @@ make_ambiguous_net <- function(n = 300L, seed = 7L) {
 test_that("consensus modules are bit-reproducible across core counts", {
   skip_on_cran()
   skip_on_os("windows") # mclapply falls back to serial
+  # r-lib's check-r-package action sets NOT_CRAN=true (so skip_on_cran()
+  # does not fire here) but still runs R CMD check --as-cran, which sets
+  # _R_CHECK_LIMIT_CORES_ and makes parallel:::.check_ncores() error on
+  # any mclapply() call requesting more than 2 cores -- exactly what the
+  # n_cores = 3 run below does.
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  skip_if(
+    nzchar(chk) && chk != "false",
+    "R CMD check --as-cran limits mclapply() to 2 cores"
+  )
 
   net <- make_ambiguous_net()
   res <- seq(0.25, 2.5, by = 0.25)

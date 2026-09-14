@@ -761,6 +761,35 @@ test_that("the sampled branch runs when enumeration is capped", {
 })
 
 
+test_that("n_perm = 19 still warns unreachable in the sampled branch", {
+  # p_min = 1 / (n_perm + 1) = 0.05 exactly at n_perm = 19, which is not
+  # < 0.05: p < 0.05 stays structurally unreachable at the boundary, not
+  # only strictly above it. A regression once flipped the trigger to
+  # strict `>` and the remedy message to "at least 19", which silently
+  # told a user the boundary itself was sufficient.
+  fix <- make_tag_perm_fixtures_k(4)
+
+  set.seed(3)
+  expect_warning(
+    tag_permutation(
+      fix$classification, fix$modules, fix$orthologs, fix$pairs,
+      fix$group, target_group = "annual",
+      n_perm = 19L, min_recurrence = 2L, enum_max = 2L
+    ),
+    "n_perm must be at least 20 \\(it is 19\\)"
+  )
+
+  set.seed(3)
+  res20 <- suppressMessages(suppressWarnings(tag_permutation(
+    fix$classification, fix$modules, fix$orthologs, fix$pairs,
+    fix$group, target_group = "annual",
+    n_perm = 20L, min_recurrence = 2L, enum_max = 2L
+  )))
+  expect_equal(res20$p_min, 1 / 21)
+  expect_true(res20$p_min < 0.05)
+})
+
+
 test_that("the size-asymmetry warning fires when the sign test can see it", {
   # Four pairs is the smallest clean sweep the advisory 0.10 threshold
   # can reach (binom.test(4, 4) = 0.0625). Nothing previously exercised

@@ -1761,9 +1761,12 @@ characterize_hubs <- function(hub_result, modules = NULL,
 #' Avalanche-mix a value into [0, 2^31 - 2] (internal)
 #'
 #' A Thomas Wang-style integer hash, reimplemented with `%%` so every
-#' intermediate stays inside 2^31 - 1 (no `bitwXor`/`bitwShiftR` argument
-#' ever exceeds the 32-bit signed range, and no product exceeds 2^53, so
-#' nothing overflows or rounds). Two rounds of xor-shift plus modular
+#' `bitwXor`/`bitwShiftR` argument stays inside 2^31 - 1 (never exceeding the
+#' 32-bit signed range). The two internal multiplications do exceed 2^53 in
+#' double precision and so round before the `%%`; this is a source of
+#' rounding, not overflow (`x %% p` after the multiply always lands back in
+#' `[0, p)`), and the avalanche property below does not depend on those
+#' products being exact. Two rounds of xor-shift plus modular
 #' multiplication are what make this a permutation with no useful linear
 #' structure left in it: unlike a bare `root + k * index` term, there is no
 #' fixed offset `d` with `.hash32(x + d) - .hash32(x)` constant across `x`,
