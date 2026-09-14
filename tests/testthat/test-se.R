@@ -36,18 +36,25 @@ test_that("build_se creates correct SE with named assay", {
 
 test_that("build_se validates inputs", {
   expect_error(build_se(data.frame(x = 1), "SP_A"), "missing required columns")
-  data <- data.frame(abbrev = "SP_B", gene_id = "G1",
-                     sample_id = "S1", vst.count = 1.0)
+  data <- data.frame(
+    abbrev = "SP_B", gene_id = "G1",
+    sample_id = "S1", vst.count = 1.0
+  )
   expect_error(build_se(data, "SP_A"), "No rows found")
 })
 
 
 test_that("extract_orthologs derives correct pairs from shared HOGs", {
-  se1 <- build_se(make_long_data("SP_A", c("A1", "A2"), hogs = c("HOG1", "HOG2")),
-                  "SP_A")
-  se2 <- build_se(make_long_data("SP_B", c("B1", "B2", "B3"),
-                                 hogs = c("HOG1", "HOG2", "HOG3")),
-                  "SP_B")
+  se1 <- build_se(
+    make_long_data("SP_A", c("A1", "A2"), hogs = c("HOG1", "HOG2")),
+    "SP_A"
+  )
+  se2 <- build_se(
+    make_long_data("SP_B", c("B1", "B2", "B3"),
+      hogs = c("HOG1", "HOG2", "HOG3")
+    ),
+    "SP_B"
+  )
 
   ortho <- extract_orthologs(se1, se2)
 
@@ -59,17 +66,23 @@ test_that("extract_orthologs derives correct pairs from shared HOGs", {
 
 
 test_that("extract_orthologs handles paralogs (multi-gene HOGs)", {
-  se1 <- build_se(make_long_data("SP_A", c("A1", "A2", "A3"),
-                                 hogs = c("HOG1", "HOG1", "HOG2")),
-                  "SP_A")
-  se2 <- build_se(make_long_data("SP_B", c("B1", "B2"),
-                                 hogs = c("HOG1", "HOG2")),
-                  "SP_B")
+  se1 <- build_se(
+    make_long_data("SP_A", c("A1", "A2", "A3"),
+      hogs = c("HOG1", "HOG1", "HOG2")
+    ),
+    "SP_A"
+  )
+  se2 <- build_se(
+    make_long_data("SP_B", c("B1", "B2"),
+      hogs = c("HOG1", "HOG2")
+    ),
+    "SP_B"
+  )
 
   ortho <- extract_orthologs(se1, se2)
 
   hog1 <- ortho[ortho$hog == "HOG1", ]
-  expect_equal(nrow(hog1), 2)  # A1 x B1, A2 x B1
+  expect_equal(nrow(hog1), 2) # A1 x B1, A2 x B1
   expect_setequal(hog1$Species1, c("A1", "A2"))
 })
 
@@ -88,10 +101,15 @@ test_that("extract_orthologs validates missing hog column", {
   mat <- matrix(1:8, nrow = 2, dimnames = list(c("G1", "G2"), paste0("S", 1:4)))
   se_no_hog <- SummarizedExperiment::SummarizedExperiment(assays = list(mat))
   se_with_hog <- build_se(make_long_data("SP_A", c("A1", "A2"),
-                                         hogs = c("HOG1", "HOG2")), "SP_A")
+                            hogs = c("HOG1", "HOG2")
+                          ), "SP_A")
 
-  expect_error(extract_orthologs(se_no_hog, se_with_hog), "missing 'hog' column")
-  expect_error(extract_orthologs(se_with_hog, se_no_hog), "missing 'hog' column")
+  expect_error(
+    extract_orthologs(se_no_hog, se_with_hog), "missing 'hog' column"
+  )
+  expect_error(
+    extract_orthologs(se_with_hog, se_no_hog), "missing 'hog' column"
+  )
 })
 
 
@@ -116,7 +134,8 @@ test_that("compute_network accepts SummarizedExperiment", {
 # --- prepare_orthologs tests ---
 
 # Helper: build SE + fake reduction output for testing
-make_se_and_reduction <- function(species, genes, hogs, samples = paste0("S", 1:4),
+make_se_and_reduction <- function(species, genes, hogs,
+                                  samples = paste0("S", 1:4),
                                   merge_map = NULL) {
   se <- build_se(make_long_data(species, genes, samples, hogs), species)
   # Build a gene_map: by default identity mapping (no merging)
@@ -159,8 +178,9 @@ test_that("prepare_orthologs maps gene names through reductions", {
     representative = c("A1", "A1", "A3")
   )
   r1 <- make_se_and_reduction("SP_A", c("A1", "A2", "A3"),
-                               c("HOG1", "HOG1", "HOG2"),
-                               merge_map = merge_map_a)
+    c("HOG1", "HOG1", "HOG2"),
+    merge_map = merge_map_a
+  )
   r2 <- make_se_and_reduction("SP_B", c("B1", "B2"), c("HOG1", "HOG2"))
 
   se_list <- list(SP_A = r1$se, SP_B = r2$se)
@@ -190,7 +210,8 @@ test_that("prepare_orthologs handles genes not in gene_map", {
     representative = c("A1")
   )
   r1 <- make_se_and_reduction("SP_A", c("A1", "A2"), c("HOG1", "HOG2"),
-                               merge_map = partial_map)
+    merge_map = partial_map
+  )
   r2 <- make_se_and_reduction("SP_B", c("B1", "B2"), c("HOG1", "HOG2"))
 
   se_list <- list(SP_A = r1$se, SP_B = r2$se)
@@ -210,28 +231,36 @@ test_that("prepare_orthologs validates inputs", {
 
   # se_list not named
   expect_error(
-    prepare_orthologs(list(r1$se, r2$se),
-                              list(SP_A = r1$reduction, SP_B = r2$reduction)),
+    prepare_orthologs(
+      list(r1$se, r2$se),
+      list(SP_A = r1$reduction, SP_B = r2$reduction)
+    ),
     "se_list must be a named list"
   )
 
   # reductions not named
   expect_error(
-    prepare_orthologs(list(SP_A = r1$se, SP_B = r2$se),
-                              list(r1$reduction, r2$reduction)),
+    prepare_orthologs(
+      list(SP_A = r1$se, SP_B = r2$se),
+      list(r1$reduction, r2$reduction)
+    ),
     "reductions must be a named list"
   )
 
   # reductions missing a species
   expect_error(
-    prepare_orthologs(list(SP_A = r1$se, SP_B = r2$se),
-                              list(SP_A = r1$reduction)),
+    prepare_orthologs(
+      list(SP_A = r1$se, SP_B = r2$se),
+      list(SP_A = r1$reduction)
+    ),
     "reductions missing species"
   )
 
   # reduction without gene_map
-  bad_reduction <- list(SP_A = list(expr_matrix = matrix(1)),
-                        SP_B = r2$reduction)
+  bad_reduction <- list(
+    SP_A = list(expr_matrix = matrix(1)),
+    SP_B = r2$reduction
+  )
   expect_error(
     prepare_orthologs(list(SP_A = r1$se, SP_B = r2$se), bad_reduction),
     "\\$gene_map"
@@ -239,8 +268,10 @@ test_that("prepare_orthologs validates inputs", {
 
   # Only one species
   expect_error(
-    prepare_orthologs(list(SP_A = r1$se),
-                              list(SP_A = r1$reduction)),
+    prepare_orthologs(
+      list(SP_A = r1$se),
+      list(SP_A = r1$reduction)
+    ),
     "at least two species"
   )
 })
@@ -252,8 +283,10 @@ test_that("prepare_orthologs works with three species", {
   r3 <- make_se_and_reduction("SP_C", c("C1", "C2"), c("HOG1", "HOG3"))
 
   se_list <- list(SP_A = r1$se, SP_B = r2$se, SP_C = r3$se)
-  reductions <- list(SP_A = r1$reduction, SP_B = r2$reduction,
-                     SP_C = r3$reduction)
+  reductions <- list(
+    SP_A = r1$reduction, SP_B = r2$reduction,
+    SP_C = r3$reduction
+  )
 
   ortho <- prepare_orthologs(se_list, reductions)
 
@@ -267,12 +300,16 @@ test_that("prepare_orthologs with reductions = NULL skips paralog reduction", {
   # SP_A carries two paralogs (A1, A2) in HOG1 -- with a reduction they
   # would collapse to one representative; without one, both must survive
   # as separate co-expressolog candidates against every SP_B partner.
-  se_a <- build_se(make_long_data("SP_A", c("A1", "A2", "A3"),
-                                  paste0("S", 1:4),
-                                  c("HOG1", "HOG1", "HOG2")), "SP_A")
-  se_b <- build_se(make_long_data("SP_B", c("B1", "B2"),
-                                  paste0("S", 1:4),
-                                  c("HOG1", "HOG2")), "SP_B")
+  se_a <- build_se(make_long_data(
+    "SP_A", c("A1", "A2", "A3"),
+    paste0("S", 1:4),
+    c("HOG1", "HOG1", "HOG2")
+  ), "SP_A")
+  se_b <- build_se(make_long_data(
+    "SP_B", c("B1", "B2"),
+    paste0("S", 1:4),
+    c("HOG1", "HOG2")
+  ), "SP_B")
 
   ortho <- prepare_orthologs(list(SP_A = se_a, SP_B = se_b))
 
@@ -293,10 +330,14 @@ test_that("prepare_orthologs with reductions = NULL skips paralog reduction", {
 test_that("prepare_orthologs(reductions = NULL) needs no gene_map", {
   # Regression guard: omitting reductions must not require any $gene_map,
   # unlike the reduced path.
-  se_a <- build_se(make_long_data("SP_A", c("A1"), paste0("S", 1:4),
-                                  c("HOG1")), "SP_A")
-  se_b <- build_se(make_long_data("SP_B", c("B1"), paste0("S", 1:4),
-                                  c("HOG1")), "SP_B")
+  se_a <- build_se(make_long_data(
+    "SP_A", c("A1"), paste0("S", 1:4),
+    c("HOG1")
+  ), "SP_A")
+  se_b <- build_se(make_long_data(
+    "SP_B", c("B1"), paste0("S", 1:4),
+    c("HOG1")
+  ), "SP_B")
 
   expect_no_error(prepare_orthologs(list(SP_A = se_a, SP_B = se_b)))
   expect_no_error(

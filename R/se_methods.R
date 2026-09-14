@@ -25,29 +25,38 @@ build_se <- function(data, species,
                      gene_metadata = NULL,
                      sample_metadata = NULL) {
   if (!requireNamespace("SummarizedExperiment", quietly = TRUE) ||
-      !requireNamespace("S4Vectors", quietly = TRUE)) {
-    stop("SummarizedExperiment and S4Vectors packages are required. ",
-         "Install with: BiocManager::install(c('SummarizedExperiment', 'S4Vectors'))")
+        !requireNamespace("S4Vectors", quietly = TRUE)) {
+    stop(
+      "SummarizedExperiment and S4Vectors packages are required. ",
+      "Install with: ",
+      "BiocManager::install(c('SummarizedExperiment', 'S4Vectors'))"
+    )
   }
   required <- c(species_col, gene_col, sample_col, assay_col)
   missing_cols <- setdiff(required, names(data))
   if (length(missing_cols) > 0) {
-    stop("data missing required columns: ",
-         paste(missing_cols, collapse = ", "))
+    stop(
+      "data missing required columns: ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
 
   # Filter to species
   sp_data <- data[data[[species_col]] %in% species, , drop = FALSE]
   if (nrow(sp_data) == 0) {
-    stop("No rows found for species '", species, "' in column '",
-         species_col, "'")
+    stop(
+      "No rows found for species '", species, "' in column '",
+      species_col, "'"
+    )
   }
 
   # Pivot to genes x samples matrix
   genes <- unique(sp_data[[gene_col]])
   samples <- unique(sp_data[[sample_col]])
-  mat <- matrix(NA_real_, nrow = length(genes), ncol = length(samples),
-                dimnames = list(genes, samples))
+  mat <- matrix(NA_real_,
+    nrow = length(genes), ncol = length(samples),
+    dimnames = list(genes, samples)
+  )
   idx <- match(sp_data[[gene_col]], genes)
   jdx <- match(sp_data[[sample_col]], samples)
   mat[cbind(idx, jdx)] <- sp_data[[assay_col]]
@@ -63,7 +72,8 @@ build_se <- function(data, species,
     rd_cols <- c(rd_cols, intersect(gene_metadata, names(gene_info)))
   }
   rd <- S4Vectors::DataFrame(gene_info[, rd_cols, drop = FALSE],
-                              row.names = genes)
+    row.names = genes
+  )
   # Rename hog_col to "hog" for consistency with rcomplex conventions
   if (!is.null(hog_col) && hog_col %in% names(rd)) {
     names(rd)[names(rd) == hog_col] <- "hog"
@@ -72,13 +82,15 @@ build_se <- function(data, species,
   # Build colData
   sample_info <- sp_data[!duplicated(sp_data[[sample_col]]), , drop = FALSE]
   sample_info <- sample_info[match(samples, sample_info[[sample_col]]), ,
-                              drop = FALSE]
+    drop = FALSE
+  ]
   cd_cols <- sample_col
   if (!is.null(sample_metadata)) {
     cd_cols <- c(cd_cols, intersect(sample_metadata, names(sample_info)))
   }
   cd <- S4Vectors::DataFrame(sample_info[, cd_cols, drop = FALSE],
-                              row.names = samples)
+    row.names = samples
+  )
 
   SummarizedExperiment::SummarizedExperiment(
     assays = stats::setNames(list(mat), assay_col),
@@ -116,8 +128,10 @@ build_se <- function(data, species,
 #' @export
 extract_orthologs <- function(se1, se2, hog_col = "hog") {
   if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
-    stop("SummarizedExperiment package is required. ",
-         "Install with: BiocManager::install('SummarizedExperiment')")
+    stop(
+      "SummarizedExperiment package is required. ",
+      "Install with: BiocManager::install('SummarizedExperiment')"
+    )
   }
   rd1 <- SummarizedExperiment::rowData(se1)
   rd2 <- SummarizedExperiment::rowData(se2)
@@ -137,9 +151,11 @@ extract_orthologs <- function(se1, se2, hog_col = "hog") {
   # Find shared HOGs
   shared <- intersect(hogs1[!is.na(hogs1)], hogs2[!is.na(hogs2)])
   if (length(shared) == 0) {
-    return(data.frame(Species1 = character(0),
-                      Species2 = character(0),
-                      hog = character(0)))
+    return(data.frame(
+      Species1 = character(0),
+      Species2 = character(0),
+      hog = character(0)
+    ))
   }
 
   # Build all pairwise combinations within each shared HOG

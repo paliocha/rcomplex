@@ -16,13 +16,16 @@ torch_device_dtype <- function() {
     # Older torch builds may lack float64 kernels for newer GPU architectures
     # (e.g. Blackwell sm_100+ with torch R 0.16.3).
     for (dt in list(torch::torch_float64(), torch::torch_float32())) {
-      ok <- tryCatch({
-        m <- matrix(1.0, 64L, 64L)
-        t <- torch::torch_tensor(m, dtype = dt, device = "cuda")
-        r <- t$mm(t)
-        result <- as.matrix(r$cpu())
-        (abs(result[1, 1] - 64) < 0.01)
-      }, error = function(e) FALSE)
+      ok <- tryCatch(
+        {
+          m <- matrix(1.0, 64L, 64L)
+          t <- torch::torch_tensor(m, dtype = dt, device = "cuda")
+          r <- t$mm(t)
+          result <- as.matrix(r$cpu())
+          (abs(result[1, 1] - 64) < 0.01)
+        },
+        error = function(e) FALSE
+      )
       if (ok) {
         if (as.character(dt) == "Float") {
           message("CUDA float64 unavailable; using CUDA float32")
@@ -179,8 +182,10 @@ cor_rfast <- function(x, method = "pearson") {
 #' @examples
 #' \dontrun{
 #' # From a matrix:
-#' net <- compute_network(x, cor_method = "spearman",
-#'                        norm_method = "mr", density = 0.03)
+#' net <- compute_network(x,
+#'   cor_method = "spearman",
+#'   norm_method = "mr", density = 0.03
+#' )
 #'
 #' # From a SummarizedExperiment:
 #' net <- compute_network(se, assay = "vst", cor_method = "spearman")
@@ -188,21 +193,25 @@ cor_rfast <- function(x, method = "pearson") {
 #'
 #' @rdname compute_network
 #' @export
-setGeneric("compute_network", function(x, ...) standardGeneric("compute_network"))
+setGeneric(
+  "compute_network",
+  function(x, ...) standardGeneric("compute_network")
+)
 
 #' @rdname compute_network
 #' @export
-setMethod("compute_network", "matrix", function(x,
-                            cor_method = c("pearson", "spearman"),
-                            norm_method = c("MR", "CLR"),
-                            density = 0.03,
-                            abs_cor = FALSE,
-                            mr_log_transform = FALSE,
-                            min_var = 0,
-                            sparse = TRUE,
-                            store_density = NULL,
-                            n_cores = 1L,
-                            use_torch = FALSE) {
+setMethod("compute_network", "matrix", function(
+  x,
+  cor_method = c("pearson", "spearman"),
+  norm_method = c("MR", "CLR"),
+  density = 0.03,
+  abs_cor = FALSE,
+  mr_log_transform = FALSE,
+  min_var = 0,
+  sparse = TRUE,
+  store_density = NULL,
+  n_cores = 1L,
+  use_torch = FALSE) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
   if (is.null(rownames(x))) {
@@ -216,16 +225,20 @@ setMethod("compute_network", "matrix", function(x,
       store_density <- max(density, 0.05)
     }
     if (!is.numeric(store_density) || length(store_density) != 1L ||
-        store_density < density || store_density >= 1) {
-      stop("store_density must satisfy density <= store_density < 1 (got ",
-           store_density, " with density = ", density, ")")
+          store_density < density || store_density >= 1) {
+      stop(
+        "store_density must satisfy density <= store_density < 1 (got ",
+        store_density, " with density = ", density, ")"
+      )
     }
   } else if (!is.null(store_density)) {
     stop("store_density requires sparse = TRUE")
   }
   if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
-    stop("use_torch = TRUE requires the torch package ",
-         "(install.packages('torch'); torch::install_torch())")
+    stop(
+      "use_torch = TRUE requires the torch package ",
+      "(install.packages('torch'); torch::install_torch())"
+    )
   }
 
   # Filter low-variance genes
@@ -239,8 +252,10 @@ setMethod("compute_network", "matrix", function(x,
       x <- x[keep, , drop = FALSE]
     }
     if (nrow(x) < 3L) {
-      stop("Fewer than 3 genes remain after variance filtering (min_var = ",
-           min_var, ")")
+      stop(
+        "Fewer than 3 genes remain after variance filtering (min_var = ",
+        min_var, ")"
+      )
     }
   }
 
@@ -305,7 +320,8 @@ setMethod("compute_network", "matrix", function(x,
   slots <- extract_sparse_cpp(net, store_thr, n_cores)
   rm(net)
   spnet <- methods::new(
-    "dgCMatrix", i = slots$i, p = slots$p, x = slots$x,
+    "dgCMatrix",
+    i = slots$i, p = slots$p, x = slots$x,
     Dim = c(n_genes, n_genes),
     Dimnames = list(gene_names, gene_names)
   )
@@ -325,8 +341,10 @@ setMethod("compute_network", "matrix", function(x,
 #'   SummarizedExperiment (default 1). Requires the
 #'   \pkg{SummarizedExperiment} package.
 #' @export
-setMethod("compute_network", "SummarizedExperiment", function(x,
-    assay = 1L, ...) {
+setMethod("compute_network", "SummarizedExperiment", function(
+  x,
+  assay = 1L, ...
+) {
   # No requireNamespace guard needed: S4 dispatch to this method
   # requires the SummarizedExperiment class (and package) to be loaded.
   expr <- SummarizedExperiment::assay(x, assay)

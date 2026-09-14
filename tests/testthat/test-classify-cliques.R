@@ -3,8 +3,10 @@
 # Helper: build edges for 4-species, binary trait (annual/perennial)
 make_classify_edges <- function() {
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
 
   # HOG1: ALL 6 edges conserved (complete)
   hog1 <- data.frame(
@@ -75,8 +77,10 @@ test_that("classify_cliques returns correct structure", {
   result <- classify_cliques(setup$edges, setup$target, setup$trait)
 
   expect_true(is.data.frame(result))
-  expected_cols <- c("hog", "classification", "n_species", "best_mean_q",
-                     "trait_groups", "stability_class", "persistence", "robust")
+  expected_cols <- c(
+    "hog", "classification", "n_species", "best_mean_q",
+    "trait_groups", "stability_class", "persistence", "robust"
+  )
   expect_true(all(expected_cols %in% names(result)))
 })
 
@@ -160,9 +164,11 @@ test_that("cross-group conserved edge blocks differentiated", {
 
 test_that("ternary trait works for differentiated", {
   target <- c("SP_A", "SP_B", "SP_C", "SP_D", "SP_E", "SP_F")
-  trait <- c(SP_A = "warm", SP_B = "warm",
-             SP_C = "cold", SP_D = "cold",
-             SP_E = "arid", SP_F = "arid")
+  trait <- c(
+    SP_A = "warm", SP_B = "warm",
+    SP_C = "cold", SP_D = "cold",
+    SP_E = "arid", SP_F = "arid"
+  )
 
   # HOG1: warm clique + cold clique + arid clique, no cross-group
   edges <- data.frame(
@@ -190,20 +196,26 @@ test_that("classify_cliques validates inputs", {
 
   expect_error(
     classify_cliques(data.frame(x = 1), setup$target, setup$trait),
-    "edges missing required columns")
+    "edges missing required columns"
+  )
 
   expect_error(
     classify_cliques(setup$edges, c("SP_A"), setup$trait),
-    "at least 2 species")
+    "at least 2 species"
+  )
 
   expect_error(
     classify_cliques(setup$edges, setup$target, c("a", "b")),
-    "species_trait must be a named")
+    "species_trait must be a named"
+  )
 
   expect_error(
-    classify_cliques(setup$edges, setup$target,
-                     c(SP_A = "x", SP_B = "y")),
-    "species_trait missing entries")
+    classify_cliques(
+      setup$edges, setup$target,
+      c(SP_A = "x", SP_B = "y")
+    ),
+    "species_trait missing entries"
+  )
 })
 
 
@@ -235,7 +247,8 @@ test_that("stability annotation populates stability_class", {
   )
 
   result <- classify_cliques(setup$edges, setup$target, setup$trait,
-                              stability = stab)
+    stability = stab
+  )
 
   hog1 <- result[result$hog == "HOG1", ]
   expect_false(is.na(hog1$stability_class))
@@ -265,7 +278,8 @@ test_that("stability_class uses max across multi-clique HOGs", {
   )
 
   result <- classify_cliques(setup$edges, setup$target, setup$trait,
-                              stability = stab)
+    stability = stab
+  )
 
   hog3 <- result[result$hog == "HOG3", ]
   # max(2, 0) = 2 — best clique wins
@@ -310,9 +324,10 @@ test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
   )
 
   result <- classify_cliques(setup$edges, setup$target, setup$trait,
-                              stability = stab, sweep = sweep,
-                              min_stability_class = 1L,
-                              min_persistence = 1.5)
+    stability = stab, sweep = sweep,
+    min_stability_class = 1L,
+    min_persistence = 1.5
+  )
 
   hog1 <- result[result$hog == "HOG1", ]
   expect_false(is.na(hog1$stability_class))
@@ -355,9 +370,10 @@ test_that("robust is FALSE when stability passes but sweep fails", {
   )
 
   result <- classify_cliques(setup$edges, setup$target, setup$trait,
-                              stability = stab, sweep = sweep,
-                              min_stability_class = 1L,
-                              min_persistence = 1.5)
+    stability = stab, sweep = sweep,
+    min_stability_class = 1L,
+    min_persistence = 1.5
+  )
 
   hog1 <- result[result$hog == "HOG1", ]
   # Stability passes but persistence is NA (never survived) -> robust FALSE
@@ -369,8 +385,10 @@ test_that("stability=list() is rejected by input validation", {
   setup <- make_classify_edges()
   expect_error(
     classify_cliques(setup$edges, setup$target, setup$trait,
-                     stability = list()),
-    "stability must be output of clique_stability")
+      stability = list()
+    ),
+    "stability must be output of clique_stability"
+  )
 })
 
 
@@ -404,18 +422,22 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
   trait <- setup$trait
 
   # Find cliques — need trait-exclusive ones for stability to track
-  cliques <- find_cliques(setup$edges, target, min_species = 2L,
-                          edge_type = "conserved")
+  cliques <- find_cliques(setup$edges, target,
+    min_species = 2L,
+    edge_type = "conserved"
+  )
   if (nrow(cliques) == 0) skip("No cliques found for stability test")
 
   # clique_stability now tests ALL cliques structurally.
   stab <- clique_stability(setup$edges, target, trait,
-                            all_species = target,
-                            full_cliques = cliques,
-                            max_k = 1L)
+    all_species = target,
+    full_cliques = cliques,
+    max_k = 1L
+  )
 
   result <- classify_cliques(setup$edges, target, trait,
-                              stability = stab)
+    stability = stab
+  )
 
   # HOG3 is differentiated — should have stability data
   hog3 <- result[result$hog == "HOG3", ]

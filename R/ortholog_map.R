@@ -108,7 +108,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     stop("genes1 and genes2 must be character vectors")
   }
   if ((!is.null(edges) || !is.null(cliques)) &&
-    (is.null(sp1) || is.null(sp2))) {
+        (is.null(sp1) || is.null(sp2))) {
     stop("sp1 and sp2 are required when edges or cliques is supplied")
   }
 
@@ -116,7 +116,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   # (compare_neighborhoods() filters Species1 against net1, Species2 against
   # net2), so a table whose orientation is flipped contributes nothing.
   cand <- orthologs[orthologs$Species1 %in% genes1 &
-    orthologs$Species2 %in% genes2, , drop = FALSE]
+                      orthologs$Species2 %in% genes2, , drop = FALSE]
   cand <- unique(cand[, c("Species1", "Species2", "hog"), drop = FALSE])
   names(cand) <- c("gene1", "gene2", "hog")
   cand$hog <- as.character(cand$hog)

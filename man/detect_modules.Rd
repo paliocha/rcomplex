@@ -117,8 +117,10 @@ Default 0.05.}
 \value{
 A list with components:
 \describe{
-\item{modules}{Named integer vector of module assignments (gene -> module ID)}
-\item{module_genes}{Named list: module ID -> character vector of gene names}
+\item{modules}{Named integer vector of module assignments
+(gene -> module ID)}
+\item{module_genes}{Named list: module ID -> character vector of
+gene names}
 \item{n_modules}{Number of modules detected}
 \item{modularity}{Modularity score of the partition}
 \item{graph}{The igraph graph object used for community detection}
@@ -156,7 +158,8 @@ O(N^2) to O(|E|).
 communities (Traag \emph{et al.}, 2019). Resolution parameter controls module
 granularity.}
 \item{infomap}{Flow-based method that compresses the description of random
-walks on the network (Rosvall & Bergstrom, 2008). No resolution parameter;
+walks on the network (Rosvall & Bergstrom, 2008). No resolution
+parameter;
 naturally handles weighted networks.}
 \item{sbm}{Gaussian Stochastic Block Model fit by variational EM
 (requires the \pkg{sbm} package). Number of blocks is selected

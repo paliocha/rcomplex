@@ -228,7 +228,7 @@ find_cliques.default <- function(edges, target_species,
     stop("cost_weights must be a named numeric vector of length 2")
   }
   if (is.null(names(cost_weights)) ||
-    !all(c("q", "effect") %in% names(cost_weights))) {
+        !all(c("q", "effect") %in% names(cost_weights))) {
     stop("cost_weights must have names 'q' and 'effect'")
   }
   if (any(cost_weights < 0)) {
@@ -739,8 +739,12 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
   for (pair in utils::combn(target_species, 2, simplify = FALSE)) {
     sp_a <- pair[1]
     sp_b <- pair[2]
-    fwd <- edges[edges$species1 == sp_a & edges$species2 == sp_b, , drop = FALSE]
-    rev <- edges[edges$species1 == sp_b & edges$species2 == sp_a, , drop = FALSE]
+    fwd <- edges[
+      edges$species1 == sp_a & edges$species2 == sp_b, , drop = FALSE
+    ]
+    rev <- edges[
+      edges$species1 == sp_b & edges$species2 == sp_a, , drop = FALSE
+    ]
     gene_a <- c(fwd$gene1, rev$gene2)
     gene_b <- c(fwd$gene2, rev$gene1)
     if (length(gene_a) == 0L) next
@@ -1961,7 +1965,7 @@ classify_cliques.default <- function(
     within_group_hogs[[group]] <- unique(wg$hog)
   }
 
-  # --- Step 4: Differentiated (2+ groups with cliques, no cross-group conserved) ---
+  # --- Step 4: Differentiated (2+ groups w/ cliques, no cross-group) ---
   remaining <- setdiff(all_hogs, c(complete_hogs, partial_hogs))
 
   # Identify cross-group conserved edges
@@ -2029,7 +2033,9 @@ classify_cliques.default <- function(
 
   # Complete
   if (length(complete_hogs) > 0) {
-    info <- best_per_hog(all_cliques[is_complete, , drop = FALSE], complete_hogs)
+    info <- best_per_hog(
+      all_cliques[is_complete, , drop = FALSE], complete_hogs
+    )
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "complete",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
@@ -2128,7 +2134,7 @@ classify_cliques.default <- function(
   # --- Sweep annotation ---
   out$persistence <- NA_real_
   if (!is.null(sweep) && "persistence" %in% names(sweep) &&
-    nrow(sweep$persistence) > 0) {
+        nrow(sweep$persistence) > 0) {
     # Use formal birth/death persistence if available
     persist_df <- sweep$persistence
     # Best (max) persistence per HOG across clique indices
@@ -2155,7 +2161,7 @@ classify_cliques.default <- function(
   has_stab <- !is.null(stability$stability) && nrow(stability$stability) > 0
   has_sweep <- !is.null(sweep) &&
     (("persistence" %in% names(sweep) && nrow(sweep$persistence) > 0) ||
-      ("survival" %in% names(sweep) && nrow(sweep$survival) > 0))
+       ("survival" %in% names(sweep) && nrow(sweep$survival) > 0))
   if (has_stab || has_sweep) {
     stab_ok <- if (has_stab) {
       !is.na(out$stability_class) & out$stability_class >= min_stability_class

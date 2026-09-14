@@ -124,8 +124,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     drop = FALSE
   ]
   orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
-    drop = FALSE
-  ])
+                        drop = FALSE
+                      ])
 
   if (nrow(orthologs) == 0) {
     stop("No orthologs found in both networks")
@@ -256,10 +256,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   q_comb <- combine(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
   q_comb[is.infinite(q_comb)] <- NA_real_
   eff_geo <- sqrt(comparison$Species1.effect.size *
-    comparison$Species2.effect.size)
+                    comparison$Species2.effect.size)
 
   has_jaccard <- all(c("Species1.jaccard", "Species2.jaccard") %in%
-    names(comparison))
+                       names(comparison))
   jacc_geo <- if (has_jaccard) {
     sqrt(comparison$Species1.jaccard * comparison$Species2.jaccard)
   } else {
@@ -550,9 +550,9 @@ find_coexpressologs.default <- function(
       hog_q <- stats::setNames(hog_res$q.value, hog_res$hog)
       q_vals <- hog_q[comparison$hog]
       eff <- sqrt(comparison$Species1.effect.size *
-        comparison$Species2.effect.size)
+                    comparison$Species2.effect.size)
       jacc <- sqrt(comparison$Species1.jaccard *
-        comparison$Species2.jaccard)
+                     comparison$Species2.jaccard)
 
       edges_df <- data.frame(
         gene1 = comparison$Species1,
@@ -577,8 +577,9 @@ find_coexpressologs.default <- function(
       # how many earlier pairs were skipped (empty comparison, failed
       # test, etc.).
       data.table::fwrite(edges_df, out_file,
-                         append = TRUE, col.names = (n_ok == 1L),
-                         nThread = n_cores)
+        append = TRUE, col.names = (n_ok == 1L),
+        nThread = n_cores
+      )
     } else {
       idx <- idx + 1L
       pair_edges[[idx]] <- edges_df
@@ -811,7 +812,8 @@ density_sweep.default <- function(
 #'
 #' For a given HOG, finds which other HOGs co-express with it in each
 #' species network, then aggregates across species. Useful after
-#' \code{\link{identify_module_hubs}} and \code{\link{classify_hub_conservation}}
+#' \code{\link{identify_module_hubs}} and
+#' \code{\link{classify_hub_conservation}}
 #' to explore the co-expression neighborhood of a hub gene.
 #'
 #' @param candidate_hog Character string: the HOG ID to query (e.g.,

@@ -50,7 +50,7 @@ lie on a finite grid where occasional ties are possible.
 }
 \examples{
 \dontrun{
-net <- compute_network(x, density = 0.03)  # sparse
+net <- compute_network(x, density = 0.03) # sparse
 # exact values for one module, including sub-threshold entries:
 blk <- mr_block(x, module_genes, net)
 heatmap(blk)

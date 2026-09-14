@@ -81,7 +81,8 @@ genes in the same module only):
 \item{degree}{Weighted degree (\code{igraph::strength}): sum of edge weights
 to other genes in the same module.}
 \item{betweenness}{Shortest-path betweenness using inverse edge weights
-as distances.  Identifies genes that bridge sub-clusters within a module.}
+as distances.  Identifies genes that bridge sub-clusters within a
+module.}
 \item{eigenvector}{Eigenvector centrality (\code{igraph::eigen_centrality}):
 high for genes connected to other high-centrality genes.}
 }

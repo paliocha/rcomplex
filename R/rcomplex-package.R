@@ -8,13 +8,17 @@
 #' \describe{
 #'   \item{[parse_orthologs()]}{Parse ortholog group files}
 #'   \item{[reduce_orthogroups()]}{Merge correlated paralogs within HOGs}
-#'   \item{[extract_orthologs()]}{Derive ortholog pairs from SummarizedExperiment objects}
-#'   \item{[compute_network()]}{Build co-expression network (matrix or SummarizedExperiment)}
+#'   \item{[extract_orthologs()]}{Derive ortholog pairs from
+#'     SummarizedExperiment objects}
+#'   \item{[compute_network()]}{Build co-expression network (matrix or
+#'     SummarizedExperiment)}
 #'   \item{[compare_neighborhoods()]}{Pair-level hypergeometric tests}
 #'   \item{[summarize_comparison()]}{Q-value correction and summary}
-#'   \item{[comparison_to_edges()]}{Convert comparison results to clique edge format}
+#'   \item{[comparison_to_edges()]}{Convert comparison results to clique
+#'     edge format}
 #'   \item{[run_pairwise_comparisons()]}{Batch pairwise comparison pipeline}
-#'   \item{[get_coexpressed_hogs()]}{Query co-expression partners of a candidate HOG}
+#'   \item{[get_coexpressed_hogs()]}{Query co-expression partners of a
+#'     candidate HOG}
 #'   \item{[permutation_hog_test()]}{HOG-level permutation test}
 #'   \item{[detect_modules()]}{Community detection with consensus}
 #'   \item{[resolve_ortholog_map()]}{Paralog-resolved ortholog map}
@@ -40,7 +44,8 @@
 #'     that published taxonomy has to be reported. Neither it nor
 #'     [classify_cliques()] replaces the other}
 #'   \item{[characterize_hubs()]}{Regulatory potential metrics for hub genes}
-#'   \item{[tag_permutation()]}{Permutation test for trait-specific module recurrence}
+#'   \item{[tag_permutation()]}{Permutation test for trait-specific module
+#'     recurrence}
 #' }
 #'
 #' @docType package

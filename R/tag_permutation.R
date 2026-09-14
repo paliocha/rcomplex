@@ -412,7 +412,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     )
   }
   if (!is.numeric(n_perm) || length(n_perm) != 1L || is.na(n_perm) ||
-    !is.finite(n_perm) || n_perm < 1 || n_perm != round(n_perm)) {
+        !is.finite(n_perm) || n_perm < 1 || n_perm != round(n_perm)) {
     stop("n_perm must be a single positive whole number")
   }
   # as.integer() overflows to NA above 2^31, which used to surface as
@@ -420,15 +420,15 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   n_perm <- as.integer(min(n_perm, .Machine$integer.max))
   if (!is.null(min_recurrence)) {
     if (!is.numeric(min_recurrence) || length(min_recurrence) != 1L ||
-      is.na(min_recurrence) || !is.finite(min_recurrence) ||
-      min_recurrence < 1 || min_recurrence != round(min_recurrence)) {
+          is.na(min_recurrence) || !is.finite(min_recurrence) ||
+          min_recurrence < 1 || min_recurrence != round(min_recurrence)) {
       stop("min_recurrence must be a single positive whole number or NULL")
     }
     min_recurrence <- as.integer(min_recurrence)
   }
   if (!is.numeric(enum_max) || length(enum_max) != 1L ||
-    is.na(enum_max) || enum_max < 0 || enum_max > 30 ||
-    enum_max != round(enum_max)) {
+        is.na(enum_max) || enum_max < 0 || enum_max > 30 ||
+        enum_max != round(enum_max)) {
     stop("enum_max must be a single whole number between 0 and 30")
   }
   enum_max <- as.integer(enum_max)
@@ -492,7 +492,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
 
     # sp1 side
     mods_sp1 <- ss_pair$module[ss_pair$reference == s1 &
-      ss_pair$test == s2]
+                                 ss_pair$test == s2]
     genes_sp1 <- if (length(mods_sp1) > 0L) {
       unlist(modules[[s1]]$module_genes[as.character(mods_sp1)],
         use.names = FALSE
@@ -504,7 +504,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
 
     # sp2 side
     mods_sp2 <- ss_pair$module[ss_pair$reference == s2 &
-      ss_pair$test == s1]
+                                 ss_pair$test == s1]
     genes_sp2 <- if (length(mods_sp2) > 0L) {
       unlist(modules[[s2]]$module_genes[as.character(mods_sp2)],
         use.names = FALSE
@@ -600,12 +600,16 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     message(
       "min_recurrence = ", min_recurrence,
       if (floored) {
-        paste0(" (floor of 2; half of ", n_supplying,
-               " contrast(s) able to supply a HOG would round up to ",
-               "less than that)")
+        paste0(
+          " (floor of 2; half of ", n_supplying,
+          " contrast(s) able to supply a HOG would round up to ",
+          "less than that)"
+        )
       } else {
-        paste0(" (half of ", n_supplying,
-               " contrast(s) able to supply a HOG, rounded up)")
+        paste0(
+          " (half of ", n_supplying,
+          " contrast(s) able to supply a HOG, rounded up)"
+        )
       },
       "; pass it explicitly to override"
     )
@@ -629,8 +633,8 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     }), use.names = FALSE)))
   } else if (is.numeric(universe) && length(universe) == 1L) {
     if (is.na(universe) || !is.finite(universe) || universe < 1 ||
-      universe != round(universe) ||
-      universe > .Machine$integer.max) {
+          universe != round(universe) ||
+          universe > .Machine$integer.max) {
       stop(
         "universe must be a whole number of at least 1 and at most ",
         .Machine$integer.max, ", or a vector of HOG identifiers"

@@ -614,8 +614,10 @@ test_that("colliding cliques with no shared member are still refused", {
   # contract, and the test would silently stop exercising the collision
   # if it flipped.
   tight_genes <- tight$gene
-  share <- vapply(split(loose$gene, loose$clique_id),
-                  function(g) any(g %in% tight_genes), logical(1))
+  share <- vapply(
+    split(loose$gene, loose$clique_id),
+    function(g) any(g %in% tight_genes), logical(1)
+  )
   disjoint_id <- names(share)[!share][1L]
   expect_false(is.na(disjoint_id))
   # Overwrite the id rather than selecting on it. Selecting still needed
@@ -1084,7 +1086,8 @@ test_that("near-tied mean_q is counted as tied at both call sites", {
   expect_equal(attr(cl, "n_cliques_at_q_floor"), 2L)
 
   res <- classify_gene_cliques(cl, e, c("SP_A", "SP_B", "SP_C"),
-                               alpha_call = 0.9, alpha_graph = 0.9)
+    alpha_call = 0.9, alpha_graph = 0.9
+  )
   expect_equal(unique(res$n_cliques_at_q_floor), 2L)
 })
 
@@ -1117,7 +1120,8 @@ test_that("a row-filtered clique table is accepted, not called a merge", {
   # stale declared value on the untrimmed table (3).
   e_sub <- e[e$species1 != "SP_C" & e$species2 != "SP_C", , drop = FALSE]
   res <- suppressMessages(classify_gene_cliques(
-    trimmed, e_sub, c("SP_A", "SP_B"), alpha_call = 0.9,
+    trimmed, e_sub, c("SP_A", "SP_B"),
+    alpha_call = 0.9,
     alpha_graph = 0.9
   ))
   expect_identical(unique(res$n_members), 2L)

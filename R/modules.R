@@ -9,7 +9,8 @@
 #'     communities (Traag *et al.*, 2019). Resolution parameter controls module
 #'     granularity.}
 #'   \item{infomap}{Flow-based method that compresses the description of random
-#'     walks on the network (Rosvall & Bergstrom, 2008). No resolution parameter;
+#'     walks on the network (Rosvall & Bergstrom, 2008). No resolution
+#'     parameter;
 #'     naturally handles weighted networks.}
 #'   \item{sbm}{Gaussian Stochastic Block Model fit by variational EM
 #'     (requires the \pkg{sbm} package). Number of blocks is selected
@@ -94,8 +95,10 @@
 #'
 #' @return A list with components:
 #'   \describe{
-#'     \item{modules}{Named integer vector of module assignments (gene -> module ID)}
-#'     \item{module_genes}{Named list: module ID -> character vector of gene names}
+#'     \item{modules}{Named integer vector of module assignments
+#'       (gene -> module ID)}
+#'     \item{module_genes}{Named list: module ID -> character vector of
+#'       gene names}
 #'     \item{n_modules}{Number of modules detected}
 #'     \item{modularity}{Modularity score of the partition}
 #'     \item{graph}{The igraph graph object used for community detection}
@@ -179,7 +182,10 @@ detect_modules.default <- function(net,
   # Consensus mode: vector resolution triggers multi-resolution + consensus
   if (length(resolution) > 1L) {
     if (method != "leiden") {
-      stop("Consensus mode (vector resolution) only supported for method = \"leiden\"")
+      stop(
+        "Consensus mode (vector resolution) only supported for ",
+        "method = \"leiden\""
+      )
     }
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
@@ -324,7 +330,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
-      consensus_threshold >= 1) {
+          consensus_threshold >= 1) {
       stop("consensus_threshold must be NULL (adaptive) or numeric in (0, 1)")
     }
   }
@@ -882,7 +888,8 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #'   \item{degree}{Weighted degree (`igraph::strength`): sum of edge weights
 #'     to other genes in the same module.}
 #'   \item{betweenness}{Shortest-path betweenness using inverse edge weights
-#'     as distances.  Identifies genes that bridge sub-clusters within a module.}
+#'     as distances.  Identifies genes that bridge sub-clusters within a
+#'     module.}
 #'   \item{eigenvector}{Eigenvector centrality (`igraph::eigen_centrality`):
 #'     high for genes connected to other high-centrality genes.}
 #' }
@@ -966,7 +973,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   centrality <- match.arg(centrality)
 
   if (!is.list(modules) || is.null(modules$module_genes) ||
-    is.null(modules$graph) || is.null(modules$modules)) {
+        is.null(modules$graph) || is.null(modules$modules)) {
     stop("modules must be output from detect_modules()")
   }
   if (!is.list(net) || is.null(net$network)) {
@@ -1007,7 +1014,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 
     # Per-row geometric mean of effect sizes
     geo_eff <- sqrt(comparison$Species1.effect.size *
-      comparison$Species2.effect.size)
+                      comparison$Species2.effect.size)
 
     # Per-gene mean conservation effect (higher = more conserved)
     comp_genes <- comparison[[comp_col]]
@@ -1101,10 +1108,6 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
       betweenness = sub_btw,
       eigenvector = sub_eig
     )
-    # Alternative centrality (tier 3): betweenness if primary is degree,
-    # degree otherwise — the most complementary pair
-    alt_cent <- if (centrality == "degree") sub_btw else sub_str
-
     # Mean within-module edge weight (tier 4): strength / degree
     sub_deg <- igraph::degree(sub)
     mean_ew <- ifelse(sub_deg > 0, sub_str / sub_deg, 0)
@@ -1139,7 +1142,8 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   result$hog_q <- 1
   if (!is.null(gene_conserv)) {
     matched <- match(result$gene, names(gene_conserv))
-    result$conserv_eff[!is.na(matched)] <- gene_conserv[matched[!is.na(matched)]]
+    result$conserv_eff[!is.na(matched)] <-
+      gene_conserv[matched[!is.na(matched)]]
   }
   if (!is.null(hog_min_q) && !is.null(hog_lookup)) {
     matched <- match(result$hog, names(hog_min_q))
@@ -1310,7 +1314,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   req_cols <- c("gene", "module", "is_hub", "hog", "degree")
   for (sp in names(hub_results)) {
     if (!is.data.frame(hub_results[[sp]]) ||
-      !all(req_cols %in% names(hub_results[[sp]]))) {
+          !all(req_cols %in% names(hub_results[[sp]]))) {
       stop(
         "hub_results[['", sp,
         "']] must be output from identify_module_hubs() with orthologs"
@@ -1320,7 +1324,6 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 
   trait_char <- as.character(species_trait[names(hub_results)])
   names(trait_char) <- names(hub_results)
-  trait_levels <- unique(trait_char)
   species_by_trait <- split(names(trait_char), trait_char)
 
   # Determine which centrality column to use for max_centrality / hub_module.
@@ -1579,7 +1582,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
         n_corresponding <- sum(corresp, na.rm = TRUE)
         n_available <- sum(!is.na(corresp))
         classification <- if (n_corresponding / n_available >=
-          correspondence_threshold) {
+                                correspondence_threshold) {
           "conserved_hub"
         } else {
           "rewired_hub"

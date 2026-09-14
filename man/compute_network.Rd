@@ -129,8 +129,10 @@ dense n x n matrix.
 \examples{
 \dontrun{
 # From a matrix:
-net <- compute_network(x, cor_method = "spearman",
-                       norm_method = "mr", density = 0.03)
+net <- compute_network(x,
+  cor_method = "spearman",
+  norm_method = "mr", density = 0.03
+)
 
 # From a SummarizedExperiment:
 net <- compute_network(se, assay = "vst", cor_method = "spearman")

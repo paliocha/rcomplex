@@ -10,20 +10,32 @@ vignette: >
 ```{r setup, include = FALSE}
 has_se <- requireNamespace("SummarizedExperiment", quietly = TRUE)
 has_torch <- requireNamespace("torch", quietly = TRUE) &&
-             torch::torch_is_installed() &&
-             tryCatch({ torch::torch_randn(1); TRUE }, error = function(e) FALSE)
+  torch::torch_is_installed() &&
+  tryCatch(
+    {
+      torch::torch_randn(1)
+      TRUE
+    },
+    error = function(e) FALSE
+  )
 has_tidy <- requireNamespace("purrr", quietly = TRUE) &&
-            requireNamespace("tibble", quietly = TRUE)
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
-                      eval = has_se && has_torch && has_tidy)
+  requireNamespace("tibble", quietly = TRUE)
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>",
+  eval = has_se && has_torch && has_tidy
+)
 
 # Helper for interactive tables (sortable by one or multiple columns)
-show_table <- function(df, pageLength = 10, ...) {
+show_table <- function(df, pageLength = 10, ...) {  # nolint
   if (requireNamespace("DT", quietly = TRUE)) {
-    DT::datatable(df, rownames = FALSE,
-                  options = list(pageLength = pageLength, scrollX = TRUE,
-                                 ordering = TRUE, orderMulti = TRUE),
-                  ...)
+    DT::datatable(df,
+      rownames = FALSE,
+      options = list(
+        pageLength = pageLength, scrollX = TRUE,
+        ordering = TRUE, orderMulti = TRUE
+      ),
+      ...
+    )
   } else {
     knitr::kable(df)
   }
@@ -32,9 +44,12 @@ show_table <- function(df, pageLength = 10, ...) {
 # Helper for ranked classification tables
 show_classification <- function(df, class, cols, caption) {
   sub <- df |>
-    dplyr::filter(classification == class) |>
+    dplyr::filter(.data$classification == class) |>
     dplyr::select(dplyr::any_of(cols)) |>
-    dplyr::arrange(dplyr::desc(n_species), dplyr::desc(n_densities_survived), best_mean_q)
+    dplyr::arrange(
+      dplyr::desc(.data$n_species), dplyr::desc(.data$n_densities_survived),
+      .data$best_mean_q
+    )
   show_table(sub, pageLength = 10, caption = caption)
 }
 ```
@@ -68,7 +83,8 @@ library(purrr)
 library(tibble)
 
 se_list <- readRDS(system.file("extdata", "pooideae_vignette.rds",
-                                package = "rcomplex"))
+  package = "rcomplex"
+))
 ```
 
 We organise all per-species data in a single nested tibble. Each column
@@ -104,19 +120,26 @@ species_data <- tribble(
     reduced = map(se, \(s) {
       expr <- SummarizedExperiment::assay(s, 1)
       rd <- SummarizedExperiment::rowData(s)
-      ortho_sp <- tibble(gene = rownames(s),
-                         hog = as.character(rd$hog)) |>
+      ortho_sp <- tibble(
+        gene = rownames(s),
+        hog = as.character(rd$hog)
+      ) |>
         filter(!is.na(hog))
-      reduce_orthogroups(expr, ortho_sp, gene_col = "gene",
-                         cor_threshold = 0.7)
+      reduce_orthogroups(expr, ortho_sp,
+        gene_col = "gene",
+        cor_threshold = 0.7
+      )
     })
   )
 
 species_data |>
   select(species, reduced) |>
-  pwalk(\(species, reduced)
-    cat(species, ":", reduced$n_original, "->", reduced$n_reduced, "genes",
-        "(", reduced$n_merged, "merged )\n"))
+  pwalk(\(species, reduced) {
+    cat(
+      species, ":", reduced$n_original, "->", reduced$n_reduced, "genes",
+      "(", reduced$n_merged, "merged )\n"
+    )
+  })
 ```
 
 ### Network construction
@@ -129,12 +152,15 @@ default 5% store:
 
 ```{r networks}
 species_data <- species_data |>
-  mutate(network = map(reduced, \(r)
-    compute_network(r$expr_matrix, norm_method = "MR", density = 0.03,
-                    store_density = 0.06)))
+  mutate(network = map(reduced, \(r) {
+    compute_network(r$expr_matrix,
+      norm_method = "MR", density = 0.03,
+      store_density = 0.06
+    )
+  }))
 
 # Named lists for functions that expect them
-species  <- pull(species_data, species)
+species <- pull(species_data, species)
 trait_vec <- deframe(select(species_data, species, trait))
 networks <- deframe(select(species_data, species, network))
 ```
@@ -150,8 +176,10 @@ reduction and deduplicates:
 reductions <- deframe(select(species_data, species, reduced))
 orthologs <- prepare_orthologs(se_list, reductions)
 
-cat(nrow(orthologs), "ortholog pairs across",
-    length(utils::combn(species, 2, simplify = FALSE)), "species pairs\n")
+cat(
+  nrow(orthologs), "ortholog pairs across",
+  length(utils::combn(species, 2, simplify = FALSE)), "species pairs\n"
+)
 ```
 
 ## 2. Pairwise comparison and HOG-level testing
@@ -178,10 +206,13 @@ set.seed(1)
 n_cores <- min(4L, parallel::detectCores(logical = FALSE))
 
 edges <- find_coexpressologs(networks, orthologs,
-  method = "permutation", use_torch = TRUE, n_cores = n_cores)
+  method = "permutation", use_torch = TRUE, n_cores = n_cores
+)
 
-cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
-    sum(edges$type == "ns"), "non-significant\n")
+cat(
+  nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
+  sum(edges$type == "ns"), "non-significant\n"
+)
 ```
 
 The permutation engine draws its gene-identity permutations from the
@@ -215,8 +246,11 @@ the `seed` below.
 
 ```{r analytical-edges}
 edges_analytical <- find_coexpressologs(networks, orthologs,
-  method = "analytical", seed = 1)
-cat("Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n")
+  method = "analytical", seed = 1
+)
+cat(
+  "Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n"
+)
 cat("Permutation:", sum(edges$type == "conserved"), "conserved edges\n")
 ```
 
@@ -262,23 +296,26 @@ structure typically complete in ~20 permutations rather than 100:
 resolutions <- seq(0.25, 2.5, by = 0.25)
 
 species_data <- species_data |>
-  mutate(modules = map(network, \(net)
-    detect_modules(net, method = "leiden",
-                   resolution = resolutions,
-                   objective_function = "modularity", seed = 42,
-                   test_k1 = TRUE, n_perm_k1 = 100L,
-                   max_consensus_iter = 1000L)))
+  mutate(modules = map(network, \(net) {
+    detect_modules(net,
+      method = "leiden",
+      resolution = resolutions,
+      objective_function = "modularity", seed = 42,
+      test_k1 = TRUE, n_perm_k1 = 100L,
+      max_consensus_iter = 1000L
+    )
+  }))
 
 modules <- deframe(select(species_data, species, modules))
 
 species_data |>
   transmute(
     species, trait,
-    lambda_obs       = map_dbl(modules, \(m) m$k1_test$lambda_obs),
-    p_value          = map_dbl(modules, \(m) m$k1_test$p_value),
-    has_structure    = map_lgl(modules, \(m) m$k1_test$has_structure),
+    lambda_obs = map_dbl(modules, \(m) m$k1_test$lambda_obs),
+    p_value = map_dbl(modules, \(m) m$k1_test$p_value),
+    has_structure = map_lgl(modules, \(m) m$k1_test$has_structure),
     n_perm_completed = map_int(modules, \(m) m$k1_test$n_perm_completed),
-    n_modules        = map_int(modules, \(m) m$n_modules)
+    n_modules = map_int(modules, \(m) m$n_modules)
   ) |>
   show_table(caption = "K = 1 community structure test (all species)")
 ```
@@ -332,13 +369,16 @@ mod_results <- preservation_paired(
   edges = edges, n_cores = n_cores, seed = 42
 )
 
-tibble(species = names(modules),
-       trait = trait_vec[names(modules)],
-       n_modules = map_int(modules, \(m) m$n_modules)) |>
+tibble(
+  species = names(modules),
+  trait = trait_vec[names(modules)],
+  n_modules = map_int(modules, \(m) m$n_modules)
+) |>
   show_table(caption = "Modules per species")
 
 show_table(mod_results$summary,
-           caption = "Module preservation by contrast, direction and group")
+  caption = "Module preservation by contrast, direction and group"
+)
 ```
 
 ### Is divergence associated with the trait?
@@ -403,23 +443,27 @@ genus_vec <- setNames(
 )
 
 pmt <- preservation_matrix_test(
-  mod_results$classification, trait_vec, block = genus_vec
+  mod_results$classification, trait_vec,
+  block = genus_vec
 )
 
 show_table(pmt$class_means,
-           caption = "Mean Zsummary_std by pair class")
+  caption = "Mean Zsummary_std by pair class"
+)
 
-cat("mean Zsummary_std, concordant - discordant:",
-    sprintf("%.3f", pmt$observed),
-    "\n  p, free labelling null   :", sprintf("%.4f", pmt$p_free),
-    " (floor", sprintf("%.4f", pmt$free$p_attainable), ")",
-    "\n  p, within-genus null     :", sprintf("%.4f", pmt$p_blocked),
-    " (floor", sprintf("%.4f", pmt$blocked$p_attainable), ")",
-    # n_pairs counts the pairs left after the exclusion, while n_excluded
-    # counts dropped ROWS, so the two must not be read as one sum.
-    "\n  module-directions used:", pmt$n_rows, "over", pmt$n_pairs,
-    "between-genus pairs",
-    "\n  module-directions dropped as within-genus:", pmt$n_excluded, "\n")
+cat(
+  "mean Zsummary_std, concordant - discordant:",
+  sprintf("%.3f", pmt$observed),
+  "\n  p, free labelling null   :", sprintf("%.4f", pmt$p_free),
+  " (floor", sprintf("%.4f", pmt$free$p_attainable), ")",
+  "\n  p, within-genus null     :", sprintf("%.4f", pmt$p_blocked),
+  " (floor", sprintf("%.4f", pmt$blocked$p_attainable), ")",
+  # n_pairs counts the pairs left after the exclusion, while n_excluded
+  # counts dropped ROWS, so the two must not be read as one sum.
+  "\n  module-directions used:", pmt$n_rows, "over", pmt$n_pairs,
+  "between-genus pairs",
+  "\n  module-directions dropped as within-genus:", pmt$n_excluded, "\n"
+)
 ```
 
 Every module-direction counts once, so a heavily partitioned species
@@ -430,7 +474,8 @@ could be driving.
 
 ```{r preservation-matrix-rows}
 show_table(pmt$rows_per_pair,
-           caption = "Module-directions contributed by each species pair")
+  caption = "Module-directions contributed by each species pair"
+)
 ```
 
 ### A note on p-value saturation
@@ -516,8 +561,10 @@ paired design. `pair_name` has to name the contrasts as
 parallel_test <- tag_permutation(
   mod_results$classification, modules, orthologs,
   pairs = phylo_pairs |>
-    transmute(sp1 = annual, sp2 = perennial,
-              pair_name = paste(annual, perennial, sep = ".")),
+    transmute(
+      sp1 = annual, sp2 = perennial,
+      pair_name = paste(annual, perennial, sep = ".")
+    ),
   group = trait_vec, target_group = "annual"
 )
 
@@ -525,23 +572,28 @@ parallel_test$recurrence_table |>
   count(n_pairs, name = "n_hogs") |>
   show_table(caption = "HOG recurrence in modules diverged in the annual")
 
-cat("HOGs recurring in >=", parallel_test$min_recurrence, "pairs:",
-    parallel_test$observed,
-    "\n  p =", sprintf("%.4f", parallel_test$p_value),
-    if (parallel_test$exact) "(exact)" else "(sampled)",
-    "over",
-    if (parallel_test$exact) parallel_test$n_labellings
-    else parallel_test$n_perm,
-    "labellings from", parallel_test$n_swappable,
-    "independent contrast group(s)",
-    "\n  smallest attainable p:",
-    sprintf("%.4f", max(parallel_test$p_min, parallel_test$p_attainable)),
-    if (max(parallel_test$p_min, parallel_test$p_attainable) > 0.05) {
-      "-- significance unreachable"
-    } else {
-      ""
-    },
-    "\n")
+cat(
+  "HOGs recurring in >=", parallel_test$min_recurrence, "pairs:",
+  parallel_test$observed,
+  "\n  p =", sprintf("%.4f", parallel_test$p_value),
+  if (parallel_test$exact) "(exact)" else "(sampled)",
+  "over",
+  if (parallel_test$exact) {
+    parallel_test$n_labellings
+  } else {
+    parallel_test$n_perm
+  },
+  "labellings from", parallel_test$n_swappable,
+  "independent contrast group(s)",
+  "\n  smallest attainable p:",
+  sprintf("%.4f", max(parallel_test$p_min, parallel_test$p_attainable)),
+  if (max(parallel_test$p_min, parallel_test$p_attainable) > 0.05) {
+    "-- significance unreachable"
+  } else {
+    ""
+  },
+  "\n"
+)
 ```
 
 `min_recurrence` was left at its default, which is half the contrasts
@@ -563,12 +615,15 @@ relative to the HOG universe and over-corrects when they are not --- see
 
 ```{r module-parallel-sizes}
 show_table(parallel_test$pair_sizes,
-           caption = "Diverged-HOG set sizes per contrast")
+  caption = "Diverged-HOG set sizes per contrast"
+)
 
-cat("size-asymmetry sign test p:",
-    sprintf("%.4f", parallel_test$size_asymmetry_p),
-    "\n  (advisory at 0.10; like p_min it cannot reach 0.05 below five",
-    "contrast groups)\n")
+cat(
+  "size-asymmetry sign test p:",
+  sprintf("%.4f", parallel_test$size_asymmetry_p),
+  "\n  (advisory at 0.10; like p_min it cannot reach 0.05 below five",
+  "contrast groups)\n"
+)
 ```
 
 Running the same test for `target_group = "perennial"` reads a second
@@ -599,15 +654,19 @@ transcriptional changes.
 
 ```{r module-hubs}
 species_data <- species_data |>
-  mutate(hubs = pmap(list(species, modules, network, reduced),
-    \(sp, mod, net, red)
+  mutate(hubs = pmap(
+    list(species, modules, network, reduced),
+    \(sp, mod, net, red) {
       identify_module_hubs(mod, net, orthologs) |>
-        characterize_hubs(mod, expr = red$expr_matrix)))
+        characterize_hubs(mod, expr = red$expr_matrix)
+    }
+  ))
 
 species_data |>
   transmute(species, trait,
-            n_hubs  = map_int(hubs, \(h) sum(h$is_hub)),
-            n_genes = map_int(hubs, nrow)) |>
+    n_hubs  = map_int(hubs, \(h) sum(h$is_hub)),
+    n_genes = map_int(hubs, nrow)
+  ) |>
   show_table(caption = "Hub genes per species")
 ```
 
@@ -646,7 +705,8 @@ for (i in seq_len(nrow(phylo_pairs))) {
 
   correspondence[[key]] <-
     module_correspondence(modules[[sp[1]]], modules[[sp[2]]], gene_map,
-                          sp_ref = sp[1], sp_test = sp[2])
+      sp_ref = sp[1], sp_test = sp[2]
+    )
 }
 
 hub_class <- classify_hub_conservation(
@@ -680,10 +740,14 @@ hub_regulatory <- species_data |>
 hub_class |>
   filter(classification != "non_hub") |>
   left_join(hub_regulatory, by = "hog") |>
-  select(hog, classification, n_species_hub, max_centrality,
-         max_bridge, mean_bt_deg, mean_cv) |>
+  select(
+    hog, classification, n_species_hub, max_centrality,
+    max_bridge, mean_bt_deg, mean_cv
+  ) |>
   arrange(desc(max_bridge), desc(mean_bt_deg)) |>
-  show_table(caption = "Hub regulatory characterization (sorted by bridge fraction)")
+  show_table(
+    caption = "Hub regulatory characterization (sorted by bridge fraction)"
+  )
 ```
 
 HOGs that are hubs specifically in annual (or perennial) species -- the
@@ -694,14 +758,20 @@ likely to be true regulators:
 
 ```{r hub-trait-specific}
 hub_class |>
-  filter(classification %in% c("annual_specific_hub",
-                                "perennial_specific_hub",
-                                "rewired_hub")) |>
+  filter(classification %in% c(
+    "annual_specific_hub",
+    "perennial_specific_hub",
+    "rewired_hub"
+  )) |>
   left_join(hub_regulatory, by = "hog") |>
-  select(hog, classification, n_species_hub, hub_trait_groups,
-         max_centrality, max_bridge, mean_bt_deg, mean_cv) |>
+  select(
+    hog, classification, n_species_hub, hub_trait_groups,
+    max_centrality, max_bridge, mean_bt_deg, mean_cv
+  ) |>
   arrange(desc(max_bridge)) |>
-  show_table(caption = "Trait-specific and rewired hubs (ranked by regulatory potential)")
+  show_table(
+    caption = "Trait-specific and rewired hubs (ranked by regulatory potential)"
+  )
 ```
 
 ### Co-expression partners of hub HOGs
@@ -715,9 +785,11 @@ makes trait-group filtering straightforward:
 
 ```{r hub-partners}
 candidate <- hub_class |>
-  filter(classification %in% c("annual_specific_hub",
-                                "perennial_specific_hub",
-                                "rewired_hub", "conserved_hub")) |>
+  filter(classification %in% c(
+    "annual_specific_hub",
+    "perennial_specific_hub",
+    "rewired_hub", "conserved_hub"
+  )) |>
   slice_max(n_species_hub, n = 1, with_ties = FALSE) |>
   pull(hog)
 
@@ -728,9 +800,11 @@ if (length(candidate) == 1) {
     edges = edges
   )
 
-  cat(candidate, ":", nrow(partners), "partner HOGs in >= 2 species —",
-      sum(partners$coexpressed_traits == "annual", na.rm = TRUE), "annual-only,",
-      sum(grepl(",", partners$coexpressed_traits), na.rm = TRUE), "cross-trait\n")
+  cat(
+    candidate, ":", nrow(partners), "partner HOGs in >= 2 species —",
+    sum(partners$coexpressed_traits == "annual", na.rm = TRUE), "annual-only,",
+    sum(grepl(",", partners$coexpressed_traits), na.rm = TRUE), "cross-trait\n"
+  )
 
   partners |>
     slice_head(n = 20) |>
@@ -786,13 +860,16 @@ quantiles:
 
 ```{r density-sweep}
 multipliers <- seq(0.975, 1.025, by = 0.005)
-store_floor <- max(vapply(networks, \(n) n$store_threshold / n$threshold,
-                          numeric(1)))
+store_floor <- max(vapply(
+  networks, \(n) n$store_threshold / n$threshold,
+  numeric(1)
+))
 stopifnot(min(multipliers) >= store_floor)
 
 sweep <- density_sweep(networks, orthologs,
   multipliers = multipliers,
-  method = "permutation", use_torch = TRUE, n_cores = n_cores)
+  method = "permutation", use_torch = TRUE, n_cores = n_cores
+)
 
 # Edge survival across density levels
 sweep |>
@@ -883,11 +960,18 @@ trait-agnostic). Trait annotations are added post-hoc:
 
 ```{r cliques-stability}
 # Use the baseline (1.0x) edges for clique detection and stability
-robust_edges <- sweep |> filter(multiplier == 1) |> pull(edges) |> pluck(1)
-cat("Using", sum(robust_edges$type == "conserved"), "conserved edges at",
-    sprintf("%.2f%%",
-            (sweep |> filter(multiplier == 1) |> pull(eff_density)) * 100),
-    "density\n\n")
+robust_edges <- sweep |>
+  filter(multiplier == 1) |>
+  pull(edges) |>
+  pluck(1)
+cat(
+  "Using", sum(robust_edges$type == "conserved"), "conserved edges at",
+  sprintf(
+    "%.2f%%",
+    (sweep |> filter(multiplier == 1) |> pull(eff_density)) * 100
+  ),
+  "density\n\n"
+)
 
 # Find cliques
 cliques <- find_cliques(robust_edges, species, min_species = 2L)
@@ -928,10 +1012,11 @@ robust_edges |>
 # Jackknife stability (all k from 1 to N-2)
 max_k <- length(species) - 2L
 stab <- clique_stability(robust_edges, species,
-                          species_trait = trait_vec,
-                          all_species = species,
-                          full_cliques = cliques,
-                          max_k = max_k)
+  species_trait = trait_vec,
+  all_species = species,
+  full_cliques = cliques,
+  max_k = max_k
+)
 cat("Cliques tested:", length(stab$stability_class), "\n")
 cat("Structurally stable at k=1:", sum(stab$stability_class >= 1L), "\n")
 
@@ -949,8 +1034,9 @@ class: complete > partial > differentiated > trait_specific > unclassified.
 
 ```{r classify}
 result <- classify_cliques(robust_edges, species, trait_vec,
-                            min_species = 2L,
-                            stability = stab)
+  min_species = 2L,
+  stability = stab
+)
 
 result |>
   count(classification) |>
@@ -964,8 +1050,10 @@ Restricting to cliques spanning 3 or more species (excluding single-edge
 result |>
   filter(n_species >= 3 | is.na(n_species)) |>
   count(classification) |>
-  show_table(pageLength = 5,
-             caption = "HOG classification (cliques >= 3 species only)")
+  show_table(
+    pageLength = 5,
+    caption = "HOG classification (cliques >= 3 species only)"
+  )
 ```
 
 - **complete**: all 8 species form a clique -- deeply conserved across
@@ -986,8 +1074,13 @@ with high stability class are the strongest findings:
 # Count how many density levels each HOG's edges survive
 hog_survival <- sweep |>
   transmute(multiplier,
-            hog = map(edges, \(e)
-              e |> filter(type == "conserved") |> distinct(hog) |> pull(hog))) |>
+    hog = map(edges, \(e) {
+      e |>
+        filter(type == "conserved") |>
+        distinct(hog) |>
+        pull(hog)
+    })
+  ) |>
   unnest(hog) |>
   count(hog, name = "n_densities_survived")
 
@@ -1011,8 +1104,10 @@ hog_traits <- cliques |>
 result <- left_join(result, hog_traits, by = "hog")
 
 # Show ranked HOGs per category
-show_cols <- c("hog", "n_species", "n_annual", "n_perennial",
-               "best_mean_q", "stability_class", "n_densities_survived")
+show_cols <- c(
+  "hog", "n_species", "n_annual", "n_perennial",
+  "best_mean_q", "stability_class", "n_densities_survived"
+)
 show_cols <- intersect(show_cols, names(result))
 ```
 
@@ -1027,29 +1122,37 @@ whether the clique is robust.
 #### Partial
 
 ```{r partial-table}
-show_classification(result, "partial", show_cols,
-                    "Partial HOGs (cross-trait cliques)")
+show_classification(
+  result, "partial", show_cols,
+  "Partial HOGs (cross-trait cliques)"
+)
 ```
 
 #### Trait-specific
 
 ```{r trait-specific-table}
-show_classification(result, "trait_specific", show_cols,
-                    "Trait-specific HOGs (one lineage only)")
+show_classification(
+  result, "trait_specific", show_cols,
+  "Trait-specific HOGs (one lineage only)"
+)
 ```
 
 #### Differentiated
 
 ```{r differentiated-table}
-show_classification(result, "differentiated", show_cols,
-                    "Differentiated HOGs (within-group conservation, cross-group divergence)")
+show_classification(
+  result, "differentiated", show_cols,
+  "Differentiated HOGs (within-group conservation, cross-group divergence)"
+)
 ```
 
 #### Complete
 
 ```{r complete-table}
-show_classification(result, "complete", show_cols,
-                    "Complete HOGs (all 8 species)")
+show_classification(
+  result, "complete", show_cols,
+  "Complete HOGs (all 8 species)"
+)
 ```
 
 ###
@@ -1091,12 +1194,16 @@ nothing to relax against. The analytical q-values run up to 0.98, so
 the 0.9 graph is a genuine relaxation of the 0.1 calling threshold:
 
 ```{r gene-cliques}
-gene_cliques <- gene_clique_graph(edges_analytical, min_size = 3L,
-                                  alpha_graph = 0.9)
+gene_cliques <- gene_clique_graph(edges_analytical,
+  min_size = 3L,
+  alpha_graph = 0.9
+)
 
 gene_tiers <- classify_gene_cliques(gene_cliques, edges_analytical,
-                                    species, lineage = trait_vec,
-                                    alpha_call = 0.1, alpha_graph = 0.9)
+  species,
+  lineage = trait_vec,
+  alpha_call = 0.1, alpha_graph = 0.9
+)
 
 gene_tiers |>
   count(classification) |>
@@ -1165,8 +1272,10 @@ cliques |>
   show_table(caption = "Top cliques by Onnela intensity (>= 3 species)")
 
 # Composite cost: rank gene assignments by both q-value and effect size
-cliques_composite <- find_cliques(robust_edges, species, min_species = 2L,
-                                   cost_weights = c(q = 1, effect = 0.5))
+cliques_composite <- find_cliques(robust_edges, species,
+  min_species = 2L,
+  cost_weights = c(q = 1, effect = 0.5)
+)
 ```
 
 **Jaccard overlap in edge output.** `comparison_to_edges()` (and
@@ -1288,17 +1397,25 @@ n_robust <- sum(
 
 cat("Complete (all 8 species):", n_complete, "\n")
 cat("Partial (cross-trait, < 8):", n_partial, "\n")
-cat("Differentiated (independent annual + perennial cliques):",
-    n_differentiated, "\n")
+cat(
+  "Differentiated (independent annual + perennial cliques):",
+  n_differentiated, "\n"
+)
 cat("Trait-specific (one lineage only):", n_trait_specific, "\n")
-cat("Robust candidates (>= 50% density survival + stability >= 1):",
-    n_robust, "\n")
+cat(
+  "Robust candidates (>= 50% density survival + stability >= 1):",
+  n_robust, "\n"
+)
 if (exists("parallel_test")) {
   cat("\nParallel module signal: ", parallel_test$observed,
-      " HOGs recur in modules diverged in the annual across >= 2 pairs (p = ",
-      sprintf("%.4f", parallel_test$p_value), ", floor ",
-      sprintf("%.4f", max(parallel_test$p_min,
-                          parallel_test$p_attainable)), ")\n", sep = "")
+    " HOGs recur in modules diverged in the annual across >= 2 pairs (p = ",
+    sprintf("%.4f", parallel_test$p_value), ", floor ",
+    sprintf("%.4f", max(
+      parallel_test$p_min,
+      parallel_test$p_attainable
+    )), ")\n",
+    sep = ""
+  )
 }
 ```
 

@@ -30,9 +30,8 @@ pres_fixture <- function() {
     l <- stats::rlnorm(per, 0, 0.9)
     l / max(l)
   })
-  eA <- pres_expr(31, 300, "A", loadings, per)
-  eB <- pres_expr(32, 500, "B", loadings, per)
-  np <- n_mod * per
+  eA <- pres_expr(31, 300, "A", loadings, per)  # nolint
+  eB <- pres_expr(32, 500, "B", loadings, per)  # nolint
 
   # Map background genes too, not just module genes. The mappable universe is
   # what the permutation draws from, so an ortholog table covering only module
@@ -791,7 +790,7 @@ test_that("preservation_paired tags trait groups", {
 
   expect_true("group" %in% names(res$classification))
   expect_true(all(res$classification$group %in%
-    c("conserved", "annual", "perennial")))
+                    c("conserved", "annual", "perennial")))
 })
 
 test_that("preservation_paired validates its inputs", {
@@ -979,7 +978,7 @@ test_that("untested modules stay visible in the paired summary", {
   # untested end to end would satisfy the line above vacuously.
   expect_true(any(!untested))
   expect_true(all(res$classification$group[!untested] %in%
-    c("conserved", "annual", "perennial")))
+                    c("conserved", "annual", "perennial")))
   expect_equal(sum(res$summary$n), nrow(res$classification))
 })
 
@@ -1224,7 +1223,7 @@ test_that("preservation_paired output feeds tag_permutation directly", {
   # apart -- preservation_paired() here, tag_permutation() against a hand-built
   # fixture -- so a change to the level names or to how reference/test are
   # filled would leave both suites green while the handoff silently returned
-  # observed = 0.
+  # observed = 0.  # nolint
   fx <- pres_fixture()
   # The partner network carries no shared structure, so A's modules come back
   # diverged and the HOG pool is genuinely non-empty. On a fixture where every
@@ -1275,7 +1274,7 @@ test_that("preservation_paired output feeds tag_permutation directly", {
   # Non-vacuity: if the annual reference has diverged modules, they must reach
   # the HOG pool rather than being filtered out by a vocabulary mismatch.
   n_div <- sum(res$classification$classification == "diverged" &
-    res$classification$reference == "A")
+                 res$classification$reference == "A")
   expect_gt(n_div, 0L)
   expect_gt(tp$observed, 0L)
 })
@@ -1338,7 +1337,7 @@ test_that("the copy-choice null runs and is skipped when there is no choice", {
     n_perm = 100L, sensitivity = TRUE, copy_draws = 20L, seed = 1
   )
   expect_true(all(c("p_copy.avg.weight", "p_copy.cor.degree") %in%
-    names(pres$sensitivity)))
+                    names(pres$sensitivity)))
   pc <- c(
     pres$sensitivity$p_copy.avg.weight,
     pres$sensitivity$p_copy.cor.degree
@@ -1425,7 +1424,7 @@ test_that("coverage reconciles the tested modules against the partition", {
   mods2[[6]] <- bg[1:12]
   tm2 <- true_modules(fx$netA, mods2)
   ortho_partial <- fx$ortho[fx$ortho$Species1 %in%
-    rownames(fx$netA$network)[unlist(mods)], ]
+                              rownames(fx$netA$network)[unlist(mods)], ]
   expect_message(
     pres2 <- module_preservation(tm2, fx$netA, fx$netB, ortho_partial,
       n_perm = 50L, min_module_size = 10L, seed = 1
@@ -1438,7 +1437,7 @@ test_that("coverage reconciles the tested modules against the partition", {
   expect_equal(cv6$reason, "no mapped gene")
   expect_equal(sum(pres$coverage$tested), nrow(pres$preservation))
   expect_true(all(c("module", "size", "size_mapped", "tested", "reason") %in%
-    names(pres$coverage)))
+                    names(pres$coverage)))
   # Every untested module carries a reason; every tested one does not.
   expect_true(all(!is.na(pres$coverage$reason[!pres$coverage$tested])))
   expect_true(all(is.na(pres$coverage$reason[pres$coverage$tested])))
@@ -1525,8 +1524,8 @@ calib_fixture <- function() {
     l <- stats::rlnorm(per, 0, 0.9)
     l / max(l)
   })
-  eA <- pres_expr(41, 600, "A", loadings, per)
-  eB <- pres_expr(42, 700, "B", loadings, per)
+  eA <- pres_expr(41, 600, "A", loadings, per)  # nolint
+  eB <- pres_expr(42, 700, "B", loadings, per)  # nolint
   mods <- lapply(seq_len(n_mod), function(k) ((k - 1) * per + 1):(k * per))
   list(
     netA = compute_network(eA, density = 0.03, sparse = FALSE),
@@ -1677,7 +1676,7 @@ test_that("an unestimable Zsummary_std falls back to the raw scale", {
   # so nothing is promoted by the failure.
   expect_false(any(cls$classification == "conserved"))
   expect_true(all(cls$classification[!is.na(pr$preservation$q.value)] %in%
-    c("moderate", "diverged")))
+                    c("moderate", "diverged")))
 
   # An untested module must not trigger the fallback: it has no Zsummary
   # to fall back to and is already reported as untested.
@@ -1812,7 +1811,8 @@ test_that("a partial copy-draw failure is reported, not absorbed", {
     cliques = amb$cliques, sp1 = "A", sp2 = "B"
   )
   out <- module_preservation(
-    tm, fx$netA, fx$netB, amb$ortho, map = map,
+    tm, fx$netA, fx$netB, amb$ortho,
+    map = map,
     n_perm = 20L, min_module_size = 3L, sensitivity = FALSE, seed = 1
   )
   projected <- unique(out$projection$gene2)
@@ -1848,7 +1848,8 @@ test_that("a partial copy-draw failure is reported, not absorbed", {
     }
   )
   expect_true(any(grepl(
-    "2 of 5 copy-choice draws failed", seen_warnings, fixed = TRUE
+    "2 of 5 copy-choice draws failed", seen_warnings,
+    fixed = TRUE
   )))
 
   expect_equal(cn$n_multi, 10L)

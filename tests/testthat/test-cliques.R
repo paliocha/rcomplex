@@ -104,15 +104,19 @@ test_that("find_cliques empty input returns correct empty structure", {
   result <- find_cliques(edges, c("SP_A", "SP_B"))
 
   expect_equal(nrow(result), 0)
-  expect_true(all(c("hog", "SP_A", "SP_B", "n_species",
-                     "mean_q") %in% names(result)))
+  expect_true(all(c(
+    "hog", "SP_A", "SP_B", "n_species",
+    "mean_q"
+  ) %in% names(result)))
 })
 
 
 test_that("find_cliques validates required columns", {
   edges <- data.frame(gene1 = "A", gene2 = "B", stringsAsFactors = FALSE)
-  expect_error(find_cliques(edges, c("SP_A", "SP_B")),
-               "missing required columns")
+  expect_error(
+    find_cliques(edges, c("SP_A", "SP_B")),
+    "missing required columns"
+  )
 })
 
 
@@ -135,7 +139,8 @@ test_that("find_cliques edge_type filtering works", {
 
   # Both types: complete clique
   result_both <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                              edge_type = c("conserved", "diverged"))
+    edge_type = c("conserved", "diverged")
+  )
   expect_equal(nrow(result_both), 1)
 })
 
@@ -156,12 +161,14 @@ test_that("find_cliques min_species allows partial cliques", {
 
   # min_species = 3 (default): no clique (only 2 species present)
   result_strict <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                                min_species = 3L)
+    min_species = 3L
+  )
   expect_equal(nrow(result_strict), 0)
 
   # min_species = 2: 2-species clique found
   result_lenient <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                                 min_species = 2L)
+    min_species = 2L
+  )
   expect_equal(nrow(result_lenient), 1)
   expect_equal(result_lenient$n_species, 2L)
 })
@@ -210,7 +217,7 @@ test_that("find_cliques handles duplicate edges (keeps min q-value)", {
     species2 = c("SP_B", "SP_B"),
     hog = rep("HOG1", 2),
     type = rep("conserved", 2),
-    q.value = c(0.5, 0.01),  # second is better
+    q.value = c(0.5, 0.01), # second is better
     effect_size = c(1.0, 3.0),
     stringsAsFactors = FALSE
   )
@@ -265,7 +272,8 @@ test_that("max_missing_edges with paralogs picks best assignment", {
   )
 
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                         min_species = 3L, max_missing_edges = 1L)
+    min_species = 3L, max_missing_edges = 1L
+  )
 
   expect_equal(nrow(result), 1)
   # Should pick A1 (lower q with B1) over A2
@@ -292,7 +300,8 @@ test_that("max_missing_edges=0 requires all edges (default)", {
 
   # With default max_missing_edges=0, no 3-species clique (A-C missing)
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                         min_species = 3L)
+    min_species = 3L
+  )
   expect_equal(nrow(result), 0)
 })
 
@@ -312,11 +321,12 @@ test_that("max_missing_edges=1 finds clique with one missing edge", {
   )
 
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                         min_species = 3L, max_missing_edges = 1L)
+    min_species = 3L, max_missing_edges = 1L
+  )
 
   expect_equal(nrow(result), 1)
   expect_equal(result$n_species, 3L)
-  expect_equal(result$n_edges, 2L)   # 2 of 3 present
+  expect_equal(result$n_edges, 2L) # 2 of 3 present
   expect_equal(result$n_missing, 1L) # 1 missing
   expect_equal(result$SP_A, "A1")
   expect_equal(result$SP_B, "B1")
@@ -343,7 +353,8 @@ test_that("max_missing_edges prefers fewer missing edges", {
   # {A,B,C,D} has 6 possible edges, 4 present, 2 missing -> over budget
   # So only 3-species complete cliques survive
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C", "SP_D"),
-                         min_species = 3L, max_missing_edges = 1L)
+    min_species = 3L, max_missing_edges = 1L
+  )
 
   # Should find the complete {A,B,C} clique with 0 missing
   complete <- result[result$n_missing == 0, ]
@@ -372,7 +383,8 @@ test_that("max_missing_edges n_missing output is 0 when all edges present", {
 
   # With max_missing_edges=1, complete clique still has 0 missing
   result2 <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                          max_missing_edges = 1L)
+    max_missing_edges = 1L
+  )
   # The complete {A,B,C} subset should be found with 0 missing
   full <- result2[result2$n_species == 3L & result2$n_missing == 0L, ]
   expect_true(nrow(full) >= 1)
@@ -403,7 +415,7 @@ test_that("uniform q-values give coherence = 1.0", {
   # coherence = GM / AM = 1.0 when all equal
 
   expect_equal(result$coherence, 1.0, tolerance = 1e-10)
-  # min_effect_size = min(2.0, 3.0, 4.0) = 2.0
+  # min_effect_size = min(2.0, 3.0, 4.0) = 2.0  # nolint
   expect_equal(result$min_effect_size, 2.0, tolerance = 1e-10)
 })
 
@@ -505,10 +517,14 @@ test_that("clique_persistence uses co-expressologs not full neighbourhood", {
   # A1 has neighbours A2 (strong) and A3 (marginal)
   # B1 has neighbours B2 (strong) and B3 (marginal)
   # Only A2<->B2 are orthologs, so persistence comes from that pair alone
-  net_a <- matrix(c(0, 10, 2.1,  10, 0, 0.5,  2.1, 0.5, 0), nrow = 3,
-                  dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
-  net_b <- matrix(c(0, 8, 2.6,  8, 0, 0.5,  2.6, 0.5, 0), nrow = 3,
-                  dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
+  net_a <- matrix(c(0, 10, 2.1, 10, 0, 0.5, 2.1, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3"))
+  )
+  net_b <- matrix(c(0, 8, 2.6, 8, 0, 0.5, 2.6, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3"))
+  )
 
   networks <- list(
     SP_A = list(network = net_a, threshold = 2.0),
@@ -540,10 +556,14 @@ test_that("clique_persistence uses co-expressologs not full neighbourhood", {
 
 
 test_that("clique_persistence weakest co-expressolog determines score", {
-  net_a <- matrix(c(0, 10, 3,  10, 0, 0.5,  3, 0.5, 0), nrow = 3,
-                  dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
-  net_b <- matrix(c(0, 8, 2.6,  8, 0, 0.5,  2.6, 0.5, 0), nrow = 3,
-                  dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
+  net_a <- matrix(c(0, 10, 3, 10, 0, 0.5, 3, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3"))
+  )
+  net_b <- matrix(c(0, 8, 2.6, 8, 0, 0.5, 2.6, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3"))
+  )
 
   networks <- list(
     SP_A = list(network = net_a, threshold = 2.0),
@@ -576,10 +596,14 @@ test_that("clique_persistence weakest co-expressolog determines score", {
 
 
 test_that("clique_persistence returns NA with no co-expressologs", {
-  net_a <- matrix(c(0, 5,  5, 0), nrow = 2,
-                  dimnames = list(c("A1", "A2"), c("A1", "A2")))
-  net_b <- matrix(c(0, 3,  3, 0), nrow = 2,
-                  dimnames = list(c("B1", "B2"), c("B1", "B2")))
+  net_a <- matrix(c(0, 5, 5, 0),
+    nrow = 2,
+    dimnames = list(c("A1", "A2"), c("A1", "A2"))
+  )
+  net_b <- matrix(c(0, 3, 3, 0),
+    nrow = 2,
+    dimnames = list(c("B1", "B2"), c("B1", "B2"))
+  )
 
   networks <- list(
     SP_A = list(network = net_a, threshold = 2.0),
@@ -610,10 +634,14 @@ test_that("clique_persistence returns NA with no co-expressologs", {
 
 
 test_that("clique_persistence handles multiple cliques", {
-  net_a <- matrix(c(0, 10, 3,  10, 0, 0.5,  3, 0.5, 0), nrow = 3,
-                  dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
-  net_b <- matrix(c(0, 8, 4,  8, 0, 0.5,  4, 0.5, 0), nrow = 3,
-                  dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
+  net_a <- matrix(c(0, 10, 3, 10, 0, 0.5, 3, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3"))
+  )
+  net_b <- matrix(c(0, 8, 4, 8, 0, 0.5, 4, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3"))
+  )
 
   networks <- list(
     SP_A = list(network = net_a, threshold = 2.0),
@@ -650,12 +678,18 @@ test_that("clique_persistence handles multiple cliques", {
 
 
 test_that("clique_persistence aggregates across 3 species and reversed edges", {
-  net_a <- matrix(c(0, 10, 3,  10, 0, 0.5,  3, 0.5, 0), nrow = 3,
-                  dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3")))
-  net_b <- matrix(c(0, 8, 4,  8, 0, 0.5,  4, 0.5, 0), nrow = 3,
-                  dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3")))
-  net_c <- matrix(c(0, 6, 5,  6, 0, 0.5,  5, 0.5, 0), nrow = 3,
-                  dimnames = list(c("C1", "C2", "C3"), c("C1", "C2", "C3")))
+  net_a <- matrix(c(0, 10, 3, 10, 0, 0.5, 3, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("A1", "A2", "A3"), c("A1", "A2", "A3"))
+  )
+  net_b <- matrix(c(0, 8, 4, 8, 0, 0.5, 4, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("B1", "B2", "B3"), c("B1", "B2", "B3"))
+  )
+  net_c <- matrix(c(0, 6, 5, 6, 0, 0.5, 5, 0.5, 0),
+    nrow = 3,
+    dimnames = list(c("C1", "C2", "C3"), c("C1", "C2", "C3"))
+  )
 
   networks <- list(
     SP_A = list(network = net_a, threshold = 2.0),
@@ -672,8 +706,8 @@ test_that("clique_persistence aggregates across 3 species and reversed edges", {
 
   # SP_C->SP_A edge is reversed (species1=SP_C, species2=SP_A)
   edges <- data.frame(
-    gene1 = c("A2", "C2",  "B3"),
-    gene2 = c("B2", "A2",  "C3"),
+    gene1 = c("A2", "C2", "B3"),
+    gene2 = c("B2", "A2", "C3"),
     species1 = c("SP_A", "SP_C", "SP_B"),
     species2 = c("SP_B", "SP_A", "SP_C"),
     hog = c("HOG_X", "HOG_X", "HOG_Y"),
@@ -681,21 +715,26 @@ test_that("clique_persistence aggregates across 3 species and reversed edges", {
     stringsAsFactors = FALSE
   )
 
-  result <- clique_persistence(cliques, c("SP_A", "SP_B", "SP_C"),
-                               networks, edges)
+  result <- clique_persistence(
+    cliques, c("SP_A", "SP_B", "SP_C"),
+    networks, edges
+  )
 
   # (SP_A,SP_B): A2->B2, min(10/2, 8/2.5) = 3.2
   # (SP_A,SP_C): A2->C2 via reversed edge, min(10/2, 6/3) = 2.0
   # (SP_B,SP_C): B3->C3, min(4/2.5, 5/3) = 1.6
   expect_equal(result$persistence, 1.6, tolerance = 1e-10)
   expect_equal(result$mean_persistence, mean(c(3.2, 2.0, 1.6)),
-               tolerance = 1e-10)
+    tolerance = 1e-10
+  )
 })
 
 
 test_that("clique_persistence excludes self from neighbours", {
-  net <- matrix(c(99, 1,  1, 99), nrow = 2,
-                dimnames = list(c("A1", "A2"), c("A1", "A2")))
+  net <- matrix(c(99, 1, 1, 99),
+    nrow = 2,
+    dimnames = list(c("A1", "A2"), c("A1", "A2"))
+  )
 
   networks <- list(
     SP_A = list(network = net, threshold = 2.0),
@@ -732,56 +771,76 @@ test_that("clique_persistence validates inputs", {
 
   expect_error(
     clique_persistence(data.frame(x = 1), c("A", "B"), list(), dummy_edges),
-    "cliques must be a data frame from find_cliques")
+    "cliques must be a data frame from find_cliques"
+  )
   expect_error(
-    clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                       c("A", "B"), list(), dummy_edges),
-    "networks must be a named list")
+    clique_persistence(
+      data.frame(hog = "H", A = "g", B = "g"),
+      c("A", "B"), list(), dummy_edges
+    ),
+    "networks must be a named list"
+  )
   expect_error(
-    clique_persistence(data.frame(hog = "H", A = "g"),
-                       c("A"), list(A = list()), dummy_edges),
-    "target_species must have at least 2 species")
+    clique_persistence(
+      data.frame(hog = "H", A = "g"),
+      c("A"), list(A = list()), dummy_edges
+    ),
+    "target_species must have at least 2 species"
+  )
   expect_error(
-    clique_persistence(data.frame(hog = "H", A = "g"),
-                       c("A", "B"), list(A = list(), B = list()), dummy_edges),
-    "cliques missing columns for species")
+    clique_persistence(
+      data.frame(hog = "H", A = "g"),
+      c("A", "B"), list(A = list(), B = list()), dummy_edges
+    ),
+    "cliques missing columns for species"
+  )
   expect_error(
-    clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                       c("A", "B"), list(A = list()), dummy_edges),
-    "networks missing entries for species")
+    clique_persistence(
+      data.frame(hog = "H", A = "g", B = "g"),
+      c("A", "B"), list(A = list()), dummy_edges
+    ),
+    "networks missing entries for species"
+  )
   expect_error(
-    clique_persistence(data.frame(hog = "H", A = "g", B = "g"),
-                       c("A", "B"), list(A = list(), B = list()),
-                       data.frame(x = 1)),
-    "edges missing required columns")
+    clique_persistence(
+      data.frame(hog = "H", A = "g", B = "g"),
+      c("A", "B"), list(A = list(), B = list()),
+      data.frame(x = 1)
+    ),
+    "edges missing required columns"
+  )
 })
 
 
 # --- Tests for cost_weights (composite backtracking cost) ---
 
-test_that("cost_weights default produces identical output to current behavior", {
-  # Regression test: default cost_weights = c(q=1, effect=0) must give the
+test_that(
+  "cost_weights default produces identical output to current behavior",
+  {
+    # Regression test: default cost_weights = c(q=1, effect=0) must give the
 
-  # same result as the original mean-q-only ranking
-  edges <- data.frame(
-    gene1 = c("A1", "A1", "B1", "A2", "A2"),
-    gene2 = c("B1", "C1", "C1", "B1", "C1"),
-    species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_A"),
-    species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_C"),
-    hog = rep("HOG1", 5),
-    type = rep("conserved", 5),
-    q.value = c(0.01, 0.01, 0.01, 0.5, 0.5),
-    effect_size = c(3.0, 3.0, 3.0, 1.0, 1.0),
-    stringsAsFactors = FALSE
-  )
+    # same result as the original mean-q-only ranking
+    edges <- data.frame(
+      gene1 = c("A1", "A1", "B1", "A2", "A2"),
+      gene2 = c("B1", "C1", "C1", "B1", "C1"),
+      species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_A"),
+      species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_C"),
+      hog = rep("HOG1", 5),
+      type = rep("conserved", 5),
+      q.value = c(0.01, 0.01, 0.01, 0.5, 0.5),
+      effect_size = c(3.0, 3.0, 3.0, 1.0, 1.0),
+      stringsAsFactors = FALSE
+    )
 
-  result_default <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
-  result_explicit <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                                  cost_weights = c(q = 1.0, effect = 0.0))
+    result_default <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+    result_explicit <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
+      cost_weights = c(q = 1.0, effect = 0.0)
+    )
 
-  expect_identical(result_default, result_explicit)
-  expect_equal(result_default$SP_A, "A1")  # lower q wins
-})
+    expect_identical(result_default, result_explicit)
+    expect_equal(result_default$SP_A, "A1") # lower q wins
+  }
+)
 
 
 test_that("cost_weights effect-only selects paralog with higher effect", {
@@ -807,7 +866,8 @@ test_that("cost_weights effect-only selects paralog with higher effect", {
 
   # Effect-only: A2 wins (higher effect => lower cost = 0 - 1*mean_eff)
   result_eff <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                             cost_weights = c(q = 0, effect = 1))
+    cost_weights = c(q = 0, effect = 1)
+  )
   expect_equal(result_eff$SP_A, "A2")
 })
 
@@ -827,13 +887,16 @@ test_that("cost_weights does not affect single-copy HOGs", {
 
   result_default <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
   result_weighted <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-                                  cost_weights = c(q = 0.5, effect = 2.0))
+    cost_weights = c(q = 0.5, effect = 2.0)
+  )
 
   expect_equal(result_default$SP_A, result_weighted$SP_A)
   expect_equal(result_default$SP_B, result_weighted$SP_B)
   expect_equal(result_default$SP_C, result_weighted$SP_C)
   expect_equal(result_default$mean_q, result_weighted$mean_q)
-  expect_equal(result_default$mean_effect_size, result_weighted$mean_effect_size)
+  expect_equal(
+    result_default$mean_effect_size, result_weighted$mean_effect_size
+  )
 })
 
 
@@ -848,20 +911,30 @@ test_that("cost_weights validation rejects bad input", {
   sp <- c("SP_A", "SP_B")
 
   # Not numeric
-  expect_error(find_cliques(edges, sp, cost_weights = c("a", "b")),
-               "cost_weights must be a named numeric")
+  expect_error(
+    find_cliques(edges, sp, cost_weights = c("a", "b")),
+    "cost_weights must be a named numeric"
+  )
   # Wrong length
-  expect_error(find_cliques(edges, sp, cost_weights = c(q = 1)),
-               "cost_weights must be a named numeric vector of length 2")
+  expect_error(
+    find_cliques(edges, sp, cost_weights = c(q = 1)),
+    "cost_weights must be a named numeric vector of length 2"
+  )
   # Missing names
-  expect_error(find_cliques(edges, sp, cost_weights = c(1, 0)),
-               "cost_weights must have names")
+  expect_error(
+    find_cliques(edges, sp, cost_weights = c(1, 0)),
+    "cost_weights must have names"
+  )
   # Wrong names
-  expect_error(find_cliques(edges, sp, cost_weights = c(x = 1, y = 0)),
-               "cost_weights must have names 'q' and 'effect'")
+  expect_error(
+    find_cliques(edges, sp, cost_weights = c(x = 1, y = 0)),
+    "cost_weights must have names 'q' and 'effect'"
+  )
   # Negative value
-  expect_error(find_cliques(edges, sp, cost_weights = c(q = -1, effect = 0)),
-               "cost_weights values must be >= 0")
+  expect_error(
+    find_cliques(edges, sp, cost_weights = c(q = -1, effect = 0)),
+    "cost_weights values must be >= 0"
+  )
 })
 
 
@@ -888,16 +961,20 @@ test_that("cost_weights affects edge deduplication for duplicate gene pairs", {
   expect_equal(r_default$mean_q, 0.01, tolerance = 1e-10)
 
   # Effect-only: should keep effect=10.0 edge (q=0.02)
-  r_eff <- find_cliques(edges, sp, min_species = 2L,
-                         cost_weights = c(q = 0, effect = 1))
+  r_eff <- find_cliques(edges, sp,
+    min_species = 2L,
+    cost_weights = c(q = 0, effect = 1)
+  )
   expect_equal(nrow(r_eff), 1)
   expect_equal(r_eff$mean_effect_size, 10.0, tolerance = 1e-10)
 
   # Mixed weights: cost = 1*q - 1*effect
   # Edge 1: 1*0.01 - 1*1.0  = -0.99
   # Edge 2: 1*0.02 - 1*10.0 = -9.98  <- lower cost, wins
-  r_mix <- find_cliques(edges, sp, min_species = 2L,
-                         cost_weights = c(q = 1, effect = 1))
+  r_mix <- find_cliques(edges, sp,
+    min_species = 2L,
+    cost_weights = c(q = 1, effect = 1)
+  )
   expect_equal(nrow(r_mix), 1)
   expect_equal(r_mix$mean_effect_size, 10.0, tolerance = 1e-10)
   expect_equal(r_mix$mean_q, 0.02, tolerance = 1e-10)

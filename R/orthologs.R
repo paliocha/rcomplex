@@ -40,8 +40,10 @@ parse_orthologs <- function(file, species1, species2) {
     stop("Ortholog file not found: ", file)
   }
 
-  dt <- data.table::fread(file, sep = "\t", header = TRUE,
-                          showProgress = FALSE, data.table = FALSE)
+  dt <- data.table::fread(file,
+    sep = "\t", header = TRUE,
+    showProgress = FALSE, data.table = FALSE
+  )
   dt <- dt[dt$species == species1, , drop = FALSE]
 
   # hog id: sorted-key group numbering, matching dplyr::cur_group_id()
@@ -114,14 +116,14 @@ parse_orthologs <- function(file, species1, species2) {
 #' @examples
 #' \dontrun{
 #' reduced <- reduce_orthogroups(expr_matrix, orthologs)
-#' reduced$expr_matrix  # reduced expression matrix
-#' reduced$gene_map     # original -> representative mapping
+#' reduced$expr_matrix # reduced expression matrix
+#' reduced$gene_map # original -> representative mapping
 #' }
 #'
 #' @export
 reduce_orthogroups <- function(expr_matrix, orthologs,
-                                gene_col = "Species1",
-                                cor_threshold = 0.7) {
+                               gene_col = "Species1",
+                               cor_threshold = 0.7) {
   if (!is.matrix(expr_matrix) || !is.numeric(expr_matrix)) {
     stop("expr_matrix must be a numeric matrix")
   }
@@ -245,8 +247,10 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
     }
     missing_sp <- setdiff(names(se_list), names(reductions))
     if (length(missing_sp) > 0) {
-      stop("reductions missing species present in se_list: ",
-           paste(missing_sp, collapse = ", "))
+      stop(
+        "reductions missing species present in se_list: ",
+        paste(missing_sp, collapse = ", ")
+      )
     }
     for (sp in names(se_list)) {
       if (is.null(reductions[[sp]]$gene_map)) {
@@ -262,8 +266,11 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
     sp2 <- pair[2]
 
     ortho <- extract_orthologs(se_list[[sp1]], se_list[[sp2]],
-                               hog_col = hog_col)
-    if (nrow(ortho) == 0 || is.null(reductions)) return(ortho)
+      hog_col = hog_col
+    )
+    if (nrow(ortho) == 0 || is.null(reductions)) {
+      return(ortho)
+    }
 
     # Map Species1 through sp1 gene_map
     gm1 <- reductions[[sp1]]$gene_map
@@ -282,9 +289,11 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
 
   result <- do.call(rbind, result_list)
   if (is.null(result) || nrow(result) == 0) {
-    return(data.frame(Species1 = character(0),
-                      Species2 = character(0),
-                      hog = character(0)))
+    return(data.frame(
+      Species1 = character(0),
+      Species2 = character(0),
+      hog = character(0)
+    ))
   }
 
   unique(result)

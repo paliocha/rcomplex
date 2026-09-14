@@ -346,7 +346,8 @@
   normalized_rank <- normalized_rank[ord]
   supported <- supported[ord]
   strength <- .coexpr_auc_log_density(density, normalized_rank)
-  q <- stats::quantile(normalized_rank, c(0.25, 0.5, 0.75), na.rm = TRUE,
+  q <- stats::quantile(normalized_rank, c(0.25, 0.5, 0.75),
+    na.rm = TRUE,
     names = FALSE, type = 7
   )
   strictest <- if (any(supported)) min(density[supported]) else NA_real_
@@ -677,8 +678,10 @@ suggest_reference_density <- function(net, densities,
   recommended <- if (length(ok) > 0L) {
     fit$density[ok[which.min(fit$density[ok])]]
   } else {
-    warning("no candidate density reached r_squared_cutoff = ",
-            r_squared_cutoff, "; inspect $fit and choose manually")
+    warning(
+      "no candidate density reached r_squared_cutoff = ",
+      r_squared_cutoff, "; inspect $fit and choose manually"
+    )
     NA_real_
   }
 
@@ -711,15 +714,19 @@ suggest_reference_density <- function(net, densities,
     if (k >= tri_size) k <- tri_size - 1
     n_top <- 2L * k
     if (n_top > length(m@x)) {
-      stop("store does not hold enough entries for density ", density,
-           "; rebuild with a larger store_density")
+      stop(
+        "store does not hold enough entries for density ", density,
+        "; rebuild with a larger store_density"
+      )
     }
     # kit::topn is a partial (quickselect-based) top-n, avoiding a full
     # O(n log n) sort of m@x when only the n_top-th largest value is
     # needed -- the same partial-selection idea as nth_element() in
     # density_threshold_cpp().
-    thr <- kit::topn(m@x, n = n_top, decreasing = TRUE,
-                     hasna = FALSE, index = FALSE)[n_top]
+    thr <- kit::topn(m@x,
+      n = n_top, decreasing = TRUE,
+      hasna = FALSE, index = FALSE
+    )[n_top]
     .net_check(net, thr)
     thr
   } else {

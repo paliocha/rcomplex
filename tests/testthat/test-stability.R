@@ -20,14 +20,22 @@
 
 make_stability_edges_binary <- function() {
   data.frame(
-    gene1 = c("A1", "C1",
-              "A2", "A2", "A2", "B2", "B2", "C2"),
-    gene2 = c("B1", "D1",
-              "B2", "C2", "D2", "C2", "D2", "D2"),
-    species1 = c("SP_A", "SP_C",
-                 "SP_A", "SP_A", "SP_A", "SP_B", "SP_B", "SP_C"),
-    species2 = c("SP_B", "SP_D",
-                 "SP_B", "SP_C", "SP_D", "SP_C", "SP_D", "SP_D"),
+    gene1 = c(
+      "A1", "C1",
+      "A2", "A2", "A2", "B2", "B2", "C2"
+    ),
+    gene2 = c(
+      "B1", "D1",
+      "B2", "C2", "D2", "C2", "D2", "D2"
+    ),
+    species1 = c(
+      "SP_A", "SP_C",
+      "SP_A", "SP_A", "SP_A", "SP_B", "SP_B", "SP_C"
+    ),
+    species2 = c(
+      "SP_B", "SP_D",
+      "SP_B", "SP_C", "SP_D", "SP_C", "SP_D", "SP_D"
+    ),
     hog = c("HOG1", "HOG2", rep("HOG3", 6)),
     q.value = c(0.01, 0.02, rep(0.05, 6)),
     effect_size = c(3.0, 2.5, rep(1.5, 6)),
@@ -40,7 +48,7 @@ make_stability_edges_binary <- function() {
 # Helper: 5-species ternary trait edge data
 #
 # 5 species, 3 trait levels:
-#   SP_A = "tropical"
+#   SP_A = "tropical"  # nolint
 #   SP_B, SP_C = "temperate"
 #   SP_D, SP_E = "arctic"
 #
@@ -67,28 +75,38 @@ make_stability_edges_ternary <- function() {
 
 test_that("clique_stability returns correct structure", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  result <- clique_stability(edges, target, trait, min_species = 2L,
-                             max_k = 2L)
+  result <- clique_stability(edges, target, trait,
+    min_species = 2L,
+    max_k = 2L
+  )
 
   expect_type(result, "list")
-  expect_named(result, c("stability", "clique_disruption",
-                          "stability_class", "novel_cliques"))
+  expect_named(result, c(
+    "stability", "clique_disruption",
+    "stability_class", "novel_cliques"
+  ))
 
   # stability is a data frame with structural + annotation columns
   expect_s3_class(result$stability, "data.frame")
-  expect_true(all(c("clique_idx", "hog", "k",
-                     "n_subsets", "n_stable", "stability_score",
-                     "species_present", "traits",
-                     "sole_rep") %in% names(result$stability)))
+  expect_true(all(c(
+    "clique_idx", "hog", "k",
+    "n_subsets", "n_stable", "stability_score",
+    "species_present", "traits",
+    "sole_rep"
+  ) %in% names(result$stability)))
 
   # clique_disruption is a data frame
   expect_s3_class(result$clique_disruption, "data.frame")
-  expect_true(all(c("species",
-                     "n_cliques_disrupted") %in% names(result$clique_disruption)))
+  expect_true(all(c(
+    "species",
+    "n_cliques_disrupted"
+  ) %in% names(result$clique_disruption)))
 
   # stability_class is an integer vector
   expect_true(is.integer(result$stability_class))
@@ -103,17 +121,22 @@ test_that("clique_stability returns correct structure", {
 
 test_that("trait annotations use actual labels", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  result <- clique_stability(edges, target, trait, min_species = 2L,
-                             max_k = 1L)
+  result <- clique_stability(edges, target, trait,
+    min_species = 2L,
+    max_k = 1L
+  )
 
   # Column names should be generic
   stab_names <- names(result$stability)
   expect_false(any(grepl("annual|perennial|life_habit", stab_names,
-                         ignore.case = TRUE)))
+                 ignore.case = TRUE
+               )))
 
   # traits column should contain actual trait labels
   expect_true(nrow(result$stability) > 0)
@@ -137,10 +160,12 @@ test_that("empty input returns correct empty structure", {
   result <- clique_stability(edges, target, trait, max_k = 1L)
 
   expect_equal(nrow(result$stability), 0)
-  expect_true(all(c("clique_idx", "hog", "k",
-                     "n_subsets", "n_stable", "stability_score",
-                     "species_present", "traits",
-                     "sole_rep") %in% names(result$stability)))
+  expect_true(all(c(
+    "clique_idx", "hog", "k",
+    "n_subsets", "n_stable", "stability_score",
+    "species_present", "traits",
+    "sole_rep"
+  ) %in% names(result$stability)))
   expect_equal(nrow(result$clique_disruption), 0)
   expect_equal(length(result$stability_class), 0)
   expect_equal(result$novel_cliques, 0L)
@@ -151,23 +176,27 @@ test_that("empty input returns correct empty structure", {
 
 test_that("exclusive cliques have stability_score = 1.0 at k=1", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  result <- clique_stability(edges, target, trait, min_species = 2L,
-                             max_k = 1L)
+  result <- clique_stability(edges, target, trait,
+    min_species = 2L,
+    max_k = 1L
+  )
 
   # HOG1 annual-exclusive: removing SP_C or SP_D -> still exists
   hog1_k1 <- result$stability[result$stability$hog == "HOG1" &
-                                 result$stability$k == 1, ]
+                                result$stability$k == 1, ]
   expect_equal(nrow(hog1_k1), 1)
   expect_equal(hog1_k1$stability_score, 1.0)
   expect_equal(hog1_k1$traits, "annual")
 
   # HOG2 perennial-exclusive: removing SP_A or SP_B -> still exists
   hog2_k1 <- result$stability[result$stability$hog == "HOG2" &
-                                 result$stability$k == 1, ]
+                                result$stability$k == 1, ]
   expect_equal(nrow(hog2_k1), 1)
   expect_equal(hog2_k1$stability_score, 1.0)
   expect_equal(hog2_k1$traits, "perennial")
@@ -176,12 +205,16 @@ test_that("exclusive cliques have stability_score = 1.0 at k=1", {
 
 test_that("mixed cliques are included in stability output", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  result <- clique_stability(edges, target, trait, min_species = 2L,
-                             max_k = 2L)
+  result <- clique_stability(edges, target, trait,
+    min_species = 2L,
+    max_k = 2L
+  )
 
   # HOG3 mixed clique should appear with structural stability
   expect_true("HOG3" %in% result$stability$hog)
@@ -192,12 +225,16 @@ test_that("mixed cliques are included in stability output", {
 
 test_that("clique_disruption counts species removals correctly at k=1", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  result <- clique_stability(edges, target, trait, min_species = 2L,
-                             max_k = 1L)
+  result <- clique_stability(edges, target, trait,
+    min_species = 2L,
+    max_k = 1L
+  )
 
   # Should have one row per species
   expect_equal(nrow(result$clique_disruption), 4)
@@ -212,19 +249,24 @@ test_that("clique_disruption counts species removals correctly at k=1", {
   for (sp in target) {
     row <- result$clique_disruption[result$clique_disruption$species == sp, ]
     expect_equal(row$n_cliques_disrupted, 0L,
-                 info = paste("species", sp))
+      info = paste("species", sp)
+    )
   }
 })
 
 
 test_that("stability_class gives highest stable k for all cliques", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  result <- clique_stability(edges, target, trait, min_species = 2L,
-                             max_k = 2L)
+  result <- clique_stability(edges, target, trait,
+    min_species = 2L,
+    max_k = 2L
+  )
 
   # 3 cliques (HOG1 annual, HOG2 perennial, HOG3 mixed)
   expect_equal(length(result$stability_class), 3L)
@@ -237,12 +279,15 @@ test_that("stability_class gives highest stable k for all cliques", {
 
 test_that("three-level trait annotations work correctly", {
   edges <- make_stability_edges_ternary()
-  trait <- c(SP_A = "tropical", SP_B = "temperate", SP_C = "temperate",
-             SP_D = "arctic", SP_E = "arctic")
+  trait <- c(
+    SP_A = "tropical", SP_B = "temperate", SP_C = "temperate",
+    SP_D = "arctic", SP_E = "arctic"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D", "SP_E")
 
   result <- clique_stability(edges, target, trait,
-                             min_species = 2L, max_k = 1L)
+    min_species = 2L, max_k = 1L
+  )
 
   # All 3 HOGs should appear (HOG5 temperate, HOG6 arctic, HOG7 mixed)
   expect_true(nrow(result$stability) > 0)
@@ -256,16 +301,19 @@ test_that("three-level trait annotations work correctly", {
 
 test_that("removing unrelated species preserves cliques", {
   edges <- make_stability_edges_ternary()
-  trait <- c(SP_A = "tropical", SP_B = "temperate", SP_C = "temperate",
-             SP_D = "arctic", SP_E = "arctic")
+  trait <- c(
+    SP_A = "tropical", SP_B = "temperate", SP_C = "temperate",
+    SP_D = "arctic", SP_E = "arctic"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D", "SP_E")
 
   result <- clique_stability(edges, target, trait,
-                             min_species = 2L, max_k = 1L)
+    min_species = 2L, max_k = 1L
+  )
 
   # HOG5 (SP_B <-> SP_C): removing SP_A, SP_D, or SP_E should keep it stable
   hog5_k1 <- result$stability[result$stability$hog == "HOG5" &
-                                 result$stability$k == 1, ]
+                                result$stability$k == 1, ]
   expect_equal(nrow(hog5_k1), 1)
   expect_equal(hog5_k1$stability_score, 1.0)
 })
@@ -289,7 +337,8 @@ test_that("min_species edge case: clique at minimum size", {
   target <- c("SP_A", "SP_B", "SP_C")
 
   result <- clique_stability(edges, target, trait,
-                             min_species = 2L, max_k = 1L)
+    min_species = 2L, max_k = 1L
+  )
 
   hog_min <- result$stability[result$stability$hog == "HOG_MIN" &
                                 result$stability$k == 1, ]
@@ -317,7 +366,8 @@ test_that("all mixed cliques get structural stability", {
   target <- c("SP_A", "SP_B", "SP_C")
 
   result <- clique_stability(edges, target, trait,
-                             min_species = 2L, max_k = 1L)
+    min_species = 2L, max_k = 1L
+  )
 
   # Mixed clique should now appear with structural stability
   expect_true(nrow(result$stability) > 0)
@@ -347,7 +397,8 @@ test_that("species_trait = NULL returns structural stability without traits", {
 
 
 test_that("sole_rep flagging works", {
-  # 4 species: SP_A = "rare" (only 1 species), SP_B,SP_C,SP_D = "common" (3 species)
+  # 4 species: SP_A = "rare" (only 1 species), SP_B,SP_C,SP_D = "common"
+  # (3 species)
   # HOG1: SP_B <-> SP_C (common-exclusive, 2 species) — sole_rep FALSE (3 reps)
   edges <- data.frame(
     gene1 = "B1", gene2 = "C1",
@@ -368,17 +419,21 @@ test_that("sole_rep flagging works", {
 
 test_that("jaccard_threshold affects matching", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   result_strict <- clique_stability(edges, target, trait,
-                                    min_species = 2L,
-                                    max_k = 1L, jaccard_threshold = 1.0)
+    min_species = 2L,
+    max_k = 1L, jaccard_threshold = 1.0
+  )
 
   result_lenient <- clique_stability(edges, target, trait,
-                                     min_species = 2L,
-                                     max_k = 1L, jaccard_threshold = 0.0)
+    min_species = 2L,
+    max_k = 1L, jaccard_threshold = 0.0
+  )
 
   expect_true(nrow(result_strict$stability) > 0)
   expect_true(nrow(result_lenient$stability) > 0)
@@ -393,14 +448,18 @@ test_that("jaccard_threshold affects matching", {
 
 test_that("n_cores=1 and n_cores=2 produce identical results", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   result1 <- clique_stability(edges, target, trait,
-                               min_species = 2L, max_k = 2L, n_cores = 1L)
+    min_species = 2L, max_k = 2L, n_cores = 1L
+  )
   result2 <- clique_stability(edges, target, trait,
-                               min_species = 2L, max_k = 2L, n_cores = 2L)
+    min_species = 2L, max_k = 2L, n_cores = 2L
+  )
 
   expect_equal(result1$stability, result2$stability)
   expect_equal(result1$clique_disruption, result2$clique_disruption)
@@ -438,8 +497,10 @@ test_that("species_trait missing species raises error", {
 
 test_that("max_k validation", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   expect_error(clique_stability(edges, target, trait, max_k = 0L))
@@ -449,17 +510,21 @@ test_that("max_k validation", {
 
 test_that("full_cliques parameter accepts precomputed cliques", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   result_auto <- clique_stability(edges, target, trait,
-                                  min_species = 2L, max_k = 1L)
+    min_species = 2L, max_k = 1L
+  )
   result_pre <- clique_stability(edges, target, trait,
-                                 full_cliques = cliques,
-                                 min_species = 2L, max_k = 1L)
+    full_cliques = cliques,
+    min_species = 2L, max_k = 1L
+  )
 
   expect_equal(result_auto$stability, result_pre$stability)
 })
@@ -467,13 +532,16 @@ test_that("full_cliques parameter accepts precomputed cliques", {
 
 test_that("max_genes_per_sp parameter is passed through", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   result <- clique_stability(edges, target, trait,
-                             min_species = 2L, max_k = 1L,
-                             max_genes_per_sp = 5L)
+    min_species = 2L, max_k = 1L,
+    max_genes_per_sp = 5L
+  )
   expect_type(result, "list")
   expect_true(nrow(result$stability) > 0)
 })
@@ -483,16 +551,20 @@ test_that("edge_type filtering works in stability analysis", {
   edges <- make_stability_edges_binary()
   edges$type[1] <- "diverged"
 
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   result_con <- clique_stability(edges, target, trait,
-                                 min_species = 2L, max_k = 1L)
+    min_species = 2L, max_k = 1L
+  )
 
   result_both <- clique_stability(edges, target, trait,
-                                  min_species = 2L, max_k = 1L,
-                                  edge_type = c("conserved", "diverged"))
+    min_species = 2L, max_k = 1L,
+    edge_type = c("conserved", "diverged")
+  )
 
   expect_false("HOG1" %in% result_con$stability$hog)
   expect_true("HOG2" %in% result_con$stability$hog)
@@ -511,14 +583,17 @@ test_that("all_species parameter draws subsets from full universe", {
     hog = "HOG1", q.value = 0.01, effect_size = 3.0,
     type = "conserved", stringsAsFactors = FALSE
   )
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B")
   all_sp <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   result <- clique_stability(edges, target, trait,
-                             all_species = all_sp,
-                             min_species = 2L, max_k = 1L)
+    all_species = all_sp,
+    min_species = 2L, max_k = 1L
+  )
 
   hog1 <- result$stability[result$stability$hog == "HOG1" &
                              result$stability$k == 1, ]
@@ -543,14 +618,17 @@ test_that("non-target removal trivially preserves cliques with static edges", {
     type = rep("conserved", 3),
     stringsAsFactors = FALSE
   )
-  trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "annual",
-             SP_D = "perennial", SP_E = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual", SP_C = "annual",
+    SP_D = "perennial", SP_E = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C")
   all_sp <- c("SP_A", "SP_B", "SP_C", "SP_D", "SP_E")
 
   result <- clique_stability(edges, target, trait,
-                             all_species = all_sp,
-                             min_species = 2L, max_k = 1L)
+    all_species = all_sp,
+    min_species = 2L, max_k = 1L
+  )
 
   hog1 <- result$stability[result$stability$hog == "HOG1" &
                              result$stability$k == 1, ]
@@ -572,14 +650,17 @@ test_that("multi-level stability with mixed target/non-target removals", {
     type = rep("conserved", 3),
     stringsAsFactors = FALSE
   )
-  trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "annual",
-             SP_D = "perennial", SP_E = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual", SP_C = "annual",
+    SP_D = "perennial", SP_E = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C")
   all_sp <- c("SP_A", "SP_B", "SP_C", "SP_D", "SP_E")
 
   result <- clique_stability(edges, target, trait,
-                             all_species = all_sp,
-                             min_species = 2L, max_k = 2L)
+    all_species = all_sp,
+    min_species = 2L, max_k = 2L
+  )
 
   k1 <- result$stability[result$stability$k == 1, ]
   expect_equal(nrow(k1), 1)
@@ -597,15 +678,19 @@ test_that("multi-level stability with mixed target/non-target removals", {
 
 test_that("all_species defaults to target_species (backward compat)", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   result_default <- clique_stability(edges, target, trait,
-                                     min_species = 2L, max_k = 1L)
+    min_species = 2L, max_k = 1L
+  )
   result_explicit <- clique_stability(edges, target, trait,
-                                      all_species = target,
-                                      min_species = 2L, max_k = 1L)
+    all_species = target,
+    min_species = 2L, max_k = 1L
+  )
 
   expect_equal(result_default$stability, result_explicit$stability)
   expect_equal(result_default$stability_class, result_explicit$stability_class)
@@ -614,12 +699,15 @@ test_that("all_species defaults to target_species (backward compat)", {
 
 test_that("stability_class is non-zero for strong cliques", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial"
+  )
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
   result <- clique_stability(edges, target, trait,
-                             min_species = 2L, max_k = 2L)
+    min_species = 2L, max_k = 2L
+  )
 
   # All cliques should have stability_class > 0
   expect_true(all(result$stability_class > 0L))
@@ -633,8 +721,9 @@ test_that("target_species must be subset of all_species", {
 
   expect_error(
     clique_stability(edges, target, trait,
-                     all_species = c("SP_A"),
-                     min_species = 2L, max_k = 1L),
+      all_species = c("SP_A"),
+      min_species = 2L, max_k = 1L
+    ),
     "target_species must be a subset of all_species"
   )
 })
@@ -642,22 +731,26 @@ test_that("target_species must be subset of all_species", {
 
 test_that("max_k validated against all_species length", {
   edges <- make_stability_edges_binary()
-  trait <- c(SP_A = "annual", SP_B = "annual",
-             SP_C = "perennial", SP_D = "perennial",
-             SP_E = "perennial", SP_F = "perennial")
+  trait <- c(
+    SP_A = "annual", SP_B = "annual",
+    SP_C = "perennial", SP_D = "perennial",
+    SP_E = "perennial", SP_F = "perennial"
+  )
   target <- c("SP_A", "SP_B")
   all_sp <- c("SP_A", "SP_B", "SP_C", "SP_D", "SP_E", "SP_F")
 
   expect_error(
     clique_stability(edges, target, trait,
-                     all_species = all_sp,
-                     min_species = 2L, max_k = 6L),
+      all_species = all_sp,
+      min_species = 2L, max_k = 6L
+    ),
     "max_k must be"
   )
 
   expect_no_error(
     clique_stability(edges, target, trait,
-                     all_species = all_sp,
-                     min_species = 2L, max_k = 5L)
+      all_species = all_sp,
+      min_species = 2L, max_k = 5L
+    )
   )
 })

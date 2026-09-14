@@ -9,7 +9,7 @@
 #' @param edges Edge data frame from `find_coexpressologs()`.
 #' @return Named numeric vector.
 #' @noRd
-.coexpressolog_conserved_counts <- function(edges) {
+.coexpressolog_conserved_counts <- function(edges) {  # nolint
   if (is.null(edges) || nrow(edges) == 0L) {
     return(c(total = 0))
   }

@@ -21,9 +21,11 @@ read_expr <- function(file) {
 fixture_inputs <- c("sp1_expr.tsv", "sp2_expr.tsv", "ortho_pairs.tsv")
 
 skip_if_no_fixture <- function() {
-  skip_if_not(all(file.exists(fx(c("expected_calls.tsv", "ortho_pairs.tsv",
-                                   "sp1_expr.tsv", "sp2_expr.tsv",
-                                   "make_fixture.R")))))
+  skip_if_not(all(file.exists(fx(c( # nolint
+    "expected_calls.tsv", "ortho_pairs.tsv",
+    "sp1_expr.tsv", "sp2_expr.tsv",
+    "make_fixture.R"
+  )))))
 }
 
 load_complex_py <- function() {
@@ -34,17 +36,21 @@ load_complex_py <- function() {
   x2 <- read_expr(fx("sp2_expr.tsv"))
   x1 <- x1[rownames(x1) %in% ortho$Species1, ]
   x2 <- x2[rownames(x2) %in% ortho$Species2, ]
-  list(ortho = ortho, expected = expected,
-       n1 = compute_network(x1, density = 0.03, sparse = FALSE),
-       n2 = compute_network(x2, density = 0.03, sparse = FALSE))
+  list(
+    ortho = ortho, expected = expected,
+    n1 = compute_network(x1, density = 0.03, sparse = FALSE),
+    n2 = compute_network(x2, density = 0.03, sparse = FALSE)
+  )
 }
 
 test_that("density thresholds are stable and match pure-R reference", {
   d <- load_complex_py()
   expect_equal(d$n1$threshold, reference_density_threshold(d$n1$network, 0.03),
-               tolerance = 1e-9)
+    tolerance = 1e-9
+  )
   expect_equal(d$n2$threshold, reference_density_threshold(d$n2$network, 0.03),
-               tolerance = 1e-9)
+    tolerance = 1e-9
+  )
   # Stability pin (rcomplex's own values, not written by ComPlEx_python).
   # Raw MR = sqrt(rank_ij * rank_ji), so a threshold is the square root of
   # a rank product.
@@ -107,62 +113,84 @@ test_that("make_fixture.R reproduces the committed fixture inputs", {
     expect_equal(regen, ref, tolerance = 1e-12)
   }
   # ortho_pairs.tsv is strings only: byte-identical on every platform
-  expect_identical(readLines(file.path(tmp, "ortho_pairs.tsv")),
-                   readLines(fx("ortho_pairs.tsv")))
+  expect_identical(
+    readLines(file.path(tmp, "ortho_pairs.tsv")),
+    readLines(fx("ortho_pairs.tsv"))
+  )
 })
 
-test_that("find_coexpressologs(pval_combine = 'max', pi0_method = 'none') reproduces the canonical calls", {
-  d <- load_complex_py()
-  nets <- list(sp1 = d$n1, sp2 = d$n2)
-  e_max <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
-                               pval_combine = "max", pi0_method = "none")
-  e_min <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
-                               pval_combine = "min", pi0_method = "none")
+test_that(
+  paste(
+    "find_coexpressologs(pval_combine = 'max', pi0_method = 'none')",
+    "reproduces the canonical calls"
+  ),
+  {
+    d <- load_complex_py()
+    nets <- list(sp1 = d$n1, sp2 = d$n2)
+    e_max <- find_coexpressologs(nets, d$ortho,
+      alpha = 0.05,
+      pval_combine = "max", pi0_method = "none"
+    )
+    e_min <- find_coexpressologs(nets, d$ortho,
+      alpha = 0.05,
+      pval_combine = "min", pi0_method = "none"
+    )
 
-  key_expected <- paste(d$expected$Species1, d$expected$Species2)
-  key_max <- paste(e_max$gene1, e_max$gene2)
-  called <- key_max[e_max$type == "conserved"]
+    key_expected <- paste(d$expected$Species1, d$expected$Species2)
+    key_max <- paste(e_max$gene1, e_max$gene2)
+    called <- key_max[e_max$type == "conserved"]
 
-  # same boundary rule as the canonical-calls test above
-  flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
-  if (length(flipped) > 0L) {
-    p_rc <- e_max$q.value[match(flipped, key_max)]
-    p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
-    expect_true(all(abs(p_rc - 0.05) < 1e-3))
-    expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
+    # same boundary rule as the canonical-calls test above
+    flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
+    if (length(flipped) > 0L) {
+      p_rc <- e_max$q.value[match(flipped, key_max)]
+      p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
+      expect_true(all(abs(p_rc - 0.05) < 1e-3))
+      expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
+    }
+    idx <- match(key_expected, key_max)
+    expect_false(anyNA(idx))
+    expect_equal(e_max$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
+
+    # "min" (permissive) calls are a superset of "max" calls
+    called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
+    expect_true(all(called %in% called_min))
+    expect_gte(length(called_min), length(called))
   }
-  idx <- match(key_expected, key_max)
-  expect_false(anyNA(idx))
-  expect_equal(e_max$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
-
-  # "min" (permissive) calls are a superset of "max" calls
-  called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
-  expect_true(all(called %in% called_min))
-  expect_gte(length(called_min), length(called))
-})
+)
 
 
-test_that("find_coexpressologs default pval_combine reproduces the canonical calls (D2)", {
-  d <- load_complex_py()
-  nets <- list(sp1 = d$n1, sp2 = d$n2)
-  e_def <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
-                               pi0_method = "none")
-  e_max <- find_coexpressologs(nets, d$ortho, alpha = 0.05,
-                               pval_combine = "max", pi0_method = "none")
-  expect_identical(e_def, e_max)
+test_that(
+  paste(
+    "find_coexpressologs default pval_combine reproduces the canonical",
+    "calls (D2)"
+  ),
+  {
+    d <- load_complex_py()
+    nets <- list(sp1 = d$n1, sp2 = d$n2)
+    e_def <- find_coexpressologs(nets, d$ortho,
+      alpha = 0.05,
+      pi0_method = "none"
+    )
+    e_max <- find_coexpressologs(nets, d$ortho,
+      alpha = 0.05,
+      pval_combine = "max", pi0_method = "none"
+    )
+    expect_identical(e_def, e_max)
 
-  # default = BH + pmax: the fixture's Max.p.val criterion holds by default
-  key_expected <- paste(d$expected$Species1, d$expected$Species2)
-  key_def <- paste(e_def$gene1, e_def$gene2)
-  called <- key_def[e_def$type == "conserved"]
-  flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
-  if (length(flipped) > 0L) {
-    p_rc <- e_def$q.value[match(flipped, key_def)]
-    p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
-    expect_true(all(abs(p_rc - 0.05) < 1e-3))
-    expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
+    # default = BH + pmax: the fixture's Max.p.val criterion holds by default
+    key_expected <- paste(d$expected$Species1, d$expected$Species2)
+    key_def <- paste(e_def$gene1, e_def$gene2)
+    called <- key_def[e_def$type == "conserved"]
+    flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
+    if (length(flipped) > 0L) {
+      p_rc <- e_def$q.value[match(flipped, key_def)]
+      p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
+      expect_true(all(abs(p_rc - 0.05) < 1e-3))
+      expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
+    }
+    idx <- match(key_expected, key_def)
+    expect_false(anyNA(idx))
+    expect_equal(e_def$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
   }
-  idx <- match(key_expected, key_def)
-  expect_false(anyNA(idx))
-  expect_equal(e_def$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
-})
+)

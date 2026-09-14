@@ -120,12 +120,12 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
 #' with E = m * k / (N - 1) under the self-excluded urn: the anchor gene
 #' leaves the ortholog-reachable set (k) and the population (N - 1).
 #' `self_exclude = FALSE` gives the pre-0.2.0 urn (k, N) for contrast.
-reference_T_obs <- function(net1, net2, thr1, thr2, ortho,
+reference_T_obs <- function(net1, net2, thr1, thr2, ortho,  # nolint
                             sp1_genes, sp2_genes, self_exclude = TRUE) {
   nb <- function(net, thr, g) setdiff(names(which(net[g, ] >= thr)), g)
   n1 <- nrow(net1) - self_exclude
   n2 <- nrow(net2) - self_exclude
-  T <- 0
+  T <- 0  # nolint
   for (b in sp2_genes) {
     reach1 <- unique(ortho$Species1[ortho$Species2 %in% nb(net2, thr2, b)])
     for (a in sp1_genes) {
@@ -133,7 +133,7 @@ reference_T_obs <- function(net1, net2, thr1, thr2, ortho,
       m1 <- length(n1a)
       k1 <- length(if (self_exclude) setdiff(reach1, a) else reach1)
       if (m1 == 0 || k1 == 0) next
-      T <- T + length(intersect(n1a, reach1)) / (m1 * k1 / n1)
+      T <- T + length(intersect(n1a, reach1)) / (m1 * k1 / n1)  # nolint
     }
   }
   for (a in sp1_genes) {
@@ -143,10 +143,10 @@ reference_T_obs <- function(net1, net2, thr1, thr2, ortho,
       m2 <- length(n2b)
       k2 <- length(if (self_exclude) setdiff(reach2, b) else reach2)
       if (m2 == 0 || k2 == 0) next
-      T <- T + length(intersect(n2b, reach2)) / (m2 * k2 / n2)
+      T <- T + length(intersect(n2b, reach2)) / (m2 * k2 / n2)  # nolint
     }
   }
-  T
+  T # nolint
 }
 
 
@@ -172,8 +172,12 @@ make_cmp_nets <- function() {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   ortho <- data.frame(
     Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),

@@ -25,14 +25,14 @@
 
 
 # Statistic columns returned by the C++ kernel, in order.
-.PRES_STATS <- c(
+.PRES_STATS <- c(  # nolint
   "avg.weight", "meanClusterCoeff", "meanMAR",
   "cor.degree", "cor.clusterCoeff", "cor.MAR"
 )
 
 # The two that carry the call: indices into .PRES_STATS.
-.PRES_DENSITY <- 1L
-.PRES_CONNECTIVITY <- 4L
+.PRES_DENSITY <- 1L  # nolint
+.PRES_CONNECTIVITY <- 4L  # nolint
 
 
 #' Test whether co-expression modules are preserved across species
@@ -243,7 +243,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
                                 sensitivity = FALSE, copy_draws = 200L,
                                 n_cores = 1L, seed = NULL) {
   if (!is.list(modules_ref) || is.null(modules_ref$module_genes) ||
-    is.null(modules_ref$modules)) {
+        is.null(modules_ref$modules)) {
     stop("modules_ref must be output from detect_modules()")
   }
   n_perm <- as.integer(n_perm)
@@ -298,7 +298,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     )
   }
   if (!is.data.frame(map) ||
-    !all(c("gene1", "gene2", "source") %in% names(map))) {
+        !all(c("gene1", "gene2", "source") %in% names(map))) {
     stop("map must be a data frame from resolve_ortholog_map()")
   }
 
@@ -399,7 +399,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 
   # Index by test gene, so a reference gene mapped to several test paralogs
   # contributes its value once per paralog.
-  ref_kIM <- lapply(rows_by_mod, function(rows) rstats$kIM[loc_ref[rows] + 1L])
+  ref_kIM <- lapply(rows_by_mod, function(rows) rstats$kIM[loc_ref[rows] + 1L])  # nolint
   ref_cc <- lapply(rows_by_mod, function(rows) rstats$CC[loc_ref[rows] + 1L])
   ref_mar <- lapply(rows_by_mod, function(rows) rstats$MAR[loc_ref[rows] + 1L])
 
@@ -584,7 +584,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 .pres_project <- function(map) {
   res <- map[map$source != "unresolved", , drop = FALSE]
   unres <- map[map$source == "unresolved" &
-    !(map$gene2 %in% res$gene2), , drop = FALSE]
+                 !(map$gene2 %in% res$gene2), , drop = FALSE]
 
   # Vectorised: one sort plus linear passes. Splitting per gene2 and building a
   # one-row data frame each costs O(mappable genes) allocations, and on the
@@ -638,7 +638,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 
 #' Preservation permutation engine, dense/sparse dispatch (internal)
 #' @noRd
-.pres_run <- function(net, keep, members, ref_kIM, ref_cc, ref_mar,
+.pres_run <- function(net, keep, members, ref_kIM, ref_cc, ref_mar,  # nolint
                       n_perm, n_cores, binary, store_perm = FALSE) {
   a <- .net_cpp_args(net, net$threshold)
   if (.net_is_sparse(net)) {
@@ -686,7 +686,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   # the two statistics are near-independent -- measured here as a realised FDR
   # of 1.2e-4 against a nominal 0.05. Recalibrate toward the empirical joint
   # null by the estimated fraction of modules null on BOTH statistics:
-  #   F(t) <= w00 * C(t, t) + (1 - w00) * t
+  #   F(t) <= w00 * C(t, t) + (1 - w00) * t  # nolint
   # is a super-uniform bound for any dependence and any alternative, because
   # each partial-null term has one exactly-uniform marginal. p_npc is C(t, t)
   # at the observed value and p_comb is t, so p_cal is that bound evaluated
@@ -1184,7 +1184,7 @@ module_correspondence <- function(modules_ref, modules_test, map,
     }
   }
   if (!is.data.frame(map) ||
-    !all(c("gene1", "gene2", "source") %in% names(map))) {
+        !all(c("gene1", "gene2", "source") %in% names(map))) {
     stop("map must be a data frame from resolve_ortholog_map()")
   }
 
@@ -1436,9 +1436,9 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
 #' @noRd
 .orient_orthologs <- function(orthologs, genes_ref, genes_test) {
   as_is <- sum(orthologs$Species1 %in% genes_ref &
-    orthologs$Species2 %in% genes_test)
+                 orthologs$Species2 %in% genes_test)
   swapped <- sum(orthologs$Species2 %in% genes_ref &
-    orthologs$Species1 %in% genes_test)
+                   orthologs$Species1 %in% genes_test)
   if (swapped > as_is) {
     orthologs[c("Species1", "Species2")] <-
       orthologs[c("Species2", "Species1")]

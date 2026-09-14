@@ -73,7 +73,7 @@
       rm(".Random.seed", envir = globalenv())
     }
   } else {
-    assign(".Random.seed", old, envir = globalenv())
+    assign(".Random.seed", old, envir = globalenv())  # nolint
   }
   invisible(NULL)
 }

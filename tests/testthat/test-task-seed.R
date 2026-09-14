@@ -7,8 +7,10 @@
 # argument before combining removes that.
 
 test_that(".task_seed() output is always a legal set.seed() input", {
-  roots <- c(-.Machine$integer.max, -1L, 0L, 1L,
-             .Machine$integer.max, 1000L, 1000L + 40503L)
+  roots <- c(
+    -.Machine$integer.max, -1L, 0L, 1L,
+    .Machine$integer.max, 1000L, 1000L + 40503L
+  )
   for (root in roots) {
     for (stream in c(1L, 2L, 100L, 137L)) {
       for (index in c(1L, 2L, 40503L, 100000L)) {
@@ -66,8 +68,10 @@ test_that(".task_seed() spreads outputs without gross collisions", {
 
 
 test_that(".hash32() never returns NA or a negative value", {
-  xs <- c(-.Machine$integer.max, -1L, 0L, 1L, .Machine$integer.max,
-          2147483647L, 40503L * 1:5)
+  xs <- c(
+    -.Machine$integer.max, -1L, 0L, 1L, .Machine$integer.max,
+    2147483647L, 40503L * 1:5
+  )
   hashed <- vapply(xs, .hash32, integer(1))
   expect_false(any(is.na(hashed)))
   expect_true(all(hashed >= 0L))

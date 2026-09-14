@@ -34,39 +34,49 @@
   m <- net$network
   if (.net_is_sparse(net)) {
     if (nrow(m) != ncol(m)) {
-      stop("network must be a square dgCMatrix (got ", nrow(m), " x ",
-           ncol(m), "); see as_sparse_network()")
+      stop(
+        "network must be a square dgCMatrix (got ", nrow(m), " x ",
+        ncol(m), "); see as_sparse_network()"
+      )
     }
     dn <- dimnames(m)
     if (is.null(dn[[1L]]) || is.null(dn[[2L]]) ||
-        !identical(dn[[1L]], dn[[2L]])) {
-      stop("network must have identical, non-NULL row and column names; ",
-           "see as_sparse_network()")
+          !identical(dn[[1L]], dn[[2L]])) {
+      stop(
+        "network must have identical, non-NULL row and column names; ",
+        "see as_sparse_network()"
+      )
     }
     dp <- diff(m@p)
     if (length(m@x) > 0L && length(dp) == ncol(m) && all(dp >= 0L) &&
-        m@p[1L] == 0L && m@p[length(m@p)] == length(m@i) &&
-        length(m@i) == length(m@x) &&
-        any(m@i == rep.int(seq_len(ncol(m)) - 1L, dp))) {
+          m@p[1L] == 0L && m@p[length(m@p)] == length(m@i) &&
+          length(m@i) == length(m@x) &&
+          any(m@i == rep.int(seq_len(ncol(m)) - 1L, dp))) {
       # malformed slots skip this check and fall through to the C++
       # validator in neighbor_lists_sparse() (canonical error messages)
-      stop("network must not store diagonal entries; ",
-           "see as_sparse_network()")
+      stop(
+        "network must not store diagonal entries; ",
+        "see as_sparse_network()"
+      )
     }
     if (!is.null(net$store_threshold)) {
       if (thr < net$store_threshold) {
-        stop("threshold ", thr, " is below the stored threshold ",
-             net$store_threshold,
-             if (!is.null(net$store_density)) {
-               paste0(" (store_density = ", net$store_density, ")")
-             },
-             "; recompute with a larger store_density")
+        stop(
+          "threshold ", thr, " is below the stored threshold ",
+          net$store_threshold,
+          if (!is.null(net$store_density)) {
+            paste0(" (store_density = ", net$store_density, ")")
+          },
+          "; recompute with a larger store_density"
+        )
       }
     } else if (length(m@x) > 0L && thr < min(m@x)) {
-      stop("threshold ", thr, " is below the smallest stored value ",
-           min(m@x), "; the sparse network cannot represent this density ",
-           "(use threshold >= that value or rebuild with a larger ",
-           "store_density)")
+      stop(
+        "threshold ", thr, " is below the smallest stored value ",
+        min(m@x), "; the sparse network cannot represent this density ",
+        "(use threshold >= that value or rebuild with a larger ",
+        "store_density)"
+      )
     }
   } else if (methods::is(m, "Matrix")) {
     stop("network must be a dgCMatrix; see as_sparse_network()")
@@ -105,8 +115,10 @@
 .net_pair_sparse <- function(net1, net2) {
   sparse1 <- .net_is_sparse(net1)
   if (sparse1 != .net_is_sparse(net2)) {
-    stop("net1 and net2 must be both dense or both sparse; ",
-         "see as_sparse_network()")
+    stop(
+      "net1 and net2 must be both dense or both sparse; ",
+      "see as_sparse_network()"
+    )
   }
   sparse1
 }
@@ -168,20 +180,24 @@ as_sparse_network <- function(net, store_density = 0.05) {
   }
   m <- net$network
   if (!is.matrix(m) || !is.numeric(m)) {
-    stop("network must be a dense numeric matrix; got ",
-         paste(class(m), collapse = "/"))
+    stop(
+      "network must be a dense numeric matrix; got ",
+      paste(class(m), collapse = "/")
+    )
   }
   if (nrow(m) != ncol(m) || is.null(rownames(m))) {
     stop("network must be a square matrix with gene names")
   }
   if (!is.numeric(store_density) || length(store_density) != 1L ||
-      store_density <= 0 || store_density >= 1) {
+        store_density <= 0 || store_density >= 1) {
     stop("store_density must be a single number in (0, 1) (exclusive)")
   }
   d <- net$params$density
   if (!is.null(d) && store_density < d) {
-    stop("store_density (", store_density, ") must be >= the network's ",
-         "density (", d, "); the store must contain every analysis edge")
+    stop(
+      "store_density (", store_density, ") must be >= the network's ",
+      "density (", d, "); the store must contain every analysis edge"
+    )
   }
 
   store_thr <- density_threshold_cpp(m, store_density)
@@ -190,13 +206,16 @@ as_sparse_network <- function(net, store_density = 0.05) {
   # message can name store_density, instead of one call later in
   # .net_check() with a message about a parameter of a different function.
   if (store_thr > net$threshold) {
-    stop("store_density ", store_density, " keeps fewer edges than the ",
-         "network's analysis threshold (store threshold ", store_thr,
-         " > threshold ", net$threshold, "); use a larger store_density")
+    stop(
+      "store_density ", store_density, " keeps fewer edges than the ",
+      "network's analysis threshold (store threshold ", store_thr,
+      " > threshold ", net$threshold, "); use a larger store_density"
+    )
   }
   slots <- extract_sparse_cpp(m, store_thr, 1L)
   spnet <- methods::new(
-    "dgCMatrix", i = slots$i, p = slots$p, x = slots$x,
+    "dgCMatrix",
+    i = slots$i, p = slots$p, x = slots$x,
     Dim = dim(m), Dimnames = dimnames(m)
   )
   modifyList(net, list(
@@ -212,10 +231,12 @@ as_sparse_network <- function(net, store_density = 0.05) {
 #' @noRd
 .net_describe <- function(net) {
   if (.net_is_sparse(net)) {
-    paste0("dgCMatrix, ", length(net$network@x), " stored entries",
-           if (!is.null(net$store_density)) {
-             paste0(", store_density = ", net$store_density)
-           })
+    paste0(
+      "dgCMatrix, ", length(net$network@x), " stored entries",
+      if (!is.null(net$store_density)) {
+        paste0(", store_density = ", net$store_density)
+      }
+    )
   } else {
     paste0("dense matrix, ", nrow(net$network), " x ", ncol(net$network))
   }

@@ -25,19 +25,23 @@ test_that("mr_block matches the dense block for raw MR", {
 
   blk <- mr_block(x, mr_block_genes, net)
   expect_equal(blk, as.matrix(net$network[mr_block_genes, mr_block_genes]),
-               tolerance = 1e-8)
+    tolerance = 1e-8
+  )
   expect_identical(dimnames(blk), list(mr_block_genes, mr_block_genes))
 })
 
 
 test_that("mr_block matches the dense block for log MR", {
   x <- make_mr_block_expr()
-  net <- compute_network(x, density = 0.05, mr_log_transform = TRUE,
-                         sparse = FALSE)
+  net <- compute_network(x,
+    density = 0.05, mr_log_transform = TRUE,
+    sparse = FALSE
+  )
 
   expect_equal(mr_block(x, mr_block_genes, net),
-               as.matrix(net$network[mr_block_genes, mr_block_genes]),
-               tolerance = 1e-8)
+    as.matrix(net$network[mr_block_genes, mr_block_genes]),
+    tolerance = 1e-8
+  )
 })
 
 
@@ -46,19 +50,23 @@ test_that("mr_block matches the dense block with abs_cor", {
   net <- compute_network(x, density = 0.05, abs_cor = TRUE, sparse = FALSE)
 
   expect_equal(mr_block(x, mr_block_genes, net),
-               as.matrix(net$network[mr_block_genes, mr_block_genes]),
-               tolerance = 1e-8)
+    as.matrix(net$network[mr_block_genes, mr_block_genes]),
+    tolerance = 1e-8
+  )
 })
 
 
 test_that("mr_block matches the dense block for Spearman", {
   x <- make_mr_block_expr()
-  net <- compute_network(x, density = 0.05, cor_method = "spearman",
-                         sparse = FALSE)
+  net <- compute_network(x,
+    density = 0.05, cor_method = "spearman",
+    sparse = FALSE
+  )
 
   expect_equal(mr_block(x, mr_block_genes, net),
-               as.matrix(net$network[mr_block_genes, mr_block_genes]),
-               tolerance = 1e-8)
+    as.matrix(net$network[mr_block_genes, mr_block_genes]),
+    tolerance = 1e-8
+  )
 })
 
 
@@ -70,7 +78,8 @@ test_that("mr_block reconstructs sub-threshold values from a sparse network", {
 
   blk <- mr_block(x, mr_block_genes, sp)
   expect_equal(blk, as.matrix(dense$network[mr_block_genes, mr_block_genes]),
-               tolerance = 1e-8)
+    tolerance = 1e-8
+  )
 
   # the reconstruction must cover values the sparse store discarded
   off <- blk[row(blk) != col(blk)]
@@ -88,8 +97,9 @@ test_that("mr_block uses the network's gene universe, not x's rows", {
   expect_false("gz" %in% rownames(net$network))
 
   expect_equal(mr_block(x2, mr_block_genes, net),
-               as.matrix(net$network[mr_block_genes, mr_block_genes]),
-               tolerance = 1e-8)
+    as.matrix(net$network[mr_block_genes, mr_block_genes]),
+    tolerance = 1e-8
+  )
 })
 
 
@@ -113,15 +123,19 @@ test_that("mr_block validates its inputs", {
   expect_error(mr_block(x, c("g03", "g03"), net), "duplicate")
 
   # x lacks a network gene (g01 is in the universe, not in the subset)
-  expect_error(mr_block(x[-1, , drop = FALSE], mr_block_genes, net),
-               "network gene")
+  expect_error(
+    mr_block(x[-1, , drop = FALSE], mr_block_genes, net),
+    "network gene"
+  )
 
   # hand-built network without params
   bare <- list(network = net$network, threshold = net$threshold)
   expect_error(mr_block(x, mr_block_genes, bare), "params")
 
   # CLR networks cannot be reconstructed by mutual ranks
-  clr <- compute_network(x, density = 0.05, norm_method = "CLR",
-                         sparse = FALSE)
+  clr <- compute_network(x,
+    density = 0.05, norm_method = "CLR",
+    sparse = FALSE
+  )
   expect_error(mr_block(x, mr_block_genes, clr), "MR")
 })
