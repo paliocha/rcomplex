@@ -187,9 +187,11 @@ cat(nrow(edges), "edges:", sum(edges$type == "conserved"), "conserved,",
 The permutation engine draws its gene-identity permutations from the
 global RNG, so the seed above pins the HOG q-values -- but only at
 `n_cores = 1`. Above one core the R seed is used to seed one RNG per
-worker thread, and the number of threads partitions the stream
-differently, so the conserved-edge count still drifts by a few tenths
-of a percent between runs on different machines. Set `n_cores = 1L` if
+worker thread, and OpenMP's `schedule(guided)` assigns HOGs to threads
+dynamically, based on runtime timing. So which HOG draws from which
+thread's stream is not fixed by the seed, the machine, or the core
+count: two knits on the very same machine with the same `n_cores` can
+still give different conserved-edge counts. Set `n_cores = 1L` if
 the permutation numbers must be bit-reproducible.
 
 For quick exploration without GPU, the `"analytical"` method uses
@@ -777,11 +779,19 @@ store would sit at ~0.975x, i.e. exactly at the loosest level).
 
 The permutation pipeline is re-run at each level because network
 neighborhoods change with the threshold, altering the HOG-level
-q-values:
+q-values. The floor is derived from the networks themselves rather
+than assumed from the prose above, so the chunk keeps working if the
+expression matrices or `reduce_orthogroups()` output shift the raw-MR
+quantiles:
 
 ```{r density-sweep}
+multipliers <- seq(0.975, 1.025, by = 0.005)
+store_floor <- max(vapply(networks, \(n) n$store_threshold / n$threshold,
+                          numeric(1)))
+stopifnot(min(multipliers) >= store_floor)
+
 sweep <- density_sweep(networks, orthologs,
-  multipliers = seq(0.975, 1.025, by = 0.005),
+  multipliers = multipliers,
   method = "permutation", use_torch = TRUE, n_cores = n_cores)
 
 # Edge survival across density levels
@@ -1186,9 +1196,14 @@ survival count, persistence captures the continuous range of
 thresholds over which each clique lives:
 
 ```{r birth-death, eval = FALSE}
+# clique_threshold_sweep() scales the same baseline threshold as the
+# density sweep above (raw MR, tightly compressed near the top of the
+# distribution), so its multipliers live in the same near-1 band --
+# c(1.5, 2, 3, ...) would push every level past the empty-network
+# threshold this dataset hits above ~1.03x.
 sweep_result <- clique_threshold_sweep(
   cliques, species, networks, orthologs,
-  multipliers = c(1.5, 2, 3, 5, 10),
+  multipliers = c(1.005, 1.01, 1.015, 1.02, 1.025),
   min_species = 2L, n_cores = n_cores
 )
 

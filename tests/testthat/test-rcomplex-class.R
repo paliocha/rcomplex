@@ -475,9 +475,12 @@ test_that("gene_clique_graph dispatches on rcomplex", {
 
 
 test_that("gene_clique_graph.rcomplex passes ... to the default", {
-  rcx <- gene_clique_graph(make_gcg_rcx(),
+  # alpha_graph = 0.9 exceeds the fixture's largest q.value (0.7) on
+  # purpose, to build the looser HOG2 clique; the ceiling warning this
+  # triggers is expected here, not a regression.
+  rcx <- suppressWarnings(gene_clique_graph(make_gcg_rcx(),
     alpha_graph = 0.9, id_prefix = "loose_"
-  )
+  ))
   expect_setequal(
     unique(rcx$gene_cliques$clique_id),
     c("loose_HOG1_1", "loose_HOG2_1")
@@ -501,7 +504,9 @@ test_that("gene_clique_graph errors when edges not yet computed", {
 
 test_that("classify_gene_cliques dispatches on rcomplex", {
   rcx <- gene_clique_graph(make_gcg_rcx())
-  rcx <- classify_gene_cliques(rcx)
+  # The fixture's q-values sit well under the default alpha_graph = 0.9
+  # ceiling on purpose; suppress the expected warning that triggers.
+  rcx <- suppressWarnings(classify_gene_cliques(rcx))
   expect_s3_class(rcx, "rcomplex")
   expect_true(is.data.frame(rcx$gene_classification))
   expect_equal(rcx$gene_classification$clique_id, "HOG1_1")
@@ -513,7 +518,9 @@ test_that("classify_gene_cliques dispatches on rcomplex", {
 
 test_that("classify_gene_cliques.rcomplex equals the default method", {
   ed <- make_gcg_edges()
-  rcx <- classify_gene_cliques(gene_clique_graph(make_gcg_rcx()))
+  rcx <- suppressWarnings(
+    classify_gene_cliques(gene_clique_graph(make_gcg_rcx()))
+  )
   # The default call must be handed the same lineage the container
   # supplies from x$traits, or this compares the container against a
   # run with the lineage tiers switched off.
@@ -537,7 +544,9 @@ test_that("classify_gene_cliques errors on empty slots", {
 
 
 test_that("the taxonomy slots surface in print and summary", {
-  rcx <- classify_gene_cliques(gene_clique_graph(make_gcg_rcx()))
+  rcx <- suppressWarnings(
+    classify_gene_cliques(gene_clique_graph(make_gcg_rcx()))
+  )
   out <- capture.output(print(rcx))
   expect_true(any(grepl("Gene cliques:   1 cliques, 3 members", out)))
   expect_true(any(grepl("Gene taxonomy:  1 cliques", out)))
@@ -566,9 +575,11 @@ test_that("a fresh container has empty taxonomy slots", {
 
 
 test_that("the taxonomy chains through the container pipeline", {
-  rcx <- make_gcg_rcx() |>
-    gene_clique_graph() |>
-    classify_gene_cliques()
+  rcx <- suppressWarnings(
+    make_gcg_rcx() |>
+      gene_clique_graph() |>
+      classify_gene_cliques()
+  )
   expect_s3_class(rcx, "rcomplex")
   expect_true(!is.null(rcx$gene_cliques))
   expect_true(!is.null(rcx$gene_classification))
@@ -581,7 +592,9 @@ test_that("classify_gene_cliques.rcomplex supplies the container traits", {
   # and differentiated tiers are silently unreachable on an object that
   # is already holding the trait vector they need.
   rcx <- gene_clique_graph(make_gcg_rcx())
-  from_container <- classify_gene_cliques(rcx)$gene_classification
+  from_container <- suppressWarnings(
+    classify_gene_cliques(rcx)
+  )$gene_classification
   explicit <- classify_gene_cliques.default(
     rcx$gene_cliques, rcx$edges, rcx$species,
     lineage = rcx$traits
@@ -593,7 +606,9 @@ test_that("classify_gene_cliques.rcomplex supplies the container traits", {
   flat <- stats::setNames(
     rep("one", length(rcx$species)), rcx$species
   )
-  overridden <- classify_gene_cliques(rcx, lineage = flat)
+  overridden <- suppressWarnings(
+    classify_gene_cliques(rcx, lineage = flat)
+  )
   expect_equal(
     overridden$gene_classification,
     classify_gene_cliques.default(
@@ -601,4 +616,84 @@ test_that("classify_gene_cliques.rcomplex supplies the container traits", {
       lineage = flat
     )
   )
+})
+
+
+test_that("classify_gene_cliques.rcomplex actually reaches lineage tiers", {
+  # The previous test only tells lineage = NULL apart from lineage =
+  # x$traits through count columns; it never shows the container path
+  # reach a tier other than complete_conserved. make_rcx_fixtures(3)
+  # gives SP_A/SP_C "annual" and SP_B "perennial" -- split a
+  # within-lineage-complete clique (HOG4: SP_A-SP_C significant, SP_B
+  # absent) from a cross-lineage clique that is present at every pair
+  # but significant only within the annual lineage (HOG3).
+  rcx <- make_gcg_rcx()
+  rcx$edges <- rbind(
+    rcx$edges,
+    data.frame(
+      gene1 = c("SP_A_G3", "SP_A_G3", "SP_B_G3", "SP_A_G4"),
+      gene2 = c("SP_B_G3", "SP_C_G3", "SP_C_G3", "SP_C_G4"),
+      species1 = c("SP_A", "SP_A", "SP_B", "SP_A"),
+      species2 = c("SP_B", "SP_C", "SP_C", "SP_C"),
+      hog = c("HOG3", "HOG3", "HOG3", "HOG4"),
+      q.value = c(0.5, 0.01, 0.5, 0.01),
+      effect_size = c(1, 3, 1, 3),
+      stringsAsFactors = FALSE
+    )
+  )
+  # min_size = 2 so the 2-member HOG4 clique survives; alpha_graph = 0.9
+  # so the two non-significant HOG3 edges still build the triangle.
+  rcx <- suppressWarnings(
+    gene_clique_graph(rcx, min_size = 2L, alpha_graph = 0.9)
+  )
+  from_container <- suppressWarnings(
+    classify_gene_cliques(rcx)$gene_classification
+  )
+  no_lineage <- suppressWarnings(
+    classify_gene_cliques(rcx, lineage = NULL)$gene_classification
+  )
+
+  expect_true("differentiated" %in% from_container$classification)
+  expect_true("lineage_specific" %in% from_container$classification)
+  # Without the container's traits, neither lineage-aware tier is
+  # reachable: the same cliques fall back to a lineage-blind tier.
+  expect_false(any(no_lineage$classification %in%
+    c("differentiated", "lineage_specific")))
+})
+
+
+test_that("supplying the container's traits reaches a tier lineage = NULL cannot", {
+  # The previous test only ever produces complete_conserved, which is
+  # reachable with or without traits and so cannot show the container
+  # path actually changes the tier. Five species split 3 annual (A, C, E)
+  # / 2 perennial (B, D) lets an all-annual triangle clear min_size = 3
+  # while B and D never appear in this HOG's edges at all -- an absence,
+  # not a tested-and-rejected pair. With traits supplied that clique is a
+  # complete lineage (lineage_specific); with lineage = NULL the same
+  # clique is 2 species short of complete_conserved, past max_gap for
+  # partial_present, and cannot qualify for any tier.
+  fix <- make_rcx_fixtures(n_sp = 5)
+  rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
+  rcx$edges <- data.frame(
+    gene1 = c("SP_A_G1", "SP_A_G1", "SP_C_G1"),
+    gene2 = c("SP_C_G1", "SP_E_G1", "SP_E_G1"),
+    species1 = c("SP_A", "SP_A", "SP_C"),
+    species2 = c("SP_C", "SP_E", "SP_E"),
+    hog = "HOG_LIN", q.value = c(0.01, 0.01, 0.01),
+    effect_size = c(3, 3, 3), stringsAsFactors = FALSE
+  )
+  rcx <- suppressWarnings(gene_clique_graph(rcx))
+  expect_equal(nrow(rcx$gene_cliques), 3L)
+
+  with_traits <- suppressWarnings(classify_gene_cliques(rcx))
+  expect_identical(
+    with_traits$gene_classification$classification, "lineage_specific"
+  )
+
+  without_traits <- suppressWarnings(
+    classify_gene_cliques(rcx, lineage = NULL)
+  )
+  expect_false(identical(
+    without_traits$gene_classification$classification, "lineage_specific"
+  ))
 })

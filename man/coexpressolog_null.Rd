@@ -59,7 +59,13 @@ size of that difference is what \code{null_se} and the
 \code{p_emp_lo} / \code{p_emp_hi} interval report. The default was
 \code{1L} before 0.3.0, which pinned the null of every default call
 while leaving the observed statistic free to drift, and hid the
-Monte Carlo error entirely.}
+Monte Carlo error entirely.
+
+Two seeds exactly \code{2^31 - 1} apart (both legal, since a seed may
+lie anywhere in \code{+/- .Machine$integer.max}) give every rewiring
+permutation the same seed, so the null is identical for the two runs
+even though the observed statistic is not: see the aliasing note under
+\code{.task_seed()}.}
 
 \item{...}{Passed unchanged to \code{\link{find_coexpressologs}} for
 both the observed and every null run (\code{species_pairs},

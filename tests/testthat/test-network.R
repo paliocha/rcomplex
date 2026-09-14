@@ -247,8 +247,8 @@ test_that("torch backend matches Rfast (Spearman)", {
   # on this fixture), so 1e-5 leaves two orders of magnitude of headroom
   # while still failing for any structural difference (e.g. a halved
   # matrix).
-  expect_equal(unname(cor_torch(expr, "spearman")),
-               unname(cor_rfast(expr, "spearman")),
+  expect_equal(unname(rcomplex:::cor_torch(expr, "spearman")),
+               unname(rcomplex:::cor_rfast(expr, "spearman")),
                tolerance = 1e-5)
 
   rfast_result <- compute_network(expr, cor_method = "spearman",

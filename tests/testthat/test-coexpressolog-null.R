@@ -87,11 +87,13 @@ test_that("the seed is validated up front, and only where it must be", {
 
 test_that("observed conserved calls exceed the rewired null", {
   d <- load_null_fixture()
-  res <- coexpressolog_null(
+  # n_perm = 19 is the fixture's standard permutation count; the floor
+  # warning it triggers is covered by its own test, not this one
+  res <- suppressWarnings(coexpressolog_null(
     d$networks, d$ortho,
     n_perm = 19L, seed = 1L,
     pval_combine = "max", pi0_method = "none"
-  )
+  ))
 
   expect_s3_class(res, "data.frame")
   # one row per species pair plus the total
@@ -129,11 +131,13 @@ test_that("shuffled orthologs give a non-significant null", {
   ortho_shuf <- d$ortho
   set.seed(99)
   ortho_shuf$Species2 <- sample(ortho_shuf$Species2)
-  res <- coexpressolog_null(
+  # n_perm = 19 is the fixture's standard permutation count; the floor
+  # warning it triggers is covered by its own test, not this one
+  res <- suppressWarnings(coexpressolog_null(
     d$networks, ortho_shuf,
     n_perm = 19L, seed = 1L,
     pval_combine = "max", pi0_method = "none"
-  )
+  ))
   expect_gt(res$p_emp[res$statistic == "total"], 0.05)
 })
 
@@ -158,22 +162,24 @@ test_that("n_cores = 2 reproduces the serial result", {
 
 test_that("the effective seed is recorded, and it replays the run", {
   d <- load_null_fixture()
-  seeded <- coexpressolog_null(
+  # n_perm = 19 is the fixture's standard permutation count; the floor
+  # warning it triggers is covered by its own test, not this one
+  seeded <- suppressWarnings(coexpressolog_null(
     d$networks, d$ortho,
     n_perm = 19L, seed = 4L,
     pval_combine = "max", pi0_method = "none"
-  )
+  ))
   expect_identical(attr(seeded, "seed"), 4L)
 
   # The reproducibility contract for a default call: the run is not fixed
   # across calls, but the seed it used comes back on the result and
   # reproduces it exactly.
   msgs <- capture_messages(
-    unseeded <- coexpressolog_null(
+    unseeded <- suppressWarnings(coexpressolog_null(
       d$networks, d$ortho,
       n_perm = 19L,
       pval_combine = "max", pi0_method = "none"
-    )
+    ))
   )
   drawn <- attr(unseeded, "seed")
   expect_true(is.numeric(drawn) && length(drawn) == 1L && !is.na(drawn))
@@ -181,22 +187,24 @@ test_that("the effective seed is recorded, and it replays the run", {
   # errors before returning leaves nothing else to replay it with
   expect_match(paste(msgs, collapse = ""), paste0("\\b", drawn, "\\b"))
 
-  replay <- coexpressolog_null(
+  replay <- suppressWarnings(coexpressolog_null(
     d$networks, d$ortho,
     n_perm = 19L, seed = drawn,
     pval_combine = "max", pi0_method = "none"
-  )
+  ))
   expect_equal(replay, unseeded)
 })
 
 
 test_that("the Monte Carlo columns are what they claim", {
   d <- load_null_fixture()
-  res <- coexpressolog_null(
+  # n_perm = 19 is the fixture's standard permutation count; the floor
+  # warning it triggers is covered by its own test, not this one
+  res <- suppressWarnings(coexpressolog_null(
     d$networks, d$ortho,
     n_perm = 19L, seed = 1L,
     pval_combine = "max", pi0_method = "none"
-  )
+  ))
   null_mat <- attr(res, "null")
   n_ge <- vapply(
     seq_along(res$statistic),
@@ -227,13 +235,17 @@ test_that("a p_emp whose interval still covers 0.05 is flagged", {
     ),
     "cannot be separated from non-significance"
   )
-  # at n_perm = 19 the same run gives p_emp = 0.05 exactly, which is not
-  # below 0.05 and so claims nothing to flag
-  expect_no_warning(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 19L, seed = 1L,
-    pval_combine = "max", pi0_method = "none"
-  ))
+  # at n_perm = 19 the same run gives p_emp = 1/20 = 0.05 exactly, which
+  # is not below 0.05 -- the smallest attainable p_emp can never satisfy
+  # p < 0.05, so this falls into the "unreachable" warning, not "flagged"
+  expect_warning(
+    coexpressolog_null(
+      d$networks, d$ortho,
+      n_perm = 19L, seed = 1L,
+      pval_combine = "max", pi0_method = "none"
+    ),
+    "unreachable for any signal \\(use n_perm >= 20\\)"
+  )
 })
 
 
@@ -402,10 +414,14 @@ test_that("an NA null statistic reports NA instead of aborting the run", {
   expect_s3_class(res, "data.frame")
   expect_true(all(c("n_ge", "null_se", "p_emp_lo", "p_emp_hi") %in%
     names(res)))
-  # Whatever the fixture produced, an NA row must stay NA on every
-  # derived column rather than being scored as significant.
+  # This fixture must actually exercise the NA path -- otherwise the
+  # assertions below pass vacuously and the regression they guard against
+  # (NA reaching `if (any(weak))`) goes unexercised.
   na_rows <- is.na(res$n_ge)
-  if (any(na_rows)) {
+  expect_true(any(na_rows))
+  # An NA row must stay NA on every derived column rather than being
+  # scored as significant.
+  {
     expect_true(all(is.na(res$p_emp[na_rows])))
     expect_true(all(is.na(res$p_emp_lo[na_rows])))
     expect_true(all(is.na(res$p_emp_hi[na_rows])))

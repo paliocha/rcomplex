@@ -64,7 +64,7 @@ counterpart per gene before any module label is projected.
   the Monte Carlo error of `null_mean`, and hence the denominator error
   behind `fold`), and `p_emp_lo` / `p_emp_hi`, an exact Clopper-Pearson 95%
   interval for the exceedance probability. It also warns once per call: at
-  `n_perm < 19` no `p_emp` can reach 0.05 at all, and above that any
+  `n_perm <= 19` no `p_emp` can reach 0.05 at all, and above that any
   `p_emp < 0.05` whose interval still covers 0.05 is a call the next seed
   may not repeat. Anything pinning `names()` on the result sees four more
   columns; the original seven keep their names and positions.
@@ -78,6 +78,16 @@ counterpart per gene before any module label is projected.
   `fold` or `null_mean` need a rerun, though no `p_emp` moved on real data.
   The `seed <= .Machine$integer.max - n_perm` restriction is gone with the
   overflow it guarded; the length and coercion checks are unchanged.
+
+- `.task_seed()` (the shared per-task seed used by `coexpressolog_null()`
+  and the module-detection sweeps) hashes `root`, `stream` and `index`
+  separately before combining them, instead of combining them directly with
+  fixed multipliers. The direct form was affine in `root` and `index`, so
+  any two seed roots exactly 40503 apart (mod 2^31 - 1) aliased: the whole
+  permutation vector at one root reproduced the other's, shifted by one
+  index --- the same failure just removed from `seed + b`, at a rarer,
+  silent distance. **Every seeded run's derived per-task seeds change
+  numerically**; no call site's default behaviour changes otherwise.
 
 ## Breaking changes
 
@@ -665,9 +675,10 @@ urn.
   `(1 + sum(null >= observed)) / (n_perm + 1)`) with the full
   `n_perm x k` null matrix as `attr(, "null")`. Permutation `b` seeds its
   worker with `seed + b`, so results are identical for any `n_cores`
-  (`parallel::mclapply()` on Unix; serial on Windows). Rewired networks are unweighted (`threshold = 1`,
-  `store_threshold = 1`), so only membership-based consumers are valid
-  downstream. Requires sparse networks (`as_sparse_network()`).
+  (`parallel::mclapply()` on Unix; serial on Windows). Rewired networks
+  are unweighted (`threshold = 1`, `store_threshold = 1`), so only
+  membership-based consumers are valid downstream. Requires sparse
+  networks (`as_sparse_network()`).
 
 ## Validation and documentation
 

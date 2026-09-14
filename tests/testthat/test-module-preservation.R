@@ -1778,39 +1778,84 @@ test_that("copy_null_skipped reports no_multi_copy on a 1:1 map", {
     n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
     copy_draws = 5L, seed = 1
   ))
-  # fx$ortho is strictly 1:1, so no gene2 has a choice of partner.
-  if (!is.null(res$sensitivity)) {
-    expect_equal(attr(res$sensitivity, "n_multi_copy"), 0L)
-    expect_equal(
-      attr(res$sensitivity, "copy_null_skipped"),
-      "no_multi_copy"
-    )
-    expect_false("p_copy.avg.weight" %in% names(res$sensitivity))
-  }
+  # fx$ortho is strictly 1:1, so no gene2 has a choice of partner. Both
+  # 'orthologs' and 'map' are supplied, so this is not the "nothing to
+  # compare" skip covered above -- sensitivity must always run here, and
+  # branching on `!is.null(res$sensitivity)` would let a regression that
+  # made it NULL pass silently with zero expectations.
+  expect_false(is.null(res$sensitivity))
+  expect_equal(attr(res$sensitivity, "n_multi_copy"), 0L)
+  expect_equal(
+    attr(res$sensitivity, "copy_null_skipped"),
+    "no_multi_copy"
+  )
+  expect_false("p_copy.avg.weight" %in% names(res$sensitivity))
 })
 
 
 test_that("a partial copy-draw failure is reported, not absorbed", {
   # p_copy was ranked against however many draws survived, with only the
-  # n_copy_draws attribute recording it. Drive some draws to fail by
-  # setting min_module_size where a copy choice can push a module under
-  # it, and assert the count is visible.
+  # n_copy_draws attribute recording it. Mocking the nested
+  # module_preservation() call lets exactly some draws fail
+  # deterministically, so the reported count is pinned to neither
+  # extreme (all succeed / all fail) -- the shape a regression that
+  # absorbed failures into "all succeeded" or "none succeeded" would
+  # still pass under.
   fx <- pres_fixture()
   tm <- true_modules(fx$netA, fx$mods)
   amb <- ambiguous_fixture(fx)
-  res <- suppressWarnings(module_preservation(
-    tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques,
-    sp_ref = "A", sp_test = "B",
-    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
-    copy_draws = 5L, seed = 1
-  ))
-  n_used <- attr(res$sensitivity, "n_copy_draws")
-  # Whatever the outcome, the number of draws p_copy was ranked against
-  # must be recorded, and must not exceed what was asked for.
-  if ("p_copy.avg.weight" %in% names(res$sensitivity)) {
-    expect_true(is.numeric(n_used))
-    expect_lte(n_used, 5L)
-    expect_gt(n_used, 0L)
+  naive_map <- resolve_ortholog_map(
+    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  map <- resolve_ortholog_map(
+    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network),
+    cliques = amb$cliques, sp1 = "A", sp2 = "B"
+  )
+  out <- module_preservation(
+    tm, fx$netA, fx$netB, amb$ortho, map = map,
+    n_perm = 20L, min_module_size = 3L, sensitivity = FALSE, seed = 1
+  )
+  projected <- unique(out$projection$gene2)
+
+  call_n <- 0L
+  fake_pres <- function(...) {
+    call_n <<- call_n + 1L
+    # 2 of 5 draws fail: neither "all succeed" nor "all fail" could
+    # produce n_draws == 3 out of a requested 5.
+    if (call_n %in% c(2L, 4L)) stop("forced draw failure")
+    list(preservation = data.frame(
+      module = as.character(seq_len(fx$n_mod)),
+      avg.weight = stats::runif(fx$n_mod),
+      cor.degree = stats::runif(fx$n_mod)
+    ))
   }
+
+  # expect_warning() would return the caught condition, not
+  # .pres_copy_null()'s result, so capture the warning text separately
+  # and keep cn as the actual return value.
+  seen_warnings <- character(0)
+  cn <- withCallingHandlers(
+    testthat::with_mocked_bindings(
+      rcomplex:::.pres_copy_null(
+        out$preservation, tm, fx$netA, fx$netB, naive_map, projected,
+        n_draws = 5L, min_module_size = 3L, binary = FALSE
+      ),
+      module_preservation = fake_pres, .package = "rcomplex"
+    ),
+    warning = function(w) {
+      seen_warnings <<- c(seen_warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_true(any(grepl(
+    "2 of 5 copy-choice draws failed", seen_warnings, fixed = TRUE
+  )))
+
+  expect_equal(cn$n_multi, 10L)
+  expect_equal(cn$n_draws, 3L)
+  expect_true(is.numeric(cn$n_draws))
+  expect_lt(cn$n_draws, 5L)
+  expect_gt(cn$n_draws, 0L)
+  expect_true(is.numeric(cn$p_copy.avg.weight))
+  expect_true(is.numeric(cn$p_copy.cor.degree))
 })

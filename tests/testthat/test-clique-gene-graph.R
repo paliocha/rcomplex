@@ -1078,7 +1078,7 @@ test_that("near-tied mean_q is counted as tied at both call sites", {
   mq <- sort(unique(cl$mean_q))
   expect_equal(length(mq), 2L)
   expect_gt(diff(mq), 0)
-  expect_lt(diff(mq), sqrt(.Machine$double.eps) * abs(mq[1L]))
+  expect_lt(diff(mq), rcomplex:::.tie_tol() * abs(mq[1L]))
   # Exact equality would report 1; the two mean_q differ only in the last
   # bits, so both cliques sit at the floor.
   expect_equal(attr(cl, "n_cliques_at_q_floor"), 2L)
@@ -1112,12 +1112,15 @@ test_that("a row-filtered clique table is accepted, not called a merge", {
   ))
 
   # The regression was reported through classify_gene_cliques(), so pin
-  # that path too and not only the internal check.
+  # that path too and not only the internal check. n_members must be
+  # recomputed from the surviving rows (2), not carried over from the
+  # stale declared value on the untrimmed table (3).
   e_sub <- e[e$species1 != "SP_C" & e$species2 != "SP_C", , drop = FALSE]
-  expect_silent(suppressMessages(classify_gene_cliques(
+  res <- suppressMessages(classify_gene_cliques(
     trimmed, e_sub, c("SP_A", "SP_B"), alpha_call = 0.9,
     alpha_graph = 0.9
-  )))
+  ))
+  expect_identical(unique(res$n_members), 2L)
 
   # More rows than declared is still refused: that is a real merge.
   doubled <- rbind(cl, cl)

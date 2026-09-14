@@ -1072,7 +1072,11 @@ test_that("all three saturation counts match pvalue_resolution exactly", {
   # drifted apart; it now lives once in .tie_tol(). Pin the agreement
   # itself rather than the constant, so a future divergence fails here.
   eps <- .Machine$double.eps
-  q <- c(0.001, 0.5, 1, 1 - 1e-17, 0.001 * (1 + eps))
+  q <- c(0.001, 0.5, 1, 1 - eps / 2, 0.001 * (1 + eps))
+  # 1 - eps / 2 must actually be the near-1 case this test is named for:
+  # distinct from 1 as a double, and within the tolerance pulling it in.
+  expect_false(q[4] == 1)
+  expect_gte(q[4], 1 - sqrt(eps))
   sp <- c("A", "B", "C", "D")
   grp <- c(A = "x", B = "y", C = "x", D = "y")
   pr <- rcomplex::all_species_pairs(sp)
@@ -1091,5 +1095,5 @@ test_that("all three saturation counts match pvalue_resolution exactly", {
   # out of n_at_one by a two-sided window.
   cls$q.value[5] <- 1.0000001
   bad <- suppressWarnings(preservation_matrix_test(cls, group = grp))
-  expect_gte(bad$saturation$n_at_one, 3L)
+  expect_identical(bad$saturation$n_at_one, 3L)
 })

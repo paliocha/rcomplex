@@ -543,13 +543,42 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
       "under every labelling and the p-value is 1 by construction"
     )
   }
-  # The message belongs after the guard, or a design that is about to
-  # error first announces a threshold it will never use.
+  # n_supplying <= n_contributing always (a contrast can only supply once
+  # it already counts as contributing), so this catches the case the
+  # n_contributing guard above cannot see: a fixed min_recurrence of 2
+  # (the floor, or a user-supplied value) with 0 or 1 contrasts able to
+  # supply a HOG under the OBSERVED labelling. The observed statistic is
+  # then 0 by construction, even though min_recurrence <= n_contributing
+  # lets some relabellings -- ones that put more diverged sides on the
+  # target group -- score above 0. A warning, not a stop: unlike the
+  # n_contributing case this is not impossible under every labelling, so
+  # the p-value is not 1 by construction, only unreachably close to it
+  # for a design that cannot beat its own observed count of 0.
+  if (min_recurrence > n_supplying) {
+    warning(
+      "min_recurrence (", min_recurrence, ") exceeds the number of ",
+      "contrasts able to supply a HOG under the observed labelling (",
+      "n_supplying = ", n_supplying, "): the observed statistic is 0 ",
+      "by construction, though some relabellings may still score above ",
+      "0. Pass min_recurrence explicitly to lower it if that is not ",
+      "intended."
+    )
+  }
+  # The message belongs after the guards, or a design that is about to
+  # error or warn first announces a threshold it will never use.
   if (is.null(min_recurrence_in) && n_supplying > 0L) {
+    floored <- min_recurrence == 2L && ceiling(n_supplying / 2) < 2L
     message(
-      "min_recurrence = ", min_recurrence, " (half of ",
-      n_supplying, " contrast(s) able to supply a HOG); pass it ",
-      "explicitly to override"
+      "min_recurrence = ", min_recurrence,
+      if (floored) {
+        paste0(" (floor of 2; half of ", n_supplying,
+               " contrast(s) able to supply a HOG would round up to ",
+               "less than that)")
+      } else {
+        paste0(" (half of ", n_supplying,
+               " contrast(s) able to supply a HOG, rounded up)")
+      },
+      "; pass it explicitly to override"
     )
   }
 
@@ -745,9 +774,16 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     p_min <- 1 / (n_draw + 1L)
     # Ties bind here too. Setting this to p_min unconditionally meant
     # lowering enum_max to cap runtime silently switched the whole tie
-    # diagnostic off, even with most draws sharing the maximum.
-    p_attainable <- (sum(null_dist >= max(null_dist) - tol) + 1L) /
-      (n_draw + 1L)
+    # diagnostic off, even with most draws sharing the maximum. Unlike
+    # the exact branch, obs is not necessarily among the draws here, so
+    # ranking ties against max(null_dist) alone can put p_attainable
+    # above p_value when obs beats every draw (p_value then collapses to
+    # p_min while p_attainable still carries the draws' own tied tail).
+    # Including obs in the max keeps p_value >= p_attainable: it reduces
+    # to the max(null_dist) form whenever a draw ties or beats obs, and
+    # to p_min exactly when obs is the unique maximum.
+    p_attainable <- (sum(null_dist >= max(max(null_dist), obs) - tol) +
+                       1L) / (n_draw + 1L)
   }
 
   p_floor <- max(p_min, p_attainable)
@@ -779,14 +815,22 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
         n_draw, " labellings"
       )
     } else {
-      paste0("a sampled null of ", n_draw, " draws")
+      # The pinned-contrast diagnostic is the reason a design has fewer
+      # independent groups than contrasts; dropping it here (as k and
+      # n_contributing were) left the sampled warning silent about a
+      # structural cause the exact branch would have named.
+      paste0(
+        "a sampled null of ", n_draw, " draws over ", k,
+        " independent contrast group(s)", extra, " and ",
+        n_contributing, " contributing contrast(s)"
+      )
     }
     remedy <- character(0)
     if (too_few) {
       remedy <- c(remedy, if (exact) {
         "at least 5 independent contrast groups are needed"
       } else {
-        paste0("n_perm must be at least 20 (it is ", n_perm, ")")
+        paste0("n_perm must be at least 19 (it is ", n_perm, ")")
       })
     }
     if (tied) {

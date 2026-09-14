@@ -92,6 +92,12 @@
 #'   \code{1L} before 0.3.0, which pinned the null of every default call
 #'   while leaving the observed statistic free to drift, and hid the
 #'   Monte Carlo error entirely.
+#'
+#'   Two seeds exactly \code{2^31 - 1} apart (both legal, since a seed may
+#'   lie anywhere in \code{+/- .Machine$integer.max}) give every rewiring
+#'   permutation the same seed, so the null is identical for the two runs
+#'   even though the observed statistic is not: see the aliasing note under
+#'   \code{.task_seed()}.
 #' @param ... Passed unchanged to \code{\link{find_coexpressologs}} for
 #'   both the observed and every null run (\code{species_pairs},
 #'   \code{method}, \code{alternative}, \code{alpha},
@@ -348,15 +354,16 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   p_emp_hi[lt] <- stats::qbeta(0.975, n_ge[lt] + 1L, n_perm - n_ge[lt])
 
   # Two mutually exclusive ways this n_perm cannot support the call it is
-  # being asked to make: below 19 permutations no p_emp can reach 0.05 at
-  # all, and above it a p_emp under 0.05 whose interval still covers 0.05
-  # is a call the next seed may not repeat.
-  if (1 / (n_perm + 1) > 0.05) {
+  # being asked to make: at or below 19 permutations the smallest
+  # attainable p_emp, 1 / (n_perm + 1), is 0.05 or larger and so can never
+  # be < 0.05, and above that a p_emp under 0.05 whose interval still
+  # covers 0.05 is a call the next seed may not repeat.
+  if (1 / (n_perm + 1) >= 0.05) {
     warning(
       "the edge-swap null over ", n_perm,
       " permutations has a smallest attainable p-value of ",
       signif(1 / (n_perm + 1), 3),
-      ", so p < 0.05 is unreachable for any signal (use n_perm >= 19)"
+      ", so p < 0.05 is unreachable for any signal (use n_perm >= 20)"
     )
   } else {
     weak <- !is.na(p_emp) & !is.na(p_emp_hi) &

@@ -177,6 +177,16 @@
 #'   are `<prefix><hog>_<k>`, so runs at different `alpha_graph` values
 #'   need distinct prefixes before they can be row-bound.
 #'
+#' @section rcomplex container:
+#' The `.rcomplex` method builds the graph from `x$edges`, which in the
+#' container workflow is usually the permutation table
+#' ([find_coexpressologs()] with `method = "permutation"`). Its
+#' Besag-Clifford q-values top out well below 1 (0.4 on the package's own
+#' worked example), so a permissive `alpha_graph` set to relax against
+#' that ceiling can end up with nothing to relax against. The `.rcomplex`
+#' method warns when `alpha_graph` exceeds the largest `q.value` in
+#' `x$edges`.
+#'
 #' @return A data frame with one row per clique member:
 #'   \describe{
 #'     \item{clique_id}{Clique identifier, unique within the run}
@@ -225,6 +235,7 @@ gene_clique_graph <- function(edges, ...) UseMethod("gene_clique_graph")
 gene_clique_graph.default <- function(edges, min_size = 3L,
                                       alpha_graph = 0.1,
                                       id_prefix = "", ...) {
+  rlang::check_dots_empty()
   required <- c(
     "gene1", "gene2", "species1", "species2", "hog",
     "q.value"
@@ -518,6 +529,15 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   the generalisation of the published cut; the original six-species
 #'   script used a looser hard-coded 6.
 #'
+#' @section rcomplex container:
+#' The `.rcomplex` method calls with `edges = x$edges`, which in the
+#' container workflow is usually the permutation table
+#' ([find_coexpressologs()] with `method = "permutation"`). Its
+#' Besag-Clifford q-values top out well below 1 (0.4 on the package's own
+#' worked example), so the default `alpha_graph = 0.9` has nothing to
+#' relax against there. The `.rcomplex` method warns when `alpha_graph`
+#' exceeds the largest `q.value` in `x$edges`.
+#'
 #' @return A data frame with one row per clique:
 #'   \describe{
 #'     \item{clique_id, hog}{Clique identity}
@@ -577,6 +597,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
                                           lineage = NULL, alpha_call = 0.1,
                                           alpha_graph = 0.9, max_gap = 1L,
                                           cross_max = NULL, ...) {
+  rlang::check_dots_empty()
   need_cl <- c("clique_id", "hog", "species", "gene")
   absent <- setdiff(need_cl, names(cliques))
   if (length(absent) > 0L) {

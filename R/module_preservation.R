@@ -167,9 +167,10 @@
 #'       `Z.avg.weight`, `Z.cor.degree`, `Zsummary`, `Zsummary_null_sd`,
 #'       `Zsummary_std`, and `medianRank` -- the mean of the `avg.weight`
 #'       and `cor.degree` ranks across the tested modules, 1 = strongest.
-#'       No permutation moments enter it, so unlike `Zsummary` it carries no
-#'       module-size dependence; it is a rank *within one run* and so is not
-#'       comparable between runs that tested different numbers of modules.
+#'       No permutation moments enter it, so it avoids the null-sd
+#'       module-size dependence of `Zsummary` -- it is a rank *within one
+#'       run* and so is not comparable between runs that tested different
+#'       numbers of modules.
 #'       [classify_preservation()] carries it through.}
 #'     \item{observed}{All six statistics per module, with permutation means
 #'       and standard deviations, plus `n_perm.<stat>` -- the number of

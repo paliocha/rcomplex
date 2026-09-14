@@ -130,9 +130,10 @@ mixture recalibration described under \code{calibrate}), \code{q.value}
 \code{Z.avg.weight}, \code{Z.cor.degree}, \code{Zsummary}, \code{Zsummary_null_sd},
 \code{Zsummary_std}, and \code{medianRank} -- the mean of the \code{avg.weight}
 and \code{cor.degree} ranks across the tested modules, 1 = strongest.
-No permutation moments enter it, so unlike \code{Zsummary} it carries no
-module-size dependence; it is a rank \emph{within one run} and so is not
-comparable between runs that tested different numbers of modules.
+No permutation moments enter it, so it avoids the null-sd
+module-size dependence of \code{Zsummary} -- it is a rank \emph{within one
+run} and so is not comparable between runs that tested different
+numbers of modules.
 \code{\link[=classify_preservation]{classify_preservation()}} carries it through.}
 \item{observed}{All six statistics per module, with permutation means
 and standard deviations, plus \verb{n_perm.<stat>} -- the number of

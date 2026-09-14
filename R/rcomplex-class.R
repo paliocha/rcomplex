@@ -525,11 +525,29 @@ clique_intensity_test.rcomplex <- function(cliques, ...) {
 }
 
 
+#' @rdname gene_clique_graph
 #' @export
 gene_clique_graph.rcomplex <- function(edges, ...) {
   x <- edges
   if (is.null(x$edges)) {
     stop("run find_coexpressologs() first")
+  }
+  dots <- list(...)
+  alpha_graph_eff <- dots$alpha_graph
+  if (is.null(alpha_graph_eff)) {
+    alpha_graph_eff <- formals(gene_clique_graph.default)$alpha_graph
+  }
+  max_q <- suppressWarnings(max(x$edges$q.value, na.rm = TRUE))
+  if (is.finite(max_q) && max_q < alpha_graph_eff) {
+    warning(
+      "alpha_graph (", alpha_graph_eff, ") exceeds the largest q.value ",
+      "in x$edges (", signif(max_q, 3), "); every edge already clears ",
+      "the threshold, so alpha_graph has nothing to relax against. ",
+      "This is expected for Besag-Clifford permutation q-values, which ",
+      "top out well below 1 -- check x$edges$q.value's range before ",
+      "relying on alpha_graph to distinguish tiers.",
+      call. = FALSE
+    )
   }
   x$gene_cliques <- gene_clique_graph.default(x$edges, ...)
   x
@@ -540,6 +558,7 @@ gene_clique_graph.rcomplex <- function(edges, ...) {
 # cliques were built on: the gap tier has to see pairs that were tested
 # and failed. x$edges is that table -- find_coexpressologs() keeps the
 # non-significant rows and marks them type == "ns".
+#' @rdname classify_gene_cliques
 #' @export
 classify_gene_cliques.rcomplex <- function(cliques, ...) {
   x <- cliques
@@ -558,6 +577,22 @@ classify_gene_cliques.rcomplex <- function(cliques, ...) {
   dots <- list(...)
   if (!("lineage" %in% names(dots))) {
     dots$lineage <- x$traits
+  }
+  alpha_graph_eff <- dots$alpha_graph
+  if (is.null(alpha_graph_eff)) {
+    alpha_graph_eff <- formals(classify_gene_cliques.default)$alpha_graph
+  }
+  max_q <- suppressWarnings(max(x$edges$q.value, na.rm = TRUE))
+  if (is.finite(max_q) && max_q < alpha_graph_eff) {
+    warning(
+      "alpha_graph (", alpha_graph_eff, ") exceeds the largest q.value ",
+      "in x$edges (", signif(max_q, 3), "); every edge already clears ",
+      "the threshold, so alpha_graph has nothing to relax against. ",
+      "This is expected for Besag-Clifford permutation q-values, which ",
+      "top out well below 1 -- check x$edges$q.value's range before ",
+      "relying on alpha_graph to distinguish tiers.",
+      call. = FALSE
+    )
   }
   x$gene_classification <- do.call(
     classify_gene_cliques.default,
