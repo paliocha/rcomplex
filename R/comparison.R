@@ -361,11 +361,25 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 #'   the original ComPlEx) or \code{"min"} (permissive; either direction,
 #'   denser edge supply for \code{\link{find_cliques}}).
+#' @param out_file Optional path to a CSV file. When supplied, each
+#'   species pair's edge table is appended to \code{out_file} via
+#'   \code{\link[data.table]{fwrite}} as soon as it is computed, instead
+#'   of being accumulated in memory and combined with \code{rbind()} at
+#'   the end. This keeps peak memory bounded by one pair's edge table
+#'   rather than the whole run, which matters for many species / dense
+#'   networks. Any existing file at \code{out_file} is overwritten (not
+#'   appended to) at the start of the call. When \code{out_file} is used,
+#'   this function returns \code{out_file} (invisibly) instead of a data
+#'   frame; read the result back with e.g.
+#'   \code{data.table::fread(out_file)}. Default \code{NULL} keeps the
+#'   original in-memory behaviour.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
 #'   \code{effect_size}, \code{jaccard}, \code{type}. Ready for
-#'   \code{\link{find_cliques}} or \code{\link{classify_cliques}}.
+#'   \code{\link{find_cliques}} or \code{\link{classify_cliques}}. When
+#'   \code{out_file} is supplied, the edge table is streamed to that file
+#'   instead, and \code{out_file} is returned (invisibly).
 #'
 #' @examples
 #' \dontrun{
@@ -382,6 +396,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' edges <- find_coexpressologs(networks, orthologs,
 #'   method = "permutation", use_torch = TRUE, n_cores = 4L
 #' )
+#'
+#' # Stream edges to disk instead of holding every pair in memory
+#' find_coexpressologs(networks, orthologs, out_file = "edges.csv")
+#' edges <- data.table::fread("edges.csv")
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -402,7 +420,8 @@ find_coexpressologs.default <- function(
   max_permutations = 10000L,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
-  seed = NULL, ...
+  seed = NULL,
+  out_file = NULL, ...
 ) {
   method <- match.arg(method)
   alternative <- match.arg(alternative)
@@ -429,6 +448,19 @@ find_coexpressologs.default <- function(
     species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
   }
 
+  streaming <- !is.null(out_file)
+  if (streaming) {
+    if (!is.character(out_file) || length(out_file) != 1L ||
+          is.na(out_file) || !nzchar(out_file)) {
+      stop("out_file must be a single non-empty file path")
+    }
+    # Overwrite, not append: a stale file from a previous run must not
+    # silently mix with this one's edges.
+    if (file.exists(out_file)) {
+      file.remove(out_file)
+    }
+  }
+
   empty_result <- data.frame(
     gene1 = character(0), gene2 = character(0),
     species1 = character(0), species2 = character(0),
@@ -439,8 +471,11 @@ find_coexpressologs.default <- function(
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   n_pairs <- length(species_pairs)
-  pair_edges <- vector("list", n_pairs)
+  # Streaming mode never holds more than one pair's edge table at a time;
+  # non-streaming mode keeps the original in-memory accumulation.
+  pair_edges <- if (streaming) NULL else vector("list", n_pairs)
   idx <- 0L
+  n_ok <- 0L
 
   for (pair in species_pairs) {
     sp_a <- pair[1]
@@ -526,10 +561,25 @@ find_coexpressologs.default <- function(
       )
     }
 
-    idx <- idx + 1L
-    pair_edges[[idx]] <- edges_df
+    n_ok <- n_ok + 1L
+    if (streaming) {
+      # append = TRUE writes the header on the first (non-existent-file)
+      # call and appends thereafter, so no separate "first write" branch
+      # is needed; nThread mirrors the n_cores used for the comparisons.
+      data.table::fwrite(edges_df, out_file,
+                         append = TRUE, nThread = n_cores)
+    } else {
+      idx <- idx + 1L
+      pair_edges[[idx]] <- edges_df
+    }
   }
 
+  if (streaming) {
+    if (n_ok == 0L) {
+      return(empty_result)
+    }
+    return(invisible(out_file))
+  }
   if (idx == 0L) {
     return(empty_result)
   }

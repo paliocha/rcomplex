@@ -780,6 +780,74 @@ test_that("find_coexpressologs alternative='less' produces 'diverged' labels", {
 })
 
 
+test_that("find_coexpressologs(out_file = ) streams edges identical to in-memory", {
+  skip_on_cran()
+  fix <- make_coexpr_fixtures()
+  out <- withr::local_tempfile(fileext = ".csv")
+
+  set.seed(1)
+  in_memory <- find_coexpressologs(fix$nets, fix$ortho, method = "analytical")
+
+  set.seed(1)
+  ret <- find_coexpressologs(fix$nets, fix$ortho,
+    method = "analytical", out_file = out
+  )
+
+  expect_identical(ret, out)
+  expect_true(file.exists(out))
+  from_file <- as.data.frame(data.table::fread(out))
+  # fread() infers types from text; compare on values, not attributes
+  expect_equal(from_file, in_memory, ignore_attr = TRUE)
+})
+
+
+test_that("find_coexpressologs(out_file = ) overwrites a stale file", {
+  skip_on_cran()
+  fix <- make_coexpr_fixtures()
+  out <- withr::local_tempfile(fileext = ".csv")
+  writeLines("stale,content", out)
+
+  find_coexpressologs(fix$nets, fix$ortho,
+    method = "analytical", out_file = out
+  )
+  from_file <- data.table::fread(out)
+  expect_false("stale" %in% names(from_file))
+  expect_true(all(c("gene1", "gene2", "q.value") %in% names(from_file)))
+})
+
+
+test_that("find_coexpressologs(out_file = ) validates its argument", {
+  fix <- make_coexpr_fixtures()
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho, out_file = character(0)),
+    "out_file must be"
+  )
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho, out_file = c("a", "b")),
+    "out_file must be"
+  )
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho, out_file = NA_character_),
+    "out_file must be"
+  )
+})
+
+
+test_that("find_coexpressologs(out_file = ) returns empty_result when no pair succeeds", {
+  fix <- make_coexpr_fixtures()
+  out <- withr::local_tempfile(fileext = ".csv")
+  # An ortholog table with no rows means no pair produces edges
+  empty_ortho <- fix$ortho[0, ]
+
+  result <- suppressWarnings(
+    find_coexpressologs(fix$nets, empty_ortho, out_file = out)
+  )
+  expect_true(is.data.frame(result))
+  expect_equal(nrow(result), 0)
+  expect_false(file.exists(out))
+})
+
+
 # --- Tests for density_sweep() ---
 
 test_that("density_sweep returns correct structure", {

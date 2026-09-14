@@ -22,6 +22,7 @@ find_coexpressologs(networks, ...)
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   seed = NULL,
+  out_file = NULL,
   ...
 )
 
@@ -94,12 +95,27 @@ A seeded call draws from a private stream and restores the caller's
 on exit; with \code{seed = NULL} the draws come from the ambient
 stream and leave it advanced. Same contract as
 \code{\link{detect_modules}} and \code{\link{summarize_comparison}}.}
+
+\item{out_file}{Optional path to a CSV file. When supplied, each
+species pair's edge table is appended to \code{out_file} via
+\code{\link[data.table]{fwrite}} as soon as it is computed, instead
+of being accumulated in memory and combined with \code{rbind()} at
+the end. This keeps peak memory bounded by one pair's edge table
+rather than the whole run, which matters for many species / dense
+networks. Any existing file at \code{out_file} is overwritten (not
+appended to) at the start of the call. When \code{out_file} is used,
+this function returns \code{out_file} (invisibly) instead of a data
+frame; read the result back with e.g.
+\code{data.table::fread(out_file)}. Default \code{NULL} keeps the
+original in-memory behaviour.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2}, \code{hog}, \code{q.value},
 \code{effect_size}, \code{jaccard}, \code{type}. Ready for
-\code{\link{find_cliques}} or \code{\link{classify_cliques}}.
+\code{\link{find_cliques}} or \code{\link{classify_cliques}}. When
+\code{out_file} is supplied, the edge table is streamed to that file
+instead, and \code{out_file} is returned (invisibly).
 }
 \description{
 Runs the full comparison pipeline for each species pair and combines
@@ -145,6 +161,10 @@ edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 edges <- find_coexpressologs(networks, orthologs,
   method = "permutation", use_torch = TRUE, n_cores = 4L
 )
+
+# Stream edges to disk instead of holding every pair in memory
+find_coexpressologs(networks, orthologs, out_file = "edges.csv")
+edges <- data.table::fread("edges.csv")
 }
 
 }
