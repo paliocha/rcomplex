@@ -25,6 +25,8 @@ coexpressolog_strength(networks, ...)
 \item{networks}{Named list of network objects (output of
 \code{\link[=compute_network]{compute_network()}}), keyed by species.}
 
+\item{...}{Passed to methods.}
+
 \item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, \code{hog}
 (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
 

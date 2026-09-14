@@ -468,6 +468,8 @@
 #' head(res$strength[order(-res$strength$strength), ])
 #' }
 #'
+#' @param ... Passed to methods.
+#'
 #' @seealso [suggest_reference_density()] for a data-driven
 #'   `reference_density`; [density_sweep()] for the pair/HOG-level q-value
 #'   threshold sweep this complements.

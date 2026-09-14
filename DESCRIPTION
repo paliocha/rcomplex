@@ -23,6 +23,7 @@ Imports:
     collapse,
     data.table,
     igraph,
+    kit,
     Matrix (>= 1.5-0),
     DiscreteQvalue,
     qvalue,
@@ -39,6 +40,7 @@ URL: https://paliocha.github.io/rcomplex/,
 BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
     DT,
+    dplyr,
     knitr,
     purrr (>= 1.0.0),
     rmarkdown,
