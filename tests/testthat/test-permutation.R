@@ -56,9 +56,11 @@ test_that("permutation_hog_test returns correct structure", {
   )
 
   expect_s3_class(result, "data.frame")
-  expect_named(result, c("hog", "n_pairs", "n_sp1", "n_sp2",
-                         "T_obs", "n_perm", "n_exceed", "mean_eff",
-                         "p.value", "q.value"))
+  expect_named(result, c(
+    "hog", "n_pairs", "n_sp1", "n_sp2",
+    "T_obs", "n_perm", "n_exceed", "mean_eff",
+    "p.value", "q.value"
+  ))
   n_hogs <- length(unique(td$comparison$hog))
   expect_equal(nrow(result), n_hogs)
 })
@@ -164,9 +166,11 @@ test_that("empty comparison handled gracefully", {
 
   result <- permutation_hog_test(td$net1, td$net2, empty)
   expect_equal(nrow(result), 0)
-  expect_named(result, c("hog", "n_pairs", "n_sp1", "n_sp2",
-                         "T_obs", "n_perm", "n_exceed", "mean_eff",
-                         "p.value", "q.value"))
+  expect_named(result, c(
+    "hog", "n_pairs", "n_sp1", "n_sp2",
+    "T_obs", "n_perm", "n_exceed", "mean_eff",
+    "p.value", "q.value"
+  ))
 })
 
 
@@ -258,12 +262,15 @@ test_that("effect sizes are computed correctly", {
 # ---- torch backend tests ----
 
 test_that("use_torch errors when torch not installed", {
-  skip_if(requireNamespace("torch", quietly = TRUE),
-          "torch is installed — cannot test missing-package error")
+  skip_if(
+    requireNamespace("torch", quietly = TRUE),
+    "torch is installed — cannot test missing-package error"
+  )
   td <- make_test_nets()
   expect_error(
     permutation_hog_test(td$net1, td$net2, td$comparison,
-                         use_torch = TRUE),
+      use_torch = TRUE
+    ),
     "requires the torch package"
   )
 })
@@ -271,8 +278,16 @@ test_that("use_torch errors when torch not installed", {
 
 test_that("torch backend T_obs matches bit-vector backend", {
   skip_if_not_installed("torch")
-  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
-              "torch backend (Lantern) not available")
+  skip_if_not(
+    tryCatch(
+      {
+        torch::torch_tensor(1)
+        TRUE
+      },
+      error = function(e) FALSE
+    ),
+    "torch backend (Lantern) not available"
+  )
   td <- make_test_nets()
 
   set.seed(42)
@@ -291,14 +306,23 @@ test_that("torch backend T_obs matches bit-vector backend", {
   bv_order <- order(result_bv$hog)
   fe_order <- order(result_fe$hog)
   expect_equal(result_fe$T_obs[fe_order], result_bv$T_obs[bv_order],
-               tolerance = 1e-5)
+    tolerance = 1e-5
+  )
 })
 
 
 test_that("torch backend conserved vs non-conserved HOGs", {
   skip_if_not_installed("torch")
-  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
-              "torch backend (Lantern) not available")
+  skip_if_not(
+    tryCatch(
+      {
+        torch::torch_tensor(1)
+        TRUE
+      },
+      error = function(e) FALSE
+    ),
+    "torch backend (Lantern) not available"
+  )
   td <- make_test_nets()
 
   set.seed(42)
@@ -319,8 +343,16 @@ test_that("torch backend conserved vs non-conserved HOGs", {
 
 test_that("torch backend p-value formula is correct", {
   skip_if_not_installed("torch")
-  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
-              "torch backend (Lantern) not available")
+  skip_if_not(
+    tryCatch(
+      {
+        torch::torch_tensor(1)
+        TRUE
+      },
+      error = function(e) FALSE
+    ),
+    "torch backend (Lantern) not available"
+  )
   td <- make_test_nets()
 
   set.seed(42)
@@ -359,12 +391,14 @@ test_that("sparse permutation_hog_test equals dense (seeded)", {
   # divergence direction too
   set.seed(7)
   res_d <- permutation_hog_test(
-    td$net1, td$net2, td$comparison, alternative = "less",
+    td$net1, td$net2, td$comparison,
+    alternative = "less",
     max_permutations = 200L, min_exceedances = 10L
   )
   set.seed(7)
   res_s <- permutation_hog_test(
-    net1_s, net2_s, td$comparison, alternative = "less",
+    net1_s, net2_s, td$comparison,
+    alternative = "less",
     max_permutations = 200L, min_exceedances = 10L
   )
   expect_equal(res_s, res_d)
@@ -424,8 +458,16 @@ test_that("permutation_hog_test rejects non-dgCMatrix Matrix classes", {
 
 test_that("torch backend accepts sparse networks and matches dense", {
   skip_if_not_installed("torch")
-  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
-              "torch backend (Lantern) not available")
+  skip_if_not(
+    tryCatch(
+      {
+        torch::torch_tensor(1)
+        TRUE
+      },
+      error = function(e) FALSE
+    ),
+    "torch backend (Lantern) not available"
+  )
   td <- make_test_nets()
   net1_s <- sparse_net(td$net1)
   net2_s <- sparse_net(td$net2)
@@ -453,8 +495,10 @@ test_that(".adj_edges gives identical edges for dense and sparse input", {
   # every non-zero entry stored, including the diagonal (10) and the tiers
   # below thr (7, 4): both the rows != cols and the @x >= thr filters bite
   ij <- which(m != 0, arr.ind = TRUE)
-  s <- Matrix::sparseMatrix(i = ij[, 1L], j = ij[, 2L], x = m[ij],
-                            dims = dim(m), dimnames = dimnames(m))
+  s <- Matrix::sparseMatrix(
+    i = ij[, 1L], j = ij[, 2L], x = m[ij],
+    dims = dim(m), dimnames = dimnames(m)
+  )
   expect_s4_class(s, "dgCMatrix")
   expect_equal(unname(Matrix::diag(s)), rep(10, n))
   expect_gt(sum(s@x < thr), 0L)
@@ -469,8 +513,10 @@ test_that(".adj_edges gives identical edges for dense and sparse input", {
   expect_gt(length(e_d$rows), 0L)
 
   # empty store
-  expect_equal(.adj_edges(dense_to_dgc(m, 100), thr),
-               list(rows = integer(0), cols = integer(0)))
+  expect_equal(
+    .adj_edges(dense_to_dgc(m, 100), thr),
+    list(rows = integer(0), cols = integer(0))
+  )
 })
 
 
@@ -489,8 +535,16 @@ test_that("permutation_hog_test rejects mixed dense/sparse inputs", {
 
 test_that("torch backend with tighter threshold: sparse equals dense", {
   skip_if_not_installed("torch")
-  skip_if_not(tryCatch({ torch::torch_tensor(1); TRUE }, error = function(e) FALSE),
-              "torch backend (Lantern) not available")
+  skip_if_not(
+    tryCatch(
+      {
+        torch::torch_tensor(1)
+        TRUE
+      },
+      error = function(e) FALSE
+    ),
+    "torch backend (Lantern) not available"
+  )
   td <- make_graded_nets()
   comparison <- compare_neighborhoods(td$net1, td$net2, td$ortho)
   thr <- 8
@@ -519,7 +573,8 @@ test_that("torch backend with tighter threshold: sparse equals dense", {
   expect_equal(res_ts, res_td)
   # and the torch statistic agrees with the C++ backend (float32 on MPS)
   expect_equal(res_ts$T_obs[order(res_ts$hog)], res_d$T_obs[order(res_d$hog)],
-               tolerance = 1e-5)
+    tolerance = 1e-5
+  )
   expect_gt(res_ts$T_obs[res_ts$hog == "HOG1"], 0)
 })
 
@@ -536,23 +591,29 @@ test_that("T_obs uses the self-excluded urn and matches the R oracle", {
 
   set.seed(3)
   res <- permutation_hog_test(td$net1, td$net2, td$comparison,
-                              max_permutations = 50L, min_exceedances = 5L)
+    max_permutations = 50L, min_exceedances = 5L
+  )
   t_hog1 <- res$T_obs[res$hog == "HOG1"]
-  expected <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
-                              td$ortho, sp1, sp2)
+  expected <- reference_T_obs(
+    td$net1$network, td$net2$network, 0.5, 0.5,
+    td$ortho, sp1, sp2
+  )
   expect_equal(t_hog1, expected, tolerance = 1e-12)
 
   # the exclusion is exercised: the pre-0.2.0 urn (k, N) gives a
   # different statistic
   old <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
-                         td$ortho, sp1, sp2, self_exclude = FALSE)
+    td$ortho, sp1, sp2,
+    self_exclude = FALSE
+  )
   expect_false(isTRUE(all.equal(t_hog1, old)))
 
   # sparse path identical
   set.seed(3)
   res_s <- permutation_hog_test(sparse_net(td$net1), sparse_net(td$net2),
-                                td$comparison,
-                                max_permutations = 50L, min_exceedances = 5L)
+    td$comparison,
+    max_permutations = 50L, min_exceedances = 5L
+  )
   expect_equal(res_s, res)
 })
 
@@ -577,7 +638,8 @@ test_that("forced flag-vector engine equals bit-vector engine (seeded)", {
   )
   set.seed(7)
   res_bv_less <- permutation_hog_test(
-    td$net1, td$net2, td$comparison, alternative = "less",
+    td$net1, td$net2, td$comparison,
+    alternative = "less",
     max_permutations = 500L, min_exceedances = 20L
   )
 
@@ -597,7 +659,8 @@ test_that("forced flag-vector engine equals bit-vector engine (seeded)", {
   set.seed(7)
   msgs <- capture.output(
     res_fl_less <- permutation_hog_test(
-      td$net1, td$net2, td$comparison, alternative = "less",
+      td$net1, td$net2, td$comparison,
+      alternative = "less",
       max_permutations = 500L, min_exceedances = 20L
     ),
     type = "message"
@@ -619,21 +682,25 @@ test_that("forced flag-vector T_obs matches the self-excluded R oracle", {
   set.seed(3)
   msgs <- capture.output(
     res <- permutation_hog_test(td$net1, td$net2, td$comparison,
-                                max_permutations = 50L,
-                                min_exceedances = 5L),
+      max_permutations = 50L,
+      min_exceedances = 5L
+    ),
     type = "message"
   )
   expect_true(any(grepl("flag-vector", msgs)))
 
   t_hog1 <- res$T_obs[res$hog == "HOG1"]
-  expected <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
-                              td$ortho, paste0("A", 1:3), paste0("B", 1:3))
+  expected <- reference_T_obs(
+    td$net1$network, td$net2$network, 0.5, 0.5,
+    td$ortho, paste0("A", 1:3), paste0("B", 1:3)
+  )
   expect_equal(t_hog1, expected, tolerance = 1e-12)
 
   # the exclusion is exercised: the pre-0.2.0 urn (k, N) differs
   old <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
-                         td$ortho, paste0("A", 1:3), paste0("B", 1:3),
-                         self_exclude = FALSE)
+    td$ortho, paste0("A", 1:3), paste0("B", 1:3),
+    self_exclude = FALSE
+  )
   expect_false(isTRUE(all.equal(t_hog1, old)))
 })
 

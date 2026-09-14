@@ -14,8 +14,19 @@
 encode_clique_edges <- function(edges, target_species) {
   sp_map <- stats::setNames(seq_along(target_species) - 1L, target_species)
 
-  all_genes <- unique(c(edges$gene1, edges$gene2))
-  gene_map <- stats::setNames(seq_along(all_genes) - 1L, all_genes)
+  # Gene identity is scoped by (species, gene), not gene name alone: gene
+  # identifiers are not guaranteed unique across species, so keying only on
+  # the raw name would collapse two different species' genes that happen to
+  # share a string into one graph vertex. `all_genes` stays a plain name
+  # vector for display (`enc$all_genes[idx + 1]`); `gene_key_map` is the
+  # species-scoped lookup used to build the integer index space itself.
+  gene_key1 <- paste(edges$species1, edges$gene1, sep = "\x02")
+  gene_key2 <- paste(edges$species2, edges$gene2, sep = "\x02")
+  all_gene_keys <- unique(c(gene_key1, gene_key2))
+  gene_key_map <- stats::setNames(
+    seq_along(all_gene_keys) - 1L, all_gene_keys
+  )
+  all_genes <- sub("^[^\x02]*\x02", "", all_gene_keys)
 
   unique_hogs <- unique(edges$hog)
   hog_map <- stats::setNames(
@@ -25,8 +36,8 @@ encode_clique_edges <- function(edges, target_species) {
 
   # Convert to 0-based integer vectors
   edge_hog <- as.integer(hog_map[as.character(edges$hog)])
-  edge_g1 <- as.integer(gene_map[edges$gene1])
-  edge_g2 <- as.integer(gene_map[edges$gene2])
+  edge_g1 <- as.integer(gene_key_map[gene_key1])
+  edge_g2 <- as.integer(gene_key_map[gene_key2])
   edge_sp1 <- as.integer(sp_map[edges$species1])
   edge_sp2 <- as.integer(sp_map[edges$species2])
 
@@ -43,7 +54,7 @@ encode_clique_edges <- function(edges, target_species) {
   edge_effect <- as.numeric(edges$effect_size[valid])
 
   list(
-    sp_map = sp_map, gene_map = gene_map, hog_map = hog_map,
+    sp_map = sp_map, gene_map = gene_key_map, hog_map = hog_map,
     all_genes = all_genes, unique_hogs = unique_hogs,
     edge_hog = edge_hog, edge_g1 = edge_g1, edge_g2 = edge_g2,
     edge_sp1 = edge_sp1, edge_sp2 = edge_sp2,
@@ -66,27 +77,29 @@ compute_clique_edge_stats <- function(cliques, edges, target_species) {
   coherence <- rep(NA_real_, n)
   min_eff <- rep(NA_real_, n)
 
-  # Build edge lookup keyed by hog + sorted gene pair
-  edge_key <- paste(edges$hog,
-    pmin(edges$gene1, edges$gene2),
-    pmax(edges$gene1, edges$gene2),
-    sep = "\x01"
-  )
+  # Build edge lookup keyed by hog + sorted (species, gene) pair. Gene
+  # identifiers are not guaranteed unique across species, so a key built
+  # from gene names alone could match an edge from an unrelated species
+  # pair that happens to share both gene strings; folding species into
+  # each endpoint before sorting keeps the pair (and its species) intact.
+  ek1 <- paste(edges$species1, edges$gene1, sep = "\x02")
+  ek2 <- paste(edges$species2, edges$gene2, sep = "\x02")
+  edge_key <- paste(edges$hog, pmin(ek1, ek2), pmax(ek1, ek2), sep = "\x01")
   edge_idx <- stats::setNames(seq_len(nrow(edges)), edge_key)
 
   for (i in seq_len(n)) {
     hog_i <- cliques$hog[i]
-    genes <- unlist(cliques[i, target_species, drop = TRUE], use.names = FALSE)
-    genes <- genes[!is.na(genes)]
+    row_vals <- cliques[i, target_species, drop = TRUE]
+    present <- !is.na(row_vals)
+    genes <- unlist(row_vals[present], use.names = FALSE)
+    gene_sp <- target_species[present]
     if (length(genes) < 2L) next
 
-    # All pairs of genes in this clique
-    pairs <- utils::combn(genes, 2L)
-    keys <- paste(hog_i,
-      pmin(pairs[1L, ], pairs[2L, ]),
-      pmax(pairs[1L, ], pairs[2L, ]),
-      sep = "\x01"
-    )
+    # All pairs of (species, gene) in this clique
+    pairs <- utils::combn(seq_along(genes), 2L)
+    k1 <- paste(gene_sp[pairs[1L, ]], genes[pairs[1L, ]], sep = "\x02")
+    k2 <- paste(gene_sp[pairs[2L, ]], genes[pairs[2L, ]], sep = "\x02")
+    keys <- paste(hog_i, pmin(k1, k2), pmax(k1, k2), sep = "\x01")
     matched <- edge_idx[keys]
     matched <- matched[!is.na(matched)]
     if (length(matched) == 0L) next
@@ -215,7 +228,7 @@ find_cliques.default <- function(edges, target_species,
     stop("cost_weights must be a named numeric vector of length 2")
   }
   if (is.null(names(cost_weights)) ||
-    !all(c("q", "effect") %in% names(cost_weights))) {
+        !all(c("q", "effect") %in% names(cost_weights))) {
     stop("cost_weights must have names 'q' and 'effect'")
   }
   if (any(cost_weights < 0)) {
@@ -531,7 +544,12 @@ clique_stability.default <- function(
       gnames <- full_cliques[[sp]]
       present <- !is.na(gnames)
       if (any(present)) {
-        fc_genes[present, j] <- as.integer(enc$gene_map[gnames[present]])
+        # gene_map is keyed by "species\x02gene" (see encode_clique_edges()):
+        # gene identifiers are not unique across species, so the lookup must
+        # be scoped by `sp`, not by the raw gene name alone.
+        fc_genes[present, j] <- as.integer(
+          enc$gene_map[paste(sp, gnames[present], sep = "\x02")]
+        )
       }
     }
   }
@@ -721,8 +739,12 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
   for (pair in utils::combn(target_species, 2, simplify = FALSE)) {
     sp_a <- pair[1]
     sp_b <- pair[2]
-    fwd <- edges[edges$species1 == sp_a & edges$species2 == sp_b, , drop = FALSE]
-    rev <- edges[edges$species1 == sp_b & edges$species2 == sp_a, , drop = FALSE]
+    fwd <- edges[
+      edges$species1 == sp_a & edges$species2 == sp_b, , drop = FALSE
+    ]
+    rev <- edges[
+      edges$species1 == sp_b & edges$species2 == sp_a, , drop = FALSE
+    ]
     gene_a <- c(fwd$gene1, rev$gene2)
     gene_b <- c(fwd$gene2, rev$gene1)
     if (length(gene_a) == 0L) next
@@ -1943,7 +1965,7 @@ classify_cliques.default <- function(
     within_group_hogs[[group]] <- unique(wg$hog)
   }
 
-  # --- Step 4: Differentiated (2+ groups with cliques, no cross-group conserved) ---
+  # --- Step 4: Differentiated (2+ groups w/ cliques, no cross-group) ---
   remaining <- setdiff(all_hogs, c(complete_hogs, partial_hogs))
 
   # Identify cross-group conserved edges
@@ -2011,7 +2033,9 @@ classify_cliques.default <- function(
 
   # Complete
   if (length(complete_hogs) > 0) {
-    info <- best_per_hog(all_cliques[is_complete, , drop = FALSE], complete_hogs)
+    info <- best_per_hog(
+      all_cliques[is_complete, , drop = FALSE], complete_hogs
+    )
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "complete",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
@@ -2110,7 +2134,7 @@ classify_cliques.default <- function(
   # --- Sweep annotation ---
   out$persistence <- NA_real_
   if (!is.null(sweep) && "persistence" %in% names(sweep) &&
-    nrow(sweep$persistence) > 0) {
+        nrow(sweep$persistence) > 0) {
     # Use formal birth/death persistence if available
     persist_df <- sweep$persistence
     # Best (max) persistence per HOG across clique indices
@@ -2137,7 +2161,7 @@ classify_cliques.default <- function(
   has_stab <- !is.null(stability$stability) && nrow(stability$stability) > 0
   has_sweep <- !is.null(sweep) &&
     (("persistence" %in% names(sweep) && nrow(sweep$persistence) > 0) ||
-      ("survival" %in% names(sweep) && nrow(sweep$survival) > 0))
+       ("survival" %in% names(sweep) && nrow(sweep$survival) > 0))
   if (has_stab || has_sweep) {
     stab_ok <- if (has_stab) {
       !is.na(out$stability_class) & out$stability_class >= min_stability_class

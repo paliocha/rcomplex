@@ -9,7 +9,7 @@
 #' @param edges Edge data frame from `find_coexpressologs()`.
 #' @return Named numeric vector.
 #' @noRd
-.coexpressolog_conserved_counts <- function(edges) {
+.coexpressolog_conserved_counts <- function(edges) {  # nolint
   if (is.null(edges) || nrow(edges) == 0L) {
     return(c(total = 0))
   }
@@ -258,7 +258,7 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   # one_perm() calls set.seed() in the caller's session on the serial path
   # (no fork), which is why the scope opened above covers the whole
   # function rather than the observed run alone.
-  use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
+  use_mc <- .can_fork(n_cores)
   if (use_mc) {
     null_list <- parallel::mclapply(seq_len(n_perm), one_perm,
       mc.cores = n_cores,

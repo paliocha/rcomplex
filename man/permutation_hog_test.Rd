@@ -62,7 +62,8 @@ due to adaptive stopping)}
 \item{n_exceed}{Number of permutation statistics exceeding T_obs}
 \item{mean_eff}{Mean geometric-mean effect size across pairs}
 \item{p.value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
-\item{q.value}{Discrete q-value (Liang, 2016) accounting for Besag-Clifford support}
+\item{q.value}{Discrete q-value (Liang, 2016) accounting for
+Besag-Clifford support}
 }
 }
 \description{

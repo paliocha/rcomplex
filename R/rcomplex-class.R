@@ -327,6 +327,15 @@ print.summary.rcomplex <- function(x, ...) {
 #' @export
 find_coexpressologs.rcomplex <- function(networks, ...) {
   x <- networks
+  dots <- list(...)
+  if (!is.null(dots$out_file)) {
+    stop(
+      "out_file is not supported on the rcomplex method: it streams a ",
+      "file path instead of a data frame, which would overwrite $edges ",
+      "with a character path. Call find_coexpressologs.default() ",
+      "directly with out_file if you need streamed output."
+    )
+  }
   x$edges <- find_coexpressologs.default(
     x$networks, x$orthologs,
     species_pairs = x$species_pairs,
@@ -360,10 +369,14 @@ detect_modules.rcomplex <- function(net, ...) {
 
 
 # Named list of module_correspondence() results keyed by the ALPHABETICALLY
-# SORTED species pair -- the key classify_hub_conservation() looks up.
-# preservation_paired() always runs the sorted direction as one of its two and
-# keys raw "<ref>.<test>", so raw[[key]]$map is the already-resolved map for
-# that orientation; re-keying raw would break the lookup.
+# SORTED species pair, "." joined -- the public format
+# classify_hub_conservation() validates module_comparisons keys against
+# (see its "SP_A.SP_C" example). This is a different key namespace from
+# preservation$raw's internal "<ref>\x01<test>", which exists only to avoid
+# the "." collision when a species name itself contains a ".": raw is never
+# read outside this package, so it can use an unambiguous separator, while
+# the correspondence keys are a documented part of classify_hub_conservation()
+# and must keep the "." format its validation expects.
 .rcx_correspondence <- function(x) {
   if (is.null(x$modules) || is.null(x$phylo_pairs)) {
     return(NULL)
@@ -371,16 +384,17 @@ detect_modules.rcomplex <- function(net, ...) {
   out <- list()
   for (p in seq_len(nrow(x$phylo_pairs))) {
     sp <- sort(c(x$phylo_pairs$sp1[p], x$phylo_pairs$sp2[p]))
-    key <- paste(sp, collapse = ".")
+    raw_key <- paste(sp, collapse = "\x01")
+    out_key <- paste(sp, collapse = ".")
     # preservation_paired.default() runs both directions and keys raw
-    # "<ref>.<test>", so the sorted key is always present and its map is the
-    # already-resolved one for that orientation.
-    map <- x$preservation$raw[[key]]$map
+    # "<ref>\x01<test>", so the sorted key is always present and its map is
+    # the already-resolved one for that orientation.
+    map <- x$preservation$raw[[raw_key]]$map
     if (is.null(map)) next
     # module_correspondence() stops when no gene gets an unambiguous label or
     # none lands in a test-species module; a small container should degrade to
     # "no correspondence", not throw.
-    out[[key]] <- tryCatch(
+    out[[out_key]] <- tryCatch(
       module_correspondence(x$modules[[sp[1]]], x$modules[[sp[2]]], map,
         sp_ref = sp[1], sp_test = sp[2]
       ),
@@ -394,7 +408,8 @@ detect_modules.rcomplex <- function(net, ...) {
 #' @export
 preservation_paired.rcomplex <- function(modules, ..., group = NULL,
                                          edges = modules$edges,
-                                         cliques = modules$cliques) {
+                                         cliques = modules$cliques,
+                                         seed = NULL) {
   x <- modules
   if (is.null(x$modules)) {
     stop("run detect_modules() first")
@@ -402,11 +417,18 @@ preservation_paired.rcomplex <- function(modules, ..., group = NULL,
   if (is.null(x$phylo_pairs)) {
     stop("phylo_pairs not set; pass to rcomplex() constructor")
   }
+  # One outer scope so .rcx_correspondence()'s module_correspondence() calls
+  # (each seed = NULL, drawing from whatever stream is in scope) continue
+  # this run's stream instead of the ambient one preservation_paired.default()
+  # below has already restored on exit -- the batch-wrapper contract in
+  # R/rng.R: seed once here, pass seed = NULL to every nested call.
+  .seed_scope(seed)
   x$preservation <- preservation_paired.default(
     x$modules, x$networks, x$orthologs,
     pairs = x$phylo_pairs,
     group = if (is.null(group)) x$traits else group,
     edges = edges, cliques = cliques,
+    seed = NULL,
     ...
   )
   x$correspondence <- .rcx_correspondence(x)

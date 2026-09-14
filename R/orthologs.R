@@ -21,32 +21,56 @@
 #' head(ortho)
 #' }
 #'
+#' @details
+#' Implemented with \pkg{data.table} (\code{\link[data.table]{fread}} only)
+#' rather than \pkg{dplyr}/\pkg{tidyr} (used through rcomplex 0.3.0). This
+#' was the only site in the package using either package, so the switch
+#' drops both from Imports; it is a dependency-economy change
+#' (data.table has zero hard dependencies), not a hot-path optimization --
+#' this parser runs once per ortholog file, not inside any permutation or
+#' per-replicate loop. `hog` ids are assigned by the sorted order of each
+#' row's full `gene_content` string, matching the previous
+#' \code{dplyr::cur_group_id()} convention (which numbers groups by sorted
+#' key, not order of appearance) so pipelines that persist HOG ids across
+#' a rerun see the same numbering.
+#'
 #' @export
 parse_orthologs <- function(file, species1, species2) {
   if (!file.exists(file)) {
     stop("Ortholog file not found: ", file)
   }
 
-  ortho <- utils::read.delim(file)
+  dt <- data.table::fread(file,
+    sep = "\t", header = TRUE,
+    showProgress = FALSE, data.table = FALSE
+  )
+  dt <- dt[dt$species == species1, , drop = FALSE]
 
-  ortho <- ortho |>
-    dplyr::filter(.data$species == .env$species1) |>
-    dplyr::group_by(.data$gene_content) |>
-    dplyr::mutate(hog = dplyr::cur_group_id()) |>
-    dplyr::ungroup() |>
-    tidyr::separate_longer_delim("gene_content", delim = ";") |>
-    dplyr::filter(grepl(.env$species2, .data$gene_content, fixed = TRUE)) |>
-    tidyr::separate_wider_delim("gene_content",
-                                delim = ":",
-                                names = c("prefix", "gene_content")) |>
-    tidyr::separate_longer_delim("gene_content", delim = ",") |>
-    dplyr::mutate(
-      Species1 = .data$gene_id,
-      Species2 = .data$gene_content
-    ) |>
-    dplyr::select("Species1", "Species2", "hog")
+  # hog id: sorted-key group numbering, matching dplyr::cur_group_id()
+  hog <- match(dt$gene_content, sort(unique(dt$gene_content)))
 
-  as.data.frame(ortho)
+  # one row per ";"-delimited per-species chunk of gene_content
+  chunks <- strsplit(dt$gene_content, ";", fixed = TRUE)
+  n_chunks <- lengths(chunks)
+  gene_id <- rep(dt$gene_id, n_chunks)
+  hog <- rep(hog, n_chunks)
+  chunk <- unlist(chunks, use.names = FALSE)
+
+  keep <- grepl(species2, chunk, fixed = TRUE)
+  gene_id <- gene_id[keep]
+  hog <- hog[keep]
+  chunk <- chunk[keep]
+
+  # split "prefix:gene[,gene...]" on the first ":", then explode on ","
+  rest <- sub("^[^:]*:", "", chunk)
+  gene_content_list <- strsplit(rest, ",", fixed = TRUE)
+  n_genes <- lengths(gene_content_list)
+
+  data.frame(
+    Species1 = rep(gene_id, n_genes),
+    Species2 = unlist(gene_content_list, use.names = FALSE),
+    hog = rep(hog, n_genes)
+  )
 }
 
 
@@ -92,14 +116,14 @@ parse_orthologs <- function(file, species1, species2) {
 #' @examples
 #' \dontrun{
 #' reduced <- reduce_orthogroups(expr_matrix, orthologs)
-#' reduced$expr_matrix  # reduced expression matrix
-#' reduced$gene_map     # original -> representative mapping
+#' reduced$expr_matrix # reduced expression matrix
+#' reduced$gene_map # original -> representative mapping
 #' }
 #'
 #' @export
 reduce_orthogroups <- function(expr_matrix, orthologs,
-                                gene_col = "Species1",
-                                cor_threshold = 0.7) {
+                               gene_col = "Species1",
+                               cor_threshold = 0.7) {
   if (!is.matrix(expr_matrix) || !is.numeric(expr_matrix)) {
     stop("expr_matrix must be a numeric matrix")
   }
@@ -223,8 +247,10 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
     }
     missing_sp <- setdiff(names(se_list), names(reductions))
     if (length(missing_sp) > 0) {
-      stop("reductions missing species present in se_list: ",
-           paste(missing_sp, collapse = ", "))
+      stop(
+        "reductions missing species present in se_list: ",
+        paste(missing_sp, collapse = ", ")
+      )
     }
     for (sp in names(se_list)) {
       if (is.null(reductions[[sp]]$gene_map)) {
@@ -240,8 +266,11 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
     sp2 <- pair[2]
 
     ortho <- extract_orthologs(se_list[[sp1]], se_list[[sp2]],
-                               hog_col = hog_col)
-    if (nrow(ortho) == 0 || is.null(reductions)) return(ortho)
+      hog_col = hog_col
+    )
+    if (nrow(ortho) == 0 || is.null(reductions)) {
+      return(ortho)
+    }
 
     # Map Species1 through sp1 gene_map
     gm1 <- reductions[[sp1]]$gene_map
@@ -260,9 +289,11 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
 
   result <- do.call(rbind, result_list)
   if (is.null(result) || nrow(result) == 0) {
-    return(data.frame(Species1 = character(0),
-                      Species2 = character(0),
-                      hog = character(0)))
+    return(data.frame(
+      Species1 = character(0),
+      Species2 = character(0),
+      hog = character(0)
+    ))
   }
 
   unique(result)

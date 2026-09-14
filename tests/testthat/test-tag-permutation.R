@@ -2,9 +2,11 @@
 
 make_tag_perm_fixtures <- function() {
   # 3 pairs, 6 species, 2 traits (3 annual, 3 perennial)
-  group <- c(A1 = "annual", P1 = "perennial",
-             A2 = "annual", P2 = "perennial",
-             A3 = "annual", P3 = "perennial")
+  group <- c(
+    A1 = "annual", P1 = "perennial",
+    A2 = "annual", P2 = "perennial",
+    A3 = "annual", P3 = "perennial"
+  )
 
   pairs <- data.frame(
     sp1 = c("A1", "A2", "A3"),
@@ -15,8 +17,10 @@ make_tag_perm_fixtures <- function() {
 
   # Modules: each species gets 2 modules (1, 2)
   make_modules <- function(sp, genes) {
-    membership <- stats::setNames(rep(c(1L, 2L), each = length(genes) / 2),
-                                  genes)
+    membership <- stats::setNames(
+      rep(c(1L, 2L), each = length(genes) / 2),
+      genes
+    )
     list(
       modules = membership,
       module_genes = split(names(membership), membership),
@@ -56,8 +60,10 @@ make_tag_perm_fixtures <- function() {
     module = rep(c("1", "2", "1", "2"), 3),
     reference = rep(annuals, each = 4),
     test = rep(perennials, each = 4),
-    classification = rep(c("diverged", "conserved",
-                           "conserved", "diverged"), 3),
+    classification = rep(c(
+      "diverged", "conserved",
+      "conserved", "diverged"
+    ), 3),
     stringsAsFactors = FALSE
   )
   # The reverse direction: rows 3 and 4 of each pair describe the perennial's
@@ -69,8 +75,10 @@ make_tag_perm_fixtures <- function() {
   classification$classification[2] <- "moderate"
   classification$classification[3] <- "untested"
 
-  list(classification = classification, modules = modules,
-       orthologs = orthologs, pairs = pairs, group = group)
+  list(
+    classification = classification, modules = modules,
+    orthologs = orthologs, pairs = pairs, group = group
+  )
 }
 
 
@@ -79,15 +87,18 @@ test_that("tag_permutation returns correct structure", {
 
   result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 100L, min_recurrence = 2L
   ))
 
   expect_type(result, "list")
-  expect_true(all(c("observed", "null_distribution", "p_value",
-                     "p_min", "exact", "n_swappable",
-                     "recurrence_table", "target_group",
-                     "min_recurrence", "n_perm") %in% names(result)))
+  expect_true(all(c(
+    "observed", "null_distribution", "p_value",
+    "p_min", "exact", "n_swappable",
+    "recurrence_table", "target_group",
+    "min_recurrence", "n_perm"
+  ) %in% names(result)))
   expect_type(result$observed, "integer")
   # 3 swappable pairs -> the null is 2^3 labellings, enumerated, and
   # n_perm = 100 is ignored rather than sampled.
@@ -111,11 +122,12 @@ test_that("tag_permutation detects known parallel signal", {
   # So HOG1, HOG2, HOG3 each recur in 3 pairs.
   result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 100L, min_recurrence = 2L
   ))
 
-  expect_equal(result$observed, 3L)  # HOG1, HOG2, HOG3
+  expect_equal(result$observed, 3L) # HOG1, HOG2, HOG3
 
   # Recurrence table should have 3 HOGs with n_pairs = 3
   recurring <- result$recurrence_table[result$recurrence_table$n_pairs >= 2, ]
@@ -129,7 +141,8 @@ test_that("tag_permutation handles min_recurrence thresholds", {
   # min_recurrence = 3: all 3 pairs must have the HOG
   r3 <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 50L, min_recurrence = 3L
   ))
   expect_equal(r3$observed, 3L)
@@ -139,8 +152,10 @@ test_that("tag_permutation handles min_recurrence thresholds", {
   # measured absence rather than an unsatisfiable request.
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, target_group = "annual",
-                    n_perm = 50L, min_recurrence = 4L),
+      fix$pairs, fix$group,
+      target_group = "annual",
+      n_perm = 50L, min_recurrence = 4L
+    ),
     "exceeds the number of pairs contributing"
   )
 })
@@ -150,16 +165,20 @@ test_that("tag_permutation pair exclusion: both sides same trait", {
   fix <- make_tag_perm_fixtures()
 
   # If we make all species "annual", no pair has exactly one annual
-  all_annual <- stats::setNames(rep("annual", 6),
-                                names(fix$group))
+  all_annual <- stats::setNames(
+    rep("annual", 6),
+    names(fix$group)
+  )
 
   # No pair has exactly one annual, so nothing contributes and no HOG can
   # reach two pairs -- an unsatisfiable request, now an error rather than
   # a silent observed = 0 that reads as a measured absence.
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, all_annual, target_group = "annual",
-                    n_perm = 50L, min_recurrence = 2L),
+      fix$pairs, all_annual,
+      target_group = "annual",
+      n_perm = 50L, min_recurrence = 2L
+    ),
     "exceeds the number of pairs contributing"
   )
 
@@ -167,8 +186,10 @@ test_that("tag_permutation pair exclusion: both sides same trait", {
   # the message says so by naming zero contributing pairs.
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, all_annual, target_group = "annual",
-                    n_perm = 50L, min_recurrence = 1L),
+      fix$pairs, all_annual,
+      target_group = "annual",
+      n_perm = 50L, min_recurrence = 1L
+    ),
     "contributing to the statistic [(]0[)]"
   )
 })
@@ -178,13 +199,16 @@ test_that("tag_permutation works with > 2 trait values", {
   fix <- make_tag_perm_fixtures()
 
   # 3 trait values, unequal frequencies
-  group3 <- c(A1 = "annual", P1 = "perennial",
-              A2 = "annual", P2 = "biennial",
-              A3 = "biennial", P3 = "perennial")
+  group3 <- c(
+    A1 = "annual", P1 = "perennial",
+    A2 = "annual", P2 = "biennial",
+    A3 = "biennial", P3 = "perennial"
+  )
 
   result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    group3, target_group = "annual",
+    group3,
+    target_group = "annual",
     n_perm = 100L, min_recurrence = 2L
   ))
 
@@ -200,14 +224,18 @@ test_that("tag_permutation validates inputs", {
   fix <- make_tag_perm_fixtures()
 
   expect_error(
-    tag_permutation(fix$classification[, -1], fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, "annual"),
+    tag_permutation(
+      fix$classification[, -1], fix$modules, fix$orthologs,
+      fix$pairs, fix$group, "annual"
+    ),
     "classification missing columns"
   )
 
   expect_error(
-    tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, "nonexistent"),
+    tag_permutation(
+      fix$classification, fix$modules, fix$orthologs,
+      fix$pairs, fix$group, "nonexistent"
+    ),
     "target_group.*not found"
   )
 
@@ -218,8 +246,10 @@ test_that("tag_permutation validates inputs", {
   old_cls$classification[old_cls$classification == "diverged"] <-
     "species_specific"
   expect_error(
-    tag_permutation(old_cls, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, "annual"),
+    tag_permutation(
+      old_cls, fix$modules, fix$orthologs,
+      fix$pairs, fix$group, "annual"
+    ),
     "retired gene-overlap vocabulary"
   )
 
@@ -228,11 +258,14 @@ test_that("tag_permutation validates inputs", {
   # diverged rows and return observed = 0.
   foreign <- fix$classification
   foreign$classification <- ifelse(
-    foreign$classification == "diverged", "Diverged", "Conserved")
+    foreign$classification == "diverged", "Diverged", "Conserved"
+  )
   foreign$classification[1] <- "conserved"
   expect_error(
-    tag_permutation(foreign, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, "annual"),
+    tag_permutation(
+      foreign, fix$modules, fix$orthologs,
+      fix$pairs, fix$group, "annual"
+    ),
     "levels outside"
   )
 
@@ -241,29 +274,37 @@ test_that("tag_permutation validates inputs", {
   bad_pn <- fix$pairs
   bad_pn$pair_name <- c("nope1", "nope2", "nope3")
   expect_error(
-    tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    bad_pn, fix$group, "annual"),
+    tag_permutation(
+      fix$classification, fix$modules, fix$orthologs,
+      bad_pn, fix$group, "annual"
+    ),
     "no rows for pair_name"
   )
 
   no_side <- fix$classification
   no_side$reference <- NULL
   expect_error(
-    tag_permutation(no_side, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, "annual"),
+    tag_permutation(
+      no_side, fix$modules, fix$orthologs,
+      fix$pairs, fix$group, "annual"
+    ),
     "classification missing columns"
   )
 
   expect_error(
-    tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, c("annual", "perennial"), "annual"),
+    tag_permutation(
+      fix$classification, fix$modules, fix$orthologs,
+      fix$pairs, c("annual", "perennial"), "annual"
+    ),
     "named character"
   )
 
   bad_group <- fix$group[-1]
   expect_error(
-    tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, bad_group, "annual"),
+    tag_permutation(
+      fix$classification, fix$modules, fix$orthologs,
+      fix$pairs, bad_group, "annual"
+    ),
     "group missing entries"
   )
 })
@@ -285,7 +326,8 @@ test_that("the null stays inside the observed design", {
   # assertion below legible next to the tests that pass "excess".
   result <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 1000L, min_recurrence = 2L, statistic = "count"
   )))
 
@@ -307,7 +349,8 @@ test_that("the enumerated null is the exact 2^k label space", {
 
   result <- suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 8L, min_recurrence = 2L
   ))
   expect_true(result$exact)
@@ -322,9 +365,11 @@ test_that("the enumerated null is the exact 2^k label space", {
   # null_distribution holds the statistic, so compare against
   # statistic_observed rather than the raw recurrence count.
   expect_true(result$statistic_observed %in% result$null_distribution)
-  expect_equal(result$p_value,
-               mean(result$null_distribution >=
-                      result$statistic_observed))
+  expect_equal(
+    result$p_value,
+    mean(result$null_distribution >=
+           result$statistic_observed)
+  )
 
   # Enumeration is decided on cost (at most 20 swappable pairs), not on
   # n_perm, so lowering n_perm below the label space no longer demotes
@@ -333,7 +378,8 @@ test_that("the enumerated null is the exact 2^k label space", {
   # could flip an exact null to a sampled one.
   small <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 4L, min_recurrence = 2L
   )))
   expect_true(small$exact)
@@ -342,9 +388,11 @@ test_that("the enumerated null is the exact 2^k label space", {
   expect_equal(small$p_value, result$p_value)
 
   # p_attainable is the floor after ties, which this fixture has.
-  expect_equal(result$p_attainable,
-               mean(result$null_distribution >=
-                      max(result$null_distribution)))
+  expect_equal(
+    result$p_attainable,
+    mean(result$null_distribution >=
+           max(result$null_distribution))
+  )
   expect_gte(result$p_value, result$p_attainable)
 })
 
@@ -354,8 +402,10 @@ test_that("tag_permutation warns when significance is unreachable", {
 
   expect_warning(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, target_group = "annual",
-                    n_perm = 100L, min_recurrence = 2L),
+      fix$pairs, fix$group,
+      target_group = "annual",
+      n_perm = 100L, min_recurrence = 2L
+    ),
     "p < 0.05 is unreachable for any signal"
   )
 })
@@ -400,14 +450,18 @@ test_that("contrasts sharing a species are coupled, not refused", {
   bad$sp2[1] <- bad$sp1[1]
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    bad, fix$group, target_group = "annual"),
+      bad, fix$group,
+      target_group = "annual"
+    ),
     "two distinct species"
   )
   dup <- fix$pairs
   dup$pair_name[2] <- dup$pair_name[1]
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    dup, fix$group, target_group = "annual"),
+      dup, fix$group,
+      target_group = "annual"
+    ),
     "pair_name must be unique"
   )
 })
@@ -443,8 +497,10 @@ test_that("complementary trait values share one null distribution", {
   expect_true(per$observed %in% ann$null_distribution)
   # The complement of the observed labelling is the all-swapped one, and
   # its annual statistic is the observed perennial statistic.
-  expect_equal(ann$null_distribution[length(ann$null_distribution)],
-               per$observed)
+  expect_equal(
+    ann$null_distribution[length(ann$null_distribution)],
+    per$observed
+  )
 })
 
 
@@ -454,14 +510,18 @@ test_that("the conditional null is calibrated under H0", {
   # "hot" HOG block that sits in diverged modules of every species
   # regardless of trait.
   set.seed(11)
-  k <- 6L                       # 2^6 = 64 labellings, p_min = 0.0156
+  k <- 6L # 2^6 = 64 labellings, p_min = 0.0156
   sp1 <- paste0("A", seq_len(k))
   sp2 <- paste0("P", seq_len(k))
-  group <- stats::setNames(rep(c("annual", "perennial"), each = k),
-                           c(sp1, sp2))
-  pairs <- data.frame(sp1 = sp1, sp2 = sp2,
-                      pair_name = paste0("pair", seq_len(k)),
-                      stringsAsFactors = FALSE)
+  group <- stats::setNames(
+    rep(c("annual", "perennial"), each = k),
+    c(sp1, sp2)
+  )
+  pairs <- data.frame(
+    sp1 = sp1, sp2 = sp2,
+    pair_name = paste0("pair", seq_len(k)),
+    stringsAsFactors = FALSE
+  )
   hogs <- paste0("HOG", seq_len(40))
 
   one_rep <- function() {
@@ -490,9 +550,11 @@ test_that("the conditional null is calibrated under H0", {
           method = "leiden",
           params = list()
         )
-        orth[[sp]] <- data.frame(Species1 = g, Species2 = g,
-                                 hog = sides[[i]][[side]],
-                                 stringsAsFactors = FALSE)
+        orth[[sp]] <- data.frame(
+          Species1 = g, Species2 = g,
+          hog = sides[[i]][[side]],
+          stringsAsFactors = FALSE
+        )
       }
       cls[[i]] <- data.frame(
         pair_name = rep(pairs$pair_name[i], 2),
@@ -532,7 +594,8 @@ test_that("pair_sizes exposes the exchangeability condition", {
 
   balanced <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual", min_recurrence = 2L
+    fix$group,
+    target_group = "annual", min_recurrence = 2L
   )))
   ps <- balanced$pair_sizes
   expect_s3_class(ps, "data.frame")
@@ -550,15 +613,19 @@ test_that("pair_sizes exposes the exchangeability condition", {
   }
   res <- suppressMessages(suppressWarnings(tag_permutation(
     skewed$classification, skewed$modules, skewed$orthologs,
-    skewed$pairs, skewed$group, target_group = "annual",
+    skewed$pairs, skewed$group,
+    target_group = "annual",
     min_recurrence = 2L
   )))
   # A clean sweep of three pairs is a sign-test p of 0.125, which is above
   # the advisory 0.10 threshold: the diagnostic is honestly underpowered
   # at small k, exactly as p_min is. The value is still reported.
-  expect_equal(res$size_asymmetry_p,
-               stats::binom.test(3L, 3L, 0.5,
-                                 alternative = "greater")$p.value)
+  expect_equal(
+    res$size_asymmetry_p,
+    stats::binom.test(3L, 3L, 0.5,
+      alternative = "greater"
+    )$p.value
+  )
   expect_gt(res$size_asymmetry_p, 0.10)
   expect_true(all(res$pair_sizes$n_hogs_target >
                     res$pair_sizes$n_hogs_partner))
@@ -569,7 +636,8 @@ test_that("pair_sizes exposes the exchangeability condition", {
   group3["A3"] <- "biennial"
   mixed <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    group3, target_group = "annual", min_recurrence = 2L
+    group3,
+    target_group = "annual", min_recurrence = 2L
   )))
   expect_equal(sum(mixed$pair_sizes$swappable), 2L)
   unswappable <- mixed$pair_sizes[!mixed$pair_sizes$swappable, ]
@@ -582,8 +650,10 @@ test_that("pair_sizes exposes the exchangeability condition", {
 make_tag_perm_fixtures_k <- function(k) {
   ann <- paste0("A", seq_len(k))
   per <- paste0("P", seq_len(k))
-  group <- stats::setNames(rep(c("annual", "perennial"), each = k),
-                           c(ann, per))
+  group <- stats::setNames(
+    rep(c("annual", "perennial"), each = k),
+    c(ann, per)
+  )
   pairs <- data.frame(
     sp1 = ann, sp2 = per,
     pair_name = paste0("pair", seq_len(k)),
@@ -592,9 +662,11 @@ make_tag_perm_fixtures_k <- function(k) {
   mk <- function(sp) {
     g <- paste0(sp, "_g", 1:6)
     memb <- stats::setNames(rep(c(1L, 2L), each = 3L), g)
-    list(modules = memb, module_genes = split(names(memb), memb),
-         n_modules = 2L, modularity = 0.3, graph = NULL,
-         method = "leiden", params = list())
+    list(
+      modules = memb, module_genes = split(names(memb), memb),
+      n_modules = 2L, modularity = 0.3, graph = NULL,
+      method = "leiden", params = list()
+    )
   }
   modules <- stats::setNames(lapply(c(ann, per), mk), c(ann, per))
   orthologs <- data.frame(
@@ -610,13 +682,17 @@ make_tag_perm_fixtures_k <- function(k) {
       module = c("1", "2", "1", "2"),
       reference = c(ann[i], ann[i], per[i], per[i]),
       test = c(per[i], per[i], ann[i], ann[i]),
-      classification = c("diverged", "conserved",
-                         "conserved", "diverged"),
+      classification = c(
+        "diverged", "conserved",
+        "conserved", "diverged"
+      ),
       stringsAsFactors = FALSE
     )
   }))
-  list(classification = cls, modules = modules, orthologs = orthologs,
-       pairs = pairs, group = group)
+  list(
+    classification = cls, modules = modules, orthologs = orthologs,
+    pairs = pairs, group = group
+  )
 }
 
 
@@ -633,12 +709,13 @@ test_that("p_min counts only pairs whose swap changes the statistic", {
 
   res <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual", min_recurrence = 2L
+    fix$group,
+    target_group = "annual", min_recurrence = 2L
   )))
 
-  expect_equal(res$n_swappable, 4L)      # not 5
-  expect_equal(res$n_contributing, 5L)   # it still feeds the statistic
-  expect_equal(res$p_min, 1 / 16)        # not 1/32
+  expect_equal(res$n_swappable, 4L) # not 5
+  expect_equal(res$n_contributing, 5L) # it still feeds the statistic
+  expect_equal(res$p_min, 1 / 16) # not 1/32
   expect_length(res$null_distribution, 16L)
   expect_gte(res$p_value, res$p_attainable)
 
@@ -648,7 +725,8 @@ test_that("p_min counts only pairs whose swap changes the statistic", {
   withCallingHandlers(
     suppressMessages(tag_permutation(
       fix$classification, fix$modules, fix$orthologs, fix$pairs,
-      fix$group, target_group = "annual", min_recurrence = 2L
+      fix$group,
+      target_group = "annual", min_recurrence = 2L
     )),
     warning = function(w) {
       warns <<- c(warns, conditionMessage(w))
@@ -661,7 +739,8 @@ test_that("p_min counts only pairs whose swap changes the statistic", {
   full <- make_tag_perm_fixtures_k(5)
   res5 <- suppressMessages(suppressWarnings(tag_permutation(
     full$classification, full$modules, full$orthologs, full$pairs,
-    full$group, target_group = "annual", min_recurrence = 2L
+    full$group,
+    target_group = "annual", min_recurrence = 2L
   )))
   expect_equal(res5$n_swappable, 5L)
   expect_equal(res5$p_min, 1 / 32)
@@ -676,7 +755,8 @@ test_that("enumeration is decided on cost, not on n_perm", {
   fix <- make_tag_perm_fixtures_k(10)
   res <- suppressMessages(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 1000L, min_recurrence = 2L
   ))
   expect_true(res$exact)
@@ -690,7 +770,9 @@ test_that("tag_permutation rejects unusable n_perm and NA traits", {
   fix <- make_tag_perm_fixtures()
   call_with <- function(...) {
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, target_group = "annual", ...)
+      fix$pairs, fix$group,
+      target_group = "annual", ...
+    )
   }
   # n_perm = 0 used to return p = 1 with p_min = 1 in silence; 3e9
   # overflowed as.integer() to NA and died on an unrelated `if`.
@@ -709,7 +791,9 @@ test_that("tag_permutation rejects unusable n_perm and NA traits", {
   bad["P3"] <- NA_character_
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, bad, target_group = "annual"),
+      fix$pairs, bad,
+      target_group = "annual"
+    ),
     "NA trait values"
   )
 })
@@ -725,7 +809,8 @@ test_that("the sampled branch runs when enumeration is capped", {
   set.seed(3)
   res <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 50L, min_recurrence = 2L, enum_max = 2L
   )))
   expect_false(res$exact)
@@ -736,26 +821,33 @@ test_that("the sampled branch runs when enumeration is capped", {
   # Ties bind in the sampled branch as well: setting p_attainable to
   # p_min there let a lowered enum_max switch the tie diagnostic off.
   expect_gte(res$p_attainable, res$p_min)
-  expect_equal(res$p_attainable,
-               (sum(res$null_distribution >=
-                      max(res$null_distribution)) + 1L) / 51L)
-  expect_equal(res$p_value,
-               (sum(res$null_distribution >= res$statistic_observed) + 1L) /
-                 51L)
+  expect_equal(
+    res$p_attainable,
+    (sum(res$null_distribution >=
+           max(res$null_distribution)) + 1L) / 51L
+  )
+  expect_equal(
+    res$p_value,
+    (sum(res$null_distribution >= res$statistic_observed) + 1L) /
+      51L
+  )
   expect_equal(res$n_swappable, 4L)
 
   # The enumerated answer on the same data, for comparison.
   ex <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual", min_recurrence = 2L
+    fix$group,
+    target_group = "annual", min_recurrence = 2L
   )))
   expect_true(ex$exact)
   expect_length(ex$null_distribution, 16L)
 
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, target_group = "annual",
-                    enum_max = 31L),
+      fix$pairs, fix$group,
+      target_group = "annual",
+      enum_max = 31L
+    ),
     "enum_max must be"
   )
 })
@@ -773,7 +865,8 @@ test_that("n_perm = 19 still warns unreachable in the sampled branch", {
   expect_warning(
     tag_permutation(
       fix$classification, fix$modules, fix$orthologs, fix$pairs,
-      fix$group, target_group = "annual",
+      fix$group,
+      target_group = "annual",
       n_perm = 19L, min_recurrence = 2L, enum_max = 2L
     ),
     "n_perm must be at least 20 \\(it is 19\\)"
@@ -782,7 +875,8 @@ test_that("n_perm = 19 still warns unreachable in the sampled branch", {
   set.seed(3)
   res20 <- suppressMessages(suppressWarnings(tag_permutation(
     fix$classification, fix$modules, fix$orthologs, fix$pairs,
-    fix$group, target_group = "annual",
+    fix$group,
+    target_group = "annual",
     n_perm = 20L, min_recurrence = 2L, enum_max = 2L
   )))
   expect_equal(res20$p_min, 1 / 21)
@@ -804,16 +898,20 @@ test_that("the size-asymmetry warning fires when the sign test can see it", {
   res <- withCallingHandlers(
     suppressMessages(tag_permutation(
       fix$classification, fix$modules, fix$orthologs, fix$pairs,
-      fix$group, target_group = "annual", min_recurrence = 2L
+      fix$group,
+      target_group = "annual", min_recurrence = 2L
     )),
     warning = function(w) {
       warns <<- c(warns, conditionMessage(w))
       invokeRestart("muffleWarning")
     }
   )
-  expect_equal(res$size_asymmetry_p,
-               stats::binom.test(4L, 4L, 0.5,
-                                 alternative = "greater")$p.value)
+  expect_equal(
+    res$size_asymmetry_p,
+    stats::binom.test(4L, 4L, 0.5,
+      alternative = "greater"
+    )$p.value
+  )
   expect_lte(res$size_asymmetry_p, 0.10)
   expect_true(any(grepl("larger HOG set in 4 of 4", warns)))
   expect_true(any(grepl("reading set size rather than recurrence", warns)))
@@ -829,7 +927,8 @@ test_that("the unreachable-significance warning names the right cause", {
   res <- withCallingHandlers(
     suppressMessages(tag_permutation(
       fix$classification, fix$modules, fix$orthologs, fix$pairs,
-      fix$group, target_group = "annual", min_recurrence = 2L
+      fix$group,
+      target_group = "annual", min_recurrence = 2L
     )),
     warning = function(w) {
       warns <<- c(warns, conditionMessage(w))
@@ -861,11 +960,15 @@ lopsided_design <- function(n_hog, sizes, seed) {
   hogs <- paste0("HOG", seq_len(n_hog))
   sp1 <- paste0("A", seq_len(k))
   sp2 <- paste0("P", seq_len(k))
-  group <- stats::setNames(rep(c("annual", "perennial"), each = k),
-                           c(sp1, sp2))
-  pairs <- data.frame(sp1 = sp1, sp2 = sp2,
-                      pair_name = paste0("pair", seq_len(k)),
-                      stringsAsFactors = FALSE)
+  group <- stats::setNames(
+    rep(c("annual", "perennial"), each = k),
+    c(sp1, sp2)
+  )
+  pairs <- data.frame(
+    sp1 = sp1, sp2 = sp2,
+    pair_name = paste0("pair", seq_len(k)),
+    stringsAsFactors = FALSE
+  )
   modules <- list()
   orth <- list()
   cls <- list()
@@ -880,8 +983,10 @@ lopsided_design <- function(n_hog, sizes, seed) {
         modularity = 0.3, graph = NULL, method = "leiden",
         params = list()
       )
-      orth[[sp]] <- data.frame(Species1 = g, Species2 = g, hog = hs,
-                               stringsAsFactors = FALSE)
+      orth[[sp]] <- data.frame(
+        Species1 = g, Species2 = g, hog = hs,
+        stringsAsFactors = FALSE
+      )
     }
     cls[[i]] <- data.frame(
       pair_name = rep(pairs$pair_name[i], 2),
@@ -892,9 +997,11 @@ lopsided_design <- function(n_hog, sizes, seed) {
       stringsAsFactors = FALSE
     )
   }
-  list(cl = do.call(rbind, cls), og = do.call(rbind, orth),
-       modules = modules, pairs = pairs, group = group,
-       k = k, sizes = sizes)
+  list(
+    cl = do.call(rbind, cls), og = do.call(rbind, orth),
+    modules = modules, pairs = pairs, group = group,
+    k = k, sizes = sizes
+  )
 }
 
 # R^2 of the null on the total size of the selected sides, walked in the
@@ -920,8 +1027,10 @@ test_that("the raw count null is dominated by selected set size", {
   # This is the motivation for offering "excess" at all, and it is a
   # property of the statistic rather than of any one dataset: a contrast
   # whose two sides differ greatly in size decides the ordering.
-  fx <- lopsided_design(6000, list(c(60, 60), c(60, 60), c(60, 60),
-                                   c(300, 8)), seed = 21)
+  fx <- lopsided_design(6000, list(
+    c(60, 60), c(60, 60), c(60, 60),
+    c(300, 8)
+  ), seed = 21)
   # Measured 0.71 here and 0.98 on the eight-species Pooideae set; assert
   # that size is the dominant term rather than either exact level, since
   # how dominant it is depends on the pool the sides are drawn from.
@@ -933,8 +1042,10 @@ test_that("the excess correction helps or hurts with the universe", {
   # The correction subtracts a Poisson-binomial expectation over
   # `universe`, which the data cannot identify. Assert both directions so
   # the regime dependence is pinned rather than assumed away.
-  fx <- lopsided_design(6000, list(c(60, 60), c(60, 60), c(60, 60),
-                                   c(300, 8)), seed = 21)
+  fx <- lopsided_design(6000, list(
+    c(60, 60), c(60, 60), c(60, 60),
+    c(300, 8)
+  ), seed = 21)
   raw <- size_dependence(fx, statistic = "count")
 
   # Sides small relative to the universe: the correction is well posed
@@ -951,8 +1062,10 @@ test_that("the excess correction helps or hurts with the universe", {
     statistic = "excess", universe = 500
   )))
   expect_lt(small$statistic_observed, 0)
-  expect_gt(size_dependence(fx, statistic = "excess", universe = 500),
-            raw)
+  expect_gt(
+    size_dependence(fx, statistic = "excess", universe = 500),
+    raw
+  )
 
   # Inference stays exact under both: same label space, same floor.
   a <- suppressMessages(suppressWarnings(tag_permutation(
@@ -973,7 +1086,8 @@ test_that("min_recurrence scales with the number of contrasts", {
     fix <- make_tag_perm_fixtures_k(k)
     res <- suppressMessages(suppressWarnings(tag_permutation(
       fix$classification, fix$modules, fix$orthologs, fix$pairs,
-      fix$group, target_group = "annual"
+      fix$group,
+      target_group = "annual"
     )))
     expect_equal(res$n_contributing, k)
     expect_equal(res$min_recurrence, max(2L, as.integer(round(k / 2))))
@@ -984,11 +1098,13 @@ test_that("min_recurrence scales with the number of contrasts", {
   fix4 <- make_tag_perm_fixtures_k(4)
   auto <- suppressMessages(suppressWarnings(tag_permutation(
     fix4$classification, fix4$modules, fix4$orthologs, fix4$pairs,
-    fix4$group, target_group = "annual"
+    fix4$group,
+    target_group = "annual"
   )))
   fixed <- suppressMessages(suppressWarnings(tag_permutation(
     fix4$classification, fix4$modules, fix4$orthologs, fix4$pairs,
-    fix4$group, target_group = "annual", min_recurrence = 2L
+    fix4$group,
+    target_group = "annual", min_recurrence = 2L
   )))
   expect_equal(auto$min_recurrence, 2L)
   expect_equal(auto$observed, fixed$observed)
@@ -997,19 +1113,24 @@ test_that("min_recurrence scales with the number of contrasts", {
   # An explicit value still wins, and still cannot exceed the design.
   expl <- suppressMessages(suppressWarnings(tag_permutation(
     fix4$classification, fix4$modules, fix4$orthologs, fix4$pairs,
-    fix4$group, target_group = "annual", min_recurrence = 3L
+    fix4$group,
+    target_group = "annual", min_recurrence = 3L
   )))
   expect_equal(expl$min_recurrence, 3L)
   expect_error(
     tag_permutation(fix4$classification, fix4$modules, fix4$orthologs,
-                    fix4$pairs, fix4$group, target_group = "annual",
-                    min_recurrence = 9L),
+      fix4$pairs, fix4$group,
+      target_group = "annual",
+      min_recurrence = 9L
+    ),
     "exceeds the number of pairs contributing"
   )
   expect_error(
     tag_permutation(fix4$classification, fix4$modules, fix4$orthologs,
-                    fix4$pairs, fix4$group, target_group = "annual",
-                    min_recurrence = 0L),
+      fix4$pairs, fix4$group,
+      target_group = "annual",
+      min_recurrence = 0L
+    ),
     "min_recurrence must be"
   )
 })
@@ -1021,8 +1142,10 @@ test_that("a coupled design runs end to end through tag_permutation", {
   # input: the mixed-radix walk when there are fewer components than
   # contrasts, apply_labelling() writing a whole component at once, and
   # pair_sizes$block / $swappable derived through the membership map.
-  group <- c(A1 = "annual", P1 = "perennial", A2 = "annual",
-             A3 = "annual", P2 = "perennial")
+  group <- c(
+    A1 = "annual", P1 = "perennial", A2 = "annual",
+    A3 = "annual", P2 = "perennial"
+  )
   # P1 is shared, so contrasts 1 and 2 are one component; contrast 3 is
   # its own. Two components that move => 4 labellings, not 2^3.
   pairs <- data.frame(
@@ -1034,27 +1157,34 @@ test_that("a coupled design runs end to end through tag_permutation", {
   sizes <- c(A1 = 12, P1 = 12, A2 = 12, A3 = 12, P2 = 12)
   modules <- lapply(names(sizes), function(sp) {
     g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
-    list(modules = stats::setNames(rep(1L, length(g)), g),
-         module_genes = list(`1` = g), n_modules = 1L, modularity = 0.3,
-         graph = NULL, method = "leiden", params = list())
+    list(
+      modules = stats::setNames(rep(1L, length(g)), g),
+      module_genes = list(`1` = g), n_modules = 1L, modularity = 0.3,
+      graph = NULL, method = "leiden", params = list()
+    )
   })
   names(modules) <- names(sizes)
   orth <- do.call(rbind, lapply(names(sizes), function(sp) {
     g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
-    data.frame(Species1 = g, Species2 = g,
-               hog = sample(hogs, sizes[[sp]]), stringsAsFactors = FALSE)
+    data.frame(
+      Species1 = g, Species2 = g,
+      hog = sample(hogs, sizes[[sp]]), stringsAsFactors = FALSE
+    )
   }))
   cls <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
-    data.frame(pair_name = rep(pairs$pair_name[i], 2),
-               module = c("1", "1"),
-               reference = c(pairs$sp1[i], pairs$sp2[i]),
-               test = c(pairs$sp2[i], pairs$sp1[i]),
-               classification = c("diverged", "diverged"),
-               stringsAsFactors = FALSE)
+    data.frame(
+      pair_name = rep(pairs$pair_name[i], 2),
+      module = c("1", "1"),
+      reference = c(pairs$sp1[i], pairs$sp2[i]),
+      test = c(pairs$sp2[i], pairs$sp1[i]),
+      classification = c("diverged", "diverged"),
+      stringsAsFactors = FALSE
+    )
   }))
 
   res <- suppressMessages(suppressWarnings(tag_permutation(
-    cls, modules, orth, pairs, group, target_group = "annual",
+    cls, modules, orth, pairs, group,
+    target_group = "annual",
     min_recurrence = 2L
   )))
 
@@ -1078,8 +1208,10 @@ test_that("a pinned component cannot crash the asymmetry diagnostic", {
   # unequal sides. Counting that row toward the sign test's successes but
   # not its trials made binom.test() stop with x > n, killing a complete
   # analysis for the sake of an advisory diagnostic.
-  group <- c(A1 = "annual", A2 = "annual", P1 = "perennial",
-             A3 = "annual", P2 = "perennial")
+  group <- c(
+    A1 = "annual", A2 = "annual", P1 = "perennial",
+    A3 = "annual", P2 = "perennial"
+  )
   pairs <- data.frame(
     sp1 = c("A1", "A2", "A3"), sp2 = c("A2", "P1", "P2"),
     pair_name = c("pinned", "c2", "c3"), stringsAsFactors = FALSE
@@ -1089,27 +1221,34 @@ test_that("a pinned component cannot crash the asymmetry diagnostic", {
   set.seed(5)
   modules <- lapply(names(sizes), function(sp) {
     g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
-    list(modules = stats::setNames(rep(1L, length(g)), g),
-         module_genes = list(`1` = g), n_modules = 1L, modularity = 0.3,
-         graph = NULL, method = "leiden", params = list())
+    list(
+      modules = stats::setNames(rep(1L, length(g)), g),
+      module_genes = list(`1` = g), n_modules = 1L, modularity = 0.3,
+      graph = NULL, method = "leiden", params = list()
+    )
   })
   names(modules) <- names(sizes)
   orth <- do.call(rbind, lapply(names(sizes), function(sp) {
     g <- paste0(sp, "_g", seq_len(sizes[[sp]]))
-    data.frame(Species1 = g, Species2 = g,
-               hog = sample(hogs, sizes[[sp]]), stringsAsFactors = FALSE)
+    data.frame(
+      Species1 = g, Species2 = g,
+      hog = sample(hogs, sizes[[sp]]), stringsAsFactors = FALSE
+    )
   }))
   cls <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
-    data.frame(pair_name = rep(pairs$pair_name[i], 2),
-               module = c("1", "1"),
-               reference = c(pairs$sp1[i], pairs$sp2[i]),
-               test = c(pairs$sp2[i], pairs$sp1[i]),
-               classification = c("diverged", "diverged"),
-               stringsAsFactors = FALSE)
+    data.frame(
+      pair_name = rep(pairs$pair_name[i], 2),
+      module = c("1", "1"),
+      reference = c(pairs$sp1[i], pairs$sp2[i]),
+      test = c(pairs$sp2[i], pairs$sp1[i]),
+      classification = c("diverged", "diverged"),
+      stringsAsFactors = FALSE
+    )
   }))
 
   res <- suppressMessages(suppressWarnings(tag_permutation(
-    cls, modules, orth, pairs, group, target_group = "annual",
+    cls, modules, orth, pairs, group,
+    target_group = "annual",
     min_recurrence = 2L
   )))
   expect_true(is.numeric(res$p_value))
@@ -1120,9 +1259,12 @@ test_that("a pinned component cannot crash the asymmetry diagnostic", {
   n_nontied <- sum(res$pair_sizes$swappable &
                      res$pair_sizes$n_hogs_target !=
                        res$pair_sizes$n_hogs_partner, na.rm = TRUE)
-  expect_equal(res$size_asymmetry_p,
-               stats::binom.test(n_nontied, n_nontied, 0.5,
-                                 alternative = "greater")$p.value)
+  expect_equal(
+    res$size_asymmetry_p,
+    stats::binom.test(n_nontied, n_nontied, 0.5,
+      alternative = "greater"
+    )$p.value
+  )
 })
 
 
@@ -1186,7 +1328,8 @@ test_that("the auto threshold is monotone in the number of contrasts", {
     fix <- make_tag_perm_fixtures_k(k)
     res <- suppressMessages(suppressWarnings(tag_permutation(
       fix$classification, fix$modules, fix$orthologs, fix$pairs,
-      fix$group, target_group = "annual"
+      fix$group,
+      target_group = "annual"
     )))
     res$min_recurrence
   }, integer(1))
@@ -1205,8 +1348,10 @@ test_that("the resolution message does not precede its own error", {
   expect_error(
     withCallingHandlers(
       tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                      fix$pairs, fix$group, target_group = "annual",
-                      min_recurrence = 9L),
+        fix$pairs, fix$group,
+        target_group = "annual",
+        min_recurrence = 9L
+      ),
       message = function(m) {
         msgs <<- c(msgs, conditionMessage(m))
         invokeRestart("muffleMessage")
@@ -1224,8 +1369,10 @@ test_that("enum_max rejects a non-whole ceiling", {
   fix <- make_tag_perm_fixtures_k(4)
   expect_error(
     tag_permutation(fix$classification, fix$modules, fix$orthologs,
-                    fix$pairs, fix$group, target_group = "annual",
-                    enum_max = 2.9),
+      fix$pairs, fix$group,
+      target_group = "annual",
+      enum_max = 2.9
+    ),
     "enum_max must be a single whole number"
   )
 })

@@ -124,8 +124,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     drop = FALSE
   ]
   orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
-    drop = FALSE
-  ])
+                        drop = FALSE
+                      ])
 
   if (nrow(orthologs) == 0) {
     stop("No orthologs found in both networks")
@@ -256,10 +256,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   q_comb <- combine(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
   q_comb[is.infinite(q_comb)] <- NA_real_
   eff_geo <- sqrt(comparison$Species1.effect.size *
-    comparison$Species2.effect.size)
+                    comparison$Species2.effect.size)
 
   has_jaccard <- all(c("Species1.jaccard", "Species2.jaccard") %in%
-    names(comparison))
+                       names(comparison))
   jacc_geo <- if (has_jaccard) {
     sqrt(comparison$Species1.jaccard * comparison$Species2.jaccard)
   } else {
@@ -361,11 +361,30 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 #'   the original ComPlEx) or \code{"min"} (permissive; either direction,
 #'   denser edge supply for \code{\link{find_cliques}}).
+#' @param out_file Optional path to a CSV file. When supplied, each
+#'   species pair's edge table is appended to \code{out_file} via
+#'   \code{\link[data.table]{fwrite}} as soon as it is computed, instead
+#'   of being accumulated in memory and combined with \code{rbind()} at
+#'   the end. This keeps peak memory bounded by one pair's edge table
+#'   rather than the whole run, which matters for many species / dense
+#'   networks. Any existing file at \code{out_file} is overwritten (not
+#'   appended to) at the start of the call. When \code{out_file} is
+#'   used, this function always creates \code{out_file} -- including a
+#'   header-only file when no species pair produces any edges -- and
+#'   returns \code{out_file} (invisibly) instead of a data frame; read
+#'   the result back with e.g. \code{data.table::fread(out_file)}.
+#'   Not supported on the \code{rcomplex} S3 method (see
+#'   \code{find_coexpressologs.rcomplex}), which stores the in-memory
+#'   edge table on \code{$edges}. Default \code{NULL} keeps the original
+#'   in-memory behaviour.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
 #'   \code{effect_size}, \code{jaccard}, \code{type}. Ready for
-#'   \code{\link{find_cliques}} or \code{\link{classify_cliques}}.
+#'   \code{\link{find_cliques}} or \code{\link{classify_cliques}}. When
+#'   \code{out_file} is supplied, the edge table is streamed to that
+#'   file instead (always created, even when empty), and \code{out_file}
+#'   is returned (invisibly).
 #'
 #' @examples
 #' \dontrun{
@@ -382,6 +401,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' edges <- find_coexpressologs(networks, orthologs,
 #'   method = "permutation", use_torch = TRUE, n_cores = 4L
 #' )
+#'
+#' # Stream edges to disk instead of holding every pair in memory
+#' find_coexpressologs(networks, orthologs, out_file = "edges.csv")
+#' edges <- data.table::fread("edges.csv")
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -402,7 +425,8 @@ find_coexpressologs.default <- function(
   max_permutations = 10000L,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
-  seed = NULL, ...
+  seed = NULL,
+  out_file = NULL, ...
 ) {
   method <- match.arg(method)
   alternative <- match.arg(alternative)
@@ -429,6 +453,22 @@ find_coexpressologs.default <- function(
     species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
   }
 
+  streaming <- !is.null(out_file)
+  if (streaming) {
+    if (!is.character(out_file) || length(out_file) != 1L ||
+          is.na(out_file) || !nzchar(out_file)) {
+      stop("out_file must be a single non-empty file path")
+    }
+    # Overwrite, not append: a stale file from a previous run must not
+    # silently mix with this one's edges. Abort rather than proceed if
+    # the stale file cannot be removed -- fwrite(append = TRUE) would
+    # otherwise append this run's edges onto the old file's contents.
+    if (file.exists(out_file) &&
+          !suppressWarnings(file.remove(out_file))) {
+      stop("could not remove existing out_file: ", out_file)
+    }
+  }
+
   empty_result <- data.frame(
     gene1 = character(0), gene2 = character(0),
     species1 = character(0), species2 = character(0),
@@ -439,8 +479,11 @@ find_coexpressologs.default <- function(
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   n_pairs <- length(species_pairs)
-  pair_edges <- vector("list", n_pairs)
+  # Streaming mode never holds more than one pair's edge table at a time;
+  # non-streaming mode keeps the original in-memory accumulation.
+  pair_edges <- if (streaming) NULL else vector("list", n_pairs)
   idx <- 0L
+  n_ok <- 0L
 
   for (pair in species_pairs) {
     sp_a <- pair[1]
@@ -507,9 +550,9 @@ find_coexpressologs.default <- function(
       hog_q <- stats::setNames(hog_res$q.value, hog_res$hog)
       q_vals <- hog_q[comparison$hog]
       eff <- sqrt(comparison$Species1.effect.size *
-        comparison$Species2.effect.size)
+                    comparison$Species2.effect.size)
       jacc <- sqrt(comparison$Species1.jaccard *
-        comparison$Species2.jaccard)
+                     comparison$Species2.jaccard)
 
       edges_df <- data.frame(
         gene1 = comparison$Species1,
@@ -526,10 +569,33 @@ find_coexpressologs.default <- function(
       )
     }
 
-    idx <- idx + 1L
-    pair_edges[[idx]] <- edges_df
+    n_ok <- n_ok + 1L
+    if (streaming) {
+      # Track the first successful write explicitly rather than relying
+      # on fwrite()'s own file-existence check: col.names is only wanted
+      # once, on the very first pair that produces edges, regardless of
+      # how many earlier pairs were skipped (empty comparison, failed
+      # test, etc.).
+      data.table::fwrite(edges_df, out_file,
+        append = TRUE, col.names = (n_ok == 1L),
+        nThread = n_cores
+      )
+    } else {
+      idx <- idx + 1L
+      pair_edges[[idx]] <- edges_df
+    }
   }
 
+  if (streaming) {
+    if (n_ok == 0L) {
+      # Documented contract: out_file always exists and is always what
+      # this function returns, even when no pair produced any edges --
+      # write the header-only (empty) table rather than silently
+      # skipping file creation and returning a data frame instead.
+      data.table::fwrite(empty_result, out_file, nThread = n_cores)
+    }
+    return(invisible(out_file))
+  }
   if (idx == 0L) {
     return(empty_result)
   }
@@ -746,7 +812,8 @@ density_sweep.default <- function(
 #'
 #' For a given HOG, finds which other HOGs co-express with it in each
 #' species network, then aggregates across species. Useful after
-#' \code{\link{identify_module_hubs}} and \code{\link{classify_hub_conservation}}
+#' \code{\link{identify_module_hubs}} and
+#' \code{\link{classify_hub_conservation}}
 #' to explore the co-expression neighborhood of a hub gene.
 #'
 #' @param candidate_hog Character string: the HOG ID to query (e.g.,

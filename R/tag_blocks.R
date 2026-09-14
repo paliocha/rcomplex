@@ -33,8 +33,10 @@
     members <- names(membership)[membership == cid]
     .tp_block_labellings(members, pairs, group)
   })
-  list(membership = membership, labellings = labellings,
-       n = vapply(labellings, length, integer(1)))
+  list(
+    membership = membership, labellings = labellings,
+    n = vapply(labellings, length, integer(1))
+  )
 }
 
 
@@ -92,8 +94,10 @@
   }
   # Two seed labels can propagate to the same assignment (a component
   # pinned by a same-label contrast), so collapse duplicates.
-  keys <- vapply(out, function(l) paste(l[members], collapse = "\r"),
-                 character(1))
+  keys <- vapply(
+    out, function(l) paste(l[members], collapse = "\r"),
+    character(1)
+  )
   out <- out[!duplicated(keys)]
   if (length(out) == 0L) {
     # Cannot happen for a labelling derived from `group` itself, which is
@@ -121,12 +125,16 @@
 #'
 #' @noRd
 .tp_expected <- function(sizes, n_universe, min_recurrence) {
-  if (n_universe <= 0L || length(sizes) == 0L) return(0)
+  if (n_universe <= 0L || length(sizes) == 0L) {
+    return(0)
+  }
   p <- pmin(1, sizes / n_universe)
   dist <- 1
   for (pj in p) {
     dist <- c(dist * (1 - pj), 0) + c(0, dist * pj)
   }
-  if (min_recurrence > length(dist) - 1L) return(0)
+  if (min_recurrence > length(dist) - 1L) {
+    return(0)
+  }
   n_universe * sum(dist[(min_recurrence + 1L):length(dist)])
 }

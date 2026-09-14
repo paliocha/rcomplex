@@ -14,13 +14,17 @@ testing conservation at gene, module, and clique levels.
 \describe{
 \item{\code{\link[=parse_orthologs]{parse_orthologs()}}}{Parse ortholog group files}
 \item{\code{\link[=reduce_orthogroups]{reduce_orthogroups()}}}{Merge correlated paralogs within HOGs}
-\item{\code{\link[=extract_orthologs]{extract_orthologs()}}}{Derive ortholog pairs from SummarizedExperiment objects}
-\item{\code{\link[=compute_network]{compute_network()}}}{Build co-expression network (matrix or SummarizedExperiment)}
+\item{\code{\link[=extract_orthologs]{extract_orthologs()}}}{Derive ortholog pairs from
+SummarizedExperiment objects}
+\item{\code{\link[=compute_network]{compute_network()}}}{Build co-expression network (matrix or
+SummarizedExperiment)}
 \item{\code{\link[=compare_neighborhoods]{compare_neighborhoods()}}}{Pair-level hypergeometric tests}
 \item{\code{\link[=summarize_comparison]{summarize_comparison()}}}{Q-value correction and summary}
-\item{\code{\link[=comparison_to_edges]{comparison_to_edges()}}}{Convert comparison results to clique edge format}
+\item{\code{\link[=comparison_to_edges]{comparison_to_edges()}}}{Convert comparison results to clique
+edge format}
 \item{\code{\link[=run_pairwise_comparisons]{run_pairwise_comparisons()}}}{Batch pairwise comparison pipeline}
-\item{\code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}}{Query co-expression partners of a candidate HOG}
+\item{\code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}}{Query co-expression partners of a
+candidate HOG}
 \item{\code{\link[=permutation_hog_test]{permutation_hog_test()}}}{HOG-level permutation test}
 \item{\code{\link[=detect_modules]{detect_modules()}}}{Community detection with consensus}
 \item{\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}}{Paralog-resolved ortholog map}
@@ -46,7 +50,8 @@ it when which paralog sits in the conserved core matters, or when
 that published taxonomy has to be reported. Neither it nor
 \code{\link[=classify_cliques]{classify_cliques()}} replaces the other}
 \item{\code{\link[=characterize_hubs]{characterize_hubs()}}}{Regulatory potential metrics for hub genes}
-\item{\code{\link[=tag_permutation]{tag_permutation()}}}{Permutation test for trait-specific module recurrence}
+\item{\code{\link[=tag_permutation]{tag_permutation()}}}{Permutation test for trait-specific module
+recurrence}
 }
 }
 

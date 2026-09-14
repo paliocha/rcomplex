@@ -38,7 +38,7 @@
 #' @noRd
 compute_qvalues <- function(pvals, p_rand_fn = NULL,
                             pi0_method = c("randomized", "storey", "none"),
-                            B = 20L) {
+                            B = 20L) {  # nolint
   pi0_method <- match.arg(pi0_method)
   if (length(pvals) < 2L) {
     return(list(qvalues = pvals, pi0 = NA_real_))
@@ -53,7 +53,7 @@ compute_qvalues <- function(pvals, p_rand_fn = NULL,
         "when pi0_method = 'randomized'"
       )
     }
-    B <- as.integer(B)
+    B <- as.integer(B)  # nolint
     if (length(B) != 1L || is.na(B) || B < 1L) {
       stop("B must be a positive integer")
     }
@@ -92,7 +92,8 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 
 #' Summarize neighborhood comparison results
 #'
-#' Computes q-values (Storey & Tibshirani, 2003), filters results, and computes summary
+#' Computes q-values (Storey & Tibshirani, 2003), filters results, and
+#' computes summary
 #' statistics at gene-pair, gene, and ortholog-group levels.
 #'
 #' @section Multiple testing correction:
@@ -202,7 +203,7 @@ summarize_comparison <- function(comparison,
                                    "randomized", "storey",
                                    "none"
                                  ),
-                                 B = 20L,
+                                 B = 20L,  # nolint
                                  pval_combine = c("max", "min"),
                                  seed = NULL) {
   alternative <- match.arg(alternative)
@@ -289,7 +290,7 @@ summarize_comparison <- function(comparison,
 
   # Compute q-values on selected p-value columns. Randomized p-value for
   # pi0: upper tail P(X > x) + U * P(X = x), or lower tail
-  # P(X < x) + U * P(X = x) = (p.val.div - p.val.eq) + U * p.val.eq.
+  # P(X < x) + U * P(X = x) = (p.val.div - p.val.eq) + U * p.val.eq.  # nolint
   # The draw runs over the UNFILTERED comparison rows: uniformity under
   # H0 holds only unconditionally, and conditioning on overlap > 0
   # (filter_zero) truncates the null to [0, P(X > 0)) and deflates pi0
@@ -479,7 +480,8 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 
   torch::with_no_grad({
     # --- Direction 1: FE1[b, a] tiled over rows of adj2 ---
-    # reach1[b, :] = (adj2[b, :] @ ortho > 0),  overlap1[b, :] = reach1[b, :] @ adj1
+    # reach1[b, :] = (adj2[b, :] @ ortho > 0),
+    # overlap1[b, :] = reach1[b, :] @ adj1
     for (b_start in seq(1L, n2, by = tile_size)) {
       b_end <- min(b_start + tile_size - 1L, n2)
       adj2_tile <- adj2[b_start:b_end, ]
@@ -491,10 +493,10 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
       # Self-excluded urn: gene a leaves the reachable set of b (k drops by
       # one where reach[b, a] = 1) and the population (n1 - 1). When a is
       # the only reachable gene E = 0 -> clamp; overlap is 0 there anyway.
-      E <- (reach_sz$unsqueeze(2L) - reach) * neigh1_sz$unsqueeze(1L) /
+      E <- (reach_sz$unsqueeze(2L) - reach) * neigh1_sz$unsqueeze(1L) /  # nolint
         (n1 - 1)
       rm(reach)
-      FE_tile <- overlap / E$clamp(min = 1e-30)
+      FE_tile <- overlap / E$clamp(min = 1e-30)  # nolint
       rm(overlap, E, reach_sz)
 
       # FE1 is (n2 x n1); combined needs FE1^T, i.e. columns b_start:b_end
@@ -510,7 +512,8 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
     .gpu_gc()
 
     # --- Direction 2: FE2[a, b] tiled over rows of adj1 ---
-    # reach2[a, :] = (adj1[a, :] @ ortho^T > 0),  overlap2[a, :] = reach2[a, :] @ adj2
+    # reach2[a, :] = (adj1[a, :] @ ortho^T > 0),
+    # overlap2[a, :] = reach2[a, :] @ adj2
     for (a_start in seq(1L, n1, by = tile_size)) {
       a_end <- min(a_start + tile_size - 1L, n1)
       adj1_tile <- adj1[a_start:a_end, ]
@@ -519,10 +522,10 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
       overlap <- reach$mm(adj2)
       reach_sz <- reach$sum(dim = 2L)
 
-      E <- (reach_sz$unsqueeze(2L) - reach) * neigh2_sz$unsqueeze(1L) /
+      E <- (reach_sz$unsqueeze(2L) - reach) * neigh2_sz$unsqueeze(1L) /  # nolint
         (n2 - 1)
       rm(reach)
-      FE_tile <- overlap / E$clamp(min = 1e-30)
+      FE_tile <- overlap / E$clamp(min = 1e-30)  # nolint
       rm(overlap, E, reach_sz)
 
       # FE2 is (n1 x n2); accumulate directly
@@ -645,7 +648,8 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #'     \item{n_exceed}{Number of permutation statistics exceeding T_obs}
 #'     \item{mean_eff}{Mean geometric-mean effect size across pairs}
 #'     \item{p.value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
-#'     \item{q.value}{Discrete q-value (Liang, 2016) accounting for Besag-Clifford support}
+#'     \item{q.value}{Discrete q-value (Liang, 2016) accounting for
+#'       Besag-Clifford support}
 #'   }
 #'
 #' @references
@@ -704,7 +708,7 @@ permutation_hog_test <- function(net1, net2, comparison,
     )
   }
   if (use_torch && requireNamespace("torch", quietly = TRUE) &&
-    torch::backends_mps_is_available()) {
+        torch::backends_mps_is_available()) {
     mps_lossy <- vapply(list(net1, net2), function(net) {
       cm <- net$params$cor_method %||% ""
       nm <- net$params$norm_method %||% ""

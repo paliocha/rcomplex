@@ -191,6 +191,17 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "coexpressolog_strength.default",
+      # Only the reference-density row draws (pi0_method = "randomized");
+      # every other density in the profile grid uses the deterministic
+      # Storey estimator and draws nothing (see R/coexpressolog-strength.R).
+      call = function(seed) {
+        coexpressolog_strength(nets, td$ortho,
+          densities = c(0.05, 0.1), reference_density = 0.1, seed = seed
+        )$reference
+      }
+    ),
+    list(
       name = "permutation_hog_test",
       call = function(seed) {
         permutation_hog_test(td$net1, td$net2, cmp,

@@ -91,9 +91,9 @@ test_that("q-values are computed", {
 
   # q-values should be >= raw p-values
   expect_true(all(result$results$Species1.q.val.con >=
-    result$results$Species1.p.val.con))
+                    result$results$Species1.p.val.con))
   expect_true(all(result$results$Species2.q.val.con >=
-    result$results$Species2.p.val.con))
+                    result$results$Species2.p.val.con))
 
   # Raw p-values should be unchanged
   expect_equal(
@@ -126,7 +126,9 @@ test_that("summary counts are correct", {
     stringsAsFactors = FALSE
   )
 
-  result <- summarize_comparison(comparison, pi0_method = "storey", alpha = 0.05)
+  result <- summarize_comparison(
+    comparison, pi0_method = "storey", alpha = 0.05
+  )
 
   expect_equal(result$summary$gene_pairs$total, 3)
   expect_equal(result$summary$orthogroups$total, 2)
@@ -218,7 +220,9 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
   )
 
   # Zero-overlap rows are kept for divergence (the strongest signal)
-  result <- summarize_comparison(comparison, pi0_method = "storey", alternative = "less")
+  result <- summarize_comparison(
+    comparison, pi0_method = "storey", alternative = "less"
+  )
   expect_equal(nrow(result$results), 3)
 
   # But can be overridden
@@ -238,8 +242,12 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
     hog = rep(1:5, each = 2),
     Species1.neigh.overlap = c(5, 3, 0, 4, 2, 1, 6, 0, 3, 4),
     Species2.neigh.overlap = c(4, 2, 0, 3, 1, 2, 5, 0, 4, 3),
-    Species1.p.val.con = c(0.001, 0.05, 0.9, 0.01, 0.1, 0.2, 0.001, 0.8, 0.03, 0.01),
-    Species2.p.val.con = c(0.002, 0.06, 0.8, 0.02, 0.15, 0.25, 0.002, 0.7, 0.04, 0.02),
+    Species1.p.val.con = c(
+      0.001, 0.05, 0.9, 0.01, 0.1, 0.2, 0.001, 0.8, 0.03, 0.01
+    ),
+    Species2.p.val.con = c(
+      0.002, 0.06, 0.8, 0.02, 0.15, 0.25, 0.002, 0.7, 0.04, 0.02
+    ),
     Species1.p.val.div = rep(0.99, 10),
     Species2.p.val.div = rep(0.99, 10),
     Species1.effect.size = c(3.0, 1.5, 1.0, 2.5, 1.2, 1.1, 3.5, 1.0, 2.0, 2.5),
@@ -291,68 +299,74 @@ test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
 })
 
 
-test_that("summarize_comparison with sp1/sp2 returns empty $edges on zero rows", {
-  # All zero overlap -> filtered out with default filter_zero=TRUE
-  comparison <- data.frame(
-    Species1 = c("A_1", "A_2"), Species2 = c("B_1", "B_2"),
-    hog = c(1, 2),
-    Species1.neigh.overlap = c(0, 0), Species2.neigh.overlap = c(0, 0),
-    Species1.p.val.con = c(1, 1), Species2.p.val.con = c(1, 1),
-    Species1.p.val.div = c(0.5, 0.5), Species2.p.val.div = c(0.5, 0.5),
-    Species1.effect.size = c(1, 1), Species2.effect.size = c(1, 1)
-  )
+test_that(
+  "summarize_comparison with sp1/sp2 returns empty $edges on zero rows",
+  {
+    # All zero overlap -> filtered out with default filter_zero=TRUE
+    comparison <- data.frame(
+      Species1 = c("A_1", "A_2"), Species2 = c("B_1", "B_2"),
+      hog = c(1, 2),
+      Species1.neigh.overlap = c(0, 0), Species2.neigh.overlap = c(0, 0),
+      Species1.p.val.con = c(1, 1), Species2.p.val.con = c(1, 1),
+      Species1.p.val.div = c(0.5, 0.5), Species2.p.val.div = c(0.5, 0.5),
+      Species1.effect.size = c(1, 1), Species2.effect.size = c(1, 1)
+    )
 
-  result <- summarize_comparison(comparison,
-    pi0_method = "storey",
-    sp1 = "SP_A", sp2 = "SP_B"
-  )
-  expect_equal(nrow(result$results), 0)
-  expect_true(!is.null(result$edges))
-  expect_equal(nrow(result$edges), 0)
-  expect_true(all(c(
-    "gene1", "gene2", "species1", "species2",
-    "hog", "q.value", "effect_size", "type"
-  ) %in%
-    names(result$edges)))
-})
+    result <- summarize_comparison(comparison,
+      pi0_method = "storey",
+      sp1 = "SP_A", sp2 = "SP_B"
+    )
+    expect_equal(nrow(result$results), 0)
+    expect_true(!is.null(result$edges))
+    expect_equal(nrow(result$edges), 0)
+    expect_true(all(c(
+      "gene1", "gene2", "species1", "species2",
+      "hog", "q.value", "effect_size", "type"
+    ) %in%
+      names(result$edges)))
+  }
+)
 
 
 # ---- pi0 from randomized p-values (D4) ----
 
-test_that("summarize_comparison default estimates pi0 from randomized p-values", {
-  td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+test_that(
+  "summarize_comparison default estimates pi0 from randomized p-values",
+  {
+    td <- make_graded_nets()
+    cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
 
-  set.seed(5)
-  s <- summarize_comparison(cmp)
-  expect_named(s$summary$pi0, c("sp1", "sp2"))
-  expect_true(all(s$summary$pi0 > 0 & s$summary$pi0 <= 1))
+    set.seed(5)
+    s <- summarize_comparison(cmp)
+    expect_named(s$summary$pi0, c("sp1", "sp2"))
+    expect_true(all(s$summary$pi0 > 0 & s$summary$pi0 <= 1))
 
-  # q-values are the exact p-values' BH values scaled by the recorded pi0
-  r <- s$results
-  expect_equal(
-    r$Species1.q.val.con,
-    s$summary$pi0[["sp1"]] * p.adjust(r$Species1.p.val.con, "BH")
-  )
-  expect_equal(
-    r$Species2.q.val.con,
-    s$summary$pi0[["sp2"]] * p.adjust(r$Species2.p.val.con, "BH")
-  )
+    # q-values are the exact p-values' BH values scaled by the recorded pi0
+    r <- s$results
+    expect_equal(
+      r$Species1.q.val.con,
+      s$summary$pi0[["sp1"]] * p.adjust(r$Species1.p.val.con, "BH")
+    )
+    expect_equal(
+      r$Species2.q.val.con,
+      s$summary$pi0[["sp2"]] * p.adjust(r$Species2.p.val.con, "BH")
+    )
 
-  # reproducible under set.seed()
-  set.seed(5)
-  expect_identical(summarize_comparison(cmp), s)
+    # reproducible under set.seed()
+    set.seed(5)
+    expect_identical(summarize_comparison(cmp), s)
 
-  # divergence direction uses the lower tail: (div - eq) + U * eq
-  set.seed(6)
-  d <- summarize_comparison(cmp, alternative = "less")
-  expect_named(d$summary$pi0, c("sp1", "sp2"))
-  expect_equal(
-    d$results$Species1.q.val.div,
-    d$summary$pi0[["sp1"]] *
-      p.adjust(d$results$Species1.p.val.div, "BH")
-  )
-})
+    # divergence direction uses the lower tail: (div - eq) + U * eq
+    set.seed(6)
+    d <- summarize_comparison(cmp, alternative = "less")
+    expect_named(d$summary$pi0, c("sp1", "sp2"))
+    expect_equal(
+      d$results$Species1.q.val.div,
+      d$summary$pi0[["sp1"]] *
+        p.adjust(d$results$Species1.p.val.div, "BH")
+    )
+  }
+)
 
 
 test_that("pi0_method = 'none' and 'storey' behave as documented", {

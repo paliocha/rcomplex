@@ -9,7 +9,8 @@
 #'     communities (Traag *et al.*, 2019). Resolution parameter controls module
 #'     granularity.}
 #'   \item{infomap}{Flow-based method that compresses the description of random
-#'     walks on the network (Rosvall & Bergstrom, 2008). No resolution parameter;
+#'     walks on the network (Rosvall & Bergstrom, 2008). No resolution
+#'     parameter;
 #'     naturally handles weighted networks.}
 #'   \item{sbm}{Gaussian Stochastic Block Model fit by variational EM
 #'     (requires the \pkg{sbm} package). Number of blocks is selected
@@ -94,8 +95,10 @@
 #'
 #' @return A list with components:
 #'   \describe{
-#'     \item{modules}{Named integer vector of module assignments (gene -> module ID)}
-#'     \item{module_genes}{Named list: module ID -> character vector of gene names}
+#'     \item{modules}{Named integer vector of module assignments
+#'       (gene -> module ID)}
+#'     \item{module_genes}{Named list: module ID -> character vector of
+#'       gene names}
 #'     \item{n_modules}{Number of modules detected}
 #'     \item{modularity}{Modularity score of the partition}
 #'     \item{graph}{The igraph graph object used for community detection}
@@ -179,7 +182,10 @@ detect_modules.default <- function(net,
   # Consensus mode: vector resolution triggers multi-resolution + consensus
   if (length(resolution) > 1L) {
     if (method != "leiden") {
-      stop("Consensus mode (vector resolution) only supported for method = \"leiden\"")
+      stop(
+        "Consensus mode (vector resolution) only supported for ",
+        "method = \"leiden\""
+      )
     }
     return(detect_modules_consensus(
       net, resolution, consensus_threshold,
@@ -324,7 +330,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
-      consensus_threshold >= 1) {
+          consensus_threshold >= 1) {
       stop("consensus_threshold must be NULL (adaptive) or numeric in (0, 1)")
     }
   }
@@ -386,7 +392,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     ))
   }
 
-  use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
+  use_mc <- .can_fork(n_cores)
 
   # ---- Initial Leiden sweep on original graph ----
   run_initial <- function(ri) {
@@ -807,7 +813,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
   }
 
-  use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
+  use_mc <- .can_fork(n_cores)
   # Batch on the significance grid, not on the core count: the early-stop rule
   # must be evaluated at the same points regardless of the machine. The batch
   # is still spread over mc.cores below, so on typical hardware concurrency is
@@ -882,7 +888,8 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 #'   \item{degree}{Weighted degree (`igraph::strength`): sum of edge weights
 #'     to other genes in the same module.}
 #'   \item{betweenness}{Shortest-path betweenness using inverse edge weights
-#'     as distances.  Identifies genes that bridge sub-clusters within a module.}
+#'     as distances.  Identifies genes that bridge sub-clusters within a
+#'     module.}
 #'   \item{eigenvector}{Eigenvector centrality (`igraph::eigen_centrality`):
 #'     high for genes connected to other high-centrality genes.}
 #' }
@@ -966,7 +973,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   centrality <- match.arg(centrality)
 
   if (!is.list(modules) || is.null(modules$module_genes) ||
-    is.null(modules$graph) || is.null(modules$modules)) {
+        is.null(modules$graph) || is.null(modules$modules)) {
     stop("modules must be output from detect_modules()")
   }
   if (!is.list(net) || is.null(net$network)) {
@@ -1007,7 +1014,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 
     # Per-row geometric mean of effect sizes
     geo_eff <- sqrt(comparison$Species1.effect.size *
-      comparison$Species2.effect.size)
+                      comparison$Species2.effect.size)
 
     # Per-gene mean conservation effect (higher = more conserved)
     comp_genes <- comparison[[comp_col]]
@@ -1101,10 +1108,6 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
       betweenness = sub_btw,
       eigenvector = sub_eig
     )
-    # Alternative centrality (tier 3): betweenness if primary is degree,
-    # degree otherwise — the most complementary pair
-    alt_cent <- if (centrality == "degree") sub_btw else sub_str
-
     # Mean within-module edge weight (tier 4): strength / degree
     sub_deg <- igraph::degree(sub)
     mean_ew <- ifelse(sub_deg > 0, sub_str / sub_deg, 0)
@@ -1139,7 +1142,8 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   result$hog_q <- 1
   if (!is.null(gene_conserv)) {
     matched <- match(result$gene, names(gene_conserv))
-    result$conserv_eff[!is.na(matched)] <- gene_conserv[matched[!is.na(matched)]]
+    result$conserv_eff[!is.na(matched)] <-
+      gene_conserv[matched[!is.na(matched)]]
   }
   if (!is.null(hog_min_q) && !is.null(hog_lookup)) {
     matched <- match(result$hog, names(hog_min_q))
@@ -1310,7 +1314,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   req_cols <- c("gene", "module", "is_hub", "hog", "degree")
   for (sp in names(hub_results)) {
     if (!is.data.frame(hub_results[[sp]]) ||
-      !all(req_cols %in% names(hub_results[[sp]]))) {
+          !all(req_cols %in% names(hub_results[[sp]]))) {
       stop(
         "hub_results[['", sp,
         "']] must be output from identify_module_hubs() with orthologs"
@@ -1320,7 +1324,6 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
 
   trait_char <- as.character(species_trait[names(hub_results)])
   names(trait_char) <- names(hub_results)
-  trait_levels <- unique(trait_char)
   species_by_trait <- split(names(trait_char), trait_char)
 
   # Determine which centrality column to use for max_centrality / hub_module.
@@ -1579,7 +1582,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
         n_corresponding <- sum(corresp, na.rm = TRUE)
         n_available <- sum(!is.na(corresp))
         classification <- if (n_corresponding / n_available >=
-          correspondence_threshold) {
+                                correspondence_threshold) {
           "conserved_hub"
         } else {
           "rewired_hub"
@@ -1772,10 +1775,24 @@ characterize_hubs <- function(hub_result, modules = NULL,
 #' fixed offset `d` with `.hash32(x + d) - .hash32(x)` constant across `x`,
 #' which is the property `.task_seed()` needs from it.
 #'
+#' `x %% p` on a signed input discards the sign before anything else runs:
+#' `-p %% p == 0 == 0 %% p`, so `.hash32(-.Machine$integer.max)` and
+#' `.hash32(0)` used to be identical even though `.Machine$integer.max` is
+#' the documented other end of the accepted seed domain. The sign is
+#' folded in explicitly here (as a high bit XORed into the reduced
+#' magnitude) before the avalanche runs, so a negative and a non-negative
+#' input with the same magnitude no longer collide at this step. The
+#' domain (`+/- .Machine$integer.max`, `2p + 1` values) is still larger
+#' than the `p`-periodic range this folds into, so some collisions
+#' further apart remain possible in principle; this closes the specific,
+#' cheap-to-reach `x` vs `-x` case, not the pigeonhole bound.
+#'
 #' @noRd
 .hash32 <- function(x) {
   p <- 2147483647
-  x <- as.integer(x %% p)
+  sign_bit <- if (x < 0) 1073741824L else 0L # 2^30, well inside int32 range
+  x <- as.integer(abs(as.numeric(x)) %% p)
+  x <- bitwXor(x, sign_bit)
   x <- bitwXor(x, bitwShiftR(x, 15L))
   x <- as.integer((as.numeric(x) * 2246822519) %% p)
   x <- bitwXor(x, bitwShiftR(x, 13L))
@@ -1809,15 +1826,17 @@ characterize_hubs <- function(hub_result, modules = NULL,
 #' the limit, and set.seed(NA) errors. Products stay exact in double
 #' (2654435761 * 1e6 is well under 2^53).
 #'
-#' `.hash32(root)` folds `root %% p` before hashing, so it is periodic in
-#' `root` with period `p = 2^31 - 1`, not just aliased at the 40503 distance
-#' above: any two roots exactly `p` apart -- both legal, since callers such as
-#' `coexpressolog_null()` accept a seed in `+/- .Machine$integer.max` -- give
-#' `.task_seed()` the same value at every `(stream, index)`, so their null
-#' permutations are identical even though `set.seed(root)` for the two
-#' observed runs is not. A caller sweeping seeds across that span would see
-#' the observed statistic move while the null it is compared against does
-#' not.
+#' `.hash32(root)` used to fold `root %% p` directly before hashing, which
+#' is periodic in `root` with period `p = 2^31 - 1` and, worse, collapses
+#' sign: `-p %% p == 0 == p %% p == 0 %% p`, so root `-.Machine$integer.max`
+#' (a legal seed callers such as `coexpressolog_null()` accept) hashed
+#' identically to root `0`. `.hash32()` now folds the sign in separately
+#' (see its own docs) so that specific collision is closed; the domain is
+#' still larger than the range this folds into (`2p + 1` legal roots
+#' against `p` residues), so some pair of roots further apart than `p`
+#' can in principle still alias -- the risk this leaves is a coincidental
+#' one at cryptographically-unlikely distances, not the cheap, guaranteed
+#' `x` vs `-x` case that existed before.
 #'
 #' Streams: 1 = initial sweep, 2 = K=1 permutations, 100 + iter = consensus
 #' sweep at that iteration. The consensus stream must vary with iter because

@@ -34,7 +34,7 @@ map_fixture <- function() {
 
 candidate_sp2 <- function(fx) {
   cand <- fx$ortho[fx$ortho$Species1 %in% fx$genes1 &
-    fx$ortho$Species2 %in% fx$genes2, ]
+                     fx$ortho$Species2 %in% fx$genes2, ]
   sort(unique(cand$Species2))
 }
 
@@ -48,7 +48,7 @@ test_that("resolve_ortholog_map returns the documented structure", {
   expect_s3_class(res, "data.frame")
   expect_named(res, c("gene1", "gene2", "hog", "source"))
   expect_true(all(res$source %in%
-    c("clique", "coexpressolog", "unresolved")))
+                    c("clique", "coexpressolog", "unresolved")))
 })
 
 test_that("without evidence every candidate pair is unresolved", {

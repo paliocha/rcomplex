@@ -58,8 +58,8 @@ HOG are kept as-is.
 \examples{
 \dontrun{
 reduced <- reduce_orthogroups(expr_matrix, orthologs)
-reduced$expr_matrix  # reduced expression matrix
-reduced$gene_map     # original -> representative mapping
+reduced$expr_matrix # reduced expression matrix
+reduced$gene_map # original -> representative mapping
 }
 
 }

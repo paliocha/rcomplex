@@ -108,7 +108,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     stop("genes1 and genes2 must be character vectors")
   }
   if ((!is.null(edges) || !is.null(cliques)) &&
-    (is.null(sp1) || is.null(sp2))) {
+        (is.null(sp1) || is.null(sp2))) {
     stop("sp1 and sp2 are required when edges or cliques is supplied")
   }
 
@@ -116,7 +116,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   # (compare_neighborhoods() filters Species1 against net1, Species2 against
   # net2), so a table whose orientation is flipped contributes nothing.
   cand <- orthologs[orthologs$Species1 %in% genes1 &
-    orthologs$Species2 %in% genes2, , drop = FALSE]
+                      orthologs$Species2 %in% genes2, , drop = FALSE]
   cand <- unique(cand[, c("Species1", "Species2", "hog"), drop = FALSE])
   names(cand) <- c("gene1", "gene2", "hog")
   cand$hog <- as.character(cand$hog)
@@ -125,7 +125,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     stop("No orthologs found in both gene universes")
   }
 
-  cand_key <- paste(cand$gene1, cand$gene2, sep = "\x01")
+  cand_key <- paste(cand$hog, cand$gene1, cand$gene2, sep = "\x01")
 
   resolved <- .map_clique_layer(cliques, sp1, sp2, cand, cand_key)
 
@@ -198,7 +198,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     hog = as.character(cl$hog),
     stringsAsFactors = FALSE
   )
-  hits <- hits[paste(hits$gene1, hits$gene2, sep = "\x01") %in% cand_key, ,
+  hits <- hits[
+    paste(hits$hog, hits$gene1, hits$gene2, sep = "\x01") %in% cand_key, ,
     drop = FALSE
   ]
   if (nrow(hits) == 0L) {
@@ -259,7 +260,10 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   # two resolved labels tie -- removing it from the mappable set, which
   # resolution must never do.
   e <- e[!e$gene1 %in% done_genes & !e$gene2 %in% done_gene2, , drop = FALSE]
-  e <- e[paste(e$gene1, e$gene2, sep = "\x01") %in% cand_key, , drop = FALSE]
+  e <- e[
+    paste(e$hog, e$gene1, e$gene2, sep = "\x01") %in% cand_key, ,
+    drop = FALSE
+  ]
   e <- e[!is.na(e[[rank_by]]), , drop = FALSE]
   if (nrow(e) == 0L) {
     return(empty)
@@ -271,8 +275,9 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   score <- if (rank_by == "q.value") -e[[rank_by]] else e[[rank_by]]
   e <- e[order(-score, e$gene1, e$gene2), , drop = FALSE]
 
-  best1 <- paste(e$gene1, e$gene2, sep = "\x01")[!duplicated(e$gene1)]
-  best2 <- paste(e$gene1, e$gene2, sep = "\x01")[!duplicated(e$gene2)]
+  edge_key <- paste(e$hog, e$gene1, e$gene2, sep = "\x01")
+  best1 <- edge_key[!duplicated(e$gene1)]
+  best2 <- edge_key[!duplicated(e$gene2)]
   mutual <- intersect(best1, best2)
   if (length(mutual) == 0L) {
     return(empty)

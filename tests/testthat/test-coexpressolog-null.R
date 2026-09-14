@@ -296,7 +296,7 @@ make_match_nets <- function() {
     list(network = m, threshold = 5)
   }
   list(
-    networks = list(A = sparse_net(mk("A")), B = sparse_net(mk("B"))),
+    networks = list(A = sparse_net(mk("A")), B = sparse_net(mk("B"))), # nolint
     ortho = data.frame(
       Species1 = paste0("A", 1:8),
       Species2 = paste0("B", 1:8),
@@ -336,19 +336,22 @@ test_that("n_perm below 19 warns that p < 0.05 is unreachable", {
 })
 
 
-test_that("null runs missing a species pair record 0 for the built-in statistic", {
-  d <- make_match_nets()
-  res <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 6L, seed = 1L,
-    pval_combine = "max", pi0_method = "none"
-  ))
-  expect_identical(res$statistic, c("A~B", "total"))
-  null_mat <- attr(res, "null")
-  expect_true(all(is.finite(null_mat)))
-  # the pair-less rewiring is a null observation of 0, not an abort
-  expect_equal(unname(null_mat[1L, "A~B"]), 0)
-})
+test_that(
+  "null runs missing a species pair record 0 for the built-in statistic",
+  {
+    d <- make_match_nets()
+    res <- suppressWarnings(coexpressolog_null(
+      d$networks, d$ortho,
+      n_perm = 6L, seed = 1L,
+      pval_combine = "max", pi0_method = "none"
+    ))
+    expect_identical(res$statistic, c("A~B", "total"))
+    null_mat <- attr(res, "null")
+    expect_true(all(is.finite(null_mat)))
+    # the pair-less rewiring is a null observation of 0, not an abort
+    expect_equal(unname(null_mat[1L, "A~B"]), 0)
+  }
+)
 
 
 test_that("a user statistic missing a name still errors", {
@@ -413,7 +416,7 @@ test_that("an NA null statistic reports NA instead of aborting the run", {
   )
   expect_s3_class(res, "data.frame")
   expect_true(all(c("n_ge", "null_se", "p_emp_lo", "p_emp_hi") %in%
-    names(res)))
+                    names(res)))
   # This fixture must actually exercise the NA path -- otherwise the
   # assertions below pass vacuously and the regression they guard against
   # (NA reaching `if (any(weak))`) goes unexercised.
@@ -421,9 +424,7 @@ test_that("an NA null statistic reports NA instead of aborting the run", {
   expect_true(any(na_rows))
   # An NA row must stay NA on every derived column rather than being
   # scored as significant.
-  {
-    expect_true(all(is.na(res$p_emp[na_rows])))
-    expect_true(all(is.na(res$p_emp_lo[na_rows])))
-    expect_true(all(is.na(res$p_emp_hi[na_rows])))
-  }
+  expect_true(all(is.na(res$p_emp[na_rows])))
+  expect_true(all(is.na(res$p_emp_lo[na_rows])))
+  expect_true(all(is.na(res$p_emp_hi[na_rows])))
 })

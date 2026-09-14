@@ -132,7 +132,7 @@ pvalue_resolution <- function(p, n_perm = NULL) {
 
   if (!is.null(n_perm)) {
     ok <- is.numeric(n_perm) && length(n_perm) == 1L && !is.na(n_perm) &&
-      n_perm >= 1 && n_perm == round(n_perm)
+      is.finite(n_perm) && n_perm >= 1 && n_perm == round(n_perm)
     if (!ok) {
       stop("n_perm must be a single positive whole number")
     }

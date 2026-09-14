@@ -45,7 +45,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' net <- compute_network(x, density = 0.03)  # sparse
+#' net <- compute_network(x, density = 0.03) # sparse
 #' # exact values for one module, including sub-threshold entries:
 #' blk <- mr_block(x, module_genes, net)
 #' heatmap(blk)
@@ -59,12 +59,16 @@ mr_block <- function(x, genes, net) {
   }
   params <- net$params
   if (is.null(params$cor_method)) {
-    stop("net must carry the parameters of compute_network() ",
-         "(net$params$cor_method is missing)")
+    stop(
+      "net must carry the parameters of compute_network() ",
+      "(net$params$cor_method is missing)"
+    )
   }
   if (!identical(params$norm_method, "MR")) {
-    stop("mr_block() requires a network built with norm_method = \"MR\"; ",
-         "got \"", params$norm_method, "\"")
+    stop(
+      "mr_block() requires a network built with norm_method = \"MR\"; ",
+      "got \"", params$norm_method, "\""
+    )
   }
   if (!is.character(genes) || length(genes) == 0L) {
     stop("genes must be a non-empty character vector")
@@ -74,8 +78,10 @@ mr_block <- function(x, genes, net) {
   }
   missing_genes <- setdiff(genes, universe)
   if (length(missing_genes) > 0L) {
-    stop("genes not in the network: ",
-         paste(missing_genes, collapse = ", "))
+    stop(
+      "genes not in the network: ",
+      paste(missing_genes, collapse = ", ")
+    )
   }
   if (is.null(rownames(x)) || !all(universe %in% rownames(x))) {
     stop("x must contain every network gene as a row")
@@ -89,8 +95,9 @@ mr_block <- function(x, genes, net) {
   # k x n correlation slice: genes vs the full universe (self included,
   # as in the full matrix). Clamp and abs as mutual_rank_inplace_cpp().
   cm <- stats::cor(t(x[genes, , drop = FALSE]), t(x),
-                   method = params$cor_method)
-  cm <- pmin(pmax(cm, -1), 1)  # cm first: pmin/pmax keep its dim
+    method = params$cor_method
+  )
+  cm <- pmin(pmax(cm, -1), 1) # cm first: pmin/pmax keep its dim
   if (isTRUE(params$abs_cor)) {
     cm <- abs(cm)
   }
@@ -100,7 +107,7 @@ mr_block <- function(x, genes, net) {
   # log MR - same tie handling as mutual_rank_inplace_cpp().
   rk <- t(apply(if (isTRUE(params$mr_log_transform)) -cm else cm, 1, rank))
 
-  # block[i, j] = sqrt(R[i, genes[j]] * R[j, genes[i]])
+  # block[i, j] = sqrt(R[i, genes[j]] * R[j, genes[i]])  # nolint
   half <- rk[, match(genes, universe), drop = FALSE]
   block <- sqrt(half * t(half))
   if (isTRUE(params$mr_log_transform)) {

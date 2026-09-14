@@ -68,7 +68,8 @@ Rows are sorted by \code{n_species} (descending), then
 \description{
 For a given HOG, finds which other HOGs co-express with it in each
 species network, then aggregates across species. Useful after
-\code{\link{identify_module_hubs}} and \code{\link{classify_hub_conservation}}
+\code{\link{identify_module_hubs}} and
+\code{\link{classify_hub_conservation}}
 to explore the co-expression neighborhood of a hub gene.
 }
 \examples{

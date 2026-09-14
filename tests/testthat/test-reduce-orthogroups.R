@@ -78,7 +78,7 @@ test_that("non-HOG genes are preserved", {
 test_that("zero-variance genes are kept as singletons", {
   expr <- rbind(
     G1 = c(1, 2, 3, 4),
-    G2 = c(5, 5, 5, 5),  # zero variance
+    G2 = c(5, 5, 5, 5), # zero variance
     G3 = c(1, 2, 3, 4)
   )
   orthologs <- data.frame(
@@ -122,9 +122,9 @@ test_that("multiple HOGs are processed independently", {
   base2 <- rnorm(10)
   expr <- rbind(
     A1 = base1,
-    A2 = base1 + rnorm(10, sd = 0.01),  # nearly identical to A1
+    A2 = base1 + rnorm(10, sd = 0.01), # nearly identical to A1
     B1 = base2,
-    B2 = base2 + rnorm(10, sd = 0.01)   # nearly identical to B1
+    B2 = base2 + rnorm(10, sd = 0.01) # nearly identical to B1
   )
   orthologs <- data.frame(
     Species1 = c("A1", "A2", "B1", "B2"),
@@ -143,7 +143,7 @@ test_that("multiple HOGs are processed independently", {
 test_that("cor_threshold = 1.0 merges nothing", {
   expr <- rbind(
     G1 = c(1, 2, 3),
-    G2 = c(2, 4, 6)  # perfectly correlated but different scale
+    G2 = c(2, 4, 6) # perfectly correlated but different scale
   )
   orthologs <- data.frame(
     Species1 = c("G1", "G2"),
@@ -218,15 +218,25 @@ test_that("gene_map covers all original genes", {
 
 test_that("input validation works", {
   expr <- rbind(G1 = c(1, 2, 3))
-  ortho <- data.frame(Species1 = "G1", Species2 = "X1", hog = 1L,
-                      stringsAsFactors = FALSE)
+  ortho <- data.frame(
+    Species1 = "G1", Species2 = "X1", hog = 1L,
+    stringsAsFactors = FALSE
+  )
 
-  expect_error(reduce_orthogroups("not a matrix", ortho),
-               "numeric matrix")
-  expect_error(reduce_orthogroups(matrix(1:3, nrow = 1), ortho),
-               "row names")
-  expect_error(reduce_orthogroups(expr, ortho, cor_threshold = 1.5),
-               "between 0 and 1")
-  expect_error(reduce_orthogroups(expr, data.frame(x = 1)),
-               "column 'Species1'")
+  expect_error(
+    reduce_orthogroups("not a matrix", ortho),
+    "numeric matrix"
+  )
+  expect_error(
+    reduce_orthogroups(matrix(1:3, nrow = 1), ortho),
+    "row names"
+  )
+  expect_error(
+    reduce_orthogroups(expr, ortho, cor_threshold = 1.5),
+    "between 0 and 1"
+  )
+  expect_error(
+    reduce_orthogroups(expr, data.frame(x = 1)),
+    "column 'Species1'"
+  )
 })

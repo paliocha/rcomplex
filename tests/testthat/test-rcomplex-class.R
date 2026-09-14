@@ -45,7 +45,7 @@ test_that("rcomplex constructor creates valid object", {
   expect_s3_class(rcx, "rcomplex")
   expect_equal(rcx$species, fix$species)
   expect_equal(rcx$traits, fix$traits)
-  expect_equal(length(rcx$species_pairs), 3) # combn(3,2)
+  expect_equal(length(rcx$species_pairs), 3) # combn(3,2)  # nolint
   expect_null(rcx$phylo_pairs)
   # All result slots are NULL
   expect_null(rcx$edges)
@@ -326,7 +326,10 @@ test_that("preservation_paired dispatches on rcomplex", {
     c("classification", "summary", "raw")
   )
   # Preservation is directional: both orientations always run.
-  expect_setequal(names(rcx$preservation$raw), c("SP_A.SP_B", "SP_B.SP_A"))
+  expect_setequal(
+    names(rcx$preservation$raw),
+    c("SP_A\x01SP_B", "SP_B\x01SP_A")
+  )
 })
 
 
@@ -386,7 +389,7 @@ test_that("the container builds a usable module correspondence", {
   # classify_hub_conservation() looks up.
   expect_equal(names(rcx$correspondence), "SP_A.SP_B")
   expect_true(all(c("module_sp1", "module_sp2", "jaccard", "q.value") %in%
-    names(rcx$correspondence[["SP_A.SP_B"]]$pairs)))
+                    names(rcx$correspondence[["SP_A.SP_B"]]$pairs)))
   expect_true(is.data.frame(rcx$hub_classification))
 })
 
@@ -658,42 +661,45 @@ test_that("classify_gene_cliques.rcomplex actually reaches lineage tiers", {
   # Without the container's traits, neither lineage-aware tier is
   # reachable: the same cliques fall back to a lineage-blind tier.
   expect_false(any(no_lineage$classification %in%
-    c("differentiated", "lineage_specific")))
+                     c("differentiated", "lineage_specific")))
 })
 
 
-test_that("supplying the container's traits reaches a tier lineage = NULL cannot", {
-  # The previous test only ever produces complete_conserved, which is
-  # reachable with or without traits and so cannot show the container
-  # path actually changes the tier. Five species split 3 annual (A, C, E)
-  # / 2 perennial (B, D) lets an all-annual triangle clear min_size = 3
-  # while B and D never appear in this HOG's edges at all -- an absence,
-  # not a tested-and-rejected pair. With traits supplied that clique is a
-  # complete lineage (lineage_specific); with lineage = NULL the same
-  # clique is 2 species short of complete_conserved, past max_gap for
-  # partial_present, and cannot qualify for any tier.
-  fix <- make_rcx_fixtures(n_sp = 5)
-  rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
-  rcx$edges <- data.frame(
-    gene1 = c("SP_A_G1", "SP_A_G1", "SP_C_G1"),
-    gene2 = c("SP_C_G1", "SP_E_G1", "SP_E_G1"),
-    species1 = c("SP_A", "SP_A", "SP_C"),
-    species2 = c("SP_C", "SP_E", "SP_E"),
-    hog = "HOG_LIN", q.value = c(0.01, 0.01, 0.01),
-    effect_size = c(3, 3, 3), stringsAsFactors = FALSE
-  )
-  rcx <- suppressWarnings(gene_clique_graph(rcx))
-  expect_equal(nrow(rcx$gene_cliques), 3L)
+test_that(
+  "supplying the container's traits reaches a tier lineage = NULL cannot",
+  {
+    # The previous test only ever produces complete_conserved, which is
+    # reachable with or without traits and so cannot show the container
+    # path actually changes the tier. Five species split 3 annual (A, C, E)
+    # / 2 perennial (B, D) lets an all-annual triangle clear min_size = 3
+    # while B and D never appear in this HOG's edges at all -- an absence,
+    # not a tested-and-rejected pair. With traits supplied that clique is a
+    # complete lineage (lineage_specific); with lineage = NULL the same
+    # clique is 2 species short of complete_conserved, past max_gap for
+    # partial_present, and cannot qualify for any tier.
+    fix <- make_rcx_fixtures(n_sp = 5)
+    rcx <- rcomplex(fix$species, fix$traits, fix$networks, fix$orthologs)
+    rcx$edges <- data.frame(
+      gene1 = c("SP_A_G1", "SP_A_G1", "SP_C_G1"),
+      gene2 = c("SP_C_G1", "SP_E_G1", "SP_E_G1"),
+      species1 = c("SP_A", "SP_A", "SP_C"),
+      species2 = c("SP_C", "SP_E", "SP_E"),
+      hog = "HOG_LIN", q.value = c(0.01, 0.01, 0.01),
+      effect_size = c(3, 3, 3), stringsAsFactors = FALSE
+    )
+    rcx <- suppressWarnings(gene_clique_graph(rcx))
+    expect_equal(nrow(rcx$gene_cliques), 3L)
 
-  with_traits <- suppressWarnings(classify_gene_cliques(rcx))
-  expect_identical(
-    with_traits$gene_classification$classification, "lineage_specific"
-  )
+    with_traits <- suppressWarnings(classify_gene_cliques(rcx))
+    expect_identical(
+      with_traits$gene_classification$classification, "lineage_specific"
+    )
 
-  without_traits <- suppressWarnings(
-    classify_gene_cliques(rcx, lineage = NULL)
-  )
-  expect_false(identical(
-    without_traits$gene_classification$classification, "lineage_specific"
-  ))
-})
+    without_traits <- suppressWarnings(
+      classify_gene_cliques(rcx, lineage = NULL)
+    )
+    expect_false(identical(
+      without_traits$gene_classification$classification, "lineage_specific"
+    ))
+  }
+)

@@ -76,7 +76,8 @@ Edge-format data frame from \code{comparison_to_edges()}.}
 }
 }
 \description{
-Computes q-values (Storey & Tibshirani, 2003), filters results, and computes summary
+Computes q-values (Storey & Tibshirani, 2003), filters results, and
+computes summary
 statistics at gene-pair, gene, and ortholog-group levels.
 }
 \section{Multiple testing correction}{

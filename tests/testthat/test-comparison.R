@@ -5,8 +5,12 @@ test_that("compare_neighborhoods returns correct structure", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -39,8 +43,12 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -77,8 +85,12 @@ test_that("C++ comparison matches R reference", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -178,78 +190,81 @@ test_that("C++ comparison matches R reference", {
 })
 
 
-test_that("self-excluded urn: anchor leaves the mapped set and the population", {
-  # A1 has two orthologs (B1, B2). For the pair (A1, B1), B1's neighbour B2
-  # maps back to the anchor A1, which must be dropped from the mapped set;
-  # the population is the other N - 1 genes in both directions.
-  n <- 10
-  mk <- function(prefix) {
-    m <- matrix(0, n, n)
-    rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
-    m
+test_that(
+  "self-excluded urn: anchor leaves the mapped set and the population",
+  {
+    # A1 has two orthologs (B1, B2). For the pair (A1, B1), B1's neighbour B2
+    # maps back to the anchor A1, which must be dropped from the mapped set;
+    # the population is the other N - 1 genes in both directions.
+    n <- 10
+    mk <- function(prefix) {
+      m <- matrix(0, n, n)
+      rownames(m) <- colnames(m) <- paste0(prefix, 1:n)
+      m
+    }
+    link <- function(m, i, j) {
+      m[i, j] <- m[j, i] <- 1
+      m
+    }
+    a <- mk("A")
+    for (j in 2:4) a <- link(a, 1, j) # N1(A1) = {A2, A3, A4}
+    b <- mk("B")
+    for (j in c(2:4, 7)) b <- link(b, 1, j) # N2(B1) = {B2, B3, B4, B7}
+    net1 <- list(network = a, threshold = 0.5)
+    net2 <- list(network = b, threshold = 0.5)
+    ortho <- data.frame(
+      Species1 = c("A1", "A1", "A2", "A3", "A4", "A5"),
+      Species2 = c("B1", "B2", "B3", "B4", "B5", "B6"),
+      hog = c("H1", "H1", "H2", "H3", "H4", "H5"),
+      stringsAsFactors = FALSE
+    )
+
+    res <- compare_neighborhoods(net1, net2, ortho)
+    r <- res[res$Species1 == "A1" & res$Species2 == "B1", ]
+
+    # direction 1: m = 3; mapped {A1 (anchor, dropped), A2, A3} -> k = 2;
+    # x = 2; population 9
+    expect_equal(r$Species1.neigh, 3L)
+    expect_equal(r$Species1.ortho.neigh, 2L)
+    expect_equal(r$Species1.neigh.overlap, 2L)
+    expect_equal(r$Species1.p.val.con, phyper(1, 3, 6, 2, lower.tail = FALSE))
+    expect_equal(r$Species1.p.val.gt, phyper(2, 3, 6, 2, lower.tail = FALSE))
+    expect_equal(r$Species1.p.val.eq, dhyper(2, 3, 6, 2))
+    expect_equal(r$Species1.p.val.div, phyper(2, 3, 6, 2))
+    expect_equal(r$Species1.effect.size, (2 / 2) / (3 / 9))
+    expect_equal(r$Species1.jaccard, 2 / 3)
+
+    # direction 2: anchor B1 is not in the mapped set {B3, B4, B5}; m = 4,
+    # k = 3, x = 2; population 9 (the old urn would use 10)
+    expect_equal(r$Species2.neigh, 4L)
+    expect_equal(r$Species2.ortho.neigh, 3L)
+    expect_equal(r$Species2.neigh.overlap, 2L)
+    expect_equal(r$Species2.p.val.con, phyper(1, 4, 5, 3, lower.tail = FALSE))
+    expect_equal(r$Species2.p.val.gt, phyper(2, 4, 5, 3, lower.tail = FALSE))
+    expect_equal(r$Species2.p.val.eq, dhyper(2, 4, 5, 3))
+    expect_equal(r$Species2.p.val.div, phyper(2, 4, 5, 3))
+    expect_equal(r$Species2.effect.size, (2 / 3) / (4 / 9))
+
+    # (A1, B2): B2's only neighbour maps back to the anchor -> empty mapped
+    # set; p.val.gt / p.val.eq still form a proper randomized p-value
+    r2 <- res[res$Species1 == "A1" & res$Species2 == "B2", ]
+    expect_equal(r2$Species1.ortho.neigh, 0L)
+    expect_equal(r2$Species1.neigh.overlap, 0L)
+    expect_equal(r2$Species1.p.val.con, 1)
+    expect_equal(r2$Species1.p.val.div, 1)
+    expect_equal(r2$Species1.effect.size, 1)
+    expect_equal(r2$Species1.p.val.gt, 0)
+    expect_equal(r2$Species1.p.val.eq, 1)
+
+    # pure-R oracle and sparse path agree
+    ref <- reference_compare_pair(a, b, 0.5, 0.5, ortho, "A1", "B1")
+    got <- r[names(ref)]
+    rownames(got) <- NULL
+    expect_equal(got, ref)
+    res_s <- compare_neighborhoods(sparse_net(net1), sparse_net(net2), ortho)
+    expect_equal(res_s, res)
   }
-  link <- function(m, i, j) {
-    m[i, j] <- m[j, i] <- 1
-    m
-  }
-  a <- mk("A")
-  for (j in 2:4) a <- link(a, 1, j) # N1(A1) = {A2, A3, A4}
-  b <- mk("B")
-  for (j in c(2:4, 7)) b <- link(b, 1, j) # N2(B1) = {B2, B3, B4, B7}
-  net1 <- list(network = a, threshold = 0.5)
-  net2 <- list(network = b, threshold = 0.5)
-  ortho <- data.frame(
-    Species1 = c("A1", "A1", "A2", "A3", "A4", "A5"),
-    Species2 = c("B1", "B2", "B3", "B4", "B5", "B6"),
-    hog = c("H1", "H1", "H2", "H3", "H4", "H5"),
-    stringsAsFactors = FALSE
-  )
-
-  res <- compare_neighborhoods(net1, net2, ortho)
-  r <- res[res$Species1 == "A1" & res$Species2 == "B1", ]
-
-  # direction 1: m = 3; mapped {A1 (anchor, dropped), A2, A3} -> k = 2;
-  # x = 2; population 9
-  expect_equal(r$Species1.neigh, 3L)
-  expect_equal(r$Species1.ortho.neigh, 2L)
-  expect_equal(r$Species1.neigh.overlap, 2L)
-  expect_equal(r$Species1.p.val.con, phyper(1, 3, 6, 2, lower.tail = FALSE))
-  expect_equal(r$Species1.p.val.gt, phyper(2, 3, 6, 2, lower.tail = FALSE))
-  expect_equal(r$Species1.p.val.eq, dhyper(2, 3, 6, 2))
-  expect_equal(r$Species1.p.val.div, phyper(2, 3, 6, 2))
-  expect_equal(r$Species1.effect.size, (2 / 2) / (3 / 9))
-  expect_equal(r$Species1.jaccard, 2 / 3)
-
-  # direction 2: anchor B1 is not in the mapped set {B3, B4, B5}; m = 4,
-  # k = 3, x = 2; population 9 (the old urn would use 10)
-  expect_equal(r$Species2.neigh, 4L)
-  expect_equal(r$Species2.ortho.neigh, 3L)
-  expect_equal(r$Species2.neigh.overlap, 2L)
-  expect_equal(r$Species2.p.val.con, phyper(1, 4, 5, 3, lower.tail = FALSE))
-  expect_equal(r$Species2.p.val.gt, phyper(2, 4, 5, 3, lower.tail = FALSE))
-  expect_equal(r$Species2.p.val.eq, dhyper(2, 4, 5, 3))
-  expect_equal(r$Species2.p.val.div, phyper(2, 4, 5, 3))
-  expect_equal(r$Species2.effect.size, (2 / 3) / (4 / 9))
-
-  # (A1, B2): B2's only neighbour maps back to the anchor -> empty mapped
-  # set; p.val.gt / p.val.eq still form a proper randomized p-value
-  r2 <- res[res$Species1 == "A1" & res$Species2 == "B2", ]
-  expect_equal(r2$Species1.ortho.neigh, 0L)
-  expect_equal(r2$Species1.neigh.overlap, 0L)
-  expect_equal(r2$Species1.p.val.con, 1)
-  expect_equal(r2$Species1.p.val.div, 1)
-  expect_equal(r2$Species1.effect.size, 1)
-  expect_equal(r2$Species1.p.val.gt, 0)
-  expect_equal(r2$Species1.p.val.eq, 1)
-
-  # pure-R oracle and sparse path agree
-  ref <- reference_compare_pair(a, b, 0.5, 0.5, ortho, "A1", "B1")
-  got <- r[names(ref)]
-  rownames(got) <- NULL
-  expect_equal(got, ref)
-  res_s <- compare_neighborhoods(sparse_net(net1), sparse_net(net2), ortho)
-  expect_equal(res_s, res)
-})
+)
 
 
 test_that("p.val.gt / p.val.eq decompose the exact hypergeometric tail", {
@@ -278,8 +293,12 @@ test_that("multicopy orthologs handled correctly", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   # 1:N mapping: A_001 maps to B_001 and B_031
   ortho <- data.frame(
@@ -303,8 +322,12 @@ test_that("orthologs not in network are filtered", {
   expr2 <- matrix(rnorm(80), nrow = 8, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:8))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   # Include orthologs that aren't in the networks
   ortho <- data.frame(
@@ -527,7 +550,8 @@ test_that("Jaccard = 0 (not NaN) when both neighborhoods are empty", {
 
   result <- compare_neighborhoods(net1, net2, ortho)
 
-  # Both directions: empty neighborhoods -> neigh=0, ortho_neigh=0, union=0 -> jaccard=0
+  # Both directions: empty neighborhoods -> neigh=0, ortho_neigh=0,
+  # union=0 -> jaccard=0  # nolint
 
   expect_true(all(result$Species1.jaccard == 0.0))
   expect_true(all(result$Species2.jaccard == 0.0))
@@ -604,8 +628,12 @@ test_that("run_pairwise_comparisons returns combined edges for 2 species", {
   expr2 <- matrix(rnorm(400), nrow = 40, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", 1:40))
 
-  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", 1:30)),
@@ -633,7 +661,9 @@ test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
   make_net <- function(prefix, n = 30) {
     expr <- matrix(rnorm(n * 10), nrow = n)
     rownames(expr) <- paste0(prefix, "_", sprintf("%03d", seq_len(n)))
-    compute_network(expr, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+    compute_network(expr,
+      density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+    )
   }
 
   nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
@@ -688,7 +718,9 @@ test_that("run_pairwise_comparisons with custom species_pairs", {
   make_net <- function(prefix, n = 30) {
     expr <- matrix(rnorm(n * 10), nrow = n)
     rownames(expr) <- paste0(prefix, "_", sprintf("%03d", seq_len(n)))
-    compute_network(expr, density = 0.1, mr_log_transform = FALSE, sparse = FALSE)
+    compute_network(expr,
+      density = 0.1, mr_log_transform = FALSE, sparse = FALSE
+    )
   }
 
   nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
@@ -720,8 +752,12 @@ make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
   expr2 <- matrix(rnorm(n2 * 10), nrow = n2, ncol = 10)
   rownames(expr2) <- paste0("B_", sprintf("%03d", seq_len(n2)))
 
-  net1 <- compute_network(expr1, density = density, mr_log_transform = FALSE, sparse = FALSE)
-  net2 <- compute_network(expr2, density = density, mr_log_transform = FALSE, sparse = FALSE)
+  net1 <- compute_network(expr1,
+    density = density, mr_log_transform = FALSE, sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = density, mr_log_transform = FALSE, sparse = FALSE
+  )
 
   ortho <- data.frame(
     Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
@@ -747,19 +783,22 @@ test_that("find_coexpressologs default method is analytical", {
 })
 
 
-test_that("find_coexpressologs with method='permutation' returns correct structure", {
-  skip_on_cran()
-  fix <- make_coexpr_fixtures()
-  result <- find_coexpressologs(fix$nets, fix$ortho, method = "permutation")
+test_that(
+  "find_coexpressologs with method='permutation' returns correct structure",
+  {
+    skip_on_cran()
+    fix <- make_coexpr_fixtures()
+    result <- find_coexpressologs(fix$nets, fix$ortho, method = "permutation")
 
-  expect_true(is.data.frame(result))
-  expect_true(all(c(
-    "gene1", "gene2", "species1", "species2",
-    "hog", "q.value", "effect_size", "type"
-  )
-  %in% names(result)))
-  expect_true(all(result$type %in% c("conserved", "ns")))
-})
+    expect_true(is.data.frame(result))
+    expect_true(all(c(
+      "gene1", "gene2", "species1", "species2",
+      "hog", "q.value", "effect_size", "type"
+    )
+    %in% names(result)))
+    expect_true(all(result$type %in% c("conserved", "ns")))
+  }
+)
 
 
 test_that("find_coexpressologs alternative='less' produces 'diverged' labels", {
@@ -777,6 +816,186 @@ test_that("find_coexpressologs alternative='less' produces 'diverged' labels", {
     alternative = "less"
   )
   expect_true(all(result_anal$type %in% c("diverged", "ns")))
+})
+
+
+test_that(
+  "find_coexpressologs(out_file = ) streams edges identical to in-memory",
+  {
+    skip_on_cran()
+    fix <- make_coexpr_fixtures()
+    out <- withr::local_tempfile(fileext = ".csv")
+
+    set.seed(1)
+    in_memory <- find_coexpressologs(fix$nets, fix$ortho, method = "analytical")
+
+    set.seed(1)
+    ret <- find_coexpressologs(fix$nets, fix$ortho,
+      method = "analytical", out_file = out
+    )
+
+    expect_identical(ret, out)
+    expect_true(file.exists(out))
+    from_file <- as.data.frame(data.table::fread(out))
+    # fread() infers types from text; compare on values, not attributes
+    expect_equal(from_file, in_memory, ignore_attr = TRUE)
+  }
+)
+
+
+test_that("find_coexpressologs(out_file = ) overwrites a stale file", {
+  skip_on_cran()
+  fix <- make_coexpr_fixtures()
+  out <- withr::local_tempfile(fileext = ".csv")
+  writeLines("stale,content", out)
+
+  find_coexpressologs(fix$nets, fix$ortho,
+    method = "analytical", out_file = out
+  )
+  from_file <- data.table::fread(out)
+  expect_false("stale" %in% names(from_file))
+  expect_true(all(c("gene1", "gene2", "q.value") %in% names(from_file)))
+})
+
+
+test_that("find_coexpressologs(out_file = ) validates its argument", {
+  fix <- make_coexpr_fixtures()
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho, out_file = character(0)),
+    "out_file must be"
+  )
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho, out_file = c("a", "b")),
+    "out_file must be"
+  )
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho, out_file = NA_character_),
+    "out_file must be"
+  )
+})
+
+
+test_that("find_coexpressologs out_file: empty file if no pair succeeds", {
+  fix <- make_coexpr_fixtures()
+  out <- withr::local_tempfile(fileext = ".csv")
+  # An ortholog table with no rows means no pair produces edges
+  empty_ortho <- fix$ortho[0, ]
+
+  result <- suppressWarnings(
+    find_coexpressologs(fix$nets, empty_ortho, out_file = out)
+  )
+  # Documented contract: out_file is always created and always what is
+  # returned, even when no pair produces edges.
+  expect_identical(result, out)
+  expect_true(file.exists(out))
+  from_file <- data.table::fread(out)
+  expect_equal(nrow(from_file), 0)
+  expect_true(all(c("gene1", "gene2", "q.value") %in% names(from_file)))
+})
+
+
+test_that("find_coexpressologs out_file: errors if stale file removal fails", {
+  fix <- make_coexpr_fixtures()
+  out <- withr::local_tempfile()
+  # A non-empty directory at out_file cannot be removed by file.remove(),
+  # so this must abort rather than silently proceed to append onto it.
+  dir.create(out)
+  file.create(file.path(out, "child"))
+
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho,
+      method = "analytical", out_file = out
+    ),
+    "could not remove existing out_file"
+  )
+})
+
+
+test_that("find_coexpressologs out_file: one header across pairs", {
+  skip_on_cran()
+  set.seed(42)
+  n <- 30
+  expr1 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
+  rownames(expr1) <- paste0("A_", sprintf("%03d", seq_len(n)))
+  expr2 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
+  rownames(expr2) <- paste0("B_", sprintf("%03d", seq_len(n)))
+  expr3 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
+  rownames(expr3) <- paste0("C_", sprintf("%03d", seq_len(n)))
+
+  net1 <- compute_network(expr1,
+    density = 0.1, mr_log_transform = FALSE,
+    sparse = FALSE
+  )
+  net2 <- compute_network(expr2,
+    density = 0.1, mr_log_transform = FALSE,
+    sparse = FALSE
+  )
+  net3 <- compute_network(expr3,
+    density = 0.1, mr_log_transform = FALSE,
+    sparse = FALSE
+  )
+  nets <- list(SP_A = net1, SP_B = net2, SP_C = net3)
+
+  n_ortho <- 20
+  ortho <- rbind(
+    data.frame(
+      Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+      Species2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+      hog = paste0("HOG_AB", seq_len(n_ortho))
+    ),
+    data.frame(
+      Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+      Species2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
+      hog = paste0("HOG_AC", seq_len(n_ortho))
+    ),
+    data.frame(
+      Species1 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+      Species2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
+      hog = paste0("HOG_BC", seq_len(n_ortho))
+    )
+  )
+  out <- withr::local_tempfile(fileext = ".csv")
+
+  set.seed(1)
+  in_memory <- find_coexpressologs(nets, ortho, method = "analytical")
+  set.seed(1)
+  ret <- find_coexpressologs(nets, ortho,
+    method = "analytical", out_file = out
+  )
+
+  expect_identical(ret, out)
+  lines <- readLines(out)
+  header_lines <- grep(
+    "^gene1,gene2,species1,species2,hog,q\\.value",
+    lines
+  )
+  # Exactly one header row, no matter how many pairs were written
+  expect_equal(length(header_lines), 1)
+  expect_equal(header_lines, 1)
+
+  from_file <- as.data.frame(data.table::fread(out))
+  # Row order can differ from the in-memory rbind() order across pairs;
+  # compare as sets keyed on the edge identity columns.
+  key_cols <- c("gene1", "gene2", "species1", "species2", "hog")
+  from_file <- from_file[do.call(order, from_file[key_cols]), ]
+  in_memory <- in_memory[do.call(order, in_memory[key_cols]), ]
+  rownames(from_file) <- NULL
+  rownames(in_memory) <- NULL
+  expect_equal(from_file, in_memory, ignore_attr = TRUE)
+})
+
+
+test_that("find_coexpressologs.rcomplex rejects out_file", {
+  fix <- make_coexpr_fixtures()
+  species <- names(fix$nets)
+  traits <- stats::setNames(rep("trait_a", length(species)), species)
+  rcx <- rcomplex(species, traits, fix$nets, fix$ortho)
+  out <- withr::local_tempfile(fileext = ".csv")
+
+  expect_error(
+    find_coexpressologs(rcx, out_file = out),
+    "out_file is not supported on the rcomplex method"
+  )
 })
 
 
@@ -1107,7 +1326,7 @@ test_that("sparse compare_neighborhoods rejects malformed dgCMatrix slots", {
     "slot p must have length >= 1"
   )
 
-  # p[n] != length(x)
+  # p[n] != length(x)  # nolint
   m <- good
   m@p[n + 1L] <- m@p[n + 1L] - 1L
   expect_error(
@@ -1115,7 +1334,7 @@ test_that("sparse compare_neighborhoods rejects malformed dgCMatrix slots", {
     "p\\[n\\] = .* length\\(x\\) = "
   )
 
-  # length(i) != length(x)
+  # length(i) != length(x)  # nolint
   m <- good
   m@i <- m@i[-1L]
   expect_error(
@@ -1241,49 +1460,55 @@ test_that("sparse networks must be square with identical row/col names", {
 })
 
 
-test_that("find_coexpressologs (analytical) equals dense with sparse networks", {
-  td <- make_cmp_nets()
-  nets_d <- list(A = td$net1, B = td$net2)
-  nets_s <- list(A = sparse_net(td$net1), B = sparse_net(td$net2))
+test_that(
+  "find_coexpressologs (analytical) equals dense with sparse networks",
+  {
+    td <- make_cmp_nets()
+    nets_d <- list(A = td$net1, B = td$net2)
+    nets_s <- list(A = sparse_net(td$net1), B = sparse_net(td$net2))
 
-  set.seed(1)
-  res_d <- find_coexpressologs(nets_d, td$ortho, method = "analytical")
-  set.seed(1)
-  res_s <- find_coexpressologs(nets_s, td$ortho, method = "analytical")
-  expect_equal(res_s, res_d)
-  expect_gt(nrow(res_d), 0L)
-})
+    set.seed(1)
+    res_d <- find_coexpressologs(nets_d, td$ortho, method = "analytical")
+    set.seed(1)
+    res_s <- find_coexpressologs(nets_s, td$ortho, method = "analytical")
+    expect_equal(res_s, res_d)
+    expect_gt(nrow(res_d), 0L)
+  }
+)
 
 
 # ---- pi0_method / pval_combine pass-through (D4, D2) ----
 
-test_that("find_coexpressologs passes pi0_method through to summarize_comparison", {
-  td <- make_graded_nets()
-  nets <- list(A = td$net1, B = td$net2)
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
-  pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
-  cmp <- cmp[pool, ]
-  # default combine is "max" (D2, reciprocal criterion)
-  bh <- pmax(
-    p.adjust(cmp$Species1.p.val.con, "BH"),
-    p.adjust(cmp$Species2.p.val.con, "BH")
-  )
+test_that(
+  "find_coexpressologs passes pi0_method through to summarize_comparison",
+  {
+    td <- make_graded_nets()
+    nets <- list(A = td$net1, B = td$net2)
+    cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+    pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
+    cmp <- cmp[pool, ]
+    # default combine is "max" (D2, reciprocal criterion)
+    bh <- pmax(
+      p.adjust(cmp$Species1.p.val.con, "BH"),
+      p.adjust(cmp$Species2.p.val.con, "BH")
+    )
 
-  edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
-  idx <- match(
-    paste(cmp$Species1, cmp$Species2),
-    paste(edges$gene1, edges$gene2)
-  )
-  expect_false(anyNA(idx))
-  expect_equal(edges$q.value[idx], bh)
+    edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
+    idx <- match(
+      paste(cmp$Species1, cmp$Species2),
+      paste(edges$gene1, edges$gene2)
+    )
+    expect_false(anyNA(idx))
+    expect_equal(edges$q.value[idx], bh)
 
-  # pi0_method = "none" leaves the RNG untouched
-  set.seed(9)
-  u <- runif(1)
-  set.seed(9)
-  invisible(find_coexpressologs(nets, td$ortho, pi0_method = "none"))
-  expect_identical(runif(1), u)
-})
+    # pi0_method = "none" leaves the RNG untouched
+    set.seed(9)
+    u <- runif(1)
+    set.seed(9)
+    invisible(find_coexpressologs(nets, td$ortho, pi0_method = "none"))
+    expect_identical(runif(1), u)
+  }
+)
 
 
 test_that("comparison_to_edges combines directional q-values by min or max", {
@@ -1310,46 +1535,49 @@ test_that("comparison_to_edges combines directional q-values by min or max", {
   # NA in one direction: the other direction's value is used either way
   comp$Species2.q.val.con[1] <- NA
   expect_equal(comparison_to_edges(comp, "SP_A", "SP_B",
-    pval_combine = "max"
-  )$q.value[1], 0.01)
+                 pval_combine = "max"
+               )$q.value[1], 0.01)
   expect_equal(comparison_to_edges(comp, "SP_A", "SP_B",
-    pval_combine = "min"
-  )$q.value[1], 0.01)
+                 pval_combine = "min"
+               )$q.value[1], 0.01)
 })
 
 
-test_that("summarize_comparison and find_coexpressologs pass pval_combine through", {
-  td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
-  s <- summarize_comparison(cmp,
-    sp1 = "A", sp2 = "B", pi0_method = "none",
-    pval_combine = "max"
-  )
-  expect_equal(
-    s$edges,
-    comparison_to_edges(s$results, "A", "B", pval_combine = "max")
-  )
-  expect_equal(
-    s$edges$q.value,
-    pmax(s$results$Species1.q.val.con, s$results$Species2.q.val.con)
-  )
+test_that(
+  "summarize_comparison and find_coexpressologs pass pval_combine through",
+  {
+    td <- make_graded_nets()
+    cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+    s <- summarize_comparison(cmp,
+      sp1 = "A", sp2 = "B", pi0_method = "none",
+      pval_combine = "max"
+    )
+    expect_equal(
+      s$edges,
+      comparison_to_edges(s$results, "A", "B", pval_combine = "max")
+    )
+    expect_equal(
+      s$edges$q.value,
+      pmax(s$results$Species1.q.val.con, s$results$Species2.q.val.con)
+    )
 
-  nets <- list(A = td$net1, B = td$net2)
-  e_min <- find_coexpressologs(nets, td$ortho,
-    pi0_method = "none",
-    pval_combine = "min"
-  )
-  e_max <- find_coexpressologs(nets, td$ortho,
-    pi0_method = "none",
-    pval_combine = "max"
-  )
-  expect_equal(e_max$q.value, s$edges$q.value)
-  expect_true(all(e_max$q.value >= e_min$q.value))
-  called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
-  called_max <- paste(e_max$gene1, e_max$gene2)[e_max$type == "conserved"]
-  expect_gt(length(called_max), 0L)
-  expect_true(all(called_max %in% called_min))
-})
+    nets <- list(A = td$net1, B = td$net2)
+    e_min <- find_coexpressologs(nets, td$ortho,
+      pi0_method = "none",
+      pval_combine = "min"
+    )
+    e_max <- find_coexpressologs(nets, td$ortho,
+      pi0_method = "none",
+      pval_combine = "max"
+    )
+    expect_equal(e_max$q.value, s$edges$q.value)
+    expect_true(all(e_max$q.value >= e_min$q.value))
+    called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
+    called_max <- paste(e_max$gene1, e_max$gene2)[e_max$type == "conserved"]
+    expect_gt(length(called_max), 0L)
+    expect_true(all(called_max %in% called_min))
+  }
+)
 
 
 test_that("density_sweep forwards pi0_method and pval_combine (D2)", {

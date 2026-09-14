@@ -660,7 +660,7 @@ test_that("preservation_matrix_test validates its inputs", {
   )
   expect_error(
     preservation_matrix_test(cls, fix$group, n_perm = 0),
-    "positive number"
+    "positive whole number"
   )
   expect_error(
     preservation_matrix_test(cls, fix$group, enum_max = -1),
@@ -993,7 +993,8 @@ test_that("a designated within-genus table cannot be tested at all", {
     "leaves nothing to test"
   )
   expect_error(
-    preservation_matrix_test(cls, fx$group, block = fx$block,
+    preservation_matrix_test(cls, fx$group,
+      block = fx$block,
       exclude_within_block = FALSE
     ),
     "one side of the statistic empty"

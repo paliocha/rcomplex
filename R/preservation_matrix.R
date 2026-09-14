@@ -204,12 +204,18 @@ all_species_pairs <- function(species, sep = ".") {
   }
   function(lab) {
     code <- .pmt_class_code(lab[ri], lab[ti], n_lev)
-    parts <- split(z, code)
-    if (length(parts) < 2L) {
+    # This closure runs once per enumerated labelling or per permutation
+    # draw, so the grouped mean is a genuine hot loop (unlike the rest of
+    # this file's setup code). split() + vapply(mean) reallocates a list
+    # and dispatches generic mean() per group on every call; collapse::GRP()
+    # + fmean() computes grouped means in one C pass without ever
+    # materializing that list.
+    grp <- collapse::GRP(code)
+    if (grp$N.groups < 2L) {
       return(NA_real_)
     }
-    m <- vapply(parts, mean, numeric(1))
-    w <- lengths(parts)
+    m <- collapse::fmean(z, g = grp, use.g.names = FALSE)
+    w <- grp$group.sizes
     mbar <- sum(w * m) / sum(w)
     sqrt(sum(w * (m - mbar)^2) / sum(w))
   }
@@ -586,9 +592,10 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   if (is.null(n_perm)) {
     n_perm <- 10000L
   }
-  bad_perm <- !is.numeric(n_perm) || length(n_perm) != 1L || is.na(n_perm)
+  bad_perm <- !is.numeric(n_perm) || length(n_perm) != 1L || is.na(n_perm) ||
+    !is.finite(n_perm) || n_perm != round(n_perm)
   if (bad_perm || n_perm < 1) {
-    stop("n_perm must be a single positive number or NULL")
+    stop("n_perm must be a single positive whole number or NULL")
   }
   n_perm <- as.integer(min(n_perm, .Machine$integer.max))
   bad_enum <- !is.numeric(enum_max) || length(enum_max) != 1L
@@ -596,9 +603,11 @@ preservation_matrix_test <- function(classification, group, block = NULL,
     stop("enum_max must be a single positive number")
   }
   if (!is.null(n_perm_pres)) {
-    bad_pres <- !is.numeric(n_perm_pres) || length(n_perm_pres) != 1L
-    if (bad_pres || is.na(n_perm_pres) || n_perm_pres < 1) {
-      stop("n_perm_pres must be a single positive number or NULL")
+    bad_pres <- !is.numeric(n_perm_pres) || length(n_perm_pres) != 1L ||
+      is.na(n_perm_pres) || !is.finite(n_perm_pres) ||
+      n_perm_pres != round(n_perm_pres)
+    if (bad_pres || n_perm_pres < 1) {
+      stop("n_perm_pres must be a single positive whole number or NULL")
     }
   }
 
