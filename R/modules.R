@@ -392,7 +392,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     ))
   }
 
-  use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
+  use_mc <- .can_fork(n_cores)
 
   # ---- Initial Leiden sweep on original graph ----
   run_initial <- function(ri) {
@@ -813,7 +813,7 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
   }
 
-  use_mc <- .Platform$OS.type == "unix" && n_cores > 1L
+  use_mc <- .can_fork(n_cores)
   # Batch on the significance grid, not on the core count: the early-stop rule
   # must be evaluated at the same points regardless of the machine. The batch
   # is still spread over mc.cores below, so on typical hardware concurrency is

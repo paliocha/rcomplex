@@ -77,3 +77,25 @@
   }
   invisible(NULL)
 }
+
+#' Whether `mclapply()` forking is safe to use here (internal)
+#'
+#' `fork()`-based parallelism and gcov code-coverage instrumentation do not
+#' mix: a forked child can inherit a coverage-counter file lock the parent
+#' (or another thread) held at fork time and never release it, hanging the
+#' process indefinitely rather than erroring. This is a documented `covr`
+#' limitation (<https://github.com/r-lib/covr/issues/322>), not a bug in the
+#' forked code itself, so the fix is to fall back to the serial path -- not
+#' to fork with fewer cores -- whenever a coverage run is detected. `covr`
+#' sets `R_COVR = "true"` in the child process it runs tests in, which is
+#' the same signal `covr::in_covr()` uses; reading the env var directly
+#' avoids taking a hard dependency on `covr` for a package that only
+#' Suggests it.
+#'
+#' @param n_cores Requested core count.
+#' @return `TRUE` if `mclapply()` forking is both requested and safe.
+#' @noRd
+.can_fork <- function(n_cores) {
+  .Platform$OS.type == "unix" && n_cores > 1L &&
+    !identical(Sys.getenv("R_COVR"), "true")
+}

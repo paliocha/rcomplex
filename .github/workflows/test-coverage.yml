@@ -12,6 +12,12 @@ permissions:
 jobs:
   test-coverage:
     runs-on: ubuntu-latest
+    # Safety net for #6: mclapply() forking under gcov instrumentation can
+    # deadlock (a documented covr/gcov limitation, see .can_fork() in
+    # R/rng.R for the real fix), so fail fast instead of burning the
+    # 6-hour default job timeout if a new fork/coverage interaction slips
+    # through.
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
