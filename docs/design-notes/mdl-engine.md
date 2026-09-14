@@ -121,6 +121,84 @@ for license metadata) — not assumed from memory. DOIs resolve at
   backbone by description length. Not needed for a first static-graph
   MDL port; noted for completeness since the user supplied it
   directly.
+- **Yuan, H., Mancuso, C. A., Johnson, K., Braasch, I. & Krishnan,
+  A.** "Computational strategies for cross-species knowledge transfer
+  and translational biomedicine." *Nature Reviews Genetics* (2024).
+  PMC: `PMC11343225` (<https://pmc.ncbi.nlm.nih.gov/articles/PMC11343225/>).
+  Review of methods for transferring functional knowledge across
+  species via transcriptome data and molecular networks; coins
+  "agnology" for functional (not necessarily orthologous) equivalence
+  of genes/modules across species. Frames the broader problem this
+  package's coexpressolog machinery instantiates (cross-species
+  network correspondence) but is a survey, not a method to port —
+  useful as framing/citation context for a future MDL design-notes
+  introduction, not an algorithm source.
+- **Cui, T. _et al._** "GeneCompass: deciphering universal gene
+  regulatory mechanisms with a knowledge-informed cross-species
+  foundation model." *Cell Research* 34 (2024). **DOI:
+  `10.1038/s41422-024-01034-y`**
+  (<https://www.nature.com/articles/s41422-024-01034-y>). A
+  single-cell foundation model pretrained across 120M+ human and
+  mouse transcriptomes with knowledge-informed priors (gene
+  regulatory relationships, gene family, co-expression). Orthogonal
+  to a static-graph MDL port: this is a deep-learning cross-species
+  embedding, not a network-simplification or link-prediction method,
+  and operates at the single-cell rather than the per-species
+  co-expression-network level this package works at. Noted for
+  completeness only.
+- **Li, L., Dannenfelser, R., Zhu, Y., Hejduk, N., Segarra, S. & Yao,
+  V.** "Joint embedding of biological networks for cross-species
+  functional alignment." *Bioinformatics* 39(9): btad529 (2023).
+  **DOI: `10.1093/bioinformatics/btad529`**
+  (<https://doi.org/10.1093/bioinformatics/btad529>). Learns a joint
+  low-dimensional embedding of two species' PPI networks (using
+  orthology as weak supervision) so that functionally equivalent
+  genes -- orthologous or not -- land close together; the methods
+  section is the most directly relevant part for this package, since
+  it is solving a cross-species node-correspondence problem with a
+  network-topology-aware method, the same problem `find_coexpressologs()`
+  and `coexpressolog_strength()` solve with a hypergeometric-overlap
+  approach instead of an embedding. Worth a closer methods read if
+  the package ever explores embedding-based alternatives to the
+  neighborhood-overlap test, but not itself an MDL method.
+- **Agapito, G., Cannataro, M., Cinaglia, P. & Milano, M.** "Ten
+  practical tips and tricks to improve the effectiveness of
+  biological network alignment." *PLoS Computational Biology* 21(9):
+  e1013386 (2025). **DOI: `10.1371/journal.pcbi.1013386`**
+  (<https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1013386>).
+  A practical-tips survey of network alignment (NA) methodology --
+  preprocessing, seed-node selection, local vs. global alignment,
+  documentation/visualization practice -- rather than a specific
+  algorithm. Useful as a methodological checklist if the package
+  documents or extends its own cross-species network-comparison
+  pipeline, but nothing here is a candidate for porting.
+- **Zhang, J. & Heath, L. S.** "Discovering conserved regulatory
+  modules in predicted gene regulatory networks across species."
+  bioRxiv (2026). **DOI: `10.64898/2026.05.15.725337`**
+  (<https://www.biorxiv.org/content/10.64898/2026.05.15.725337v1.abstract>).
+  **Preprint only (bioRxiv, not yet peer-reviewed as of this
+  writing).** A relaxed topological cross-species GRN alignment: a
+  multi-objective (sequence homology + functional coherence +
+  topological consensus) greedy seed-and-extend heuristic with a
+  dynamic epsilon-stopping rule, explicitly built to tolerate the
+  many-to-many orthology (paralog duplication) that breaks strict
+  one-to-one alignment methods. Validated on Arabidopsis/maize/
+  sorghum drought-response GRNs. Directly adjacent to this package's
+  own paralog-aware projection (`resolve_ortholog_map()`) and module
+  work, though it targets network *alignment* (finding a conserved
+  module across noisy GRNs) rather than MDL-style single-network
+  backbone extraction. Worth a closer read for the seed-and-extend /
+  epsilon-stopping design if the package ever tackles multi-species
+  (not just pairwise) module alignment; not itself an MDL method and
+  not needed for a first static-graph MDL port.
+- **Current and future directions in network biology.**
+  *Bioinformatics Advances* 4(1): vbae099 (2024). **DOI:
+  `10.1093/bioadv/vbae099`**
+  (<https://academic.oup.com/bioinformaticsadvances/article/4/1/vbae099/7732851>).
+  A field-level perspective piece on network biology's open
+  challenges (scale, multi-omics integration, dynamics) rather than a
+  method paper. General context only; nothing here is a porting
+  candidate for the MDL engine.
 
 ### Supporting literature already cited in `R/coexpressolog-strength.R` (cross-referenced here for a future MDL design-notes header, not the porting source)
 
