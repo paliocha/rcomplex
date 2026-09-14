@@ -13,6 +13,19 @@ rcomplex is an R package for comparative co-expression network analysis across s
 
 Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106). The gene-graph clique taxonomy follows [Rodriguez *et al.*, 2026](https://doi.org/10.1038/s41467-026-75624-2).
 
+## Repository status (as of 2026-09-14)
+
+`main` is green: `R CMD check` is `Status: OK`, `devtools::test()` passes
+3036/0/7/10 (pass/fail/warn/skip; warns and skips are pre-existing and
+environment-gated on missing `sbm`/`torch`), `lintr::lint_package()` reports
+no lints, and all four `main` CI workflows (lint, R-CMD-check x2, test-coverage,
+pkgdown) pass. There is one open draft PR, `#4`
+(`experiment/clique-module-deployment`, "ZDS interpretation"): a large (133
+files, 61 commits) speculative branch that predates today's fixes, has
+diverged from `main`, and fails CI (including the pre-fix `covr` hang below).
+It has been deliberately set aside — do not merge, rebase, or otherwise act
+on it without being asked.
+
 ## Build & Test
 
 ```bash
@@ -45,12 +58,13 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `R/pvalue_saturation.R` | `pvalue_resolution()` — distinct values, ties at the minimum and at 1, and permutation-floor status (`permutation-limited` / `evidence-limited` / below floor) of a p- or q-vector |
 | `R/tag_permutation.R` | `tag_permutation()` — trait-specific module recurrence test |
 | `R/tag_blocks.R` | Internal exchangeability blocks for `tag_permutation()`: `.tp_blocks()` (connected components of the species/contrast graph), `.tp_block_labellings()`, `.tp_expected()` |
+| `R/coexpressolog-strength.R` | `coexpressolog_strength()` — density-integrated robustness score for individual coexpressolog edges (re-examines existing networks at several matched densities, no recomputed correlation/normalization); `suggest_reference_density()` — WGCNA-style scale-free-fit diagnostic for picking a reference density |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
 | `R/clique_gene_graph.R` | `gene_clique_graph()` — maximal cliques of the per-HOG (species, gene) graph, every paralog combination reported; `classify_gene_cliques()` — five-tier conservation taxonomy with thresholds derived from `length(species)` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) — SummarizedExperiment helpers |
 | `R/rcomplex-class.R` | S3 `rcomplex` container: constructor, print/summary, and a `.rcomplex` method for every pipeline generic registered in `NAMESPACE` |
 | `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
-| `R/rng.R` | `.seed_scope()` / `.seed_restore()` — the one RNG seeding contract every seeded entry point routes through |
+| `R/rng.R` | `.seed_scope()` / `.seed_restore()` — the one RNG seeding contract every seeded entry point routes through; `.can_fork()` — gates every `mclapply()` call site on whether forking is safe (see the RNG section below for why) |
 
 ### C++ layer (src/, RcppArmadillo + OpenMP)
 | File | Purpose |
@@ -157,7 +171,33 @@ Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-
 
 ## Dependencies
 
-**Imports**: methods, Rcpp, Rfast, dplyr, igraph, Matrix (>= 1.5-0), DiscreteQvalue, qvalue, tidyr, parallel, rlang, stats, utils
-**Suggests**: DT, knitr, purrr, rmarkdown, S4Vectors, sbm, stringr, SummarizedExperiment, tibble, torch, testthat, lintr, withr, pkgdown
+**Imports**: methods, Rcpp, Rfast, collapse, data.table, igraph, kit, Matrix (>= 1.5-0), DiscreteQvalue, qvalue, parallel, rlang, stats, utils
+**Suggests**: DT, dplyr, knitr, purrr, rmarkdown, S4Vectors, sbm, stringr, SummarizedExperiment, tibble, torch, testthat, lintr, withr, pkgdown
 **LinkingTo**: Rcpp, RcppArmadillo
 **System**: GNU make, C++23, OpenMP (optional)
+
+## Design notes
+
+`dev/design-notes/` holds research/handoff documents for work that has been
+investigated but not yet implemented (e.g. `mdl-engine.md`, a literature
+review and porting plan for a possible future MDL network-backbone-extraction
+feature). It deliberately lives under `dev/`, not `docs/`: `docs/` is
+pkgdown's GitHub Pages output directory (see `.Rbuildignore`'s `^docs$`), and
+`pkgdown::build_site_github_pages()` refuses to touch a non-empty `docs/`
+that it did not itself build.
+
+## Known CI/tooling gotchas
+
+- **`mclapply()` forking deadlocks under `covr` coverage instrumentation.**
+  `covr::package_coverage()` compiles the package with gcov instrumentation;
+  forking under gcov is a documented deadlock (a forked child can inherit a
+  coverage-counter file lock the parent held at fork time and never release
+  it — r-lib/covr#322), not a bug in the forked code itself. `.can_fork()`
+  in `R/rng.R` returns `FALSE` whenever `Sys.getenv("R_COVR") == "true"`
+  (the same signal `covr::in_covr()` uses), and every `mclapply()` call site
+  (`coexpressolog_null()`, and `detect_modules()`'s two sweeps plus its
+  batched significance loop in `R/modules.R`) is gated on it. A new fork
+  call site must route through `.can_fork()` too, or it will reintroduce
+  the hang under `.github/workflows/test-coverage.yml` (which also carries
+  a `timeout-minutes: 30` safety net now, so a regression fails fast
+  instead of burning hours).
