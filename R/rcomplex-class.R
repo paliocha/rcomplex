@@ -327,6 +327,15 @@ print.summary.rcomplex <- function(x, ...) {
 #' @export
 find_coexpressologs.rcomplex <- function(networks, ...) {
   x <- networks
+  dots <- list(...)
+  if (!is.null(dots$out_file)) {
+    stop(
+      "out_file is not supported on the rcomplex method: it streams a ",
+      "file path instead of a data frame, which would overwrite $edges ",
+      "with a character path. Call find_coexpressologs.default() ",
+      "directly with out_file if you need streamed output."
+    )
+  }
   x$edges <- find_coexpressologs.default(
     x$networks, x$orthologs,
     species_pairs = x$species_pairs,

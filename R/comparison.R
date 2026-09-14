@@ -368,18 +368,23 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   the end. This keeps peak memory bounded by one pair's edge table
 #'   rather than the whole run, which matters for many species / dense
 #'   networks. Any existing file at \code{out_file} is overwritten (not
-#'   appended to) at the start of the call. When \code{out_file} is used,
-#'   this function returns \code{out_file} (invisibly) instead of a data
-#'   frame; read the result back with e.g.
-#'   \code{data.table::fread(out_file)}. Default \code{NULL} keeps the
-#'   original in-memory behaviour.
+#'   appended to) at the start of the call. When \code{out_file} is
+#'   used, this function always creates \code{out_file} -- including a
+#'   header-only file when no species pair produces any edges -- and
+#'   returns \code{out_file} (invisibly) instead of a data frame; read
+#'   the result back with e.g. \code{data.table::fread(out_file)}.
+#'   Not supported on the \code{rcomplex} S3 method (see
+#'   \code{find_coexpressologs.rcomplex}), which stores the in-memory
+#'   edge table on \code{$edges}. Default \code{NULL} keeps the original
+#'   in-memory behaviour.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
 #'   \code{effect_size}, \code{jaccard}, \code{type}. Ready for
 #'   \code{\link{find_cliques}} or \code{\link{classify_cliques}}. When
-#'   \code{out_file} is supplied, the edge table is streamed to that file
-#'   instead, and \code{out_file} is returned (invisibly).
+#'   \code{out_file} is supplied, the edge table is streamed to that
+#'   file instead (always created, even when empty), and \code{out_file}
+#'   is returned (invisibly).
 #'
 #' @examples
 #' \dontrun{
@@ -455,9 +460,12 @@ find_coexpressologs.default <- function(
       stop("out_file must be a single non-empty file path")
     }
     # Overwrite, not append: a stale file from a previous run must not
-    # silently mix with this one's edges.
-    if (file.exists(out_file)) {
-      file.remove(out_file)
+    # silently mix with this one's edges. Abort rather than proceed if
+    # the stale file cannot be removed -- fwrite(append = TRUE) would
+    # otherwise append this run's edges onto the old file's contents.
+    if (file.exists(out_file) &&
+          !suppressWarnings(file.remove(out_file))) {
+      stop("could not remove existing out_file: ", out_file)
     }
   }
 
@@ -563,11 +571,14 @@ find_coexpressologs.default <- function(
 
     n_ok <- n_ok + 1L
     if (streaming) {
-      # append = TRUE writes the header on the first (non-existent-file)
-      # call and appends thereafter, so no separate "first write" branch
-      # is needed; nThread mirrors the n_cores used for the comparisons.
+      # Track the first successful write explicitly rather than relying
+      # on fwrite()'s own file-existence check: col.names is only wanted
+      # once, on the very first pair that produces edges, regardless of
+      # how many earlier pairs were skipped (empty comparison, failed
+      # test, etc.).
       data.table::fwrite(edges_df, out_file,
-                         append = TRUE, nThread = n_cores)
+                         append = TRUE, col.names = (n_ok == 1L),
+                         nThread = n_cores)
     } else {
       idx <- idx + 1L
       pair_edges[[idx]] <- edges_df
@@ -576,7 +587,11 @@ find_coexpressologs.default <- function(
 
   if (streaming) {
     if (n_ok == 0L) {
-      return(empty_result)
+      # Documented contract: out_file always exists and is always what
+      # this function returns, even when no pair produced any edges --
+      # write the header-only (empty) table rather than silently
+      # skipping file creation and returning a data frame instead.
+      data.table::fwrite(empty_result, out_file, nThread = n_cores)
     }
     return(invisible(out_file))
   }

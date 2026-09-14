@@ -103,19 +103,24 @@ of being accumulated in memory and combined with \code{rbind()} at
 the end. This keeps peak memory bounded by one pair's edge table
 rather than the whole run, which matters for many species / dense
 networks. Any existing file at \code{out_file} is overwritten (not
-appended to) at the start of the call. When \code{out_file} is used,
-this function returns \code{out_file} (invisibly) instead of a data
-frame; read the result back with e.g.
-\code{data.table::fread(out_file)}. Default \code{NULL} keeps the
-original in-memory behaviour.}
+appended to) at the start of the call. When \code{out_file} is
+used, this function always creates \code{out_file} -- including a
+header-only file when no species pair produces any edges -- and
+returns \code{out_file} (invisibly) instead of a data frame; read
+the result back with e.g. \code{data.table::fread(out_file)}.
+Not supported on the \code{rcomplex} S3 method (see
+\code{find_coexpressologs.rcomplex}), which stores the in-memory
+edge table on \code{$edges}. Default \code{NULL} keeps the original
+in-memory behaviour.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2}, \code{hog}, \code{q.value},
 \code{effect_size}, \code{jaccard}, \code{type}. Ready for
 \code{\link{find_cliques}} or \code{\link{classify_cliques}}. When
-\code{out_file} is supplied, the edge table is streamed to that file
-instead, and \code{out_file} is returned (invisibly).
+\code{out_file} is supplied, the edge table is streamed to that
+file instead (always created, even when empty), and \code{out_file}
+is returned (invisibly).
 }
 \description{
 Runs the full comparison pipeline for each species pair and combines

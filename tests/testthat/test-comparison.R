@@ -833,7 +833,7 @@ test_that("find_coexpressologs(out_file = ) validates its argument", {
 })
 
 
-test_that("find_coexpressologs(out_file = ) returns empty_result when no pair succeeds", {
+test_that("find_coexpressologs out_file: empty file if no pair succeeds", {
   fix <- make_coexpr_fixtures()
   out <- withr::local_tempfile(fileext = ".csv")
   # An ortholog table with no rows means no pair produces edges
@@ -842,9 +842,110 @@ test_that("find_coexpressologs(out_file = ) returns empty_result when no pair su
   result <- suppressWarnings(
     find_coexpressologs(fix$nets, empty_ortho, out_file = out)
   )
-  expect_true(is.data.frame(result))
-  expect_equal(nrow(result), 0)
-  expect_false(file.exists(out))
+  # Documented contract: out_file is always created and always what is
+  # returned, even when no pair produces edges.
+  expect_identical(result, out)
+  expect_true(file.exists(out))
+  from_file <- data.table::fread(out)
+  expect_equal(nrow(from_file), 0)
+  expect_true(all(c("gene1", "gene2", "q.value") %in% names(from_file)))
+})
+
+
+test_that("find_coexpressologs out_file: errors if stale file removal fails", {
+  fix <- make_coexpr_fixtures()
+  out <- withr::local_tempfile()
+  # A non-empty directory at out_file cannot be removed by file.remove(),
+  # so this must abort rather than silently proceed to append onto it.
+  dir.create(out)
+  file.create(file.path(out, "child"))
+
+  expect_error(
+    find_coexpressologs(fix$nets, fix$ortho,
+      method = "analytical", out_file = out
+    ),
+    "could not remove existing out_file"
+  )
+})
+
+
+test_that("find_coexpressologs out_file: one header across pairs", {
+  skip_on_cran()
+  set.seed(42)
+  n <- 30
+  expr1 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
+  rownames(expr1) <- paste0("A_", sprintf("%03d", seq_len(n)))
+  expr2 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
+  rownames(expr2) <- paste0("B_", sprintf("%03d", seq_len(n)))
+  expr3 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
+  rownames(expr3) <- paste0("C_", sprintf("%03d", seq_len(n)))
+
+  net1 <- compute_network(expr1, density = 0.1, mr_log_transform = FALSE,
+                          sparse = FALSE)
+  net2 <- compute_network(expr2, density = 0.1, mr_log_transform = FALSE,
+                          sparse = FALSE)
+  net3 <- compute_network(expr3, density = 0.1, mr_log_transform = FALSE,
+                          sparse = FALSE)
+  nets <- list(SP_A = net1, SP_B = net2, SP_C = net3)
+
+  n_ortho <- 20
+  ortho <- rbind(
+    data.frame(
+      Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+      Species2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+      hog = paste0("HOG_AB", seq_len(n_ortho))
+    ),
+    data.frame(
+      Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+      Species2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
+      hog = paste0("HOG_AC", seq_len(n_ortho))
+    ),
+    data.frame(
+      Species1 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+      Species2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
+      hog = paste0("HOG_BC", seq_len(n_ortho))
+    )
+  )
+  out <- withr::local_tempfile(fileext = ".csv")
+
+  set.seed(1)
+  in_memory <- find_coexpressologs(nets, ortho, method = "analytical")
+  set.seed(1)
+  ret <- find_coexpressologs(nets, ortho,
+    method = "analytical", out_file = out
+  )
+
+  expect_identical(ret, out)
+  lines <- readLines(out)
+  header_lines <- grep("^gene1,gene2,species1,species2,hog,q\\.value",
+                       lines)
+  # Exactly one header row, no matter how many pairs were written
+  expect_equal(length(header_lines), 1)
+  expect_equal(header_lines, 1)
+
+  from_file <- as.data.frame(data.table::fread(out))
+  # Row order can differ from the in-memory rbind() order across pairs;
+  # compare as sets keyed on the edge identity columns.
+  key_cols <- c("gene1", "gene2", "species1", "species2", "hog")
+  from_file <- from_file[do.call(order, from_file[key_cols]), ]
+  in_memory <- in_memory[do.call(order, in_memory[key_cols]), ]
+  rownames(from_file) <- NULL
+  rownames(in_memory) <- NULL
+  expect_equal(from_file, in_memory, ignore_attr = TRUE)
+})
+
+
+test_that("find_coexpressologs.rcomplex rejects out_file", {
+  fix <- make_coexpr_fixtures()
+  species <- names(fix$nets)
+  traits <- stats::setNames(rep("trait_a", length(species)), species)
+  rcx <- rcomplex(species, traits, fix$nets, fix$ortho)
+  out <- withr::local_tempfile(fileext = ".csv")
+
+  expect_error(
+    find_coexpressologs(rcx, out_file = out),
+    "out_file is not supported on the rcomplex method"
+  )
 })
 
 
