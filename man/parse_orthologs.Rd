@@ -26,6 +26,19 @@ A data frame with columns:
 Reads a PLAZA ortholog group file and extracts pairwise ortholog
 relationships between two species.
 }
+\details{
+Implemented with \pkg{data.table} (\code{\link[data.table]{fread}} only)
+rather than \pkg{dplyr}/\pkg{tidyr} (used through rcomplex 0.3.0). This
+was the only site in the package using either package, so the switch
+drops both from Imports; it is a dependency-economy change
+(data.table has zero hard dependencies), not a hot-path optimization --
+this parser runs once per ortholog file, not inside any permutation or
+per-replicate loop. \code{hog} ids are assigned by the sorted order of each
+row's full \code{gene_content} string, matching the previous
+\code{dplyr::cur_group_id()} convention (which numbers groups by sorted
+key, not order of appearance) so pipelines that persist HOG ids across
+a rerun see the same numbering.
+}
 \examples{
 \dontrun{
 ortho <- parse_orthologs("orthologs.tsv", "species_A", "species_B")

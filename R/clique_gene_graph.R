@@ -664,6 +664,17 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       )
     }
     lin <- stats::setNames(as.character(lineage[species]), species)
+    # An NA lineage passes the presence check above (the species is a
+    # name in `lineage`, just with a missing value) but table(lin) drops
+    # NA entries silently, so a clique containing that species would be
+    # scored against undercounted lin_sizes / w_pairs / x_pairs instead of
+    # failing loudly.
+    if (anyNA(lin)) {
+      stop(
+        "lineage has missing values for: ",
+        paste(species[is.na(lin)], collapse = ", ")
+      )
+    }
   }
   lin_sizes <- if (is.null(lin)) integer(0) else table(lin)
   w_pairs <- if (is.null(lin)) NA_real_ else sum(choose(lin_sizes, 2))

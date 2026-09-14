@@ -248,6 +248,16 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   }
   n_perm <- as.integer(n_perm)
   if (is.na(n_perm) || n_perm < 1L) stop("n_perm must be >= 1")
+  # A negative value would silently take the documented copy_draws = 0
+  # off-ramp (`copy_draws >= 1L` at the sensitivity branch below), while
+  # NA/Inf/non-integral values would reach `if`/`vector()` there with an
+  # unrelated error instead of failing here with a clear one.
+  if (!is.numeric(copy_draws) || length(copy_draws) != 1L ||
+        is.na(copy_draws) || !is.finite(copy_draws) ||
+        copy_draws < 0 || copy_draws != round(copy_draws)) {
+    stop("copy_draws must be a single non-negative whole number")
+  }
+  copy_draws <- as.integer(copy_draws)
   calibrate <- match.arg(calibrate)
   if (!is.null(qvalue_method)) {
     warning(
@@ -1359,7 +1369,13 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
     )) {
       ref <- direction[1]
       test <- direction[2]
-      key <- paste(ref, test, sep = ".")
+      # An internal list key, not the public pair_name column: "." collides
+      # whenever a species identifier itself contains a ".", e.g. ref="A",
+      # test="B.C" and ref="A.B", test="C" would both key as "A.B.C" and
+      # silently overwrite one another in `raw`/`class_list`. "\x01" is not
+      # a valid character in a species identifier used elsewhere as a
+      # column name, so it cannot collide the same way.
+      key <- paste(ref, test, sep = "\x01")
 
       pres <- module_preservation(
         modules[[ref]], networks[[ref]], networks[[test]],

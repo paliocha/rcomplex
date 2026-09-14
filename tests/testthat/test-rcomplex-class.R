@@ -326,7 +326,10 @@ test_that("preservation_paired dispatches on rcomplex", {
     c("classification", "summary", "raw")
   )
   # Preservation is directional: both orientations always run.
-  expect_setequal(names(rcx$preservation$raw), c("SP_A.SP_B", "SP_B.SP_A"))
+  expect_setequal(
+    names(rcx$preservation$raw),
+    c("SP_A\x01SP_B", "SP_B\x01SP_A")
+  )
 })
 
 

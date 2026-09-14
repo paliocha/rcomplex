@@ -660,7 +660,7 @@ test_that("preservation_matrix_test validates its inputs", {
   )
   expect_error(
     preservation_matrix_test(cls, fix$group, n_perm = 0),
-    "positive number"
+    "positive whole number"
   )
   expect_error(
     preservation_matrix_test(cls, fix$group, enum_max = -1),

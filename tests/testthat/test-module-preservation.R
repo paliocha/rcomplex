@@ -445,7 +445,7 @@ test_that("medianRank survives into a preservation_paired table", {
 
   expect_true("medianRank" %in% names(res$classification))
   for (key in names(res$raw)) {
-    ref <- strsplit(key, ".", fixed = TRUE)[[1]][1]
+    ref <- strsplit(key, "\x01", fixed = TRUE)[[1]][1]
     got <- res$classification$medianRank[res$classification$reference == ref]
     expect_equal(got, res$raw[[key]]$preservation$medianRank)
   }
@@ -766,7 +766,7 @@ test_that("preservation_paired runs both directions per contrast", {
   )
 
   expect_named(res, c("classification", "summary", "raw"))
-  expect_setequal(names(res$raw), c("A.B", "B.A"))
+  expect_setequal(names(res$raw), c("A\x01B", "B\x01A"))
   expect_setequal(unique(res$classification$reference), c("A", "B"))
 
   # tag_permutation() reads exactly these columns.

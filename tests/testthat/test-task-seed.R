@@ -72,3 +72,22 @@ test_that(".hash32() never returns NA or a negative value", {
   expect_false(any(is.na(hashed)))
   expect_true(all(hashed >= 0L))
 })
+
+
+test_that(".hash32() does not collapse a root and its negation", {
+  # The historical bug: `x %% p` discards sign before anything else runs,
+  # so -.Machine$integer.max (== -p) and 0 both reduced to residue 0 and
+  # hashed identically, even though they are distinct, individually legal
+  # seeds -- set.seed(-.Machine$integer.max) and set.seed(0) are not the
+  # same caller seed.
+  expect_false(.hash32(-.Machine$integer.max) == .hash32(0L))
+  expect_false(.hash32(-.Machine$integer.max) == .hash32(.Machine$integer.max))
+})
+
+test_that(".task_seed() does not alias root -.Machine$integer.max with 0", {
+  root1 <- -.Machine$integer.max
+  root2 <- 0L
+  s1 <- vapply(1:10, function(idx) .task_seed(root1, 1L, idx), integer(1))
+  s2 <- vapply(1:10, function(idx) .task_seed(root2, 1L, idx), integer(1))
+  expect_false(any(s1 == s2))
+})

@@ -316,6 +316,10 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   if (!is.character(group) || is.null(names(group))) {
     stop("group must be a named character vector")
   }
+  # group[species] takes the first match, so a repeated species name would
+  # hand it whichever trait value happened to be listed first -- silently,
+  # and with the wrong labelling then permuted as if it were the design.
+  .pmt_check_unique(names(group), "group")
   if (any(pairs$sp1 == pairs$sp2)) {
     stop("pairs must have two distinct species per row")
   }
@@ -408,16 +412,17 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     )
   }
   if (!is.numeric(n_perm) || length(n_perm) != 1L || is.na(n_perm) ||
-    n_perm < 1) {
-    stop("n_perm must be a single positive number")
+    !is.finite(n_perm) || n_perm < 1 || n_perm != round(n_perm)) {
+    stop("n_perm must be a single positive whole number")
   }
   # as.integer() overflows to NA above 2^31, which used to surface as
   # "missing value where TRUE/FALSE needed" from an unrelated `if`.
   n_perm <- as.integer(min(n_perm, .Machine$integer.max))
   if (!is.null(min_recurrence)) {
     if (!is.numeric(min_recurrence) || length(min_recurrence) != 1L ||
-      is.na(min_recurrence) || min_recurrence < 1) {
-      stop("min_recurrence must be a single positive number or NULL")
+      is.na(min_recurrence) || !is.finite(min_recurrence) ||
+      min_recurrence < 1 || min_recurrence != round(min_recurrence)) {
+      stop("min_recurrence must be a single positive whole number or NULL")
     }
     min_recurrence <- as.integer(min_recurrence)
   }
@@ -428,22 +433,46 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   }
   enum_max <- as.integer(enum_max)
 
-  # --- Build gene -> HOG lookup ---
-  g1 <- orthologs[, c("Species1", "hog"), drop = FALSE]
-  g2 <- orthologs[, c("Species2", "hog"), drop = FALSE]
-  names(g1) <- c("gene", "hog")
-  names(g2) <- c("gene", "hog")
-  gene_hog_df <- unique(rbind(g1, g2))
-  multi_hog <- duplicated(gene_hog_df$gene)
-  if (any(multi_hog)) {
-    n_multi <- length(unique(gene_hog_df$gene[multi_hog]))
-    warning(
-      n_multi, " gene(s) map to multiple HOGs; ",
-      "keeping first occurrence for each gene"
+  # --- Build gene -> HOG lookup, scoped per species ---
+  # orthologs pools every contrast's gene pairs into one table with fixed
+  # column names (Species1/Species2), not one column per literal species,
+  # so a gene string is only trustworthy as a HOG key together with the
+  # species it was drawn from: two species could otherwise share a gene
+  # name coincidentally and silently swap HOGs (the same class of bug as
+  # encode_clique_edges() in R/cliques.R). Each species' lookup is
+  # restricted to the gene universe modules[[sp]] actually reports, so a
+  # name collision with an unrelated species' gene never enters this
+  # species' map.
+  species_needed <- unique(c(pairs$sp1, pairs$sp2))
+  gene_to_hog_by_sp <- stats::setNames(
+    vector("list", length(species_needed)), species_needed
+  )
+  for (sp in species_needed) {
+    sp_genes <- unique(unlist(modules[[sp]]$module_genes, use.names = FALSE))
+    rows1 <- orthologs$Species1 %in% sp_genes
+    rows2 <- orthologs$Species2 %in% sp_genes
+    g <- rbind(
+      data.frame(
+        gene = orthologs$Species1[rows1], hog = orthologs$hog[rows1],
+        stringsAsFactors = FALSE
+      ),
+      data.frame(
+        gene = orthologs$Species2[rows2], hog = orthologs$hog[rows2],
+        stringsAsFactors = FALSE
+      )
     )
+    g <- unique(g)
+    multi_hog <- duplicated(g$gene)
+    if (any(multi_hog)) {
+      n_multi <- length(unique(g$gene[multi_hog]))
+      warning(
+        n_multi, " gene(s) in ", sp, " map to multiple HOGs; ",
+        "keeping first occurrence for each gene"
+      )
+    }
+    g <- g[!duplicated(g$gene), , drop = FALSE]
+    gene_to_hog_by_sp[[sp]] <- stats::setNames(g$hog, g$gene)
   }
-  gene_hog_df <- gene_hog_df[!duplicated(gene_hog_df$gene), , drop = FALSE]
-  gene_to_hog <- stats::setNames(gene_hog_df$hog, gene_hog_df$gene)
 
   # --- Pre-compute HOG sets per (pair, side) ---
   ss <- classification[classification$classification == "diverged", ,
@@ -471,7 +500,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     } else {
       character(0)
     }
-    hogs_sp1 <- unique(stats::na.omit(gene_to_hog[genes_sp1]))
+    hogs_sp1 <- unique(stats::na.omit(gene_to_hog_by_sp[[s1]][genes_sp1]))
 
     # sp2 side
     mods_sp2 <- ss_pair$module[ss_pair$reference == s2 &
@@ -483,7 +512,7 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
     } else {
       character(0)
     }
-    hogs_sp2 <- unique(stats::na.omit(gene_to_hog[genes_sp2]))
+    hogs_sp2 <- unique(stats::na.omit(gene_to_hog_by_sp[[s2]][genes_sp2]))
 
     hog_pool[[pn]] <- list(
       sp1 = hogs_sp1, sp2 = hogs_sp2,
@@ -595,7 +624,9 @@ tag_permutation <- function(classification, modules, orthologs, pairs,
   # identifiable from the data and the correction is sensitive to it, so
   # it is an argument rather than an inference: see @param universe.
   n_universe <- if (is.null(universe)) {
-    length(unique(stats::na.omit(gene_to_hog)))
+    length(unique(unlist(lapply(gene_to_hog_by_sp, function(m) {
+      unique(stats::na.omit(m))
+    }), use.names = FALSE)))
   } else if (is.numeric(universe) && length(universe) == 1L) {
     if (is.na(universe) || !is.finite(universe) || universe < 1 ||
       universe != round(universe) ||
