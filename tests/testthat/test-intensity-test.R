@@ -213,23 +213,32 @@ test_that("max_missing_edges is forwarded to find_cliques", {
 
 
 test_that("pval_combine/pi0_method reach the baseline and null reruns", {
-  # Baseline cliques built with pval_combine = "min" (one conserved edge);
-  # with edges = NULL the internal baseline rerun must reproduce that edge
-  # supply, so the observed intensity matches the min-built edges. Under
-  # the find_coexpressologs() defaults ("max") the (A1, B1) q-value is 1
-  # and the intensity collapses.
+  # Baseline cliques built with pval_combine = "min" (one conserved edge).
+  # Observed intensity is an effect-size percentile (#11), and effect size
+  # does not depend on how directional q-values are combined, so it cannot
+  # show whether pval_combine was forwarded: it matches under either value.
+  # The null reruns can. Under "min" a permutation that keeps the A1-B1
+  # hub mapping rebuilds the clique and counts as a match; under "max" the
+  # diluted B-side direction never reaches alpha, so no permutation can
+  # produce a conserved edge and nothing matches.
   setup <- make_asym_clique_fixture()
   expect_equal(nrow(setup$cliques), 1L)
 
-  result <- clique_intensity_test(
-    setup$cliques, setup$target_species, setup$networks,
-    setup$orthologs,
-    n_perm = 2L, seed = 7L,
-    pval_combine = "min", pi0_method = "none"
-  )
+  run <- function(pc) {
+    clique_intensity_test(
+      setup$cliques, setup$target_species, setup$networks,
+      setup$orthologs,
+      n_perm = 20L, seed = 7L,
+      pval_combine = pc, pi0_method = "none"
+    )
+  }
+  r_min <- run("min")
+  r_max <- run("max")
 
   stats_min <- rcomplex:::compute_clique_edge_stats(
     setup$cliques, setup$edges_min, setup$target_species
   )
-  expect_equal(result$observed_intensity, stats_min$intensity)
+  expect_equal(r_min$observed_intensity, stats_min$intensity)
+  expect_gt(r_min$n_matched, 0L)
+  expect_identical(r_max$n_matched, 0L)
 })

@@ -392,57 +392,120 @@ test_that("max_missing_edges n_missing output is 0 when all edges present", {
 
 
 # --- Tests for intensity, coherence, and min_effect_size ---
+#
+# Onnela weights are each edge's effect-size percentile among every tested
+# pair of its species pair (#11). Weighting by 1 - q.value pinned every
+# weight above 1 - alpha, because cliques only contain edges that already
+# passed alpha, and left intensity flat across all cliques.
 
-test_that("uniform q-values give coherence = 1.0", {
-  edges <- data.frame(
+# One conserved triangle (HOG1: A1, B1, C1) plus background rows of type
+# "ns" in other HOGs. find_cliques() never builds cliques from the ns rows,
+# but they belong to the tested population the percentiles are taken over.
+make_percentile_edges <- function(eff_ab = 2, eff_ac = 6, eff_bc = 4,
+                                  background = TRUE) {
+  tri <- data.frame(
     gene1 = c("A1", "A1", "B1"),
     gene2 = c("B1", "C1", "C1"),
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = rep("HOG1", 3),
-    type = rep("conserved", 3),
-    q.value = c(0.01, 0.01, 0.01),
-    effect_size = c(2.0, 3.0, 4.0),
+    hog = "HOG1", type = "conserved",
+    q.value = 0.01,
+    effect_size = c(eff_ab, eff_ac, eff_bc),
     stringsAsFactors = FALSE
   )
+  if (!background) {
+    return(tri)
+  }
+  bg <- data.frame(
+    gene1 = c("A2", "A3", "A4", "A2", "A3", "A4", "B2", "B3", "B4"),
+    gene2 = c("B2", "B3", "B4", "C2", "C3", "C4", "C2", "C3", "C4"),
+    species1 = rep(c("SP_A", "SP_A", "SP_B"), each = 3),
+    species2 = rep(c("SP_B", "SP_C", "SP_C"), each = 3),
+    hog = paste0("HOG_bg", 1:9), type = "ns",
+    q.value = 0.5,
+    effect_size = c(1, 3, 5, 1, 2, 7, 8, 9, 10),
+    stringsAsFactors = FALSE
+  )
+  rbind(tri, bg)
+}
 
+
+test_that("intensity weights are within-pair effect-size percentiles", {
+  edges <- make_percentile_edges()
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
 
-  expect_equal(nrow(result), 1)
-  # weights = 1 - 0.01 = 0.99 (all identical)
-  # intensity = geometric mean = 0.99
-  expect_equal(result$intensity, 0.99, tolerance = 1e-10)
-  # coherence = GM / AM = 1.0 when all equal
-
-  expect_equal(result$coherence, 1.0, tolerance = 1e-10)
-  # min_effect_size = min(2.0, 3.0, 4.0) = 2.0  # nolint
-  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-10)
+  expect_equal(nrow(result), 1L)
+  # A-B: 2 among {2, 1, 3, 5} -> rank 2 of 4; A-C: 6 among {6, 1, 2, 7}
+  # -> rank 3 of 4; B-C: 4 among {4, 8, 9, 10} -> rank 1 of 4
+  w <- c(2, 3, 1) / 4
+  expect_equal(result$intensity, exp(mean(log(w))), tolerance = 1e-12)
+  expect_equal(result$coherence, exp(mean(log(w))) / mean(w),
+               tolerance = 1e-12)
+  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-12)
 })
 
 
-test_that("varying q-values give correct intensity and coherence", {
+test_that("cliques with equal q-values but different effects separate", {
+  # Two conserved triangles with identical q = 0.01 on every edge. Under
+  # 1 - q both had intensity 0.99; effect size has to tell them apart.
+  strong <- make_percentile_edges(8, 9, 10, background = FALSE)
+  weak <- make_percentile_edges(2, 2.5, 3, background = FALSE)
+  weak$hog <- "HOG2"
+  weak$gene1 <- sub("1$", "9", weak$gene1)
+  weak$gene2 <- sub("1$", "9", weak$gene2)
+  result <- find_cliques(rbind(strong, weak), c("SP_A", "SP_B", "SP_C"))
+
+  expect_equal(nrow(result), 2L)
+  i_strong <- result$intensity[result$hog == "HOG1"]
+  i_weak <- result$intensity[result$hog == "HOG2"]
+  # each pair holds one strong and one weak edge: percentiles 1 and 0.5
+  expect_equal(i_strong, 1, tolerance = 1e-12)
+  expect_equal(i_weak, 0.5, tolerance = 1e-12)
+})
+
+
+test_that("percentiles are taken within each species pair", {
+  # Rescaling one species pair's effect sizes cannot move any percentile,
+  # so intensity is comparable across pairs with different effect scales.
+  base <- make_percentile_edges()
+  scaled <- base
+  ac <- scaled$species1 == "SP_A" & scaled$species2 == "SP_C"
+  scaled$effect_size[ac] <- scaled$effect_size[ac] * 100
+  sp <- c("SP_A", "SP_B", "SP_C")
+
+  expect_equal(find_cliques(scaled, sp)$intensity,
+               find_cliques(base, sp)$intensity, tolerance = 1e-12)
+})
+
+
+test_that("rows removed by edge_type still shape the percentiles", {
+  sp <- c("SP_A", "SP_B", "SP_C")
+  with_bg <- find_cliques(make_percentile_edges(), sp)
+  without_bg <- find_cliques(make_percentile_edges(background = FALSE), sp)
+
+  # clique membership is decided by conserved edges only ...
+  expect_identical(with_bg[, c("hog", sp)], without_bg[, c("hog", sp)])
+  # ... but the percentile population is every tested row: without the ns
+  # background each conserved edge is alone in its pair and weighs 1
+  expect_equal(without_bg$intensity, 1, tolerance = 1e-12)
+  expect_lt(with_bg$intensity, 1)
+})
+
+
+test_that("a single-edge clique has coherence 1", {
   edges <- data.frame(
-    gene1 = c("A1", "A1", "B1"),
-    gene2 = c("B1", "C1", "C1"),
-    species1 = c("SP_A", "SP_A", "SP_B"),
-    species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = rep("HOG1", 3),
-    type = rep("conserved", 3),
-    q.value = c(0.01, 0.04, 0.07),
-    effect_size = c(2.0, 6.0, 4.0),
+    gene1 = c("A1", "A2"), gene2 = c("B1", "B2"),
+    species1 = "SP_A", species2 = "SP_B",
+    hog = c("HOG1", "HOG_bg"), type = c("conserved", "ns"),
+    q.value = c(0.01, 0.5), effect_size = c(2, 4),
     stringsAsFactors = FALSE
   )
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
 
-  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
-
-  weights <- c(0.99, 0.96, 0.93)
-  expected_gm <- exp(mean(log(weights)))
-  expected_am <- mean(weights)
-  expected_coherence <- expected_gm / expected_am
-
-  expect_equal(result$intensity, expected_gm, tolerance = 1e-10)
-  expect_equal(result$coherence, expected_coherence, tolerance = 1e-10)
-  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-10)
+  expect_equal(nrow(result), 1L)
+  # 2 among {2, 4}: rank 1 of 2
+  expect_equal(result$intensity, 0.5, tolerance = 1e-12)
+  expect_equal(result$coherence, 1.0, tolerance = 1e-12)
 })
 
 
@@ -482,32 +545,6 @@ test_that("empty cliques have intensity/coherence/min_effect_size columns", {
   expect_true(is.numeric(result$intensity))
   expect_true(is.numeric(result$coherence))
   expect_true(is.numeric(result$min_effect_size))
-})
-
-
-test_that("intensity clamps q=1 weights to machine epsilon", {
-  # Edge with q.value = 1.0 should not cause log(0)
-  edges <- data.frame(
-    gene1 = "A1",
-    gene2 = "B1",
-    species1 = "SP_A",
-    species2 = "SP_B",
-    hog = "HOG1",
-    type = "conserved",
-    q.value = 1.0,
-    effect_size = 2.0,
-    stringsAsFactors = FALSE
-  )
-
-  result <- find_cliques(edges, c("SP_A", "SP_B"))
-
-  expect_equal(nrow(result), 1)
-  expect_false(is.na(result$intensity))
-  expect_false(is.nan(result$intensity))
-  expect_true(result$intensity > 0)
-  # intensity = .Machine$double.eps (clamped), coherence = 1 (single edge)
-  expect_equal(result$intensity, .Machine$double.eps, tolerance = 1e-10)
-  expect_equal(result$coherence, 1.0, tolerance = 1e-10)
 })
 
 

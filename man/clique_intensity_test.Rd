@@ -111,7 +111,12 @@ matching HOG with Jaccard > 0}
 }
 \description{
 Permutes the ortholog mapping and builds a null distribution of
-clique intensity. The null model shuffles \code{Species2} genes
+clique intensity (see \code{\link{find_cliques}}: the geometric mean
+of each clique edge's effect-size percentile among all tested pairs of
+its species pair). Observed and null intensities are ranked against
+the full edge tables (\code{edges}, and every permutation's
+\code{find_coexpressologs()} output), so pass \code{edges} unfiltered.
+The null model shuffles \code{Species2} genes
 globally across all rows of the ortholog table (not within-HOG),
 destroying both the specific ortholog mapping and the within-HOG
 gene grouping. Network topology (per-species adjacency matrices)

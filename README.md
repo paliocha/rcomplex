@@ -249,7 +249,7 @@ persist <- clique_persistence(cliques, annual_sp, networks, edges)
 persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 
 # Edge-weight robustness metrics (already in find_cliques output)
-cliques$intensity   # Onnela geometric mean of (1 - q)
+cliques$intensity   # Onnela geometric mean of edge effect-size percentiles
 cliques$coherence   # edge weight homogeneity (1 = all equal)
 
 # Bootstrap perturbation test (noise robustness)
@@ -710,11 +710,16 @@ would survive at stricter density thresholds.
 `find_cliques()` returns three per-clique edge-weight summary statistics
 following Onnela *et al.* (2005):
 
-- **Intensity**: geometric mean of (1 - q) across all clique edges.
-  Higher values indicate uniformly strong conservation signal.
-- **Coherence**: ratio of geometric mean to arithmetic mean of (1 - q),
-  equal to 1.0 when all edge weights are identical. Low coherence flags
-  cliques with a mix of strong and weak edges.
+- **Intensity**: geometric mean, across clique edges, of each edge's
+  effect-size percentile among all tested pairs of its species pair
+  (in (0, 1]). Higher values indicate uniformly strong conservation.
+  The weight is a percentile rather than 1 - q because every clique edge
+  already passed alpha, which left 1 - q no room to vary (#11); pass
+  `find_cliques()` the unfiltered edge table so the percentile covers
+  every tested pair.
+- **Coherence**: ratio of geometric mean to arithmetic mean of the same
+  percentiles, equal to 1.0 when all edge weights are identical. Low
+  coherence flags cliques with a mix of strong and weak edges.
 - **min_effect_size**: minimum fold-enrichment across clique edges,
   identifying the bottleneck enrichment.
 

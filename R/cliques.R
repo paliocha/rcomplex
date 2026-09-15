@@ -64,14 +64,53 @@ encode_clique_edges <- function(edges, target_species) {
 }
 
 
+#' Within-species-pair effect-size percentile of every edge row
+#'
+#' Rank of each row's `effect_size` among all rows of the same unordered
+#' species pair (average ranks for ties), divided by the number of finite
+#' effect sizes in that pair. Lies in (0, 1]; a non-finite effect size
+#' stays NA.
+#'
+#' @param edges Data frame with species1, species2, effect_size.
+#' @return Numeric vector parallel to the rows of `edges`.
+#' @noRd
+.effect_percentile <- function(edges) {
+  n <- nrow(edges)
+  out <- rep(NA_real_, n)
+  if (n == 0L) {
+    return(out)
+  }
+  pair <- paste(pmin(edges$species1, edges$species2),
+    pmax(edges$species1, edges$species2),
+    sep = "\x01"
+  )
+  eff <- as.numeric(edges$effect_size)
+  eff[!is.finite(eff)] <- NA_real_
+  for (idx in split(seq_len(n), pair)) {
+    ok <- idx[!is.na(eff[idx])]
+    if (length(ok) > 0L) out[ok] <- rank(eff[ok]) / length(ok)
+  }
+  out
+}
+
+
 #' Compute per-clique edge statistics (intensity, coherence, min effect size)
+#'
+#' Onnela weights are effect-size percentiles, not `1 - q.value`: a clique
+#' only ever contains edges that passed alpha, so `1 - q` sat above
+#' `1 - alpha` on every edge and left intensity flat (#11).
 #'
 #' @param cliques Data frame from find_cliques (with hog + species columns).
 #' @param edges Data frame with gene1, gene2, hog, q.value, effect_size.
 #' @param target_species Character vector of species names.
+#' @param weights Per-row edge weights parallel to `edges`; by default the
+#'   within-species-pair effect-size percentile over the rows of `edges`.
+#'   Callers that filter `edges` must rank first and subset the weights
+#'   with the rows, so the percentile still covers every tested pair.
 #' @return Data frame with columns intensity, coherence, min_effect_size.
 #' @noRd
-compute_clique_edge_stats <- function(cliques, edges, target_species) {
+compute_clique_edge_stats <- function(cliques, edges, target_species,
+                                      weights = .effect_percentile(edges)) {
   n <- nrow(cliques)
   intensity <- rep(NA_real_, n)
   coherence <- rep(NA_real_, n)
@@ -104,14 +143,14 @@ compute_clique_edge_stats <- function(cliques, edges, target_species) {
     matched <- matched[!is.na(matched)]
     if (length(matched) == 0L) next
 
-    qvals <- edges$q.value[matched]
     effs <- edges$effect_size[matched]
-
-    weights <- pmax(1 - qvals, .Machine$double.eps)
-    gm <- exp(mean(log(weights)))
-    am <- mean(weights)
-    intensity[i] <- gm
-    coherence[i] <- gm / am
+    w <- weights[matched]
+    w <- w[!is.na(w)]
+    if (length(w) > 0L) {
+      gm <- exp(mean(log(w)))
+      intensity[i] <- gm
+      coherence[i] <- gm / mean(w)
+    }
     min_eff[i] <- min(effs)
   }
 
@@ -145,7 +184,12 @@ compute_clique_edge_stats <- function(cliques, edges, target_species) {
 #'     \item{q.value}{q-value for the edge (from pair-level testing)}
 #'     \item{effect_size}{Numeric effect size}
 #'   }
-#'   Optionally includes a \code{type} column for filtering.
+#'   Optionally includes a \code{type} column for filtering. Pass the
+#'   unfiltered table (every tested pair, e.g. the output of
+#'   \code{\link{find_coexpressologs}}): cliques are built from
+#'   \code{edge_type} rows only, but \code{intensity} and
+#'   \code{coherence} rank each edge's effect size against every row of
+#'   its species pair, so a pre-filtered table changes what they measure.
 #' @param target_species Character vector of species abbreviations.
 #' @param min_species Minimum number of species per clique
 #'   (default: \code{length(target_species)}).
@@ -174,10 +218,13 @@ compute_clique_edge_stats <- function(cliques, edges, target_species) {
 #'     \item{n_edges}{Number of present edges}
 #'     \item{n_missing}{Number of missing edges (0 when
 #'       \code{max_missing_edges = 0})}
-#'     \item{intensity}{Onnela intensity: geometric mean of \code{1 - q.value}
-#'       across present edges (higher = stronger conservation)}
+#'     \item{intensity}{Onnela intensity: geometric mean, across present
+#'       edges, of each edge's effect-size percentile among all tested
+#'       pairs of its species pair (in (0, 1]; higher = stronger
+#'       conservation). Percentiles rather than \code{1 - q.value}: every
+#'       clique edge already passed alpha, so \code{1 - q} left no range.}
 #'     \item{coherence}{Onnela coherence: intensity / arithmetic mean of
-#'       \code{1 - q.value} (1 when all edge weights are equal)}
+#'       the same percentiles (1 when all edge weights are equal)}
 #'     \item{min_effect_size}{Minimum effect size across present edges
 #'       (bottleneck enrichment)}
 #'   }
@@ -251,9 +298,15 @@ find_cliques.default <- function(edges, target_species,
   )
   empty_result <- as.data.frame(empty_cols)
 
-  # Filter by edge_type if type column exists
+  # Onnela weights rank each edge's effect size among every tested pair of
+  # its species pair, so they are taken before the edge_type filter; ranked
+  # among conserved edges alone they would only describe edges that
+  # already passed alpha.
+  weights <- .effect_percentile(edges)
   if ("type" %in% names(edges)) {
-    edges <- edges[edges$type %in% edge_type, , drop = FALSE]
+    keep <- edges$type %in% edge_type
+    edges <- edges[keep, , drop = FALSE]
+    weights <- weights[keep]
   }
   if (nrow(edges) == 0) {
     return(empty_result)
@@ -307,7 +360,9 @@ find_cliques.default <- function(edges, target_species,
   out$n_missing <- as.integer(result$n_missing)
 
   # Compute Onnela intensity, coherence, and min effect size
-  stats <- compute_clique_edge_stats(out, edges, target_species)
+  stats <- compute_clique_edge_stats(out, edges, target_species,
+    weights = weights
+  )
   out$intensity <- stats$intensity
   out$coherence <- stats$coherence
   out$min_effect_size <- stats$min_effect_size
@@ -1455,7 +1510,12 @@ clique_perturbation_test.default <- function(
 #' Test clique intensity against a permutation null
 #'
 #' Permutes the ortholog mapping and builds a null distribution of
-#' clique intensity. The null model shuffles \code{Species2} genes
+#' clique intensity (see \code{\link{find_cliques}}: the geometric mean
+#' of each clique edge's effect-size percentile among all tested pairs of
+#' its species pair). Observed and null intensities are ranked against
+#' the full edge tables (\code{edges}, and every permutation's
+#' \code{find_coexpressologs()} output), so pass \code{edges} unfiltered.
+#' The null model shuffles \code{Species2} genes
 #' globally across all rows of the ortholog table (not within-HOG),
 #' destroying both the specific ortholog mapping and the within-HOG
 #' gene grouping. Network topology (per-species adjacency matrices)

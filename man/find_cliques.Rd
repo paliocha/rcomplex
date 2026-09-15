@@ -29,7 +29,12 @@ find_cliques(edges, ...)
 \item{q.value}{q-value for the edge (from pair-level testing)}
 \item{effect_size}{Numeric effect size}
 }
-Optionally includes a \code{type} column for filtering.}
+Optionally includes a \code{type} column for filtering. Pass the
+unfiltered table (every tested pair, e.g. the output of
+\code{\link{find_coexpressologs}}): cliques are built from
+\code{edge_type} rows only, but \code{intensity} and
+\code{coherence} rank each edge's effect size against every row of
+its species pair, so a pre-filtered table changes what they measure.}
 
 \item{...}{Additional arguments passed to the default method.}
 
@@ -67,10 +72,13 @@ A data frame with one row per clique:
 \item{n_edges}{Number of present edges}
 \item{n_missing}{Number of missing edges (0 when
 \code{max_missing_edges = 0})}
-\item{intensity}{Onnela intensity: geometric mean of \code{1 - q.value}
-across present edges (higher = stronger conservation)}
+\item{intensity}{Onnela intensity: geometric mean, across present
+edges, of each edge's effect-size percentile among all tested
+pairs of its species pair (in (0, 1]; higher = stronger
+conservation). Percentiles rather than \code{1 - q.value}: every
+clique edge already passed alpha, so \code{1 - q} left no range.}
 \item{coherence}{Onnela coherence: intensity / arithmetic mean of
-\code{1 - q.value} (1 when all edge weights are equal)}
+the same percentiles (1 when all edge weights are equal)}
 \item{min_effect_size}{Minimum effect size across present edges
 (bottleneck enrichment)}
 }

@@ -491,6 +491,26 @@ counterpart per gene before any module label is projected.
 
 ## Bug fixes
 
+- **Clique `intensity` and `coherence` change numerically** (#11). Both
+  were Onnela statistics on edge weight `1 - q.value`, but a clique only
+  contains edges that passed alpha, so every weight sat above `1 - alpha`:
+  on the Pooideae analysis intensity spanned 0.992-0.998 and coherence
+  0.9995-1.000 across every class, and `clique_intensity_test()` compared
+  an observed value pinned near 1 against a null pinned near 1. The weight
+  is now each edge's effect-size percentile among all tested pairs of its
+  species pair (average ranks for ties, in (0, 1]), taken before
+  `find_cliques()` applies `edge_type`, so it has range among significant
+  edges and is comparable across species pairs with different effect
+  scales. On the March Pooideae cliques the clique-mean `1 - q` spanned
+  about 0.04 while effect size kept the same ordering (Spearman 0.90-0.97
+  against `-log10 q`). **Pass `find_cliques()` and
+  `clique_intensity_test()` the unfiltered edge table**: a table already
+  cut to `type == "conserved"` ranks each edge against significant edges
+  only. Clique membership, `mean_q`, `min_effect_size`, stability,
+  persistence and classification are unchanged. Effect size depends on
+  neighbourhood size, so intensity inherits the degree dependence tracked
+  in #12.
+
 - `detect_modules(n_cores > 1, test_k1 = TRUE)` could hang forever on
   Linux. The parent runs the co-classification scan with `n_cores` OpenMP
   threads and then forks `mclapply()` workers for the K = 1 permutations; a
