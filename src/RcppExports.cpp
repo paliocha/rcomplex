@@ -354,6 +354,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// rewire_degseq_cpp
+Rcpp::List rewire_degseq_cpp(const Rcpp::IntegerVector& p, const Rcpp::IntegerVector& i, const Rcpp::NumericVector& x, double swap_factor);
+RcppExport SEXP _rcomplex_rewire_degseq_cpp(SEXP pSEXP, SEXP iSEXP, SEXP xSEXP, SEXP swap_factorSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type i(iSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type swap_factor(swap_factorSEXP);
+    rcpp_result_gen = Rcpp::wrap(rewire_degseq_cpp(p, i, x, swap_factor));
+    return rcpp_result_gen;
+END_RCPP
+}
 // extract_sparse_cpp
 List extract_sparse_cpp(const arma::mat& m, double thr, int n_cores);
 RcppExport SEXP _rcomplex_extract_sparse_cpp(SEXP mSEXP, SEXP thrSEXP, SEXP n_coresSEXP) {
@@ -388,6 +402,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_compare_neighborhoods_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_cpp, 9},
     {"_rcomplex_compare_neighborhoods_sparse_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_sparse_cpp, 13},
     {"_rcomplex_reduce_orthogroups_cpp", (DL_FUNC) &_rcomplex_reduce_orthogroups_cpp, 4},
+    {"_rcomplex_rewire_degseq_cpp", (DL_FUNC) &_rcomplex_rewire_degseq_cpp, 4},
     {"_rcomplex_extract_sparse_cpp", (DL_FUNC) &_rcomplex_extract_sparse_cpp, 3},
     {NULL, NULL, 0}
 };

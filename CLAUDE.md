@@ -78,6 +78,7 @@ Check the built tarball, not the source directory — `Authors@R` only expands a
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector/flag-vector, Besag & Clifford); dense + sparse entry points |
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
 | `src/module_preservation.cpp` | Module preservation permutation engine (`avg.weight`, `cor.degree`, plus diagnostics) and per-gene intramodular statistics; dense + sparse entry points |
+| `src/rewire_degseq.cpp` | Degree-preserving edge-swap kernel for `coexpressolog_null()`: igraph's `keeping_degseq` trial on a bit-matrix adjacency, drawing from R's RNG |
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging |
 | `src/coclassification.cpp` | Co-classification matrix with per-pair null subtraction (Jeub et al. 2018) |
 | `src/find_cliques_common.h` | Shared clique primitives (BK/Tomita, backtracking, trait, Jaccard) |

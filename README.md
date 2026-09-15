@@ -760,6 +760,7 @@ permutations) to avoid zero p-values.
 
 | File | Purpose |
 |------|---------|
+| `src/rewire_degseq.cpp` | Degree-preserving edge-swap kernel (bit-matrix adjacency) for `coexpressolog_null()` |
 | `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging engine |
 | `src/coclassification.cpp` | Dense and sparse co-classification with per-pair null subtraction; spectral norm for K=1 test |
 | `src/mutual_rank.cpp` | MR normalization with column-major access (in-place kernel + cached reference) |

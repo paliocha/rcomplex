@@ -20,15 +20,32 @@
 }
 
 
+#' Rewire a binary network by degree-preserving edge swaps
+#'
+#' @param a Symmetric binary `dgCMatrix` with both triangles stored.
+#' @param swap_factor Swap trials as a multiple of the edge count.
+#' @return `dgCMatrix` with the same dimensions, dimnames and degrees.
+#' @noRd
+.rewire_degseq <- function(a, swap_factor) {
+  # the kernel validates the slots and reads each edge once from the upper
+  # triangle, so nothing here indexes into @p / @i unchecked
+  r <- rewire_degseq_cpp(a@p, a@i, a@x, swap_factor)
+  Matrix::sparseMatrix(
+    i = c(r$from, r$to), j = c(r$to, r$from), x = 1,
+    dims = dim(a), dimnames = dimnames(a), index1 = FALSE
+  )
+}
+
+
 #' Degree-preserving edge-swap null for co-expressolog statistics
 #'
 #' Tests whether an observed co-expressolog statistic exceeds what
 #' network topology alone produces. Each species network is binarised at
-#' its analysis threshold and rewired by degree-preserving edge swaps
-#' (\code{igraph::keeping_degseq()}), which keeps every gene's degree but
-#' destroys the correspondence between network neighbourhoods and the
-#' ortholog mapping. \code{\link{find_coexpressologs}} then runs on the
-#' rewired networks with exactly the same arguments (\code{...}) as the
+#' its analysis threshold and rewired by degree-preserving edge swaps,
+#' which keep every gene's degree but destroy the correspondence between
+#' network neighbourhoods and the ortholog mapping.
+#' \code{\link{find_coexpressologs}} then runs on the rewired networks
+#' with exactly the same arguments (\code{...}) as the
 #' observed run, and the statistic is compared against the resulting
 #' null distribution.
 #'
@@ -39,9 +56,15 @@
 #' are dropped. The rewired networks are unweighted (every stored value
 #' is 1, with \code{threshold = 1} and \code{store_threshold = 1}), so
 #' only membership-based consumers are valid downstream; edge weights
-#' carry no information after rewiring. Each network is rewired with
-#' \code{swap_factor * igraph::ecount(g)} swaps and stays simple (no
-#' loops, no multi-edges).
+#' carry no information after rewiring. A network with \code{m} edges gets
+#' \code{ceiling(swap_factor * m)} swap trials, each the trial of igraph's
+#' \code{keeping_degseq()} rewiring: two distinct edges are drawn uniformly,
+#' a swap that would create a loop or a multi-edge is rejected, and the
+#' rejected trial still counts. Counting it is what makes the chain sample
+#' the realizations of a degree sequence uniformly. Networks stay simple (no
+#' loops, no multi-edges). Adjacency is held as an \code{n x n} bit matrix
+#' during rewiring, \code{n^2 / 8} bytes per network per worker (32 MB at
+#' 16 000 genes).
 #'
 #' Permutation \code{b} runs in a worker that seeds itself from the base
 #' seed and its own index (the package-wide per-task seed derivation), so
@@ -70,8 +93,12 @@
 #'   conserved calls for that pair; a user-supplied statistic missing a
 #'   name from the observed run errors.
 #' @param n_perm Number of rewired permutations (default 100).
-#' @param swap_factor Edge swaps per permutation, as a multiple of the
-#'   edge count of each thresholded network (default 10).
+#' @param swap_factor Swap trials per permutation, rejected ones
+#'   included, as a multiple of the edge count of each thresholded network
+#'   (default 10). Must be a single finite number > 0. The trial count is
+#'   rounded up, so any positive factor makes at least one trial on a
+#'   network with two or more edges; a network with fewer than two edges has
+#'   no swap to make and is returned unchanged.
 #' @param n_cores Number of parallel workers for the permutation loop
 #'   (default 1).
 #' @param seed Base seed for the run. \code{NULL} (default) draws one
@@ -149,9 +176,22 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
       " with as_sparse_network()"
     )
   }
+  # The rewiring kernel indexes an nrow x nrow bit matrix with column
+  # indices, so every network must pass the square/dimnames validation that
+  # find_coexpressologs() would apply -- including networks that the
+  # species_pairs in `...` leave out of the observed run, which are rewired
+  # all the same.
+  for (net in networks) .net_check(net, net$threshold)
   n_perm <- as.integer(n_perm)
   if (length(n_perm) != 1L || is.na(n_perm) || n_perm < 1L) {
     stop("n_perm must be a single integer >= 1")
+  }
+  # An NA, NaN or non-positive swap_factor used to reach the kernel as a
+  # trial count below 1, which rewires nothing: the "null" was the observed
+  # graph, and the run returned without a word.
+  if (!is.numeric(swap_factor) || length(swap_factor) != 1L ||
+        !is.finite(swap_factor) || swap_factor <= 0) {
+    stop("swap_factor must be a single finite number > 0")
   }
   builtin_stat <- is.null(statistic)
   if (builtin_stat) {
@@ -222,25 +262,8 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     a <- net$network
     a@x <- as.numeric(a@x >= net$threshold)
     a <- Matrix::drop0(a)
-    g <- igraph::graph_from_adjacency_matrix(a,
-      mode = "undirected",
-      diag = FALSE
-    )
-    g <- igraph::rewire(
-      g,
-      igraph::keeping_degseq(
-        loops = FALSE,
-        niter = swap_factor * igraph::ecount(g)
-      )
-    )
-    a_perm <- igraph::as_adjacency_matrix(g, sparse = TRUE)
-    dimnames(a_perm) <- dimnames(a)
-    a_perm <- methods::as(
-      methods::as(methods::as(a_perm, "dMatrix"), "generalMatrix"),
-      "CsparseMatrix"
-    )
     modifyList(net, list(
-      network = a_perm, threshold = 1,
+      network = .rewire_degseq(a, swap_factor), threshold = 1,
       store_threshold = 1
     ))
   }
