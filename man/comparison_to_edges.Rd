@@ -10,7 +10,8 @@ comparison_to_edges(
   sp2,
   alternative = c("greater", "less"),
   alpha = 0.05,
-  pval_combine = c("max", "min")
+  pval_combine = c("max", "min"),
+  f0 = NULL
 )
 }
 \arguments{
@@ -38,6 +39,11 @@ the \code{Max.p.val} filter of the original ComPlEx) or \code{"min"}
 (permissive; a pair is called when either direction is significant,
 yielding a denser edge supply for \code{\link{find_cliques}}). A
 missing directional q-value is ignored in either case.}
+
+\item{f0}{Reference conserved fraction for the \code{power} column:
+\code{NULL} (default) takes, per direction, the median
+\code{x / m} (overlap over neighbourhood size) of the called pairs;
+a single number in \eqn{(0, 1]} fixes it for both directions.}
 }
 \value{
 Data frame with columns:
@@ -53,6 +59,19 @@ two directional q-values}
 \item{jaccard}{Geometric mean of directional Jaccard indices
 (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
 \eqn{[0, 1]}: 1 = identical neighborhoods, 0 = disjoint.}
+\item{power}{Detection power: the probability that the pair
+would have been called had a fraction \code{f0} of its
+neighbourhood been conserved, given its neighbourhood sizes and
+the largest p-value called in each direction. Directions
+combine like \code{pval_combine} (\code{"max"}: the weaker
+power). A non-significant pair with low power is absent
+evidence, not evidence of divergence: a low-degree gene cannot
+reach the call whatever its conservation.
+\code{\link{classify_gene_cliques}} and
+\code{\link{classify_cliques}} read it through
+\code{min_power}. \code{NA} for \code{alternative = "less"},
+when no pair is called, or when the comparison lacks the
+neighbourhood-size columns.}
 \item{type}{\code{"conserved"} or \code{"diverged"} if
 \code{q.value < alpha}; \code{"ns"} otherwise}
 }

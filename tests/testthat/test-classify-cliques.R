@@ -455,3 +455,92 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
   hog1 <- result[result$hog == "HOG1", ]
   expect_false(is.na(hog1$stability_class))
 })
+
+
+# --- Underpowered specificity and divergence (#12) ---
+
+# One extra non-conserved edge row for HOG4 (annual-only clique A4-B4).
+up_row <- function(gene1, species1, gene2, species2, power) {
+  data.frame(
+    gene1 = gene1, gene2 = gene2, species1 = species1,
+    species2 = species2, hog = "HOG4", q.value = 0.7,
+    effect_size = 0.9, type = "ns", power = power,
+    stringsAsFactors = FALSE
+  )
+}
+
+classify_with_power <- function(extra = NULL, hog3_power = 0.99, ...) {
+  setup <- make_classify_edges()
+  e <- setup$edges
+  e$power <- 0.99
+  e$power[e$hog == "HOG3" & e$type == "ns"] <- hog3_power
+  if (!is.null(extra)) e <- rbind(e, extra)
+  res <- classify_cliques(e, setup$target, setup$trait, ...)
+  stats::setNames(res$classification, res$hog)
+}
+
+
+test_that("powered edges leave the classification unchanged", {
+  setup <- make_classify_edges()
+  base <- classify_cliques(setup$edges, setup$target, setup$trait)
+  cls <- classify_with_power()
+  expect_equal(cls[base$hog], stats::setNames(base$classification, base$hog))
+  expect_equal(
+    classify_with_power(hog3_power = NA_real_)[["HOG3"]],
+    "differentiated"
+  )
+})
+
+
+test_that("an underpowered cross edge blocks differentiated", {
+  setup <- make_classify_edges()
+  e <- setup$edges
+  e$power <- 0.99
+  e$power[e$hog == "HOG3" & e$type == "ns"] <- 0.1
+  res <- classify_cliques(e, setup$target, setup$trait)
+  hog3 <- res[res$hog == "HOG3", ]
+  expect_equal(hog3$classification, "underpowered")
+  expect_equal(hog3$trait_groups, "annual,perennial")
+  expect_equal(
+    classify_with_power(hog3_power = 0.1, min_power = 0.05)[["HOG3"]],
+    "differentiated"
+  )
+})
+
+
+test_that("an underpowered cross edge blocks trait_specific", {
+  low <- classify_with_power(up_row("A4", "SP_A", "C4", "SP_C", 0.1))
+  expect_equal(low[["HOG4"]], "underpowered")
+  expect_equal(low[["HOG3"]], "differentiated")
+
+  high <- classify_with_power(up_row("A4", "SP_A", "C4", "SP_C", 0.9))
+  expect_equal(high[["HOG4"]], "trait_specific")
+
+  # Not deciding: the endpoint is no clique member, or the other endpoint
+  # shares the clique's trait group.
+  stranger <- classify_with_power(up_row("A4x", "SP_A", "C4", "SP_C", 0.1))
+  expect_equal(stranger[["HOG4"]], "trait_specific")
+  same <- classify_with_power(up_row("A4", "SP_A", "B4x", "SP_B", 0.1))
+  expect_equal(same[["HOG4"]], "trait_specific")
+
+  setup <- make_classify_edges()
+  e <- setup$edges
+  e$power <- 0.99
+  e <- rbind(e, up_row("C4", "SP_C", "B4", "SP_B", 0.1))
+  res <- classify_cliques(e, setup$target, setup$trait)
+  expect_equal(res$classification[res$hog == "HOG4"], "underpowered")
+  expect_equal(res$trait_groups[res$hog == "HOG4"], "annual")
+})
+
+
+test_that("classify_cliques validates min_power", {
+  setup <- make_classify_edges()
+  for (bad in list(-1, 2, NA_real_, c(0.1, 0.2))) {
+    expect_error(
+      classify_cliques(setup$edges, setup$target, setup$trait,
+        min_power = bad
+      ),
+      "min_power must be a single number"
+    )
+  }
+})

@@ -14,7 +14,8 @@ summarize_comparison(
   pi0_method = c("randomized", "storey", "none"),
   B = 20L,
   pval_combine = c("max", "min"),
-  seed = NULL
+  seed = NULL,
+  f0 = NULL
 )
 }
 \arguments{
@@ -58,6 +59,11 @@ A seeded call draws from a private stream and restores the caller's
 on exit, so it does not displace the caller by however many draws
 \code{B} consumed and anything drawn afterwards continues from the
 caller's own seed. Same contract as \code{\link{detect_modules}}.}
+
+\item{f0}{Reference conserved fraction for the \code{power} column of
+\code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
+when \code{sp1} and \code{sp2} are provided. \code{NULL} (default)
+takes the median overlap fraction of the called pairs.}
 }
 \value{
 A list with components:

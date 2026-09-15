@@ -22,6 +22,7 @@ density_sweep(networks, ...)
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   seed = NULL,
+  f0 = NULL,
   ...
 )
 }
@@ -79,6 +80,9 @@ nothing is drawn before the first multiplier, a sweep seeded with
 \code{s} reproduces \code{find_coexpressologs(seed = s)} exactly at
 its first level. See \code{\link{find_coexpressologs}} for what a
 seed does and does not pin under each \code{method}.}
+
+\item{f0}{Passed to \code{\link{find_coexpressologs}}: reference
+conserved fraction for the analytical \code{power} column.}
 }
 \value{
 A data frame with columns \code{multiplier},

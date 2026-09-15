@@ -19,6 +19,7 @@ classify_cliques(edges, ...)
   sweep = NULL,
   min_stability_class = 0L,
   min_persistence = 1,
+  min_power = 0.8,
   ...
 )
 }
@@ -28,7 +29,10 @@ classify_cliques(edges, ...)
 \code{effect_size}, and \code{type}. Must contain ALL edges
 (conserved + ns + diverged), not pre-filtered, because the
 differentiated check needs to verify absence of cross-group
-conserved edges.}
+conserved edges. An optional \code{power} column (from
+\code{\link{find_coexpressologs}}) enables the
+\code{"underpowered"} class; without it, or where it is \code{NA},
+the classification is unchanged.}
 
 \item{...}{Additional arguments passed to the default method.}
 
@@ -59,6 +63,10 @@ partial detection (default 0).}
 
 \item{min_persistence}{Minimum persistence for the \code{robust}
 flag (default 1.0).}
+
+\item{min_power}{Detection power below which a non-conserved edge is
+read as uninformative rather than as evidence against conservation
+(default 0.8). Only used when \code{edges} has \code{power}.}
 }
 \value{
 A data frame with one row per HOG:
@@ -66,7 +74,7 @@ A data frame with one row per HOG:
 \item{hog}{HOG identifier}
 \item{classification}{One of \code{"complete"}, \code{"partial"},
 \code{"differentiated"}, \code{"trait_specific"},
-\code{"unclassified"}}
+\code{"underpowered"}, \code{"unclassified"}}
 \item{n_species}{Species count in the best clique (NA for
 unclassified)}
 \item{best_mean_q}{Mean q-value of the best clique (NA for
@@ -105,6 +113,13 @@ to \code{N-1} species (or with missing edges when
 a within-group clique, but no cross-group conserved edge exists.
 \item \strong{trait_specific}: exactly 1 trait group has a
 within-group clique.
+\item \strong{underpowered}: would be differentiated or
+trait_specific, but a non-conserved edge from a member of one of
+the HOG's within-group cliques to a species of another trait group
+has \code{power} below \code{min_power}. Specificity and divergence
+must survive treating such an edge as possibly conserved; a
+low-degree gene cannot reach the call whatever its conservation.
+Needs a \code{power} column in \code{edges}.
 \item \strong{unclassified}: none of the above.
 }
 }
