@@ -335,6 +335,8 @@
 <ul><li>
 <code>Makevars</code> / <code>Makevars.win</code>: C++23, <code>$(SHLIB_OPENMP_CXXFLAGS)</code> for portable OpenMP</li>
 <li>RcppArmadillo in <code>LinkingTo</code> only (NOT <code>Imports</code>)</li>
+<li>
+<code>-DARMA_DONT_USE_OPENMP</code> in both Makevars: Armadillo’s <em>internal</em> OpenMP deadlocks <code>mclapply()</code> workers forked after the parent used OpenMP (see Known CI/tooling gotchas). Package kernels parallelise with their own <code>#pragma omp</code>, which the flag does not touch</li>
 </ul></div>
 </div>
 <div class="section level2">
@@ -349,6 +351,8 @@
 <div class="section level2">
 <h2 id="known-citooling-gotchas">Known CI/tooling gotchas<a class="anchor" aria-label="anchor" href="#known-citooling-gotchas"></a></h2>
 <ul><li>
+<strong>Forked workers must not enter OpenMP with more than one thread.</strong> On Linux, libgomp is not fork-safe: once the parent has run an OpenMP region with <code>n_cores &gt; 1</code>, a <code>mclapply()</code> worker that enters another OpenMP region blocks for good (macOS LLVM libomp survives, so it never reproduces locally). Package kernels guard their pragmas with <code>if(n_cores &gt; 1)</code> and workers pass <code>n_cores = 1</code>; Armadillo’s own internal OpenMP is disabled with <code>ARMA_DONT_USE_OPENMP</code> for the same reason (it hung <code><a href="reference/detect_modules.html">detect_modules()</a></code>’s K = 1 workers inside <code>arma::eigs_sym()</code>). Only C/C++ CI (<code>cpp-check.yml</code>, plain <code><a href="https://testthat.r-lib.org/reference/test_package.html" class="external-link">testthat::test_local()</a></code>) reaches the <code>n_cores = 3</code> determinism test – R-CMD-check’s <code>--as-cran</code> makes it skip via <code>_R_CHECK_LIMIT_CORES_</code> and covr disables forking – so the <code>n_cores = 2</code> regression test next to it is the one R-CMD-check runs. Both workflows carry <code>timeout-minutes: 30</code>.</li>
+<li>
 <strong><code>mclapply()</code> forking deadlocks under <code>covr</code> coverage instrumentation.</strong> <code>covr::package_coverage()</code> compiles the package with gcov instrumentation; forking under gcov is a documented deadlock (a forked child can inherit a coverage-counter file lock the parent held at fork time and never release it — r-lib/covr#322), not a bug in the forked code itself. <code>.can_fork()</code> in <code>R/rng.R</code> returns <code>FALSE</code> whenever <code>Sys.getenv("R_COVR") == "true"</code> (the same signal <code>covr::in_covr()</code> uses), and every <code>mclapply()</code> call site (<code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code>, and <code><a href="reference/detect_modules.html">detect_modules()</a></code>’s two sweeps plus its batched significance loop in <code>R/modules.R</code>) is gated on it. A new fork call site must route through <code>.can_fork()</code> too, or it will reintroduce the hang under <code>.github/workflows/test-coverage.yml</code> (which also carries a <code>timeout-minutes: 30</code> safety net now, so a regression fails fast instead of burning hours).</li>
 </ul></div>
 </div>
