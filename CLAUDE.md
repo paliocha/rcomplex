@@ -179,12 +179,20 @@ Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-
 ## Design notes
 
 `dev/design-notes/` holds research/handoff documents for work that has been
-investigated but not yet implemented (e.g. `mdl-engine.md`, a literature
-review and porting plan for a possible future MDL network-backbone-extraction
-feature). It deliberately lives under `dev/`, not `docs/`: `docs/` is
-pkgdown's GitHub Pages output directory (see `.Rbuildignore`'s `^docs$`), and
-`pkgdown::build_site_github_pages()` refuses to touch a non-empty `docs/`
-that it did not itself build.
+investigated but not yet implemented. `network-sparsification-plan.md`
+(2026-09-15) is the operative plan for automatic network sparsification:
+gated work packages T1-T6, where T1-T3 must reach a go/no-go decision before
+any package code changes. `mdl-engine.md` is the earlier MDL literature
+review it supersedes, kept as historical research rather than a
+specification. The directory deliberately lives under `dev/`, not `docs/`:
+`docs/` is pkgdown's GitHub Pages output directory (see `.Rbuildignore`'s
+`^docs$`), and `pkgdown::build_site_github_pages()` refuses to touch a
+non-empty `docs/` that it did not itself build.
+
+`prepare_data/` is gitignored and exists only in the maintainer's checkout.
+`prepare_data/convert_to_se.R` is the one-time script that converted the
+Pooideae long-format `vst_hog.RDS` into the per-species SummarizedExperiment
+objects in `prepare_data/data/`. It is not part of the package.
 
 ## Known CI/tooling gotchas
 
