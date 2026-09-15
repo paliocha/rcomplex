@@ -492,6 +492,28 @@ test_that("rows removed by edge_type still shape the percentiles", {
 })
 
 
+test_that("a pre-filtered edge table warns", {
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  sp <- c("SP_A", "SP_B", "SP_C")
+  expect_warning(
+    find_cliques(make_percentile_edges(background = FALSE), sp),
+    class = "rcomplex_prefiltered_edges"
+  )
+  # rows outside edge_type present: the table is the tested population
+  expect_no_warning(
+    find_cliques(make_percentile_edges(), sp),
+    class = "rcomplex_prefiltered_edges"
+  )
+  # no type column: nothing to judge
+  no_type <- make_percentile_edges(background = FALSE)
+  no_type$type <- NULL
+  expect_no_warning(
+    find_cliques(no_type, sp),
+    class = "rcomplex_prefiltered_edges"
+  )
+})
+
+
 test_that("a single-edge clique has coherence 1", {
   edges <- data.frame(
     gene1 = c("A1", "A2"), gene2 = c("B1", "B2"),

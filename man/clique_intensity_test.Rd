@@ -115,7 +115,9 @@ clique intensity (see \code{\link{find_cliques}}: the geometric mean
 of each clique edge's effect-size percentile among all tested pairs of
 its species pair). Observed and null intensities are ranked against
 the full edge tables (\code{edges}, and every permutation's
-\code{find_coexpressologs()} output), so pass \code{edges} unfiltered.
+\code{find_coexpressologs()} output), so pass \code{edges} unfiltered;
+a supplied \code{edges} holding only \code{edge_type} rows warns once
+per session (class \code{rcomplex_prefiltered_edges}).
 The null model shuffles \code{Species2} genes
 globally across all rows of the ortholog table (not within-HOG),
 destroying both the specific ortholog mapping and the within-HOG

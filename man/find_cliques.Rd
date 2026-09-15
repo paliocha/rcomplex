@@ -34,7 +34,10 @@ unfiltered table (every tested pair, e.g. the output of
 \code{\link{find_coexpressologs}}): cliques are built from
 \code{edge_type} rows only, but \code{intensity} and
 \code{coherence} rank each edge's effect size against every row of
-its species pair, so a pre-filtered table changes what they measure.}
+its species pair, so a pre-filtered table changes what they measure.
+A table whose \code{type} column holds only \code{edge_type} rows
+triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
+once per session).}
 
 \item{...}{Additional arguments passed to the default method.}
 

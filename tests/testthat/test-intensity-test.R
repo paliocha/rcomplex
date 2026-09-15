@@ -242,3 +242,21 @@ test_that("pval_combine/pi0_method reach the baseline and null reruns", {
   expect_gt(r_min$n_matched, 0L)
   expect_identical(r_max$n_matched, 0L)
 })
+
+
+test_that("a pre-filtered edges argument warns", {
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  setup <- make_clique_fixture()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+  conserved <- setup$edges[setup$edges$type == "conserved", , drop = FALSE]
+  expect_gt(nrow(conserved), 0L)
+
+  expect_warning(
+    clique_intensity_test(
+      setup$cliques, setup$target_species, setup$networks,
+      setup$orthologs,
+      n_perm = 1L, seed = 1L, edges = conserved
+    ),
+    class = "rcomplex_prefiltered_edges"
+  )
+})

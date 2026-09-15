@@ -94,6 +94,50 @@ encode_clique_edges <- function(edges, target_species) {
 }
 
 
+#' Warn when an edge table looks already cut to `edge_type`
+#'
+#' Clique intensity ranks each edge's effect size among every tested pair
+#' of its species pair. A table holding only `edge_type` rows ranks
+#' significant edges against each other instead, which is a different
+#' quantity that nothing downstream can tell apart. Tables without a
+#' `type` column cannot be judged and pass silently. Warns once per
+#' session: clique_stability(), clique_threshold_sweep(),
+#' clique_perturbation_test() and classify_cliques() call find_cliques()
+#' many times on one table.
+#'
+#' @param edges Edge data frame.
+#' @param edge_type Edge types find_cliques() keeps.
+#' @noRd
+.warn_if_prefiltered <- function(edges, edge_type) {
+  if (!"type" %in% names(edges) || nrow(edges) == 0L ||
+        !all(edges$type %in% edge_type)) {
+    return(invisible(FALSE))
+  }
+  rlang::warn(
+    c(
+      paste0(
+        "`edges` holds only `edge_type` rows (",
+        paste(unique(edges$type), collapse = ", "),
+        "), so it looks pre-filtered."
+      ),
+      i = paste0(
+        "Clique intensity and coherence rank each edge's effect size ",
+        "among all tested pairs of its species pair; here that ",
+        "population is only the rows already kept."
+      ),
+      i = paste0(
+        "Pass the unfiltered edge table, e.g. find_coexpressologs() ",
+        "output. This warning is shown once per session."
+      )
+    ),
+    class = "rcomplex_prefiltered_edges",
+    .frequency = "once",
+    .frequency_id = "rcomplex_prefiltered_edges"
+  )
+  invisible(TRUE)
+}
+
+
 #' Compute per-clique edge statistics (intensity, coherence, min effect size)
 #'
 #' Onnela weights are effect-size percentiles, not `1 - q.value`: a clique
@@ -190,6 +234,9 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'   \code{edge_type} rows only, but \code{intensity} and
 #'   \code{coherence} rank each edge's effect size against every row of
 #'   its species pair, so a pre-filtered table changes what they measure.
+#'   A table whose \code{type} column holds only \code{edge_type} rows
+#'   triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
+#'   once per session).
 #' @param target_species Character vector of species abbreviations.
 #' @param min_species Minimum number of species per clique
 #'   (default: \code{length(target_species)}).
@@ -302,6 +349,7 @@ find_cliques.default <- function(edges, target_species,
   # its species pair, so they are taken before the edge_type filter; ranked
   # among conserved edges alone they would only describe edges that
   # already passed alpha.
+  .warn_if_prefiltered(edges, edge_type)
   weights <- .effect_percentile(edges)
   if ("type" %in% names(edges)) {
     keep <- edges$type %in% edge_type
@@ -1514,7 +1562,9 @@ clique_perturbation_test.default <- function(
 #' of each clique edge's effect-size percentile among all tested pairs of
 #' its species pair). Observed and null intensities are ranked against
 #' the full edge tables (\code{edges}, and every permutation's
-#' \code{find_coexpressologs()} output), so pass \code{edges} unfiltered.
+#' \code{find_coexpressologs()} output), so pass \code{edges} unfiltered;
+#' a supplied \code{edges} holding only \code{edge_type} rows warns once
+#' per session (class \code{rcomplex_prefiltered_edges}).
 #' The null model shuffles \code{Species2} genes
 #' globally across all rows of the ortholog table (not within-HOG),
 #' destroying both the specific ortholog mapping and the within-HOG
@@ -1662,7 +1712,9 @@ clique_intensity_test.default <- function(
     species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
   }
 
-  # Compute baseline intensity
+  # Compute baseline intensity. Only a caller-supplied table can have been
+  # cut to edge_type; the one built here is every tested pair.
+  if (!is.null(edges)) .warn_if_prefiltered(edges, edge_type)
   if (is.null(edges)) {
     edges <- find_coexpressologs(networks, orthologs,
       species_pairs = species_pairs,

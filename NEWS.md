@@ -506,7 +506,9 @@ counterpart per gene before any module label is projected.
   against `-log10 q`). **Pass `find_cliques()` and
   `clique_intensity_test()` the unfiltered edge table**: a table already
   cut to `type == "conserved"` ranks each edge against significant edges
-  only. Clique membership, `mean_q`, `min_effect_size`, stability,
+  only, and now triggers a warning (class `rcomplex_prefiltered_edges`,
+  once per session, since the clique robustness functions call
+  `find_cliques()` many times on one table). Clique membership, `mean_q`, `min_effect_size`, stability,
   persistence and classification are unchanged. Effect size depends on
   neighbourhood size, so intensity inherits the degree dependence tracked
   in #12.
