@@ -82,7 +82,8 @@ conservation). Percentiles rather than \code{1 - q.value}: every
 clique edge already passed alpha, so \code{1 - q} left no range.
 Jaccard rather than effect size, which falls like 1 / degree at a
 fixed conserved fraction. \code{NA} when \code{edges} has no
-usable \code{jaccard} column.}
+usable \code{jaccard} column, or when any present clique edge
+lacks a finite Jaccard value.}
 \item{coherence}{Onnela coherence: intensity / arithmetic mean of
 the same percentiles (1 when all edge weights are equal)}
 \item{min_effect_size}{Minimum effect size across present edges

@@ -214,7 +214,7 @@ test_that("max_missing_edges is forwarded to find_cliques", {
 
 test_that("pval_combine/pi0_method reach the baseline and null reruns", {
   # Baseline cliques built with pval_combine = "min" (one conserved edge).
-  # Observed intensity is an effect-size percentile (#11), and effect size
+  # Observed intensity is a Jaccard-index percentile (#11), and Jaccard
   # does not depend on how directional q-values are combined, so it cannot
   # show whether pval_combine was forwarded: it matches under either value.
   # The null reruns can. Under "min" a permutation that keeps the A1-B1
@@ -259,4 +259,44 @@ test_that("a pre-filtered edges argument warns", {
     ),
     class = "rcomplex_prefiltered_edges"
   )
+})
+
+
+
+test_that("null intensities are the permuted runs' own Jaccard weights", {
+  # A calibration test (strong fixture rejects, null fixture does not) is
+  # not feasible at this scale: the null reshuffles every ortholog, so
+  # permuted runs rebuild a baseline clique only by chance and small
+  # fixtures match none. What can be pinned exactly is the null itself.
+  # With pi0_method = "none" the only draw in a permutation is the
+  # ortholog shuffle, so replaying the loop under the same seed rebuilds
+  # every permuted table; null_mean must equal the mean intensity of the
+  # matched permuted cliques, weighted over each permuted run's own table.
+  setup <- make_asym_clique_fixture()
+  sp <- setup$target_species
+  n_perm <- 20L
+  res <- clique_intensity_test(
+    setup$cliques, sp, setup$networks, setup$orthologs,
+    n_perm = n_perm, seed = 7L,
+    pval_combine = "min", pi0_method = "none"
+  )
+  expect_gt(res$n_matched, 0L)
+
+  set.seed(7L)
+  null_int <- numeric(0)
+  for (b in seq_len(n_perm)) {
+    sh <- setup$orthologs
+    sh$Species2 <- sample(sh$Species2)
+    e_p <- find_coexpressologs(setup$networks, sh,
+      method = "analytical", pval_combine = "min", pi0_method = "none"
+    )
+    if (nrow(e_p) == 0L) next
+    cl_p <- find_cliques(e_p, sp, min_species = length(sp))
+    hit <- cl_p[cl_p$hog == setup$cliques$hog[1L], , drop = FALSE]
+    if (nrow(hit) == 0L) next
+    st <- rcomplex:::compute_clique_edge_stats(hit[1L, ], e_p, sp)
+    if (!is.na(st$intensity)) null_int <- c(null_int, st$intensity)
+  }
+  expect_length(null_int, res$n_matched)
+  expect_equal(res$null_mean, mean(null_int), tolerance = 1e-12)
 })
