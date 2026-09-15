@@ -1834,6 +1834,7 @@ make_power_comparison <- function() {
   cmp <- compare_neighborhoods(n1, n2, ortho)
   list(
     res = summarize_comparison(cmp, pi0_method = "none")$results,
+    cmp = cmp,
     np = n - 1
   )
 }
@@ -1949,6 +1950,32 @@ test_that("\"min\" power ignores a direction without power", {
   expect_equal(rcomplex:::.edge_power(res, 0.05, "greater", "min"), b1,
                tolerance = 1e-12)
   expect_true(all(is.na(rcomplex:::.edge_power(res, 0.05, "greater", "max"))))
+})
+
+
+test_that("summarize_comparison forwards f0 to its edge table", {
+  fx <- make_power_comparison()
+  run <- function(...) {
+    summarize_comparison(fx$cmp,
+      sp1 = "SP_A", sp2 = "SP_B",
+      pi0_method = "none", ...
+    )
+  }
+  fixed <- run(f0 = 0.3)
+  expect_equal(
+    fixed$edges$power,
+    comparison_to_edges(fixed$results, "SP_A", "SP_B", f0 = 0.3)$power,
+    tolerance = 1e-12
+  )
+  # NULL keeps the data-derived reference fraction.
+  dflt <- run()
+  expect_equal(
+    dflt$edges$power,
+    comparison_to_edges(dflt$results, "SP_A", "SP_B")$power,
+    tolerance = 1e-12
+  )
+  expect_false(isTRUE(all.equal(fixed$edges$power, dflt$edges$power)))
+  expect_error(run(f0 = 1.5), "f0")
 })
 
 

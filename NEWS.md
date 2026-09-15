@@ -549,7 +549,7 @@ counterpart per gene before any module label is projected.
   can only fall and `partial_present` counts can only rise. `NA` power, or a
   table without the column, keeps the old classification; the permutation
   path writes `power = NA`, since its HOG-level q-value has no per-pair call
-  threshold. `density_sweep()` forwards `f0`.
+  threshold. `density_sweep()` forwards `f0`, and so does `summarize_comparison()` for its `$edges`.
 
 - `detect_modules(n_cores > 1, test_k1 = TRUE)` could hang forever on
   Linux. The parent runs the co-classification scan with `n_cores` OpenMP
