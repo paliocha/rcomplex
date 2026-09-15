@@ -1,0 +1,193 @@
+"anchor_id","anchor_hog","feature","interpretation","phylogenetic_pair","annual_species","perennial_species","annual_value","perennial_value","annual_minus_perennial"
+"anchor_01","HOG:0020610","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.859872611464968,0.700636942675159,0.159235668789809
+"anchor_01","HOG:0020610","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.853503184713376,0.904458598726115,-0.0509554140127388
+"anchor_01","HOG:0020610","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.86624203821656,0.828025477707006,0.0382165605095541
+"anchor_01","HOG:0020610","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.808917197452229,0.929936305732484,-0.121019108280255
+"anchor_01","HOG:0020610","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.889203495052054,0.718920243201478,0.170283251850576
+"anchor_01","HOG:0020610","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.878737873728255,0.935528292347566,-0.0567904186193109
+"anchor_01","HOG:0020610","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.89377731621194,0.857149148656139,0.0366281675558008
+"anchor_01","HOG:0020610","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.833288711255455,0.964886002030179,-0.131597290774724
+"anchor_01","HOG:0020610","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.771365395245992,0.674228523769808,0.0971368714761841
+"anchor_01","HOG:0020610","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.689933789698126,0.830386574767755,-0.14045278506963
+"anchor_01","HOG:0020610","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.701525054466231,0.80035778175313,-0.0988327272868996
+"anchor_01","HOG:0020610","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.725409323834521,0.79348134152102,-0.0680720176864996
+"anchor_01","HOG:0020610","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_01","HOG:0020610","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_01","HOG:0020610","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_01","HOG:0020610","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_02","HOG:0020076","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.897959183673469,0.72108843537415,0.17687074829932
+"anchor_02","HOG:0020076","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.836734693877551,0.931972789115646,-0.0952380952380952
+"anchor_02","HOG:0020076","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.863945578231292,0.884353741496599,-0.0204081632653061
+"anchor_02","HOG:0020076","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.843537414965986,0.918367346938776,-0.0748299319727891
+"anchor_02","HOG:0020076","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.92729798444156,0.739615272667442,0.187682711774117
+"anchor_02","HOG:0020076","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.862441746125227,0.964184779965976,-0.101743033840749
+"anchor_02","HOG:0020076","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.891884337298578,0.914967053647288,-0.0230827163487103
+"anchor_02","HOG:0020076","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.868277708390753,0.952985195324373,-0.0847074869336203
+"anchor_02","HOG:0020076","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.779898218829516,0.684636118598383,0.0952621002311337
+"anchor_02","HOG:0020076","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.747034519525523,0.834370974667239,-0.0873364551417161
+"anchor_02","HOG:0020076","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.739782527184102,0.799880739415623,-0.0600982122315211
+"anchor_02","HOG:0020076","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.720692368214005,0.843449419568823,-0.122757051354818
+"anchor_02","HOG:0020076","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_02","HOG:0020076","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_02","HOG:0020076","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_02","HOG:0020076","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_03","HOG:0011532","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.816326530612245,0.707482993197279,0.108843537414966
+"anchor_03","HOG:0011532","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.748299319727891,0.952380952380952,-0.204081632653061
+"anchor_03","HOG:0011532","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.72108843537415,0.91156462585034,-0.19047619047619
+"anchor_03","HOG:0011532","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.795918367346939,0.965986394557823,-0.170068027210884
+"anchor_03","HOG:0011532","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.840356830863572,0.72475367323201,0.115603157631562
+"anchor_03","HOG:0011532","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.769323447124763,0.982107178374311,-0.212783731249547
+"anchor_03","HOG:0011532","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.740552201674545,0.942304241049549,-0.201752039375004
+"anchor_03","HOG:0011532","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.81611097970507,1.00479092537004,-0.188679945664975
+"anchor_03","HOG:0011532","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.816666666666667,0.67083644510829,0.145830221558377
+"anchor_03","HOG:0011532","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.760133444537114,0.818807810894142,-0.0586743663570275
+"anchor_03","HOG:0011532","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.785265049415993,0.766468409830547,0.0187966395854463
+"anchor_03","HOG:0011532","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.777040966696139,0.805813605034462,-0.028772638338323
+"anchor_03","HOG:0011532","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_03","HOG:0011532","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_03","HOG:0011532","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_03","HOG:0011532","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_04","HOG:0019394","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.865384615384615,0.685897435897436,0.17948717948718
+"anchor_04","HOG:0019394","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.83974358974359,0.935897435897436,-0.0961538461538461
+"anchor_04","HOG:0019394","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.846153846153846,0.871794871794872,-0.0256410256410257
+"anchor_04","HOG:0019394","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.724358974358974,0.92948717948718,-0.205128205128205
+"anchor_04","HOG:0019394","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.895429134059304,0.704016604994964,0.19141252906434
+"anchor_04","HOG:0019394","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.863162245401526,0.966272727444777,-0.103110482043251
+"anchor_04","HOG:0019394","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.87376224170265,0.902789029128572,-0.029026787425922
+"anchor_04","HOG:0019394","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.742298901825219,0.962638574923382,-0.220339673098163
+"anchor_04","HOG:0019394","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.769928137092316,0.690354434843943,0.0795737022483733
+"anchor_04","HOG:0019394","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.697240164415737,0.793008974964572,-0.0957688105488356
+"anchor_04","HOG:0019394","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.724612537589637,0.781372549019608,-0.056760011429971
+"anchor_04","HOG:0019394","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.780183312262958,0.816570881226054,-0.0363875689630954
+"anchor_04","HOG:0019394","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_04","HOG:0019394","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_04","HOG:0019394","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_04","HOG:0019394","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_05","HOG:0006205","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.763888888888889,0.722222222222222,0.0416666666666666
+"anchor_05","HOG:0006205","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.805555555555556,0.944444444444444,-0.138888888888889
+"anchor_05","HOG:0006205","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.805555555555556,0.881944444444444,-0.0763888888888888
+"anchor_05","HOG:0006205","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.881944444444444,0.923611111111111,-0.0416666666666667
+"anchor_05","HOG:0006205","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.785143783559727,0.740453470421945,0.0446903131377826
+"anchor_05","HOG:0006205","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.827924452784449,0.974929606789314,-0.147005154004865
+"anchor_05","HOG:0006205","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.828321250934975,0.908949118565864,-0.0806278676308891
+"anchor_05","HOG:0006205","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.904944782063902,0.959146465314064,-0.0542016832501618
+"anchor_05","HOG:0006205","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.845037531276063,0.654592979835698,0.190444551440365
+"anchor_05","HOG:0006205","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.719790104947526,0.842156862745098,-0.122366757797572
+"anchor_05","HOG:0006205","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.75832083958021,0.779902512185977,-0.0215816726057668
+"anchor_05","HOG:0006205","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.721409823772028,0.847117794486215,-0.125707970714187
+"anchor_05","HOG:0006205","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_05","HOG:0006205","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_05","HOG:0006205","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_05","HOG:0006205","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_06","HOG:0028766","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.852348993288591,0.711409395973154,0.140939597315436
+"anchor_06","HOG:0028766","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.805369127516778,0.912751677852349,-0.107382550335571
+"anchor_06","HOG:0028766","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.865771812080537,0.885906040268456,-0.0201342281879195
+"anchor_06","HOG:0028766","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.785234899328859,0.946308724832215,-0.161073825503356
+"anchor_06","HOG:0028766","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.880098873576327,0.729500225201412,0.150598648374916
+"anchor_06","HOG:0028766","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.829080126185592,0.942430496998264,-0.113350370812671
+"anchor_06","HOG:0028766","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.892664765271321,0.917420955139799,-0.024756189868478
+"anchor_06","HOG:0028766","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.808484262605615,0.98185743655548,-0.173373173949865
+"anchor_06","HOG:0028766","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.803524559430071,0.662353998203055,0.141170561227016
+"anchor_06","HOG:0028766","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.748459383753501,0.837581699346405,-0.0891223155929038
+"anchor_06","HOG:0028766","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.71390503875969,0.802105019662272,-0.0881999809025816
+"anchor_06","HOG:0028766","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.760389036251105,0.809929078014184,-0.0495400417630791
+"anchor_06","HOG:0028766","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_06","HOG:0028766","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_06","HOG:0028766","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_06","HOG:0028766","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_07","HOG:0011862","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.913907284768212,0.642384105960265,0.271523178807947
+"anchor_07","HOG:0011862","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.781456953642384,0.933774834437086,-0.152317880794702
+"anchor_07","HOG:0011862","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.774834437086093,0.801324503311258,-0.0264900662251656
+"anchor_07","HOG:0011862","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.841059602649007,0.947019867549669,-0.105960264900662
+"anchor_07","HOG:0011862","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.947309715403813,0.659323593745355,0.287986121658458
+"anchor_07","HOG:0011862","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.807501287692338,0.966276298061206,-0.158775010368868
+"anchor_07","HOG:0011862","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.796266545815029,0.828948649667022,-0.0326821038519928
+"anchor_07","HOG:0011862","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.865815215505752,0.984854846615675,-0.119039631109922
+"anchor_07","HOG:0011862","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.753517401883,0.721005154639175,0.0325122472438248
+"anchor_07","HOG:0011862","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.776329132261336,0.82016210739615,-0.0438329751348143
+"anchor_07","HOG:0011862","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.772472737989979,0.819559228650138,-0.0470864906601584
+"anchor_07","HOG:0011862","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.709161354830646,0.797793755540234,-0.0886324007095883
+"anchor_07","HOG:0011862","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_07","HOG:0011862","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_07","HOG:0011862","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_07","HOG:0011862","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_08","HOG:0006123","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.885906040268456,0.604026845637584,0.281879194630873
+"anchor_08","HOG:0006123","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.791946308724832,0.953020134228188,-0.161073825503356
+"anchor_08","HOG:0006123","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.852348993288591,0.879194630872483,-0.0268456375838926
+"anchor_08","HOG:0006123","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.845637583892617,0.939597315436242,-0.0939597315436241
+"anchor_08","HOG:0006123","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.917622073194949,0.62134246147062,0.296279611724329
+"anchor_08","HOG:0006123","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.818025011066468,0.987355979947151,-0.169330968880683
+"anchor_08","HOG:0006123","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.879612959834488,0.91089340862366,-0.0312804487891711
+"anchor_08","HOG:0006123","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.870613240406979,0.977345404691964,-0.106732164284985
+"anchor_08","HOG:0006123","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.776659727041406,0.769038701622971,0.00762102541843512
+"anchor_08","HOG:0006123","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.777488048674489,0.81740085905504,-0.0399128103805501
+"anchor_08","HOG:0006123","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.725284339457568,0.778860833822666,-0.0535764943650981
+"anchor_08","HOG:0006123","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.731555555555556,0.827440904419322,-0.0958853488637662
+"anchor_08","HOG:0006123","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_08","HOG:0006123","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_08","HOG:0006123","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_08","HOG:0006123","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_09","HOG:0029484","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.857142857142857,0.721428571428571,0.135714285714286
+"anchor_09","HOG:0029484","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.871428571428571,0.914285714285714,-0.0428571428571428
+"anchor_09","HOG:0029484","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.878571428571429,0.742857142857143,0.135714285714286
+"anchor_09","HOG:0029484","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.778571428571429,0.942857142857143,-0.164285714285714
+"anchor_09","HOG:0029484","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.883323434913178,0.740571294776448,0.14275214013673
+"anchor_09","HOG:0029484","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.897670238243679,0.944426519967743,-0.0467562817240642
+"anchor_09","HOG:0029484","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.904791107276999,0.762091989321626,0.142699117955373
+"anchor_09","HOG:0029484","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.798198723463759,0.97751457056682,-0.179315847103061
+"anchor_09","HOG:0029484","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.823249299719888,0.688712871287129,0.134536428432759
+"anchor_09","HOG:0029484","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.713317978593687,0.827263779527559,-0.113945800933873
+"anchor_09","HOG:0029484","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.730641076902572,0.86277072442121,-0.132129647518638
+"anchor_09","HOG:0029484","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.735643900781515,0.803955586398335,-0.0683116856168191
+"anchor_09","HOG:0029484","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_09","HOG:0029484","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_09","HOG:0029484","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_09","HOG:0029484","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_10","HOG:0023085","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.894366197183099,0.626760563380282,0.267605633802817
+"anchor_10","HOG:0023085","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.774647887323944,0.950704225352113,-0.176056338028169
+"anchor_10","HOG:0023085","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.838028169014085,0.901408450704225,-0.0633802816901409
+"anchor_10","HOG:0023085","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.859154929577465,0.936619718309859,-0.0774647887323944
+"anchor_10","HOG:0023085","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.92752119815388,0.644125793065057,0.283395405088823
+"anchor_10","HOG:0023085","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.799722147493439,0.983375709312175,-0.183653561818736
+"anchor_10","HOG:0023085","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.86308640524868,0.93226368448376,-0.0691772792350801
+"anchor_10","HOG:0023085","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.883614779483195,0.971926158309344,-0.0883113788261489
+"anchor_10","HOG:0023085","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.800649918760155,0.76685393258427,0.0337959861758853
+"anchor_10","HOG:0023085","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.825521267723103,0.838032061912659,-0.0125107941895563
+"anchor_10","HOG:0023085","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.758723828514457,0.809055118110236,-0.0503312895957796
+"anchor_10","HOG:0023085","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.757214469584067,0.861699703804967,-0.1044852342209
+"anchor_10","HOG:0023085","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_10","HOG:0023085","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_10","HOG:0023085","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_10","HOG:0023085","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_11","HOG:0026770","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.922535211267606,0.661971830985915,0.26056338028169
+"anchor_11","HOG:0026770","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.78169014084507,0.936619718309859,-0.154929577464789
+"anchor_11","HOG:0026770","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.802816901408451,0.894366197183099,-0.0915492957746479
+"anchor_11","HOG:0026770","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.830985915492958,0.943661971830986,-0.112676056338028
+"anchor_11","HOG:0026770","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.953439925210086,0.680149903053589,0.273290022156497
+"anchor_11","HOG:0026770","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.806938321246983,0.968759572677211,-0.161821251430229
+"anchor_11","HOG:0026770","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.826349244649305,0.925576305997872,-0.0992270613485672
+"anchor_11","HOG:0026770","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.853919832007268,0.977943245919405,-0.124023413912137
+"anchor_11","HOG:0026770","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.79459776864357,0.736215968885839,0.0583817997577316
+"anchor_11","HOG:0026770","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.816380016380016,0.859535201640465,-0.0431551852604485
+"anchor_11","HOG:0026770","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.780779382083527,0.801024871891014,-0.0202454898074862
+"anchor_11","HOG:0026770","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.759235115167319,0.847604084838963,-0.0883689696716445
+"anchor_11","HOG:0026770","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_11","HOG:0026770","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_11","HOG:0026770","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_11","HOG:0026770","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
+"anchor_12","HOG:0012056","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Brachypodium","BDIS","BSYL",0.880281690140845,0.598591549295775,0.28169014084507
+"anchor_12","HOG:0012056","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Hordeum","HVUL","HJUB",0.76056338028169,0.971830985915493,-0.211267605633803
+"anchor_12","HOG:0012056","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Briza","BMAX","BMED",0.830985915492958,0.845070422535211,-0.0140845070422535
+"anchor_12","HOG:0012056","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors","Festuca/Vulpia","VBRO","FPRA",0.767605633802817,0.943661971830986,-0.176056338028169
+"anchor_12","HOG:0012056","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Brachypodium","BDIS","BSYL",0.911165371555697,0.615637882578854,0.295527488976843
+"anchor_12","HOG:0012056","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Hordeum","HVUL","HJUB",0.78275114813421,1.00481325277514,-0.222062104640935
+"anchor_12","HOG:0012056","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Briza","BMAX","BMED",0.855303696067247,0.872948495687951,-0.0176447996207045
+"anchor_12","HOG:0012056","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs","Festuca/Vulpia","VBRO","FPRA",0.788558515566006,0.978457805747721,-0.189899290181715
+"anchor_12","HOG:0012056","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Brachypodium","BDIS","BSYL",0.803483870967742,0.773669467787115,0.0298144031806271
+"anchor_12","HOG:0012056","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Hordeum","HVUL","HJUB",0.837313949463482,0.825981169998942,0.01133277946454
+"anchor_12","HOG:0012056","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Briza","BMAX","BMED",0.746776763725916,0.839075630252101,-0.0922988665261846
+"anchor_12","HOG:0012056","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies","Festuca/Vulpia","VBRO","FPRA",0.81515460414543,0.845808551228818,-0.0306539470833884
+"anchor_12","HOG:0012056","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Brachypodium","BDIS","BSYL",1,1,0
+"anchor_12","HOG:0012056","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Hordeum","HVUL","HJUB",1,1,0
+"anchor_12","HOG:0012056","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Briza","BMAX","BMED",1,1,0
+"anchor_12","HOG:0012056","largest_component_fraction","fraction of resolved HOGs in the largest connected component","Festuca/Vulpia","VBRO","FPRA",1,1,0
