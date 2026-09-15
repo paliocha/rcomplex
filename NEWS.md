@@ -123,12 +123,11 @@ counterpart per gene before any module label is projected.
   observed run, down to its `dgCMatrix` slots. The trial count is
   `ceiling(swap_factor * m)`, so a small factor on a small graph still makes
   at least one trial instead of truncating to none (a network with fewer
-  than two edges has no swap to make and is returned unchanged). Under igraph a zero or
-  negative `swap_factor` rewired
-  nothing and returned the observed graph as its own null without a
-  warning; `NA`, `NaN` and `Inf` failed inside igraph with "not
-  representable as an integer" and now fail with a message naming
-  `swap_factor`.
+  than two edges has no swap to make and is returned unchanged). Under
+  igraph a zero or negative `swap_factor` rewired nothing and returned the
+  observed graph as its own null without a warning; `NA`, `NaN` and `Inf`
+  failed inside igraph with "not representable as an integer" and now fail
+  with a message naming `swap_factor`.
 
 ## Breaking changes
 
