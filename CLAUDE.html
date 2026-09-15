@@ -185,17 +185,19 @@
 <td>GPU-precomputed FE permutation engine</td>
 </tr><tr class="odd"><td><code>src/module_preservation.cpp</code></td>
 <td>Module preservation permutation engine (<code>avg.weight</code>, <code>cor.degree</code>, plus diagnostics) and per-gene intramodular statistics; dense + sparse entry points</td>
-</tr><tr class="even"><td><code>src/reduce_orthogroups.cpp</code></td>
+</tr><tr class="even"><td><code>src/rewire_degseq.cpp</code></td>
+<td>Degree-preserving edge-swap kernel for <code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code>: igraph’s <code>keeping_degseq</code> trial on a bit-matrix adjacency, drawing from R’s RNG</td>
+</tr><tr class="odd"><td><code>src/reduce_orthogroups.cpp</code></td>
 <td>Ward.D2 paralog merging</td>
-</tr><tr class="odd"><td><code>src/coclassification.cpp</code></td>
+</tr><tr class="even"><td><code>src/coclassification.cpp</code></td>
 <td>Co-classification matrix with per-pair null subtraction (Jeub et al. 2018)</td>
-</tr><tr class="even"><td><code>src/find_cliques_common.h</code></td>
+</tr><tr class="odd"><td><code>src/find_cliques_common.h</code></td>
 <td>Shared clique primitives (BK/Tomita, backtracking, trait, Jaccard)</td>
-</tr><tr class="odd"><td><code>src/find_cliques.cpp</code></td>
+</tr><tr class="even"><td><code>src/find_cliques.cpp</code></td>
 <td>C++ clique detection wrapper</td>
-</tr><tr class="even"><td><code>src/find_cliques_stability.cpp</code></td>
+</tr><tr class="odd"><td><code>src/find_cliques_stability.cpp</code></td>
 <td>Leave-k-out stability engine with OpenMP</td>
-</tr><tr class="odd"><td><code>src/sample_k_distinct.h</code></td>
+</tr><tr class="even"><td><code>src/sample_k_distinct.h</code></td>
 <td>Shared rejection-sampling utility</td>
 </tr></tbody></table></div>
 <div class="section level3">
