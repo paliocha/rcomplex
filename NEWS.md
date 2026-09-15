@@ -461,6 +461,21 @@ counterpart per gene before any module label is projected.
   carry `mean_effect_size` when `edges` has it: **prefer it to `mean_q` for
   ranking**, for the reason `pvalue_resolution()` measures.
 
+## Bug fixes
+
+- `detect_modules(n_cores > 1, test_k1 = TRUE)` could hang forever on
+  Linux. The parent runs the co-classification scan with `n_cores` OpenMP
+  threads and then forks `mclapply()` workers for the K = 1 permutations; a
+  worker entering any OpenMP region after that inherits libgomp's thread
+  pool without its threads and blocks. The package's kernels skip OpenMP at
+  `n_cores = 1`, but Armadillo parallelised the dense x sparse product inside
+  `eigs_sym()` by itself: gdb on ubuntu CI put every hung worker in
+  `sparse_excess_spectral_norm_cpp()` -> `arma::eigs_sym()` -> libgomp.
+  `src/Makevars` now sets `ARMA_DONT_USE_OPENMP`, which turns off only
+  Armadillo's internal threading; every package kernel keeps its own
+  OpenMP. `compute_network()` timing is unchanged (5000 genes: 1.63 s at one
+  core, 0.62 s at four, before and after). macOS was never affected.
+
 ## Validation and documentation
 
 - New `tests/testthat/test-module-preservation.R` (44 blocks): the kernel

@@ -64,6 +64,30 @@ test_that("consensus modules are bit-reproducible across core counts", {
   expect_identical(r1$k1_test$lambda_null, r3$k1_test$lambda_null)
 })
 
+test_that("forked K = 1 workers survive the parent's OpenMP threads", {
+  skip_on_cran()
+  skip_on_os("windows") # mclapply falls back to serial
+  # Regression for a Linux-only deadlock. The parent runs the
+  # co-classification scan with n_cores = 2, which starts a libgomp thread
+  # pool; the K = 1 test then forks workers, and a worker that enters any
+  # OpenMP region inherits that pool without its threads and blocks for
+  # good. The package's own kernels skip OpenMP at n_cores = 1, but
+  # Armadillo parallelised the dense x sparse product inside eigs_sym()
+  # on its own, until src/Makevars set ARMA_DONT_USE_OPENMP. macOS (LLVM
+  # libomp) never hung, so only Linux CI can fail this. Unlike the
+  # core-count test above, n_cores = 2 stays inside the limit
+  # R CMD check --as-cran imposes, so R-CMD-check runs it too. These are
+  # that test's run(2L) arguments, the call that hung on ubuntu CI.
+  net <- make_ambiguous_net()
+  res <- detect_modules(net,
+    resolution = seq(0.25, 2.5, by = 0.25),
+    objective_function = "modularity",
+    seed = 42L, n_cores = 2L, max_consensus_iter = 10L,
+    test_k1 = TRUE, n_perm_k1 = 100L, alpha_k1 = 0.05
+  )
+  expect_gt(res$k1_test$n_perm_completed, 0L)
+})
+
 test_that("detect_modules leaves the ambient RNG stream core-count invariant", {
   skip_on_cran()
   skip_on_os("windows")

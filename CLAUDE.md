@@ -168,6 +168,7 @@ Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-
 ### Build system
 - `Makevars` / `Makevars.win`: C++23, `$(SHLIB_OPENMP_CXXFLAGS)` for portable OpenMP
 - RcppArmadillo in `LinkingTo` only (NOT `Imports`)
+- `-DARMA_DONT_USE_OPENMP` in both Makevars: Armadillo's *internal* OpenMP deadlocks `mclapply()` workers forked after the parent used OpenMP (see Known CI/tooling gotchas). Package kernels parallelise with their own `#pragma omp`, which the flag does not touch
 
 ## Dependencies
 
@@ -196,6 +197,19 @@ objects in `prepare_data/data/`. It is not part of the package.
 
 ## Known CI/tooling gotchas
 
+- **Forked workers must not enter OpenMP with more than one thread.**
+  On Linux, libgomp is not fork-safe: once the parent has run an OpenMP
+  region with `n_cores > 1`, a `mclapply()` worker that enters another
+  OpenMP region blocks for good (macOS LLVM libomp survives, so it never
+  reproduces locally). Package kernels guard their pragmas with
+  `if(n_cores > 1)` and workers pass `n_cores = 1`; Armadillo's own
+  internal OpenMP is disabled with `ARMA_DONT_USE_OPENMP` for the same
+  reason (it hung `detect_modules()`'s K = 1 workers inside
+  `arma::eigs_sym()`). Only C/C++ CI (`cpp-check.yml`, plain
+  `testthat::test_local()`) reaches the `n_cores = 3` determinism test --
+  R-CMD-check's `--as-cran` makes it skip via `_R_CHECK_LIMIT_CORES_` and
+  covr disables forking -- so the `n_cores = 2` regression test next to it
+  is the one R-CMD-check runs. Both workflows carry `timeout-minutes: 30`.
 - **`mclapply()` forking deadlocks under `covr` coverage instrumentation.**
   `covr::package_coverage()` compiles the package with gcov instrumentation;
   forking under gcov is a documented deadlock (a forked child can inherit a
