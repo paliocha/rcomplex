@@ -1166,7 +1166,7 @@ clique_threshold_sweep <- function(
         species1 = character(0), species2 = character(0),
         hog = character(0), q.value = numeric(0),
         effect_size = numeric(0), jaccard = numeric(0),
-        type = character(0)
+        power = numeric(0), type = character(0)
       )
     } else {
       all_edges <- do.call(rbind, pair_edges)
@@ -1883,6 +1883,13 @@ clique_intensity_test.default <- function(
 #'     a within-group clique, but no cross-group conserved edge exists.
 #'   \item \strong{trait_specific}: exactly 1 trait group has a
 #'     within-group clique.
+#'   \item \strong{underpowered}: would be differentiated or
+#'     trait_specific, but a non-conserved edge from a member of one of
+#'     the HOG's within-group cliques to a species of another trait group
+#'     has \code{power} below \code{min_power}. Specificity and divergence
+#'     must survive treating such an edge as possibly conserved; a
+#'     low-degree gene cannot reach the call whatever its conservation.
+#'     Needs a \code{power} column in \code{edges}.
 #'   \item \strong{unclassified}: none of the above.
 #' }
 #'
@@ -1921,7 +1928,10 @@ clique_intensity_test.default <- function(
 #'   \code{effect_size}, and \code{type}. Must contain ALL edges
 #'   (conserved + ns + diverged), not pre-filtered, because the
 #'   differentiated check needs to verify absence of cross-group
-#'   conserved edges.
+#'   conserved edges. An optional \code{power} column (from
+#'   \code{\link{find_coexpressologs}}) enables the
+#'   \code{"underpowered"} class; without it, or where it is \code{NA},
+#'   the classification is unchanged.
 #' @param target_species Character vector of all species.
 #' @param species_trait Named character or factor vector mapping each
 #'   species to a trait value (e.g., \code{c(SP_A = "annual",
@@ -1940,13 +1950,16 @@ clique_intensity_test.default <- function(
 #'   \code{robust} flag (default 0).
 #' @param min_persistence Minimum persistence for the \code{robust}
 #'   flag (default 1.0).
+#' @param min_power Detection power below which a non-conserved edge is
+#'   read as uninformative rather than as evidence against conservation
+#'   (default 0.8). Only used when \code{edges} has \code{power}.
 #'
 #' @return A data frame with one row per HOG:
 #'   \describe{
 #'     \item{hog}{HOG identifier}
 #'     \item{classification}{One of \code{"complete"}, \code{"partial"},
 #'       \code{"differentiated"}, \code{"trait_specific"},
-#'       \code{"unclassified"}}
+#'       \code{"underpowered"}, \code{"unclassified"}}
 #'     \item{n_species}{Species count in the best clique (NA for
 #'       unclassified)}
 #'     \item{best_mean_q}{Mean q-value of the best clique (NA for
@@ -1995,7 +2008,8 @@ classify_cliques.default <- function(
   stability = NULL,
   sweep = NULL,
   min_stability_class = 0L,
-  min_persistence = 1.0, ...
+  min_persistence = 1.0,
+  min_power = 0.8, ...
 ) {
   # --- Validation ---
   required_cols <- c(
@@ -2027,6 +2041,11 @@ classify_cliques.default <- function(
   }
   min_species <- as.integer(min_species)
   if (min_species < 2L) stop("min_species must be >= 2")
+  ok_power <- is.numeric(min_power) && length(min_power) == 1L &&
+    !is.na(min_power) && min_power >= 0 && min_power <= 1
+  if (!ok_power) {
+    stop("min_power must be a single number in [0, 1]")
+  }
 
   if (!is.null(stability)) {
     if (!is.list(stability) || is.null(stability$stability)) {
@@ -2145,6 +2164,18 @@ classify_cliques.default <- function(
     }
   }
 
+  # --- Step 5b: Underpowered specificity / divergence ---
+  # Both calls rest on edges that were not conserved. One that could not
+  # have been called is no evidence, so the call has to survive reading
+  # it as conserved.
+  up_hogs <- character(0)
+  if ("power" %in% names(edges)) {
+    up_hogs <- .cc_underpowered_hogs(
+      edges, c(diff_hogs, ts_hogs), within_group_cliques, trait_char,
+      edge_type, min_power
+    )
+  }
+
   # --- Step 6: Unclassified ---
   classified <- c(complete_hogs, partial_hogs, diff_hogs, ts_hogs)
   unclass_hogs <- setdiff(all_hogs, classified)
@@ -2207,7 +2238,10 @@ classify_cliques.default <- function(
     info <- best_per_hog(wg_summary, diff_hogs)
     tg <- diff_groups[match(info$hog, diff_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
-      hog = info$hog, classification = "differentiated",
+      hog = info$hog,
+      classification = ifelse(info$hog %in% up_hogs, "underpowered",
+        "differentiated"
+      ),
       n_species = info$n_species, best_mean_q = info$best_mean_q,
       trait_groups = tg, stringsAsFactors = FALSE
     )
@@ -2228,7 +2262,10 @@ classify_cliques.default <- function(
     info <- best_per_hog(wg_summary2, ts_hogs)
     tg <- ts_groups[match(info$hog, ts_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
-      hog = info$hog, classification = "trait_specific",
+      hog = info$hog,
+      classification = ifelse(info$hog %in% up_hogs, "underpowered",
+        "trait_specific"
+      ),
       n_species = info$n_species, best_mean_q = info$best_mean_q,
       trait_groups = tg, stringsAsFactors = FALSE
     )
@@ -2317,4 +2354,49 @@ classify_cliques.default <- function(
   }
 
   out
+}
+
+
+#' HOGs whose specificity or divergence call rests on underpowered edges
+#'
+#' A deciding edge is a non-conserved row of the HOG with `power` below
+#' `min_power`, one endpoint a member of one of the HOG's within-group
+#' cliques and the other in a different trait group. Such an edge could
+#' not have been called, so the call cannot rule it out as conserved.
+#'
+#' @param edges Full edge table carrying `power`.
+#' @param hogs Candidate HOGs (differentiated and trait-specific).
+#' @param wg_cliques Named list of within-group [find_cliques()] tables.
+#' @param trait_char Named trait of every target species.
+#' @param edge_type,min_power As in [classify_cliques()].
+#' @return Character vector of the HOGs to reclassify.
+#' @noRd
+.cc_underpowered_hogs <- function(edges, hogs, wg_cliques, trait_char,
+                                  edge_type, min_power) {
+  hogs <- as.character(hogs)
+  e_hog <- as.character(edges$hog)
+  pw <- as.numeric(edges$power)
+  t1 <- unname(trait_char[as.character(edges$species1)])
+  t2 <- unname(trait_char[as.character(edges$species2)])
+  cand <- e_hog %in% hogs & !(edges$type %in% edge_type) &
+    !is.na(pw) & pw < min_power & !is.na(t1) & !is.na(t2) & t1 != t2
+  if (!any(cand)) {
+    return(character(0))
+  }
+  sep <- "\x01"
+  members <- unlist(lapply(wg_cliques, function(df) {
+    if (is.null(df) || nrow(df) == 0L) {
+      return(NULL)
+    }
+    df <- df[as.character(df$hog) %in% hogs, , drop = FALSE]
+    sp_cols <- intersect(names(trait_char), names(df))
+    unlist(lapply(sp_cols, function(s) {
+      g <- df[[s]]
+      ok <- !is.na(g)
+      paste(df$hog[ok], s, g[ok], sep = sep)
+    }))
+  }), use.names = FALSE)
+  k1 <- paste(e_hog, edges$species1, edges$gene1, sep = sep)[cand]
+  k2 <- paste(e_hog, edges$species2, edges$gene2, sep = sep)[cand]
+  unique(e_hog[cand][k1 %in% members | k2 %in% members])
 }

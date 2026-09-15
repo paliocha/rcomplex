@@ -580,8 +580,10 @@ test_that("comparison_to_edges produces correct edge format", {
   expect_equal(names(edges), c(
     "gene1", "gene2", "species1", "species2",
     "hog", "q.value", "effect_size", "jaccard",
-    "type"
+    "power", "type"
   ))
+  # The fixture carries no neighbourhood sizes, so power is undefined.
+  expect_true(all(is.na(edges$power)))
   expect_equal(edges$gene1, c("A1", "A2"))
   expect_equal(edges$species1, c("SP_A", "SP_A"))
   expect_equal(edges$species2, c("SP_B", "SP_B"))
@@ -837,6 +839,9 @@ test_that(
     expect_identical(ret, out)
     expect_true(file.exists(out))
     from_file <- as.data.frame(data.table::fread(out))
+    # No pair is called on these random networks, so `power` is all NA
+    # and fread() reads the empty column back as logical.
+    from_file$power <- as.numeric(from_file$power)
     # fread() infers types from text; compare on values, not attributes
     expect_equal(from_file, in_memory, ignore_attr = TRUE)
   }
@@ -974,6 +979,9 @@ test_that("find_coexpressologs out_file: one header across pairs", {
   expect_equal(header_lines, 1)
 
   from_file <- as.data.frame(data.table::fread(out))
+  # No pair is called on these random networks, so `power` is all NA and
+  # fread() reads the empty column back as logical.
+  from_file$power <- as.numeric(from_file$power)
   # Row order can differ from the in-memory rbind() order across pairs;
   # compare as sets keyed on the edge identity columns.
   key_cols <- c("gene1", "gene2", "species1", "species2", "hog")
@@ -1798,4 +1806,189 @@ test_that("density_sweep(seed = ) is reproducible and pins level one", {
   before <- get(".Random.seed", envir = globalenv())
   invisible(run(42))
   expect_identical(get(".Random.seed", envir = globalenv()), before)
+})
+
+
+# --- Detection power of each edge (#12) ---
+
+# Six co-expression modules shared by two species, gene loadings graded
+# so neighbourhood size (and with it detection power) varies by gene.
+make_power_comparison <- function() {
+  withr::local_seed(7)
+  n <- 120
+  s <- 30
+  mod <- rep(1:6, each = 20)
+  load <- rep(seq(0.3, 1.5, length.out = 20), 6)
+  sim <- function(prefix) {
+    f <- matrix(stats::rnorm(6 * s), 6, s)
+    e <- f[mod, ] * load + matrix(stats::rnorm(n * s), n, s)
+    rownames(e) <- paste0(prefix, seq_len(n))
+    e
+  }
+  n1 <- compute_network(sim("A"), density = 0.08, sparse = FALSE)
+  n2 <- compute_network(sim("B"), density = 0.08, sparse = FALSE)
+  ortho <- data.frame(
+    Species1 = paste0("A", seq_len(n)), Species2 = paste0("B", seq_len(n)),
+    hog = paste0("H", seq_len(n))
+  )
+  cmp <- compare_neighborhoods(n1, n2, ortho)
+  list(
+    res = summarize_comparison(cmp, pi0_method = "none")$results,
+    np = n - 1
+  )
+}
+
+# Gated P(X >= x): the reported conservation p-value, 1 for x <= 1.
+power_gated_p <- function(x, m, np, k) {
+  ifelse(x <= 1, 1, stats::phyper(x - 1, m, np - m, k, lower.tail = FALSE))
+}
+
+# One direction's power by exhaustive search over every overlap.
+power_brute <- function(res, d, np, alpha, called, f0 = NULL) {
+  g <- function(s) res[[paste0(d, s)]]
+  m <- g(".neigh")
+  k <- g(".ortho.neigh")
+  x <- g(".neigh.overlap")
+  pcut <- max(g(".p.val.con")[g(".q.val.con") < alpha])
+  if (is.null(f0)) f0 <- stats::median((x / m)[called & m > 0])
+  vapply(seq_along(m), function(i) {
+    nn <- min(k[i], m[i])
+    if (nn == 0) {
+      return(0)
+    }
+    xs <- 0:nn
+    ok <- which(power_gated_p(xs, m[i], np, k[i]) <= pcut)
+    if (length(ok) == 0L) {
+      return(0)
+    }
+    sum(stats::dbinom(xs[min(ok)]:nn, nn, f0))
+  }, numeric(1))
+}
+
+
+test_that(".power_xstar matches brute force, tiny p-values included", {
+  np <- 999
+  for (m in c(5, 30, 50)) {
+    for (k in c(4, 40)) {
+      n <- min(k, m)
+      for (x0 in 2:n) {
+        p0 <- power_gated_p(x0, m, np, k)
+        for (pcut in c(p0, p0 * (1 - 1e-9), p0 * (1 + 1e-9))) {
+          hits <- which(power_gated_p(0:n, m, np, k) <= pcut)
+          want <- if (length(hits) == 0L) n + 1 else (0:n)[min(hits)]
+          expect_equal(rcomplex:::.power_xstar(pcut, m, k, np), want)
+        }
+      }
+    }
+  }
+  # qhyper(lower.tail = FALSE) returns 17 here; the true cut is 30.
+  p30 <- power_gated_p(30, 50, np, 40)
+  expect_lt(p30, 1e-30)
+  expect_equal(rcomplex:::.power_xstar(p30, 50, 40, np), 30)
+})
+
+
+test_that("edge power matches a brute-force computation", {
+  fx <- make_power_comparison()
+  res <- fx$res
+  q1 <- res$Species1.q.val.con
+  q2 <- res$Species2.q.val.con
+  called_max <- pmax(q1, q2) < 0.05
+  called_min <- pmin(q1, q2) < 0.05
+  expect_gt(sum(called_max), 10L)
+
+  dir_pw <- function(called, f0 = NULL) {
+    lapply(c("Species1", "Species2"), power_brute,
+      res = res, np = fx$np, alpha = 0.05, called = called, f0 = f0
+    )
+  }
+  b <- dir_pw(called_max)
+  pw <- rcomplex:::.edge_power(res, 0.05, "greater", "max")
+  expect_equal(pw, pmin(b[[1]], b[[2]]), tolerance = 1e-12)
+  # Power has to vary for it to separate anything.
+  expect_gt(diff(range(pw)), 0.3)
+
+  # f0 overrides the median in both directions.
+  b3 <- dir_pw(called_max, f0 = 0.3)
+  expect_equal(
+    rcomplex:::.edge_power(res, 0.05, "greater", "max", f0 = 0.3),
+    pmin(b3[[1]], b3[[2]]),
+    tolerance = 1e-12
+  )
+  # "min" takes the stronger direction, with f0 from the pairs "min" calls.
+  expect_equal(
+    rcomplex:::.edge_power(res, 0.05, "greater", "min", f0 = 0.3),
+    pmax(b3[[1]], b3[[2]]),
+    tolerance = 1e-12
+  )
+  bm <- dir_pw(called_min)
+  expect_equal(
+    rcomplex:::.edge_power(res, 0.05, "greater", "min"),
+    pmax(bm[[1]], bm[[2]]),
+    tolerance = 1e-12
+  )
+
+  edges <- comparison_to_edges(res, "SP_A", "SP_B", f0 = 0.3)
+  expect_equal(edges$power, pmin(b3[[1]], b3[[2]]), tolerance = 1e-12)
+})
+
+
+test_that("edge power is NA where it is undefined", {
+  fx <- make_power_comparison()
+  res <- fx$res
+  nas <- rep(NA_real_, nrow(res))
+
+  expect_equal(rcomplex:::.edge_power(res, 0.05, "less", "max"), nas)
+  # No called pair: no cut to measure power against.
+  none <- res
+  none$Species1.q.val.con <- 1
+  none$Species2.q.val.con <- 1
+  expect_equal(rcomplex:::.edge_power(none, 0.05, "greater", "max"), nas)
+  # Effect sizes that disagree on the urn size.
+  bad <- res
+  hit <- which(bad$Species1.neigh.overlap > 0)[1]
+  bad$Species1.effect.size[hit] <- bad$Species1.effect.size[hit] * 2
+  expect_warning(
+    pw <- rcomplex:::.edge_power(bad, 0.05, "greater", "max"),
+    "urn size for Species1"
+  )
+  expect_equal(pw, nas)
+
+  expect_error(
+    comparison_to_edges(res, "SP_A", "SP_B", f0 = 0),
+    "f0 must be NULL or a single number"
+  )
+  expect_error(
+    comparison_to_edges(res, "SP_A", "SP_B", f0 = c(0.2, 0.3)),
+    "f0 must be NULL"
+  )
+})
+
+
+test_that("find_coexpressologs carries power on both paths", {
+  fx <- make_clique_fixture()
+  an <- find_coexpressologs(fx$networks, fx$orthologs,
+    pi0_method = "none", f0 = 0.5
+  )
+  expect_equal(
+    names(an)[7:10], c("effect_size", "jaccard", "power", "type")
+  )
+  expect_true(any(!is.na(an$power)))
+
+  sweep <- suppressMessages(density_sweep(fx$networks, fx$orthologs,
+    multipliers = 1, method = "analytical", pi0_method = "none", f0 = 0.5
+  ))
+  expect_equal(sweep$edges[[1]]$power, an$power)
+
+  perm <- find_coexpressologs(fx$networks, fx$orthologs,
+    method = "permutation", min_exceedances = 5L,
+    max_permutations = 200L, seed = 1L
+  )
+  expect_equal(names(perm), names(an))
+  expect_true(all(is.na(perm$power)))
+
+  expect_error(
+    find_coexpressologs(fx$networks, fx$orthologs, f0 = 2),
+    "f0 must be NULL"
+  )
 })

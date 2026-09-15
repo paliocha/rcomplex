@@ -17,6 +17,7 @@ classify_gene_cliques(cliques, ...)
   alpha_graph = 0.9,
   max_gap = 1L,
   cross_max = NULL,
+  min_power = 0.8,
   ...
 )
 
@@ -37,7 +38,10 @@ relying on it.}
 
 \item{edges}{The full, unfiltered co-expressolog table. It must not
 be pre-filtered on \code{q.value}: the gap tier needs to see rows that
-were tested and failed in order to refuse them.}
+were tested and failed in order to refuse them. An optional \code{power}
+column (from \code{\link{comparison_to_edges}}) enables the
+\code{underpowered} tier; without it, or where it is \code{NA}, the
+classification is unchanged.}
 
 \item{species}{Character vector of every species in the analysis.
 Every species appearing in \code{cliques} must be listed; a stranger
@@ -61,6 +65,10 @@ graph (default 0.9).}
 allowed by \code{differentiated}. Defaults to \code{choose(S - 1, 2) - W},
 the generalisation of the published cut; the original six-species
 script used a looser hard-coded 6.}
+
+\item{min_power}{Detection power below which a non-significant pair
+is read as uninformative rather than as evidence against
+conservation (default 0.8). Only used when \code{edges} has \code{power}.}
 }
 \value{
 A data frame with one row per clique:
@@ -75,10 +83,15 @@ without discarding the per-clique detail}
 in \code{edges}, and pairs significant at \code{alpha_call}}
 \item{n_sig_within, n_sig_cross}{Significant pairs within and
 across lineages (\code{NA} without \code{lineage})}
+\item{n_underpowered_cross}{Cross-lineage pairs present in
+\code{edges}, not significant, and with \code{power} below \code{min_power}
+(\code{NA} without \code{lineage})}
 \item{n_missing, missing_species, missing_reason}{Species not in
 the clique, and why: \code{absent} (no row in the HOG),
 \code{untested} (in the HOG but never compared to a member),
-\code{tested_ns} (compared and not significant), \code{extendable}
+\code{tested_ns} (compared and not significant), \code{underpowered}
+(compared and not significant, every such test with \code{power}
+below \code{min_power}), \code{extendable}
 (significant against every member, so the clique came from a
 looser graph). Comma-separated and positionally aligned}
 \item{mean_q, max_q}{Recomputed from \code{edges} over present pairs}
@@ -124,8 +137,20 @@ rejected test.}
 at least one lineage of two or more species, every such lineage
 fully significant within itself, and at most \code{cross_max}
 cross-lineage pairs significant.}
+\item{underpowered}{A clique that would be \code{lineage_specific} or
+\code{differentiated} but for tests that could not have succeeded,
+read from a \code{power} column in \code{edges} (see
+\code{\link{comparison_to_edges}}). It takes the place of
+\code{lineage_specific} when every outside species is a gap or
+\code{underpowered} and at least one is \code{underpowered}, and of
+\code{differentiated} when \code{n_sig_cross + n_underpowered_cross}
+exceeds \code{cross_max}: a specificity or divergence call must survive
+treating every underpowered pair as possibly significant. A
+low-degree gene cannot reach the call whatever its conservation,
+so without this its missing edges read as a lineage boundary.}
 }
-The waterfall is evaluated in that order and the first match wins.
+The waterfall is evaluated in that order, \code{underpowered} at the
+position of the tier it replaces, and the first match wins.
 
 \code{choose(S - 1, 2) + 1} equals \code{choose(S, 2) - (S - 2)}, so the
 \code{partial_significant} tolerance is \code{S - 2} non-significant edges.

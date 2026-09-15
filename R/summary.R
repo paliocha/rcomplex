@@ -282,7 +282,7 @@ summarize_comparison <- function(comparison,
         species1 = character(0), species2 = character(0),
         hog = character(0), q.value = numeric(0),
         effect_size = numeric(0), jaccard = numeric(0),
-        type = character(0)
+        power = numeric(0), type = character(0)
       )
     }
     return(out)

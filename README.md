@@ -298,6 +298,17 @@ significant, tested but not significant, and never tested -- so the second
 tier never silently absorbs the first, and a pair that was never compared
 is not read as evidence of divergence.
 
+A tested, non-significant pair is evidence only when the test could have
+succeeded. Hypergeometric power rises with neighbourhood size, so a
+low-degree gene misses the call whatever its conservation. The `power`
+column of `find_coexpressologs()` output is the probability that the pair
+would have been called had a reference fraction `f0` of its neighbourhood
+been conserved. Both clique classifiers read it through `min_power`
+(default 0.8): a `lineage_specific`, `differentiated` or `trait_specific`
+call has to survive treating every underpowered pair as possibly
+conserved, and one that does not is reported as `underpowered`. Without a
+`power` column the classification is unchanged.
+
 ## Sparse network storage (v0.2.0)
 
 `compute_network()` returns the network as a sparse `dgCMatrix` by
@@ -357,13 +368,13 @@ multiplier) error with a message asking for a larger `store_density`.
 | `get_coexpressed_hogs()` | Query co-expression partners of a candidate HOG across species |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting (species graph, one best gene assignment) |
 | `gene_clique_graph()` | Maximal cliques of the per-HOG gene graph (Rodriguez et al., 2026) |
-| `classify_gene_cliques()` | Five-tier taxonomy for gene-graph cliques, tolerating weak wiring (`partial_significant`) and a missing gene (`partial_present`) |
+| `classify_gene_cliques()` | Five-tier taxonomy for gene-graph cliques, tolerating weak wiring (`partial_significant`) and a missing gene (`partial_present`), plus `underpowered` for calls resting on low-power tests |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
 | `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |
 | `clique_perturbation_test()` | Bootstrap noise robustness for clique edge weights |
 | `clique_intensity_test()` | Permutation null model for clique intensity (Z-score) |
-| `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific) |
+| `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific/underpowered) |
 
 ## Ortholog file format
 
