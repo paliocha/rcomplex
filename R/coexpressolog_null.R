@@ -96,7 +96,9 @@
 #' @param swap_factor Swap trials per permutation, rejected ones
 #'   included, as a multiple of the edge count of each thresholded network
 #'   (default 10). Must be a single finite number > 0. The trial count is
-#'   rounded up, so any positive factor makes at least one trial.
+#'   rounded up, so any positive factor makes at least one trial on a
+#'   network with two or more edges; a network with fewer than two edges has
+#'   no swap to make and is returned unchanged.
 #' @param n_cores Number of parallel workers for the permutation loop
 #'   (default 1).
 #' @param seed Base seed for the run. \code{NULL} (default) draws one

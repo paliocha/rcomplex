@@ -14,6 +14,7 @@
 // come from R's RNG, so set.seed() in the caller fixes the rewiring.
 
 #include "neighbor_lists.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <vector>
