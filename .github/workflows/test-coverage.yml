@@ -28,7 +28,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::covr, any::xml2
+          extra-packages: any::covr
           needs: coverage
 
       - name: Test coverage
@@ -38,11 +38,4 @@ jobs:
             clean = FALSE,
             install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
           )
-          covr::to_cobertura(cov)
         shell: Rscript {0}
-
-      - uses: codecov/codecov-action@v7
-        with:
-          files: ./cobertura.xml
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
