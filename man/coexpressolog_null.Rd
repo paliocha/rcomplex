@@ -38,7 +38,7 @@ name from the observed run errors.}
 
 \item{swap_factor}{Swap trials per permutation, rejected ones
 included, as a multiple of the edge count of each thresholded network
-(default 10).}
+(default 10). Must be a single finite number > 0.}
 
 \item{n_cores}{Number of parallel workers for the permutation loop
 (default 1).}

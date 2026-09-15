@@ -14,6 +14,7 @@
 // come from R's RNG, so set.seed() in the caller fixes the rewiring.
 
 #include <Rcpp.h>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -21,6 +22,10 @@
 Rcpp::List rewire_degseq_cpp(Rcpp::IntegerVector from,
                              Rcpp::IntegerVector to,
                              int n, double niter) {
+    // 2^64: the first trial count a uint64_t cannot hold
+    if (!std::isfinite(niter) || niter < 0 || niter >= 18446744073709551616.0)
+        Rcpp::stop("niter must be a finite, non-negative trial count");
+
     const std::size_t m = from.size();
     std::vector<int> u(from.begin(), from.end());
     std::vector<int> v(to.begin(), to.end());

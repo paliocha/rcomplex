@@ -96,7 +96,7 @@
 #' @param n_perm Number of rewired permutations (default 100).
 #' @param swap_factor Swap trials per permutation, rejected ones
 #'   included, as a multiple of the edge count of each thresholded network
-#'   (default 10).
+#'   (default 10). Must be a single finite number > 0.
 #' @param n_cores Number of parallel workers for the permutation loop
 #'   (default 1).
 #' @param seed Base seed for the run. \code{NULL} (default) draws one
@@ -174,9 +174,22 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
       " with as_sparse_network()"
     )
   }
+  # The rewiring kernel indexes an nrow x nrow bit matrix with column
+  # indices, so every network must pass the square/dimnames validation that
+  # find_coexpressologs() would apply -- including networks that the
+  # species_pairs in `...` leave out of the observed run, which are rewired
+  # all the same.
+  for (net in networks) .net_check(net, net$threshold)
   n_perm <- as.integer(n_perm)
   if (length(n_perm) != 1L || is.na(n_perm) || n_perm < 1L) {
     stop("n_perm must be a single integer >= 1")
+  }
+  # An NA, NaN or non-positive swap_factor used to reach the kernel as a
+  # trial count below 1, which rewires nothing: the "null" was the observed
+  # graph, and the run returned without a word.
+  if (!is.numeric(swap_factor) || length(swap_factor) != 1L ||
+        !is.finite(swap_factor) || swap_factor <= 0) {
+    stop("swap_factor must be a single finite number > 0")
   }
   builtin_stat <- is.null(statistic)
   if (builtin_stat) {

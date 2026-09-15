@@ -118,6 +118,11 @@ counterpart per gene before any module label is projected.
   numerically**, since the kernel consumes the RNG stream differently; the
   null distribution does not. A test enumerates all 70 realizations of a
   six-node degree sequence and checks the kernel samples them uniformly.
+  `swap_factor` must now be a single finite number > 0, and every network is
+  validated up front, including any that `species_pairs` leaves out of the
+  observed run: an `NA`, `NaN`, zero or negative `swap_factor` previously
+  rewired nothing and returned the observed graph as its own null without a
+  warning.
 
 ## Breaking changes
 

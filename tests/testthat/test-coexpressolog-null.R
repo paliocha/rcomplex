@@ -52,6 +52,37 @@ test_that("coexpressolog_null requires sparse networks", {
   )
 })
 
+test_that("swap_factor must be a finite positive number", {
+  d <- make_cmp_nets()
+  nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
+  # Each of these used to rewire nothing and return the observed graph as
+  # its own null, silently.
+  for (sf in list(NA_real_, NaN, -5, 0, Inf, c(1, 2), "10")) {
+    expect_error(
+      coexpressolog_null(nets, d$ortho, n_perm = 2L, swap_factor = sf,
+                         seed = 1L),
+      "swap_factor must be a single finite number > 0"
+    )
+  }
+})
+
+test_that("every network is validated, even one outside species_pairs", {
+  d <- make_cmp_nets()
+  nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
+  wide <- nets$B
+  wide$network <- cbind(wide$network, wide$network[, 1:5])
+  # C never enters the observed run, so find_coexpressologs() never checks
+  # it, but the null still rewires it: a wide matrix would index past the
+  # kernel's nrow x nrow bit matrix.
+  expect_error(
+    coexpressolog_null(c(nets, list(C = wide)), d$ortho,
+      n_perm = 2L, seed = 1L, pi0_method = "none",
+      species_pairs = list(c("A", "B"))
+    ),
+    "square"
+  )
+})
+
 test_that("the seed is validated up front, and only where it must be", {
   d <- make_cmp_nets()
   nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
@@ -567,4 +598,15 @@ test_that(".rewire_degseq samples degree-sequence realizations uniformly", {
   counts <- table(factor(keys, levels = valid))
   expect_true(all(counts > 0))
   expect_gt(stats::chisq.test(as.vector(counts))$p.value, 1e-3)
+})
+
+
+test_that("the rewiring kernel rejects trial counts it cannot represent", {
+  a <- sym_adj(c(1, 3), c(2, 4), 4L)
+  j <- rep.int(seq_len(4L) - 1L, diff(a@p))
+  up <- a@i < j
+  for (niter in c(NA_real_, NaN, -1, Inf, 2^64)) {
+    expect_error(rewire_degseq_cpp(a@i[up], j[up], 4L, niter),
+                 "finite, non-negative trial count")
+  }
 })
