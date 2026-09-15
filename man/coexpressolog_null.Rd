@@ -36,8 +36,9 @@ name from the observed run errors.}
 
 \item{n_perm}{Number of rewired permutations (default 100).}
 
-\item{swap_factor}{Edge swaps per permutation, as a multiple of the
-edge count of each thresholded network (default 10).}
+\item{swap_factor}{Swap trials per permutation, rejected ones
+included, as a multiple of the edge count of each thresholded network
+(default 10).}
 
 \item{n_cores}{Number of parallel workers for the permutation loop
 (default 1).}
@@ -92,11 +93,11 @@ the base seed the run used as \code{attr(, "seed")}.
 \description{
 Tests whether an observed co-expressolog statistic exceeds what
 network topology alone produces. Each species network is binarised at
-its analysis threshold and rewired by degree-preserving edge swaps
-(\code{igraph::keeping_degseq()}), which keeps every gene's degree but
-destroys the correspondence between network neighbourhoods and the
-ortholog mapping. \code{\link{find_coexpressologs}} then runs on the
-rewired networks with exactly the same arguments (\code{...}) as the
+its analysis threshold and rewired by degree-preserving edge swaps,
+which keep every gene's degree but destroy the correspondence between
+network neighbourhoods and the ortholog mapping.
+\code{\link{find_coexpressologs}} then runs on the rewired networks
+with exactly the same arguments (\code{...}) as the
 observed run, and the statistic is compared against the resulting
 null distribution.
 }
@@ -107,9 +108,15 @@ entries with values at or above the threshold become edges, the rest
 are dropped. The rewired networks are unweighted (every stored value
 is 1, with \code{threshold = 1} and \code{store_threshold = 1}), so
 only membership-based consumers are valid downstream; edge weights
-carry no information after rewiring. Each network is rewired with
-\code{swap_factor * igraph::ecount(g)} swaps and stays simple (no
-loops, no multi-edges).
+carry no information after rewiring. Each network gets
+\code{swap_factor} times its edge count in swap trials, each the trial
+of igraph's \code{keeping_degseq()} rewiring: two distinct edges drawn
+uniformly, a swap that would create a loop or a multi-edge rejected, and
+the rejected trial counted, which is what makes the chain sample the
+realizations of a degree sequence uniformly. Networks stay simple (no
+loops, no multi-edges). Adjacency is held as an \code{n x n} bit matrix
+during rewiring, \code{n^2 / 8} bytes per network per worker (32 MB at
+16 000 genes).
 
 Permutation \code{b} runs in a worker that seeds itself from the base
 seed and its own index (the package-wide per-task seed derivation), so

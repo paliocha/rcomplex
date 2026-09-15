@@ -101,6 +101,24 @@ counterpart per gene before any module label is projected.
   silent distance. **Every seeded run's derived per-task seeds change
   numerically**; no call site's default behaviour changes otherwise.
 
+- `coexpressolog_null()` rewires with a C++ kernel instead of
+  `igraph::rewire(keeping_degseq())`. The trial is igraph's --- two
+  distinct edges drawn uniformly, the second flipped with probability 1/2,
+  a swap that would create a loop or multi-edge rejected, and the rejected
+  trial still counted, which is what keeps the chain uniform over a degree
+  sequence's realizations --- but adjacency is a bit matrix, so the
+  multi-edge check is a bit test rather than a graph edit. On 16 000 genes
+  at 3% density (3.84 M edges) one network's rewiring at the default
+  `swap_factor = 10` took 40.8 s through igraph and 3.7 s now, with the same
+  fraction of original edges surviving (0.030); igraph's rewiring was
+  essentially the whole cost of a permutation, and its graph objects pushed
+  forked workers on Orion into the memory limit. Over 1000 permutations on
+  the ComPlEx fixture the two nulls do not differ (KS p >= 0.40 on conserved
+  calls, Jaccard sum and row count). **Every seeded run's null changes
+  numerically**, since the kernel consumes the RNG stream differently; the
+  null distribution does not. A test enumerates all 70 realizations of a
+  six-node degree sequence and checks the kernel samples them uniformly.
+
 ## Breaking changes
 
 - `tag_permutation()` no longer permutes trait labels across all species.

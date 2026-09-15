@@ -428,3 +428,143 @@ test_that("an NA null statistic reports NA instead of aborting the run", {
   expect_true(all(is.na(res$p_emp_lo[na_rows])))
   expect_true(all(is.na(res$p_emp_hi[na_rows])))
 })
+
+
+# .rewire_degseq(): the C++ degree-preserving swap kernel behind
+# coexpressolog_null(). It replaced igraph::rewire(keeping_degseq()), so
+# these tests pin the properties that made igraph's chain a valid null:
+# degrees kept, simple output, and uniform sampling over the realizations
+# of a degree sequence.
+
+# Symmetric binary dgCMatrix with both triangles stored, from 1-based
+# endpoint vectors.
+sym_adj <- function(from, to, n, names = NULL) {
+  Matrix::sparseMatrix(
+    i = c(from, to), j = c(to, from), x = 1, dims = c(n, n),
+    dimnames = if (is.null(names)) NULL else list(names, names)
+  )
+}
+
+random_adj <- function(n, p) {
+  ut <- which(upper.tri(diag(n)), arr.ind = TRUE)
+  keep <- stats::runif(nrow(ut)) < p
+  sym_adj(ut[keep, 1], ut[keep, 2], n)
+}
+
+edge_keys <- function(a) {
+  s <- Matrix::summary(a)
+  s <- s[s$i < s$j, ]
+  sort(paste(s$i, s$j))
+}
+
+
+test_that(".rewire_degseq keeps every degree and returns a simple graph", {
+  set.seed(1)
+  n <- 200L
+  a <- random_adj(n, 0.05)
+  dimnames(a) <- list(paste0("g", seq_len(n)), paste0("g", seq_len(n)))
+  r <- .rewire_degseq(a, swap_factor = 10)
+
+  expect_s4_class(r, "dgCMatrix")
+  expect_identical(dimnames(r), dimnames(a))
+  expect_equal(Matrix::rowSums(r), Matrix::rowSums(a))
+  expect_true(Matrix::isSymmetric(r))
+  expect_true(all(Matrix::diag(r) == 0))
+  # sparseMatrix() sums duplicate entries, so a multi-edge would read x = 2
+  expect_true(all(r@x == 1))
+  expect_false(identical(edge_keys(r), edge_keys(a)))
+})
+
+
+test_that(".rewire_degseq returns graphs without a legal swap unchanged", {
+  set.seed(2)
+  a <- random_adj(50L, 0.1)
+  expect_identical(edge_keys(.rewire_degseq(a, swap_factor = 0)),
+                   edge_keys(a))
+  # one edge: nothing to pair it with
+  one <- sym_adj(1, 2, 4L)
+  expect_identical(edge_keys(.rewire_degseq(one, 10)), edge_keys(one))
+  # star: every pair of edges shares the hub, so each trial is a no-op or
+  # would create a loop
+  star <- sym_adj(rep(1, 5), 2:6, 6L)
+  expect_identical(edge_keys(.rewire_degseq(star, 10)), edge_keys(star))
+  # complete graph: every swap would create a multi-edge
+  k5 <- which(upper.tri(diag(5)), arr.ind = TRUE)
+  full <- sym_adj(k5[, 1], k5[, 2], 5L)
+  expect_identical(edge_keys(.rewire_degseq(full, 10)), edge_keys(full))
+  # no edges at all
+  empty <- Matrix::drop0(sym_adj(1, 2, 3L) * 0)
+  expect_identical(Matrix::nnzero(.rewire_degseq(empty, 10)), 0L)
+})
+
+
+test_that(".rewire_degseq draws from R's RNG stream", {
+  set.seed(3)
+  a <- random_adj(100L, 0.08)
+  # coexpressolog_null() relies on set.seed(.task_seed()) fixing each
+  # rewiring, which only holds if the kernel draws from R's stream
+  set.seed(10)
+  r1 <- .rewire_degseq(a, 5)
+  after1 <- stats::runif(1)
+  set.seed(10)
+  r2 <- .rewire_degseq(a, 5)
+  after2 <- stats::runif(1)
+  set.seed(11)
+  r3 <- .rewire_degseq(a, 5)
+  expect_identical(r1, r2)
+  expect_identical(after1, after2)
+  expect_false(identical(edge_keys(r1), edge_keys(r3)))
+})
+
+
+test_that(".rewire_degseq mixes away from the original edges", {
+  set.seed(4)
+  a <- random_adj(400L, 0.05)
+  orig <- edge_keys(a)
+  retained <- function(sf) {
+    mean(edge_keys(.rewire_degseq(a, sf)) %in% orig)
+  }
+  expect_identical(retained(0), 1)
+  # a uniformly random graph with these degrees keeps about one edge in
+  # twenty; 0.2 leaves room for degree heterogeneity, not for a chain
+  # that stalls near its start
+  expect_lt(retained(10), 0.2)
+})
+
+
+test_that(".rewire_degseq samples degree-sequence realizations uniformly", {
+  # Every simple graph on 6 labelled nodes with the start graph's degrees,
+  # enumerated over all 2^15 edge subsets of K6. Counting rejected trials
+  # is what makes the swap chain's stationary distribution uniform; a
+  # kernel that retried on rejection, or never flipped the second edge,
+  # would fail this.
+  ut <- which(upper.tri(diag(6)), arr.ind = TRUE)
+  # the 6-cycle 1-2-3-4-5-6-1, as rows of `ut`
+  start <- c(1, 3, 6, 10, 15, 11)
+  deg <- tabulate(c(ut[start, 1], ut[start, 2]), 6)
+
+  subsets <- 0:(2^15 - 1)
+  bits <- vapply(0:14, function(k) bitwAnd(subsets, 2^k) > 0, logical(2^15))
+  inc <- matrix(0, 15, 6)
+  inc[cbind(1:15, ut[, 1])] <- 1
+  inc[cbind(1:15, ut[, 2])] <- 1
+  node_deg <- bits %*% inc
+  valid <- subsets[apply(node_deg, 1, function(x) all(x == deg))]
+  # 2-regular on 6 labelled nodes: 60 hexagons plus 10 pairs of triangles
+  expect_identical(length(valid), 70L)
+
+  a <- sym_adj(ut[start, 1], ut[start, 2], 6L)
+  pair_id <- (ut[, 2] - 1) * 6 + ut[, 1]
+  set.seed(5)
+  n_draw <- 3000L
+  keys <- vapply(seq_len(n_draw), function(i) {
+    s <- Matrix::summary(.rewire_degseq(a, 50))
+    s <- s[s$i < s$j, ]
+    sum(2^(match((s$j - 1) * 6 + s$i, pair_id) - 1))
+  }, numeric(1))
+
+  expect_true(all(keys %in% valid))
+  counts <- table(factor(keys, levels = valid))
+  expect_true(all(counts > 0))
+  expect_gt(stats::chisq.test(as.vector(counts))$p.value, 1e-3)
+})
