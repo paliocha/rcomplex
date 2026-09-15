@@ -401,6 +401,10 @@ reduce_orthogroups_cpp <- function(expr, hog_members, non_hog_idx, cor_threshold
     .Call(`_rcomplex_reduce_orthogroups_cpp`, expr, hog_members, non_hog_idx, cor_threshold)
 }
 
+rewire_degseq_cpp <- function(p, i, x, swap_factor) {
+    .Call(`_rcomplex_rewire_degseq_cpp`, p, i, x, swap_factor)
+}
+
 #' Extract dgCMatrix slots from a dense matrix at a store threshold
 #'
 #' Keeps the off-diagonal entries `>= thr` of both triangles and returns
