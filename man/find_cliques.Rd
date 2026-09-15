@@ -33,7 +33,7 @@ Optionally includes a \code{type} column for filtering. Pass the
 unfiltered table (every tested pair, e.g. the output of
 \code{\link{find_coexpressologs}}): cliques are built from
 \code{edge_type} rows only, but \code{intensity} and
-\code{coherence} rank each edge's effect size against every row of
+\code{coherence} rank each edge's Jaccard index against every row of
 its species pair, so a pre-filtered table changes what they measure.
 A table whose \code{type} column holds only \code{edge_type} rows
 triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
@@ -76,10 +76,13 @@ A data frame with one row per clique:
 \item{n_missing}{Number of missing edges (0 when
 \code{max_missing_edges = 0})}
 \item{intensity}{Onnela intensity: geometric mean, across present
-edges, of each edge's effect-size percentile among all tested
+edges, of each edge's Jaccard percentile among all tested
 pairs of its species pair (in (0, 1]; higher = stronger
 conservation). Percentiles rather than \code{1 - q.value}: every
-clique edge already passed alpha, so \code{1 - q} left no range.}
+clique edge already passed alpha, so \code{1 - q} left no range.
+Jaccard rather than effect size, which falls like 1 / degree at a
+fixed conserved fraction. \code{NA} when \code{edges} has no
+usable \code{jaccard} column.}
 \item{coherence}{Onnela coherence: intensity / arithmetic mean of
 the same percentiles (1 when all edge weights are equal)}
 \item{min_effect_size}{Minimum effect size across present edges

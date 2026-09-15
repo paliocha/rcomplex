@@ -491,27 +491,29 @@ counterpart per gene before any module label is projected.
 
 ## Bug fixes
 
-- **Clique `intensity` and `coherence` change numerically** (#11). Both
-  were Onnela statistics on edge weight `1 - q.value`, but a clique only
-  contains edges that passed alpha, so every weight sat above `1 - alpha`:
-  on the Pooideae analysis intensity spanned 0.992-0.998 and coherence
-  0.9995-1.000 across every class, and `clique_intensity_test()` compared
-  an observed value pinned near 1 against a null pinned near 1. The weight
-  is now each edge's effect-size percentile among all tested pairs of its
-  species pair (average ranks for ties, in (0, 1]), taken before
-  `find_cliques()` applies `edge_type`, so it has range among significant
-  edges and is comparable across species pairs with different effect
-  scales. On the March Pooideae cliques the clique-mean `1 - q` spanned
-  about 0.04 while effect size kept the same ordering (Spearman 0.90-0.97
-  against `-log10 q`). **Pass `find_cliques()` and
-  `clique_intensity_test()` the unfiltered edge table**: a table already
+- **Clique `intensity` and `coherence` change numerically** (#11). Both were
+  Onnela statistics on edge weight `1 - q.value`, but a clique only contains
+  edges that passed alpha, so every weight sat above `1 - alpha`: on the
+  Pooideae analysis intensity spanned 0.992-0.998 and coherence 0.9995-1.000
+  across every class, and `clique_intensity_test()` compared an observed
+  value pinned near 1 against a null pinned near 1. The weight is now each
+  edge's **Jaccard-index percentile** among all tested pairs of its species
+  pair (average ranks for ties, in (0, 1]), taken before `find_cliques()`
+  applies `edge_type`. Jaccard rather than effect size: fold enrichment `(x
+  / k) / (m / (N - 1))` falls like `1 / k` at a fixed conserved fraction,
+  and in a simulation where true conservation was identical at every degree
+  the effect-size percentile had Spearman -0.97 with degree (median 0.94 in
+  the lowest degree decile, 0.05 in the highest) against 0.18 for Jaccard
+  (0.12 among conserved edges under weak signal). **Pass `find_cliques()`
+  and `clique_intensity_test()` the unfiltered edge table**: a table already
   cut to `type == "conserved"` ranks each edge against significant edges
-  only, and now triggers a warning (class `rcomplex_prefiltered_edges`,
-  once per session, since the clique robustness functions call
-  `find_cliques()` many times on one table). Clique membership, `mean_q`, `min_effect_size`, stability,
-  persistence and classification are unchanged. Effect size depends on
-  neighbourhood size, so intensity inherits the degree dependence tracked
-  in #12.
+  only, and now triggers a warning (class `rcomplex_prefiltered_edges`, once
+  per session, since the clique robustness functions call `find_cliques()`
+  many times on one table). An edge table without a usable `jaccard` column
+  gives `NA` intensity and coherence with a warning (class
+  `rcomplex_missing_jaccard`). Clique membership, `mean_q`,
+  `min_effect_size`, stability, persistence and classification are
+  unchanged. Test power still rises with degree; that is tracked in #12.
 
 - `detect_modules(n_cores > 1, test_k1 = TRUE)` could hang forever on
   Linux. The parent runs the co-classification scan with `n_cores` OpenMP

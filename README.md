@@ -249,7 +249,7 @@ persist <- clique_persistence(cliques, annual_sp, networks, edges)
 persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 
 # Edge-weight robustness metrics (already in find_cliques output)
-cliques$intensity   # Onnela geometric mean of edge effect-size percentiles
+cliques$intensity   # Onnela geometric mean of edge Jaccard percentiles
 cliques$coherence   # edge weight homogeneity (1 = all equal)
 
 # Bootstrap perturbation test (noise robustness)
@@ -711,10 +711,12 @@ would survive at stricter density thresholds.
 following Onnela *et al.* (2005):
 
 - **Intensity**: geometric mean, across clique edges, of each edge's
-  effect-size percentile among all tested pairs of its species pair
+  Jaccard-index percentile among all tested pairs of its species pair
   (in (0, 1]). Higher values indicate uniformly strong conservation.
   The weight is a percentile rather than 1 - q because every clique edge
-  already passed alpha, which left 1 - q no room to vary (#11); pass
+  already passed alpha, which left 1 - q no room to vary (#11), and a
+  Jaccard percentile rather than an effect-size one because fold
+  enrichment falls like 1 / degree at a fixed conserved fraction; pass
   `find_cliques()` the unfiltered edge table so the percentile covers
   every tested pair.
 - **Coherence**: ratio of geometric mean to arithmetic mean of the same
