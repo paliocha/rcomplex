@@ -313,7 +313,6 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     out[xstar > n | k == 0 | m == 0] <- 0
     out
   })
-  # "max" needs both directions called, so the weaker power binds.
   # "max" needs both directions, so the weaker one bounds detection and an
   # unknown direction leaves the edge unknown. "min" needs either one, so
   # a direction whose power cannot be computed (no calls, hence no p
