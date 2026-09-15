@@ -212,8 +212,11 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 
     effs <- edges$effect_size[matched]
     w <- weights[matched]
-    w <- w[!is.na(w)]
-    if (length(w) > 0L) {
+    # An edge without a finite Jaccard leaves the clique's weight set
+    # incomplete. Scoring the remaining edges would silently change the
+    # denominator -- with one valid edge left, coherence would read 1 --
+    # so an incomplete clique reports NA instead.
+    if (!anyNA(w)) {
       gm <- exp(mean(log(w)))
       intensity[i] <- gm
       coherence[i] <- gm / mean(w)
@@ -295,7 +298,8 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'       clique edge already passed alpha, so \code{1 - q} left no range.
 #'       Jaccard rather than effect size, which falls like 1 / degree at a
 #'       fixed conserved fraction. \code{NA} when \code{edges} has no
-#'       usable \code{jaccard} column.}
+#'       usable \code{jaccard} column, or when any present clique edge
+#'       lacks a finite Jaccard value.}
 #'     \item{coherence}{Onnela coherence: intensity / arithmetic mean of
 #'       the same percentiles (1 when all edge weights are equal)}
 #'     \item{min_effect_size}{Minimum effect size across present edges
@@ -636,7 +640,11 @@ clique_stability.default <- function(
     novel_cliques = 0L
   )
 
-  # Filter edges by type if applicable
+  # Filter edges by type if applicable. find_cliques() below gets the
+  # unfiltered table instead: it applies the same filter itself, ranks the
+  # intensity weights over every tested pair, and would otherwise read the
+  # filtered copy as a caller's pre-filtered table and warn.
+  edges_all <- edges
   if ("type" %in% names(edges)) {
     edges <- edges[edges$type %in% edge_type, , drop = FALSE]
   }
@@ -652,7 +660,7 @@ clique_stability.default <- function(
 
   # Compute full cliques if not provided
   if (is.null(full_cliques)) {
-    full_cliques <- find_cliques(edges, target_species,
+    full_cliques <- find_cliques(edges_all, target_species,
       min_species = min_species,
       max_genes_per_sp = max_genes_per_sp,
       edge_type = edge_type,

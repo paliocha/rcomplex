@@ -513,6 +513,23 @@ test_that("rows removed by edge_type still shape the percentiles", {
 })
 
 
+test_that("a clique with an edge lacking Jaccard gets NA intensity", {
+  # Dropping the incomplete edge would score the clique on a smaller edge
+  # set; with a single valid edge left, coherence would read exactly 1.
+  sp <- c("SP_A", "SP_B", "SP_C")
+  one_na <- make_percentile_edges(jac_ac = NA)
+  res <- find_cliques(one_na, sp)
+  expect_equal(nrow(res), 1L)
+  expect_true(is.na(res$intensity))
+  expect_true(is.na(res$coherence))
+  expect_equal(res$min_effect_size, 2.0, tolerance = 1e-12)
+
+  two_na <- make_percentile_edges(jac_ac = NA, jac_bc = NA)
+  res2 <- find_cliques(two_na, sp)
+  expect_true(is.na(res2$coherence))
+})
+
+
 test_that("a missing jaccard column gives NA intensity and warns", {
   rlang::local_options(rlib_warning_verbosity = "verbose")
   edges <- make_percentile_edges()
@@ -546,6 +563,20 @@ test_that("a pre-filtered edge table warns", {
   no_type$type <- NULL
   expect_no_warning(
     find_cliques(no_type, sp),
+    class = "rcomplex_prefiltered_edges"
+  )
+})
+
+
+test_that("clique_stability on an unfiltered table does not warn", {
+  # clique_stability() filters to edge_type for its own engine; handing
+  # that filtered copy to find_cliques() used to trip the pre-filter
+  # warning on a caller who passed the recommended unfiltered table.
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  fx <- make_clique_fixture_3sp()
+  expect_true(any(fx$edges$type != "conserved"))
+  expect_no_warning(
+    clique_stability(fx$edges, fx$target_species, min_species = 2L),
     class = "rcomplex_prefiltered_edges"
   )
 })
