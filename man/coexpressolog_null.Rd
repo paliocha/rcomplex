@@ -38,7 +38,8 @@ name from the observed run errors.}
 
 \item{swap_factor}{Swap trials per permutation, rejected ones
 included, as a multiple of the edge count of each thresholded network
-(default 10). Must be a single finite number > 0.}
+(default 10). Must be a single finite number > 0. The trial count is
+rounded up, so any positive factor makes at least one trial.}
 
 \item{n_cores}{Number of parallel workers for the permutation loop
 (default 1).}
@@ -108,12 +109,12 @@ entries with values at or above the threshold become edges, the rest
 are dropped. The rewired networks are unweighted (every stored value
 is 1, with \code{threshold = 1} and \code{store_threshold = 1}), so
 only membership-based consumers are valid downstream; edge weights
-carry no information after rewiring. Each network gets
-\code{swap_factor} times its edge count in swap trials, each the trial
-of igraph's \code{keeping_degseq()} rewiring: two distinct edges drawn
-uniformly, a swap that would create a loop or a multi-edge rejected, and
-the rejected trial counted, which is what makes the chain sample the
-realizations of a degree sequence uniformly. Networks stay simple (no
+carry no information after rewiring. A network with \code{m} edges gets
+\code{ceiling(swap_factor * m)} swap trials, each the trial of igraph's
+\code{keeping_degseq()} rewiring: two distinct edges are drawn uniformly,
+a swap that would create a loop or a multi-edge is rejected, and the
+rejected trial still counts. Counting it is what makes the chain sample
+the realizations of a degree sequence uniformly. Networks stay simple (no
 loops, no multi-edges). Adjacency is held as an \code{n x n} bit matrix
 during rewiring, \code{n^2 / 8} bytes per network per worker (32 MB at
 16 000 genes).

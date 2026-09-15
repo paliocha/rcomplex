@@ -27,10 +27,9 @@
 #' @return `dgCMatrix` with the same dimensions, dimnames and degrees.
 #' @noRd
 .rewire_degseq <- function(a, swap_factor) {
-  # each undirected edge once, from the strict upper triangle
-  j <- rep.int(seq_len(ncol(a)) - 1L, diff(a@p))
-  up <- a@i < j
-  r <- rewire_degseq_cpp(a@i[up], j[up], nrow(a), swap_factor * sum(up))
+  # the kernel validates the slots and reads each edge once from the upper
+  # triangle, so nothing here indexes into @p / @i unchecked
+  r <- rewire_degseq_cpp(a@p, a@i, a@x, swap_factor)
   Matrix::sparseMatrix(
     i = c(r$from, r$to), j = c(r$to, r$from), x = 1,
     dims = dim(a), dimnames = dimnames(a), index1 = FALSE
@@ -57,12 +56,12 @@
 #' are dropped. The rewired networks are unweighted (every stored value
 #' is 1, with \code{threshold = 1} and \code{store_threshold = 1}), so
 #' only membership-based consumers are valid downstream; edge weights
-#' carry no information after rewiring. Each network gets
-#' \code{swap_factor} times its edge count in swap trials, each the trial
-#' of igraph's \code{keeping_degseq()} rewiring: two distinct edges drawn
-#' uniformly, a swap that would create a loop or a multi-edge rejected, and
-#' the rejected trial counted, which is what makes the chain sample the
-#' realizations of a degree sequence uniformly. Networks stay simple (no
+#' carry no information after rewiring. A network with \code{m} edges gets
+#' \code{ceiling(swap_factor * m)} swap trials, each the trial of igraph's
+#' \code{keeping_degseq()} rewiring: two distinct edges are drawn uniformly,
+#' a swap that would create a loop or a multi-edge is rejected, and the
+#' rejected trial still counts. Counting it is what makes the chain sample
+#' the realizations of a degree sequence uniformly. Networks stay simple (no
 #' loops, no multi-edges). Adjacency is held as an \code{n x n} bit matrix
 #' during rewiring, \code{n^2 / 8} bytes per network per worker (32 MB at
 #' 16 000 genes).
@@ -96,7 +95,8 @@
 #' @param n_perm Number of rewired permutations (default 100).
 #' @param swap_factor Swap trials per permutation, rejected ones
 #'   included, as a multiple of the edge count of each thresholded network
-#'   (default 10). Must be a single finite number > 0.
+#'   (default 10). Must be a single finite number > 0. The trial count is
+#'   rounded up, so any positive factor makes at least one trial.
 #' @param n_cores Number of parallel workers for the permutation loop
 #'   (default 1).
 #' @param seed Base seed for the run. \code{NULL} (default) draws one

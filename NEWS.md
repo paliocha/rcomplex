@@ -102,11 +102,11 @@ counterpart per gene before any module label is projected.
   numerically**; no call site's default behaviour changes otherwise.
 
 - `coexpressolog_null()` rewires with a C++ kernel instead of
-  `igraph::rewire(keeping_degseq())`. The trial is igraph's --- two
-  distinct edges drawn uniformly, the second flipped with probability 1/2,
-  a swap that would create a loop or multi-edge rejected, and the rejected
-  trial still counted, which is what keeps the chain uniform over a degree
-  sequence's realizations --- but adjacency is a bit matrix, so the
+  `igraph::rewire(keeping_degseq())`. The trial is igraph's: two distinct
+  edges are drawn uniformly, the second is flipped with probability 1/2, a
+  swap that would create a loop or multi-edge is rejected, and the rejected
+  trial still counts, which is what keeps the chain uniform over a degree
+  sequence's realizations. Adjacency is a bit matrix, though, so the
   multi-edge check is a bit test rather than a graph edit. On 16 000 genes
   at 3% density (3.84 M edges) one network's rewiring at the default
   `swap_factor = 10` took 40.8 s through igraph and 3.7 s now, with the same
@@ -120,7 +120,10 @@ counterpart per gene before any module label is projected.
   six-node degree sequence and checks the kernel samples them uniformly.
   `swap_factor` must now be a single finite number > 0, and every network is
   validated up front, including any that `species_pairs` leaves out of the
-  observed run. Under igraph a zero or negative `swap_factor` rewired
+  observed run, down to its `dgCMatrix` slots. The trial count is
+  `ceiling(swap_factor * m)`, so a small factor on a small graph still makes
+  at least one trial instead of truncating to none. Under igraph a zero or
+  negative `swap_factor` rewired
   nothing and returned the observed graph as its own null without a
   warning; `NA`, `NaN` and `Inf` failed inside igraph with "not
   representable as an integer" and now fail with a message naming

@@ -601,12 +601,40 @@ test_that(".rewire_degseq samples degree-sequence realizations uniformly", {
 })
 
 
-test_that("the rewiring kernel rejects trial counts it cannot represent", {
+test_that("the rewiring kernel rejects swap factors it cannot represent", {
   a <- sym_adj(c(1, 3), c(2, 4), 4L)
-  j <- rep.int(seq_len(4L) - 1L, diff(a@p))
-  up <- a@i < j
-  for (niter in c(NA_real_, NaN, -1, Inf, 2^64)) {
-    expect_error(rewire_degseq_cpp(a@i[up], j[up], 4L, niter),
-                 "finite, non-negative trial count")
+  for (sf in c(NA_real_, NaN, -1, Inf, 1e300)) {
+    expect_error(rewire_degseq_cpp(a@p, a@i, a@x, sf),
+                 "swap_factor must be finite and non-negative")
   }
+})
+
+
+test_that("the rewiring kernel validates the dgCMatrix slots it reads", {
+  a <- sym_adj(c(1, 3, 5), c(2, 4, 6), 6L)
+  bad <- a
+  bad@i[1L] <- 100L # row index outside 6 x 6; slot assignment skips validity
+  expect_error(.rewire_degseq(bad, 10), "row indices must be strictly")
+  # ... and through coexpressolog_null(), for a network that species_pairs
+  # keeps out of the observed run, which .net_check() alone let through
+  d <- make_cmp_nets()
+  nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
+  broken <- nets$B
+  broken$network@i[which(broken$network@i > 0L)[1L]] <- 100000L
+  expect_error(
+    coexpressolog_null(c(nets, list(C = broken)), d$ortho,
+      n_perm = 2L, seed = 1L, pi0_method = "none",
+      species_pairs = list(c("A", "B"))
+    ),
+    "row indices must be strictly"
+  )
+})
+
+
+test_that("a small swap_factor still makes at least one trial", {
+  # 4 disjoint edges: any swap of two of them is legal, so one trial always
+  # changes the graph. floor(0.1 * 4) = 0 trials used to return it intact.
+  a <- sym_adj(c(1, 3, 5, 7), c(2, 4, 6, 8), 8L)
+  set.seed(1)
+  expect_false(identical(edge_keys(.rewire_degseq(a, 0.1)), edge_keys(a)))
 })
