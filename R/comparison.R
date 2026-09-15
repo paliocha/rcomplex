@@ -314,8 +314,15 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     out
   })
   # "max" needs both directions called, so the weaker power binds.
-  weaker <- if (pval_combine == "max") pmin else pmax
-  weaker(pw[[1L]], pw[[2L]])
+  # "max" needs both directions, so the weaker one bounds detection and an
+  # unknown direction leaves the edge unknown. "min" needs either one, so
+  # a direction whose power cannot be computed (no calls, hence no p
+  # cutoff) must not hide the other direction's power.
+  if (pval_combine == "max") {
+    pmin(pw[[1L]], pw[[2L]])
+  } else {
+    pmax(pw[[1L]], pw[[2L]], na.rm = TRUE)
+  }
 }
 
 

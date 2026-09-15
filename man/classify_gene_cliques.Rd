@@ -131,8 +131,8 @@ edge below \code{alpha_graph}, and at least \code{choose(S - 1, 2) + 1}
 pairs significant at \code{alpha_call}.}
 \item{partial_present}{\code{S - g} species present for
 \verb{1 <= g <= max_gap}, all \code{choose(S - g, 2)} pairs significant,
-and every absent species an annotation gap rather than a
-rejected test.}
+and every absent species an annotation gap or \code{underpowered}
+rather than a rejected test.}
 \item{differentiated}{All \code{S} species present, every pair tested,
 at least one lineage of two or more species, every such lineage
 fully significant within itself, and at most \code{cross_max}

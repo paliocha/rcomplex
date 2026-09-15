@@ -398,8 +398,9 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' first two are annotation gaps; folding the third into them would let
 #' `partial_present` claim cliques that were actually rejected. A species
 #' whose every failed test had power below `min_power` is
-#' `"underpowered"`: tested, so not a gap, but its failure is no evidence
-#' of a boundary either.
+#' `"underpowered"`: its failure is no rejection, so `partial_present`
+#' counts it as a gap, but `lineage_specific` does not, because that call
+#' would have to survive reading the species as conserved.
 #'
 #' @param s Species to classify.
 #' @param rows Row indices of `edges` belonging to the clique's HOG.
@@ -493,8 +494,8 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     pairs significant at `alpha_call`.}
 #'   \item{partial_present}{`S - g` species present for
 #'     `1 <= g <= max_gap`, all `choose(S - g, 2)` pairs significant,
-#'     and every absent species an annotation gap rather than a
-#'     rejected test.}
+#'     and every absent species an annotation gap or `underpowered`
+#'     rather than a rejected test.}
 #'   \item{differentiated}{All `S` species present, every pair tested,
 #'     at least one lineage of two or more species, every such lineage
 #'     fully significant within itself, and at most `cross_max`
@@ -985,6 +986,12 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   # reading it as conserved, which it cannot.
   up_only <- length(gone) > 0L && any(reason == "underpowered") &&
     all(reason %in% c("absent", "untested", "underpowered"))
+  # partial_present only asks that no missing species was *rejected*. An
+  # underpowered one is unknown, not rejected, so it counts as a gap here;
+  # lineage_specific keeps gap_only, because its call would have to
+  # survive reading that species as conserved (up_only above).
+  gap_pp <- length(gone) == 0L ||
+    all(reason %in% c("absent", "untested", "underpowered"))
 
   cls <- "unclassified"
   # One gene per species is the invariant the pair arithmetic rests on;
@@ -1023,7 +1030,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       !is.na(max_q) && max_q < alpha_graph &&
       n_sig >= choose(n_sp - 1L, 2) + 1
     is_part_pres <- gap >= 1L && gap <= max_gap &&
-      n_sig == choose(m_sp, 2) && gap_only
+      n_sig == choose(m_sp, 2) && gap_pp
     if (is_complete) {
       cls <- "complete_conserved"
     } else if (is_lineage) {

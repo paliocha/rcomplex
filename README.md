@@ -306,7 +306,8 @@ would have been called had a reference fraction `f0` of its neighbourhood
 been conserved. Both clique classifiers read it through `min_power`
 (default 0.8): a `lineage_specific`, `differentiated` or `trait_specific`
 call has to survive treating every underpowered pair as possibly
-conserved, and one that does not is reported as `underpowered`. Without a
+conserved, and one that does not is reported as `underpowered`. An underpowered missing species still counts as a gap for
+`partial_present`, which only refuses species that were rejected. Without a
 `power` column the classification is unchanged.
 
 ## Sparse network storage (v0.2.0)

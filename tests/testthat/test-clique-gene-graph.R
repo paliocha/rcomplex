@@ -1231,6 +1231,10 @@ test_that("power moves only the calls it is meant to", {
   want <- res0$classification
   # HOG5's nine non-significant cross pairs now count against cross_max.
   want[res0$hog == "HOG5"] <- "underpowered"
+  # HOG4's clique is one species short; that species was tested and
+  # failed, but at power 0.1 the failure is no rejection, so it counts as a
+  # gap and the clique is partial_present rather than unclassified.
+  want[res0$hog == "HOG4"] <- "partial_present"
   expect_equal(res1$classification, want)
   # HOG6's outside species are absent, not tested: still lineage_specific.
   expect_equal(res1$classification[res1$hog == "HOG6"], "lineage_specific")
@@ -1271,6 +1275,40 @@ test_that("differentiated must survive underpowered cross pairs", {
   cl_nl <- gene_clique_graph(e_nl, alpha_graph = Inf)
   no_lin <- classify_gene_cliques(cl_nl, e_nl, sp)
   expect_true(is.na(no_lin$n_underpowered_cross))
+})
+
+
+test_that("an underpowered missing species is a gap for partial_present", {
+  # Five species form a significant clique; the sixth was compared against
+  # every member and failed. Rejected (powered) it blocks partial_present;
+  # unknown (underpowered) it does not.
+  five <- function(pw) {
+    h <- gcg_pairs(gcg_six[1:5], paste0(c("a", "b", "c", "d", "e"), 1),
+                   "HOG1", 0.01)
+    h$power <- 0.99
+    miss <- data.frame(
+      gene1 = paste0(c("a", "b", "c", "d", "e"), 1), gene2 = "f_g",
+      species1 = gcg_six[1:5], species2 = gcg_six[6], hog = "HOG1",
+      q.value = 0.95, effect_size = 1, power = pw,
+      stringsAsFactors = FALSE
+    )
+    rbind(h, miss)
+  }
+  run <- function(pw) {
+    e <- five(pw)
+    cl <- gene_clique_graph(e, alpha_graph = 0.9)
+    classify_gene_cliques(cl, e, gcg_six)
+  }
+
+  up <- run(0.1)
+  expect_equal(up$missing_reason, "underpowered")
+  expect_equal(up$classification, "partial_present")
+
+  for (pw in list(0.95, NA_real_)) {
+    blocked <- run(pw)
+    expect_equal(blocked$missing_reason, "tested_ns")
+    expect_false(blocked$classification == "partial_present")
+  }
 })
 
 

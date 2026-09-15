@@ -1933,6 +1933,25 @@ test_that("edge power matches a brute-force computation", {
 })
 
 
+test_that("\"min\" power ignores a direction without power", {
+  # "min" calls an edge on either direction, so a direction with no calls
+  # (and so no p-value cutoff, hence NA power) must leave the other
+  # direction's power in place; "max" needs both, so it stays NA.
+  fx <- make_power_comparison()
+  res <- fx$res
+  res$Species2.q.val.con <- 1
+  called <- res$Species1.q.val.con < 0.05
+  expect_gt(sum(called), 10L)
+  b1 <- power_brute("Species1",
+    res = res, np = fx$np, alpha = 0.05, called = called
+  )
+
+  expect_equal(rcomplex:::.edge_power(res, 0.05, "greater", "min"), b1,
+               tolerance = 1e-12)
+  expect_true(all(is.na(rcomplex:::.edge_power(res, 0.05, "greater", "max"))))
+})
+
+
 test_that("edge power is NA where it is undefined", {
   fx <- make_power_comparison()
   res <- fx$res

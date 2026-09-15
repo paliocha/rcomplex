@@ -528,25 +528,28 @@ counterpart per gene before any module label is projected.
   (after `jaccard`), the probability that the pair would have been called
   had a reference fraction `f0` of its neighbourhood been conserved. Per
   direction it is the chance that `Binomial(min(k, m), f0)` reaches the
-  smallest overlap whose p-value is at or below the largest called one;
-  `f0 = NULL` (default) takes the median overlap fraction `x / m` of the
-  called pairs, and directions combine like `pval_combine`. In the
+  smallest overlap whose p-value is at or below the largest called one; `f0
+  = NULL` (default) takes the median overlap fraction `x / m` of the called
+  pairs, and directions combine like `pval_combine` (under `"min"` a
+  direction whose power cannot be computed does not mask the other). In the
   simulation it tracked the call rate, 0.52 to 0.99. Both classifiers gain
   `min_power` (default 0.8) and the class `"underpowered"`, on one rule: a
   specificity or divergence call must survive treating every underpowered
   edge as possibly conserved. In `classify_gene_cliques()` a missing species
   whose every failed test is underpowered gets `missing_reason =
   "underpowered"` and turns a would-be `lineage_specific` clique into
-  `underpowered`, and `differentiated` becomes `underpowered` when
-  `n_sig_cross + n_underpowered_cross` (new column) exceeds `cross_max`. In
-  `classify_cliques()` a `differentiated` or `trait_specific` HOG becomes
-  `underpowered` when a non-conserved edge from a member of one of its
-  within-group cliques to another trait group has power below `min_power`.
-  **Calls move** on any edge table carrying `power`: `lineage_specific`,
-  `differentiated` and `trait_specific` counts can only fall. `NA` power,
-  or a table without the column, keeps the old classification; the
-  permutation path writes `power = NA`, since its HOG-level q-value has no
-  per-pair call threshold. `density_sweep()` forwards `f0`.
+  `underpowered`, while still counting as a gap for `partial_present`, which
+  only refuses rejected species, and `differentiated` becomes `underpowered`
+  when `n_sig_cross + n_underpowered_cross` (new column) exceeds
+  `cross_max`. In `classify_cliques()` a `differentiated` or
+  `trait_specific` HOG becomes `underpowered` when a non-conserved edge from
+  a member of one of its within-group cliques to another trait group has
+  power below `min_power`. **Calls move** on any edge table carrying
+  `power`: `lineage_specific`, `differentiated` and `trait_specific` counts
+  can only fall and `partial_present` counts can only rise. `NA` power, or a
+  table without the column, keeps the old classification; the permutation
+  path writes `power = NA`, since its HOG-level q-value has no per-pair call
+  threshold. `density_sweep()` forwards `f0`.
 
 - `detect_modules(n_cores > 1, test_k1 = TRUE)` could hang forever on
   Linux. The parent runs the co-classification scan with `n_cores` OpenMP
