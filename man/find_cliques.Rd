@@ -29,7 +29,15 @@ find_cliques(edges, ...)
 \item{q.value}{q-value for the edge (from pair-level testing)}
 \item{effect_size}{Numeric effect size}
 }
-Optionally includes a \code{type} column for filtering.}
+Optionally includes a \code{type} column for filtering. Pass the
+unfiltered table (every tested pair, e.g. the output of
+\code{\link{find_coexpressologs}}): cliques are built from
+\code{edge_type} rows only, but \code{intensity} and
+\code{coherence} rank each edge's Jaccard index against every row of
+its species pair, so a pre-filtered table changes what they measure.
+A table whose \code{type} column holds only \code{edge_type} rows
+triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
+once per session).}
 
 \item{...}{Additional arguments passed to the default method.}
 
@@ -67,10 +75,17 @@ A data frame with one row per clique:
 \item{n_edges}{Number of present edges}
 \item{n_missing}{Number of missing edges (0 when
 \code{max_missing_edges = 0})}
-\item{intensity}{Onnela intensity: geometric mean of \code{1 - q.value}
-across present edges (higher = stronger conservation)}
+\item{intensity}{Onnela intensity: geometric mean, across present
+edges, of each edge's Jaccard percentile among all tested
+pairs of its species pair (in (0, 1]; higher = stronger
+conservation). Percentiles rather than \code{1 - q.value}: every
+clique edge already passed alpha, so \code{1 - q} left no range.
+Jaccard rather than effect size, which falls like 1 / degree at a
+fixed conserved fraction. \code{NA} when \code{edges} has no
+usable \code{jaccard} column, or when any present clique edge
+lacks a finite Jaccard value.}
 \item{coherence}{Onnela coherence: intensity / arithmetic mean of
-\code{1 - q.value} (1 when all edge weights are equal)}
+the same percentiles (1 when all edge weights are equal)}
 \item{min_effect_size}{Minimum effect size across present edges
 (bottleneck enrichment)}
 }

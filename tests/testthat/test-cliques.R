@@ -392,57 +392,210 @@ test_that("max_missing_edges n_missing output is 0 when all edges present", {
 
 
 # --- Tests for intensity, coherence, and min_effect_size ---
+#
+# Onnela weights are each edge's Jaccard-index percentile among every
+# tested pair of its species pair. 1 - q.value pinned every weight above
+# 1 - alpha, because cliques only contain edges that already passed alpha
+# (#11); effect size would have ranked genes by inverse degree, because
+# fold enrichment falls like 1 / degree at a fixed conserved fraction (#12).
 
-test_that("uniform q-values give coherence = 1.0", {
-  edges <- data.frame(
+# One conserved triangle (HOG1: A1, B1, C1) plus background rows of type
+# "ns" in other HOGs. find_cliques() never builds cliques from the ns rows,
+# but they belong to the tested population the percentiles are taken over.
+make_percentile_edges <- function(jac_ab = 0.2, jac_ac = 0.6, jac_bc = 0.4,
+                                  background = TRUE) {
+  tri <- data.frame(
     gene1 = c("A1", "A1", "B1"),
     gene2 = c("B1", "C1", "C1"),
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = rep("HOG1", 3),
-    type = rep("conserved", 3),
-    q.value = c(0.01, 0.01, 0.01),
-    effect_size = c(2.0, 3.0, 4.0),
+    hog = "HOG1", type = "conserved",
+    q.value = 0.01,
+    effect_size = c(2, 6, 4),
+    jaccard = c(jac_ab, jac_ac, jac_bc),
     stringsAsFactors = FALSE
   )
+  if (!background) {
+    return(tri)
+  }
+  bg <- data.frame(
+    gene1 = c("A2", "A3", "A4", "A2", "A3", "A4", "B2", "B3", "B4"),
+    gene2 = c("B2", "B3", "B4", "C2", "C3", "C4", "C2", "C3", "C4"),
+    species1 = rep(c("SP_A", "SP_A", "SP_B"), each = 3),
+    species2 = rep(c("SP_B", "SP_C", "SP_C"), each = 3),
+    hog = paste0("HOG_bg", 1:9), type = "ns",
+    q.value = 0.5,
+    effect_size = 1,
+    jaccard = c(0.1, 0.3, 0.5, 0.1, 0.2, 0.7, 0.8, 0.9, 0.95),
+    stringsAsFactors = FALSE
+  )
+  rbind(tri, bg)
+}
 
+
+test_that("intensity weights are within-pair Jaccard percentiles", {
+  edges <- make_percentile_edges()
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
 
-  expect_equal(nrow(result), 1)
-  # weights = 1 - 0.01 = 0.99 (all identical)
-  # intensity = geometric mean = 0.99
-  expect_equal(result$intensity, 0.99, tolerance = 1e-10)
-  # coherence = GM / AM = 1.0 when all equal
-
-  expect_equal(result$coherence, 1.0, tolerance = 1e-10)
-  # min_effect_size = min(2.0, 3.0, 4.0) = 2.0  # nolint
-  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-10)
+  expect_equal(nrow(result), 1L)
+  # A-B: 0.2 among {0.2, 0.1, 0.3, 0.5} -> rank 2 of 4; A-C: 0.6 among
+  # {0.6, 0.1, 0.2, 0.7} -> rank 3 of 4; B-C: 0.4 among
+  # {0.4, 0.8, 0.9, 0.95} -> rank 1 of 4
+  w <- c(2, 3, 1) / 4
+  expect_equal(result$intensity, exp(mean(log(w))), tolerance = 1e-12)
+  expect_equal(result$coherence, exp(mean(log(w))) / mean(w),
+               tolerance = 1e-12)
+  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-12)
 })
 
 
-test_that("varying q-values give correct intensity and coherence", {
+test_that("cliques with equal q-values but different overlap separate", {
+  # Two conserved triangles with identical q = 0.01 on every edge. Under
+  # 1 - q both had intensity 0.99; Jaccard has to tell them apart.
+  strong <- make_percentile_edges(0.8, 0.9, 0.95, background = FALSE)
+  weak <- make_percentile_edges(0.2, 0.25, 0.3, background = FALSE)
+  weak$hog <- "HOG2"
+  weak$gene1 <- sub("1$", "9", weak$gene1)
+  weak$gene2 <- sub("1$", "9", weak$gene2)
+  result <- find_cliques(rbind(strong, weak), c("SP_A", "SP_B", "SP_C"))
+
+  expect_equal(nrow(result), 2L)
+  # each pair holds one strong and one weak edge: percentiles 1 and 0.5
+  expect_equal(result$intensity[result$hog == "HOG1"], 1, tolerance = 1e-12)
+  expect_equal(result$intensity[result$hog == "HOG2"], 0.5,
+               tolerance = 1e-12)
+})
+
+
+test_that("effect size does not enter the weight", {
+  # Two genes conserving the same fraction of their neighbourhood have the
+  # same Jaccard index but fold enrichments a degree ratio apart (here 10x):
+  # an effect-size weight would have ranked the low-degree gene far above.
   edges <- data.frame(
-    gene1 = c("A1", "A1", "B1"),
-    gene2 = c("B1", "C1", "C1"),
-    species1 = c("SP_A", "SP_A", "SP_B"),
-    species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = rep("HOG1", 3),
-    type = rep("conserved", 3),
-    q.value = c(0.01, 0.04, 0.07),
-    effect_size = c(2.0, 6.0, 4.0),
+    gene1 = c("A1", "A2"), gene2 = c("B1", "B2"),
+    species1 = "SP_A", species2 = "SP_B",
+    hog = c("HOG1", "HOG2"), type = "conserved",
+    q.value = 0.01, effect_size = c(100, 10), jaccard = 0.54,
     stringsAsFactors = FALSE
   )
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
 
-  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
+  expect_equal(nrow(result), 2L)
+  expect_equal(result$intensity[1], result$intensity[2], tolerance = 1e-12)
+})
 
-  weights <- c(0.99, 0.96, 0.93)
-  expected_gm <- exp(mean(log(weights)))
-  expected_am <- mean(weights)
-  expected_coherence <- expected_gm / expected_am
 
-  expect_equal(result$intensity, expected_gm, tolerance = 1e-10)
-  expect_equal(result$coherence, expected_coherence, tolerance = 1e-10)
-  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-10)
+test_that("percentiles are taken within each species pair", {
+  # Rescaling one species pair's Jaccard values cannot move any percentile,
+  # so intensity is comparable across pairs with different overlap scales.
+  base <- make_percentile_edges()
+  scaled <- base
+  ac <- scaled$species1 == "SP_A" & scaled$species2 == "SP_C"
+  scaled$jaccard[ac] <- scaled$jaccard[ac] * 0.01
+  sp <- c("SP_A", "SP_B", "SP_C")
+
+  expect_equal(find_cliques(scaled, sp)$intensity,
+               find_cliques(base, sp)$intensity, tolerance = 1e-12)
+})
+
+
+test_that("rows removed by edge_type still shape the percentiles", {
+  sp <- c("SP_A", "SP_B", "SP_C")
+  with_bg <- find_cliques(make_percentile_edges(), sp)
+  without_bg <- find_cliques(make_percentile_edges(background = FALSE), sp)
+
+  # clique membership is decided by conserved edges only ...
+  expect_identical(with_bg[, c("hog", sp)], without_bg[, c("hog", sp)])
+  # ... but the percentile population is every tested row: without the ns
+  # background each conserved edge is alone in its pair and weighs 1
+  expect_equal(without_bg$intensity, 1, tolerance = 1e-12)
+  expect_lt(with_bg$intensity, 1)
+})
+
+
+test_that("a clique with an edge lacking Jaccard gets NA intensity", {
+  # Dropping the incomplete edge would score the clique on a smaller edge
+  # set; with a single valid edge left, coherence would read exactly 1.
+  sp <- c("SP_A", "SP_B", "SP_C")
+  one_na <- make_percentile_edges(jac_ac = NA)
+  res <- find_cliques(one_na, sp)
+  expect_equal(nrow(res), 1L)
+  expect_true(is.na(res$intensity))
+  expect_true(is.na(res$coherence))
+  expect_equal(res$min_effect_size, 2.0, tolerance = 1e-12)
+
+  two_na <- make_percentile_edges(jac_ac = NA, jac_bc = NA)
+  res2 <- find_cliques(two_na, sp)
+  expect_true(is.na(res2$coherence))
+})
+
+
+test_that("a missing jaccard column gives NA intensity and warns", {
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  edges <- make_percentile_edges()
+  edges$jaccard <- NULL
+  sp <- c("SP_A", "SP_B", "SP_C")
+
+  expect_warning(result <- find_cliques(edges, sp),
+                 class = "rcomplex_missing_jaccard")
+  expect_equal(nrow(result), 1L)
+  expect_true(is.na(result$intensity))
+  expect_true(is.na(result$coherence))
+  # min_effect_size does not need the weight
+  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-12)
+})
+
+
+test_that("a pre-filtered edge table warns", {
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  sp <- c("SP_A", "SP_B", "SP_C")
+  expect_warning(
+    find_cliques(make_percentile_edges(background = FALSE), sp),
+    class = "rcomplex_prefiltered_edges"
+  )
+  # rows outside edge_type present: the table is the tested population
+  expect_no_warning(
+    find_cliques(make_percentile_edges(), sp),
+    class = "rcomplex_prefiltered_edges"
+  )
+  # no type column: nothing to judge
+  no_type <- make_percentile_edges(background = FALSE)
+  no_type$type <- NULL
+  expect_no_warning(
+    find_cliques(no_type, sp),
+    class = "rcomplex_prefiltered_edges"
+  )
+})
+
+
+test_that("clique_stability on an unfiltered table does not warn", {
+  # clique_stability() filters to edge_type for its own engine; handing
+  # that filtered copy to find_cliques() used to trip the pre-filter
+  # warning on a caller who passed the recommended unfiltered table.
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  fx <- make_clique_fixture_3sp()
+  expect_true(any(fx$edges$type != "conserved"))
+  expect_no_warning(
+    clique_stability(fx$edges, fx$target_species, min_species = 2L),
+    class = "rcomplex_prefiltered_edges"
+  )
+})
+
+
+test_that("a single-edge clique has coherence 1", {
+  edges <- data.frame(
+    gene1 = c("A1", "A2"), gene2 = c("B1", "B2"),
+    species1 = "SP_A", species2 = "SP_B",
+    hog = c("HOG1", "HOG_bg"), type = c("conserved", "ns"),
+    q.value = c(0.01, 0.5), effect_size = c(2, 4), jaccard = c(0.2, 0.4),
+    stringsAsFactors = FALSE
+  )
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
+
+  expect_equal(nrow(result), 1L)
+  # 0.2 among {0.2, 0.4}: rank 1 of 2
+  expect_equal(result$intensity, 0.5, tolerance = 1e-12)
+  expect_equal(result$coherence, 1.0, tolerance = 1e-12)
 })
 
 
@@ -482,32 +635,6 @@ test_that("empty cliques have intensity/coherence/min_effect_size columns", {
   expect_true(is.numeric(result$intensity))
   expect_true(is.numeric(result$coherence))
   expect_true(is.numeric(result$min_effect_size))
-})
-
-
-test_that("intensity clamps q=1 weights to machine epsilon", {
-  # Edge with q.value = 1.0 should not cause log(0)
-  edges <- data.frame(
-    gene1 = "A1",
-    gene2 = "B1",
-    species1 = "SP_A",
-    species2 = "SP_B",
-    hog = "HOG1",
-    type = "conserved",
-    q.value = 1.0,
-    effect_size = 2.0,
-    stringsAsFactors = FALSE
-  )
-
-  result <- find_cliques(edges, c("SP_A", "SP_B"))
-
-  expect_equal(nrow(result), 1)
-  expect_false(is.na(result$intensity))
-  expect_false(is.nan(result$intensity))
-  expect_true(result$intensity > 0)
-  # intensity = .Machine$double.eps (clamped), coherence = 1 (single edge)
-  expect_equal(result$intensity, .Machine$double.eps, tolerance = 1e-10)
-  expect_equal(result$coherence, 1.0, tolerance = 1e-10)
 })
 
 

@@ -1,3 +1,10 @@
+# Most clique fixtures below hold conserved edges only, which
+# find_cliques() reads as a pre-filtered table and warns about once per
+# session (rcomplex_prefiltered_edges). Silence those frequency-limited
+# warnings for the suite; the tests of the warning itself switch them back
+# on with rlang::local_options(rlib_warning_verbosity = "verbose").
+options(rlib_warning_verbosity = "quiet")
+
 # Shared test fixtures for clique pipeline tests
 # (perturbation test, intensity test, etc.)
 

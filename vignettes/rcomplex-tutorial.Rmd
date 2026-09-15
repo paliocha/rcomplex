@@ -1250,10 +1250,16 @@ diagnostics quantify clique quality at a finer grain.
 
 **Edge-level quality metrics.** `find_cliques()` now returns three
 columns alongside each clique: `intensity` (Onnela intensity -- the
-geometric mean of `1 - q.value` across present edges), `coherence`
+geometric mean, across present edges, of each edge's Jaccard-index
+percentile among all tested pairs of its species pair), `coherence`
 (intensity divided by the arithmetic mean, equal to 1 when all edge
 weights are equal), and `min_effect_size` (the bottleneck enrichment
-across present edges). High intensity with high coherence indicates
+across present edges). The weights are percentiles rather than
+`1 - q.value` because every clique edge has already passed alpha, so
+`1 - q` would sit near 1 for every clique; they rank Jaccard rather than
+effect size because fold enrichment falls like 1 / degree at a fixed
+conserved fraction; and this is also why
+`find_cliques()` should receive the unfiltered edge table. High intensity with high coherence indicates
 uniformly strong conservation; high intensity with low coherence
 flags cliques carried by one or two dominant edges. The
 `cost_weights` parameter controls gene-assignment ranking: the
