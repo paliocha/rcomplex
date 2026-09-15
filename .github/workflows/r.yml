@@ -12,6 +12,9 @@ permissions:
 jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
+    # A forked mclapply() worker that deadlocks (see ARMA_DONT_USE_OPENMP in
+    # src/Makevars) otherwise holds the job for the 6-hour default.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
