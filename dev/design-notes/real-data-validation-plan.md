@@ -291,3 +291,49 @@ test-coverage). Copilot raised three inline findings:
 
 This enlarges the S2 edge tables by the number of zero-overlap ortholog
 pairs, which is why the per-pair counts are measured before S2 is sized.
+
+### Decisions and measurements, 2026-09-17 (second half)
+
+**`coexpressolog_null()` keeps `filter_zero = TRUE`.** It forwards `...` to
+`find_coexpressologs()`, so the new `filter_zero = FALSE` default reached it
+and would have added every zero-overlap ortholog pair to *every* permutation.
+Its statistic reads called edges only, so those rows are pure cost. It now
+takes `filter_zero = TRUE` as its own default and passes it to both the
+observed and the permuted runs. Section 6's edge-swap null is therefore
+unaffected by the `filter_zero` change.
+
+This surfaced as a test failure rather than by inspection: the validator
+behind `"statistic is missing"` only fires when a rewired permutation yields
+an *empty* edge table, which retention prevented. The control mattered --
+the same test passes on pristine `6716f0d`, which is what identified the
+change as the cause rather than test-order flakiness.
+
+**S2 sizing (measured, job 1318392).** Ortholog pairs to be tested per
+tissue, over all 28 species pairs: **leaf 471,918**, **root 419,434** --
+roughly 15-20k per pair. Retaining zero-overlap rows is therefore cheap.
+
+**S2 dry run (job 1318599, baseline lib, `root` BDIS-HVUL).** 12,870 ortholog
+pairs in, 12,669 edges out, 6,071 conserved at `alpha = 0.10`, **68 s wall**
+including the 220 MB `vst_hog.RDS` load. The 201-row gap is the old
+`filter_zero = TRUE` default dropping zero-overlap pairs (1.6% of tested
+pairs); under the fixed #14 head the same pair should emit all 12,870, which
+is the check to run first.
+
+Accordingly `s2.slurm` is right-sized from 250 GB / 12 h / 16 CPU to
+**64 GB / 2 h / 8 CPU**.
+
+**Ortholog source for S2.** `FastOMA-HOGs/RootHOGs.tsv` keys on *protein*
+IDs (`Bmax_egapxtmp_028053-P2`) which do not join to the networks' gene IDs
+(`Bradi1g45090.v3.2`). S2 therefore takes HOG membership from
+`vst_hog.RDS` (`HOG`, `abbrev`, `gene_id`) and builds per-pair tables with
+the pipeline's own `prepare_orthologs_from_hog()` (`max_paralogs = 10`,
+expressed-gene filtered), exactly as `run_networks.R` does.
+
+**Open regression.** `R CMD check` with vignettes built fails on my branch in
+`rcomplex-tutorial.Rmd` with `map must be a data frame from
+resolve_ortholog_map()`; the same vignette builds clean on pristine
+`6716f0d`. `R/module_preservation.R` and `R/ortholog_map.R` are byte-identical
+between the two, and `.map_coexpressolog_layer()` already filters
+`type == "conserved"`, so paralog resolution never sees the retained `ns`
+rows. Under diagnosis; the `--no-build-vignettes` shortcut is what hid it, so
+the documented workflow (build *with* vignettes) is the one to run.
