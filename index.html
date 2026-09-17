@@ -293,7 +293,7 @@
 <span><span class="va">persist</span><span class="op">[</span><span class="va">persist</span><span class="op">$</span><span class="va">persistence</span> <span class="op">&gt;</span> <span class="fl">2.0</span>, <span class="op">]</span>  <span class="co"># survive 2x stricter thresholds</span></span>
 <span></span>
 <span><span class="co"># Edge-weight robustness metrics (already in find_cliques output)</span></span>
-<span><span class="va">cliques</span><span class="op">$</span><span class="va">intensity</span>   <span class="co"># Onnela geometric mean of (1 - q)</span></span>
+<span><span class="va">cliques</span><span class="op">$</span><span class="va">intensity</span>   <span class="co"># Onnela geometric mean of edge Jaccard percentiles</span></span>
 <span><span class="va">cliques</span><span class="op">$</span><span class="va">coherence</span>   <span class="co"># edge weight homogeneity (1 = all equal)</span></span>
 <span></span>
 <span><span class="co"># Bootstrap perturbation test (noise robustness)</span></span>
@@ -711,9 +711,9 @@
 <p><code><a href="reference/find_cliques.html">find_cliques()</a></code> returns three per-clique edge-weight summary statistics following Onnela <em>et al.</em> (2005):</p>
 <ul>
 <li>
-<strong>Intensity</strong>: geometric mean of (1 - q) across all clique edges. Higher values indicate uniformly strong conservation signal.</li>
+<strong>Intensity</strong>: geometric mean, across clique edges, of each edge’s Jaccard-index percentile among all tested pairs of its species pair (in (0, 1]). Higher values indicate uniformly strong conservation. The weight is a percentile rather than 1 - q because every clique edge already passed alpha, which left 1 - q no room to vary (#11), and a Jaccard percentile rather than an effect-size one because fold enrichment falls like 1 / degree at a fixed conserved fraction; pass <code><a href="reference/find_cliques.html">find_cliques()</a></code> the unfiltered edge table so the percentile covers every tested pair.</li>
 <li>
-<strong>Coherence</strong>: ratio of geometric mean to arithmetic mean of (1 - q), equal to 1.0 when all edge weights are identical. Low coherence flags cliques with a mix of strong and weak edges.</li>
+<strong>Coherence</strong>: ratio of geometric mean to arithmetic mean of the same percentiles, equal to 1.0 when all edge weights are identical. Low coherence flags cliques with a mix of strong and weak edges.</li>
 <li>
 <strong>min_effect_size</strong>: minimum fold-enrichment across clique edges, identifying the bottleneck enrichment.</li>
 </ul>

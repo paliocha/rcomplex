@@ -111,7 +111,15 @@ cliques, then backtracking to assign the best gene per species
 <dd><p>Numeric effect size</p></dd>
 
 
-</dl><p>Optionally includes a <code>type</code> column for filtering.</p></dd>
+</dl><p>Optionally includes a <code>type</code> column for filtering. Pass the
+unfiltered table (every tested pair, e.g. the output of
+<code><a href="find_coexpressologs.html">find_coexpressologs</a></code>): cliques are built from
+<code>edge_type</code> rows only, but <code>intensity</code> and
+<code>coherence</code> rank each edge's Jaccard index against every row of
+its species pair, so a pre-filtered table changes what they measure.
+A table whose <code>type</code> column holds only <code>edge_type</code> rows
+triggers a warning (class <code>rcomplex_prefiltered_edges</code>, shown
+once per session).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -180,12 +188,19 @@ the original mean-q-only ranking.</p></dd>
 <code>max_missing_edges = 0</code>)</p></dd>
 
 <dt>intensity</dt>
-<dd><p>Onnela intensity: geometric mean of <code>1 - q.value</code>
-across present edges (higher = stronger conservation)</p></dd>
+<dd><p>Onnela intensity: geometric mean, across present
+edges, of each edge's Jaccard percentile among all tested
+pairs of its species pair (in (0, 1]; higher = stronger
+conservation). Percentiles rather than <code>1 - q.value</code>: every
+clique edge already passed alpha, so <code>1 - q</code> left no range.
+Jaccard rather than effect size, which falls like 1 / degree at a
+fixed conserved fraction. <code>NA</code> when <code>edges</code> has no
+usable <code>jaccard</code> column, or when any present clique edge
+lacks a finite Jaccard value.</p></dd>
 
 <dt>coherence</dt>
 <dd><p>Onnela coherence: intensity / arithmetic mean of
-<code>1 - q.value</code> (1 when all edge weights are equal)</p></dd>
+the same percentiles (1 when all edge weights are equal)</p></dd>
 
 <dt>min_effect_size</dt>
 <dd><p>Minimum effect size across present edges

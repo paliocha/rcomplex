@@ -1298,16 +1298,23 @@ cliques survive threshold changes and species removal. Several
 additional diagnostics quantify clique quality at a finer grain.</p>
 <p><strong>Edge-level quality metrics.</strong>
 <code><a href="../reference/find_cliques.html">find_cliques()</a></code> now returns three columns alongside each
-clique: <code>intensity</code> (Onnela intensity – the geometric mean of
-<code>1 - q.value</code> across present edges), <code>coherence</code>
-(intensity divided by the arithmetic mean, equal to 1 when all edge
-weights are equal), and <code>min_effect_size</code> (the bottleneck
-enrichment across present edges). High intensity with high coherence
-indicates uniformly strong conservation; high intensity with low
-coherence flags cliques carried by one or two dominant edges. The
-<code>cost_weights</code> parameter controls gene-assignment ranking:
-the default <code>c(q = 1, effect = 0)</code> minimises mean q-value,
-while <code>c(q = 1, effect = 1)</code> uses a composite cost
+clique: <code>intensity</code> (Onnela intensity – the geometric mean,
+across present edges, of each edge’s Jaccard-index percentile among all
+tested pairs of its species pair), <code>coherence</code> (intensity
+divided by the arithmetic mean, equal to 1 when all edge weights are
+equal), and <code>min_effect_size</code> (the bottleneck enrichment
+across present edges). The weights are percentiles rather than
+<code>1 - q.value</code> because every clique edge has already passed
+alpha, so <code>1 - q</code> would sit near 1 for every clique; they
+rank Jaccard rather than effect size because fold enrichment falls like
+1 / degree at a fixed conserved fraction; and this is also why
+<code><a href="../reference/find_cliques.html">find_cliques()</a></code> should receive the unfiltered edge table.
+High intensity with high coherence indicates uniformly strong
+conservation; high intensity with low coherence flags cliques carried by
+one or two dominant edges. The <code>cost_weights</code> parameter
+controls gene-assignment ranking: the default
+<code>c(q = 1, effect = 0)</code> minimises mean q-value, while
+<code>c(q = 1, effect = 1)</code> uses a composite cost
 <code>q * mean_q - effect * mean_effect</code> that also rewards large
 effect sizes:</p>
 <div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
