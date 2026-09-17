@@ -232,3 +232,62 @@ Martin's answers to the section 7 checklist:
    FPRA`), `min_species = 3` within a group. The pipeline's own
    `min_lineages = 3` / `min_within_pairs = 2` / `min_sp_offset = 1` stay with
    the production permutation-path reference, which this run does not touch.
+
+### S1 resolved, 2026-09-17: reuse the March networks
+
+Job `1318139` rebuilt `root__BDIS` from `vst_hog.RDS` with the pre-#13
+baseline lib and compared it against the March object:
+
+| Quantity | March object | Rebuilt today |
+|---|---|---|
+| genes into `compute_network()` | 23,661 | 19,960 |
+| `n_genes` / `n_removed` | 12,240 / 11,421 | 10,293 / 9,667 |
+| threshold | 11,829.5 | 9,946.8 |
+| MR values, 2000 common genes | Spearman **0.99987** | |
+| thresholded edge sets | Jaccard **0.946**, 96.95% of old edges kept | |
+
+`compute_network()` therefore reproduces: every one of the 10,293 rebuilt
+genes is among the old 12,240, and the MR values agree to three decimal
+places of rank correlation. The whole difference enters **upstream**, in
+`reduce_orthogroups()`: the March run merged ~1,000 paralogs where today's
+merges 4,709. The March command line (recovered from
+`work/*/*/.command.sh`) is `--cor_threshold 0.7`, the same value used in
+the rebuild, so this is a version difference in the Ward.D2 merge, not a
+parameter difference.
+
+**Decision: reuse the 16 March networks as the common input.** Both arms of
+every comparison read the same networks, so the reduction difference cancels;
+rebuilding would cost 16 x 128 GB jobs and would *change* the gene set
+relative to every earlier result. S1 needs no array job. All 16 are
+structurally valid for today's code: plain dense matrices with `dimnames`,
+`list(network, threshold, n_genes, n_removed, params)`, which is exactly what
+`compute_network(sparse = FALSE)` still returns, and `.net_check()`'s dense
+branch accepts them (the store guard applies to `dgCMatrix` only).
+
+Gene lists and thresholded degrees for all 16 are extracted once into
+`validation-2026-09-17/netinfo/` for S5.
+
+### #14 review round, 2026-09-17
+
+CI on `6716f0d` is green on all four workflows (lint, both R-CMD-checks,
+test-coverage). Copilot raised three inline findings:
+
+1. **`pmax(..., na.rm = TRUE)` returns `-Inf` when both directions are `NA`**
+   -- *rejected, not reproducible.* R returns `NA` when every input is `NA`;
+   only `max(numeric(0))` gives `-Inf`. Checked directly:
+   `pmax(NA_real_, NA_real_, na.rm = TRUE)` is `NA`, and the vector form
+   keeps `NA` in the all-`NA` position.
+2. **The `underpowered` check sat in the `else` of "no significant test"**
+   -- *real, fixed.* A species with one significant edge that still cannot
+   join the clique is kept out by its failures, so the check now runs on the
+   failed rows after the extendable test.
+3. **`filter_zero`** -- *real, fixed per Martin's decision*: the analytical
+   batch now passes `filter_zero = FALSE`, exposed as an argument on
+   `find_coexpressologs()` and `density_sweep()`. Zero-overlap tested pairs
+   reach the edge table with their `power` instead of arriving at the
+   classifiers as `absent`/`untested`. Every analytical q-value rises, since
+   the multiple-testing set grows; the ComPlEx_python equivalence tests pin
+   `filter_zero = TRUE` to keep correcting over the canonical set.
+
+This enlarges the S2 edge tables by the number of zero-overlap ortholog
+pairs, which is why the per-pair counts are measured before S2 is sized.
