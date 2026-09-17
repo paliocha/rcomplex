@@ -337,3 +337,45 @@ between the two, and `.map_coexpressolog_layer()` already filters
 `type == "conserved"`, so paralog resolution never sees the retained `ns`
 rows. Under diagnosis; the `--no-build-vignettes` shortcut is what hid it, so
 the documented workflow (build *with* vignettes) is the one to run.
+
+### S2 complete, 2026-09-17: analytical edges for both tissues
+
+Library `lib-pr14-1c37c7c` (PR #14 head after the review fixes), verified on
+load: `.jaccard_percentile` and `.edge_power` present, `filter_zero` default
+`FALSE`.
+
+**Single-pair verification first** (job 1320706), against the same pair the
+baseline dry run used:
+
+| Run | ortho pairs | edges | conserved | power NA |
+|---|---|---|---|---|
+| baseline lib (pre-#13) | 12,870 | 12,669 | 6,071 | n/a (no column) |
+| `lib-pr14-1c37c7c` | 12,870 | **12,870** | 6,066 | **0** |
+
+The 201-row gap was exactly the zero-overlap pairs, as inferred from the dry
+run and now measured. Every retained row carries a computed power, so those
+low-degree failures reach the classifiers as *underpowered* rather than as
+`absent` / `untested` gaps -- the artefact #12 exists to remove, now shown on
+real data rather than simulation. Conserved moved 6,071 -> 6,066: five calls,
+the expected small rise in q-values under the larger multiple-testing set.
+
+**Full runs** (jobs 1320735 root, 1320736 leaf), 28 species pairs each:
+
+| Tissue | pairs | ortho pairs | edges | conserved | power NA | compute |
+|---|---|---|---|---|---|---|
+| root | 28 | 419,434 | 419,434 | 164,386 | 0 | 0.38 min |
+| leaf | 28 | 471,918 | 471,918 | 153,938 | 0 | 0.42 min |
+
+`edges == ortho_pairs` on **all 56 pairs** (zero mismatching rows), and
+`power_na = 0` throughout: retention holds everywhere, not just on the pair
+spot-checked. The totals match the S2 sizing job exactly (471,918 / 419,434),
+so that estimate is confirmed rather than merely plausible. Wall time is ~3
+min per tissue including the network loads; the 64 GB / 2 h request is ample.
+
+Outputs: `s2_root/` (18 MB) and `s2_leaf/` (20 MB), one
+`edges_<tissue>_<sp1>_<sp2>.tsv.gz` per pair plus `s2_summary_<tissue>.tsv`.
+
+These tables are the input to S3 (cliques + intensity) and S4
+(classification). They are the **unfiltered** analytical-path tables the
+gap tiers need: `classify_gene_cliques()` must see the rows that were tested
+and failed in order to refuse them.
