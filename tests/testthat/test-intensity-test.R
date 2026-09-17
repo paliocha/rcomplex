@@ -213,23 +213,90 @@ test_that("max_missing_edges is forwarded to find_cliques", {
 
 
 test_that("pval_combine/pi0_method reach the baseline and null reruns", {
-  # Baseline cliques built with pval_combine = "min" (one conserved edge);
-  # with edges = NULL the internal baseline rerun must reproduce that edge
-  # supply, so the observed intensity matches the min-built edges. Under
-  # the find_coexpressologs() defaults ("max") the (A1, B1) q-value is 1
-  # and the intensity collapses.
+  # Baseline cliques built with pval_combine = "min" (one conserved edge).
+  # Observed intensity is a Jaccard-index percentile (#11), and Jaccard
+  # does not depend on how directional q-values are combined, so it cannot
+  # show whether pval_combine was forwarded: it matches under either value.
+  # The null reruns can. Under "min" a permutation that keeps the A1-B1
+  # hub mapping rebuilds the clique and counts as a match; under "max" the
+  # diluted B-side direction never reaches alpha, so no permutation can
+  # produce a conserved edge and nothing matches.
   setup <- make_asym_clique_fixture()
   expect_equal(nrow(setup$cliques), 1L)
 
-  result <- clique_intensity_test(
-    setup$cliques, setup$target_species, setup$networks,
-    setup$orthologs,
-    n_perm = 2L, seed = 7L,
-    pval_combine = "min", pi0_method = "none"
-  )
+  run <- function(pc) {
+    clique_intensity_test(
+      setup$cliques, setup$target_species, setup$networks,
+      setup$orthologs,
+      n_perm = 20L, seed = 7L,
+      pval_combine = pc, pi0_method = "none"
+    )
+  }
+  r_min <- run("min")
+  r_max <- run("max")
 
   stats_min <- rcomplex:::compute_clique_edge_stats(
     setup$cliques, setup$edges_min, setup$target_species
   )
-  expect_equal(result$observed_intensity, stats_min$intensity)
+  expect_equal(r_min$observed_intensity, stats_min$intensity)
+  expect_gt(r_min$n_matched, 0L)
+  expect_identical(r_max$n_matched, 0L)
+})
+
+
+test_that("a pre-filtered edges argument warns", {
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  setup <- make_clique_fixture()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+  conserved <- setup$edges[setup$edges$type == "conserved", , drop = FALSE]
+  expect_gt(nrow(conserved), 0L)
+
+  expect_warning(
+    clique_intensity_test(
+      setup$cliques, setup$target_species, setup$networks,
+      setup$orthologs,
+      n_perm = 1L, seed = 1L, edges = conserved
+    ),
+    class = "rcomplex_prefiltered_edges"
+  )
+})
+
+
+
+test_that("null intensities are the permuted runs' own Jaccard weights", {
+  # A calibration test (strong fixture rejects, null fixture does not) is
+  # not feasible at this scale: the null reshuffles every ortholog, so
+  # permuted runs rebuild a baseline clique only by chance and small
+  # fixtures match none. What can be pinned exactly is the null itself.
+  # With pi0_method = "none" the only draw in a permutation is the
+  # ortholog shuffle, so replaying the loop under the same seed rebuilds
+  # every permuted table; null_mean must equal the mean intensity of the
+  # matched permuted cliques, weighted over each permuted run's own table.
+  setup <- make_asym_clique_fixture()
+  sp <- setup$target_species
+  n_perm <- 20L
+  res <- clique_intensity_test(
+    setup$cliques, sp, setup$networks, setup$orthologs,
+    n_perm = n_perm, seed = 7L,
+    pval_combine = "min", pi0_method = "none"
+  )
+  expect_gt(res$n_matched, 0L)
+
+  set.seed(7L)
+  null_int <- numeric(0)
+  for (b in seq_len(n_perm)) {
+    sh <- setup$orthologs
+    sh$Species2 <- sample(sh$Species2)
+    e_p <- find_coexpressologs(setup$networks, sh,
+      method = "analytical", pval_combine = "min", pi0_method = "none"
+    )
+    if (nrow(e_p) == 0L) next
+    cl_p <- find_cliques(e_p, sp, min_species = length(sp))
+    hit <- cl_p[cl_p$hog == setup$cliques$hog[1L], , drop = FALSE]
+    if (nrow(hit) == 0L) next
+    st <- rcomplex:::compute_clique_edge_stats(hit[1L, ], e_p, sp)
+    if (!is.na(st$intensity)) null_int <- c(null_int, st$intensity)
+  }
+  expect_length(null_int, res$n_matched)
+  expect_equal(res$null_mean, mean(null_int), tolerance = 1e-12)
 })
