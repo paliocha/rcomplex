@@ -556,6 +556,17 @@ counterpart per gene before any module label is projected.
   significant edge that still cannot join the clique is kept out by its
   failures, so an underpowered failure there is no rejection either.
 
+- **`preservation_paired()$raw` is keyed `"<reference>.<test>"`**, the format
+  the function has always documented, instead of the internal
+  `"<reference>\x01<test>"` it actually used. The `"\x01"` separator existed
+  to stop two contrasts colliding when a species name contains a `"."`, on
+  the assumption that `raw` is never read outside the package -- but the
+  tutorial vignette reads it, as any caller reasonably might, and got `NULL`
+  back. That collision is now rejected up front instead: species names whose
+  `"<reference>.<test>"` keys would be ambiguous stop the call with an error
+  naming the clash. Anything that indexed `raw` with the `"\x01"` key must
+  switch to `"."`; code following the documented format now works.
+
 - **`find_coexpressologs()` and `density_sweep()` keep zero-overlap pairs**
   (#12, `filter_zero`, default `FALSE`). The analytical path used
   `summarize_comparison()`'s default, which drops every ortholog pair whose
