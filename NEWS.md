@@ -549,7 +549,29 @@ counterpart per gene before any module label is projected.
   can only fall and `partial_present` counts can only rise. `NA` power, or a
   table without the column, keeps the old classification; the permutation
   path writes `power = NA`, since its HOG-level q-value has no per-pair call
-  threshold. `density_sweep()` forwards `f0`, and so does `summarize_comparison()` for its `$edges`.
+  threshold. `density_sweep()` forwards `f0`, and so does
+  `summarize_comparison()` for its `$edges`. A missing species is read as
+  `underpowered` on the strength of the tests that **failed**, whether or
+  not some other test of that species succeeded: a species with one
+  significant edge that still cannot join the clique is kept out by its
+  failures, so an underpowered failure there is no rejection either.
+
+- **`find_coexpressologs()` and `density_sweep()` keep zero-overlap pairs**
+  (#12, `filter_zero`, default `FALSE`). The analytical path used
+  `summarize_comparison()`'s default, which drops every ortholog pair whose
+  neighbourhood overlap is zero in either direction -- precisely the
+  low-degree failures the `power` column exists to explain. They reached
+  the clique classifiers as `absent` / `untested` gaps rather than as
+  `underpowered` ones, which is the artefact this release is meant to
+  remove. They are now retained, so **edge tables grow and every
+  analytical q-value moves**: the multiple-testing set is larger, so
+  q-values rise. Pass `filter_zero = TRUE` for the canonical ComPlEx
+  behaviour (the equivalence tests against ComPlEx_python do).
+  `coexpressolog_null()` takes the opposite default, `filter_zero = TRUE`,
+  and passes it to both its observed and its permuted runs: its statistic
+  reads called edges only, so keeping the zero-overlap rows would add tens
+  of thousands of never-called rows per species pair to every permutation
+  and buy nothing.
 
 - `detect_modules(n_cores > 1, test_k1 = TRUE)` could hang forever on
   Linux. The parent runs the co-classification scan with `n_cores` OpenMP

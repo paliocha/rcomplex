@@ -506,6 +506,17 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 #'   \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
 #'   draws; pass \code{seed} to pin those draws.
+#' @param filter_zero Analytical method only: passed to
+#'   \code{\link{summarize_comparison}}. \code{FALSE} (default) keeps
+#'   every tested ortholog pair, including those whose neighbourhood
+#'   overlap is zero in either direction, so a pair that could not have
+#'   been called still reaches the edge table carrying its \code{power}.
+#'   Those are exactly the low-degree failures the \code{power} column
+#'   exists to mark; dropping them hands the clique classifiers an
+#'   untested-looking gap instead of an underpowered one. \code{TRUE}
+#'   removes them before the q-values are computed, which is what
+#'   canonical ComPlEx does -- it shrinks the multiple-testing set, so
+#'   every q-value moves.
 #' @param seed Integer seed for the call's random draws, or \code{NULL}
 #'   (default) to draw from the global RNG. Seeding here makes the call
 #'   reproducible, and with it every downstream count thresholded on
@@ -605,6 +616,7 @@ find_coexpressologs.default <- function(
   max_permutations = 10000L,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  filter_zero = FALSE,
   seed = NULL,
   out_file = NULL, f0 = NULL, ...
 ) {
@@ -691,7 +703,12 @@ find_coexpressologs.default <- function(
 
     if (method == "analytical") {
       summary_res <- tryCatch(
+        # filter_zero = FALSE by default: a tested pair with zero overlap
+        # is a failure the power column can explain, so it belongs in the
+        # edge table rather than being dropped into a gap the classifiers
+        # read as never tested.
         summarize_comparison(comparison, alternative, alpha,
+          filter_zero = filter_zero,
           pi0_method = pi0_method
         ),
         error = function(e) {
@@ -824,6 +841,9 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   by the analytical method): \code{"randomized"} (default),
 #'   \code{"storey"} or \code{"none"}. The default draws; pass
 #'   \code{seed} to pin those draws.
+#' @param filter_zero Passed to \code{\link{find_coexpressologs}}:
+#'   whether zero-overlap ortholog pairs are dropped before the
+#'   analytical q-values are computed (default \code{FALSE}, keep them).
 #' @param seed Integer seed for the sweep's random draws, or \code{NULL}
 #'   (default) to draw from the global RNG. Applied once here, so the
 #'   whole sweep is one reproducible unit: the multipliers are visited in
@@ -876,6 +896,7 @@ density_sweep.default <- function(
   species_pairs = NULL,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  filter_zero = FALSE,
   seed = NULL, f0 = NULL, ...
 ) {
   method <- match.arg(method)
@@ -962,7 +983,7 @@ density_sweep.default <- function(
         min_exceedances = min_exceedances,
         max_permutations = max_permutations,
         pi0_method = pi0_method,
-        pval_combine = pval_combine, f0 = f0
+        pval_combine = pval_combine, filter_zero = filter_zero, f0 = f0
       ),
       error = function(e) {
         warning(

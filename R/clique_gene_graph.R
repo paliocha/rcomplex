@@ -449,13 +449,17 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     if (max(table(uniq_cand)) >= m) {
       return("extendable")
     }
-  } else {
-    # Every test failed. If none of them could have succeeded, that is
-    # absent evidence, not a boundary; NA power keeps the old reading.
-    pw <- c(power[rows][hit1], power[rows][hit2])
-    if (all(!is.na(pw) & pw < min_power)) {
-      return("underpowered")
-    }
+  }
+  # Whatever significant edges the species has, they were not enough to
+  # join the clique, so what keeps it out are the tests that failed --
+  # whether or not some other test succeeded. If none of those failures
+  # could have succeeded, that is absent evidence rather than a
+  # rejection; NA power keeps the old reading, and a species whose every
+  # test was significant (but which still cannot extend the clique) has
+  # no failure to excuse and stays `tested_ns`.
+  pw <- c(power[rows][hit1], power[rows][hit2])[!sig]
+  if (length(pw) > 0L && all(!is.na(pw) & pw < min_power)) {
+    return("underpowered")
   }
   "tested_ns"
 }

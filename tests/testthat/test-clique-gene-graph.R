@@ -1222,6 +1222,37 @@ test_that("a powered or unmeasured failed test still blocks the tier", {
 })
 
 
+test_that("a significant test does not excuse underpowered failures", {
+  # SP_D is significant against one clique member and fails against the
+  # other two, so it cannot join the clique: what keeps it out are the two
+  # failures, and at power 0.1 neither is a rejection. The check used to
+  # sit in the `else` of "no significant test", so one significant edge
+  # was enough to report tested_ns and hide the underpowered failures.
+  e <- gcg_up_lineage(0.1)
+  e$q.value[which(e$species2 == "SP_D")[1]] <- 0.01
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  # The new significant edge also forms its own two-node maximal clique;
+  # the three-member one is the clique under test.
+  res3 <- res[res$n_members == 3L, ]
+  expect_equal(nrow(res3), 1L)
+  expect_equal(
+    res3$missing_reason, "underpowered,underpowered,underpowered"
+  )
+
+  # Power those same two failures and the species is rejected, not
+  # uninformative, so it reads tested_ns again.
+  e2 <- e
+  e2$power[e2$species2 == "SP_D" & e2$q.value > 0.05] <- 0.95
+  cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
+  res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
+  res2 <- res2[res2$n_members == 3L, ]
+  expect_equal(
+    res2$missing_reason, "tested_ns,underpowered,underpowered"
+  )
+})
+
+
 test_that("power moves only the calls it is meant to", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)

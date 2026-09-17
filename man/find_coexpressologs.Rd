@@ -21,6 +21,7 @@ find_coexpressologs(networks, ...)
   max_permutations = 10000L,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  filter_zero = FALSE,
   seed = NULL,
   out_file = NULL,
   f0 = NULL,
@@ -74,6 +75,18 @@ q-values are combined, passed to \code{\link{comparison_to_edges}}:
 criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 the original ComPlEx) or \code{"min"} (permissive; either direction,
 denser edge supply for \code{\link{find_cliques}}).}
+
+\item{filter_zero}{Analytical method only: passed to
+\code{\link{summarize_comparison}}. \code{FALSE} (default) keeps
+every tested ortholog pair, including those whose neighbourhood
+overlap is zero in either direction, so a pair that could not have
+been called still reaches the edge table carrying its \code{power}.
+Those are exactly the low-degree failures the \code{power} column
+exists to mark; dropping them hands the clique classifiers an
+untested-looking gap instead of an underpowered one. \code{TRUE}
+removes them before the q-values are computed, which is what
+canonical ComPlEx does -- it shrinks the multiple-testing set, so
+every q-value moves.}
 
 \item{seed}{Integer seed for the call's random draws, or \code{NULL}
 (default) to draw from the global RNG. Seeding here makes the call

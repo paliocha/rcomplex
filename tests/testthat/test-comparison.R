@@ -785,6 +785,34 @@ test_that("find_coexpressologs default method is analytical", {
 })
 
 
+test_that("find_coexpressologs keeps zero-overlap pairs by default", {
+  skip_on_cran()
+  fix <- make_coexpr_fixtures()
+  # pi0_method = "none" so the two calls differ in filter_zero alone.
+  kept <- find_coexpressologs(fix$nets, fix$ortho, pi0_method = "none")
+  dropped <- find_coexpressologs(fix$nets, fix$ortho,
+    pi0_method = "none", filter_zero = TRUE
+  )
+
+  # The dropped rows are exactly the tested pairs with no overlap in one
+  # or both directions -- the low-degree failures `power` exists for.
+  cmp <- compare_neighborhoods(fix$nets$SP_A, fix$nets$SP_B, fix$ortho)
+  both <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
+  n_zero <- sum(!both)
+  expect_gt(n_zero, 0L)
+  expect_equal(nrow(kept), nrow(dropped) + n_zero)
+
+  key <- function(e) paste(e$gene1, e$gene2)
+  expect_true(all(key(dropped) %in% key(kept)))
+  expect_true("power" %in% names(kept))
+
+  # Correcting over the larger set cannot lower a q-value.
+  idx <- match(key(dropped), key(kept))
+  expect_false(anyNA(idx))
+  expect_true(all(kept$q.value[idx] >= dropped$q.value - 1e-12))
+})
+
+
 test_that(
   "find_coexpressologs with method='permutation' returns correct structure",
   {
@@ -1493,8 +1521,9 @@ test_that(
     td <- make_graded_nets()
     nets <- list(A = td$net1, B = td$net2)
     cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
-    pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
-    cmp <- cmp[pool, ]
+    # Every tested pair is corrected over, zero-overlap ones included:
+    # find_coexpressologs() defaults to filter_zero = FALSE, so the
+    # reference BH here has to use the same multiple-testing set.
     # default combine is "max" (D2, reciprocal criterion)
     bh <- pmax(
       p.adjust(cmp$Species1.p.val.con, "BH"),
@@ -1556,9 +1585,12 @@ test_that(
   {
     td <- make_graded_nets()
     cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+    # filter_zero = FALSE to match find_coexpressologs()'s default: the
+    # q-values are compared across the two paths at line ~1609, so they
+    # must correct over the same set of tested pairs.
     s <- summarize_comparison(cmp,
       sp1 = "A", sp2 = "B", pi0_method = "none",
-      pval_combine = "max"
+      pval_combine = "max", filter_zero = FALSE
     )
     expect_equal(
       s$edges,
@@ -1737,9 +1769,12 @@ test_that("a seed on find_coexpressologs reaches summarize_comparison", {
   nets <- list(SP_A = td$net1, SP_B = td$net2)
   cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
 
+  # filter_zero = FALSE to match find_coexpressologs()'s default; what is
+  # under test here is that the seed reaches summarize_comparison(), so
+  # the two paths must agree on everything else.
   s <- summarize_comparison(cmp,
     alternative = "greater", alpha = 0.05,
-    seed = 11
+    filter_zero = FALSE, seed = 11
   )
   direct <- comparison_to_edges(s$results, "SP_A", "SP_B", "greater",
     0.05,

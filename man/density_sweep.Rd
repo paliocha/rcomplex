@@ -21,6 +21,7 @@ density_sweep(networks, ...)
   species_pairs = NULL,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  filter_zero = FALSE,
   seed = NULL,
   f0 = NULL,
   ...
@@ -69,6 +70,10 @@ by the analytical method): \code{"randomized"} (default),
 \code{"max"} (default) requires both directions to be significant
 (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
 calls a pair when either direction is significant.}
+
+\item{filter_zero}{Passed to \code{\link{find_coexpressologs}}:
+whether zero-overlap ortholog pairs are dropped before the
+analytical q-values are computed (default \code{FALSE}, keep them).}
 
 \item{seed}{Integer seed for the sweep's random draws, or \code{NULL}
 (default) to draw from the global RNG. Applied once here, so the

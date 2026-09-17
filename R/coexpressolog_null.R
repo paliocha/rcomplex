@@ -125,6 +125,14 @@
 #'   permutation the same seed, so the null is identical for the two runs
 #'   even though the observed statistic is not: see the aliasing note under
 #'   \code{.task_seed()}.
+#' @param filter_zero Passed to \code{\link{find_coexpressologs}} for
+#'   both the observed and every null run. \code{TRUE} (default) drops
+#'   ortholog pairs with zero neighbourhood overlap before the q-values,
+#'   which is what this test wants: the statistic reads called edges
+#'   only, so retaining the zero-overlap rows adds tens of thousands of
+#'   never-called rows per pair to every permutation for nothing. It also
+#'   differs from the \code{find_coexpressologs()} default, which keeps
+#'   them so that low-degree failures carry a \code{power} value.
 #' @param ... Passed unchanged to \code{\link{find_coexpressologs}} for
 #'   both the observed and every null run (\code{species_pairs},
 #'   \code{method}, \code{alternative}, \code{alpha},
@@ -164,7 +172,8 @@
 #' @export
 coexpressolog_null <- function(networks, orthologs, statistic = NULL,
                                n_perm = 100L, swap_factor = 10L,
-                               n_cores = 1L, seed = NULL, ...) {
+                               n_cores = 1L, seed = NULL,
+                               filter_zero = TRUE, ...) {
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
   }
@@ -253,7 +262,9 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   }
   .seed_scope(seed_root)
 
-  observed <- statistic(find_coexpressologs(networks, orthologs, ...))
+  observed <- statistic(find_coexpressologs(networks, orthologs,
+    filter_zero = filter_zero, ...
+  ))
   if (!is.numeric(observed) || is.null(names(observed))) {
     stop("statistic must return a named numeric vector")
   }
@@ -275,7 +286,9 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     # root near the integer limit cannot overflow to set.seed(NA).
     set.seed(.task_seed(seed_root, 1L, b))
     nets_perm <- lapply(networks, rewire_net)
-    statistic(find_coexpressologs(nets_perm, orthologs, ...))
+    statistic(find_coexpressologs(nets_perm, orthologs,
+      filter_zero = filter_zero, ...
+    ))
   }
 
   # one_perm() calls set.seed() in the caller's session on the serial path
