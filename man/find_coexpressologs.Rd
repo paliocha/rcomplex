@@ -21,8 +21,10 @@ find_coexpressologs(networks, ...)
   max_permutations = 10000L,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  filter_zero = FALSE,
   seed = NULL,
   out_file = NULL,
+  f0 = NULL,
   ...
 )
 
@@ -74,6 +76,18 @@ criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 the original ComPlEx) or \code{"min"} (permissive; either direction,
 denser edge supply for \code{\link{find_cliques}}).}
 
+\item{filter_zero}{Analytical method only: passed to
+\code{\link{summarize_comparison}}. \code{FALSE} (default) keeps
+every tested ortholog pair, including those whose neighbourhood
+overlap is zero in either direction, so a pair that could not have
+been called still reaches the edge table carrying its \code{power}.
+Those are exactly the low-degree failures the \code{power} column
+exists to mark; dropping them hands the clique classifiers an
+untested-looking gap instead of an underpowered one. \code{TRUE}
+removes them before the q-values are computed, which is what
+canonical ComPlEx does -- it shrinks the multiple-testing set, so
+every q-value moves.}
+
 \item{seed}{Integer seed for the call's random draws, or \code{NULL}
 (default) to draw from the global RNG. Seeding here makes the call
 reproducible, and with it every downstream count thresholded on
@@ -112,11 +126,20 @@ Not supported on the \code{rcomplex} S3 method (see
 \code{find_coexpressologs.rcomplex}), which stores the in-memory
 edge table on \code{$edges}. Default \code{NULL} keeps the original
 in-memory behaviour.}
+
+\item{f0}{Analytical method only: reference conserved fraction for
+the \code{power} column, passed to
+\code{\link{comparison_to_edges}} (default \code{NULL}, the median
+overlap fraction of the called pairs). The permutation path always
+reports \code{power = NA}: its HOG-level q-value has no per-pair
+call threshold to measure power against.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2}, \code{hog}, \code{q.value},
-\code{effect_size}, \code{jaccard}, \code{type}. Ready for
+\code{effect_size}, \code{jaccard}, \code{power}, \code{type}
+(\code{power} is \code{NA} under \code{method = "permutation"}).
+Ready for
 \code{\link{find_cliques}} or \code{\link{classify_cliques}}. When
 \code{out_file} is supplied, the edge table is streamed to that
 file instead (always created, even when empty), and \code{out_file}

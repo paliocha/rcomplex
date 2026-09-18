@@ -371,12 +371,9 @@ detect_modules.rcomplex <- function(net, ...) {
 # Named list of module_correspondence() results keyed by the ALPHABETICALLY
 # SORTED species pair, "." joined -- the public format
 # classify_hub_conservation() validates module_comparisons keys against
-# (see its "SP_A.SP_C" example). This is a different key namespace from
-# preservation$raw's internal "<ref>\x01<test>", which exists only to avoid
-# the "." collision when a species name itself contains a ".": raw is never
-# read outside this package, so it can use an unambiguous separator, while
-# the correspondence keys are a documented part of classify_hub_conservation()
-# and must keep the "." format its validation expects.
+# (see its "SP_A.SP_C" example). preservation$raw now uses that same
+# "<reference>.<test>" format, so the two key namespaces agree;
+# preservation_paired() rejects species names that would make it ambiguous.
 .rcx_correspondence <- function(x) {
   if (is.null(x$modules) || is.null(x$phylo_pairs)) {
     return(NULL)
@@ -384,10 +381,10 @@ detect_modules.rcomplex <- function(net, ...) {
   out <- list()
   for (p in seq_len(nrow(x$phylo_pairs))) {
     sp <- sort(c(x$phylo_pairs$sp1[p], x$phylo_pairs$sp2[p]))
-    raw_key <- paste(sp, collapse = "\x01")
+    raw_key <- paste(sp, collapse = ".")
     out_key <- paste(sp, collapse = ".")
     # preservation_paired.default() runs both directions and keys raw
-    # "<ref>\x01<test>", so the sorted key is always present and its map is
+    # "<ref>.<test>", so the sorted key is always present and its map is
     # the already-resolved one for that orientation.
     map <- x$preservation$raw[[raw_key]]$map
     if (is.null(map)) next

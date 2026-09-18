@@ -1359,6 +1359,26 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
     pairs$pair_name <- paste(pairs$sp1, pairs$sp2, sep = ".")
   }
 
+  # `raw` is keyed "<reference>.<test>" -- the public format this function
+  # documents, and the one callers outside the package use (the vignette
+  # reads raw[[paste(sp, collapse = ".")]]). A "." inside a species name
+  # could make two different contrasts key the same: ref "A" / test "B.C"
+  # and ref "A.B" / test "C" both give "A.B.C". Refuse that up front rather
+  # than silently overwriting an entry -- the previous defence keyed on
+  # "\x01" instead, which avoided the collision but made every key
+  # unreadable to callers.
+  keys <- c(
+    paste(pairs$sp1, pairs$sp2, sep = "."),
+    paste(pairs$sp2, pairs$sp1, sep = ".")
+  )
+  if (anyDuplicated(keys) > 0L) {
+    stop(
+      "species names give colliding contrast keys: ",
+      paste(unique(keys[duplicated(keys)]), collapse = ", "),
+      ". Rename the species so that '<reference>.<test>' is unique."
+    )
+  }
+
   raw <- list()
   class_list <- list()
 
@@ -1369,13 +1389,10 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
     )) {
       ref <- direction[1]
       test <- direction[2]
-      # An internal list key, not the public pair_name column: "." collides
-      # whenever a species identifier itself contains a ".", e.g. ref="A",
-      # test="B.C" and ref="A.B", test="C" would both key as "A.B.C" and
-      # silently overwrite one another in `raw`/`class_list`. "\x01" is not
-      # a valid character in a species identifier used elsewhere as a
-      # column name, so it cannot collide the same way.
-      key <- paste(ref, test, sep = "\x01")
+      # The public key, matching this function's documented return and
+      # what callers outside the package index `raw` with. Collisions are
+      # impossible here: they were rejected up front.
+      key <- paste(ref, test, sep = ".")
 
       pres <- module_preservation(
         modules[[ref]], networks[[ref]], networks[[test]],

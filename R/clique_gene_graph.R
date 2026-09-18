@@ -396,7 +396,11 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' absent from the orthogroup, it is present but was never tested
 #' against these clique members, or it was tested and failed. Only the
 #' first two are annotation gaps; folding the third into them would let
-#' `partial_present` claim cliques that were actually rejected.
+#' `partial_present` claim cliques that were actually rejected. A species
+#' whose every failed test had power below `min_power` is
+#' `"underpowered"`: its failure is no rejection, so `partial_present`
+#' counts it as a gap, but `lineage_specific` does not, because that call
+#' would have to survive reading the species as conserved.
 #'
 #' @param s Species to classify.
 #' @param rows Row indices of `edges` belonging to the clique's HOG.
@@ -405,10 +409,14 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' @param mk Node keys of the clique members.
 #' @param m Number of clique members.
 #' @param alpha_call Significance threshold.
-#' @return One of "absent", "untested", "tested_ns", "extendable".
+#' @param power Detection power of each row of `edges` (`NA` when the
+#'   table carries none).
+#' @param min_power Power below which a failed test is uninformative.
+#' @return One of "absent", "untested", "tested_ns", "underpowered",
+#'   "extendable".
 #' @noRd
 .gcg_missing_reason <- function(s, rows, edges, key1, key2, mk, m,
-                                alpha_call) {
+                                alpha_call, power, min_power) {
   if (length(rows) == 0L) {
     return("absent")
   }
@@ -442,6 +450,17 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       return("extendable")
     }
   }
+  # Whatever significant edges the species has, they were not enough to
+  # join the clique, so what keeps it out are the tests that failed --
+  # whether or not some other test succeeded. If none of those failures
+  # could have succeeded, that is absent evidence rather than a
+  # rejection; NA power keeps the old reading, and a species whose every
+  # test was significant (but which still cannot extend the clique) has
+  # no failure to excuse and stays `tested_ns`.
+  pw <- c(power[rows][hit1], power[rows][hit2])[!sig]
+  if (length(pw) > 0L && all(!is.na(pw) & pw < min_power)) {
+    return("underpowered")
+  }
   "tested_ns"
 }
 
@@ -451,7 +470,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 .gcg_tiers <- c(
   "complete_conserved", "lineage_specific",
   "partial_significant", "partial_present",
-  "differentiated", "unclassified"
+  "differentiated", "underpowered", "unclassified"
 )
 
 
@@ -479,14 +498,26 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     pairs significant at `alpha_call`.}
 #'   \item{partial_present}{`S - g` species present for
 #'     `1 <= g <= max_gap`, all `choose(S - g, 2)` pairs significant,
-#'     and every absent species an annotation gap rather than a
-#'     rejected test.}
+#'     and every absent species an annotation gap or `underpowered`
+#'     rather than a rejected test.}
 #'   \item{differentiated}{All `S` species present, every pair tested,
 #'     at least one lineage of two or more species, every such lineage
 #'     fully significant within itself, and at most `cross_max`
 #'     cross-lineage pairs significant.}
+#'   \item{underpowered}{A clique that would be `lineage_specific` or
+#'     `differentiated` but for tests that could not have succeeded,
+#'     read from a `power` column in `edges` (see
+#'     \code{\link{comparison_to_edges}}). It takes the place of
+#'     `lineage_specific` when every outside species is a gap or
+#'     `underpowered` and at least one is `underpowered`, and of
+#'     `differentiated` when `n_sig_cross + n_underpowered_cross`
+#'     exceeds `cross_max`: a specificity or divergence call must survive
+#'     treating every underpowered pair as possibly significant. A
+#'     low-degree gene cannot reach the call whatever its conservation,
+#'     so without this its missing edges read as a lineage boundary.}
 #' }
-#' The waterfall is evaluated in that order and the first match wins.
+#' The waterfall is evaluated in that order, `underpowered` at the
+#' position of the tier it replaces, and the first match wins.
 #'
 #' `choose(S - 1, 2) + 1` equals `choose(S, 2) - (S - 2)`, so the
 #' `partial_significant` tolerance is `S - 2` non-significant edges.
@@ -510,7 +541,10 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   relying on it.
 #' @param edges The full, unfiltered co-expressolog table. It must not
 #'   be pre-filtered on `q.value`: the gap tier needs to see rows that
-#'   were tested and failed in order to refuse them.
+#'   were tested and failed in order to refuse them. An optional `power`
+#'   column (from \code{\link{comparison_to_edges}}) enables the
+#'   `underpowered` tier; without it, or where it is `NA`, the
+#'   classification is unchanged.
 #' @param species Character vector of every species in the analysis.
 #'   Every species appearing in `cliques` must be listed; a stranger
 #'   would be counted into the clique's species total while also being
@@ -528,6 +562,9 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   allowed by `differentiated`. Defaults to `choose(S - 1, 2) - W`,
 #'   the generalisation of the published cut; the original six-species
 #'   script used a looser hard-coded 6.
+#' @param min_power Detection power below which a non-significant pair
+#'   is read as uninformative rather than as evidence against
+#'   conservation (default 0.8). Only used when `edges` has `power`.
 #'
 #' @section rcomplex container:
 #' The `.rcomplex` method calls with `edges = x$edges`, which in the
@@ -550,10 +587,15 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'       in `edges`, and pairs significant at `alpha_call`}
 #'     \item{n_sig_within, n_sig_cross}{Significant pairs within and
 #'       across lineages (`NA` without `lineage`)}
+#'     \item{n_underpowered_cross}{Cross-lineage pairs present in
+#'       `edges`, not significant, and with `power` below `min_power`
+#'       (`NA` without `lineage`)}
 #'     \item{n_missing, missing_species, missing_reason}{Species not in
 #'       the clique, and why: `absent` (no row in the HOG),
 #'       `untested` (in the HOG but never compared to a member),
-#'       `tested_ns` (compared and not significant), `extendable`
+#'       `tested_ns` (compared and not significant), `underpowered`
+#'       (compared and not significant, every such test with `power`
+#'       below `min_power`), `extendable`
 #'       (significant against every member, so the clique came from a
 #'       looser graph). Comma-separated and positionally aligned}
 #'     \item{mean_q, max_q}{Recomputed from `edges` over present pairs}
@@ -596,7 +638,8 @@ classify_gene_cliques <- function(cliques, ...) {
 classify_gene_cliques.default <- function(cliques, edges, species,
                                           lineage = NULL, alpha_call = 0.1,
                                           alpha_graph = 0.9, max_gap = 1L,
-                                          cross_max = NULL, ...) {
+                                          cross_max = NULL,
+                                          min_power = 0.8, ...) {
   rlang::check_dots_empty()
   need_cl <- c("clique_id", "hog", "species", "gene")
   absent <- setdiff(need_cl, names(cliques))
@@ -630,6 +673,11 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     if (!is.numeric(v) || length(v) != 1L || is.na(v)) {
       stop(nm, " must be a single non-missing number")
     }
+  }
+  ok_power <- is.numeric(min_power) && length(min_power) == 1L &&
+    !is.na(min_power) && min_power >= 0 && min_power <= 1
+  if (!ok_power) {
+    stop("min_power must be a single number in [0, 1]")
   }
   cl_sp <- as.character(cliques$species)
   # A clique species outside `species` is counted into the clique's own
@@ -725,6 +773,12 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   lut_key <- pkey[uniq]
   lut_q <- as.numeric(edges$q.value[uniq])
   lut_e <- ev_all[uniq]
+  pw_all <- if ("power" %in% names(edges)) {
+    as.numeric(edges$power)
+  } else {
+    rep(NA_real_, nrow(edges))
+  }
+  lut_p <- pw_all[uniq]
   rows_by_hog <- split(seq_len(nrow(edges)), ehog)
 
   cl_hog <- as.character(cliques$hog)
@@ -767,7 +821,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       alpha_call = alpha_call, alpha_graph = alpha_graph,
       max_gap = max_gap, cross_max = cross_max, n_sp = n_sp,
       lut_q = lut_q, lut_e = lut_e, ekey1 = ekey1, ekey2 = ekey2,
-      rows_by_hog = rows_by_hog
+      rows_by_hog = rows_by_hog, lut_p = lut_p, power = pw_all,
+      min_power = min_power
     )
   })
   pick <- function(field, what) {
@@ -785,6 +840,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     n_sig = pick("n_sig", integer(1)),
     n_sig_within = pick("n_sig_w", integer(1)),
     n_sig_cross = pick("n_sig_x", integer(1)),
+    n_underpowered_cross = pick("n_up_x", integer(1)),
     n_missing = pick("n_missing", integer(1)),
     missing_species = pick("missing_species", character(1)),
     missing_reason = pick("missing_reason", character(1)),
@@ -847,6 +903,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     n_species = integer(0), n_pairs = integer(0),
     n_present = integer(0), n_sig = integer(0),
     n_sig_within = integer(0), n_sig_cross = integer(0),
+    n_underpowered_cross = integer(0),
     n_missing = integer(0), missing_species = character(0),
     missing_reason = character(0), mean_q = numeric(0),
     max_q = numeric(0), stringsAsFactors = FALSE
@@ -869,7 +926,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
                               edges, species, lin, lin_sizes,
                               alpha_call, alpha_graph, max_gap,
                               cross_max, n_sp, lut_q, lut_e, ekey1,
-                              ekey2, rows_by_hog) {
+                              ekey2, rows_by_hog, lut_p, power,
+                              min_power) {
   hog <- cl_hog[rr[1L]]
   msp <- cl_sp[rr]
   mk <- mk_all[rr]
@@ -878,6 +936,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 
   qp <- lut_q[hit]
   ep <- lut_e[hit]
+  pp <- lut_p[hit]
   if (m >= 2L && !is.null(lin)) {
     l1 <- lin[msp[cmb[1L, ]]]
     l2 <- lin[msp[cmb[2L, ]]]
@@ -895,6 +954,12 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   n_sig <- sum(sig)
   n_sig_w <- if (is.null(lin)) NA_integer_ else sum(sig & within)
   n_sig_x <- if (is.null(lin)) NA_integer_ else sum(sig & !within)
+  # Present, non-significant cross pairs that could not have been called.
+  n_up_x <- if (is.null(lin)) {
+    NA_integer_
+  } else {
+    sum(!is.na(qp) & !sig & !within & !is.na(pp) & pp < min_power)
+  }
   max_q <- if (n_present == 0L) NA_real_ else max(qp, na.rm = TRUE)
   mean_q <- if (n_present == 0L) NA_real_ else mean(qp, na.rm = TRUE)
   mean_e <- if (all(is.na(ep))) NA_real_ else mean(ep, na.rm = TRUE)
@@ -905,7 +970,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   reason <- vapply(gone, .gcg_missing_reason, character(1),
     rows = rows, edges = edges, key1 = ekey1,
     key2 = ekey2, mk = mk, m = m,
-    alpha_call = alpha_call, USE.NAMES = FALSE
+    alpha_call = alpha_call, power = power,
+    min_power = min_power, USE.NAMES = FALSE
   )
   # Only "absent" and "untested" are annotation gaps. Admitting
   # "tested_ns" would let partial_present claim a clique whose missing
@@ -919,6 +985,17 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   # while its differentiated set requires both lineages present.
   gap_only <- length(gone) == 0L ||
     all(reason %in% c("absent", "untested"))
+  # An underpowered outside species was tested, so it is no gap, but its
+  # failure is no boundary either: a lineage-specific call has to survive
+  # reading it as conserved, which it cannot.
+  up_only <- length(gone) > 0L && any(reason == "underpowered") &&
+    all(reason %in% c("absent", "untested", "underpowered"))
+  # partial_present only asks that no missing species was *rejected*. An
+  # underpowered one is unknown, not rejected, so it counts as a gap here;
+  # lineage_specific keeps gap_only, because its call would have to
+  # survive reading that species as conserved (up_only above).
+  gap_pp <- length(gone) == 0L ||
+    all(reason %in% c("absent", "untested", "underpowered"))
 
   cls <- "unclassified"
   # One gene per species is the invariant the pair arithmetic rests on;
@@ -948,8 +1025,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     }
     gap <- n_sp - m_sp
     is_complete <- m_sp == n_sp && n_sig == choose(n_sp, 2)
-    is_lineage <- !is.na(n_l) && m_sp == n_l &&
-      n_sig == choose(n_l, 2) && gap_only
+    lin_core <- !is.na(n_l) && m_sp == n_l && n_sig == choose(n_l, 2)
+    is_lineage <- lin_core && gap_only
     # choose(S - 1, 2) + 1 == choose(S, 2) - (S - 2): the tolerance is
     # S - 2 non-significant edges, the largest that cannot isolate a
     # member, since cutting one loose needs all S - 1 of its edges.
@@ -957,24 +1034,32 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       !is.na(max_q) && max_q < alpha_graph &&
       n_sig >= choose(n_sp - 1L, 2) + 1
     is_part_pres <- gap >= 1L && gap <= max_gap &&
-      n_sig == choose(m_sp, 2) && gap_only
+      n_sig == choose(m_sp, 2) && gap_pp
     if (is_complete) {
       cls <- "complete_conserved"
     } else if (is_lineage) {
       cls <- "lineage_specific"
+    } else if (lin_core && up_only) {
+      cls <- "underpowered"
     } else if (is_part_sig) {
       cls <- "partial_significant"
     } else if (is_part_pres) {
       cls <- "partial_present"
     } else if (diff_ok) {
-      cls <- "differentiated"
+      # The call must survive treating every underpowered cross pair as
+      # possibly significant.
+      cls <- if (n_sig_x + n_up_x > cross_max) {
+        "underpowered"
+      } else {
+        "differentiated"
+      }
     }
   }
 
   list(
     hog = hog, cls = cls, m = m, m_sp = m_sp, n_pairs = n_pairs,
     n_present = n_present, n_sig = n_sig, n_sig_w = n_sig_w,
-    n_sig_x = n_sig_x, n_missing = length(gone),
+    n_sig_x = n_sig_x, n_up_x = n_up_x, n_missing = length(gone),
     missing_species = paste(gone, collapse = ","),
     missing_reason = paste(reason, collapse = ","),
     mean_q = mean_q, max_q = max_q, mean_e = mean_e
