@@ -379,3 +379,78 @@ These tables are the input to S3 (cliques + intensity) and S4
 (classification). They are the **unfiltered** analytical-path tables the
 gap tiers need: `classify_gene_cliques()` must see the rows that were tested
 and failed in order to refuse them.
+
+### S3 complete, 2026-09-18: cliques + intensity, and a finding against #13
+
+Jobs 1320969 (root), 1321152 (leaf), plus diagnostics 1321159 and 1333019.
+`find_cliques()` on the unfiltered analytical edge tables, three runs per
+tissue: all 8 species and each trait group, `min_species = 3`.
+
+| tissue | run | cliques | intensity IQR | coherence IQR | IQR `1 - q` | IQR effect pct |
+|---|---|---|---|---|---|---|
+| root | all8 | 14,665 | 0.136 | 0.007 | 0.012 | 0.132 |
+| root | annual | 4,431 | 0.160 | 0.006 | 0.006 | 0.164 |
+| root | perennial | 3,571 | 0.117 | 0.004 | 0.008 | 0.127 |
+| leaf | all8 | 13,289 | 0.105 | 0.004 | 0.013 | 0.109 |
+| leaf | annual | 4,572 | 0.136 | 0.003 | 0.004 | 0.141 |
+| leaf | perennial | 3,306 | 0.103 | 0.002 | 0.006 | 0.112 |
+
+**H13.1 range: partial.** The ceiling is gone -- intensity spans 0.35-0.999
+where `1 - q` spans 0.91-1.000, an IQR roughly 11x wider -- but 0.10-0.16 is
+below the plan's `IQR > 0.2` bar. Recorded as partial, not passed.
+
+**Coherence was not fixed.** IQR 0.002-0.007, median 0.997-0.999: still
+ceiling-bound under Jaccard weights, exactly as it was under `1 - q`. #11 was
+framed as fixing intensity *and* coherence; only intensity moved.
+
+**H13.2 degree neutrality: fails, and inverts the simulation.** Spearman of
+intensity against clique mean member degree:
+
+| run | Jaccard pct | `1 - q` | effect pct |
+|---|---|---|---|
+| root all8 | **+0.581** | +0.295 | -0.064 |
+| root annual | +0.521 | +0.329 | +0.054 |
+| root perennial | +0.488 | +0.253 | -0.145 |
+| leaf all8 | **+0.530** | +0.301 | +0.127 |
+| leaf annual | +0.634 | +0.510 | +0.364 |
+| leaf perennial | +0.461 | +0.275 | +0.101 |
+
+The simulation predicted Jaccard ~+0.18 and effect-size percentile -0.97. On
+real data the ordering is reversed: the weight #13 moved *to* is the most
+degree-dependent, the weight it moved *from* is the near-neutral one. Leaf
+replicates root, so it is not a tissue quirk.
+
+**Four controls rule out species composition**, in increasing strictness:
+
+1. `rho(mean_degree, n_species)` = 0.076.
+2. Within `n_species` strata, rho stays 0.637 / 0.606 / 0.605 / 0.559 / 0.483
+   / 0.323 for n = 3..8.
+3. Within *identical* species composition (219 compositions per tissue,
+   strata n >= 100): root median rho 0.643 over 34 strata (0.323-0.846),
+   leaf median 0.593 over 39 strata (0.294-0.754).
+4. Within a single species pair at edge level, the Jaccard index itself
+   tracks `sqrt(deg1 * deg2)`: rho +0.30 to +0.54 over all 8 pairs tested,
+   against +0.04 to +0.34 for effect size.
+
+The mechanism is mechanical, not biological: for random neighbourhoods of
+size `k`, `m` from `N` genes, `E[Jaccard] ~ km / (N(k + m) - km)`, which rises
+with degree. At fixed density degree scales with network size, so Jaccard's
+*null* expectation drifts upward with degree before any conservation signal
+enters, while the hypergeometric effect size is observed/expected and so is
+degree-normalised by construction. Ranking within a species pair does not
+help, because the degree variation is within the pair too.
+
+Connectivity being what selection acts on (Mahler et al. 2017) argues for
+measuring conserved connectivity well, not for a statistic whose null rises
+with degree: a hub and a low-degree gene with equally conserved
+neighbourhoods should not score differently because one neighbourhood is
+larger. If hub conservation is the claim, it should be measured and reported,
+not inherited from the metric.
+
+Filed as **#15**; the shipped weighting is left in place so #14 can finish.
+
+**Also: `power` correlates negatively with degree on real data** (rho -0.31
+to -0.62 over the same 8 pairs), where #12's simulation had detection
+probability rising with degree (0.52 -> 0.99). This does not affect #14's
+correctness but changes how its classification output should be read, and
+needs its own check before S4 results are interpreted.
