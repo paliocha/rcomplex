@@ -454,3 +454,46 @@ to -0.62 over the same 8 pairs), where #12's simulation had detection
 probability rising with degree (0.52 -> 0.99). This does not affect #14's
 correctness but changes how its classification output should be read, and
 needs its own check before S4 results are interpreted.
+
+### S4 root, 2026-09-18: classification moves only where #14 says it may
+
+Job 1333360, `f0 = NULL`, root, 419,434 edges (all carrying power, mean 0.708).
+
+**HOG level** (`classify_cliques`, 16,405 HOGs). Counts move only in the
+sanctioned direction, and only one transition type occurs at any threshold:
+
+| `min_power` | moved | transition |
+|---|---|---|
+| 0.5 | 182 | `trait_specific` -> `underpowered` |
+| 0.8 | 228 | `trait_specific` -> `underpowered` |
+| 0.9 | 243 | `trait_specific` -> `underpowered` |
+
+`complete` (359), `partial` (7,764) and `unclassified` (8,011) are identical
+across all four arms. `trait_specific` falls 271 -> 89 -> 43 -> 28.
+
+**Gene-graph level** (`classify_gene_cliques`, 53,844 cliques from 276,537
+graph rows). Again one transition type, `unclassified -> partial_present`:
+
+| arm | complete_conserved | partial_present | unclassified | underpowered |
+|---|---|---|---|---|
+| no power | 7,910 | 1,941 | 43,993 | 0 |
+| 0.5 | 7,910 | 2,192 | 43,742 | 0 |
+| 0.8 | 7,910 | 2,541 | 43,393 | 0 |
+| 0.9 | 7,910 | 3,152 | 42,773 | 9 |
+
+**H14.4 passes.** The hard check was that only `lineage_specific` /
+`differentiated` / `trait_specific` may become `underpowered`, and only
+`partial_present` may rise. Observed exactly that: `trait_specific ->
+underpowered` at HOG level, `unclassified -> partial_present` in the gene
+graph, nothing else, no backward moves, `complete_conserved` fixed at 7,910
+in every arm.
+
+**But read the counts against #16.** Power falls with degree on this data, so
+the 243 HOGs withdrawn at `min_power = 0.9` are the high-degree ones, not the
+low-degree failures #12 set out to protect. The mechanism is doing what the
+code says; what it selects is not what the issue text describes.
+
+`underpowered` barely fires in the gene graph (9 cliques, and only at 0.9)
+because most edges have high power. Combined with the f0 grid saturating at
+`f0 >= 0.2` (#16), the informative range for this parameter on real data is
+narrow.
