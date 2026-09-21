@@ -13,13 +13,9 @@ rcomplex is an R package for comparative co-expression network analysis across s
 
 Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106). The gene-graph clique taxonomy follows [Rodriguez *et al.*, 2026](https://doi.org/10.1038/s41467-026-75624-2).
 
-## Repository status (as of 2026-09-14)
+## Repository status
 
-`main` is green: `R CMD check` is `Status: OK`, `devtools::test()` passes
-3036/0/7/10 (pass/fail/warn/skip; warns and skips are pre-existing and
-environment-gated on missing `sbm`/`torch`), `lintr::lint_package()` reports
-no lints, and all four `main` CI workflows (lint, R-CMD-check x2, test-coverage,
-pkgdown) pass. There is one open draft PR, `#4`
+There is one open draft PR, `#4`
 (`experiment/clique-module-deployment`, "ZDS interpretation"): a large (133
 files, 61 commits) speculative branch that predates today's fixes, has
 diverged from `main`, and fails CI (including the pre-fix `covr` hang below).
@@ -38,89 +34,6 @@ R CMD build . && R CMD check --no-manual rcomplex_0.3.0.tar.gz   # expect "Statu
 ```
 
 Check the built tarball, not the source directory — `Authors@R` only expands at build time, so `R CMD check .` fails with "Author/Maintainer missing". `--no-manual` avoids needing pdflatex. The historical `R_ext/Boolean.h` warning no longer appears with clang 22. CI runs `lintr::lint_package()` with `LINTR_ERROR_ON_LINT` and there is no `.lintr` file, so any lint fails the build — keep lines at or under 80 characters.
-
-## Package Architecture
-
-### R layer
-| File | Purpose |
-|------|---------|
-| `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()`, `prepare_orthologs()` |
-| `R/network.R` | `compute_network()` — correlation, MR/CLR, density threshold, sparse extraction, torch GPU |
-| `R/network-sparse.R` | Sparse dispatch: `.net_is_sparse()`, `.net_check()`, `.net_cpp_args()` (store guard), `as_sparse_network()`, `dense_to_dgc()` |
-| `R/mr_block.R` | `mr_block()` — exact local MR reconstruction for gene subsets (incl. sub-store entries) |
-| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `find_coexpressologs()` (alias: `run_pairwise_comparisons()`), `density_sweep()`, `get_coexpressed_hogs()` |
-| `R/coexpressolog_null.R` | `coexpressolog_null()` — degree-preserving edge-swap null |
-| `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, `compute_qvalues()` (randomized-p pi0), torch FE helpers |
-| `R/modules.R` | `detect_modules()` (single + consensus), `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
-| `R/ortholog_map.R` | `resolve_ortholog_map()` — reduce multi-copy HOGs toward one counterpart per gene (cliques, then mutual-best coexpressologs); anything left is carried as `unresolved` and settled by majority vote inside `module_preservation()` / `module_correspondence()` |
-| `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
-| `R/preservation_matrix.R` | `all_species_pairs()` — every `choose(n, 2)` contrast as a `pairs` table; `preservation_matrix_test()` — trait relabelling null over the all-pairs preservation matrix (free + within-block, enumerated below `enum_max` and sampled above it) |
-| `R/pvalue_saturation.R` | `pvalue_resolution()` — distinct values, ties at the minimum and at 1, and permutation-floor status (`permutation-limited` / `evidence-limited` / below floor) of a p- or q-vector |
-| `R/tag_permutation.R` | `tag_permutation()` — trait-specific module recurrence test |
-| `R/tag_blocks.R` | Internal exchangeability blocks for `tag_permutation()`: `.tp_blocks()` (connected components of the species/contrast graph), `.tp_block_labellings()`, `.tp_expected()` |
-| `R/coexpressolog-strength.R` | `coexpressolog_strength()` — density-integrated robustness score for individual coexpressolog edges (re-examines existing networks at several matched densities, no recomputed correlation/normalization); `suggest_reference_density()` — WGCNA-style scale-free-fit diagnostic for picking a reference density |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
-| `R/clique_gene_graph.R` | `gene_clique_graph()` — maximal cliques of the per-HOG (species, gene) graph, every paralog combination reported; `classify_gene_cliques()` — five-tier conservation taxonomy with thresholds derived from `length(species)` |
-| `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) — SummarizedExperiment helpers |
-| `R/rcomplex-class.R` | S3 `rcomplex` container: constructor, print/summary, and a `.rcomplex` method for every pipeline generic registered in `NAMESPACE` |
-| `R/rcomplex-package.R` | Package-level roxygen, namespace imports |
-| `R/rng.R` | `.seed_scope()` / `.seed_restore()` — the one RNG seeding contract every seeded entry point routes through; `.can_fork()` — gates every `mclapply()` call site on whether forking is safe (see the RNG section below for why) |
-
-### C++ layer (src/, RcppArmadillo + OpenMP)
-| File | Purpose |
-|------|---------|
-| `src/mutual_rank.cpp` | MR normalization with column-major access; in-place kernel (`mutual_rank_inplace_cpp`) + cached reference |
-| `src/clr.cpp` | CLR normalization |
-| `src/density_threshold.cpp` | Quantile-based density thresholding |
-| `src/sparse_extract.cpp` | Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix |
-| `src/neighbor_lists.h` | Shared neighbour-list construction: dense `arma::mat` or validated dgCMatrix slots |
-| `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap (hypergeometric, self-excluded urn); dense + sparse entry points |
-| `src/hog_permutation.cpp` | HOG permutation engine (bit-vector/flag-vector, Besag & Clifford); dense + sparse entry points |
-| `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
-| `src/module_preservation.cpp` | Module preservation permutation engine (`avg.weight`, `cor.degree`, plus diagnostics) and per-gene intramodular statistics; dense + sparse entry points |
-| `src/rewire_degseq.cpp` | Degree-preserving edge-swap kernel for `coexpressolog_null()`: igraph's `keeping_degseq` trial on a bit-matrix adjacency, drawing from R's RNG |
-| `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging |
-| `src/coclassification.cpp` | Co-classification matrix with per-pair null subtraction (Jeub et al. 2018) |
-| `src/find_cliques_common.h` | Shared clique primitives (BK/Tomita, backtracking, trait, Jaccard) |
-| `src/find_cliques.cpp` | C++ clique detection wrapper |
-| `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
-| `src/sample_k_distinct.h` | Shared rejection-sampling utility |
-
-### Tests
-| File | Covers |
-|------|--------|
-| `tests/testthat/test-network.R` | Network construction, MR/CLR, density threshold, in-place MR, torch |
-| `tests/testthat/test-network-sparse.R` | Sparse network object: dense-vs-sparse equality across all consumers, store guard |
-| `tests/testthat/test-equivalence.R` | Equivalence against canonical ComPlEx (seeded fixture, 149 calls) |
-| `tests/testthat/test-comparison.R` | Neighborhood comparison, effect sizes, sparse dispatch, pval_combine |
-| `tests/testthat/test-summary.R` | Pair-level q-value correction |
-| `tests/testthat/test-pi0.R` | Randomized-p pi0 estimation (simulation vs truth, Storey, BH) |
-| `tests/testthat/test-permutation.R` | HOG permutation (correctness, adaptive stopping, sparse, torch) |
-| `tests/testthat/test-mr-block.R` | `mr_block()` exact reconstruction vs dense network |
-| `tests/testthat/test-coexpressolog-null.R` | Edge-swap null (seeded, parallel reproducibility) |
-| `tests/testthat/test-coexpressed-hogs.R` | `get_coexpressed_hogs()` cross-species partner queries |
-| `tests/testthat/test-modules.R` | Module detection and consensus |
-| `tests/testthat/test-module-determinism.R` | Consensus determinism on a deliberately ambiguous network: bit-reproducible across core counts, ambient RNG stream unchanged, K = 1 null resolution, consensus fixed point |
-| `tests/testthat/test-ortholog-map.R` | Paralog resolution layers, precedence, mappable-set invariant |
-| `tests/testthat/test-module-preservation.R` | Preservation kernel vs R reference, null calibration, classification, correspondence, paired directions |
-| `tests/testthat/test-preservation-matrix.R` | `all_species_pairs()`, all-pairs relabelling test: label-space sizes and floors, binary difference vs multilevel dispersion, within-block exclusion, saturation reporting |
-| `tests/testthat/test-pvalue-saturation.R` | `pvalue_resolution()` counts, floor status, off-grid detection, `suggested_n_perm`, print method |
-| `tests/testthat/test-module-hubs.R` | Hub identification, tie-breaking, hub conservation |
-| `tests/testthat/test-tag-permutation.R` | Trait-specific module recurrence test |
-| `tests/testthat/test-cliques.R` | Clique detection (igraph + C++ backends) |
-| `tests/testthat/test-clique-gene-graph.R` | Gene-graph cliques and the five-tier taxonomy: tier waterfall, `missing_reason` states, derived thresholds, duplicate-row collapse, q-floor diagnostics |
-| `tests/testthat/test-stability.R` | Leave-k-out jackknife stability |
-| `tests/testthat/test-threshold-sweep.R` | Threshold sweep structural survival |
-| `tests/testthat/test-perturbation.R` | Clique perturbation (noise robustness) |
-| `tests/testthat/test-intensity-test.R` | Clique intensity permutation null |
-| `tests/testthat/test-classify-cliques.R` | HOG classification waterfall pipeline |
-| `tests/testthat/test-reduce-orthogroups.R` | Paralog reduction |
-| `tests/testthat/test-se.R` | SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network) |
-| `tests/testthat/test-rcomplex-class.R` | S3 container construction, printing, method pass-through |
-| `tests/testthat/test-rng-contract.R` | The RNG seeding contract, table-driven over every seeded entry point |
-| `tests/testthat/helper-reference.R` | Pure-R reference implementations + shared net helpers (`sparse_net()`, ...) |
-| `tests/testthat/helper-rng-contract.R` | Fixtures and the seeded-entry-point table for the RNG contract test |
-| `tests/testthat/helper-clique-fixtures.R` | Shared clique test fixtures |
 
 ## Key Design Decisions
 
@@ -170,13 +83,6 @@ Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-
 - `Makevars` / `Makevars.win`: C++23, `$(SHLIB_OPENMP_CXXFLAGS)` for portable OpenMP
 - RcppArmadillo in `LinkingTo` only (NOT `Imports`)
 - `-DARMA_DONT_USE_OPENMP` in both Makevars: Armadillo's *internal* OpenMP deadlocks `mclapply()` workers forked after the parent used OpenMP (see Known CI/tooling gotchas). Package kernels parallelise with their own `#pragma omp`, which the flag does not touch
-
-## Dependencies
-
-**Imports**: methods, Rcpp, Rfast, collapse, data.table, igraph, kit, Matrix (>= 1.5-0), DiscreteQvalue, qvalue, parallel, rlang, stats, utils
-**Suggests**: DT, dplyr, knitr, purrr, rmarkdown, S4Vectors, sbm, stringr, SummarizedExperiment, tibble, torch, testthat, lintr, withr, pkgdown
-**LinkingTo**: Rcpp, RcppArmadillo
-**System**: GNU make, C++23, OpenMP (optional)
 
 ## Design notes
 
