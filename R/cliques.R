@@ -64,18 +64,18 @@ encode_clique_edges <- function(edges, target_species) {
 }
 
 
-#' Within-species-pair Jaccard percentile of every edge row
+#' Entropy-maximising scale for the ensemble weight map
 #'
-#' Rank of each row's `jaccard` among all rows of the same unordered
-#' species pair (average ranks for ties), divided by the number of finite
-#' values in that pair. Lies in (0, 1]; a non-finite value stays NA.
-#' Jaccard rather than `effect_size`: fold enrichment falls like
-#' 1 / degree at a fixed conserved fraction, so its percentile mostly
-#' ranked genes by inverse degree (#12). A table without a usable
-#' `jaccard` column gives all-NA weights and warns once per session.
+#' Solves `S'(z) = 0` for the connection-probability map
+#' `p(w, z) = z w / (1 + z w)`, where `S` is the Shannon entropy of the
+#' induced binary ensemble (Garlaschelli, Ahnert, Fink & Caldarelli
+#' 2013). `S'` is positive below `1 / max(w)` and negative above
+#' `1 / min(w)`, so the root is bracketed and unique. A collapsed
+#' bracket -- one weight, or all weights equal -- has nothing to
+#' separate and returns `1 / mean(w)`, giving `p = 1/2`.
 #'
-#' @param edges Data frame with species1, species2, jaccard.
-#' @return Numeric vector parallel to the rows of `edges`.
+#' @param w Numeric vector of non-negative weights (one species pair).
+#' @return The scale `z`, or `NA_real_` when `w` holds no usable value.
 #' @noRd
 .maxent_scale <- function(w) {
   # Entropy-maximising scale z* for p(w, z) = z w / (1 + z w)
@@ -217,17 +217,21 @@ encode_clique_edges <- function(edges, target_species) {
 
 #' Compute per-clique edge statistics (intensity, coherence, min effect size)
 #'
-#' Onnela weights are Jaccard percentiles, not `1 - q.value`: a clique
-#' only ever contains edges that passed alpha, so `1 - q` sat above
-#' `1 - alpha` on every edge and left intensity flat (#11).
+#' Onnela weights are ensemble connection probabilities, not
+#' `1 - q.value`: a clique only ever contains edges that passed alpha, so
+#' `1 - q` sat above `1 - alpha` on every edge and left intensity flat
+#' (#11). They are built from association strength rather than the
+#' Jaccard index, whose null expectation grows with neighbourhood size
+#' (#15).
 #'
 #' @param cliques Data frame from find_cliques (with hog + species columns).
 #' @param edges Data frame with gene1, gene2, hog, q.value, effect_size.
 #' @param target_species Character vector of species names.
-#' @param weights Per-row edge weights parallel to `edges`; by default the
-#'   within-species-pair Jaccard percentile over the rows of `edges`.
-#'   Callers that filter `edges` must rank first and subset the weights
-#'   with the rows, so the percentile still covers every tested pair.
+#' @param weights Per-row edge weights parallel to `edges`; by default
+#'   the ensemble connection probability of each row's association
+#'   strength, scaled within its species pair. Callers that filter
+#'   `edges` must weight first and subset with the rows, so the scale is
+#'   still fitted on every tested pair.
 #' @return Data frame with columns intensity, coherence, min_effect_size.
 #' @noRd
 compute_clique_edge_stats <- function(cliques, edges, target_species,
@@ -346,14 +350,19 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'     \item{n_missing}{Number of missing edges (0 when
 #'       \code{max_missing_edges = 0})}
 #'     \item{intensity}{Onnela intensity: geometric mean, across present
-#'       edges, of each edge's Jaccard percentile among all tested
-#'       pairs of its species pair (in (0, 1]; higher = stronger
-#'       conservation). Percentiles rather than \code{1 - q.value}: every
-#'       clique edge already passed alpha, so \code{1 - q} left no range.
-#'       Jaccard rather than effect size, which falls like 1 / degree at a
-#'       fixed conserved fraction. \code{NA} when \code{edges} has no
-#'       usable \code{jaccard} column, or when any present clique edge
-#'       lacks a finite Jaccard value.}
+#'       edges, of each edge's ensemble connection probability (in
+#'       (0, 1); higher = stronger conservation). Each edge's
+#'       association strength (\code{effect_size}, observed overlap over
+#'       its expectation) is mapped to a probability
+#'       \code{p = z w / (1 + z w)}, with \code{z} fitted per species
+#'       pair by maximum entropy, so intensity reads as the per-edge
+#'       probability that the whole clique exists. Not \code{1 - q.value}:
+#'       every clique edge already passed alpha, so \code{1 - q} left no
+#'       range (#11). Not the Jaccard index, whose null expectation grows
+#'       with neighbourhood size, which ranked hub genes above equally
+#'       conserved low-degree ones (#15). \code{NA} when \code{edges} has
+#'       no usable \code{effect_size} column, or when any present clique
+#'       edge lacks a finite value.}
 #'     \item{coherence}{Onnela coherence: intensity / arithmetic mean of
 #'       the same percentiles (1 when all edge weights are equal)}
 #'     \item{min_effect_size}{Minimum effect size across present edges
@@ -1647,8 +1656,8 @@ clique_perturbation_test.default <- function(
 #'
 #' Permutes the ortholog mapping and builds a null distribution of
 #' clique intensity (see \code{\link{find_cliques}}: the geometric mean
-#' of each clique edge's Jaccard percentile among all tested pairs of
-#' its species pair). Observed and null intensities are ranked against
+#' of each clique edge's ensemble connection probability, scaled within
+#' its species pair). Observed and null intensities are computed against
 #' the full edge tables (\code{edges}, and every permutation's
 #' \code{find_coexpressologs()} output), so pass \code{edges} unfiltered;
 #' a supplied \code{edges} holding only \code{edge_type} rows warns once
