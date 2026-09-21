@@ -77,31 +77,82 @@ encode_clique_edges <- function(edges, target_species) {
 #' @param edges Data frame with species1, species2, jaccard.
 #' @return Numeric vector parallel to the rows of `edges`.
 #' @noRd
-.jaccard_percentile <- function(edges) {
+.maxent_scale <- function(w) {
+  # Entropy-maximising scale z* for p(w, z) = z w / (1 + z w)
+  # (Garlaschelli, Ahnert, Fink & Caldarelli 2013). S'(z) is positive
+  # below 1/max(w) and negative above 1/min(w), so the root is bracketed
+  # and unique; uniroot finds it in one pass over the weights.
+  w <- w[is.finite(w) & w > 0]
+  if (length(w) == 0L) {
+    return(NA_real_)
+  }
+  lo <- 1 / max(w)
+  hi <- 1 / min(w)
+  # One edge, or all weights equal: the bracket collapses and there is
+  # nothing to tell the weights apart. Maximum entropy for a single
+  # probability is 1/2, which z = 1/w delivers -- the least biased answer
+  # rather than an NA that would silently void the clique's intensity.
+  if (!is.finite(lo) || !is.finite(hi) || lo >= hi) {
+    return(1 / mean(w))
+  }
+  ds <- function(z) sum(w / (1 + z * w)^2 * log(1 / (z * w)))
+  # Endpoints are the bracket by construction; guard against the
+  # degenerate case where floating point puts both on the same side.
+  if (ds(lo) <= 0 || ds(hi) >= 0) {
+    return(NA_real_)
+  }
+  stats::uniroot(ds, lower = lo, upper = hi, tol = .Machine$double.eps^0.5)$root
+}
+
+
+#' Ensemble connection probability of every edge row
+#'
+#' The Onnela weight used by [find_cliques()]. Association strength
+#' (`effect_size`, the observed overlap over its expectation) is mapped to
+#' a connection probability `p = z w / (1 + z w)`, with the scale `z` fixed
+#' per species pair by maximum entropy. Intensity is then the geometric
+#' mean of those probabilities, i.e. the per-edge probability that the
+#' whole clique exists in the binary ensemble the weighted graph induces.
+#'
+#' Association strength is used rather than the Jaccard index because
+#' `E[Jaccard]` grows with neighbourhood size, so a Jaccard weight ranks
+#' hub genes above equally conserved low-degree ones (van Eck & Waltman
+#' 2009; measured here as Spearman +0.58 with clique mean member degree,
+#' against -0.08 for this weight).
+#'
+#' @param edges Edge table with `effect_size`, `species1`, `species2`.
+#' @return Numeric vector parallel to the rows of `edges`, in (0, 1).
+#' @references
+#' Onnela, Saramaki, Kertesz & Kaski (2005) Phys. Rev. E 71, 065103.
+#' Garlaschelli, Ahnert, Fink & Caldarelli (2013) LNCS 8852, 107-118.
+#' van Eck & Waltman (2009) J. Am. Soc. Inf. Sci. Technol. 60, 1635-1651.
+#' @noRd
+.onnela_weight <- function(edges) {
   n <- nrow(edges)
   out <- rep(NA_real_, n)
   if (n == 0L) {
     return(out)
   }
-  jac <- if ("jaccard" %in% names(edges)) {
-    as.numeric(edges$jaccard)
+  as_w <- if ("effect_size" %in% names(edges)) {
+    as.numeric(edges$effect_size)
   } else {
     rep(NA_real_, n)
   }
-  jac[!is.finite(jac)] <- NA_real_
-  if (all(is.na(jac))) {
+  as_w[!is.finite(as_w) | as_w <= 0] <- NA_real_
+  if (all(is.na(as_w))) {
     rlang::warn(
       c(
-        "`edges` has no usable `jaccard` column.",
+        "`edges` has no usable `effect_size` column.",
         i = paste0(
-          "Clique intensity and coherence rank each edge's Jaccard ",
-          "index and are NA without it; find_coexpressologs() output ",
-          "carries it. This warning is shown once per session."
+          "Clique intensity and coherence map each edge's association ",
+          "strength to a connection probability and are NA without it; ",
+          "find_coexpressologs() output carries it. This warning is ",
+          "shown once per session."
         )
       ),
-      class = "rcomplex_missing_jaccard",
+      class = "rcomplex_missing_effect_size",
       .frequency = "once",
-      .frequency_id = "rcomplex_missing_jaccard"
+      .frequency_id = "rcomplex_missing_effect_size"
     )
     return(out)
   }
@@ -110,8 +161,11 @@ encode_clique_edges <- function(edges, target_species) {
     sep = "\x01"
   )
   for (idx in split(seq_len(n), pair)) {
-    ok <- idx[!is.na(jac[idx])]
-    if (length(ok) > 0L) out[ok] <- rank(jac[ok]) / length(ok)
+    ok <- idx[!is.na(as_w[idx])]
+    if (length(ok) == 0L) next
+    z <- .maxent_scale(as_w[ok])
+    if (!is.finite(z)) next
+    out[ok] <- z * as_w[ok] / (1 + z * as_w[ok])
   }
   out
 }
@@ -177,7 +231,7 @@ encode_clique_edges <- function(edges, target_species) {
 #' @return Data frame with columns intensity, coherence, min_effect_size.
 #' @noRd
 compute_clique_edge_stats <- function(cliques, edges, target_species,
-                                      weights = .jaccard_percentile(edges)) {
+                                      weights = .onnela_weight(edges)) {
   n <- nrow(cliques)
   intensity <- rep(NA_real_, n)
   coherence <- rep(NA_real_, n)
@@ -380,7 +434,7 @@ find_cliques.default <- function(edges, target_species,
   # among conserved edges alone they would only describe edges that
   # already passed alpha.
   .warn_if_prefiltered(edges, edge_type)
-  weights <- .jaccard_percentile(edges)
+  weights <- .onnela_weight(edges)
   if ("type" %in% names(edges)) {
     keep <- edges$type %in% edge_type
     edges <- edges[keep, , drop = FALSE]

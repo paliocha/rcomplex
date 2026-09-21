@@ -1,5 +1,34 @@
 # rcomplex 0.3.0
 
+- **Clique intensity and coherence weight each edge by its ensemble
+  connection probability**, not by a Jaccard percentile (#15). The Jaccard
+  index is not degree-normalised: for neighbourhoods of size `k`, `m` drawn
+  from `N` genes its null expectation is roughly `km / (N(k + m) - km)`,
+  which rises with neighbourhood size, so the weight ranked hub genes above
+  equally conserved low-degree ones. Measured on the Pooideae data,
+  Spearman of clique intensity with mean member degree was **+0.58** for the
+  Jaccard percentile and about **-0.08** for a null-invariant weight, on
+  identical cliques; the simulation behind the original choice did not
+  reproduce. Coherence carried the same bias (+0.37) and loses it too.
+
+  The weight is now association strength (`effect_size`, observed overlap
+  over its expectation -- the probabilistic normalisation van Eck & Waltman
+  (2009) recommend for co-occurrence data), mapped to a connection
+  probability `p = z w / (1 + z w)` with the scale `z` fixed per species
+  pair by maximum entropy (Garlaschelli, Ahnert, Fink & Caldarelli 2013).
+  Onnela's own `w / max(w)` is the linear map those authors supersede: it
+  violates `p(0) = 0` and `p(inf) = 1`. Intensity keeps its meaning as the
+  geometric mean of edge weights, and gains one: it is the per-edge
+  probability that the whole clique exists in the binary ensemble the
+  weighted graph induces.
+
+  **Intensity and coherence values change on every table**; clique
+  membership, `mean_q`, `n_edges` and `min_effect_size` do not. An edge
+  table without a usable `effect_size` column gives `NA` with a classed
+  warning (`rcomplex_missing_effect_size`), replacing
+  `rcomplex_missing_jaccard`.
+
+
 Module-preservation release. Module-level conservation is now a
 topology-preservation test, not a gene-overlap test. Overlap called a module
 conserved when its membership survived, even if the wiring was gone --
