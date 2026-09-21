@@ -497,3 +497,37 @@ code says; what it selects is not what the issue text describes.
 because most edges have high power. Combined with the f0 grid saturating at
 `f0 >= 0.2` (#16), the informative range for this parameter on real data is
 narrow.
+
+### H13.1 retired, 2026-09-21: the weight is fixed, the range criterion is not meaningful
+
+`feat/onnela-maxent-weight` replaces the Jaccard-percentile Onnela weight
+with an ensemble connection probability: association strength
+(`effect_size`) mapped through `p = z w / (1 + z w)`, with `z` fitted per
+species pair by maximum entropy (Garlaschelli, Ahnert, Fink & Caldarelli
+2013). Validated on the root tissue, same 14,665 cliques as job 1320969:
+
+| weight | intensity IQR | intensity rho(degree) | coherence IQR | coherence rho |
+|---|---|---|---|---|
+| Jaccard percentile (#13) | 0.136 | **+0.581** | 0.0070 | **+0.371** |
+| ensemble probability | 0.0821 | **-0.077** | 0.0034 | **-0.063** |
+
+`NA intensity: 0 of 14,665` -- the degenerate-bracket fallback never fires
+on real pairs, which carry 15-20k tested edges each.
+
+**H13.2 passes** (|rho| <= 0.25 on both statistics, both tissues' cliques
+built from the same edge tables). **H13.1 is retired rather than failed.**
+Its `IQR > 0.2` bar was written when intensity was a percentile, which is
+uniform by construction and so has an IQR of 0.5 before any aggregation.
+A probability-valued weight has no such guarantee: `p = zw/(1 + zw)`
+concentrates toward the middle of (0, 1), so a narrow IQR is a property of
+the map, not evidence of a dead metric. Ranking cliques on intensity stays
+valid within a comparable set; the number is not meant to spread across
+the unit interval.
+
+Martin's decision: ship the MaxEnt weight, drop the IQR criterion, and
+document the narrow range rather than chase it.
+
+**Still open:** coherence has never discriminated on this data under any
+weight (IQR 0.002-0.007), except under an `AS / max(AS)` scaling that gave
+IQR 0.044 but uses the raw maximum the 2013 paper supersedes. Whether
+coherence earns its place at all is a separate question from #15.
