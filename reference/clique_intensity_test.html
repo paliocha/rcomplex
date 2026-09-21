@@ -7,12 +7,21 @@ the full edge tables (edges, and every permutation's
 find_coexpressologs() output), so pass edges unfiltered;
 a supplied edges holding only edge_type rows warns once
 per session (class rcomplex_prefiltered_edges).
-The null model shuffles Species2 genes
-globally across all rows of the ortholog table (not within-HOG),
+By default (null_model = &quot;global&quot;) the null shuffles
+Species2 genes across all rows of the ortholog table,
 destroying both the specific ortholog mapping and the within-HOG
 gene grouping. Network topology (per-species adjacency matrices)
 is preserved, but species structure within the ortholog table is
 not — a gene originally in one HOG/species-pair may land in another.
+Under null_model = &quot;within_hog&quot; the shuffle happens inside
+each HOG and species pair, so the HOG grouping survives and
+only the gene-to-gene pairing is randomised; see null_model
+for when that matters. Partitioning by the pair as well matters for a
+stacked all-pairs ortholog table, where one HOG carries rows from
+several pairs: shuffling by HOG alone would move a gene into a pair
+whose network does not contain it, and that row is then dropped.
+A HOG with one gene per species therefore has nothing to permute and
+yields a null with no spread.
 This tests whether the observed gene-to-gene correspondence produces
 stronger co-expression conservation than random mappings."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
 <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
@@ -82,12 +91,21 @@ the full edge tables (<code>edges</code>, and every permutation's
 <code><a href="find_coexpressologs.html">find_coexpressologs()</a></code> output), so pass <code>edges</code> unfiltered;
 a supplied <code>edges</code> holding only <code>edge_type</code> rows warns once
 per session (class <code>rcomplex_prefiltered_edges</code>).
-The null model shuffles <code>Species2</code> genes
-globally across all rows of the ortholog table (not within-HOG),
+By default (<code>null_model = "global"</code>) the null shuffles
+<code>Species2</code> genes across all rows of the ortholog table,
 destroying both the specific ortholog mapping and the within-HOG
 gene grouping. Network topology (per-species adjacency matrices)
 is preserved, but species structure within the ortholog table is
 not — a gene originally in one HOG/species-pair may land in another.
+Under <code>null_model = "within_hog"</code> the shuffle happens inside
+each HOG <em>and</em> species pair, so the HOG grouping survives and
+only the gene-to-gene pairing is randomised; see <code>null_model</code>
+for when that matters. Partitioning by the pair as well matters for a
+stacked all-pairs ortholog table, where one HOG carries rows from
+several pairs: shuffling by HOG alone would move a gene into a pair
+whose network does not contain it, and that row is then dropped.
+A HOG with one gene per species therefore has nothing to permute and
+yields a null with no spread.
 This tests whether the observed gene-to-gene correspondence produces
 stronger co-expression conservation than random mappings.</p>
     </div>
@@ -115,6 +133,7 @@ stronger co-expression conservation than random mappings.</p>
 <span>  edges <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"storey"</span>, <span class="st">"randomized"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  null_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"global"</span>, <span class="st">"within_hog"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -222,6 +241,20 @@ deterministic across permutations (<code>"randomized"</code> adds
 per-permutation Monte Carlo noise), matching
 <code><a href="clique_threshold_sweep.html">clique_threshold_sweep</a></code>. Set it to whatever built the
 baseline <code>cliques</code>/<code>edges</code>.</p></dd>
+
+
+<dt id="arg-null-model">null_model<a class="anchor" aria-label="anchor" href="#arg-null-model"></a></dt>
+<dd><p>How each permutation destroys the ortholog mapping.
+<code>"global"</code> (default) shuffles <code>Species2</code> across every HOG.
+That also destroys the HOGs, so a permuted run rarely contains the
+observed clique's HOG and there is nothing to match: on the eight-species
+Pooideae data every one of 204 cliques returned <code>n_matched = 0</code>,
+leaving <code>z_score</code> and <code>p_value</code> <code>NA</code>. Raising
+<code>n_perm</code> does not help, since the match rate is near zero rather
+than merely small. <code>"within_hog"</code> permutes <code>Species2</code> within
+each HOG instead, preserving the HOG's gene multiset, so the clique can
+be rebuilt and the null asks whether this particular paralog combination
+is unusually intense given those genes.</p></dd>
 
 </dl></div>
     <div id="value">
