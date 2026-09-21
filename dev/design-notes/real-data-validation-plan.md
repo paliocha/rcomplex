@@ -531,3 +531,91 @@ document the narrow range rather than chase it.
 weight (IQR 0.002-0.007), except under an `AS / max(AS)` scaling that gave
 IQR 0.044 but uses the raw maximum the 2013 paper supersedes. Whether
 coherence earns its place at all is a separate question from #15.
+
+## 9. Execution plan, 2026-09-21: phases 0-5
+
+Everything downstream derives from the networks, and Martin's `log = TRUE`
+decision changes them, so the order below is forced: land code, rebuild
+networks, rebuild derived layers, then diagnose.
+
+### Phase 0 -- land the open PRs
+
+- **#17** (`feat/onnela-maxent-weight`) merges when its two R-CMD-checks
+  finish; lint and coverage already pass. Closes **#15**. Delete branch.
+- **#16** stays open: a finding about `power`, not a defect in merged code.
+  #14's merge comment already tells readers to interpret through it.
+- **#4** stays untouched (CLAUDE.md).
+
+### Phase 1 -- rebuild the 16 networks with `mr_log_transform = TRUE`
+
+Raw MR is unbounded with a surviving-weight `max/min` of 1.035 at density
+0.03: after thresholding the weights carry almost no information, so
+"weighted" Leiden and `avg.weight` are weighted in name only. `S = 1 -
+log(MR)/log(n)` is bounded in [0, 1] and measured `max/min = 2.464`
+(range 0.375-0.925) on `root__BDIS`.
+
+- Array job over 8 species x 2 tissues, 128 GB, 16 CPU, from
+  `vst_hog.RDS` via the pipeline's `prepare_expression_matrix()` and
+  `reduce_orthogroups(cor_threshold = 0.7)`.
+- **Gate:** edge-set Jaccard against the March networks ~0.92 and
+  surviving-weight `max/min` ~2.46, both measured in the S1 spot-check.
+  A miss stops the phase rather than propagating into S2.
+
+Note the 8% edge turnover: the log transform flips the rank direction, and
+`sqrt(r_i r_j)` on descending ranks is not a monotone function of the
+ascending version, so the selected edge set genuinely differs. Every
+number in sections 5-8 above was computed on the old networks.
+
+### Phase 2 -- rebuild the derived layers
+
+Build one lib from merged `main` (carrying #17's weight and #14's power
+column), then:
+
+- **S2** edges, both tissues, 28 pairs each, ~3 min/tissue.
+  Gate: `edges == ortho_pairs` on all 56 pairs, `power_na = 0`.
+- **S3** cliques + intensity, ~10 min/tissue.
+  Gate: intensity rho with mean member degree stays near 0 -- confirms the
+  #17 fix survives log-weighted networks.
+- **S4** classification, ~7 min/tissue.
+  Gate: transitions only `trait_specific -> underpowered` and
+  `unclassified -> partial_present`.
+
+S3 and S4 are re-runs, but they are cheap and they keep every number in
+the final report from one configuration rather than two.
+
+### Phase 3 -- S5, degree diagnostics (~15 min)
+
+Member degree by class and by trait group; Kruskal-Wallis plus
+`class ~ log(degree) + trait`. H14.5 asks whether the degree gap between
+trait-specific and conserved classes shrinks after reclassification;
+H14.7 whether the trait groups differ in degree distribution at all.
+Given #16, expect the opposite of #12's prediction and report it that way.
+
+### Phase 4 -- S6, the intensity test, which is also the dynamic-range answer
+
+Intensity's narrow IQR has three compounding causes: clique edges are
+pre-selected to `q < alpha` (restricted range), the MaxEnt map pulls
+weights toward `p = 0.5` by construction (entropy is maximal there), and
+a geometric mean over `E` edges shrinks spread like `1/sqrt(E)`.
+
+Spread is not the goal; discrimination is. The principled quantity is the
+clique's intensity standardised against a **size- and
+composition-matched** null: `z = (observed - null_mean) / null_sd`. That
+is unbounded, has real spread, and reads as "how unusual is this clique".
+
+- `n_perm = 5` timing run on a stratified subset first, then size the real
+  run from it.
+- Report `z` and `p` per clique; rank on `z`, not on raw intensity.
+- Also report `mean(log p)` (log-intensity), which does not saturate.
+- **Gate:** a meaningful share of cliques reaching `n_matched >= 20`. If
+  the null rarely rebuilds a matching clique, that is a finding about the
+  test, not about the data.
+
+### Phase 5 -- report and close
+
+- S8 report against every H13/H14 criterion, H13.1 recorded as retired
+  with the S6 `z` distribution standing in for it.
+- Open a follow-up on **coherence**: IQR 0.002-0.007 under every weight
+  tested. If its `z` does not discriminate either, propose removing it
+  rather than shipping a constant.
+- Decide **#16** with S5 and S6 evidence in hand.
