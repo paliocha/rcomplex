@@ -215,6 +215,37 @@ encode_clique_edges <- function(edges, target_species) {
 }
 
 
+# Which rows of `edges` belong to each clique. Keyed by hog + sorted
+# (species, gene) endpoints: gene identifiers are not guaranteed unique
+# across species, so a key built from gene names alone could match an
+# edge from an unrelated species pair that happens to share both gene
+# strings; folding species into each endpoint before sorting keeps the
+# pair (and its species) intact. compute_clique_edge_stats() and the
+# matched-edge null both route through this, so the observed intensity
+# and its null are scored over provably the same edge set.
+.clique_edge_rows <- function(cliques, edges, target_species) {
+  ek1 <- paste(edges$species1, edges$gene1, sep = "\x02")
+  ek2 <- paste(edges$species2, edges$gene2, sep = "\x02")
+  edge_key <- paste(edges$hog, pmin(ek1, ek2), pmax(ek1, ek2), sep = "\x01")
+  edge_idx <- stats::setNames(seq_len(nrow(edges)), edge_key)
+  lapply(seq_len(nrow(cliques)), function(i) {
+    row_vals <- cliques[i, target_species, drop = TRUE]
+    present <- !is.na(row_vals)
+    genes <- unlist(row_vals[present], use.names = FALSE)
+    gene_sp <- target_species[present]
+    if (length(genes) < 2L) {
+      return(integer(0))
+    }
+    pairs <- utils::combn(seq_along(genes), 2L)
+    k1 <- paste(gene_sp[pairs[1L, ]], genes[pairs[1L, ]], sep = "\x02")
+    k2 <- paste(gene_sp[pairs[2L, ]], genes[pairs[2L, ]], sep = "\x02")
+    keys <- paste(cliques$hog[i], pmin(k1, k2), pmax(k1, k2), sep = "\x01")
+    matched <- edge_idx[keys]
+    unname(matched[!is.na(matched)])
+  })
+}
+
+
 #' Compute per-clique edge statistics (intensity, coherence, min effect size)
 #'
 #' Onnela weights are ensemble connection probabilities, not
@@ -240,32 +271,10 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
   intensity <- rep(NA_real_, n)
   coherence <- rep(NA_real_, n)
   min_eff <- rep(NA_real_, n)
-
-  # Build edge lookup keyed by hog + sorted (species, gene) pair. Gene
-  # identifiers are not guaranteed unique across species, so a key built
-  # from gene names alone could match an edge from an unrelated species
-  # pair that happens to share both gene strings; folding species into
-  # each endpoint before sorting keeps the pair (and its species) intact.
-  ek1 <- paste(edges$species1, edges$gene1, sep = "\x02")
-  ek2 <- paste(edges$species2, edges$gene2, sep = "\x02")
-  edge_key <- paste(edges$hog, pmin(ek1, ek2), pmax(ek1, ek2), sep = "\x01")
-  edge_idx <- stats::setNames(seq_len(nrow(edges)), edge_key)
+  rows <- .clique_edge_rows(cliques, edges, target_species)
 
   for (i in seq_len(n)) {
-    hog_i <- cliques$hog[i]
-    row_vals <- cliques[i, target_species, drop = TRUE]
-    present <- !is.na(row_vals)
-    genes <- unlist(row_vals[present], use.names = FALSE)
-    gene_sp <- target_species[present]
-    if (length(genes) < 2L) next
-
-    # All pairs of (species, gene) in this clique
-    pairs <- utils::combn(seq_along(genes), 2L)
-    k1 <- paste(gene_sp[pairs[1L, ]], genes[pairs[1L, ]], sep = "\x02")
-    k2 <- paste(gene_sp[pairs[2L, ]], genes[pairs[2L, ]], sep = "\x02")
-    keys <- paste(hog_i, pmin(k1, k2), pmax(k1, k2), sep = "\x01")
-    matched <- edge_idx[keys]
-    matched <- matched[!is.na(matched)]
+    matched <- rows[[i]]
     if (length(matched) == 0L) next
 
     effs <- edges$effect_size[matched]
@@ -1713,7 +1722,19 @@ clique_perturbation_test.default <- function(
 #'   \code{\link{find_coexpressologs}}). When provided, skips the
 #'   baseline edge recomputation. When \code{NULL} (default), edges
 #'   are computed internally.
-#' @param null_model How each permutation destroys the ortholog mapping.
+#' @param null_model How the null is built. \code{"matched_edges"} does
+#'   not permute the ortholog mapping at all: it holds the mapping fixed
+#'   and replaces each clique edge with one drawn from that same species
+#'   pair's pool of \code{edge_type} edges, matching clique size and
+#'   species-pair composition while randomising only which genes supply
+#'   the weights. Nothing is re-clustered, so no clique has to be
+#'   rebuilt and the null stays defined for single-copy HOGs, where the
+#'   permutation models below are degenerate. It needs only \code{edges}
+#'   -- \code{networks} and \code{orthologs} may be \code{NULL} -- and
+#'   costs one resample per draw instead of a full
+#'   \code{find_coexpressologs()} re-run. Its pools treat edges within a
+#'   species pair as exchangeable, so it does not control for degree.
+#'   The permutation models destroy the ortholog mapping instead.
 #'   \code{"global"} (default) shuffles \code{Species2} across every HOG.
 #'   That also destroys the HOGs, so a permuted run rarely contains the
 #'   observed clique's HOG and there is nothing to match: on the eight-species
@@ -1763,7 +1784,7 @@ clique_intensity_test <- function(cliques, ...) {
 #' @rdname clique_intensity_test
 #' @export
 clique_intensity_test.default <- function(
-  cliques, target_species, networks, orthologs,
+  cliques, target_species, networks = NULL, orthologs = NULL,
   species_pairs = NULL,
   n_perm = 500L,
   alternative = c("greater", "less"),
@@ -1778,7 +1799,7 @@ clique_intensity_test.default <- function(
   edges = NULL,
   pval_combine = c("max", "min"),
   pi0_method = c("storey", "randomized", "none"),
-  null_model = c("global", "within_hog"), ...
+  null_model = c("global", "within_hog", "matched_edges"), ...
 ) {
   alternative <- match.arg(alternative)
   null_model <- match.arg(null_model)
@@ -1804,25 +1825,32 @@ clique_intensity_test.default <- function(
   if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
   }
-  if (!is.list(networks) || is.null(names(networks))) {
-    stop("networks must be a named list keyed by species")
-  }
-  missing_net <- setdiff(target_species, names(networks))
-  if (length(missing_net) > 0) {
-    stop(
-      "networks missing entries for: ",
-      paste(missing_net, collapse = ", ")
-    )
-  }
-  for (sp in target_species) {
-    net <- networks[[sp]]
-    if (!is.list(net) || is.null(net$network) || is.null(net$threshold)) {
-      stop("each network must have 'network' and 'threshold' elements")
+  # "matched_edges" never re-runs find_coexpressologs(), so with a
+  # supplied edge table it needs neither networks nor orthologs. That is
+  # the point: it turns a run that had to hold every species network in
+  # memory into one that reads an edge table.
+  needs_networks <- is.null(edges) || null_model != "matched_edges"
+  if (needs_networks) {
+    if (!is.list(networks) || is.null(names(networks))) {
+      stop("networks must be a named list keyed by species")
     }
-    .net_check(net, net$threshold)
-  }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+    missing_net <- setdiff(target_species, names(networks))
+    if (length(missing_net) > 0) {
+      stop(
+        "networks missing entries for: ",
+        paste(missing_net, collapse = ", ")
+      )
+    }
+    for (sp in target_species) {
+      net <- networks[[sp]]
+      if (!is.list(net) || is.null(net$network) || is.null(net$threshold)) {
+        stop("each network must have 'network' and 'threshold' elements")
+      }
+      .net_check(net, net$threshold)
+    }
+    if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
+      stop("orthologs must have columns: Species1, Species2, hog")
+    }
   }
 
   # See .seed_scope() in R/rng.R for the package-wide contract.
@@ -1844,9 +1872,16 @@ clique_intensity_test.default <- function(
       pi0_method = pi0_method
     )
   }
+  # One Onnela fit for the observed statistic, reused by the
+  # matched-edge null below. Each fit is a uniroot per species pair, and
+  # the null has to score against the same weights the observation does.
+  # The permutation loop still fits its own, since each permuted run has
+  # its own edge table.
+  ew <- .onnela_weight(edges)
   obs_stats <- compute_clique_edge_stats(
     cliques, edges,
-    target_species
+    target_species,
+    weights = ew
   )
   observed_intensity <- obs_stats$intensity
   n_cliques <- nrow(cliques)
@@ -1873,7 +1908,46 @@ clique_intensity_test.default <- function(
     shuffle_sp2[is.na(shuffle_sp2)] <- "?"
   }
 
-  for (p in seq_len(n_perm)) {
+  # Hold the ortholog mapping fixed and ask the question the statistic
+  # can actually answer: is this clique's edge set unusually intense for
+  # its size and species composition? Each draw replaces every clique
+  # edge with one drawn from that same species pair's pool, so clique
+  # size and pair composition are matched and only the genes are
+  # randomised. Nothing is re-clustered, so unlike an orthology
+  # permutation this null cannot collapse: no clique has to be rebuilt,
+  # and it stays defined for single-copy HOGs.
+  perm_iters <- if (null_model == "matched_edges") 0L else n_perm
+  if (null_model == "matched_edges") {
+    pool_key <- paste(
+      pmin(edges$species1, edges$species2),
+      pmax(edges$species1, edges$species2),
+      sep = "\x01"
+    )
+    usable <- is.finite(ew)
+    if (!is.null(edge_type) && "type" %in% names(edges)) {
+      usable <- usable & edges$type %in% edge_type
+    }
+    pools <- split(ew[usable], pool_key[usable])
+    rows <- .clique_edge_rows(cliques, edges, target_species)
+    for (i in seq_len(n_cliques)) {
+      idx <- rows[[i]]
+      # Same refusal as the observed statistic: an incomplete weight set
+      # would silently change the denominator, so score nothing.
+      if (length(idx) == 0L || anyNA(ew[idx])) next
+      draws <- vapply(pool_key[idx], function(k) {
+        pool <- pools[[k]]
+        if (is.null(pool) || length(pool) == 0L) {
+          rep(NA_real_, n_perm)
+        } else {
+          sample(pool, n_perm, replace = TRUE)
+        }
+      }, numeric(n_perm))
+      if (is.null(dim(draws))) draws <- matrix(draws, nrow = n_perm)
+      null_intensities[, i] <- exp(rowMeans(log(draws)))
+    }
+  }
+
+  for (p in seq_len(perm_iters)) {
     # How the ortholog mapping is destroyed. "global" shuffles Species2
     # across every HOG, which also destroys the HOGs themselves: a
     # permuted run then almost never contains the observed clique's HOG,
