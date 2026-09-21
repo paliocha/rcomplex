@@ -115,8 +115,8 @@ cliques, then backtracking to assign the best gene per species
 unfiltered table (every tested pair, e.g. the output of
 <code><a href="find_coexpressologs.html">find_coexpressologs</a></code>): cliques are built from
 <code>edge_type</code> rows only, but <code>intensity</code> and
-<code>coherence</code> rank each edge's Jaccard index against every row of
-its species pair, so a pre-filtered table changes what they measure.
+<code>coherence</code> fit each edge's weight scale on every row of its
+species pair, so a pre-filtered table changes what they measure.
 A table whose <code>type</code> column holds only <code>edge_type</code> rows
 triggers a warning (class <code>rcomplex_prefiltered_edges</code>, shown
 once per session).</p></dd>
@@ -189,18 +189,23 @@ the original mean-q-only ranking.</p></dd>
 
 <dt>intensity</dt>
 <dd><p>Onnela intensity: geometric mean, across present
-edges, of each edge's Jaccard percentile among all tested
-pairs of its species pair (in (0, 1]; higher = stronger
-conservation). Percentiles rather than <code>1 - q.value</code>: every
-clique edge already passed alpha, so <code>1 - q</code> left no range.
-Jaccard rather than effect size, which falls like 1 / degree at a
-fixed conserved fraction. <code>NA</code> when <code>edges</code> has no
-usable <code>jaccard</code> column, or when any present clique edge
-lacks a finite Jaccard value.</p></dd>
+edges, of each edge's ensemble connection probability (in
+(0, 1); higher = stronger conservation). Each edge's
+association strength (<code>effect_size</code>, observed overlap over
+its expectation) is mapped to a probability
+<code>p = z w / (1 + z w)</code>, with <code>z</code> fitted per species
+pair by maximum entropy, so intensity reads as the per-edge
+probability that the whole clique exists. Not <code>1 - q.value</code>:
+every clique edge already passed alpha, so <code>1 - q</code> left no
+range (#11). Not the Jaccard index, whose null expectation grows
+with neighbourhood size, which ranked hub genes above equally
+conserved low-degree ones (#15). <code>NA</code> when <code>edges</code> has
+no usable <code>effect_size</code> column, or when any present clique
+edge lacks a finite value.</p></dd>
 
 <dt>coherence</dt>
 <dd><p>Onnela coherence: intensity / arithmetic mean of
-the same percentiles (1 when all edge weights are equal)</p></dd>
+the same probabilities (1 when all edge weights are equal)</p></dd>
 
 <dt>min_effect_size</dt>
 <dd><p>Minimum effect size across present edges
