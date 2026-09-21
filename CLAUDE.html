@@ -74,8 +74,8 @@
 </ul><p>Based on <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em>, 2014</a>. The gene-graph clique taxonomy follows <a href="https://doi.org/10.1038/s41467-026-75624-2" class="external-link">Rodriguez <em>et al.</em>, 2026</a>.</p>
 </div>
 <div class="section level2">
-<h2 id="repository-status-as-of-2026-09-14">Repository status (as of 2026-09-14)<a class="anchor" aria-label="anchor" href="#repository-status-as-of-2026-09-14"></a></h2>
-<p><code>main</code> is green: <code>R CMD check</code> is <code>Status: OK</code>, <code>devtools::test()</code> passes 3036/0/7/10 (pass/fail/warn/skip; warns and skips are pre-existing and environment-gated on missing <code>sbm</code>/<code>torch</code>), <code><a href="https://lintr.r-lib.org/reference/lint.html" class="external-link">lintr::lint_package()</a></code> reports no lints, and all four <code>main</code> CI workflows (lint, R-CMD-check x2, test-coverage, pkgdown) pass. There is one open draft PR, <code>#4</code> (<code>experiment/clique-module-deployment</code>, “ZDS interpretation”): a large (133 files, 61 commits) speculative branch that predates today’s fixes, has diverged from <code>main</code>, and fails CI (including the pre-fix <code>covr</code> hang below). It has been deliberately set aside — do not merge, rebase, or otherwise act on it without being asked.</p>
+<h2 id="repository-status">Repository status<a class="anchor" aria-label="anchor" href="#repository-status"></a></h2>
+<p>There is one open draft PR, <code>#4</code> (<code>experiment/clique-module-deployment</code>, “ZDS interpretation”): a large (133 files, 61 commits) speculative branch that predates today’s fixes, has diverged from <code>main</code>, and fails CI (including the pre-fix <code>covr</code> hang below). It has been deliberately set aside — do not merge, rebase, or otherwise act on it without being asked.</p>
 </div>
 <div class="section level2">
 <h2 id="build--test">Build &amp; Test<a class="anchor" aria-label="anchor" href="#build--test"></a></h2>
@@ -86,193 +86,6 @@
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'lintr::lint_package()'</span></span>
 <span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="ex">R</span> CMD build . <span class="kw">&amp;&amp;</span> <span class="ex">R</span> CMD check <span class="at">--no-manual</span> rcomplex_0.3.0.tar.gz   <span class="co"># expect "Status: OK"</span></span></code></pre></div>
 <p>Check the built tarball, not the source directory — <code>Authors@R</code> only expands at build time, so <code>R CMD check .</code> fails with “Author/Maintainer missing”. <code>--no-manual</code> avoids needing pdflatex. The historical <code>R_ext/Boolean.h</code> warning no longer appears with clang 22. CI runs <code><a href="https://lintr.r-lib.org/reference/lint.html" class="external-link">lintr::lint_package()</a></code> with <code>LINTR_ERROR_ON_LINT</code> and there is no <code>.lintr</code> file, so any lint fails the build — keep lines at or under 80 characters.</p>
-</div>
-<div class="section level2">
-<h2 id="package-architecture">Package Architecture<a class="anchor" aria-label="anchor" href="#package-architecture"></a></h2>
-<div class="section level3">
-<h3 id="r-layer">R layer<a class="anchor" aria-label="anchor" href="#r-layer"></a></h3>
-<table class="table"><colgroup><col width="40%"><col width="60%"></colgroup><thead><tr class="header"><th>File</th>
-<th>Purpose</th>
-</tr></thead><tbody><tr class="odd"><td><code>R/orthologs.R</code></td>
-<td>
-<code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code>, <code><a href="reference/reduce_orthogroups.html">reduce_orthogroups()</a></code>, <code><a href="reference/prepare_orthologs.html">prepare_orthologs()</a></code>
-</td>
-</tr><tr class="even"><td><code>R/network.R</code></td>
-<td>
-<code><a href="reference/compute_network.html">compute_network()</a></code> — correlation, MR/CLR, density threshold, sparse extraction, torch GPU</td>
-</tr><tr class="odd"><td><code>R/network-sparse.R</code></td>
-<td>Sparse dispatch: <code>.net_is_sparse()</code>, <code>.net_check()</code>, <code>.net_cpp_args()</code> (store guard), <code><a href="reference/as_sparse_network.html">as_sparse_network()</a></code>, <code>dense_to_dgc()</code>
-</td>
-</tr><tr class="even"><td><code>R/mr_block.R</code></td>
-<td>
-<code><a href="reference/mr_block.html">mr_block()</a></code> — exact local MR reconstruction for gene subsets (incl. sub-store entries)</td>
-</tr><tr class="odd"><td><code>R/comparison.R</code></td>
-<td>
-<code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code>, <code><a href="reference/comparison_to_edges.html">comparison_to_edges()</a></code>, <code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code> (alias: <code><a href="reference/find_coexpressologs.html">run_pairwise_comparisons()</a></code>), <code><a href="reference/density_sweep.html">density_sweep()</a></code>, <code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code>
-</td>
-</tr><tr class="even"><td><code>R/coexpressolog_null.R</code></td>
-<td>
-<code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code> — degree-preserving edge-swap null</td>
-</tr><tr class="odd"><td><code>R/summary.R</code></td>
-<td>
-<code><a href="reference/summarize_comparison.html">summarize_comparison()</a></code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>, <code>compute_qvalues()</code> (randomized-p pi0), torch FE helpers</td>
-</tr><tr class="even"><td><code>R/modules.R</code></td>
-<td>
-<code><a href="reference/detect_modules.html">detect_modules()</a></code> (single + consensus), <code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>, <code><a href="reference/characterize_hubs.html">characterize_hubs()</a></code>
-</td>
-</tr><tr class="odd"><td><code>R/ortholog_map.R</code></td>
-<td>
-<code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code> — reduce multi-copy HOGs toward one counterpart per gene (cliques, then mutual-best coexpressologs); anything left is carried as <code>unresolved</code> and settled by majority vote inside <code><a href="reference/module_preservation.html">module_preservation()</a></code> / <code><a href="reference/module_correspondence.html">module_correspondence()</a></code>
-</td>
-</tr><tr class="even"><td><code>R/module_preservation.R</code></td>
-<td>
-<code><a href="reference/module_preservation.html">module_preservation()</a></code>, <code><a href="reference/classify_preservation.html">classify_preservation()</a></code>, <code><a href="reference/module_correspondence.html">module_correspondence()</a></code>, <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>
-</td>
-</tr><tr class="odd"><td><code>R/preservation_matrix.R</code></td>
-<td>
-<code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code> — every <code>choose(n, 2)</code> contrast as a <code>pairs</code> table; <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> — trait relabelling null over the all-pairs preservation matrix (free + within-block, enumerated below <code>enum_max</code> and sampled above it)</td>
-</tr><tr class="even"><td><code>R/pvalue_saturation.R</code></td>
-<td>
-<code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> — distinct values, ties at the minimum and at 1, and permutation-floor status (<code>permutation-limited</code> / <code>evidence-limited</code> / below floor) of a p- or q-vector</td>
-</tr><tr class="odd"><td><code>R/tag_permutation.R</code></td>
-<td>
-<code><a href="reference/tag_permutation.html">tag_permutation()</a></code> — trait-specific module recurrence test</td>
-</tr><tr class="even"><td><code>R/tag_blocks.R</code></td>
-<td>Internal exchangeability blocks for <code><a href="reference/tag_permutation.html">tag_permutation()</a></code>: <code>.tp_blocks()</code> (connected components of the species/contrast graph), <code>.tp_block_labellings()</code>, <code>.tp_expected()</code>
-</td>
-</tr><tr class="odd"><td><code>R/coexpressolog-strength.R</code></td>
-<td>
-<code><a href="reference/coexpressolog_strength.html">coexpressolog_strength()</a></code> — density-integrated robustness score for individual coexpressolog edges (re-examines existing networks at several matched densities, no recomputed correlation/normalization); <code><a href="reference/suggest_reference_density.html">suggest_reference_density()</a></code> — WGCNA-style scale-free-fit diagnostic for picking a reference density</td>
-</tr><tr class="even"><td><code>R/cliques.R</code></td>
-<td>
-<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/clique_persistence.html">clique_persistence()</a></code>, <code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code>, <code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code>, <code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code>, <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>
-</td>
-</tr><tr class="odd"><td><code>R/clique_gene_graph.R</code></td>
-<td>
-<code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> — maximal cliques of the per-HOG (species, gene) graph, every paralog combination reported; <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> — five-tier conservation taxonomy with thresholds derived from <code>length(species)</code>
-</td>
-</tr><tr class="even"><td><code>R/se_methods.R</code></td>
-<td>
-<code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code>, <code>build_se()</code> (internal) — SummarizedExperiment helpers</td>
-</tr><tr class="odd"><td><code>R/rcomplex-class.R</code></td>
-<td>S3 <code>rcomplex</code> container: constructor, print/summary, and a <code>.rcomplex</code> method for every pipeline generic registered in <code>NAMESPACE</code>
-</td>
-</tr><tr class="even"><td><code>R/rcomplex-package.R</code></td>
-<td>Package-level roxygen, namespace imports</td>
-</tr><tr class="odd"><td><code>R/rng.R</code></td>
-<td>
-<code>.seed_scope()</code> / <code>.seed_restore()</code> — the one RNG seeding contract every seeded entry point routes through; <code>.can_fork()</code> — gates every <code>mclapply()</code> call site on whether forking is safe (see the RNG section below for why)</td>
-</tr></tbody></table></div>
-<div class="section level3">
-<h3 id="c-layer-src-rcpparmadillo--openmp">C++ layer (src/, RcppArmadillo + OpenMP)<a class="anchor" aria-label="anchor" href="#c-layer-src-rcpparmadillo--openmp"></a></h3>
-<table class="table"><colgroup><col width="40%"><col width="60%"></colgroup><thead><tr class="header"><th>File</th>
-<th>Purpose</th>
-</tr></thead><tbody><tr class="odd"><td><code>src/mutual_rank.cpp</code></td>
-<td>MR normalization with column-major access; in-place kernel (<code>mutual_rank_inplace_cpp</code>) + cached reference</td>
-</tr><tr class="even"><td><code>src/clr.cpp</code></td>
-<td>CLR normalization</td>
-</tr><tr class="odd"><td><code>src/density_threshold.cpp</code></td>
-<td>Quantile-based density thresholding</td>
-</tr><tr class="even"><td><code>src/sparse_extract.cpp</code></td>
-<td>Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix</td>
-</tr><tr class="odd"><td><code>src/neighbor_lists.h</code></td>
-<td>Shared neighbour-list construction: dense <code>arma::mat</code> or validated dgCMatrix slots</td>
-</tr><tr class="even"><td><code>src/neighborhood_comparison.cpp</code></td>
-<td>Pairwise neighborhood overlap (hypergeometric, self-excluded urn); dense + sparse entry points</td>
-</tr><tr class="odd"><td><code>src/hog_permutation.cpp</code></td>
-<td>HOG permutation engine (bit-vector/flag-vector, Besag &amp; Clifford); dense + sparse entry points</td>
-</tr><tr class="even"><td><code>src/fe_permutation.cpp</code></td>
-<td>GPU-precomputed FE permutation engine</td>
-</tr><tr class="odd"><td><code>src/module_preservation.cpp</code></td>
-<td>Module preservation permutation engine (<code>avg.weight</code>, <code>cor.degree</code>, plus diagnostics) and per-gene intramodular statistics; dense + sparse entry points</td>
-</tr><tr class="even"><td><code>src/rewire_degseq.cpp</code></td>
-<td>Degree-preserving edge-swap kernel for <code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code>: igraph’s <code>keeping_degseq</code> trial on a bit-matrix adjacency, drawing from R’s RNG</td>
-</tr><tr class="odd"><td><code>src/reduce_orthogroups.cpp</code></td>
-<td>Ward.D2 paralog merging</td>
-</tr><tr class="even"><td><code>src/coclassification.cpp</code></td>
-<td>Co-classification matrix with per-pair null subtraction (Jeub et al. 2018)</td>
-</tr><tr class="odd"><td><code>src/find_cliques_common.h</code></td>
-<td>Shared clique primitives (BK/Tomita, backtracking, trait, Jaccard)</td>
-</tr><tr class="even"><td><code>src/find_cliques.cpp</code></td>
-<td>C++ clique detection wrapper</td>
-</tr><tr class="odd"><td><code>src/find_cliques_stability.cpp</code></td>
-<td>Leave-k-out stability engine with OpenMP</td>
-</tr><tr class="even"><td><code>src/sample_k_distinct.h</code></td>
-<td>Shared rejection-sampling utility</td>
-</tr></tbody></table></div>
-<div class="section level3">
-<h3 id="tests">Tests<a class="anchor" aria-label="anchor" href="#tests"></a></h3>
-<table class="table"><colgroup><col width="42%"><col width="57%"></colgroup><thead><tr class="header"><th>File</th>
-<th>Covers</th>
-</tr></thead><tbody><tr class="odd"><td><code>tests/testthat/test-network.R</code></td>
-<td>Network construction, MR/CLR, density threshold, in-place MR, torch</td>
-</tr><tr class="even"><td><code>tests/testthat/test-network-sparse.R</code></td>
-<td>Sparse network object: dense-vs-sparse equality across all consumers, store guard</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-equivalence.R</code></td>
-<td>Equivalence against canonical ComPlEx (seeded fixture, 149 calls)</td>
-</tr><tr class="even"><td><code>tests/testthat/test-comparison.R</code></td>
-<td>Neighborhood comparison, effect sizes, sparse dispatch, pval_combine</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-summary.R</code></td>
-<td>Pair-level q-value correction</td>
-</tr><tr class="even"><td><code>tests/testthat/test-pi0.R</code></td>
-<td>Randomized-p pi0 estimation (simulation vs truth, Storey, BH)</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-permutation.R</code></td>
-<td>HOG permutation (correctness, adaptive stopping, sparse, torch)</td>
-</tr><tr class="even"><td><code>tests/testthat/test-mr-block.R</code></td>
-<td>
-<code><a href="reference/mr_block.html">mr_block()</a></code> exact reconstruction vs dense network</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-coexpressolog-null.R</code></td>
-<td>Edge-swap null (seeded, parallel reproducibility)</td>
-</tr><tr class="even"><td><code>tests/testthat/test-coexpressed-hogs.R</code></td>
-<td>
-<code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code> cross-species partner queries</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-modules.R</code></td>
-<td>Module detection and consensus</td>
-</tr><tr class="even"><td><code>tests/testthat/test-module-determinism.R</code></td>
-<td>Consensus determinism on a deliberately ambiguous network: bit-reproducible across core counts, ambient RNG stream unchanged, K = 1 null resolution, consensus fixed point</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-ortholog-map.R</code></td>
-<td>Paralog resolution layers, precedence, mappable-set invariant</td>
-</tr><tr class="even"><td><code>tests/testthat/test-module-preservation.R</code></td>
-<td>Preservation kernel vs R reference, null calibration, classification, correspondence, paired directions</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-preservation-matrix.R</code></td>
-<td>
-<code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code>, all-pairs relabelling test: label-space sizes and floors, binary difference vs multilevel dispersion, within-block exclusion, saturation reporting</td>
-</tr><tr class="even"><td><code>tests/testthat/test-pvalue-saturation.R</code></td>
-<td>
-<code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> counts, floor status, off-grid detection, <code>suggested_n_perm</code>, print method</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-module-hubs.R</code></td>
-<td>Hub identification, tie-breaking, hub conservation</td>
-</tr><tr class="even"><td><code>tests/testthat/test-tag-permutation.R</code></td>
-<td>Trait-specific module recurrence test</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-cliques.R</code></td>
-<td>Clique detection (igraph + C++ backends)</td>
-</tr><tr class="even"><td><code>tests/testthat/test-clique-gene-graph.R</code></td>
-<td>Gene-graph cliques and the five-tier taxonomy: tier waterfall, <code>missing_reason</code> states, derived thresholds, duplicate-row collapse, q-floor diagnostics</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-stability.R</code></td>
-<td>Leave-k-out jackknife stability</td>
-</tr><tr class="even"><td><code>tests/testthat/test-threshold-sweep.R</code></td>
-<td>Threshold sweep structural survival</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-perturbation.R</code></td>
-<td>Clique perturbation (noise robustness)</td>
-</tr><tr class="even"><td><code>tests/testthat/test-intensity-test.R</code></td>
-<td>Clique intensity permutation null</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-classify-cliques.R</code></td>
-<td>HOG classification waterfall pipeline</td>
-</tr><tr class="even"><td><code>tests/testthat/test-reduce-orthogroups.R</code></td>
-<td>Paralog reduction</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-se.R</code></td>
-<td>SummarizedExperiment integration (build_se, extract_orthologs, S4 compute_network)</td>
-</tr><tr class="even"><td><code>tests/testthat/test-rcomplex-class.R</code></td>
-<td>S3 container construction, printing, method pass-through</td>
-</tr><tr class="odd"><td><code>tests/testthat/test-rng-contract.R</code></td>
-<td>The RNG seeding contract, table-driven over every seeded entry point</td>
-</tr><tr class="even"><td><code>tests/testthat/helper-reference.R</code></td>
-<td>Pure-R reference implementations + shared net helpers (<code>sparse_net()</code>, …)</td>
-</tr><tr class="odd"><td><code>tests/testthat/helper-rng-contract.R</code></td>
-<td>Fixtures and the seeded-entry-point table for the RNG contract test</td>
-</tr><tr class="even"><td><code>tests/testthat/helper-clique-fixtures.R</code></td>
-<td>Shared clique test fixtures</td>
-</tr></tbody></table></div>
 </div>
 <div class="section level2">
 <h2 id="key-design-decisions">Key Design Decisions<a class="anchor" aria-label="anchor" href="#key-design-decisions"></a></h2>
@@ -340,10 +153,6 @@
 <li>
 <code>-DARMA_DONT_USE_OPENMP</code> in both Makevars: Armadillo’s <em>internal</em> OpenMP deadlocks <code>mclapply()</code> workers forked after the parent used OpenMP (see Known CI/tooling gotchas). Package kernels parallelise with their own <code>#pragma omp</code>, which the flag does not touch</li>
 </ul></div>
-</div>
-<div class="section level2">
-<h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>
-<p><strong>Imports</strong>: methods, Rcpp, Rfast, collapse, data.table, igraph, kit, Matrix (&gt;= 1.5-0), DiscreteQvalue, qvalue, parallel, rlang, stats, utils <strong>Suggests</strong>: DT, dplyr, knitr, purrr, rmarkdown, S4Vectors, sbm, stringr, SummarizedExperiment, tibble, torch, testthat, lintr, withr, pkgdown <strong>LinkingTo</strong>: Rcpp, RcppArmadillo <strong>System</strong>: GNU make, C++23, OpenMP (optional)</p>
 </div>
 <div class="section level2">
 <h2 id="design-notes">Design notes<a class="anchor" aria-label="anchor" href="#design-notes"></a></h2>
