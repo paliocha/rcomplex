@@ -173,10 +173,10 @@ encode_clique_edges <- function(edges, target_species) {
 
 #' Warn when an edge table looks already cut to `edge_type`
 #'
-#' Clique intensity ranks each edge's Jaccard index among every tested pair
-#' of its species pair. A table holding only `edge_type` rows ranks
-#' significant edges against each other instead, which is a different
-#' quantity that nothing downstream can tell apart. Tables without a
+#' Clique intensity fits each edge's weight scale on every tested pair of
+#' its species pair. A table holding only `edge_type` rows fits that scale
+#' on significant edges alone instead, which is a different quantity that
+#' nothing downstream can tell apart. Tables without a
 #' `type` column cannot be judged and pass silently. Warns once per
 #' session: clique_stability(), clique_threshold_sweep(),
 #' clique_perturbation_test() and classify_cliques() call find_cliques()
@@ -198,9 +198,9 @@ encode_clique_edges <- function(edges, target_species) {
         "), so it looks pre-filtered."
       ),
       i = paste0(
-        "Clique intensity and coherence rank each edge's Jaccard index ",
-        "among all tested pairs of its species pair; here that ",
-        "population is only the rows already kept."
+        "Clique intensity and coherence fit the weight scale on every ",
+        "tested pair of its species pair; here that population is only ",
+        "the rows already kept."
       ),
       i = paste0(
         "Pass the unfiltered edge table, e.g. find_coexpressologs() ",
@@ -316,8 +316,8 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'   unfiltered table (every tested pair, e.g. the output of
 #'   \code{\link{find_coexpressologs}}): cliques are built from
 #'   \code{edge_type} rows only, but \code{intensity} and
-#'   \code{coherence} rank each edge's Jaccard index against every row of
-#'   its species pair, so a pre-filtered table changes what they measure.
+#'   \code{coherence} fit each edge's weight scale on every row of its
+#'   species pair, so a pre-filtered table changes what they measure.
 #'   A table whose \code{type} column holds only \code{edge_type} rows
 #'   triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
 #'   once per session).
@@ -364,7 +364,7 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'       no usable \code{effect_size} column, or when any present clique
 #'       edge lacks a finite value.}
 #'     \item{coherence}{Onnela coherence: intensity / arithmetic mean of
-#'       the same percentiles (1 when all edge weights are equal)}
+#'       the same probabilities (1 when all edge weights are equal)}
 #'     \item{min_effect_size}{Minimum effect size across present edges
 #'       (bottleneck enrichment)}
 #'   }
@@ -438,10 +438,10 @@ find_cliques.default <- function(edges, target_species,
   )
   empty_result <- as.data.frame(empty_cols)
 
-  # Onnela weights rank each edge's Jaccard index among every tested pair of
-  # its species pair, so they are taken before the edge_type filter; ranked
-  # among conserved edges alone they would only describe edges that
-  # already passed alpha.
+  # Onnela weights fit their scale on every tested pair of its species
+  # pair, so they are taken before the edge_type filter; fitted among
+  # conserved edges alone they would only describe edges that already
+  # passed alpha.
   .warn_if_prefiltered(edges, edge_type)
   weights <- .onnela_weight(edges)
   if ("type" %in% names(edges)) {
