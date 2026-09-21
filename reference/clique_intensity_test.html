@@ -117,8 +117,8 @@ stronger co-expression conservation than random mappings.</p>
 <span><span class="fu">clique_intensity_test</span><span class="op">(</span></span>
 <span>  <span class="va">cliques</span>,</span>
 <span>  <span class="va">target_species</span>,</span>
-<span>  <span class="va">networks</span>,</span>
-<span>  <span class="va">orthologs</span>,</span>
+<span>  networks <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  orthologs <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  species_pairs <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_perm <span class="op">=</span> <span class="fl">500L</span>,</span>
 <span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
@@ -133,7 +133,7 @@ stronger co-expression conservation than random mappings.</p>
 <span>  edges <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"storey"</span>, <span class="st">"randomized"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
-<span>  null_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"global"</span>, <span class="st">"within_hog"</span><span class="op">)</span>,</span>
+<span>  null_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"global"</span>, <span class="st">"within_hog"</span>, <span class="st">"matched_edges"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -244,7 +244,19 @@ baseline <code>cliques</code>/<code>edges</code>.</p></dd>
 
 
 <dt id="arg-null-model">null_model<a class="anchor" aria-label="anchor" href="#arg-null-model"></a></dt>
-<dd><p>How each permutation destroys the ortholog mapping.
+<dd><p>How the null is built. <code>"matched_edges"</code> does
+not permute the ortholog mapping at all: it holds the mapping fixed
+and replaces each clique edge with one drawn from that same species
+pair's pool of <code>edge_type</code> edges, matching clique size and
+species-pair composition while randomising only which genes supply
+the weights. Nothing is re-clustered, so no clique has to be
+rebuilt and the null stays defined for single-copy HOGs, where the
+permutation models below are degenerate. It needs only <code>edges</code>
+– <code>networks</code> and <code>orthologs</code> may be <code>NULL</code> – and
+costs one resample per draw instead of a full
+<code><a href="find_coexpressologs.html">find_coexpressologs()</a></code> re-run. Its pools treat edges within a
+species pair as exchangeable, so it does not control for degree.
+The permutation models destroy the ortholog mapping instead.
 <code>"global"</code> (default) shuffles <code>Species2</code> across every HOG.
 That also destroys the HOGs, so a permuted run rarely contains the
 observed clique's HOG and there is nothing to match: on the eight-species
