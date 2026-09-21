@@ -12,6 +12,7 @@ coexpressolog_null(
   swap_factor = 10L,
   n_cores = 1L,
   seed = NULL,
+  filter_zero = TRUE,
   ...
 )
 }
@@ -70,6 +71,15 @@ lie anywhere in \code{+/- .Machine$integer.max}) give every rewiring
 permutation the same seed, so the null is identical for the two runs
 even though the observed statistic is not: see the aliasing note under
 \code{.task_seed()}.}
+
+\item{filter_zero}{Passed to \code{\link{find_coexpressologs}} for
+both the observed and every null run. \code{TRUE} (default) drops
+ortholog pairs with zero neighbourhood overlap before the q-values,
+which is what this test wants: the statistic reads called edges
+only, so retaining the zero-overlap rows adds tens of thousands of
+never-called rows per pair to every permutation for nothing. It also
+differs from the \code{find_coexpressologs()} default, which keeps
+them so that low-degree failures carry a \code{power} value.}
 
 \item{...}{Passed unchanged to \code{\link{find_coexpressologs}} for
 both the observed and every null run (\code{species_pairs},

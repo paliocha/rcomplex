@@ -127,13 +127,19 @@ test_that(
   {
     d <- load_complex_py()
     nets <- list(sp1 = d$n1, sp2 = d$n2)
+    # filter_zero = TRUE: canonical ComPlEx drops the zero-overlap pairs
+    # before its BH correction, so reproducing its q-values means
+    # correcting over the same multiple-testing set. The package default
+    # (FALSE) keeps those rows for the power column and raises every
+    # q-value, which is a deliberate departure from canonical, not a
+    # regression -- so it must not be tested against canonical numbers.
     e_max <- find_coexpressologs(nets, d$ortho,
       alpha = 0.05,
-      pval_combine = "max", pi0_method = "none"
+      pval_combine = "max", pi0_method = "none", filter_zero = TRUE
     )
     e_min <- find_coexpressologs(nets, d$ortho,
       alpha = 0.05,
-      pval_combine = "min", pi0_method = "none"
+      pval_combine = "min", pi0_method = "none", filter_zero = TRUE
     )
 
     key_expected <- paste(d$expected$Species1, d$expected$Species2)
@@ -168,13 +174,16 @@ test_that(
   {
     d <- load_complex_py()
     nets <- list(sp1 = d$n1, sp2 = d$n2)
+    # filter_zero = TRUE on both: see the note in the test above. What is
+    # under test here is that the *default* pval_combine is "max", so both
+    # calls must differ in nothing else.
     e_def <- find_coexpressologs(nets, d$ortho,
       alpha = 0.05,
-      pi0_method = "none"
+      pi0_method = "none", filter_zero = TRUE
     )
     e_max <- find_coexpressologs(nets, d$ortho,
       alpha = 0.05,
-      pval_combine = "max", pi0_method = "none"
+      pval_combine = "max", pi0_method = "none", filter_zero = TRUE
     )
     expect_identical(e_def, e_max)
 

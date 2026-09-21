@@ -1137,3 +1137,221 @@ test_that("a row-filtered clique table is accepted, not called a merge", {
     "more member rows than n_members declares"
   )
 })
+
+
+# --- Underpowered tests (#12) ---
+
+# An L1 triangle whose L2 species were each compared against every
+# member and came back non-significant, at the given power.
+gcg_up_lineage <- function(power) {
+  l1 <- gcg_six[1:3]
+  h <- gcg_pairs(l1, c("a1", "b1", "c1"), "HOG1", 0.01)
+  h$power <- 0.99
+  cross <- do.call(rbind, lapply(gcg_six[4:6], function(s) {
+    data.frame(
+      gene1 = c("a1", "b1", "c1"), gene2 = paste0(s, "_g"),
+      species1 = l1, species2 = s, hog = "HOG1", q.value = 0.95,
+      effect_size = 1, power = power, stringsAsFactors = FALSE
+    )
+  }))
+  rbind(h, cross)
+}
+
+# Six species, both lineages fully significant within, every cross pair
+# tested at q = 0.95 with the power given (recycled over the 9 pairs).
+gcg_up_diff <- function(cross_power, cross_q = 0.95) {
+  cmb <- utils::combn(6L, 2L)
+  same <- gcg_lin[gcg_six[cmb[1L, ]]] == gcg_lin[gcg_six[cmb[2L, ]]]
+  e <- gcg_pairs(
+    gcg_six, paste0(c("a", "b", "c", "d", "e", "f"), 1),
+    "HOG1", ifelse(same, 0.01, cross_q)
+  )
+  e$power <- 0.99
+  e$power[!same] <- cross_power
+  e
+}
+
+
+test_that("an outside species tested without power reads underpowered", {
+  e <- gcg_up_lineage(0.1)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  expect_equal(
+    res$missing_reason, "underpowered,underpowered,underpowered"
+  )
+  expect_equal(res$classification, "underpowered")
+  expect_equal(res$hog_class, "underpowered")
+
+  # One species underpowered, the others absent from the orthogroup.
+  e1 <- e[e$species2 %in% gcg_six[1:4], ]
+  cl1 <- gene_clique_graph(e1, alpha_graph = 0.9)
+  res1 <- classify_gene_cliques(cl1, e1, gcg_six, lineage = gcg_lin)
+  expect_equal(res1$missing_reason, "underpowered,absent,absent")
+  expect_equal(res1$classification, "underpowered")
+})
+
+
+test_that("a powered or unmeasured failed test still blocks the tier", {
+  for (pw in list(0.95, NA_real_)) {
+    e <- gcg_up_lineage(pw)
+    cl <- gene_clique_graph(e, alpha_graph = 0.9)
+    res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+    expect_equal(res$missing_reason, "tested_ns,tested_ns,tested_ns")
+    expect_equal(res$classification, "unclassified")
+  }
+
+  # Power at or above min_power is powered.
+  e <- gcg_up_lineage(0.1)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, gcg_six,
+    lineage = gcg_lin,
+    min_power = 0.1
+  )
+  expect_equal(res$classification, "unclassified")
+
+  # One powered failure among a species' tests keeps it tested_ns, and a
+  # single powered species blocks the call however many others are not.
+  e2 <- gcg_up_lineage(0.1)
+  e2$power[e2$species2 == "SP_D"][1] <- 0.95
+  cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
+  res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
+  expect_equal(
+    res2$missing_reason, "tested_ns,underpowered,underpowered"
+  )
+  expect_equal(res2$classification, "unclassified")
+})
+
+
+test_that("a significant test does not excuse underpowered failures", {
+  # SP_D is significant against one clique member and fails against the
+  # other two, so it cannot join the clique: what keeps it out are the two
+  # failures, and at power 0.1 neither is a rejection. The check used to
+  # sit in the `else` of "no significant test", so one significant edge
+  # was enough to report tested_ns and hide the underpowered failures.
+  e <- gcg_up_lineage(0.1)
+  e$q.value[which(e$species2 == "SP_D")[1]] <- 0.01
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  # The new significant edge also forms its own two-node maximal clique;
+  # the three-member one is the clique under test.
+  res3 <- res[res$n_members == 3L, ]
+  expect_equal(nrow(res3), 1L)
+  expect_equal(
+    res3$missing_reason, "underpowered,underpowered,underpowered"
+  )
+
+  # Power those same two failures and the species is rejected, not
+  # uninformative, so it reads tested_ns again.
+  e2 <- e
+  e2$power[e2$species2 == "SP_D" & e2$q.value > 0.05] <- 0.95
+  cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
+  res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
+  res2 <- res2[res2$n_members == 3L, ]
+  expect_equal(
+    res2$missing_reason, "tested_ns,underpowered,underpowered"
+  )
+})
+
+
+test_that("power moves only the calls it is meant to", {
+  e <- make_gcg_fixture()
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  res0 <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  e$power <- 0.1
+  res1 <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  want <- res0$classification
+  # HOG5's nine non-significant cross pairs now count against cross_max.
+  want[res0$hog == "HOG5"] <- "underpowered"
+  # HOG4's clique is one species short; that species was tested and
+  # failed, but at power 0.1 the failure is no rejection, so it counts as a
+  # gap and the clique is partial_present rather than unclassified.
+  want[res0$hog == "HOG4"] <- "partial_present"
+  expect_equal(res1$classification, want)
+  # HOG6's outside species are absent, not tested: still lineage_specific.
+  expect_equal(res1$classification[res1$hog == "HOG6"], "lineage_specific")
+  expect_equal(res1$n_underpowered_cross[res1$hog == "HOG5"], 9L)
+})
+
+
+test_that("differentiated must survive underpowered cross pairs", {
+  sp <- gcg_six
+  run <- function(e) {
+    cl <- gene_clique_graph(e, alpha_graph = Inf)
+    classify_gene_cliques(cl, e, sp, lineage = gcg_lin)
+  }
+  # cross_max is 4: five underpowered pairs could hold a fifth
+  # significant one, four cannot.
+  five <- run(gcg_up_diff(c(rep(0.1, 5), rep(0.95, 4))))
+  expect_equal(five$classification, "underpowered")
+  expect_equal(five$n_underpowered_cross, 5L)
+  expect_equal(five$n_sig_cross, 0L)
+
+  four <- run(gcg_up_diff(c(rep(0.1, 4), rep(0.95, 5))))
+  expect_equal(four$classification, "differentiated")
+  expect_equal(four$n_underpowered_cross, 4L)
+
+  # One significant cross pair plus four underpowered ones exceeds it.
+  e <- gcg_up_diff(c(rep(0.1, 4), rep(0.95, 5)))
+  cross <- which(e$power == 0.95)[1]
+  e$q.value[cross] <- 0.01
+  mixed <- run(e)
+  expect_equal(mixed$n_sig_cross, 1L)
+  expect_equal(mixed$classification, "underpowered")
+
+  na_pw <- run(gcg_up_diff(NA_real_))
+  expect_equal(na_pw$classification, "differentiated")
+  expect_equal(na_pw$n_underpowered_cross, 0L)
+
+  e_nl <- gcg_up_diff(0.1)
+  cl_nl <- gene_clique_graph(e_nl, alpha_graph = Inf)
+  no_lin <- classify_gene_cliques(cl_nl, e_nl, sp)
+  expect_true(is.na(no_lin$n_underpowered_cross))
+})
+
+
+test_that("an underpowered missing species is a gap for partial_present", {
+  # Five species form a significant clique; the sixth was compared against
+  # every member and failed. Rejected (powered) it blocks partial_present;
+  # unknown (underpowered) it does not.
+  five <- function(pw) {
+    h <- gcg_pairs(gcg_six[1:5], paste0(c("a", "b", "c", "d", "e"), 1),
+                   "HOG1", 0.01)
+    h$power <- 0.99
+    miss <- data.frame(
+      gene1 = paste0(c("a", "b", "c", "d", "e"), 1), gene2 = "f_g",
+      species1 = gcg_six[1:5], species2 = gcg_six[6], hog = "HOG1",
+      q.value = 0.95, effect_size = 1, power = pw,
+      stringsAsFactors = FALSE
+    )
+    rbind(h, miss)
+  }
+  run <- function(pw) {
+    e <- five(pw)
+    cl <- gene_clique_graph(e, alpha_graph = 0.9)
+    classify_gene_cliques(cl, e, gcg_six)
+  }
+
+  up <- run(0.1)
+  expect_equal(up$missing_reason, "underpowered")
+  expect_equal(up$classification, "partial_present")
+
+  for (pw in list(0.95, NA_real_)) {
+    blocked <- run(pw)
+    expect_equal(blocked$missing_reason, "tested_ns")
+    expect_false(blocked$classification == "partial_present")
+  }
+})
+
+
+test_that("min_power is validated", {
+  e <- gcg_up_lineage(0.1)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  for (bad in list(-0.1, 1.5, NA_real_, c(0.5, 0.6), "0.8")) {
+    expect_error(
+      classify_gene_cliques(cl, e, gcg_six, min_power = bad),
+      "min_power must be a single number in \\[0, 1\\]"
+    )
+  }
+  empty <- classify_gene_cliques(cl[0, ], e, gcg_six)
+  expect_true("n_underpowered_cross" %in% names(empty))
+})

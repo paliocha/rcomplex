@@ -21,7 +21,9 @@ density_sweep(networks, ...)
   species_pairs = NULL,
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
+  filter_zero = FALSE,
   seed = NULL,
+  f0 = NULL,
   ...
 )
 }
@@ -69,6 +71,10 @@ by the analytical method): \code{"randomized"} (default),
 (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
 calls a pair when either direction is significant.}
 
+\item{filter_zero}{Passed to \code{\link{find_coexpressologs}}:
+whether zero-overlap ortholog pairs are dropped before the
+analytical q-values are computed (default \code{FALSE}, keep them).}
+
 \item{seed}{Integer seed for the sweep's random draws, or \code{NULL}
 (default) to draw from the global RNG. Applied once here, so the
 whole sweep is one reproducible unit: the multipliers are visited in
@@ -79,6 +85,9 @@ nothing is drawn before the first multiplier, a sweep seeded with
 \code{s} reproduces \code{find_coexpressologs(seed = s)} exactly at
 its first level. See \code{\link{find_coexpressologs}} for what a
 seed does and does not pin under each \code{method}.}
+
+\item{f0}{Passed to \code{\link{find_coexpressologs}}: reference
+conserved fraction for the analytical \code{power} column.}
 }
 \value{
 A data frame with columns \code{multiplier},

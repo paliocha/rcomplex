@@ -444,7 +444,9 @@ test_that("medianRank survives into a preservation_paired table", {
 
   expect_true("medianRank" %in% names(res$classification))
   for (key in names(res$raw)) {
-    ref <- strsplit(key, "\x01", fixed = TRUE)[[1]][1]
+    # raw is keyed "<reference>.<test>"; species names that would make
+    # that split ambiguous are rejected by preservation_paired() itself.
+    ref <- strsplit(key, ".", fixed = TRUE)[[1]][1]
     got <- res$classification$medianRank[res$classification$reference == ref]
     expect_equal(got, res$raw[[key]]$preservation$medianRank)
   }
@@ -765,7 +767,7 @@ test_that("preservation_paired runs both directions per contrast", {
   )
 
   expect_named(res, c("classification", "summary", "raw"))
-  expect_setequal(names(res$raw), c("A\x01B", "B\x01A"))
+  expect_setequal(names(res$raw), c("A.B", "B.A"))
   expect_setequal(unique(res$classification$reference), c("A", "B"))
 
   # tag_permutation() reads exactly these columns.
@@ -773,6 +775,33 @@ test_that("preservation_paired runs both directions per contrast", {
     "pair_name", "module", "reference", "test",
     "classification"
   ) %in% names(res$classification)))
+})
+
+test_that("colliding '<reference>.<test>' keys are refused up front", {
+  fx <- pres_fixture()
+  mods <- list(
+    A = true_modules(fx$netA, fx$mods),
+    B = true_modules(fx$netB, fx$mods)
+  )
+  # ref "A" / test "B.C" and ref "A.B" / test "C" both key as "A.B.C".
+  # The names only have to collide; the run must stop before computing
+  # anything, so the modules behind them are irrelevant.
+  mods4 <- stats::setNames(
+    list(mods$A, mods$B, mods$A, mods$B),
+    c("A", "B.C", "A.B", "C")
+  )
+  nets4 <- stats::setNames(
+    list(fx$netA, fx$netB, fx$netA, fx$netB),
+    c("A", "B.C", "A.B", "C")
+  )
+  pairs <- data.frame(
+    sp1 = c("A", "A.B"), sp2 = c("B.C", "C"),
+    stringsAsFactors = FALSE
+  )
+  expect_error(
+    preservation_paired(mods4, nets4, fx$ortho, pairs, n_perm = 5L),
+    "colliding contrast keys"
+  )
 })
 
 test_that("preservation_paired tags trait groups", {
