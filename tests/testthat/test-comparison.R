@@ -2025,15 +2025,31 @@ test_that("edge power is NA where it is undefined", {
   none$Species1.q.val.con <- 1
   none$Species2.q.val.con <- 1
   expect_equal(rcomplex:::.edge_power(none, 0.05, "greater", "max"), nas)
-  # Effect sizes that disagree on the urn size.
+  # Effect sizes that disagree on the urn size. This only defeats the
+  # reconstruction path: a frame from compare_neighborhoods() carries
+  # the urn, so a corrupted effect size no longer costs the whole
+  # direction its power. Strip the columns to reach the fallback.
   bad <- res
   hit <- which(bad$Species1.neigh.overlap > 0)[1]
   bad$Species1.effect.size[hit] <- bad$Species1.effect.size[hit] * 2
+  stripped <- bad
+  stripped$Species1.urn <- NULL
+  stripped$Species2.urn <- NULL
   expect_warning(
-    pw <- rcomplex:::.edge_power(bad, 0.05, "greater", "max"),
+    pw <- rcomplex:::.edge_power(stripped, 0.05, "greater", "max"),
     "urn size for Species1"
   )
   expect_equal(pw, nas)
+  # With the urn carried, the same corruption is survivable: power is
+  # computed from the exact population rather than reconstructed.
+  expect_silent(
+    pw_exact <- rcomplex:::.edge_power(bad, 0.05, "greater", "max")
+  )
+  expect_true(any(!is.na(pw_exact)))
+  # and the carried value is the anchor network's gene count less one
+  # (expect_equal, not identical: the carried urn is integer and the
+  # fixture computes its reference as a double)
+  expect_equal(unique(res$Species1.urn), fx$np)
 
   expect_error(
     comparison_to_edges(res, "SP_A", "SP_B", f0 = 0),
@@ -2072,4 +2088,64 @@ test_that("find_coexpressologs carries power on both paths", {
     find_coexpressologs(fx$networks, fx$orthologs, f0 = 2),
     "f0 must be NULL"
   )
+})
+
+test_that("compare_neighborhoods carries an exact per-direction urn", {
+  # The hypergeometric population is the ANCHOR NETWORK's gene count
+  # less the anchor: compute_direction() is called with n1 for direction
+  # 1 and n2 for direction 2. Describing it as "the ortholog-mapped set"
+  # would give nrow(orthologs) - 1, a different number -- so the
+  # networks here are deliberately different sizes, which is the only
+  # shape that can tell those two definitions apart.
+  g1 <- paste0("A", seq_len(12))
+  g2 <- paste0("B", seq_len(9))
+  mk <- function(g) {
+    n <- length(g)
+    m <- matrix(0, n, n, dimnames = list(g, g))
+    for (i in 2:min(6L, n)) {
+      m[1, i] <- 10
+      m[i, 1] <- 10
+    }
+    m
+  }
+  net1 <- list(network = mk(g1), threshold = 2)
+  net2 <- list(network = mk(g2), threshold = 2)
+  ortho <- data.frame(
+    Species1 = g1[seq_len(9)], Species2 = g2,
+    hog = paste0("HOG", seq_len(9)), stringsAsFactors = FALSE
+  )
+  cmp <- compare_neighborhoods(net1, net2, ortho)
+
+  expect_true(all(c("Species1.urn", "Species2.urn") %in% names(cmp)))
+  expect_identical(unique(cmp$Species1.urn), length(g1) - 1L)
+  expect_identical(unique(cmp$Species2.urn), length(g2) - 1L)
+  # asymmetric, and not the ortholog row count
+  expect_false(unique(cmp$Species1.urn) == unique(cmp$Species2.urn))
+  expect_false(unique(cmp$Species1.urn) == nrow(ortho) - 1L)
+})
+
+
+test_that("edge power uses the carried urn, and falls back without it", {
+  # Old comparison frames carry no urn columns and must still work
+  # through the reconstruction path. make_cmp_nets() is 50 genes vs 40,
+  # so the two directions have genuinely different urns.
+  d <- make_cmp_nets()
+  cmp <- compare_neighborhoods(d$net1, d$net2, d$ortho)
+  expect_identical(unique(cmp$Species1.urn), nrow(d$net1$network) - 1L)
+  expect_identical(unique(cmp$Species2.urn), nrow(d$net2$network) - 1L)
+  expect_false(unique(cmp$Species1.urn) == unique(cmp$Species2.urn))
+
+  summ <- summarize_comparison(cmp, pi0_method = "none")
+  with_urn <- comparison_to_edges(summ$results, "SP_A", "SP_B")
+
+  stripped <- summ$results
+  stripped$Species1.urn <- NULL
+  stripped$Species2.urn <- NULL
+  without <- comparison_to_edges(stripped, "SP_A", "SP_B")
+
+  expect_equal(nrow(with_urn), nrow(without))
+  # the fallback reconstructs the same urn on this fixture, so the two
+  # paths must agree -- that is what makes the carried value a
+  # refactor rather than a change of numbers
+  expect_equal(with_urn$power, without$power, tolerance = 1e-9)
 })

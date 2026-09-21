@@ -85,6 +85,13 @@
 #'       neighbors. Range \eqn{[0, 1]}.}
 #'     \item{Species2.jaccard}{Jaccard index of neighborhood overlap
 #'       (direction 2).}
+#'     \item{Species1.urn}{Hypergeometric population for direction 1:
+#'       the number of genes in net1 less the anchor gene itself. Constant
+#'       within a call. Downstream \code{power} uses it directly rather
+#'       than reconstructing it from the effect sizes.}
+#'     \item{Species2.urn}{Hypergeometric population for direction 2
+#'       (genes in net2 less the anchor). Differs from
+#'       \code{Species1.urn} whenever the two networks differ in size.}
 #'   }
 #'
 #' @examples
@@ -165,10 +172,18 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     )
   }
 
-  # Combine with ortholog info
+  # The hypergeometric population is the ANCHOR NETWORK's gene count
+  # less the anchor itself: compute_direction() is called with n1 for
+  # direction 1 and n2 for direction 2 and uses Np = N - 1, so the urn
+  # is per-direction and asymmetric whenever the networks differ in
+  # size. Carrying it makes downstream power exact; .edge_power()
+  # otherwise reconstructs it from the effect sizes and returns NA for a
+  # whole direction when those estimates disagree.
   cbind(
     orthologs[, c("Species1", "Species2", "hog"), drop = FALSE],
-    result
+    result,
+    Species1.urn = length(net1_genes) - 1L,
+    Species2.urn = length(net2_genes) - 1L
   )
 }
 
@@ -293,7 +308,19 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     x <- col(".neigh.overlap")
     p <- col(".p.val.con")
     q <- col(".q.val.con")
-    np <- .urn_size(m, k, x, col(".effect.size"), d)
+    # Exact when the frame carries the urn, as compare_neighborhoods()
+    # now does; frames from before that fall back to reconstructing it.
+    urn_col <- paste0(d, ".urn")
+    np <- if (urn_col %in% names(comparison)) {
+      u <- unique(as.numeric(comparison[[urn_col]]))
+      if (length(u) == 1L && is.finite(u) && u > 0) {
+        u
+      } else {
+        NA_real_
+      }
+    } else {
+      .urn_size(m, k, x, col(".effect.size"), d)
+    }
     sig <- !is.na(q) & q < alpha
     if (is.na(np) || !any(sig)) {
       return(na_out)

@@ -51,6 +51,13 @@ indicate conservation, < 1 indicate divergence.}
 neighbors. Range \eqn{[0, 1]}.}
 \item{Species2.jaccard}{Jaccard index of neighborhood overlap
 (direction 2).}
+\item{Species1.urn}{Hypergeometric population for direction 1:
+the number of genes in net1 less the anchor gene itself. Constant
+within a call. Downstream \code{power} uses it directly rather
+than reconstructing it from the effect sizes.}
+\item{Species2.urn}{Hypergeometric population for direction 2
+(genes in net2 less the anchor). Differs from
+\code{Species1.urn} whenever the two networks differ in size.}
 }
 }
 \description{
