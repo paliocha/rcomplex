@@ -392,8 +392,136 @@ test_that("within_hog shuffle stays inside one species pair", {
 })
 
 
+test_that("matched_edges null needs no networks or orthologs", {
+  # The point of this null: it never re-runs find_coexpressologs(), so a
+  # caller with an edge table does not have to hold every species
+  # network in memory. Passing neither must still work.
+  fx <- make_clique_fixture_3sp()
+  res <- clique_intensity_test(fx$cliques, fx$target_species,
+    edges = fx$edges, n_perm = 200L, seed = 1L,
+    null_model = "matched_edges"
+  )
+  expect_equal(nrow(res), nrow(fx$cliques))
+  # every draw is usable -- nothing has to be rebuilt, so nothing is lost
+  expect_true(all(res$n_matched == 200L))
+  # this fixture has one conserved edge per species pair, so each pool is
+  # a single constant and the resample reproduces the observed value: a
+  # spreadless null here is correct, not a degenerate one
+  expect_true(all(res$null_sd == 0))
+})
+
+
+test_that("matched_edges null has spread when the weights do", {
+  # This null reads only `edges`, so the fixture is an edge table --
+  # no networks, no find_coexpressologs(). Varying effect_size is what
+  # gives each species pair's pool something to resample over; the "ns"
+  # rows keep the table unfiltered and must stay out of the pools.
+  sps <- c("SP_A", "SP_B", "SP_C")
+  n_hog <- 30L
+  hogs <- paste0("HOG", seq_len(n_hog))
+  set.seed(4)
+  edges <- do.call(rbind, lapply(
+    utils::combn(sps, 2, simplify = FALSE),
+    function(p) {
+      rbind(
+        data.frame(
+          species1 = p[1], species2 = p[2],
+          gene1 = paste0(p[1], "_", hogs), gene2 = paste0(p[2], "_", hogs),
+          hog = hogs, effect_size = stats::runif(n_hog, 1.5, 12),
+          type = "conserved", stringsAsFactors = FALSE
+        ),
+        data.frame(
+          species1 = p[1], species2 = p[2],
+          gene1 = paste0(p[1], "_ns", seq_len(5L)),
+          gene2 = paste0(p[2], "_ns", seq_len(5L)),
+          hog = paste0("NS", seq_len(5L)),
+          effect_size = stats::runif(5L, 0.1, 0.9),
+          type = "ns", stringsAsFactors = FALSE
+        )
+      )
+    }
+  ))
+  cliques <- data.frame(hog = hogs, stringsAsFactors = FALSE)
+  for (s in sps) cliques[[s]] <- paste0(s, "_", hogs)
+
+  res <- clique_intensity_test(cliques, sps,
+    edges = edges, n_perm = 500L, seed = 3L,
+    null_model = "matched_edges"
+  )
+  expect_equal(nrow(res), n_hog)
+  expect_true(all(res$n_matched == 500L))
+  # a real null: spread, and a usable z for every clique
+  expect_true(all(res$null_sd > 0))
+  expect_true(all(is.finite(res$z_score)))
+  expect_true(all(res$p_value > 0 & res$p_value <= 1))
+})
+
+
+test_that("matched_edges pools honour a multi-value edge_type", {
+  # edge_type is vector-valued across the package (find_cliques(),
+  # clique_stability()) and the documented contract is
+  # `type %in% edge_type`. Filtering the pool with `==` instead recycles
+  # element-wise, which discards roughly half of EVERY type and so
+  # leaves the pool's composition -- and its mean -- almost unchanged.
+  # That is why a mean-based assertion cannot see the bug. What it does
+  # do is warn, but only when the row count is not a multiple of
+  # length(edge_type), so the row count here is deliberately odd.
+  sps <- c("SP_A", "SP_B")
+  n_con <- 20L
+  n_div <- 21L
+  mkrows <- function(type, eff, tag, k) {
+    data.frame(
+      species1 = "SP_A", species2 = "SP_B",
+      gene1 = paste0("A_", tag, seq_len(k)),
+      gene2 = paste0("B_", tag, seq_len(k)),
+      hog = paste0(tag, seq_len(k)),
+      effect_size = eff, type = type, stringsAsFactors = FALSE
+    )
+  }
+  set.seed(9)
+  edges <- rbind(
+    mkrows("conserved", stats::runif(n_con, 6, 12), "C", n_con),
+    mkrows("diverged", stats::runif(n_div, 1, 3), "D", n_div)
+  )
+  expect_true(nrow(edges) %% 2L == 1L)
+  cliques <- data.frame(
+    hog = paste0("C", seq_len(n_con)),
+    SP_A = paste0("A_C", seq_len(n_con)),
+    SP_B = paste0("B_C", seq_len(n_con)), stringsAsFactors = FALSE
+  )
+  # `==` recycles over an odd row count and warns; `%in%` does not
+  expect_no_warning(
+    res <- clique_intensity_test(cliques, sps,
+      edges = edges, n_perm = 300L, seed = 5L,
+      null_model = "matched_edges",
+      edge_type = c("conserved", "diverged")
+    )
+  )
+  expect_true(all(res$n_matched == 300L))
+  expect_true(all(is.finite(res$z_score)))
+})
+
+
+test_that("matched_edges builds edges when none are supplied", {
+  # needs_networks keeps the network-driven path reachable for this
+  # null: with edges = NULL the function still computes them from
+  # networks and orthologs, then resamples. Every other test here hands
+  # it an edge table, so this is the one covering that interaction.
+  fx <- make_clique_fixture_3sp()
+  res <- clique_intensity_test(fx$cliques, fx$target_species,
+    fx$networks, fx$orthologs,
+    n_perm = 100L, seed = 2L, null_model = "matched_edges"
+  )
+  expect_equal(nrow(res), nrow(fx$cliques))
+  expect_true(all(res$n_matched == 100L))
+})
+
+
 test_that("null_model is validated and defaults to global", {
   fx <- formals(rcomplex:::clique_intensity_test.default)
   expect_identical(eval(fx$null_model)[1], "global")
-  expect_setequal(eval(fx$null_model), c("global", "within_hog"))
+  expect_setequal(
+    eval(fx$null_model),
+    c("global", "within_hog", "matched_edges")
+  )
 })

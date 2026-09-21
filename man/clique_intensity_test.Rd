@@ -10,8 +10,8 @@ clique_intensity_test(cliques, ...)
 \method{clique_intensity_test}{default}(
   cliques,
   target_species,
-  networks,
-  orthologs,
+  networks = NULL,
+  orthologs = NULL,
   species_pairs = NULL,
   n_perm = 500L,
   alternative = c("greater", "less"),
@@ -26,7 +26,7 @@ clique_intensity_test(cliques, ...)
   edges = NULL,
   pval_combine = c("max", "min"),
   pi0_method = c("storey", "randomized", "none"),
-  null_model = c("global", "within_hog"),
+  null_model = c("global", "within_hog", "matched_edges"),
   ...
 )
 }
@@ -94,7 +94,19 @@ per-permutation Monte Carlo noise), matching
 \code{\link{clique_threshold_sweep}}. Set it to whatever built the
 baseline \code{cliques}/\code{edges}.}
 
-\item{null_model}{How each permutation destroys the ortholog mapping.
+\item{null_model}{How the null is built. \code{"matched_edges"} does
+not permute the ortholog mapping at all: it holds the mapping fixed
+and replaces each clique edge with one drawn from that same species
+pair's pool of \code{edge_type} edges, matching clique size and
+species-pair composition while randomising only which genes supply
+the weights. Nothing is re-clustered, so no clique has to be
+rebuilt and the null stays defined for single-copy HOGs, where the
+permutation models below are degenerate. It needs only \code{edges}
+-- \code{networks} and \code{orthologs} may be \code{NULL} -- and
+costs one resample per draw instead of a full
+\code{find_coexpressologs()} re-run. Its pools treat edges within a
+species pair as exchangeable, so it does not control for degree.
+The permutation models destroy the ortholog mapping instead.
 \code{"global"} (default) shuffles \code{Species2} across every HOG.
 That also destroys the HOGs, so a permuted run rarely contains the
 observed clique's HOG and there is nothing to match: on the eight-species
