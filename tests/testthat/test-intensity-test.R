@@ -300,3 +300,64 @@ test_that("null intensities are the permuted runs' own Jaccard weights", {
   expect_length(null_int, res$n_matched)
   expect_equal(res$null_mean, mean(null_int), tolerance = 1e-12)
 })
+
+
+test_that("within_hog null matches cliques where global cannot", {
+  # The global shuffle moves genes out of their own HOG, so a permuted
+  # run almost never rebuilds the observed clique's HOG and nothing can
+  # be matched -- measured as 0 of 204 cliques on the eight-species
+  # Pooideae run, which left every z undefined. The within-HOG shuffle
+  # keeps the grouping, so the same cliques do match.
+  #
+  # make_clique_fixture() cannot show this: it puts exactly one gene in
+  # every HOG, which makes the within-HOG shuffle a no-op and the null a
+  # point mass. This fixture pairs genes two to a HOG instead, so the
+  # shuffle has something to permute.
+  n <- 20L
+  ga <- paste0("A", seq_len(n))
+  gb <- paste0("B", seq_len(n))
+  make_net <- function(genes) {
+    m <- matrix(0, n, n, dimnames = list(genes, genes))
+    for (i in 2:10) m[1, i] <- m[i, 1] <- 10
+    m[1, 11] <- m[11, 1] <- 3
+    for (i in 13:15) m[12, i] <- m[i, 12] <- 4
+    m
+  }
+  networks <- list(
+    SP_A = list(network = make_net(ga), threshold = 2),
+    SP_B = list(network = make_net(gb), threshold = 2)
+  )
+  sp <- c("SP_A", "SP_B")
+  orthologs <- data.frame(
+    Species1 = ga, Species2 = gb,
+    hog = paste0("HOG", ceiling(seq_len(n) / 2)),
+    stringsAsFactors = FALSE
+  )
+  edges <- find_coexpressologs(networks, orthologs,
+    method = "analytical", pi0_method = "storey"
+  )
+  cliques <- find_cliques(edges, sp, min_species = 2L)
+  expect_gt(nrow(cliques), 0L)
+
+  run <- function(nm) {
+    clique_intensity_test(cliques, sp, networks, orthologs,
+      n_perm = 30L, seed = 11L, null_model = nm, pi0_method = "storey"
+    )
+  }
+  global <- run("global")
+  within <- run("within_hog")
+
+  # global destroys the HOGs: nothing matches, so no z is computable
+  expect_true(all(global$n_matched == 0L))
+  expect_true(all(is.na(global$z_score)))
+  # within_hog keeps them: every clique matches and gets a usable z
+  expect_true(all(within$n_matched > 0L))
+  expect_true(all(!is.na(within$z_score)))
+})
+
+
+test_that("null_model is validated and defaults to global", {
+  fx <- formals(rcomplex:::clique_intensity_test.default)
+  expect_identical(eval(fx$null_model)[1], "global")
+  expect_setequal(eval(fx$null_model), c("global", "within_hog"))
+})

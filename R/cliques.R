@@ -1662,12 +1662,15 @@ clique_perturbation_test.default <- function(
 #' \code{find_coexpressologs()} output), so pass \code{edges} unfiltered;
 #' a supplied \code{edges} holding only \code{edge_type} rows warns once
 #' per session (class \code{rcomplex_prefiltered_edges}).
-#' The null model shuffles \code{Species2} genes
-#' globally across all rows of the ortholog table (not within-HOG),
+#' By default (\code{null_model = "global"}) the null shuffles
+#' \code{Species2} genes across all rows of the ortholog table,
 #' destroying both the specific ortholog mapping and the within-HOG
 #' gene grouping. Network topology (per-species adjacency matrices)
 #' is preserved, but species structure within the ortholog table is
 #' not — a gene originally in one HOG/species-pair may land in another.
+#' Under \code{null_model = "within_hog"} the shuffle happens inside
+#' each HOG, so the HOG grouping survives and only the gene-to-gene
+#' pairing is randomised; see \code{null_model} for when that matters.
 #' This tests whether the observed gene-to-gene correspondence produces
 #' stronger co-expression conservation than random mappings.
 #'
@@ -1704,6 +1707,17 @@ clique_perturbation_test.default <- function(
 #'   \code{\link{find_coexpressologs}}). When provided, skips the
 #'   baseline edge recomputation. When \code{NULL} (default), edges
 #'   are computed internally.
+#' @param null_model How each permutation destroys the ortholog mapping.
+#'   \code{"global"} (default) shuffles \code{Species2} across every HOG.
+#'   That also destroys the HOGs, so a permuted run rarely contains the
+#'   observed clique's HOG and there is nothing to match: on the eight-species
+#'   Pooideae data every one of 204 cliques returned \code{n_matched = 0},
+#'   leaving \code{z_score} and \code{p_value} \code{NA}. Raising
+#'   \code{n_perm} does not help, since the match rate is near zero rather
+#'   than merely small. \code{"within_hog"} permutes \code{Species2} within
+#'   each HOG instead, preserving the HOG's gene multiset, so the clique can
+#'   be rebuilt and the null asks whether this particular paralog combination
+#'   is unusually intense given those genes.
 #' @param pval_combine Directional q-value combination for the edge
 #'   calls in the baseline recomputation (when \code{edges = NULL}) and
 #'   in every permutation rerun, passed to
@@ -1757,9 +1771,11 @@ clique_intensity_test.default <- function(
   cost_weights = c(q = 1.0, effect = 0.0),
   edges = NULL,
   pval_combine = c("max", "min"),
-  pi0_method = c("storey", "randomized", "none"), ...
+  pi0_method = c("storey", "randomized", "none"),
+  null_model = c("global", "within_hog"), ...
 ) {
   alternative <- match.arg(alternative)
+  null_model <- match.arg(null_model)
   pval_combine <- match.arg(pval_combine)
   pi0_method <- match.arg(pi0_method)
   n_perm <- as.integer(n_perm)
@@ -1834,10 +1850,23 @@ clique_intensity_test.default <- function(
   null_intensities <- matrix(NA_real_, nrow = n_perm, ncol = n_cliques)
 
   for (p in seq_len(n_perm)) {
-    # Global shuffle of Species2 genes across all HOGs — destroys the
-    # specific ortholog mapping while preserving network topology
+    # How the ortholog mapping is destroyed. "global" shuffles Species2
+    # across every HOG, which also destroys the HOGs themselves: a
+    # permuted run then almost never contains the observed clique's HOG,
+    # so there is nothing to match and n_matched stays 0 (measured: 0 of
+    # 204 cliques at full scale). "within_hog" keeps each HOG's gene
+    # multiset and permutes only which Species1 gene each Species2 gene
+    # is paired with, so the HOG survives every permutation and the null
+    # asks the narrower question the statistic needs: given these genes,
+    # is this paralog combination unusually intense?
     shuffled_orthologs <- orthologs
-    shuffled_orthologs$Species2 <- sample(shuffled_orthologs$Species2)
+    shuffled_orthologs$Species2 <- if (null_model == "within_hog") {
+      stats::ave(orthologs$Species2, orthologs$hog, FUN = function(g) {
+        if (length(g) < 2L) g else sample(g)
+      })
+    } else {
+      sample(orthologs$Species2)
+    }
 
     edges_p <- tryCatch(
       find_coexpressologs(networks, shuffled_orthologs,

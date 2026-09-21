@@ -26,6 +26,7 @@ clique_intensity_test(cliques, ...)
   edges = NULL,
   pval_combine = c("max", "min"),
   pi0_method = c("storey", "randomized", "none"),
+  null_model = c("global", "within_hog"),
   ...
 )
 }
@@ -92,6 +93,18 @@ deterministic across permutations (\code{"randomized"} adds
 per-permutation Monte Carlo noise), matching
 \code{\link{clique_threshold_sweep}}. Set it to whatever built the
 baseline \code{cliques}/\code{edges}.}
+
+\item{null_model}{How each permutation destroys the ortholog mapping.
+\code{"global"} (default) shuffles \code{Species2} across every HOG.
+That also destroys the HOGs, so a permuted run rarely contains the
+observed clique's HOG and there is nothing to match: on the eight-species
+Pooideae data every one of 204 cliques returned \code{n_matched = 0},
+leaving \code{z_score} and \code{p_value} \code{NA}. Raising
+\code{n_perm} does not help, since the match rate is near zero rather
+than merely small. \code{"within_hog"} permutes \code{Species2} within
+each HOG instead, preserving the HOG's gene multiset, so the clique can
+be rebuilt and the null asks whether this particular paralog combination
+is unusually intense given those genes.}
 }
 \value{
 Data frame with columns:
@@ -118,12 +131,15 @@ the full edge tables (\code{edges}, and every permutation's
 \code{find_coexpressologs()} output), so pass \code{edges} unfiltered;
 a supplied \code{edges} holding only \code{edge_type} rows warns once
 per session (class \code{rcomplex_prefiltered_edges}).
-The null model shuffles \code{Species2} genes
-globally across all rows of the ortholog table (not within-HOG),
+By default (\code{null_model = "global"}) the null shuffles
+\code{Species2} genes across all rows of the ortholog table,
 destroying both the specific ortholog mapping and the within-HOG
 gene grouping. Network topology (per-species adjacency matrices)
 is preserved, but species structure within the ortholog table is
 not — a gene originally in one HOG/species-pair may land in another.
+Under \code{null_model = "within_hog"} the shuffle happens inside
+each HOG, so the HOG grouping survives and only the gene-to-gene
+pairing is randomised; see \code{null_model} for when that matters.
 This tests whether the observed gene-to-gene correspondence produces
 stronger co-expression conservation than random mappings.
 }
