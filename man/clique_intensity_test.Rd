@@ -112,8 +112,8 @@ matching HOG with Jaccard > 0}
 \description{
 Permutes the ortholog mapping and builds a null distribution of
 clique intensity (see \code{\link{find_cliques}}: the geometric mean
-of each clique edge's Jaccard percentile among all tested pairs of
-its species pair). Observed and null intensities are ranked against
+of each clique edge's ensemble connection probability, scaled within
+its species pair). Observed and null intensities are computed against
 the full edge tables (\code{edges}, and every permutation's
 \code{find_coexpressologs()} output), so pass \code{edges} unfiltered;
 a supplied \code{edges} holding only \code{edge_type} rows warns once

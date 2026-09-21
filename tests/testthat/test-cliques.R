@@ -438,10 +438,8 @@ test_that("intensity weights are within-pair Jaccard percentiles", {
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(nrow(result), 1L)
-  # A-B: 0.2 among {0.2, 0.1, 0.3, 0.5} -> rank 2 of 4; A-C: 0.6 among
-  # {0.6, 0.1, 0.2, 0.7} -> rank 3 of 4; B-C: 0.4 among
-  # {0.4, 0.8, 0.9, 0.95} -> rank 1 of 4
-  w <- c(2, 3, 1) / 4
+  # Intensity is the geometric mean of the edges' ensemble probabilities.
+  w <- rcomplex:::.onnela_weight(edges)[1:3]
   expect_equal(result$intensity, exp(mean(log(w))), tolerance = 1e-12)
   expect_equal(result$coherence, exp(mean(log(w))) / mean(w),
                tolerance = 1e-12)
@@ -451,31 +449,34 @@ test_that("intensity weights are within-pair Jaccard percentiles", {
 
 test_that("cliques with equal q-values but different overlap separate", {
   # Two conserved triangles with identical q = 0.01 on every edge. Under
-  # 1 - q both had intensity 0.99; Jaccard has to tell them apart.
-  strong <- make_percentile_edges(0.8, 0.9, 0.95, background = FALSE)
-  weak <- make_percentile_edges(0.2, 0.25, 0.3, background = FALSE)
+  # 1 - q both had intensity 0.99; association strength tells them apart.
+  strong <- make_percentile_edges(background = FALSE)
+  strong$effect_size <- c(8, 9, 10)
+  weak <- make_percentile_edges(background = FALSE)
+  weak$effect_size <- c(1.1, 1.2, 1.3)
   weak$hog <- "HOG2"
   weak$gene1 <- sub("1$", "9", weak$gene1)
   weak$gene2 <- sub("1$", "9", weak$gene2)
   result <- find_cliques(rbind(strong, weak), c("SP_A", "SP_B", "SP_C"))
 
   expect_equal(nrow(result), 2L)
-  # each pair holds one strong and one weak edge: percentiles 1 and 0.5
-  expect_equal(result$intensity[result$hog == "HOG1"], 1, tolerance = 1e-12)
-  expect_equal(result$intensity[result$hog == "HOG2"], 0.5,
-               tolerance = 1e-12)
+  expect_gt(
+    result$intensity[result$hog == "HOG1"],
+    result$intensity[result$hog == "HOG2"]
+  )
 })
 
 
-test_that("effect size does not enter the weight", {
-  # Two genes conserving the same fraction of their neighbourhood have the
-  # same Jaccard index but fold enrichments a degree ratio apart (here 10x):
-  # an effect-size weight would have ranked the low-degree gene far above.
+test_that("the weight ignores the Jaccard index", {
+  # Two genes with the same fold enrichment score alike however their
+  # Jaccard indices differ: E[Jaccard] grows with neighbourhood size, so a
+  # Jaccard weight ranked hub genes above equally conserved small ones
+  # (#15). Association strength is observed over expected, so it does not.
   edges <- data.frame(
     gene1 = c("A1", "A2"), gene2 = c("B1", "B2"),
     species1 = "SP_A", species2 = "SP_B",
     hog = c("HOG1", "HOG2"), type = "conserved",
-    q.value = 0.01, effect_size = c(100, 10), jaccard = 0.54,
+    q.value = 0.01, effect_size = 5, jaccard = c(0.9, 0.1),
     stringsAsFactors = FALSE
   )
   result <- find_cliques(edges, c("SP_A", "SP_B"))
@@ -485,64 +486,75 @@ test_that("effect size does not enter the weight", {
 })
 
 
-test_that("percentiles are taken within each species pair", {
-  # Rescaling one species pair's Jaccard values cannot move any percentile,
-  # so intensity is comparable across pairs with different overlap scales.
+test_that("the weight scale is fitted within each species pair", {
+  # Rescaling one pair's association strengths is absorbed by the fitted
+  # scale (z -> z/lambda), so intensity is comparable across pairs whose
+  # enrichments live on different scales (Garlaschelli et al. 2013, eq. 11).
+  # The background rows matter here: with one edge per pair the scale is
+  # degenerate and every weight collapses to 0.5, which would make this
+  # assertion vacuous.
   base <- make_percentile_edges()
   scaled <- base
   ac <- scaled$species1 == "SP_A" & scaled$species2 == "SP_C"
-  scaled$jaccard[ac] <- scaled$jaccard[ac] * 0.01
+  scaled$effect_size[ac] <- scaled$effect_size[ac] * 100
   sp <- c("SP_A", "SP_B", "SP_C")
 
-  expect_equal(find_cliques(scaled, sp)$intensity,
-               find_cliques(base, sp)$intensity, tolerance = 1e-12)
+  out <- find_cliques(base, sp)$intensity
+  expect_false(is.na(out))
+  expect_false(isTRUE(all.equal(out, 0.5)))
+  expect_equal(find_cliques(scaled, sp)$intensity, out, tolerance = 1e-6)
 })
 
 
-test_that("rows removed by edge_type still shape the percentiles", {
+test_that("rows removed by edge_type still shape the weight scale", {
   sp <- c("SP_A", "SP_B", "SP_C")
   with_bg <- find_cliques(make_percentile_edges(), sp)
   without_bg <- find_cliques(make_percentile_edges(background = FALSE), sp)
 
   # clique membership is decided by conserved edges only ...
   expect_identical(with_bg[, c("hog", sp)], without_bg[, c("hog", sp)])
-  # ... but the percentile population is every tested row: without the ns
-  # background each conserved edge is alone in its pair and weighs 1
-  expect_equal(without_bg$intensity, 1, tolerance = 1e-12)
-  expect_lt(with_bg$intensity, 1)
+  # ... but the scale is fitted on every tested row, so dropping the ns
+  # background moves the weights and hence the intensity.
+  expect_false(isTRUE(all.equal(with_bg$intensity, without_bg$intensity)))
 })
 
 
-test_that("a clique with an edge lacking Jaccard gets NA intensity", {
+test_that("a clique with an edge lacking effect_size gets NA intensity", {
   # Dropping the incomplete edge would score the clique on a smaller edge
   # set; with a single valid edge left, coherence would read exactly 1.
   sp <- c("SP_A", "SP_B", "SP_C")
-  one_na <- make_percentile_edges(jac_ac = NA)
+  one_na <- make_percentile_edges()
+  one_na$effect_size[2] <- NA_real_
   res <- find_cliques(one_na, sp)
   expect_equal(nrow(res), 1L)
   expect_true(is.na(res$intensity))
   expect_true(is.na(res$coherence))
-  expect_equal(res$min_effect_size, 2.0, tolerance = 1e-12)
 
-  two_na <- make_percentile_edges(jac_ac = NA, jac_bc = NA)
-  res2 <- find_cliques(two_na, sp)
-  expect_true(is.na(res2$coherence))
+  two_na <- make_percentile_edges()
+  two_na$effect_size[2:3] <- NA_real_
+  expect_true(is.na(find_cliques(two_na, sp)$coherence))
 })
 
 
-test_that("a missing jaccard column gives NA intensity and warns", {
-  rlang::local_options(rlib_warning_verbosity = "verbose")
-  edges <- make_percentile_edges()
-  edges$jaccard <- NULL
+test_that("effect_size is required, and an all-NA column gives NA", {
   sp <- c("SP_A", "SP_B", "SP_C")
 
-  expect_warning(result <- find_cliques(edges, sp),
-                 class = "rcomplex_missing_jaccard")
+  # Unlike jaccard, effect_size is a required column: find_cliques()
+  # refuses the table outright rather than reaching the weight.
+  gone <- make_percentile_edges()
+  gone$effect_size <- NULL
+  expect_error(find_cliques(gone, sp), "missing required columns")
+
+  # Present but unusable: the weight is NA, so the clique scores NA
+  # rather than being silently dropped from the intensity.
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  empty <- make_percentile_edges()
+  empty$effect_size <- NA_real_
+  expect_warning(result <- find_cliques(empty, sp),
+                 class = "rcomplex_missing_effect_size")
   expect_equal(nrow(result), 1L)
   expect_true(is.na(result$intensity))
   expect_true(is.na(result$coherence))
-  # min_effect_size does not need the weight
-  expect_equal(result$min_effect_size, 2.0, tolerance = 1e-12)
 })
 
 
@@ -593,8 +605,14 @@ test_that("a single-edge clique has coherence 1", {
   result <- find_cliques(edges, c("SP_A", "SP_B"))
 
   expect_equal(nrow(result), 1L)
-  # 0.2 among {0.2, 0.4}: rank 1 of 2
-  expect_equal(result$intensity, 0.5, tolerance = 1e-12)
+  # The clique's one edge has effect_size 2 among {2, 4}; intensity is its
+  # ensemble probability p = z*w / (1 + z*w), not a rank.
+  expect_equal(
+    result$intensity,
+    rcomplex:::.onnela_weight(edges)[1],
+    tolerance = 1e-12
+  )
+  # One edge: geometric and arithmetic mean coincide whatever the weight.
   expect_equal(result$coherence, 1.0, tolerance = 1e-12)
 })
 
@@ -1105,4 +1123,60 @@ test_that("cost_weights affects edge deduplication for duplicate gene pairs", {
   expect_equal(nrow(r_mix), 1)
   expect_equal(r_mix$mean_effect_size, 10.0, tolerance = 1e-10)
   expect_equal(r_mix$mean_q, 0.02, tolerance = 1e-10)
+})
+
+
+test_that(".maxent_scale finds the entropy maximum and its bracket", {
+  set.seed(1)
+  w <- rlnorm(200, meanlog = 0.5, sdlog = 1)
+  z <- rcomplex:::.maxent_scale(w)
+
+  # Garlaschelli et al. (2013): the root is bracketed by 1/max(w), 1/min(w).
+  expect_gt(z, 1 / max(w))
+  expect_lt(z, 1 / min(w))
+
+  # It maximises the ensemble entropy, so a grid must not beat it.
+  entropy <- function(zz) {
+    p <- zz * w / (1 + zz * w)
+    -sum(p * log(p) + (1 - p) * log1p(-p))
+  }
+  grid <- exp(seq(log(1 / max(w)), log(1 / min(w)), length.out = 400))
+  expect_gte(entropy(z), max(vapply(grid, entropy, numeric(1))) - 1e-8)
+
+  # A collapsed bracket (one weight, or all weights equal) has nothing to
+  # separate: maximum entropy for a single probability is 1/2, which
+  # z = 1/mean(w) delivers. Returning NA there would void the clique.
+  expect_equal(rcomplex:::.maxent_scale(5), 1 / 5)
+  expect_equal(rcomplex:::.maxent_scale(c(5, 5)), 1 / 5)
+  z1 <- rcomplex:::.maxent_scale(5)
+  expect_equal(5 * z1 / (1 + 5 * z1), 0.5)
+  expect_true(is.na(rcomplex:::.maxent_scale(numeric(0))))
+})
+
+
+test_that(".onnela_weight is a probability and ignores the Jaccard column", {
+  e <- data.frame(
+    gene1 = paste0("a", 1:4), gene2 = paste0("b", 1:4),
+    species1 = "SP_A", species2 = "SP_B", hog = "HOG1",
+    q.value = 0.01, effect_size = c(1, 2, 4, 8),
+    jaccard = c(0.9, 0.1, 0.5, 0.2), stringsAsFactors = FALSE
+  )
+  w <- rcomplex:::.onnela_weight(e)
+  expect_true(all(w > 0 & w < 1))
+  # Monotone in association strength, and unmoved by jaccard.
+  expect_equal(order(w), order(e$effect_size))
+  e2 <- e
+  e2$jaccard <- rev(e$jaccard)
+  expect_equal(rcomplex:::.onnela_weight(e2), w)
+
+  # No usable effect_size: NA plus a classed warning, not a silent zero.
+  # The warning is .frequency = "once", so it must be re-armed to be seen.
+  e3 <- e
+  e3$effect_size <- NA_real_
+  rlang::local_options(rlib_warning_verbosity = "verbose")
+  expect_warning(
+    out <- rcomplex:::.onnela_weight(e3),
+    class = "rcomplex_missing_effect_size"
+  )
+  expect_true(all(is.na(out)))
 })
