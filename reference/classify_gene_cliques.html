@@ -81,6 +81,7 @@ six species and fifteen species-pairs of the original workflow.</p>
 <span>  alpha_graph <span class="op">=</span> <span class="fl">0.9</span>,</span>
 <span>  max_gap <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  cross_max <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  min_power <span class="op">=</span> <span class="fl">0.8</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -111,7 +112,10 @@ relying on it.</p></dd>
 <dt id="arg-edges">edges<a class="anchor" aria-label="anchor" href="#arg-edges"></a></dt>
 <dd><p>The full, unfiltered co-expressolog table. It must not
 be pre-filtered on <code>q.value</code>: the gap tier needs to see rows that
-were tested and failed in order to refuse them.</p></dd>
+were tested and failed in order to refuse them. An optional <code>power</code>
+column (from <code><a href="comparison_to_edges.html">comparison_to_edges</a></code>) enables the
+<code>underpowered</code> tier; without it, or where it is <code>NA</code>, the
+classification is unchanged.</p></dd>
 
 
 <dt id="arg-species">species<a class="anchor" aria-label="anchor" href="#arg-species"></a></dt>
@@ -148,6 +152,12 @@ allowed by <code>differentiated</code>. Defaults to <code>choose(S - 1, 2) - W</
 the generalisation of the published cut; the original six-species
 script used a looser hard-coded 6.</p></dd>
 
+
+<dt id="arg-min-power">min_power<a class="anchor" aria-label="anchor" href="#arg-min-power"></a></dt>
+<dd><p>Detection power below which a non-significant pair
+is read as uninformative rather than as evidence against
+conservation (default 0.8). Only used when <code>edges</code> has <code>power</code>.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
@@ -173,11 +183,18 @@ in <code>edges</code>, and pairs significant at <code>alpha_call</code></p></dd>
 <dd><p>Significant pairs within and
 across lineages (<code>NA</code> without <code>lineage</code>)</p></dd>
 
+<dt>n_underpowered_cross</dt>
+<dd><p>Cross-lineage pairs present in
+<code>edges</code>, not significant, and with <code>power</code> below <code>min_power</code>
+(<code>NA</code> without <code>lineage</code>)</p></dd>
+
 <dt>n_missing, missing_species, missing_reason</dt>
 <dd><p>Species not in
 the clique, and why: <code>absent</code> (no row in the HOG),
 <code>untested</code> (in the HOG but never compared to a member),
-<code>tested_ns</code> (compared and not significant), <code>extendable</code>
+<code>tested_ns</code> (compared and not significant), <code>underpowered</code>
+(compared and not significant, every such test with <code>power</code>
+below <code>min_power</code>), <code>extendable</code>
 (significant against every member, so the clique came from a
 looser graph). Comma-separated and positionally aligned</p></dd>
 
@@ -224,8 +241,8 @@ pairs significant at <code>alpha_call</code>.</p></dd>
 <dt>partial_present</dt>
 <dd><p><code>S - g</code> species present for
 <code>1 &lt;= g &lt;= max_gap</code>, all <code>choose(S - g, 2)</code> pairs significant,
-and every absent species an annotation gap rather than a
-rejected test.</p></dd>
+and every absent species an annotation gap or <code>underpowered</code>
+rather than a rejected test.</p></dd>
 
 <dt>differentiated</dt>
 <dd><p>All <code>S</code> species present, every pair tested,
@@ -233,8 +250,22 @@ at least one lineage of two or more species, every such lineage
 fully significant within itself, and at most <code>cross_max</code>
 cross-lineage pairs significant.</p></dd>
 
+<dt>underpowered</dt>
+<dd><p>A clique that would be <code>lineage_specific</code> or
+<code>differentiated</code> but for tests that could not have succeeded,
+read from a <code>power</code> column in <code>edges</code> (see
+<code><a href="comparison_to_edges.html">comparison_to_edges</a></code>). It takes the place of
+<code>lineage_specific</code> when every outside species is a gap or
+<code>underpowered</code> and at least one is <code>underpowered</code>, and of
+<code>differentiated</code> when <code>n_sig_cross + n_underpowered_cross</code>
+exceeds <code>cross_max</code>: a specificity or divergence call must survive
+treating every underpowered pair as possibly significant. A
+low-degree gene cannot reach the call whatever its conservation,
+so without this its missing edges read as a lineage boundary.</p></dd>
 
-</dl><p>The waterfall is evaluated in that order and the first match wins.</p>
+
+</dl><p>The waterfall is evaluated in that order, <code>underpowered</code> at the
+position of the tier it replaces, and the first match wins.</p>
 <p><code>choose(S - 1, 2) + 1</code> equals <code>choose(S, 2) - (S - 2)</code>, so the
 <code>partial_significant</code> tolerance is <code>S - 2</code> non-significant edges.
 That is the largest tolerance under which no member can be isolated:
@@ -281,10 +312,12 @@ conifer trees. <em>Nature Communications</em> 17(1).
 <span class="r-in"><span><span class="fu">classify_gene_cliques</span><span class="op">(</span><span class="va">cl</span>, <span class="va">edges</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"SP_A"</span>, <span class="st">"SP_B"</span>, <span class="st">"SP_C"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   clique_id  hog     classification n_members n_species n_pairs n_present n_sig</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1    HOG1_1 HOG1 complete_conserved         3         3       3         3     3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_sig_within n_sig_cross n_missing missing_species missing_reason mean_q</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1           NA          NA         0                                  0.02</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   max_q          hog_class mean_q_floor n_cliques_at_q_floor</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1  0.03 complete_conserved         0.02                    1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_sig_within n_sig_cross n_underpowered_cross n_missing missing_species</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1           NA          NA                   NA         0                </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   missing_reason mean_q max_q          hog_class mean_q_floor</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                  0.02  0.03 complete_conserved         0.02</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_cliques_at_q_floor</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                    1</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

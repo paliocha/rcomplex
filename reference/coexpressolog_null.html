@@ -87,6 +87,7 @@ null distribution.</p>
 <span>  swap_factor <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  filter_zero <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -160,6 +161,17 @@ lie anywhere in <code>+/- .Machine$integer.max</code>) give every rewiring
 permutation the same seed, so the null is identical for the two runs
 even though the observed statistic is not: see the aliasing note under
 <code>.task_seed()</code>.</p></dd>
+
+
+<dt id="arg-filter-zero">filter_zero<a class="anchor" aria-label="anchor" href="#arg-filter-zero"></a></dt>
+<dd><p>Passed to <code><a href="find_coexpressologs.html">find_coexpressologs</a></code> for
+both the observed and every null run. <code>TRUE</code> (default) drops
+ortholog pairs with zero neighbourhood overlap before the q-values,
+which is what this test wants: the statistic reads called edges
+only, so retaining the zero-overlap rows adds tens of thousands of
+never-called rows per pair to every permutation for nothing. It also
+differs from the <code><a href="find_coexpressologs.html">find_coexpressologs()</a></code> default, which keeps
+them so that low-degree failures carry a <code>power</code> value.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

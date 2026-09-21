@@ -83,8 +83,10 @@ the results into a single edge data frame ready for
 <span>  max_permutations <span class="op">=</span> <span class="fl">10000L</span>,</span>
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"randomized"</span>, <span class="st">"storey"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
+<span>  filter_zero <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  out_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  f0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -166,6 +168,20 @@ the original ComPlEx) or <code>"min"</code> (permissive; either direction,
 denser edge supply for <code><a href="find_cliques.html">find_cliques</a></code>).</p></dd>
 
 
+<dt id="arg-filter-zero">filter_zero<a class="anchor" aria-label="anchor" href="#arg-filter-zero"></a></dt>
+<dd><p>Analytical method only: passed to
+<code><a href="summarize_comparison.html">summarize_comparison</a></code>. <code>FALSE</code> (default) keeps
+every tested ortholog pair, including those whose neighbourhood
+overlap is zero in either direction, so a pair that could not have
+been called still reaches the edge table carrying its <code>power</code>.
+Those are exactly the low-degree failures the <code>power</code> column
+exists to mark; dropping them hands the clique classifiers an
+untested-looking gap instead of an underpowered one. <code>TRUE</code>
+removes them before the q-values are computed, which is what
+canonical ComPlEx does – it shrinks the multiple-testing set, so
+every q-value moves.</p></dd>
+
+
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
 <dd><p>Integer seed for the call's random draws, or <code>NULL</code>
 (default) to draw from the global RNG. Seeding here makes the call
@@ -206,12 +222,23 @@ Not supported on the <code>rcomplex</code> S3 method (see
 edge table on <code>$edges</code>. Default <code>NULL</code> keeps the original
 in-memory behaviour.</p></dd>
 
+
+<dt id="arg-f-">f0<a class="anchor" aria-label="anchor" href="#arg-f-"></a></dt>
+<dd><p>Analytical method only: reference conserved fraction for
+the <code>power</code> column, passed to
+<code><a href="comparison_to_edges.html">comparison_to_edges</a></code> (default <code>NULL</code>, the median
+overlap fraction of the called pairs). The permutation path always
+reports <code>power = NA</code>: its HOG-level q-value has no per-pair
+call threshold to measure power against.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     <p>Data frame with columns <code>gene1</code>, <code>gene2</code>,
 <code>species1</code>, <code>species2</code>, <code>hog</code>, <code>q.value</code>,
-<code>effect_size</code>, <code>jaccard</code>, <code>type</code>. Ready for
+<code>effect_size</code>, <code>jaccard</code>, <code>power</code>, <code>type</code>
+(<code>power</code> is <code>NA</code> under <code>method = "permutation"</code>).
+Ready for
 <code><a href="find_cliques.html">find_cliques</a></code> or <code><a href="classify_cliques.html">classify_cliques</a></code>. When
 <code>out_file</code> is supplied, the edge table is streamed to that
 file instead (always created, even when empty), and <code>out_file</code>

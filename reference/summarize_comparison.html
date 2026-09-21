@@ -77,7 +77,8 @@ statistics at gene-pair, gene, and ortholog-group levels.</p>
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"randomized"</span>, <span class="st">"storey"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  B <span class="op">=</span> <span class="fl">20L</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
-<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  f0 <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -141,6 +142,13 @@ draw nothing, so a seed only pins the stream for them.</p>
 on exit, so it does not displace the caller by however many draws
 <code>B</code> consumed and anything drawn afterwards continues from the
 caller's own seed. Same contract as <code><a href="detect_modules.html">detect_modules</a></code>.</p></dd>
+
+
+<dt id="arg-f-">f0<a class="anchor" aria-label="anchor" href="#arg-f-"></a></dt>
+<dd><p>Reference conserved fraction for the <code>power</code> column of
+<code>$edges</code>, passed to <code><a href="comparison_to_edges.html">comparison_to_edges</a></code>; only used
+when <code>sp1</code> and <code>sp2</code> are provided. <code>NULL</code> (default)
+takes the median overlap fraction of the called pairs.</p></dd>
 
 </dl></div>
     <div id="value">

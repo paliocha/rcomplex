@@ -84,7 +84,9 @@ choice of density cutoff.</p>
 <span>  species_pairs <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"randomized"</span>, <span class="st">"storey"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
+<span>  filter_zero <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  f0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -164,6 +166,12 @@ by the analytical method): <code>"randomized"</code> (default),
 calls a pair when either direction is significant.</p></dd>
 
 
+<dt id="arg-filter-zero">filter_zero<a class="anchor" aria-label="anchor" href="#arg-filter-zero"></a></dt>
+<dd><p>Passed to <code><a href="find_coexpressologs.html">find_coexpressologs</a></code>:
+whether zero-overlap ortholog pairs are dropped before the
+analytical q-values are computed (default <code>FALSE</code>, keep them).</p></dd>
+
+
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
 <dd><p>Integer seed for the sweep's random draws, or <code>NULL</code>
 (default) to draw from the global RNG. Applied once here, so the
@@ -175,6 +183,11 @@ nothing is drawn before the first multiplier, a sweep seeded with
 <code>s</code> reproduces <code>find_coexpressologs(seed = s)</code> exactly at
 its first level. See <code><a href="find_coexpressologs.html">find_coexpressologs</a></code> for what a
 seed does and does not pin under each <code>method</code>.</p></dd>
+
+
+<dt id="arg-f-">f0<a class="anchor" aria-label="anchor" href="#arg-f-"></a></dt>
+<dd><p>Passed to <code><a href="find_coexpressologs.html">find_coexpressologs</a></code>: reference
+conserved fraction for the analytical <code>power</code> column.</p></dd>
 
 </dl></div>
     <div id="value">
