@@ -1669,8 +1669,14 @@ clique_perturbation_test.default <- function(
 #' is preserved, but species structure within the ortholog table is
 #' not — a gene originally in one HOG/species-pair may land in another.
 #' Under \code{null_model = "within_hog"} the shuffle happens inside
-#' each HOG, so the HOG grouping survives and only the gene-to-gene
-#' pairing is randomised; see \code{null_model} for when that matters.
+#' each HOG \emph{and} species pair, so the HOG grouping survives and
+#' only the gene-to-gene pairing is randomised; see \code{null_model}
+#' for when that matters. Partitioning by the pair as well matters for a
+#' stacked all-pairs ortholog table, where one HOG carries rows from
+#' several pairs: shuffling by HOG alone would move a gene into a pair
+#' whose network does not contain it, and that row is then dropped.
+#' A HOG with one gene per species therefore has nothing to permute and
+#' yields a null with no spread.
 #' This tests whether the observed gene-to-gene correspondence produces
 #' stronger co-expression conservation than random mappings.
 #'
@@ -1849,21 +1855,44 @@ clique_intensity_test.default <- function(
   # (not structural zeros from absent cliques)
   null_intensities <- matrix(NA_real_, nrow = n_perm, ncol = n_cliques)
 
+  # A stacked all-pairs ortholog table puts several species pairs into
+  # one HOG, so grouping the shuffle by hog alone can move a species-C
+  # gene into an A-B row. compare_neighborhoods() then drops that row by
+  # network membership and the mapping is lost silently (measured: 33%
+  # of rows on a stacked 3-species table). Group by the species pair as
+  # well. Both keys are constant across permutations, so build them once.
+  shuffle_sp1 <- shuffle_sp2 <- NULL
+  if (null_model == "within_hog") {
+    gene_sp <- unlist(lapply(names(networks), function(s) {
+      rn <- rownames(networks[[s]]$network)
+      if (is.null(rn)) NULL else stats::setNames(rep(s, length(rn)), rn)
+    }))
+    shuffle_sp1 <- unname(gene_sp[orthologs$Species1])
+    shuffle_sp2 <- unname(gene_sp[orthologs$Species2])
+    shuffle_sp1[is.na(shuffle_sp1)] <- "?"
+    shuffle_sp2[is.na(shuffle_sp2)] <- "?"
+  }
+
   for (p in seq_len(n_perm)) {
     # How the ortholog mapping is destroyed. "global" shuffles Species2
     # across every HOG, which also destroys the HOGs themselves: a
     # permuted run then almost never contains the observed clique's HOG,
     # so there is nothing to match and n_matched stays 0 (measured: 0 of
     # 204 cliques at full scale). "within_hog" keeps each HOG's gene
-    # multiset and permutes only which Species1 gene each Species2 gene
-    # is paired with, so the HOG survives every permutation and the null
-    # asks the narrower question the statistic needs: given these genes,
-    # is this paralog combination unusually intense?
+    # multiset, within one species pair, and permutes only which
+    # Species1 gene each Species2 gene is paired with, so the HOG
+    # survives every permutation and the null asks the narrower question
+    # the statistic needs: given these genes, is this paralog
+    # combination unusually intense? A single-copy HOG has nothing to
+    # permute, so its null has no spread and its z is NA.
     shuffled_orthologs <- orthologs
     shuffled_orthologs$Species2 <- if (null_model == "within_hog") {
-      stats::ave(orthologs$Species2, orthologs$hog, FUN = function(g) {
-        if (length(g) < 2L) g else sample(g)
-      })
+      stats::ave(orthologs$Species2, orthologs$hog, shuffle_sp1,
+        shuffle_sp2,
+        FUN = function(g) {
+          if (length(g) < 2L) g else sample(g)
+        }
+      )
     } else {
       sample(orthologs$Species2)
     }

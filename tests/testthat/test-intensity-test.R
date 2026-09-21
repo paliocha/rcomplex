@@ -356,6 +356,42 @@ test_that("within_hog null matches cliques where global cannot", {
 })
 
 
+test_that("within_hog shuffle stays inside one species pair", {
+  # A stacked all-pairs ortholog table puts A-B, A-C and B-C rows in the
+  # same HOG. Grouping the shuffle by hog alone moves a C gene into an
+  # A-B row; compare_neighborhoods() drops it by network membership, so
+  # the mapping vanishes silently (measured: 33% of rows on a stacked
+  # 3-species table) and multi-species cliques stop rebuilding.
+  #
+  # make_clique_fixture_3sp() is exactly that shape, one gene per species
+  # per HOG, so every (hog, species-pair) group holds a single row and a
+  # correctly partitioned shuffle is the identity: every permutation
+  # reproduces the observed table and matches, with no null spread. That
+  # is what pins the partition -- under the hog-only shuffle rows are
+  # lost and the permutations cannot all match.
+  fx <- make_clique_fixture_3sp()
+  n_perm <- 20L
+  res <- clique_intensity_test(fx$cliques, fx$target_species, fx$networks,
+    fx$orthologs,
+    n_perm = n_perm, seed = 3L, null_model = "within_hog",
+    pi0_method = "storey"
+  )
+  # nothing dropped: every permutation rebuilds the observed clique
+  expect_true(all(res$n_matched == n_perm))
+  # identity shuffle, so the null has no spread and z is undefined
+  expect_true(all(res$null_sd == 0))
+  expect_true(all(is.na(res$z_score)))
+
+  # the global shuffle destroys the HOGs, so nothing matches at all
+  glb <- clique_intensity_test(fx$cliques, fx$target_species, fx$networks,
+    fx$orthologs,
+    n_perm = n_perm, seed = 3L, null_model = "global",
+    pi0_method = "storey"
+  )
+  expect_true(all(glb$n_matched == 0L))
+})
+
+
 test_that("null_model is validated and defaults to global", {
   fx <- formals(rcomplex:::clique_intensity_test.default)
   expect_identical(eval(fx$null_model)[1], "global")

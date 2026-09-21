@@ -138,8 +138,14 @@ gene grouping. Network topology (per-species adjacency matrices)
 is preserved, but species structure within the ortholog table is
 not — a gene originally in one HOG/species-pair may land in another.
 Under \code{null_model = "within_hog"} the shuffle happens inside
-each HOG, so the HOG grouping survives and only the gene-to-gene
-pairing is randomised; see \code{null_model} for when that matters.
+each HOG \emph{and} species pair, so the HOG grouping survives and
+only the gene-to-gene pairing is randomised; see \code{null_model}
+for when that matters. Partitioning by the pair as well matters for a
+stacked all-pairs ortholog table, where one HOG carries rows from
+several pairs: shuffling by HOG alone would move a gene into a pair
+whose network does not contain it, and that row is then dropped.
+A HOG with one gene per species therefore has nothing to permute and
+yields a null with no spread.
 This tests whether the observed gene-to-gene correspondence produces
 stronger co-expression conservation than random mappings.
 }
