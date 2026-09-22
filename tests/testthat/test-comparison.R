@@ -1880,13 +1880,14 @@ power_gated_p <- function(x, m, np, k) {
 }
 
 # One direction's power by exhaustive search over every overlap.
-power_brute <- function(res, d, np, alpha, called, f0 = NULL) {
+power_brute <- function(res, d, np, alpha, called, rho0 = NULL) {
   g <- function(s) res[[paste0(d, s)]]
   m <- g(".neigh")
   k <- g(".ortho.neigh")
-  x <- g(".neigh.overlap")
   pcut <- max(g(".p.val.con")[g(".q.val.con") < alpha])
-  if (is.null(f0)) f0 <- stats::median((x / m)[called & m > 0])
+  if (is.null(rho0)) {
+    rho0 <- stats::median(g(".effect.size")[called & m > 0 & k > 0])
+  }
   vapply(seq_along(m), function(i) {
     nn <- min(k[i], m[i])
     if (nn == 0) {
@@ -1897,7 +1898,9 @@ power_brute <- function(res, d, np, alpha, called, f0 = NULL) {
     if (length(ok) == 0L) {
       return(0)
     }
-    sum(stats::dbinom(xs[min(ok)]:nn, nn, f0))
+    # rho0 times the chance overlap k * m / np, spread over nn draws
+    p_alt <- min(rho0 * max(k[i], m[i]) / np, 1)
+    sum(stats::dbinom(xs[min(ok)]:nn, nn, p_alt))
   }, numeric(1))
 }
 
@@ -1933,9 +1936,9 @@ test_that("edge power matches a brute-force computation", {
   called_min <- pmin(q1, q2) < 0.05
   expect_gt(sum(called_max), 10L)
 
-  dir_pw <- function(called, f0 = NULL) {
+  dir_pw <- function(called, rho0 = NULL) {
     lapply(c("Species1", "Species2"), power_brute,
-      res = res, np = fx$np, alpha = 0.05, called = called, f0 = f0
+      res = res, np = fx$np, alpha = 0.05, called = called, rho0 = rho0
     )
   }
   b <- dir_pw(called_max)
@@ -1944,16 +1947,16 @@ test_that("edge power matches a brute-force computation", {
   # Power has to vary for it to separate anything.
   expect_gt(diff(range(pw)), 0.3)
 
-  # f0 overrides the median in both directions.
-  b3 <- dir_pw(called_max, f0 = 0.3)
+  # rho0 overrides the median in both directions.
+  b3 <- dir_pw(called_max, rho0 = 3)
   expect_equal(
-    rcomplex:::.edge_power(res, 0.05, "greater", "max", f0 = 0.3),
+    rcomplex:::.edge_power(res, 0.05, "greater", "max", rho0 = 3),
     pmin(b3[[1]], b3[[2]]),
     tolerance = 1e-12
   )
-  # "min" takes the stronger direction, with f0 from the pairs "min" calls.
+  # "min" takes the stronger direction, rho0 from the pairs "min" calls.
   expect_equal(
-    rcomplex:::.edge_power(res, 0.05, "greater", "min", f0 = 0.3),
+    rcomplex:::.edge_power(res, 0.05, "greater", "min", rho0 = 3),
     pmax(b3[[1]], b3[[2]]),
     tolerance = 1e-12
   )
@@ -1964,7 +1967,7 @@ test_that("edge power matches a brute-force computation", {
     tolerance = 1e-12
   )
 
-  edges <- comparison_to_edges(res, "SP_A", "SP_B", f0 = 0.3)
+  edges <- comparison_to_edges(res, "SP_A", "SP_B", rho0 = 3)
   expect_equal(edges$power, pmin(b3[[1]], b3[[2]]), tolerance = 1e-12)
 })
 
@@ -1988,7 +1991,7 @@ test_that("\"min\" power ignores a direction without power", {
 })
 
 
-test_that("summarize_comparison forwards f0 to its edge table", {
+test_that("summarize_comparison forwards rho0 to its edge table", {
   fx <- make_power_comparison()
   run <- function(...) {
     summarize_comparison(fx$cmp,
@@ -1996,13 +1999,13 @@ test_that("summarize_comparison forwards f0 to its edge table", {
       pi0_method = "none", ...
     )
   }
-  fixed <- run(f0 = 0.3)
+  fixed <- run(rho0 = 3)
   expect_equal(
     fixed$edges$power,
-    comparison_to_edges(fixed$results, "SP_A", "SP_B", f0 = 0.3)$power,
+    comparison_to_edges(fixed$results, "SP_A", "SP_B", rho0 = 3)$power,
     tolerance = 1e-12
   )
-  # NULL keeps the data-derived reference fraction.
+  # NULL keeps the data-derived reference enrichment.
   dflt <- run()
   expect_equal(
     dflt$edges$power,
@@ -2010,7 +2013,7 @@ test_that("summarize_comparison forwards f0 to its edge table", {
     tolerance = 1e-12
   )
   expect_false(isTRUE(all.equal(fixed$edges$power, dflt$edges$power)))
-  expect_error(run(f0 = 1.5), "f0")
+  expect_error(run(rho0 = -1), "rho0")
 })
 
 
@@ -2052,12 +2055,12 @@ test_that("edge power is NA where it is undefined", {
   expect_equal(unique(res$Species1.urn), fx$np)
 
   expect_error(
-    comparison_to_edges(res, "SP_A", "SP_B", f0 = 0),
-    "f0 must be NULL or a single number"
+    comparison_to_edges(res, "SP_A", "SP_B", rho0 = 0),
+    "rho0 must be NULL or a single positive number"
   )
   expect_error(
-    comparison_to_edges(res, "SP_A", "SP_B", f0 = c(0.2, 0.3)),
-    "f0 must be NULL"
+    comparison_to_edges(res, "SP_A", "SP_B", rho0 = c(2, 3)),
+    "rho0 must be NULL"
   )
 })
 
@@ -2065,7 +2068,7 @@ test_that("edge power is NA where it is undefined", {
 test_that("find_coexpressologs carries power on both paths", {
   fx <- make_clique_fixture()
   an <- find_coexpressologs(fx$networks, fx$orthologs,
-    pi0_method = "none", f0 = 0.5
+    pi0_method = "none", rho0 = 2
   )
   expect_equal(
     names(an)[7:10], c("effect_size", "jaccard", "power", "type")
@@ -2073,7 +2076,7 @@ test_that("find_coexpressologs carries power on both paths", {
   expect_true(any(!is.na(an$power)))
 
   sweep <- suppressMessages(density_sweep(fx$networks, fx$orthologs,
-    multipliers = 1, method = "analytical", pi0_method = "none", f0 = 0.5
+    multipliers = 1, method = "analytical", pi0_method = "none", rho0 = 2
   ))
   expect_equal(sweep$edges[[1]]$power, an$power)
 
@@ -2085,8 +2088,8 @@ test_that("find_coexpressologs carries power on both paths", {
   expect_true(all(is.na(perm$power)))
 
   expect_error(
-    find_coexpressologs(fx$networks, fx$orthologs, f0 = 2),
-    "f0 must be NULL"
+    find_coexpressologs(fx$networks, fx$orthologs, rho0 = Inf),
+    "rho0 must be NULL"
   )
 })
 

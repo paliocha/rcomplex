@@ -1,5 +1,29 @@
 # rcomplex 0.3.0
 
+- **Power is computed against fold enrichment, not a conserved
+  fraction** (#22). `comparison_to_edges()`, `find_coexpressologs()`,
+  `density_sweep()` and `summarize_comparison()` take `rho0` in place of
+  `f0`: the alternative under which `power` is computed is now that a
+  pair's partners are shared `rho0` times more often than chance
+  (`x = rho0 * k * m / (N - 1)` in expectation; default the median
+  `effect.size` of the called pairs, about 2.5 on the Pooideae data),
+  the quantity `effect_size` and the clique intensity weights already
+  use. The fixed fraction `f0 * min(k, m)` only sounded biological: at
+  the measured 6-10% it implied about 60-fold enrichment for a
+  20-partner gene and roughly chance for a hub, which is why power fell
+  with degree and `underpowered` marked hubs (#16). Measured on all 28
+  Pooideae species pairs in both directions, Spearman of `power` with
+  degree goes from -0.30 to +0.998; the share of edges below
+  `min_power = 0.8` in the lowest degree decile goes from 0.04 to 0.79
+  (root) and from 0.00 to 0.50 (leaf), and in the highest decile from
+  0.30 and 0.12 to 0.00. So `underpowered` now marks genes whose
+  neighbourhoods are too small for ordinary conservation to be visible,
+  which is what #12 introduced it for; the note in the
+  `classify_cliques()` entry below that it marks hubs described the
+  fraction alternative and no longer applies. **`power` changes on
+  every analytical edge table**, and code passing `f0` must pass `rho0`
+  (a positive number, no longer bounded by 1).
+
 - **`find_cliques()` no longer reports `coherence`** (#20). Onnela
   coherence (geometric over arithmetic mean of a clique's edge weights)
   sat in a 0.003-wide band under its ceiling of 1 on the eight-species

@@ -188,16 +188,16 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 }
 
 
-#' Validate a reference conserved fraction
+#' Validate a reference fold enrichment
 #' @noRd
-.check_f0 <- function(f0) {
-  if (is.null(f0)) {
+.check_rho0 <- function(rho0) {
+  if (is.null(rho0)) {
     return(invisible(TRUE))
   }
-  ok <- is.numeric(f0) && length(f0) == 1L && !is.na(f0) &&
-    f0 > 0 && f0 <= 1
+  ok <- is.numeric(rho0) && length(rho0) == 1L && is.finite(rho0) &&
+    rho0 > 0
   if (!ok) {
-    stop("f0 must be NULL or a single number in (0, 1]")
+    stop("rho0 must be NULL or a single positive number")
   }
   invisible(TRUE)
 }
@@ -264,14 +264,19 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
 #' Detection power of each tested pair
 #'
-#' Probability that a pair would have been called had a fraction `f0` of
-#' its neighbourhood been conserved. Per direction, the smallest overlap
+#' Probability that a pair would have been called had its partners been
+#' shared at the reference fold enrichment `rho0`, i.e. `rho0` times the
+#' chance overlap `k * m / N`. Per direction, the smallest overlap
 #' reaching the largest called p-value (the direction's q-value cut on
 #' the p scale) is found, and the power is the chance that
-#' `Binomial(min(k, m), f0)` reaches it. With `f0 = NULL` the reference
-#' fraction is the median `x / m` over the pairs called under
-#' `pval_combine`, per direction. Directions combine as the q-values do:
-#' under `"max"` both must be detected, so the weaker power binds.
+#' `Binomial(min(k, m), rho0 * max(k, m) / N)` reaches it. With
+#' `rho0 = NULL` the reference is the median `effect.size` over the
+#' pairs called under `pval_combine`, per direction. A fixed conserved
+#' *fraction* was the alternative before 0.3.0: at the measured 6-10% it
+#' implied about 60-fold enrichment for a 20-partner gene and roughly
+#' chance for a hub, so power fell with degree and `underpowered` marked
+#' hubs (#16, #22). Directions combine as the q-values do: under
+#' `"max"` both must be detected, so the weaker power binds.
 #'
 #' @param comparison `summarize_comparison()$results`.
 #' @return Numeric vector, one entry per row; `NA` where power is
@@ -280,10 +285,10 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' @noRd
 .edge_power <- function(comparison, alpha,
                         alternative = c("greater", "less"),
-                        pval_combine = c("max", "min"), f0 = NULL) {
+                        pval_combine = c("max", "min"), rho0 = NULL) {
   alternative <- match.arg(alternative)
   pval_combine <- match.arg(pval_combine)
-  .check_f0(f0)
+  .check_rho0(rho0)
   na_out <- rep(NA_real_, nrow(comparison))
   dirs <- c("Species1", "Species2")
   need <- as.vector(outer(dirs, c(
@@ -326,17 +331,20 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
       return(na_out)
     }
     pcut <- max(p[sig])
-    f0_d <- f0
-    if (is.null(f0_d)) {
-      use <- called & m > 0
+    rho_d <- rho0
+    if (is.null(rho_d)) {
+      use <- called & m > 0 & k > 0
       if (!any(use)) {
         return(na_out)
       }
-      f0_d <- stats::median(x[use] / m[use])
+      rho_d <- stats::median(col(".effect.size")[use])
     }
     n <- pmin(k, m)
+    # Alternative mean rho_d * k * m / N over n = min(k, m) draws, so the
+    # per-draw probability is rho_d * max(k, m) / N, capped at 1.
+    p_alt <- pmin(rho_d * pmax(k, m) / np, 1)
     xstar <- .power_xstar(pcut, m, k, np)
-    out <- stats::pbinom(xstar - 1, n, f0_d, lower.tail = FALSE)
+    out <- stats::pbinom(xstar - 1, n, p_alt, lower.tail = FALSE)
     out[xstar > n | k == 0 | m == 0] <- 0
     out
   })
@@ -378,10 +386,11 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   (permissive; a pair is called when either direction is significant,
 #'   yielding a denser edge supply for \code{\link{find_cliques}}). A
 #'   missing directional q-value is ignored in either case.
-#' @param f0 Reference conserved fraction for the \code{power} column:
-#'   \code{NULL} (default) takes, per direction, the median
-#'   \code{x / m} (overlap over neighbourhood size) of the called pairs;
-#'   a single number in \eqn{(0, 1]} fixes it for both directions.
+#' @param rho0 Reference fold enrichment for the \code{power} column:
+#'   how many times more often than chance a conserved pair's partners
+#'   are shared. \code{NULL} (default) takes, per direction, the median
+#'   \code{effect.size} of the called pairs (about 2.5 on the Pooideae
+#'   data); a single positive number fixes it for both directions.
 #'
 #' @return Data frame with columns:
 #'   \describe{
@@ -397,13 +406,14 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'       (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
 #'       \eqn{[0, 1]}: 1 = identical neighborhoods, 0 = disjoint.}
 #'     \item{power}{Detection power: the probability that the pair
-#'       would have been called had a fraction \code{f0} of its
-#'       neighbourhood been conserved, given its neighbourhood sizes and
-#'       the largest p-value called in each direction. Directions
-#'       combine like \code{pval_combine} (\code{"max"}: the weaker
-#'       power). A non-significant pair with low power is absent
-#'       evidence, not evidence of divergence: a low-degree gene cannot
-#'       reach the call whatever its conservation.
+#'       would have been called had its partners been shared at the
+#'       reference fold enrichment \code{rho0}, given its neighbourhood
+#'       sizes and the largest p-value called in each direction.
+#'       Directions combine like \code{pval_combine} (\code{"max"}: the
+#'       weaker power). Power rises with degree: at typical enrichment a
+#'       low-degree gene's shared partners amount to less than one, which
+#'       no count test can call, so a non-significant low-power pair is
+#'       absent evidence, not evidence of divergence.
 #'       \code{\link{classify_gene_cliques}} and
 #'       \code{\link{classify_cliques}} read it through
 #'       \code{min_power}. \code{NA} for \code{alternative = "less"},
@@ -427,10 +437,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
                                 alpha = 0.05,
                                 pval_combine = c("max", "min"),
-                                f0 = NULL) {
+                                rho0 = NULL) {
   alternative <- match.arg(alternative)
   pval_combine <- match.arg(pval_combine)
-  .check_f0(f0)
+  .check_rho0(rho0)
 
   suffix <- if (alternative == "greater") "con" else "div"
   q1_col <- paste0("Species1.q.val.", suffix)
@@ -476,7 +486,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     q.value = q_comb,
     effect_size = eff_geo,
     jaccard = jacc_geo,
-    power = .edge_power(comparison, alpha, alternative, pval_combine, f0),
+    power = .edge_power(comparison, alpha, alternative, pval_combine, rho0),
     type = type
   )
 }
@@ -571,10 +581,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 #'   the original ComPlEx) or \code{"min"} (permissive; either direction,
 #'   denser edge supply for \code{\link{find_cliques}}).
-#' @param f0 Analytical method only: reference conserved fraction for
+#' @param rho0 Analytical method only: reference fold enrichment for
 #'   the \code{power} column, passed to
 #'   \code{\link{comparison_to_edges}} (default \code{NULL}, the median
-#'   overlap fraction of the called pairs). The permutation path always
+#'   effect size of the called pairs). The permutation path always
 #'   reports \code{power = NA}: its HOG-level q-value has no per-pair
 #'   call threshold to measure power against.
 #' @param out_file Optional path to a CSV file. When supplied, each
@@ -645,13 +655,13 @@ find_coexpressologs.default <- function(
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  out_file = NULL, f0 = NULL, ...
+  out_file = NULL, rho0 = NULL, ...
 ) {
   method <- match.arg(method)
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
-  .check_f0(f0)
+  .check_rho0(rho0)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
@@ -749,7 +759,7 @@ find_coexpressologs.default <- function(
       if (is.null(summary_res) || nrow(summary_res$results) == 0) next
       edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
         alternative, alpha,
-        pval_combine = pval_combine, f0 = f0
+        pval_combine = pval_combine, rho0 = rho0
       )
     } else {
       # Permutation path: HOG-level permutation test
@@ -885,8 +895,8 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   \code{"max"} (default) requires both directions to be significant
 #'   (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
 #'   calls a pair when either direction is significant.
-#' @param f0 Passed to \code{\link{find_coexpressologs}}: reference
-#'   conserved fraction for the analytical \code{power} column.
+#' @param rho0 Passed to \code{\link{find_coexpressologs}}: reference
+#'   fold enrichment for the analytical \code{power} column.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -924,13 +934,13 @@ density_sweep.default <- function(
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
-  seed = NULL, f0 = NULL, ...
+  seed = NULL, rho0 = NULL, ...
 ) {
   method <- match.arg(method)
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
-  .check_f0(f0)
+  .check_rho0(rho0)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue
@@ -1010,7 +1020,7 @@ density_sweep.default <- function(
         min_exceedances = min_exceedances,
         max_permutations = max_permutations,
         pi0_method = pi0_method,
-        pval_combine = pval_combine, filter_zero = filter_zero, f0 = f0
+        pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0
       ),
       error = function(e) {
         warning(

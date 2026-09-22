@@ -24,7 +24,7 @@ find_coexpressologs(networks, ...)
   filter_zero = FALSE,
   seed = NULL,
   out_file = NULL,
-  f0 = NULL,
+  rho0 = NULL,
   ...
 )
 
@@ -127,10 +127,10 @@ Not supported on the \code{rcomplex} S3 method (see
 edge table on \code{$edges}. Default \code{NULL} keeps the original
 in-memory behaviour.}
 
-\item{f0}{Analytical method only: reference conserved fraction for
+\item{rho0}{Analytical method only: reference fold enrichment for
 the \code{power} column, passed to
 \code{\link{comparison_to_edges}} (default \code{NULL}, the median
-overlap fraction of the called pairs). The permutation path always
+effect size of the called pairs). The permutation path always
 reports \code{power = NA}: its HOG-level q-value has no per-pair
 call threshold to measure power against.}
 }
