@@ -148,12 +148,21 @@ Data frame with columns:
 \item{observed_intensity}{Intensity from baseline cliques}
 \item{null_mean}{Mean intensity over matched permutations}
 \item{null_sd}{SD of intensity over matched permutations}
+\item{gap}{\code{observed_intensity - null_mean}: the effect on
+the weight scale, comparable across clique sizes (see the
+section above)}
 \item{z_score}{(observed - null_mean) / null_sd}
 \item{p_value}{Empirical one-sided p-value over matched
 permutations (direction determined by \code{alternative})}
 \item{n_perm}{Total number of permutations run}
 \item{n_matched}{Number of permutations where clique had a
 matching HOG with Jaccard > 0}
+\item{n_edges}{Number of rows of \code{edges} joining two clique
+members within the clique's HOG: the edges the observed
+intensity is taken over and, under \code{"matched_edges"}, the
+edges the null resamples. Equals \code{n_edges} of
+\code{\link{find_cliques}} when \code{edges} is the table the
+cliques were built from.}
 }
 }
 \description{
@@ -188,3 +197,21 @@ P-values are empirical over matched permutations only (permutations
 where the clique's HOG produced a clique with Jaccard > 0 to the
 baseline). Unmatched permutations are excluded, not counted as zeros.
 }
+\section{Comparing cliques of different sizes}{
+
+Under \code{null_model = "matched_edges"}, \code{z_score} and
+\code{p_value} test whether the clique's edges are exchangeable with
+the pool's, and the null draws its \code{n_edges} edges
+independently, so \code{null_sd} shrinks as
+\code{1 / sqrt(n_edges)}. A real clique's edges all belong to one
+HOG and share its conservation level, so the observed \code{gap}
+does not shrink: on the eight-species Pooideae run its IQR was 0.067
+at three species and 0.080 at eight, while the IQR of
+\code{z_score} grew from 1.6 to 5.6 and the share of |z| > 1.96 from
+0.12 to 0.67, in both tails. \code{z_score} therefore measures
+evidence, and more edges are more evidence for the same effect.
+Compare \code{z_score} and \code{p_value} within a clique size, and
+compare \code{gap} across sizes; ranking on \code{z_score} across
+sizes ranks largely on \code{n_edges}.
+}
+

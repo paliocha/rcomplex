@@ -16,8 +16,8 @@ test_that("clique_intensity_test output has correct structure", {
   expect_true(is.data.frame(result))
   expected_cols <- c(
     "clique_idx", "hog", "observed_intensity",
-    "null_mean", "null_sd", "z_score", "p_value",
-    "n_perm", "n_matched"
+    "null_mean", "null_sd", "gap", "z_score", "p_value",
+    "n_perm", "n_matched", "n_edges"
   )
   expect_true(all(expected_cols %in% names(result)))
   expect_equal(nrow(result), nrow(setup$cliques))
@@ -389,6 +389,30 @@ test_that("within_hog shuffle stays inside one species pair", {
     pi0_method = "storey"
   )
   expect_true(all(glb$n_matched == 0L))
+})
+
+
+test_that("gap and n_edges are the effect and the evidence's size", {
+  # z grows with the edge count for the same gap, because the null
+  # draws edges independently while a clique's edges share a HOG (#25).
+  # The gap is the size-comparable effect, so it is a column, not a
+  # derivation left to the caller.
+  setup <- make_clique_fixture()
+  if (nrow(setup$cliques) == 0) skip("No baseline cliques found")
+  result <- clique_intensity_test(
+    setup$cliques, setup$target_species,
+    edges = setup$edges, n_perm = 20L, seed = 1L,
+    null_model = "matched_edges"
+  )
+  ok <- is.finite(result$gap)
+  expect_true(any(ok))
+  expect_equal(result$gap[ok],
+               (result$observed_intensity - result$null_mean)[ok])
+  expect_equal(result$n_edges, as.integer(setup$cliques$n_edges))
+  expect_equal(
+    result$z_score[ok],
+    (result$gap / result$null_sd)[ok]
+  )
 })
 
 
