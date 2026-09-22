@@ -391,17 +391,19 @@ test_that("max_missing_edges n_missing output is 0 when all edges present", {
 })
 
 
-# --- Tests for intensity, coherence, and min_effect_size ---
+# --- Tests for intensity and min_effect_size ---
 #
-# Onnela weights are each edge's Jaccard-index percentile among every
-# tested pair of its species pair. 1 - q.value pinned every weight above
-# 1 - alpha, because cliques only contain edges that already passed alpha
-# (#11); effect size would have ranked genes by inverse degree, because
-# fold enrichment falls like 1 / degree at a fixed conserved fraction (#12).
+# Onnela weights are each edge's ensemble connection probability: its
+# association strength (effect_size) mapped to p = z * w / (1 + z * w),
+# with z fitted per species pair by maximum entropy over every tested
+# pair. 1 - q.value pinned every weight above 1 - alpha, because cliques
+# only contain edges that already passed alpha (#11); the Jaccard index
+# has a null expectation that grows with neighbourhood size and ranked
+# hub genes above equally conserved low-degree ones (#15).
 
 # One conserved triangle (HOG1: A1, B1, C1) plus background rows of type
 # "ns" in other HOGs. find_cliques() never builds cliques from the ns rows,
-# but they belong to the tested population the percentiles are taken over.
+# but they belong to the tested population the weight scale is fitted on.
 make_percentile_edges <- function(jac_ab = 0.2, jac_ac = 0.6, jac_bc = 0.4,
                                   background = TRUE) {
   tri <- data.frame(
@@ -433,7 +435,7 @@ make_percentile_edges <- function(jac_ab = 0.2, jac_ac = 0.6, jac_bc = 0.4,
 }
 
 
-test_that("intensity weights are within-pair Jaccard percentiles", {
+test_that("intensity is the geometric mean of ensemble probabilities", {
   edges <- make_percentile_edges()
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
 
@@ -441,9 +443,11 @@ test_that("intensity weights are within-pair Jaccard percentiles", {
   # Intensity is the geometric mean of the edges' ensemble probabilities.
   w <- rcomplex:::.onnela_weight(edges)[1:3]
   expect_equal(result$intensity, exp(mean(log(w))), tolerance = 1e-12)
-  expect_equal(result$coherence, exp(mean(log(w))) / mean(w),
-               tolerance = 1e-12)
   expect_equal(result$min_effect_size, 2.0, tolerance = 1e-12)
+  # Coherence (geometric / arithmetic mean) was retired: on real data it
+  # had no range within a clique size and scaled with sqrt(edges) across
+  # sizes (#20). It must not come back as a column.
+  expect_false("coherence" %in% names(result))
 })
 
 
@@ -521,18 +525,17 @@ test_that("rows removed by edge_type still shape the weight scale", {
 
 test_that("a clique with an edge lacking effect_size gets NA intensity", {
   # Dropping the incomplete edge would score the clique on a smaller edge
-  # set; with a single valid edge left, coherence would read exactly 1.
+  # set, a different quantity, so the clique reports NA instead.
   sp <- c("SP_A", "SP_B", "SP_C")
   one_na <- make_percentile_edges()
   one_na$effect_size[2] <- NA_real_
   res <- find_cliques(one_na, sp)
   expect_equal(nrow(res), 1L)
   expect_true(is.na(res$intensity))
-  expect_true(is.na(res$coherence))
 
   two_na <- make_percentile_edges()
   two_na$effect_size[2:3] <- NA_real_
-  expect_true(is.na(find_cliques(two_na, sp)$coherence))
+  expect_true(is.na(find_cliques(two_na, sp)$intensity))
 })
 
 
@@ -554,7 +557,6 @@ test_that("effect_size is required, and an all-NA column gives NA", {
                  class = "rcomplex_missing_effect_size")
   expect_equal(nrow(result), 1L)
   expect_true(is.na(result$intensity))
-  expect_true(is.na(result$coherence))
 })
 
 
@@ -594,7 +596,7 @@ test_that("clique_stability on an unfiltered table does not warn", {
 })
 
 
-test_that("a single-edge clique has coherence 1", {
+test_that("a single-edge clique's intensity is its edge weight", {
   edges <- data.frame(
     gene1 = c("A1", "A2"), gene2 = c("B1", "B2"),
     species1 = "SP_A", species2 = "SP_B",
@@ -612,8 +614,6 @@ test_that("a single-edge clique has coherence 1", {
     rcomplex:::.onnela_weight(edges)[1],
     tolerance = 1e-12
   )
-  # One edge: geometric and arithmetic mean coincide whatever the weight.
-  expect_equal(result$coherence, 1.0, tolerance = 1e-12)
 })
 
 
@@ -636,7 +636,7 @@ test_that("min_effect_size returns minimum of effect sizes", {
 })
 
 
-test_that("empty cliques have intensity/coherence/min_effect_size columns", {
+test_that("empty cliques have intensity/min_effect_size columns", {
   edges <- data.frame(
     gene1 = character(0), gene2 = character(0),
     species1 = character(0), species2 = character(0),
@@ -647,11 +647,9 @@ test_that("empty cliques have intensity/coherence/min_effect_size columns", {
   result <- find_cliques(edges, c("SP_A", "SP_B"))
 
   expect_true("intensity" %in% names(result))
-  expect_true("coherence" %in% names(result))
   expect_true("min_effect_size" %in% names(result))
   expect_equal(nrow(result), 0)
   expect_true(is.numeric(result$intensity))
-  expect_true(is.numeric(result$coherence))
   expect_true(is.numeric(result$min_effect_size))
 })
 

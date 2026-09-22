@@ -1,5 +1,19 @@
 # rcomplex 0.3.0
 
+- **`find_cliques()` no longer reports `coherence`** (#20). Onnela
+  coherence (geometric over arithmetic mean of a clique's edge weights)
+  sat in a 0.003-wide band under its ceiling of 1 on the eight-species
+  Pooideae run (IQR 0.00317 root, 0.00312 leaf, against intensity's
+  0.080 and 0.086): the ensemble-probability weights concentrate near a
+  common value, and the ratio only has range when they are dispersed.
+  Standardising it against the size-matched edge null did not rescue
+  it. Within a size class the standardised value is a monotone
+  transform of the raw ratio (Spearman 0.98-0.999), and across sizes it
+  is 0.35 times the square root of the edge count, so its only range
+  was clique size. Nothing downstream read it. `intensity` and
+  `min_effect_size` are unchanged; code selecting a `coherence` column
+  must drop it.
+
 - **`classify_cliques()` qualifies an underpowered call instead of
   replacing it.** `underpowered` was a classification: a HOG that would
   have been `differentiated` or `trait_specific`, but whose call rested

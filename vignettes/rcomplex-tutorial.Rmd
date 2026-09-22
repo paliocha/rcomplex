@@ -1248,30 +1248,29 @@ The density sweep and jackknife stability above assess whether cliques
 survive threshold changes and species removal. Several additional
 diagnostics quantify clique quality at a finer grain.
 
-**Edge-level quality metrics.** `find_cliques()` now returns three
+**Edge-level quality metrics.** `find_cliques()` returns two
 columns alongside each clique: `intensity` (Onnela intensity -- the
-geometric mean, across present edges, of each edge's Jaccard-index
-percentile among all tested pairs of its species pair), `coherence`
-(intensity divided by the arithmetic mean, equal to 1 when all edge
-weights are equal), and `min_effect_size` (the bottleneck enrichment
-across present edges). The weights are percentiles rather than
-`1 - q.value` because every clique edge has already passed alpha, so
-`1 - q` would sit near 1 for every clique; they rank Jaccard rather than
-effect size because fold enrichment falls like 1 / degree at a fixed
-conserved fraction; and this is also why
-`find_cliques()` should receive the unfiltered edge table. High intensity with high coherence indicates
-uniformly strong conservation; high intensity with low coherence
-flags cliques carried by one or two dominant edges. The
+geometric mean, across present edges, of each edge's ensemble
+connection probability) and `min_effect_size` (the bottleneck
+enrichment across present edges). Each edge's association strength
+(`effect_size`, observed overlap over its expectation) is mapped to a
+probability `p = z * w / (1 + z * w)`, with `z` fitted per species pair
+by maximum entropy. The weights are not `1 - q.value`, because every
+clique edge has already passed alpha, so `1 - q` would sit near 1 for
+every clique; and not the Jaccard index, whose null expectation grows
+with neighbourhood size and ranked hub genes above equally conserved
+low-degree ones. The scale is fitted on every tested pair, which is why
+`find_cliques()` should receive the unfiltered edge table. The
 `cost_weights` parameter controls gene-assignment ranking: the
 default `c(q = 1, effect = 0)` minimises mean q-value, while
 `c(q = 1, effect = 1)` uses a composite cost
 `q * mean_q - effect * mean_effect` that also rewards large
 effect sizes:
 
-```{r intensity-coherence, eval = FALSE}
-# Intensity and coherence are already in cliques from find_cliques()
+```{r clique-intensity, eval = FALSE}
+# Intensity is already in cliques from find_cliques()
 cliques |>
-  select(hog, n_species, mean_q, intensity, coherence, min_effect_size) |>
+  select(hog, n_species, mean_q, intensity, min_effect_size) |>
   filter(n_species >= 3) |>
   arrange(desc(intensity)) |>
   head(20) |>

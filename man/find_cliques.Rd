@@ -32,9 +32,9 @@ find_cliques(edges, ...)
 Optionally includes a \code{type} column for filtering. Pass the
 unfiltered table (every tested pair, e.g. the output of
 \code{\link{find_coexpressologs}}): cliques are built from
-\code{edge_type} rows only, but \code{intensity} and
-\code{coherence} fit each edge's weight scale on every row of its
-species pair, so a pre-filtered table changes what they measure.
+\code{edge_type} rows only, but \code{intensity} fits each edge's
+weight scale on every row of its species pair, so a pre-filtered
+table changes what it measures.
 A table whose \code{type} column holds only \code{edge_type} rows
 triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
 once per session).}
@@ -89,8 +89,6 @@ with neighbourhood size, which ranked hub genes above equally
 conserved low-degree ones (#15). \code{NA} when \code{edges} has
 no usable \code{effect_size} column, or when any present clique
 edge lacks a finite value.}
-\item{coherence}{Onnela coherence: intensity / arithmetic mean of
-the same probabilities (1 when all edge weights are equal)}
 \item{min_effect_size}{Minimum effect size across present edges
 (bottleneck enrichment)}
 }
