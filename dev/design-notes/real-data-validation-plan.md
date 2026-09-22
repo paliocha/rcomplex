@@ -904,3 +904,65 @@ Under `validation-2026-09-17/`:
   (gene graph) is awkward. The `classify_species_cliques()` rename is
   shelved; the direction is consolidation, not clearer names for two.
   Not started.
+
+## 11. Second dataset, 2026-09-22: the improved package on the EVOTREE wood data
+
+Rodriguez et al. 2026 (Nat Commun, doi 10.1038/s41467-026-75624-2) —
+the paper the gene-graph taxonomy follows. Six species (aspen, birch,
+cherry; Norway spruce, Scots pine, lodgepole pine), 65-106 wood
+cryosection samples each, HOGs from OrthoFinder N1. Their input data and
+outputs are on Zenodo (10.5281/zenodo.21025760), unpacked on Orion at
+`rcomplex-testrun/evotree/`; scripts in `prepare_data/evotree/`
+(`e1_reproduce.R`, `e2_taxonomy.R`), run with `lib-main-f176fb9`.
+Their published tiers are the **baseline**; the question was what the
+improvements change.
+
+**rcomplex reproduces their test exactly.** Same 444,213 tested pairs,
+overlap counts identical on all 15 pairs, all 196,183 of their calls
+recovered plus 77 borderline extras from the self-excluded urn, q-values
+inside their 3-significant-digit rounding. Every difference below is
+therefore due to the improvements, not the network or the test.
+
+**Pooideae findings replicate, and are stronger here.**
+
+| | Pooideae (root / leaf) | wood |
+|---|---|---|
+| `rho0` per direction | 2.1-3.2 | 2.1-3.1 |
+| Spearman(`power`, degree) | +0.95 / +0.98 median | +0.98 median, +0.93..+1.00 |
+| underpowered: all / lowest decile / highest | 0.10 / 0.81 / 0.00 (root) | 0.20 / 1.00 / 0.00 |
+| median z by clique size (matched null) | −0.28..+0.21 (sizes 3-8) | −0.10, −0.16, −0.14, +0.29 (sizes 3-6) |
+| IQR of gap by size | 0.067-0.080 | 0.060-0.088 |
+| IQR of z by size | 1.6 → 5.6 | 2.0 → 4.1 |
+| share |z| > 1.96 by size | 0.12 → 0.67 | 0.17 → 0.53 |
+
+So #23 (no size gradient in z) and #25 (spread grows with size while
+the gap does not) both hold on a second dataset, and the `rho0` default
+of "about 2.5" is not a Pooideae number.
+
+**Gene-graph taxonomy, HOG level, best tier per HOG (16,892 HOGs).**
+
+| tier | theirs | baseline (power-blind) | with power | note |
+|---|---|---|---|---|
+| complete | 940 | 941 (940 shared) | 941 | exact |
+| partial_significant | 538 | 537 (537) | 537 | exact |
+| lineage_specific dicot / conifer | 1003 / 1975 | 1004 / 1977 (all shared) | same | exact |
+| differentiated | 293 | 369 (293 shared) | 354 (282) + 11 → `underpowered` | needs `alpha_graph = Inf` |
+| partial_present | 620 | 211 (211) | 226 (226) | 333 of theirs are `unclassified`: sixth species tested and failed |
+
+The only tier the package refuses is partial_present when the missing
+species was *tested* and not called (`missing_reason = tested_ns`);
+that is the absent-versus-negative-evidence rule, and power rescues 15
+of those (13 + 2). Power gating moved 114 HOGs in all: 86 unclassified
+and 13 differentiated to `underpowered`, 13 unclassified and 2
+differentiated to partial_present. Trap: `gene_clique_graph(alpha_graph
+= 1)` drops q = 1 rows (documented; `Inf` is the unfiltered graph) —
+with 1 the differentiated tier found 44 of 293.
+
+**Species-graph classifier (`classify_cliques()`, lineage as trait):**
+of 416 `differentiated` HOGs **319** carry the `underpowered` flag; of
+7,817 `trait_specific`, 648. Three quarters of the divergence calls on
+wood rest on a cross-lineage edge whose gene could not have been called
+at typical enrichment. That is the flag doing what #12 introduced it
+for, on data the package was not tuned on.
+
+Complete cliques on the strict graph: 50,750 vs their 50,697.
