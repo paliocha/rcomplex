@@ -1,5 +1,21 @@
 # rcomplex 0.3.0
 
+- **`clique_intensity_test()` reports `gap` and `n_edges`** (#25).
+  `z_score` and `p_value` test whether a clique's edges are
+  exchangeable with its pool's, and the null draws the edges
+  independently, so `null_sd` shrinks as `1 / sqrt(n_edges)`. A real
+  clique's edges all belong to one HOG and share its conservation
+  level, so the observed gap does not shrink with size: on the
+  eight-species Pooideae run under the size-matched null the IQR of
+  `observed_intensity - null_mean` was 0.067 at three species and 0.080
+  at eight, while the IQR of `z_score` grew from 1.6 to 5.6 and the
+  share of |z| > 1.96 from 0.12 to 0.67, symmetrically in both tails.
+  `z_score` is evidence, and more edges are more evidence for the same
+  effect. The effect is now a column, `gap`, comparable across clique
+  sizes; `n_edges` is the number of clique edges scored. Compare
+  `z_score` and `p_value` within a clique size and `gap` across sizes.
+  Nothing else in the output changes.
+
 - **Power is computed against fold enrichment, not a conserved
   fraction** (#22). `comparison_to_edges()`, `find_coexpressologs()`,
   `density_sweep()` and `summarize_comparison()` take `rho0` in place of

@@ -1768,6 +1768,21 @@ clique_perturbation_test.default <- function(
 #'   baseline \code{cliques}/\code{edges}.
 #' @param ... Additional arguments passed to the default method.
 #'
+#' @section Comparing cliques of different sizes:
+#' \code{z_score} and \code{p_value} test whether the clique's edges are
+#' exchangeable with the pool's, and the null draws its \code{n_edges}
+#' edges independently, so \code{null_sd} shrinks as
+#' \code{1 / sqrt(n_edges)}. A real clique's edges all belong to one
+#' HOG and share its conservation level, so the observed \code{gap}
+#' does not shrink: on the eight-species Pooideae run its IQR was 0.067
+#' at three species and 0.080 at eight, while the IQR of
+#' \code{z_score} grew from 1.6 to 5.6 and the share of |z| > 1.96 from
+#' 0.12 to 0.67, in both tails. \code{z_score} therefore measures
+#' evidence, and more edges are more evidence for the same effect.
+#' Compare \code{z_score} and \code{p_value} within a clique size, and
+#' compare \code{gap} across sizes; ranking on \code{z_score} across
+#' sizes ranks largely on \code{n_edges}.
+#'
 #' @return Data frame with columns:
 #'   \describe{
 #'     \item{clique_idx}{1-based index into baseline cliques}
@@ -1775,12 +1790,17 @@ clique_perturbation_test.default <- function(
 #'     \item{observed_intensity}{Intensity from baseline cliques}
 #'     \item{null_mean}{Mean intensity over matched permutations}
 #'     \item{null_sd}{SD of intensity over matched permutations}
+#'     \item{gap}{\code{observed_intensity - null_mean}: the effect on
+#'       the weight scale, comparable across clique sizes (see the
+#'       section above)}
 #'     \item{z_score}{(observed - null_mean) / null_sd}
 #'     \item{p_value}{Empirical one-sided p-value over matched
 #'       permutations (direction determined by \code{alternative})}
 #'     \item{n_perm}{Total number of permutations run}
 #'     \item{n_matched}{Number of permutations where clique had a
 #'       matching HOG with Jaccard > 0}
+#'     \item{n_edges}{Number of the clique's edges found in
+#'       \code{edges} and scored}
 #'   }
 #'
 #' @export
@@ -1832,9 +1852,9 @@ clique_intensity_test.default <- function(
   empty_result <- data.frame(
     clique_idx = integer(0), hog = character(0),
     observed_intensity = numeric(0), null_mean = numeric(0),
-    null_sd = numeric(0), z_score = numeric(0),
+    null_sd = numeric(0), gap = numeric(0), z_score = numeric(0),
     p_value = numeric(0), n_perm = integer(0),
-    n_matched = integer(0),
+    n_matched = integer(0), n_edges = integer(0),
     stringsAsFactors = FALSE
   )
 
@@ -1907,6 +1927,8 @@ clique_intensity_test.default <- function(
   )
   observed_intensity <- obs_stats$intensity
   n_cliques <- nrow(cliques)
+  rows <- .clique_edge_rows(cliques, edges, target_species)
+  n_edges <- lengths(rows)
 
   # Track null intensities and which entries are real matches
   # (not structural zeros from absent cliques)
@@ -1949,7 +1971,6 @@ clique_intensity_test.default <- function(
     if (!is.null(edge_type) && "type" %in% names(edges)) {
       usable <- usable & edges$type %in% edge_type
     }
-    rows <- .clique_edge_rows(cliques, edges, target_species)
     # Clique size drives both halves of the statistic. The null's spread
     # shrinks as 1/sqrt(E), and a clique exists only because all of its
     # edges passed together, so larger cliques are assembled from
@@ -2115,9 +2136,11 @@ clique_intensity_test.default <- function(
     clique_idx = seq_len(n_cliques), hog = cliques$hog,
     observed_intensity = observed_intensity,
     null_mean = null_mean, null_sd = null_sd,
+    gap = observed_intensity - null_mean,
     z_score = z_score, p_value = p_value,
     n_perm = rep(n_perm, n_cliques),
     n_matched = n_matched,
+    n_edges = as.integer(n_edges),
     stringsAsFactors = FALSE
   )
 }
