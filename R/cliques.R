@@ -1722,6 +1722,24 @@ clique_perturbation_test.default <- function(
 #'   \code{\link{find_coexpressologs}}). When provided, skips the
 #'   baseline edge recomputation. When \code{NULL} (default), edges
 #'   are computed internally.
+#' @param match_clique_size For \code{null_model = "matched_edges"},
+#'   draw each clique's null from edges belonging to cliques of the
+#'   \emph{same size} rather than from the species pair at large.
+#'   \code{TRUE} by default because pair-only pooling confounds the
+#'   score with clique size: a clique exists only because all of its
+#'   edges passed together, so larger cliques are built from stronger
+#'   edges and beat a pool dominated by small-clique ones. An edge
+#'   belonging to cliques of several sizes backs the null of each.
+#'   \code{FALSE} restores the pair-only pooling.
+#' @param min_pool_size Smallest pool a matched-edge draw will use;
+#'   a clique whose pool is thinner is left unscored
+#'   (\code{n_matched = 0}). The default of 1 is off in practice and
+#'   preserves the behaviour of a pool that holds a single weight: the
+#'   draw is that constant, so \code{null_sd} is 0 and \code{z} is
+#'   \code{NA}, which is the right answer rather than a degenerate one.
+#'   Raise it only where pools are genuinely thin -- on the
+#'   eight-species Pooideae run the size-matched pools hold roughly
+#'   350-575 weights, so it never binds there.
 #' @param null_model How the null is built. \code{"matched_edges"} does
 #'   not permute the ortholog mapping at all: it holds the mapping fixed
 #'   and replaces each clique edge with one drawn from that same species
@@ -1799,10 +1817,25 @@ clique_intensity_test.default <- function(
   edges = NULL,
   pval_combine = c("max", "min"),
   pi0_method = c("storey", "randomized", "none"),
-  null_model = c("global", "within_hog", "matched_edges"), ...
+  null_model = c("global", "within_hog", "matched_edges"),
+  match_clique_size = TRUE,
+  min_pool_size = 1L, ...
 ) {
   alternative <- match.arg(alternative)
   null_model <- match.arg(null_model)
+  if (!is.logical(match_clique_size) || length(match_clique_size) != 1L ||
+        is.na(match_clique_size)) {
+    stop("match_clique_size must be TRUE or FALSE")
+  }
+  # Validate before coercing: as.integer() truncates, so checking the
+  # coerced value would accept 1.5 as 1 and silently change the null
+  # rather than reject an argument documented as a positive integer.
+  if (!is.numeric(min_pool_size) || length(min_pool_size) != 1L ||
+        is.na(min_pool_size) || !is.finite(min_pool_size) ||
+        min_pool_size < 1 || min_pool_size != round(min_pool_size)) {
+    stop("min_pool_size must be a single positive integer")
+  }
+  min_pool_size <- as.integer(min_pool_size)
   pval_combine <- match.arg(pval_combine)
   pi0_method <- match.arg(pi0_method)
   n_perm <- as.integer(n_perm)
@@ -1927,16 +1960,52 @@ clique_intensity_test.default <- function(
     if (!is.null(edge_type) && "type" %in% names(edges)) {
       usable <- usable & edges$type %in% edge_type
     }
-    pools <- split(ew[usable], pool_key[usable])
     rows <- .clique_edge_rows(cliques, edges, target_species)
+    # Clique size drives both halves of the statistic. The null's spread
+    # shrinks as 1/sqrt(E), and a clique exists only because all of its
+    # edges passed together, so larger cliques are assembled from
+    # systematically stronger edges: on the eight-species Pooideae root
+    # run the median edge weight runs 0.615 at three species to 0.752 at
+    # eight, against a pair-only pool median of 0.638. Pooling by species
+    # pair alone therefore scores a large clique against mostly
+    # small-clique edges and inflates its z with size (median z ran -0.51
+    # at three species to +6.32 at eight). Size is read off the row, not
+    # an n_species column a caller's table need not carry.
+    clique_size <- vapply(seq_len(n_cliques), function(i) {
+      v <- unlist(cliques[i, target_species, drop = TRUE], use.names = FALSE)
+      sum(!is.na(v))
+    }, integer(1))
+    if (match_clique_size) {
+      # A membership, not an edge, is the unit: an edge can belong to
+      # cliques of several sizes (3904 of 8212 HOGs on that run yield
+      # more than one clique), and it should back the null of every
+      # size class it takes part in.
+      mem_idx <- unlist(rows, use.names = FALSE)
+      mem_size <- rep(clique_size, lengths(rows))
+      keep <- usable[mem_idx]
+      pools <- split(
+        ew[mem_idx][keep],
+        paste(pool_key[mem_idx][keep], mem_size[keep], sep = "\x01")
+      )
+    } else {
+      pools <- split(ew[usable], pool_key[usable])
+    }
     for (i in seq_len(n_cliques)) {
       idx <- rows[[i]]
       # Same refusal as the observed statistic: an incomplete weight set
       # would silently change the denominator, so score nothing.
       if (length(idx) == 0L || anyNA(ew[idx])) next
-      draws <- vapply(pool_key[idx], function(k) {
+      keys <- if (match_clique_size) {
+        paste(pool_key[idx], clique_size[i], sep = "\x01")
+      } else {
+        pool_key[idx]
+      }
+      draws <- vapply(keys, function(k) {
         pool <- pools[[k]]
-        if (is.null(pool) || length(pool) == 0L) {
+        # A pool this thin gives a null whose spread is a property of
+        # the pool, not of the data. Refuse it rather than report an
+        # inflated z; the clique surfaces as n_matched = 0.
+        if (is.null(pool) || length(pool) < min_pool_size) {
           rep(NA_real_, n_perm)
         } else {
           sample(pool, n_perm, replace = TRUE)
