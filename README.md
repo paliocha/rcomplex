@@ -375,7 +375,7 @@ multiplier) error with a message asking for a larger `store_density`.
 | `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |
 | `clique_perturbation_test()` | Bootstrap noise robustness for clique edge weights |
 | `clique_intensity_test()` | Permutation null model for clique intensity (Z-score) |
-| `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific/underpowered) |
+| `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific/unclassified), with an `underpowered` flag qualifying a call that rests on a low-power edge |
 
 ## Ortholog file format
 
