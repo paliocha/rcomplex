@@ -619,3 +619,142 @@ is unbounded, has real spread, and reads as "how unusual is this clique".
   tested. If its `z` does not discriminate either, propose removing it
   rather than shipping a constant.
 - Decide **#16** with S5 and S6 evidence in hand.
+
+---
+
+## 10. Outcome, 2026-09-21/22 — what landed, and two retractions
+
+Phases 0-4 ran. This section is the handoff: what is true now, what was
+withdrawn, and what is still open.
+
+### Merged to main
+
+| PR | What | Commit on main |
+|----|------|----------------|
+| #18 | within-HOG shuffle for `clique_intensity_test()` | `df11047` |
+| #19 | `null_model = "matched_edges"` (matched edge-set null) | `bdf045f` |
+| #21 | exact hypergeometric urn carried out of `compare_neighborhoods()` | `9e3f134` |
+| #23 | matched-edge pools matched on clique size | `b191d83` |
+
+Open: **#24** (`fix/underpowered-annotation`, `fb8f761`) — `underpowered`
+demoted from a classification to a flag column. Breaking: `classification`
+no longer takes `"underpowered"`.
+
+### Two results were retracted. Read this before trusting older sections.
+
+**1. The `within_hog` real-data figure is withdrawn.** Section 9 Phase 4
+anticipated `within_hog` rescuing the null. The reported "13 of 13 cliques
+got a usable z" was produced by a **bug**: the shuffle grouped by `hog`
+alone, and on a stacked all-pairs ortholog table that moves genes across
+species boundaries. `compare_neighborhoods()` then drops those rows by
+network membership — silently. Measured: 10 of 30 rows (33%) on a stacked
+3-species table carried a wrong-species gene. Fixed in #18 by partitioning
+on `(hog, species1, species2)`. With the fix, `within_hog` is the
+**identity** for a single-copy HOG, so its null has no spread at all.
+
+**2. A "re-measurement" that confirmed nothing.** Re-running the
+power/degree correlation against the new library appeared to give
+bit-identical numbers, which read as "the urn does not matter". It was
+invalid: the script reads `power` from stored `s2_*_log/edges_*.tsv.gz`
+tables written hours earlier by a *different* library, and those tables
+carry no urn columns. It compared a vector with itself. The valid test is
+`urn_isolate.R`, which recomputes both paths in one process.
+
+### The intensity null: the permutation approach is structurally unavailable
+
+Clique intensity is computed **conditional on the clique existing**, and
+clique existence depends on the ortholog mapping being right. Any null
+that perturbs that mapping destroys what it measures. Measured on a
+stacked 3-species fixture:
+
+| null | rows changed | species kept | outcome |
+|------|--------------|--------------|---------|
+| `global` | 0.96 | **0.55** | 0/30 matched — ~45% of rows dropped by the membership filter |
+| `within_hog` | **0.00** | 1.00 | identity for single-copy HOGs, `null_sd = 0` |
+| species-preserving relabel (prototype) | 1.00 | 1.00 | **0/30 permutations produced any clique at all** |
+
+There is no setting in between: "enough randomisation to have a null" and
+"little enough that a clique survives" are the same knob. Note also that
+`global`'s failure was never "HOGs destroyed" — the `hog` column is never
+touched — it is the same silent species-mismatch drop, worse.
+
+**Replacement: `null_model = "matched_edges"`.** Hold the mapping fixed;
+replace each clique edge with one drawn from that species pair's own pool.
+Nothing is re-clustered, so no clique has to be rebuilt.
+
+### S6 under the matched null (Phase 4 answered)
+
+Root `s6_root_matched/`, leaf `s6_leaf_matched/`, `n_perm = 2000`, all
+cliques (no `MAXCL` subset needed).
+
+- usable `z` for **14597/14597** root and **13190/13190** leaf
+- ran in **5.8 / 5.5 min** at **MaxRSS 820 MB / 924 MB** — against a 12 h,
+  340 GB job that returned all-`NA`. Future runs can request ~4 GB.
+- **degree bias absorbed**: `cor(z, mean_degree)` = **-0.041** root,
+  **+0.116** leaf. This was the stated risk from #15 and it did not
+  materialise; no degree stratification needed.
+
+### The clique-size effect, and why #23 exists
+
+Median `z` ran **-0.51** (3 species) to **+6.32** (8 species). Two
+compounding causes, both measured:
+
+1. `null_sd` shrinks as `1/sqrt(E)` — `null_sd * sqrt(E)` constant to
+   within 1% (0.0820-0.0829 root).
+2. **Selection, the larger term.** A clique exists only because all its
+   edges passed together, so larger cliques are built from stronger edges.
+   Median edge weight by the clique size it belongs to: 0.615, 0.641,
+   0.663, 0.687, 0.720, **0.752** for sizes 3-8, against a pair-only pool
+   median of **0.638** and 0.609 for edges in no clique.
+
+So ranking cliques on raw `z` was largely ranking them on size. #23 pools
+on `(species pair, clique size)`; a **membership**, not an edge, is the
+unit, because 3904 of 8212 HOGs produce more than one clique.
+
+**Still report the gap (`observed - null_mean`) separately** — it runs
+-0.024 to +0.098 (root) and is the substantive descriptive finding.
+Folding it into a single score hides it.
+
+### #16 settled on mechanism, open on meaning
+
+The power/degree inversion **reproduces on current code**: negative on
+**56 of 56** species pairs (root -0.658..-0.187, leaf -0.668..-0.253,
+median ~-0.36), while `jaccard`/degree is positive (+0.38..+0.60).
+
+It is **intrinsic, not a reconstruction artifact**. `urn_isolate.R` on 6
+root pairs: exact vs reconstructed urn give `max |power difference| =
+0.000e+00`, zero `NA` either way. So #21 is a robustness fix (it removes a
+failure mode that *can* fire) rather than a numerical correction.
+
+What remains open is what `underpowered` should *mean*: it flags **hub**
+genes, the opposite of the low-degree failures #12 introduced it for.
+That turns on whether the reference conserved fraction is a fraction or a
+count — **#22**.
+
+### Orion artifacts
+
+Under `validation-2026-09-17/`:
+
+- libs: `lib-matched-fbe547b` (#19+#23 line), `lib-urn-57bb90d` (#21).
+  `lib-null-a997ce7` is **pre-fix** — it has the buggy hog-only shuffle;
+  do not reuse.
+- scripts: `s6_matched.R` + `.slurm` (matched null; needs no networks),
+  `power_degree_remeasure.R` + `.slurm` (**reads stored `power`** — see
+  retraction 2), `urn_isolate.R` + `.slurm` (recomputes both urn paths),
+  `install_matched.slurm`, `install_urn.slurm`.
+- results: `s6_root_matched/`, `s6_leaf_matched/`, `power_degree_root.tsv`,
+  `power_degree_leaf.tsv`, `urn_isolate_root.tsv`.
+
+### Still open
+
+- **#24** — merge (breaking; see NEWS).
+- **#22** — fraction vs count; decides what `underpowered` means.
+- **#20** — coherence has no dynamic range: IQR **0.00317** root /
+  **0.00312** leaf against intensity's 0.0798/0.0855. The MaxEnt fix
+  restored range to intensity but not to coherence, because coherence is a
+  ratio that needs *dispersion* and the MaxEnt map concentrates weights.
+- **Naming** — `classify_cliques()` vs `classify_gene_cliques()` differ by
+  one word and do different things; proposed `classify_species_cliques()`
+  as the canonical name with `classify_cliques()` kept as an alias
+  (precedent: `find_coexpressologs()` / `run_pairwise_comparisons()`).
+  Not started.
