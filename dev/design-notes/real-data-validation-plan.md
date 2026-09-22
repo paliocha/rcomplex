@@ -636,6 +636,9 @@ withdrawn, and what is still open.
 | #21 | exact hypergeometric urn carried out of `compare_neighborhoods()` | `9e3f134` |
 | #23 | matched-edge pools matched on clique size | `b191d83` |
 | #24 | `underpowered` demoted from a classification to a flag column (breaking: `classification` no longer takes `"underpowered"`) | `0a54a27` |
+| #26 | `coherence` retired from `find_cliques()` (#20) | `3a99584` |
+| #27 | `power` computed against fold enrichment; `rho0` replaces `f0` (#22, #16) | `de1c88d` |
+| #28 | `gap` and `n_edges` columns from `clique_intensity_test()` (#25) | `fc3bd4a` |
 
 ### Two results were retracted. Read this before trusting older sections.
 
@@ -823,7 +826,24 @@ choice, as #22 said. Recommendation posted: fold, on consistency with
 `effect_size` and the intensity weights; excess would empty the flag
 and argues for retiring it instead. Decision open.
 
-### #16 settled on mechanism, open on meaning
+### S9: the shipped `power` after #27 (closes #16)
+
+`s9_power_check.R` on `lib-main-de1c88d` (main after #27), all 28 pairs
+per tissue, job 1349050 (20 min, 6 GB). Guard: the package's `power`
+column equals the fold formula recomputed from the comparison frame,
+`max |diff| = 0` on every pair.
+
+| | fraction (#16, `lib-matched-fbe547b`) | fold (`lib-main-de1c88d`) |
+|---|---|---|
+| Spearman(`power`, degree), root | -0.658..-0.187, 28/28 negative | +0.863..+0.990, median +0.95, 28/28 positive |
+| Spearman(`power`, degree), leaf | -0.668..-0.253, 28/28 negative | +0.950..+0.987, median +0.98, 28/28 positive |
+| underpowered, lowest decile, root / leaf | 0.04 / 0.00 | 0.81 / 0.62 |
+| underpowered, highest decile, root / leaf | 0.30 / 0.12 | 0.00 / 0.00 |
+| underpowered, all, root / leaf | 0.11 / 0.04 | 0.10 / 0.07 |
+
+`rho0` per direction 2.1-2.9. #16 closed with this table.
+
+### #16 settled on mechanism, open on meaning (historical; closed by S9)
 
 The power/degree inversion **reproduces on current code**: negative on
 **56 of 56** species pairs (root -0.658..-0.187, leaf -0.668..-0.253,
@@ -843,8 +863,8 @@ count — **#22**.
 
 Under `validation-2026-09-17/`:
 
-- libs: `lib-main-0a54a27` (main after #24: #23 pools + #24 flag; the
-  current one), `lib-matched-fbe547b` (**#19 only**, despite its earlier
+- libs: `lib-main-de1c88d` (main after #27, the current one),
+  `lib-main-0a54a27` (main after #24: #23 pools + #24 flag), `lib-matched-fbe547b` (**#19 only**, despite its earlier
   "#19+#23" label), `lib-urn-57bb90d` (#21). `lib-null-a997ce7` is
   **pre-fix** — it has the buggy hog-only shuffle; do not reuse.
 - scripts: `s6_matched.R` + `.slurm` (matched null; needs no networks),
@@ -859,7 +879,8 @@ Under `validation-2026-09-17/`:
   `prepare_data/validation-2026-09-17/` and go up through the ohpcc-nmbu
   wrappers (`hpc.env` at the repo root, gitignored); their logs are in
   `../slurm_logs/<jobid>.out`, not `logs/`.
-- results: `s8_alt_power/` (`s8_alt_power.R`: power under three
+- results: `s9_power/` (`s9_power_check.R`: shipped power vs degree
+  after #27), `s8_alt_power/` (`s8_alt_power.R`: power under three
   alternatives, per pair-direction), `s6_root_matched23/`,
   `s6_leaf_matched23/` (#23 pools),
   `s7_root_matched/`, `s7_leaf_matched/` (coherence + intensity null
@@ -871,14 +892,13 @@ Under `validation-2026-09-17/`:
 - **#22** — fraction vs count; decides what `underpowered` means.
 - **#20** — closed: `coherence` retired in #26 (`3a99584`) after the
   S7 measurement above.
-- **#25** — intensity `z` across sizes: location bias gone (#23), but
-  |z| still grows with size because the null treats a clique's edges as
-  independent draws. Rank within size or on the gap until decided.
-- **#22** — measured (S8 above): the "below chance" mechanism was
-  wrong; the three alternatives flag three different populations and
-  the data cannot choose. Martin's call: fold (recommended, flags
-  low-degree genes), excess (flags nobody; retire the flag), or keep
-  fraction (flags hubs, already documented).
+- **#25** — closed by #28: `gap` and `n_edges` columns, docs say to
+  compare `z` within a size and `gap` across sizes. Design-effect and
+  empirical standardisation were rejected: the between-HOG spread they
+  would absorb is the signal.
+- **#22, #16** — closed: Martin chose fold (biologically: `rho0` is
+  how many times more often than chance a pair's partners are shared);
+  #27 shipped it and S9 confirmed the shipped column.
 - **Two clique classifiers** — Martin (2026-09-22): having both
   `classify_cliques()` (species graph) and `classify_gene_cliques()`
   (gene graph) is awkward. The `classify_species_cliques()` rename is
