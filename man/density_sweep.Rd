@@ -23,7 +23,7 @@ density_sweep(networks, ...)
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  f0 = NULL,
+  rho0 = NULL,
   ...
 )
 }
@@ -86,8 +86,8 @@ nothing is drawn before the first multiplier, a sweep seeded with
 its first level. See \code{\link{find_coexpressologs}} for what a
 seed does and does not pin under each \code{method}.}
 
-\item{f0}{Passed to \code{\link{find_coexpressologs}}: reference
-conserved fraction for the analytical \code{power} column.}
+\item{rho0}{Passed to \code{\link{find_coexpressologs}}: reference
+fold enrichment for the analytical \code{power} column.}
 }
 \value{
 A data frame with columns \code{multiplier},

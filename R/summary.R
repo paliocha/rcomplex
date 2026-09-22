@@ -155,10 +155,10 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   directions significant -- the reciprocal criterion of Netotea et
 #'   al. (2014)) or \code{"min"} (either direction).
 #'
-#' @param f0 Reference conserved fraction for the \code{power} column of
+#' @param rho0 Reference fold enrichment for the \code{power} column of
 #'   \code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
 #'   when \code{sp1} and \code{sp2} are provided. \code{NULL} (default)
-#'   takes the median overlap fraction of the called pairs.
+#'   takes the median effect size of the called pairs.
 #' @return A list with components:
 #'   \describe{
 #'     \item{results}{Data frame with the original p-values preserved and new
@@ -210,7 +210,7 @@ summarize_comparison <- function(comparison,
                                  B = 20L,  # nolint
                                  pval_combine = c("max", "min"),
                                  seed = NULL,
-                                 f0 = NULL) {
+                                 rho0 = NULL) {
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
@@ -218,7 +218,7 @@ summarize_comparison <- function(comparison,
   if (xor(is.null(sp1), is.null(sp2))) {
     stop("Both sp1 and sp2 must be provided, or neither.")
   }
-  .check_f0(f0)
+  .check_rho0(rho0)
 
   # One seed covers both directional compute_qvalues() calls below, so
   # Species1 and Species2 keep independent U draws. See .seed_scope() in
@@ -357,7 +357,7 @@ summarize_comparison <- function(comparison,
 
   if (!is.null(sp1) && !is.null(sp2)) {
     out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha,
-      pval_combine = pval_combine, f0 = f0
+      pval_combine = pval_combine, rho0 = rho0
     )
   }
 

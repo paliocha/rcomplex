@@ -301,8 +301,9 @@ A tested, non-significant pair is evidence only when the test could have
 succeeded. Hypergeometric power rises with neighbourhood size, so a
 low-degree gene misses the call whatever its conservation. The `power`
 column of `find_coexpressologs()` output is the probability that the pair
-would have been called had a reference fraction `f0` of its neighbourhood
-been conserved. Both clique classifiers read it through `min_power`
+would have been called had its partners been shared at the typical fold
+enrichment of a called pair (`rho0`, the median `effect_size`, about 2.5
+on the Pooideae data). Both clique classifiers read it through `min_power`
 (default 0.8): a `lineage_specific`, `differentiated` or `trait_specific`
 call has to survive treating every underpowered pair as possibly
 conserved, and one that does not is reported as `underpowered`. An underpowered missing species still counts as a gap for

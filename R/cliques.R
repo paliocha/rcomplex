@@ -2158,13 +2158,13 @@ clique_intensity_test.default <- function(
 #' \code{edges}; without one, or where it is \code{NA}, the flag is
 #' \code{FALSE}.
 #'
-#' Note what the flag actually marks. Detection power falls with gene
-#' degree on real data -- Spearman of per-edge \code{power} against
-#' degree is negative on all 56 Pooideae species pairs, median about
-#' -0.36 -- so \code{underpowered} flags \emph{hub} genes, not
-#' sparsely connected ones. Reading it as "too few partners to see" is
-#' backwards. See the package issue tracker for whether the reference
-#' conserved fraction should be a fraction or a count.
+#' What the flag marks: power is computed against the typical fold
+#' enrichment of a called pair (\code{rho0}, about 2.5 on the Pooideae
+#' data), and at that enrichment a low-degree gene's shared partners
+#' amount to less than one, which no count test can call. So
+#' \code{underpowered} marks genes whose neighbourhoods are too small
+#' for ordinary conservation to be visible -- on the Pooideae data most
+#' of the lowest degree decile and none of the highest.
 #'
 #' @section Choosing between the two clique classifiers:
 #' This function and \code{\link{classify_gene_cliques}} answer

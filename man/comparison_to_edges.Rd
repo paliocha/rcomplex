@@ -11,7 +11,7 @@ comparison_to_edges(
   alternative = c("greater", "less"),
   alpha = 0.05,
   pval_combine = c("max", "min"),
-  f0 = NULL
+  rho0 = NULL
 )
 }
 \arguments{
@@ -40,10 +40,11 @@ the \code{Max.p.val} filter of the original ComPlEx) or \code{"min"}
 yielding a denser edge supply for \code{\link{find_cliques}}). A
 missing directional q-value is ignored in either case.}
 
-\item{f0}{Reference conserved fraction for the \code{power} column:
-\code{NULL} (default) takes, per direction, the median
-\code{x / m} (overlap over neighbourhood size) of the called pairs;
-a single number in \eqn{(0, 1]} fixes it for both directions.}
+\item{rho0}{Reference fold enrichment for the \code{power} column:
+how many times more often than chance a conserved pair's partners
+are shared. \code{NULL} (default) takes, per direction, the median
+\code{effect.size} of the called pairs (about 2.5 on the Pooideae
+data); a single positive number fixes it for both directions.}
 }
 \value{
 Data frame with columns:
@@ -60,13 +61,14 @@ two directional q-values}
 (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
 \eqn{[0, 1]}: 1 = identical neighborhoods, 0 = disjoint.}
 \item{power}{Detection power: the probability that the pair
-would have been called had a fraction \code{f0} of its
-neighbourhood been conserved, given its neighbourhood sizes and
-the largest p-value called in each direction. Directions
-combine like \code{pval_combine} (\code{"max"}: the weaker
-power). A non-significant pair with low power is absent
-evidence, not evidence of divergence: a low-degree gene cannot
-reach the call whatever its conservation.
+would have been called had its partners been shared at the
+reference fold enrichment \code{rho0}, given its neighbourhood
+sizes and the largest p-value called in each direction.
+Directions combine like \code{pval_combine} (\code{"max"}: the
+weaker power). Power rises with degree: at typical enrichment a
+low-degree gene's shared partners amount to less than one, which
+no count test can call, so a non-significant low-power pair is
+absent evidence, not evidence of divergence.
 \code{\link{classify_gene_cliques}} and
 \code{\link{classify_cliques}} read it through
 \code{min_power}. \code{NA} for \code{alternative = "less"},
