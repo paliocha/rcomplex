@@ -1,0 +1,49 @@
+"anchor_id","anchor_hog","feature","interpretation","median_annual_minus_perennial","n_annual_higher","n_perennial_higher","n_equal","majority_direction","n_agreeing_with_majority"
+"anchor_01","HOG:0020610","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.0100811255317551,2,2,0,"mixed_or_tied",2
+"anchor_01","HOG:0020610","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0834523724866996,1,3,0,"perennial_higher",3
+"anchor_01","HOG:0020610","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_01","HOG:0020610","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.00636942675159236,2,2,0,"mixed_or_tied",2
+"anchor_02","HOG:0020076","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.0538951016411653,1,3,0,"perennial_higher",3
+"anchor_02","HOG:0020076","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0737173336866186,1,3,0,"perennial_higher",3
+"anchor_02","HOG:0020076","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_02","HOG:0020076","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.0476190476190476,1,3,0,"perennial_higher",3
+"anchor_03","HOG:0011532","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.195215992519989,1,3,0,"perennial_higher",3
+"anchor_03","HOG:0011532","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.00498799937643835,2,2,0,"mixed_or_tied",2
+"anchor_03","HOG:0011532","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_03","HOG:0011532","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.180272108843537,1,3,0,"perennial_higher",3
+"anchor_04","HOG:0019394","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.0660686347345867,1,3,0,"perennial_higher",3
+"anchor_04","HOG:0019394","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0465737901965332,1,3,0,"perennial_higher",3
+"anchor_04","HOG:0019394","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_04","HOG:0019394","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.0608974358974359,1,3,0,"perennial_higher",3
+"anchor_05","HOG:0006205","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.0674147754405255,1,3,0,"perennial_higher",3
+"anchor_05","HOG:0006205","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0719742152016693,1,3,0,"perennial_higher",3
+"anchor_05","HOG:0006205","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_05","HOG:0006205","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.0590277777777778,1,3,0,"perennial_higher",3
+"anchor_06","HOG:0028766","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.0690532803405746,1,3,0,"perennial_higher",3
+"anchor_06","HOG:0028766","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0688700113328304,1,3,0,"perennial_higher",3
+"anchor_06","HOG:0028766","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_06","HOG:0028766","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.063758389261745,1,3,0,"perennial_higher",3
+"anchor_07","HOG:0011862","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.0758608674809576,1,3,0,"perennial_higher",3
+"anchor_07","HOG:0011862","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0454597328974863,1,3,0,"perennial_higher",3
+"anchor_07","HOG:0011862","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_07","HOG:0011862","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.0662251655629139,1,3,0,"perennial_higher",3
+"anchor_08","HOG:0006123","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.069006306537078,1,3,0,"perennial_higher",3
+"anchor_08","HOG:0006123","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0467446523728241,1,3,0,"perennial_higher",3
+"anchor_08","HOG:0006123","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_08","HOG:0006123","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.0604026845637584,1,3,0,"perennial_higher",3
+"anchor_09","HOG:0029484","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",0.0479714181156545,2,2,0,"mixed_or_tied",2
+"anchor_09","HOG:0029484","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0911287432753458,1,3,0,"perennial_higher",3
+"anchor_09","HOG:0029484","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_09","HOG:0029484","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",0.0464285714285714,2,2,0,"mixed_or_tied",2
+"anchor_10","HOG:0023085","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.0787443290306145,1,3,0,"perennial_higher",3
+"anchor_10","HOG:0023085","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0314210418926679,1,3,0,"perennial_higher",3
+"anchor_10","HOG:0023085","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_10","HOG:0023085","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.0704225352112676,1,3,0,"perennial_higher",3
+"anchor_11","HOG:0026770","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.111625237630352,1,3,0,"perennial_higher",3
+"anchor_11","HOG:0026770","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0317003375339673,1,3,0,"perennial_higher",3
+"anchor_11","HOG:0026770","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_11","HOG:0026770","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.102112676056338,1,3,0,"perennial_higher",3
+"anchor_12","HOG:0012056","anchor_module_mean_strength_ratio","mean threshold-normalized anchor strength over present recurrent HOGs",-0.10377204490121,1,3,0,"perennial_higher",3
+"anchor_12","HOG:0012056","internal_edge_density","edge density among anchor-resolved recurrent-HOG copies",-0.0096605838094242,2,2,0,"mixed_or_tied",2
+"anchor_12","HOG:0012056","largest_component_fraction","fraction of resolved HOGs in the largest connected component",0,0,0,4,"mixed_or_tied",0
+"anchor_12","HOG:0012056","recurrent_coverage","fraction of recurrent HOGs resolved as anchor neighbors",-0.0950704225352113,1,3,0,"perennial_higher",3
