@@ -144,8 +144,8 @@ encode_clique_edges <- function(edges, target_species) {
       c(
         "`edges` has no usable `effect_size` column.",
         i = paste0(
-          "Clique intensity and coherence map each edge's association ",
-          "strength to a connection probability and are NA without it; ",
+          "Clique intensity maps each edge's association strength to ",
+          "a connection probability and is NA without it; ",
           "find_coexpressologs() output carries it. This warning is ",
           "shown once per session."
         )
@@ -198,7 +198,7 @@ encode_clique_edges <- function(edges, target_species) {
         "), so it looks pre-filtered."
       ),
       i = paste0(
-        "Clique intensity and coherence fit the weight scale on every ",
+        "Clique intensity fits the weight scale on every ",
         "tested pair of its species pair; here that population is only ",
         "the rows already kept."
       ),
@@ -246,7 +246,7 @@ encode_clique_edges <- function(edges, target_species) {
 }
 
 
-#' Compute per-clique edge statistics (intensity, coherence, min effect size)
+#' Compute per-clique edge statistics (intensity, min effect size)
 #'
 #' Onnela weights are ensemble connection probabilities, not
 #' `1 - q.value`: a clique only ever contains edges that passed alpha, so
@@ -263,13 +263,12 @@ encode_clique_edges <- function(edges, target_species) {
 #'   strength, scaled within its species pair. Callers that filter
 #'   `edges` must weight first and subset with the rows, so the scale is
 #'   still fitted on every tested pair.
-#' @return Data frame with columns intensity, coherence, min_effect_size.
+#' @return Data frame with columns intensity, min_effect_size.
 #' @noRd
 compute_clique_edge_stats <- function(cliques, edges, target_species,
                                       weights = .onnela_weight(edges)) {
   n <- nrow(cliques)
   intensity <- rep(NA_real_, n)
-  coherence <- rep(NA_real_, n)
   min_eff <- rep(NA_real_, n)
   rows <- .clique_edge_rows(cliques, edges, target_species)
 
@@ -279,22 +278,16 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 
     effs <- edges$effect_size[matched]
     w <- weights[matched]
-    # An edge without a finite Jaccard leaves the clique's weight set
-    # incomplete. Scoring the remaining edges would silently change the
-    # denominator -- with one valid edge left, coherence would read 1 --
-    # so an incomplete clique reports NA instead.
+    # An edge without a finite weight leaves the clique's weight set
+    # incomplete. Scoring the remaining edges would silently score a
+    # different edge set, so an incomplete clique reports NA instead.
     if (!anyNA(w)) {
-      gm <- exp(mean(log(w)))
-      intensity[i] <- gm
-      coherence[i] <- gm / mean(w)
+      intensity[i] <- exp(mean(log(w)))
     }
     min_eff[i] <- min(effs)
   }
 
-  data.frame(
-    intensity = intensity, coherence = coherence,
-    min_effect_size = min_eff
-  )
+  data.frame(intensity = intensity, min_effect_size = min_eff)
 }
 
 
@@ -324,9 +317,9 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'   Optionally includes a \code{type} column for filtering. Pass the
 #'   unfiltered table (every tested pair, e.g. the output of
 #'   \code{\link{find_coexpressologs}}): cliques are built from
-#'   \code{edge_type} rows only, but \code{intensity} and
-#'   \code{coherence} fit each edge's weight scale on every row of its
-#'   species pair, so a pre-filtered table changes what they measure.
+#'   \code{edge_type} rows only, but \code{intensity} fits each edge's
+#'   weight scale on every row of its species pair, so a pre-filtered
+#'   table changes what it measures.
 #'   A table whose \code{type} column holds only \code{edge_type} rows
 #'   triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
 #'   once per session).
@@ -372,8 +365,6 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'       conserved low-degree ones (#15). \code{NA} when \code{edges} has
 #'       no usable \code{effect_size} column, or when any present clique
 #'       edge lacks a finite value.}
-#'     \item{coherence}{Onnela coherence: intensity / arithmetic mean of
-#'       the same probabilities (1 when all edge weights are equal)}
 #'     \item{min_effect_size}{Minimum effect size across present edges
 #'       (bottleneck enrichment)}
 #'   }
@@ -441,8 +432,7 @@ find_cliques.default <- function(edges, target_species,
       n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
       mean_effect_size = numeric(0), n_edges = integer(0),
       n_missing = integer(0),
-      intensity = numeric(0), coherence = numeric(0),
-      min_effect_size = numeric(0)
+      intensity = numeric(0), min_effect_size = numeric(0)
     )
   )
   empty_result <- as.data.frame(empty_cols)
@@ -509,12 +499,11 @@ find_cliques.default <- function(edges, target_species,
   out$n_edges <- as.integer(result$n_edges)
   out$n_missing <- as.integer(result$n_missing)
 
-  # Compute Onnela intensity, coherence, and min effect size
+  # Compute Onnela intensity and min effect size
   stats <- compute_clique_edge_stats(out, edges, target_species,
     weights = weights
   )
   out$intensity <- stats$intensity
-  out$coherence <- stats$coherence
   out$min_effect_size <- stats$min_effect_size
   out
 }

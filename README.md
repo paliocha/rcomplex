@@ -250,7 +250,6 @@ persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 
 # Edge-weight robustness metrics (already in find_cliques output)
 cliques$intensity   # Onnela geometric mean of edge Jaccard percentiles
-cliques$coherence   # edge weight homogeneity (1 = all equal)
 
 # Bootstrap perturbation test (noise robustness)
 pert <- clique_perturbation_test(cliques, annual_sp, networks, orthologs,
@@ -731,9 +730,6 @@ following Onnela *et al.* (2005):
   enrichment falls like 1 / degree at a fixed conserved fraction; pass
   `find_cliques()` the unfiltered edge table so the percentile covers
   every tested pair.
-- **Coherence**: ratio of geometric mean to arithmetic mean of the same
-  percentiles, equal to 1.0 when all edge weights are identical. Low
-  coherence flags cliques with a mix of strong and weak edges.
 - **min_effect_size**: minimum fold-enrichment across clique edges,
   identifying the bottleneck enrichment.
 
