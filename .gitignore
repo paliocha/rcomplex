@@ -23,3 +23,7 @@ PLAN_*.md
 skills-lock.json
 .roborev.toml
 .code-review-graph/
+.hpc_audit.log
+.hpc_root_verified
+__pycache__/
+hpc.env

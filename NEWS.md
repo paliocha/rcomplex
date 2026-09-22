@@ -46,7 +46,10 @@
   sizes three to eight, against a pair-only pool median of 0.638 and
   0.609 for edges in no clique. Net effect on that run: median `z` ran
   -0.51 at three species to +6.32 at eight, so ranking cliques on `z`
-  was largely ranking them on size.
+  was largely ranking them on size. With the pools matched on size
+  the same run's medians sit between -0.28 and +0.21 (root) and -0.29
+  and +0.49 (leaf) across sizes, and the ranking within a size class
+  is unchanged (Spearman at least 0.989).
 
   **`z_score`, `p_value`, `null_mean` and `null_sd` change on every
   `matched_edges` table**; `observed_intensity`, clique membership and

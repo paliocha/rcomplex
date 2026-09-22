@@ -635,10 +635,7 @@ withdrawn, and what is still open.
 | #19 | `null_model = "matched_edges"` (matched edge-set null) | `bdf045f` |
 | #21 | exact hypergeometric urn carried out of `compare_neighborhoods()` | `9e3f134` |
 | #23 | matched-edge pools matched on clique size | `b191d83` |
-
-Open: **#24** (`fix/underpowered-annotation`, `fb8f761`) — `underpowered`
-demoted from a classification to a flag column. Breaking: `classification`
-no longer takes `"underpowered"`.
+| #24 | `underpowered` demoted from a classification to a flag column (breaking: `classification` no longer takes `"underpowered"`) | `0a54a27` |
 
 ### Two results were retracted. Read this before trusting older sections.
 
@@ -682,7 +679,15 @@ touched — it is the same silent species-mismatch drop, worse.
 replace each clique edge with one drawn from that species pair's own pool.
 Nothing is re-clustered, so no clique has to be rebuilt.
 
-### S6 under the matched null (Phase 4 answered)
+### S6 under the matched null, pair-only pools (Phase 4 answered)
+
+**Correction, 2026-09-22.** These tables were produced by
+`lib-matched-fbe547b`, which is the **#19-only** commit (15:23 on 09-21,
+no `match_clique_size`), although it had been recorded as the "#19+#23
+line". Everything in this subsection and the next therefore describes
+the **pair-only** null; #23's size-matched pools first ran on real data
+on 2026-09-22 — see "#23 on real data" below. The mislabel was caught by
+`s7_coherence.R`'s reproduction guard, not by anyone reading a log.
 
 Root `s6_root_matched/`, leaf `s6_leaf_matched/`, `n_perm = 2000`, all
 cliques (no `MAXCL` subset needed).
@@ -715,6 +720,74 @@ unit, because 3904 of 8212 HOGs produce more than one clique.
 -0.024 to +0.098 (root) and is the substantive descriptive finding.
 Folding it into a single score hides it.
 
+### #23 on real data (2026-09-22): the size gradient is gone
+
+`lib-main-0a54a27` (main after #24), `s6_root_matched23/`,
+`s6_leaf_matched23/`, `n_perm = 2000`, `seed = 42`, submitted through the
+ohpcc-nmbu wrappers (jobs 1348920 / 1348921; 5.9 / 5.8 min, MaxRSS 828 /
+929 MB).
+
+| | pair-only (pre-#23) | size-matched (#23) |
+|---|---|---|
+| median `z` by size 3→8, root | -0.51, -0.16, 0.53, 1.63, 3.47, 6.32 | -0.16, -0.28, -0.28, -0.28, -0.23, 0.21 |
+| median `z` by size 3→8, leaf | -0.75, -0.29, 0.46, 1.96, 5.10, 6.82 | -0.19, -0.19, -0.29, -0.12, 0.31, 0.49 |
+| `cor(z, mean_degree)` root / leaf | -0.041 / +0.116 | -0.096 / -0.044 |
+| usable `z` | all | all (14597 / 13190) |
+
+- Within a size class the ranking is unchanged: Spearman(old `z`, new
+  `z`) ≥ 0.989 at every size. Across sizes it is 0.82 root / 0.76 leaf,
+  and the top 100 by `z` went from 99-100% size 7-8 to a spread over
+  every size (root 1/10/17/33/28/11 for sizes 3-8; 40 of the old top 100
+  survive).
+- **What remains is a spread effect, not a location bias.** The share of
+  |z| > 1.96 rises with size, 0.12 → 0.67 root and 0.10 → 0.54 leaf, and
+  it does so symmetrically (root: z > 1.96 goes 0.09 → 0.35, z < -1.96
+  goes 0.03 → 0.32). Cause: `null_sd` still shrinks as 1/sqrt(E)
+  (0.041 → 0.014), but the IQR of the observed gap does not (0.067 →
+  0.080), because a clique's edges all belong to one HOG and share its
+  conservation level — they are not E independent draws. So `z` across
+  sizes conflates effect with evidence: a size-8 clique reaches |z| >
+  1.96 on a gap a size-3 clique cannot. Rank on `z` *within* size, or on
+  the gap, which is reported for exactly this reason. Not acted on.
+
+### S7: coherence under the matched null (#20, option 2 measured and rejected)
+
+`s7_coherence.R` rebuilds the (species pair, clique size) pools with the
+package's own helpers, draws the same null as `clique_intensity_test()`
+— bit-identical: `cor(z_int, s6 z) = 1`, `max |null_mean diff| = 0` —
+and scores coherence (`gm / mean`) on the same draws. Tables
+`s7_root_matched/`, `s7_leaf_matched/`.
+
+| | root | leaf |
+|---|---|---|
+| raw coherence IQR | 0.00317 | 0.00312 |
+| coherence `z` IQR (range) | 0.91 (-6.8..3.8) | 0.97 (-6.6..3.3) |
+| median coherence `z` | +0.79 | +0.75 |
+| share z_coh > 1.96 / < -1.96 | 0.065 / 0.014 | 0.078 / 0.025 |
+| share \|z_int\| > 1.96, same cliques | 0.243 | 0.229 |
+| Spearman(z_coh, clique size) | 0.43 | 0.41 |
+| Spearman(z_coh, z_int) overall | 0.05 | -0.01 |
+| Spearman(z_coh, mean_degree) | -0.001 | +0.065 |
+
+Standardising gives coherence a range, but the range is clique size:
+
+- median z_coh / sqrt(E) is 0.34-0.38 at every size (root). The gap
+  `observed - null_mean` is a near-constant +0.0026 — positive for 82% /
+  79% of cliques, i.e. a clique's edges are slightly more homogeneous than
+  random same-pair, same-size edges, a HOG-level conservation level — and
+  `null_sd` shrinks as 1/sqrt(E), so z_coh ≈ 0.35·sqrt(E) + noise.
+- within a size class, Spearman(z_coh, raw coherence) is 0.98-0.999: the
+  standardised statistic is the raw ratio re-scaled, and the raw ratio is
+  the one with no range. Within size, z_coh is independent of z_int for
+  small cliques (-0.04 at size 3) and largely z_int for large ones (+0.62
+  at size 8).
+
+**Recommendation: retire `coherence` (option 1).** The matched null was
+the cheapest rescue and it does not discriminate; option 3 (a
+dispersion-preserving weight) would be a second weight scale beside the
+ensemble probability, and nothing downstream reads coherence. Not acted
+on.
+
 ### #16 settled on mechanism, open on meaning
 
 The power/degree inversion **reproduces on current code**: negative on
@@ -735,24 +808,37 @@ count — **#22**.
 
 Under `validation-2026-09-17/`:
 
-- libs: `lib-matched-fbe547b` (#19+#23 line), `lib-urn-57bb90d` (#21).
-  `lib-null-a997ce7` is **pre-fix** — it has the buggy hog-only shuffle;
-  do not reuse.
+- libs: `lib-main-0a54a27` (main after #24: #23 pools + #24 flag; the
+  current one), `lib-matched-fbe547b` (**#19 only**, despite its earlier
+  "#19+#23" label), `lib-urn-57bb90d` (#21). `lib-null-a997ce7` is
+  **pre-fix** — it has the buggy hog-only shuffle; do not reuse.
 - scripts: `s6_matched.R` + `.slurm` (matched null; needs no networks),
+  `s7_coherence.R` (coherence under the matched null; recomputes the
+  package's intensity null in-process and refuses to continue unless it
+  matches the stored s6 table), `install_main.sh <sha>` (installs
+  `pkg/main-<sha>/` and asserts `match_clique_size`),
   `power_degree_remeasure.R` + `.slurm` (**reads stored `power`** — see
   retraction 2), `urn_isolate.R` + `.slurm` (recomputes both urn paths),
-  `install_matched.slurm`, `install_urn.slurm`.
-- results: `s6_root_matched/`, `s6_leaf_matched/`, `power_degree_root.tsv`,
-  `power_degree_leaf.tsv`, `urn_isolate_root.tsv`.
+  `install_matched.slurm`, `install_urn.slurm`. From 2026-09-22 new
+  scripts live in the laptop's gitignored
+  `prepare_data/validation-2026-09-17/` and go up through the ohpcc-nmbu
+  wrappers (`hpc.env` at the repo root, gitignored); their logs are in
+  `../slurm_logs/<jobid>.out`, not `logs/`.
+- results: `s6_root_matched23/`, `s6_leaf_matched23/` (#23 pools),
+  `s7_root_matched/`, `s7_leaf_matched/` (coherence + intensity null
+  moments and `z`), `s6_root_matched/`, `s6_leaf_matched/` (pair-only),
+  `power_degree_root.tsv`, `power_degree_leaf.tsv`, `urn_isolate_root.tsv`.
 
 ### Still open
 
-- **#24** — merge (breaking; see NEWS).
 - **#22** — fraction vs count; decides what `underpowered` means.
-- **#20** — coherence has no dynamic range: IQR **0.00317** root /
-  **0.00312** leaf against intensity's 0.0798/0.0855. The MaxEnt fix
-  restored range to intensity but not to coherence, because coherence is a
-  ratio that needs *dispersion* and the MaxEnt map concentrates weights.
+- **#20** — answered above: standardising does not rescue coherence
+  (z_coh is the raw ratio within a size class and 0.35·sqrt(E) across
+  them). Decision pending: retire it, or keep it documented as
+  non-discriminating.
+- **Intensity `z` across sizes** — location bias gone (#23), but |z|
+  still grows with size because the null treats a clique's edges as
+  independent draws. Rank within size or on the gap; no issue filed.
 - **Naming** — `classify_cliques()` vs `classify_gene_cliques()` differ by
   one word and do different things; proposed `classify_species_cliques()`
   as the canonical name with `classify_cliques()` kept as an alias

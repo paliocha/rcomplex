@@ -20,3 +20,6 @@
 ^prepare_data$
 ^\.code-review-graph$
 ^src/.*\.tmp[^/]*$
+^hpc\.env$
+^\.hpc_audit\.log$
+^\.hpc_root_verified$
