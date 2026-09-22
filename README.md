@@ -255,9 +255,12 @@ cliques$intensity   # Onnela geometric mean of edge connection probabilities
 pert <- clique_perturbation_test(cliques, annual_sp, networks, orthologs,
                                   n_boot = 100, noise_sd = 0.1)
 
-# Permutation null for clique intensity
-z_test <- clique_intensity_test(cliques, annual_sp, networks, orthologs,
-                                 edges = edges, n_perm = 500)
+# Matched edge-set null for clique intensity: each clique edge is redrawn
+# from its own (species pair, clique size) pool, so no networks or
+# orthologs are needed. Compare z_score within a clique size and gap
+# across sizes.
+z_test <- clique_intensity_test(cliques, annual_sp, edges = edges,
+                                 n_perm = 2000, null_model = "matched_edges")
 
 # Gene-graph backend: maximal cliques of the per-HOG GENE graph, then the
 # published five-tier taxonomy. Row-bind a strict and a loose graph (with
@@ -306,7 +309,10 @@ enrichment of a called pair (`rho0`, the median `effect_size`, about 2.5
 on the Pooideae data). Both clique classifiers read it through `min_power`
 (default 0.8): a `lineage_specific`, `differentiated` or `trait_specific`
 call has to survive treating every underpowered pair as possibly
-conserved, and one that does not is reported as `underpowered`. An underpowered missing species still counts as a gap for
+conserved. One that does not becomes the `underpowered` tier in
+`classify_gene_cliques()`, and keeps its call with the `underpowered`
+flag set in `classify_cliques()`. An underpowered missing species still
+counts as a gap for
 `partial_present`, which only refuses species that were rejected. Without a
 `power` column the classification is unchanged.
 
@@ -374,7 +380,7 @@ multiplier) error with a message asking for a larger `store_density`.
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
 | `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |
 | `clique_perturbation_test()` | Bootstrap noise robustness for clique edge weights |
-| `clique_intensity_test()` | Permutation null model for clique intensity (Z-score) |
+| `clique_intensity_test()` | Matched edge-set (or permutation) null for clique intensity: `z_score`, `p_value`, `gap` |
 | `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific/unclassified), with an `underpowered` flag qualifying a call that rests on a low-power edge |
 
 ## Ortholog file format
@@ -747,13 +753,22 @@ detection, and measuring survival of original cliques across bootstrap
 replicates.
 
 `clique_intensity_test()` tests whether each clique's edge-weight
-intensity is significantly stronger than expected under a null model
-where ortholog mappings are randomized (global shuffle of Species2
-genes). For each permutation, neighborhood comparison and clique
-detection are re-run, and the best-matching clique's intensity is
-recorded. Empirical p-values use the Phipson & Smyth (2010) correction
-(`(b + 1) / (m + 1)`, where b = exceedances and m = matched
-permutations) to avoid zero p-values.
+intensity is stronger than expected under a null. Use
+`null_model = "matched_edges"` on real data: the ortholog mapping is
+held fixed and each clique edge is redrawn from the pool of edges of the
+same species pair that belong to cliques of the same size, so nothing is
+re-clustered and the null stays defined for single-copy HOGs. The
+permutation models (`"global"`, `"within_hog"`) instead shuffle the
+ortholog mapping and re-run neighborhood comparison and clique detection
+per permutation; on real data the global shuffle rarely reproduces a
+clique's HOG (0 of 204 matched on the Pooideae run) and the within-HOG
+shuffle is the identity for single-copy HOGs. Empirical p-values use
+the Phipson & Smyth (2010) correction (`(b + 1) / (m + 1)`, b =
+exceedances, m = matched draws). `z_score` is evidence and grows with
+the clique's edge count for the same effect, because the null draws
+edges independently while a real clique's edges share one HOG; compare
+`z_score` within a clique size and `gap` (`observed_intensity -
+null_mean`) across sizes.
 
 ## Architecture
 
