@@ -46,8 +46,15 @@ Evidence (plan doc §10 and §11):
   study than the other five.). Power gating moved 114 of 16,892 HOGs. The species-graph
   classifier flagged 319 of 416 `differentiated` and 648 of 7,817
   `trait_specific` HOGs as underpowered.
-- Pooideae, analytical path with fold-enrichment power (P2): [P2 pending:
-  species-graph flag table and gene-graph transitions, root and leaf].
+- Pooideae, analytical path with fold-enrichment power (P2, plan doc
+  §12): the species-graph classifier calls 297 (root) / 384 (leaf)
+  `trait_specific` HOGs and flags 44% / 31% of them at `min_power = 0.8`;
+  no HOG is `differentiated`. The gene-graph classifier finds 0 / 4
+  `lineage_specific` and 0 `differentiated` HOGs, and power gating moves
+  nothing: the other trait group is present and tested, so
+  `lineage_specific`'s absent-or-untested rule never fires. The gene
+  graph has no tier for the study's actual question, one trait group
+  conserved while the other is present but not co-conserved.
 
 ## Options
 
@@ -70,10 +77,19 @@ combinations, so it cannot produce the published taxonomy. Rejected.
 
 ## Recommendation
 
-B. The gene-graph classifier already carries what the species-graph one
-lacks (`missing_reason`, paralog combinations, the published tiers) and
-nothing downstream needs the other. Sequence:
+B, with one addition the Pooideae run makes non-negotiable: the gene
+graph must first gain a `trait_specific` tier, or `classify_cliques()`'s
+only unique signal disappears. Definition, mirroring the species-graph
+rule but with the gene graph's evidence types: a complete clique over
+one trait group, every outside species present and `tested_ns` (an
+absent or untested outside species is `lineage_specific`, as now), no
+within-group clique in the other group (else `differentiated`), and the
+`underpowered` flag when any deciding outside edge is below `min_power`.
+Then the gene-graph classifier carries everything the species-graph one
+does, plus `missing_reason` and paralog combinations. Sequence:
 
+0. Add `trait_specific` to `classify_gene_cliques()` as defined above;
+   check it reproduces the 297 / 384 Pooideae HOGs and the flag shares.
 1. `underpowered` → flag column in `classify_gene_cliques()` (mirrors
    #24; breaking for code that filters on the tier).
 2. Keep the partial_present rule (E3: the refused gaps are well-powered

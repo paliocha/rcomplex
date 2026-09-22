@@ -1002,4 +1002,30 @@ typical enrichment; the flag qualifies the call, it does not remove it,
 but any downstream claim about those HOGs needs the flag beside it.
 
 **Gene graph (`classify_gene_cliques()`, 0.1 / 0.9 / Inf, lineage =
-trait):** [P2 gene graph pending]
+trait; the unfiltered `Inf` graph was dropped, see below):** 372,618
+cliques over 11,774 HOGs (root), 249,340 over 11,233 (leaf).
+
+| best tier per HOG | root | leaf |
+|---|---|---|
+| complete_conserved | 346 | 440 |
+| lineage_specific | 0 | 4 |
+| partial_significant | 483 | 324 |
+| partial_present | 228 | 329 |
+| differentiated | 0 | 0 |
+| unclassified | 10,717 | 10,136 |
+
+Power gating moves **nothing** at `min_power` 0.5 or 0.8 and two HOGs
+(unclassified → partial_present) at 0.9, in either tissue. The tiers
+power can gate, `lineage_specific` and `differentiated`, are empty here:
+`lineage_specific` needs every outside species absent or untested, and
+in Pooideae the other trait group is present and tested. So the trait
+signal of this study is visible only to `classify_cliques()`'s
+`trait_specific` (297 / 384 HOGs, 31-44% flagged), and the gene graph
+has no tier for "one trait group conserved, the other present but not
+co-conserved". That is the decisive input for the classifier
+consolidation note.
+
+Trap: `gene_clique_graph(alpha_graph = Inf)` on all Pooideae HOGs ran
+for an hour on one core at 39 GB without finishing (eight species, up to
+ten paralogs each); it took 0.9 min on wood. Restrict it to leftover
+HOGs, or skip it when no HOG is differentiated.
