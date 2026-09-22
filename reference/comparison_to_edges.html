@@ -76,7 +76,7 @@ identity, and computes per-pair effect sizes and classification.</p>
 <span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
 <span>  alpha <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
-<span>  f0 <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  rho0 <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -121,11 +121,12 @@ yielding a denser edge supply for <code><a href="find_cliques.html">find_cliques
 missing directional q-value is ignored in either case.</p></dd>
 
 
-<dt id="arg-f-">f0<a class="anchor" aria-label="anchor" href="#arg-f-"></a></dt>
-<dd><p>Reference conserved fraction for the <code>power</code> column:
-<code>NULL</code> (default) takes, per direction, the median
-<code>x / m</code> (overlap over neighbourhood size) of the called pairs;
-a single number in \((0, 1]\) fixes it for both directions.</p></dd>
+<dt id="arg-rho-">rho0<a class="anchor" aria-label="anchor" href="#arg-rho-"></a></dt>
+<dd><p>Reference fold enrichment for the <code>power</code> column:
+how many times more often than chance a conserved pair's partners
+are shared. <code>NULL</code> (default) takes, per direction, the median
+<code>effect.size</code> of the called pairs (about 2.5 on the Pooideae
+data); a single positive number fixes it for both directions.</p></dd>
 
 </dl></div>
     <div id="value">
@@ -159,13 +160,14 @@ two directional q-values</p></dd>
 
 <dt>power</dt>
 <dd><p>Detection power: the probability that the pair
-would have been called had a fraction <code>f0</code> of its
-neighbourhood been conserved, given its neighbourhood sizes and
-the largest p-value called in each direction. Directions
-combine like <code>pval_combine</code> (<code>"max"</code>: the weaker
-power). A non-significant pair with low power is absent
-evidence, not evidence of divergence: a low-degree gene cannot
-reach the call whatever its conservation.
+would have been called had its partners been shared at the
+reference fold enrichment <code>rho0</code>, given its neighbourhood
+sizes and the largest p-value called in each direction.
+Directions combine like <code>pval_combine</code> (<code>"max"</code>: the
+weaker power). Power rises with degree: at typical enrichment a
+low-degree gene's shared partners amount to less than one, which
+no count test can call, so a non-significant low-power pair is
+absent evidence, not evidence of divergence.
 <code><a href="classify_gene_cliques.html">classify_gene_cliques</a></code> and
 <code><a href="classify_cliques.html">classify_cliques</a></code> read it through
 <code>min_power</code>. <code>NA</code> for <code>alternative = "less"</code>,

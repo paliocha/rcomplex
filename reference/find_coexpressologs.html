@@ -86,7 +86,7 @@ the results into a single edge data frame ready for
 <span>  filter_zero <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  out_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  f0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  rho0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -223,11 +223,11 @@ edge table on <code>$edges</code>. Default <code>NULL</code> keeps the original
 in-memory behaviour.</p></dd>
 
 
-<dt id="arg-f-">f0<a class="anchor" aria-label="anchor" href="#arg-f-"></a></dt>
-<dd><p>Analytical method only: reference conserved fraction for
+<dt id="arg-rho-">rho0<a class="anchor" aria-label="anchor" href="#arg-rho-"></a></dt>
+<dd><p>Analytical method only: reference fold enrichment for
 the <code>power</code> column, passed to
 <code><a href="comparison_to_edges.html">comparison_to_edges</a></code> (default <code>NULL</code>, the median
-overlap fraction of the called pairs). The permutation path always
+effect size of the called pairs). The permutation path always
 reports <code>power = NA</code>: its HOG-level q-value has no per-pair
 call threshold to measure power against.</p></dd>
 
