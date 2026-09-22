@@ -657,6 +657,9 @@ find_coexpressologs.default <- function(
   seed = NULL,
   out_file = NULL, rho0 = NULL, ...
 ) {
+  if ("f0" %in% ...names()) {
+    stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
+  }
   method <- match.arg(method)
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
@@ -936,6 +939,9 @@ density_sweep.default <- function(
   filter_zero = FALSE,
   seed = NULL, rho0 = NULL, ...
 ) {
+  if ("f0" %in% ...names()) {
+    stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
+  }
   method <- match.arg(method)
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)

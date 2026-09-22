@@ -18,11 +18,10 @@
   (root) and from 0.00 to 0.50 (leaf), and in the highest decile from
   0.30 and 0.12 to 0.00. So `underpowered` now marks genes whose
   neighbourhoods are too small for ordinary conservation to be visible,
-  which is what #12 introduced it for; the note in the
-  `classify_cliques()` entry below that it marks hubs described the
-  fraction alternative and no longer applies. **`power` changes on
-  every analytical edge table**, and code passing `f0` must pass `rho0`
-  (a positive number, no longer bounded by 1).
+  which is what #12 introduced it for. **`power` changes on every
+  analytical edge table**, and code passing `f0` must pass `rho0` (a
+  positive number, no longer bounded by 1); `find_coexpressologs()` and
+  `density_sweep()` reject `f0` rather than letting `...` swallow it.
 
 - **`find_cliques()` no longer reports `coherence`** (#20). Onnela
   coherence (geometric over arithmetic mean of a clique's edge weights)
@@ -56,19 +55,6 @@
   unchanged -- there `underpowered` remains a tier, because on the gene
   graph it already sits beside `missing_reason` and an
   `n_underpowered_cross` count rather than overwriting anything.
-
-  Note what the flag marks, because the name invites the opposite
-  reading. Detection power *falls* with gene degree on real data:
-  Spearman of per-edge `power` against `sqrt(deg1 * deg2)` is negative
-  on all 56 Pooideae species pairs (root -0.658 to -0.187, leaf -0.668
-  to -0.253, median about -0.36), while neighbourhood overlap rises with
-  degree (+0.38 to +0.60). At a fixed conserved *fraction* the
-  significance threshold outruns the signal as neighbourhoods grow, and
-  the measured fraction is only 6-10%. So `underpowered` flags **hub**
-  genes, not sparsely connected ones, and "withheld because the gene was
-  too sparsely connected to see" is backwards. Whether the reference
-  conserved fraction should be a fraction or a fixed count is open
-  (#22); the flag's meaning depends on that choice.
 
 - **`clique_intensity_test(null_model = "matched_edges")` draws its null
   from cliques of the same size** (`match_clique_size`, `TRUE` by
@@ -654,13 +640,13 @@ counterpart per gene before any module label is projected.
   non-significant edges there, so power is measured instead:
   `comparison_to_edges()` and `find_coexpressologs()` write a `power` column
   (after `jaccard`), the probability that the pair would have been called
-  had a reference fraction `f0` of its neighbourhood been conserved. Per
-  direction it is the chance that `Binomial(min(k, m), f0)` reaches the
-  smallest overlap whose p-value is at or below the largest called one; `f0
-  = NULL` (default) takes the median overlap fraction `x / m` of the called
-  pairs, and directions combine like `pval_combine` (under `"min"` a
-  direction whose power cannot be computed does not mask the other). In the
-  simulation it tracked the call rate, 0.52 to 0.99. Both classifiers gain
+  had its partners been shared at the reference fold enrichment `rho0`
+  (see the entry above). Per direction it is the chance that
+  `Binomial(min(k, m), rho0 * max(k, m) / (N - 1))` reaches the smallest
+  overlap whose p-value is at or below the largest called one; `rho0 =
+  NULL` (default) takes the median `effect.size` of the called pairs, and
+  directions combine like `pval_combine` (under `"min"` a direction whose
+  power cannot be computed does not mask the other). Both classifiers gain
   `min_power` (default 0.8) and the class `"underpowered"`, on one rule: a
   specificity or divergence call must survive treating every underpowered
   edge as possibly conserved. In `classify_gene_cliques()` a missing species
@@ -677,7 +663,7 @@ counterpart per gene before any module label is projected.
   can only fall and `partial_present` counts can only rise. `NA` power, or a
   table without the column, keeps the old classification; the permutation
   path writes `power = NA`, since its HOG-level q-value has no per-pair call
-  threshold. `density_sweep()` forwards `f0`, and so does
+  threshold. `density_sweep()` forwards `rho0`, and so does
   `summarize_comparison()` for its `$edges`. A missing species is read as
   `underpowered` on the strength of the tests that **failed**, whether or
   not some other test of that species succeeded: a species with one

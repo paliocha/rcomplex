@@ -2091,6 +2091,15 @@ test_that("find_coexpressologs carries power on both paths", {
     find_coexpressologs(fx$networks, fx$orthologs, rho0 = Inf),
     "rho0 must be NULL"
   )
+  # f0 was the pre-0.3.0 name; the dots must not swallow it silently.
+  expect_error(
+    find_coexpressologs(fx$networks, fx$orthologs, f0 = 0.1),
+    "replaced by rho0"
+  )
+  expect_error(
+    density_sweep(fx$networks, fx$orthologs, multipliers = 1, f0 = 0.1),
+    "replaced by rho0"
+  )
 })
 
 test_that("compare_neighborhoods carries an exact per-direction urn", {
