@@ -249,7 +249,7 @@ persist <- clique_persistence(cliques, annual_sp, networks, edges)
 persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
 
 # Edge-weight robustness metrics (already in find_cliques output)
-cliques$intensity   # Onnela geometric mean of edge Jaccard percentiles
+cliques$intensity   # Onnela geometric mean of edge connection probabilities
 
 # Bootstrap perturbation test (noise robustness)
 pert <- clique_perturbation_test(cliques, annual_sp, networks, orthologs,
@@ -718,18 +718,20 @@ would survive at stricter density thresholds.
 
 ### Clique edge-weight robustness
 
-`find_cliques()` returns three per-clique edge-weight summary statistics
+`find_cliques()` returns two per-clique edge-weight summary statistics
 following Onnela *et al.* (2005):
 
 - **Intensity**: geometric mean, across clique edges, of each edge's
-  Jaccard-index percentile among all tested pairs of its species pair
-  (in (0, 1]). Higher values indicate uniformly strong conservation.
-  The weight is a percentile rather than 1 - q because every clique edge
-  already passed alpha, which left 1 - q no room to vary (#11), and a
-  Jaccard percentile rather than an effect-size one because fold
-  enrichment falls like 1 / degree at a fixed conserved fraction; pass
-  `find_cliques()` the unfiltered edge table so the percentile covers
-  every tested pair.
+  ensemble connection probability (in (0, 1)). Each edge's association
+  strength (`effect_size`, observed overlap over its expectation) is
+  mapped to `p = z * w / (1 + z * w)`, with `z` fitted per species pair
+  by maximum entropy, so intensity reads as the per-edge probability
+  that the whole clique exists. Not 1 - q, because every clique edge
+  already passed alpha, which left 1 - q no room to vary (#11); not the
+  Jaccard index, whose null expectation grows with neighbourhood size
+  and ranked hub genes above equally conserved low-degree ones (#15).
+  Pass `find_cliques()` the unfiltered edge table so the scale is
+  fitted on every tested pair.
 - **min_effect_size**: minimum fold-enrichment across clique edges,
   identifying the bottleneck enrichment.
 
