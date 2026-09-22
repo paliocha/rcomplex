@@ -312,6 +312,11 @@ eight-species Pooideae run the size-matched pools hold roughly
 <dt>null_sd</dt>
 <dd><p>SD of intensity over matched permutations</p></dd>
 
+<dt>gap</dt>
+<dd><p><code>observed_intensity - null_mean</code>: the effect on
+the weight scale, comparable across clique sizes (see the
+section above)</p></dd>
+
 <dt>z_score</dt>
 <dd><p>(observed - null_mean) / null_sd</p></dd>
 
@@ -326,6 +331,14 @@ permutations (direction determined by <code>alternative</code>)</p></dd>
 <dd><p>Number of permutations where clique had a
 matching HOG with Jaccard &gt; 0</p></dd>
 
+<dt>n_edges</dt>
+<dd><p>Number of rows of <code>edges</code> joining two clique
+members within the clique's HOG: the edges the observed
+intensity is taken over and, under <code>"matched_edges"</code>, the
+edges the null resamples. Equals <code>n_edges</code> of
+<code><a href="find_cliques.html">find_cliques</a></code> when <code>edges</code> is the table the
+cliques were built from.</p></dd>
+
 
 </dl></div>
     <div id="details">
@@ -333,6 +346,25 @@ matching HOG with Jaccard &gt; 0</p></dd>
     <p>P-values are empirical over matched permutations only (permutations
 where the clique's HOG produced a clique with Jaccard &gt; 0 to the
 baseline). Unmatched permutations are excluded, not counted as zeros.</p>
+    </div>
+    <div id="comparing-cliques-of-different-sizes">
+    <h2>Comparing cliques of different sizes</h2>
+
+
+<p>Under <code>null_model = "matched_edges"</code>, <code>z_score</code> and
+<code>p_value</code> test whether the clique's edges are exchangeable with
+the pool's, and the null draws its <code>n_edges</code> edges
+independently, so <code>null_sd</code> shrinks as
+<code>1 / sqrt(n_edges)</code>. A real clique's edges all belong to one
+HOG and share its conservation level, so the observed <code>gap</code>
+does not shrink: on the eight-species Pooideae run its IQR was 0.067
+at three species and 0.080 at eight, while the IQR of
+<code>z_score</code> grew from 1.6 to 5.6 and the share of |z| &gt; 1.96 from
+0.12 to 0.67, in both tails. <code>z_score</code> therefore measures
+evidence, and more edges are more evidence for the same effect.
+Compare <code>z_score</code> and <code>p_value</code> within a clique size, and
+compare <code>gap</code> across sizes; ranking on <code>z_score</code> across
+sizes ranks largely on <code>n_edges</code>.</p>
     </div>
 
   </div>
