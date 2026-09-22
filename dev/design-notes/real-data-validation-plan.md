@@ -788,6 +788,41 @@ dispersion-preserving weight) would be a second weight scale beside the
 ensemble probability, and nothing downstream reads coherence. Not acted
 on.
 
+### S8: which alternative hypothesis for power (#22) — measured, and a retraction
+
+`s8_alt_power.R`, all 28 pairs × both directions × both tissues,
+recomputed in one process from `networks_log` (jobs 1349036 / 1349037,
+9-10 min, 6-7 GB, `lib-main-0a54a27`). Guard: the script's recomputation
+of the current power equals the package's `power` column (`max diff =
+0`) before either alternative is read. Tables `s8_alt_power/s8_*.tsv`.
+
+**Retraction 3.** The mechanism posted on #22 earlier that day — that
+the current alternative `f0 * min(k, m)` sits *below* the null mean
+`k * m / (N - 1)` for hubs — is false: median **0.0%** of tested rows
+(max 3.0% root, 0.3% leaf). It was a plausible derivation posted before
+it was measured. #16's mechanism stands: `x*` outruns `f0 * n`, and the
+called fraction `x / m` rises with degree (+0.39 root, +0.55 leaf), so
+one median fraction under-serves hubs and over-serves low-degree genes.
+
+Medians over 56 pair-directions (reference values `f0` 0.06-0.13,
+`rho0` 2.1-3.2, `e0` 0.05-0.08):
+
+| alternative | rho(power, degree) root / leaf | underpowered all / lowest decile / highest decile, root | leaf |
+|---|---|---|---|
+| fraction (current) | -0.30 / -0.28 | 0.110 / 0.041 / 0.297 | 0.044 / 0.004 / 0.119 |
+| fold `rho0 * k * m / N` | +0.998 / +0.998 | 0.079 / 0.785 / 0.000 | 0.050 / 0.495 / 0.000 |
+| excess `E0 + e0 * (n - E0)` | +0.48 / +0.48 | 0.005 / 0.021 / 0.000 | 0.001 / 0.002 / 0.000 |
+
+The choice decides who `underpowered` flags: hubs, low-degree genes
+(almost deterministically under fold), or nobody. The degree-flatness
+test among called pairs (`x / m` +0.39 / +0.55, fold -0.12 / +0.16,
+excess +0.21 / +0.40) cannot decide it, because the called set is
+selected through `x*` in opposite directions for fraction and fold, so
+each carries a selection term of the sign observed. It is a modelling
+choice, as #22 said. Recommendation posted: fold, on consistency with
+`effect_size` and the intensity weights; excess would empty the flag
+and argues for retiring it instead. Decision open.
+
 ### #16 settled on mechanism, open on meaning
 
 The power/degree inversion **reproduces on current code**: negative on
@@ -824,7 +859,9 @@ Under `validation-2026-09-17/`:
   `prepare_data/validation-2026-09-17/` and go up through the ohpcc-nmbu
   wrappers (`hpc.env` at the repo root, gitignored); their logs are in
   `../slurm_logs/<jobid>.out`, not `logs/`.
-- results: `s6_root_matched23/`, `s6_leaf_matched23/` (#23 pools),
+- results: `s8_alt_power/` (`s8_alt_power.R`: power under three
+  alternatives, per pair-direction), `s6_root_matched23/`,
+  `s6_leaf_matched23/` (#23 pools),
   `s7_root_matched/`, `s7_leaf_matched/` (coherence + intensity null
   moments and `z`), `s6_root_matched/`, `s6_leaf_matched/` (pair-only),
   `power_degree_root.tsv`, `power_degree_leaf.tsv`, `urn_isolate_root.tsv`.
@@ -837,10 +874,11 @@ Under `validation-2026-09-17/`:
 - **#25** — intensity `z` across sizes: location bias gone (#23), but
   |z| still grows with size because the null treats a clique's edges as
   independent draws. Rank within size or on the gap until decided.
-- **#22** — a suggestion is posted there: the alternative
-  `f0 * min(k, m)` sits below the null mean for hubs, so define power
-  against an excess over chance and let a degree-flatness measurement
-  on the edge tables choose fold enrichment or excess fraction.
+- **#22** — measured (S8 above): the "below chance" mechanism was
+  wrong; the three alternatives flag three different populations and
+  the data cannot choose. Martin's call: fold (recommended, flags
+  low-degree genes), excess (flags nobody; retire the flag), or keep
+  fraction (flags hubs, already documented).
 - **Two clique classifiers** — Martin (2026-09-22): having both
   `classify_cliques()` (species graph) and `classify_gene_cliques()`
   (gene graph) is awkward. The `classify_species_cliques()` rename is
