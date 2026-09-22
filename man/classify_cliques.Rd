@@ -74,7 +74,12 @@ A data frame with one row per HOG:
 \item{hog}{HOG identifier}
 \item{classification}{One of \code{"complete"}, \code{"partial"},
 \code{"differentiated"}, \code{"trait_specific"},
-\code{"underpowered"}, \code{"unclassified"}}
+\code{"unclassified"}}
+\item{underpowered}{\code{TRUE} where a \code{differentiated}
+or \code{trait_specific} call rests on an edge whose
+\code{power} is below \code{min_power}. The classification is
+kept; this qualifies it. \code{FALSE} for every other tier and
+whenever \code{edges} carries no \code{power} column.}
 \item{n_species}{Species count in the best clique (NA for
 unclassified)}
 \item{best_mean_q}{Mean q-value of the best clique (NA for
@@ -113,16 +118,30 @@ to \code{N-1} species (or with missing edges when
 a within-group clique, but no cross-group conserved edge exists.
 \item \strong{trait_specific}: exactly 1 trait group has a
 within-group clique.
-\item \strong{underpowered}: would be differentiated or
-trait_specific, but a non-conserved edge from a member of one of
-the HOG's within-group cliques to a species of another trait group
-has \code{power} below \code{min_power}. Specificity and divergence
-must survive treating such an edge as possibly conserved; a
-low-degree gene cannot reach the call whatever its conservation.
-Needs a \code{power} column in \code{edges}.
 \item \strong{unclassified}: none of the above.
 }
 }
+\section{Underpowered calls}{
+
+\code{differentiated} and \code{trait_specific} both rest on edges
+that were \emph{not} conserved. An edge too weak to have been called
+is no evidence either way, so such a call has to survive reading that
+edge as conserved. Where it does not, the row is flagged
+\code{underpowered = TRUE} and keeps its classification -- the call
+is reported and qualified, not replaced, so nothing is lost and a
+caller can filter on it. Needs a \code{power} column in
+\code{edges}; without one, or where it is \code{NA}, the flag is
+\code{FALSE}.
+
+Note what the flag actually marks. Detection power falls with gene
+degree on real data -- Spearman of per-edge \code{power} against
+degree is negative on all 56 Pooideae species pairs, median about
+-0.36 -- so \code{underpowered} flags \emph{hub} genes, not
+sparsely connected ones. Reading it as "too few partners to see" is
+backwards. See the package issue tracker for whether the reference
+conserved fraction should be a fraction or a count.
+}
+
 \section{Choosing between the two clique classifiers}{
 
 This function and \code{\link{classify_gene_cliques}} answer

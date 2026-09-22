@@ -2155,15 +2155,27 @@ clique_intensity_test.default <- function(
 #'     a within-group clique, but no cross-group conserved edge exists.
 #'   \item \strong{trait_specific}: exactly 1 trait group has a
 #'     within-group clique.
-#'   \item \strong{underpowered}: would be differentiated or
-#'     trait_specific, but a non-conserved edge from a member of one of
-#'     the HOG's within-group cliques to a species of another trait group
-#'     has \code{power} below \code{min_power}. Specificity and divergence
-#'     must survive treating such an edge as possibly conserved; a
-#'     low-degree gene cannot reach the call whatever its conservation.
-#'     Needs a \code{power} column in \code{edges}.
 #'   \item \strong{unclassified}: none of the above.
 #' }
+#'
+#' @section Underpowered calls:
+#' \code{differentiated} and \code{trait_specific} both rest on edges
+#' that were \emph{not} conserved. An edge too weak to have been called
+#' is no evidence either way, so such a call has to survive reading that
+#' edge as conserved. Where it does not, the row is flagged
+#' \code{underpowered = TRUE} and keeps its classification -- the call
+#' is reported and qualified, not replaced, so nothing is lost and a
+#' caller can filter on it. Needs a \code{power} column in
+#' \code{edges}; without one, or where it is \code{NA}, the flag is
+#' \code{FALSE}.
+#'
+#' Note what the flag actually marks. Detection power falls with gene
+#' degree on real data -- Spearman of per-edge \code{power} against
+#' degree is negative on all 56 Pooideae species pairs, median about
+#' -0.36 -- so \code{underpowered} flags \emph{hub} genes, not
+#' sparsely connected ones. Reading it as "too few partners to see" is
+#' backwards. See the package issue tracker for whether the reference
+#' conserved fraction should be a fraction or a count.
 #'
 #' @section Choosing between the two clique classifiers:
 #' This function and \code{\link{classify_gene_cliques}} answer
@@ -2231,7 +2243,12 @@ clique_intensity_test.default <- function(
 #'     \item{hog}{HOG identifier}
 #'     \item{classification}{One of \code{"complete"}, \code{"partial"},
 #'       \code{"differentiated"}, \code{"trait_specific"},
-#'       \code{"underpowered"}, \code{"unclassified"}}
+#'       \code{"unclassified"}}
+#'     \item{underpowered}{\code{TRUE} where a \code{differentiated}
+#'       or \code{trait_specific} call rests on an edge whose
+#'       \code{power} is below \code{min_power}. The classification is
+#'       kept; this qualifies it. \code{FALSE} for every other tier and
+#'       whenever \code{edges} carries no \code{power} column.}
 #'     \item{n_species}{Species count in the best clique (NA for
 #'       unclassified)}
 #'     \item{best_mean_q}{Mean q-value of the best clique (NA for
@@ -2335,7 +2352,8 @@ classify_cliques.default <- function(
   empty <- data.frame(
     hog = character(0), classification = character(0),
     n_species = integer(0), best_mean_q = numeric(0),
-    trait_groups = character(0), stability_class = integer(0),
+    trait_groups = character(0), underpowered = logical(0),
+    stability_class = integer(0),
     persistence = numeric(0), robust = logical(0),
     stringsAsFactors = FALSE
   )
@@ -2511,9 +2529,7 @@ classify_cliques.default <- function(
     tg <- diff_groups[match(info$hog, diff_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog,
-      classification = ifelse(info$hog %in% up_hogs, "underpowered",
-        "differentiated"
-      ),
+      classification = "differentiated",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
       trait_groups = tg, stringsAsFactors = FALSE
     )
@@ -2535,9 +2551,7 @@ classify_cliques.default <- function(
     tg <- ts_groups[match(info$hog, ts_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog,
-      classification = ifelse(info$hog %in% up_hogs, "underpowered",
-        "trait_specific"
-      ),
+      classification = "trait_specific",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
       trait_groups = tg, stringsAsFactors = FALSE
     )
@@ -2557,6 +2571,14 @@ classify_cliques.default <- function(
     return(empty)
   }
   rownames(out) <- NULL
+
+  # --- Underpowered annotation ---
+  # A specificity or divergence call that rests on an edge too weak to
+  # have been called is not evidence, but it is also not a different
+  # kind of clique: overwriting the classification threw the call away
+  # and left no way to recover it. Carry it as a flag instead, so the
+  # call survives and a caller can filter on it.
+  out$underpowered <- out$hog %in% up_hogs
 
   # --- Stability annotation ---
   out$stability_class <- NA_integer_

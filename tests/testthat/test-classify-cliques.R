@@ -470,13 +470,25 @@ up_row <- function(gene1, species1, gene2, species2, power) {
 }
 
 classify_with_power <- function(extra = NULL, hog3_power = 0.99, ...) {
+  res <- .cwp_result(extra, hog3_power, ...)
+  stats::setNames(res$classification, res$hog)
+}
+
+# The flag, for the same inputs. underpowered no longer replaces the
+# classification, so a test that only reads the label cannot tell a
+# qualified call from a clean one.
+underpowered_with_power <- function(extra = NULL, hog3_power = 0.99, ...) {
+  res <- .cwp_result(extra, hog3_power, ...)
+  stats::setNames(res$underpowered, res$hog)
+}
+
+.cwp_result <- function(extra = NULL, hog3_power = 0.99, ...) {
   setup <- make_classify_edges()
   e <- setup$edges
   e$power <- 0.99
   e$power[e$hog == "HOG3" & e$type == "ns"] <- hog3_power
   if (!is.null(extra)) e <- rbind(e, extra)
-  res <- classify_cliques(e, setup$target, setup$trait, ...)
-  stats::setNames(res$classification, res$hog)
+  classify_cliques(e, setup$target, setup$trait, ...)
 }
 
 
@@ -499,7 +511,8 @@ test_that("an underpowered cross edge blocks differentiated", {
   e$power[e$hog == "HOG3" & e$type == "ns"] <- 0.1
   res <- classify_cliques(e, setup$target, setup$trait)
   hog3 <- res[res$hog == "HOG3", ]
-  expect_equal(hog3$classification, "underpowered")
+  expect_equal(hog3$classification, "differentiated")
+  expect_true(hog3$underpowered)
   expect_equal(hog3$trait_groups, "annual,perennial")
   expect_equal(
     classify_with_power(hog3_power = 0.1, min_power = 0.05)[["HOG3"]],
@@ -509,26 +522,34 @@ test_that("an underpowered cross edge blocks differentiated", {
 
 
 test_that("an underpowered cross edge blocks trait_specific", {
-  low <- classify_with_power(up_row("A4", "SP_A", "C4", "SP_C", 0.1))
-  expect_equal(low[["HOG4"]], "underpowered")
+  arg <- up_row("A4", "SP_A", "C4", "SP_C", 0.1)
+  low <- classify_with_power(arg)
+  expect_equal(low[["HOG4"]], "trait_specific")
   expect_equal(low[["HOG3"]], "differentiated")
+  # the call is kept; the flag is what separates it from a clean one
+  expect_true(underpowered_with_power(arg)[["HOG4"]])
 
-  high <- classify_with_power(up_row("A4", "SP_A", "C4", "SP_C", 0.9))
+  hi_arg <- up_row("A4", "SP_A", "C4", "SP_C", 0.9)
+  high <- classify_with_power(hi_arg)
   expect_equal(high[["HOG4"]], "trait_specific")
+  expect_false(underpowered_with_power(hi_arg)[["HOG4"]])
 
   # Not deciding: the endpoint is no clique member, or the other endpoint
   # shares the clique's trait group.
-  stranger <- classify_with_power(up_row("A4x", "SP_A", "C4", "SP_C", 0.1))
-  expect_equal(stranger[["HOG4"]], "trait_specific")
-  same <- classify_with_power(up_row("A4", "SP_A", "B4x", "SP_B", 0.1))
-  expect_equal(same[["HOG4"]], "trait_specific")
+  st_arg <- up_row("A4x", "SP_A", "C4", "SP_C", 0.1)
+  expect_equal(classify_with_power(st_arg)[["HOG4"]], "trait_specific")
+  expect_false(underpowered_with_power(st_arg)[["HOG4"]])
+  sm_arg <- up_row("A4", "SP_A", "B4x", "SP_B", 0.1)
+  expect_equal(classify_with_power(sm_arg)[["HOG4"]], "trait_specific")
+  expect_false(underpowered_with_power(sm_arg)[["HOG4"]])
 
   setup <- make_classify_edges()
   e <- setup$edges
   e$power <- 0.99
   e <- rbind(e, up_row("C4", "SP_C", "B4", "SP_B", 0.1))
   res <- classify_cliques(e, setup$target, setup$trait)
-  expect_equal(res$classification[res$hog == "HOG4"], "underpowered")
+  expect_equal(res$classification[res$hog == "HOG4"], "trait_specific")
+  expect_true(res$underpowered[res$hog == "HOG4"])
   expect_equal(res$trait_groups[res$hog == "HOG4"], "annual")
 })
 

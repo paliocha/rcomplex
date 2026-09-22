@@ -1,5 +1,37 @@
 # rcomplex 0.3.0
 
+- **`classify_cliques()` qualifies an underpowered call instead of
+  replacing it.** `underpowered` was a classification: a HOG that would
+  have been `differentiated` or `trait_specific`, but whose call rested
+  on a non-conserved edge too weak to have been called, was relabelled.
+  That threw the call away -- the output said only "underpowered", with
+  no way to recover which call had been withheld or why. The
+  qualification is orthogonal to the classification, so it is now
+  carried separately: the row keeps its `differentiated` /
+  `trait_specific` classification and a new logical `underpowered`
+  column marks it.
+
+  **`classification` no longer takes the value `"underpowered"`**; code
+  filtering on it must read the `underpowered` column instead. The
+  column is `FALSE` for every other tier, and whenever `edges` carries
+  no `power` column or its `power` is `NA`. `classify_gene_cliques()` is
+  unchanged -- there `underpowered` remains a tier, because on the gene
+  graph it already sits beside `missing_reason` and an
+  `n_underpowered_cross` count rather than overwriting anything.
+
+  Note what the flag marks, because the name invites the opposite
+  reading. Detection power *falls* with gene degree on real data:
+  Spearman of per-edge `power` against `sqrt(deg1 * deg2)` is negative
+  on all 56 Pooideae species pairs (root -0.658 to -0.187, leaf -0.668
+  to -0.253, median about -0.36), while neighbourhood overlap rises with
+  degree (+0.38 to +0.60). At a fixed conserved *fraction* the
+  significance threshold outruns the signal as neighbourhoods grow, and
+  the measured fraction is only 6-10%. So `underpowered` flags **hub**
+  genes, not sparsely connected ones, and "withheld because the gene was
+  too sparsely connected to see" is backwards. Whether the reference
+  conserved fraction should be a fraction or a fixed count is open
+  (#22); the flag's meaning depends on that choice.
+
 - **`clique_intensity_test(null_model = "matched_edges")` draws its null
   from cliques of the same size** (`match_clique_size`, `TRUE` by
   default). Pooling by species pair alone confounded the score with
