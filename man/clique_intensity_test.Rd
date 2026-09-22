@@ -27,6 +27,8 @@ clique_intensity_test(cliques, ...)
   pval_combine = c("max", "min"),
   pi0_method = c("storey", "randomized", "none"),
   null_model = c("global", "within_hog", "matched_edges"),
+  match_clique_size = TRUE,
+  min_pool_size = 1L,
   ...
 )
 }
@@ -117,6 +119,26 @@ than merely small. \code{"within_hog"} permutes \code{Species2} within
 each HOG instead, preserving the HOG's gene multiset, so the clique can
 be rebuilt and the null asks whether this particular paralog combination
 is unusually intense given those genes.}
+
+\item{match_clique_size}{For \code{null_model = "matched_edges"},
+draw each clique's null from edges belonging to cliques of the
+\emph{same size} rather than from the species pair at large.
+\code{TRUE} by default because pair-only pooling confounds the
+score with clique size: a clique exists only because all of its
+edges passed together, so larger cliques are built from stronger
+edges and beat a pool dominated by small-clique ones. An edge
+belonging to cliques of several sizes backs the null of each.
+\code{FALSE} restores the pair-only pooling.}
+
+\item{min_pool_size}{Smallest pool a matched-edge draw will use;
+a clique whose pool is thinner is left unscored
+(\code{n_matched = 0}). The default of 1 is off in practice and
+preserves the behaviour of a pool that holds a single weight: the
+draw is that constant, so \code{null_sd} is 0 and \code{z} is
+\code{NA}, which is the right answer rather than a degenerate one.
+Raise it only where pools are genuinely thin -- on the
+eight-species Pooideae run the size-matched pools hold roughly
+350-575 weights, so it never binds there.}
 }
 \value{
 Data frame with columns:

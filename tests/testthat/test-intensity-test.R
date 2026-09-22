@@ -517,6 +517,109 @@ test_that("matched_edges builds edges when none are supplied", {
 })
 
 
+test_that("matched_edges pools can be matched on clique size", {
+  # The pair-only pool mixes edges from every clique size, and a clique
+  # exists only because all its edges passed together -- so big cliques
+  # are built from stronger edges and beat a pool dominated by small
+  # ones. This fixture makes that concrete: for the A-B pair, 3-clique
+  # edges are strong and 2-clique edges are weak, so the size-matched
+  # pool for a 3-clique excludes the weak half and its null sits higher.
+  sps <- c("SP_A", "SP_B", "SP_C")
+  n <- 20L
+  h3 <- paste0("T", seq_len(n))
+  h2 <- paste0("D", seq_len(n))
+  set.seed(8)
+  mk <- function(s1, s2, hogs, eff) {
+    data.frame(
+      species1 = s1, species2 = s2,
+      gene1 = paste0(s1, "_", hogs), gene2 = paste0(s2, "_", hogs),
+      hog = hogs, effect_size = eff, type = "conserved",
+      stringsAsFactors = FALSE
+    )
+  }
+  edges <- rbind(
+    mk("SP_A", "SP_B", h3, stats::runif(n, 9, 12)),
+    mk("SP_A", "SP_C", h3, stats::runif(n, 9, 12)),
+    mk("SP_B", "SP_C", h3, stats::runif(n, 9, 12)),
+    mk("SP_A", "SP_B", h2, stats::runif(n, 1.2, 2.0))
+  )
+  mkclq <- function(hogs, third) {
+    data.frame(
+      hog = hogs,
+      SP_A = paste0("SP_A_", hogs),
+      SP_B = paste0("SP_B_", hogs),
+      SP_C = third,
+      stringsAsFactors = FALSE
+    )
+  }
+  cliques <- rbind(
+    mkclq(h3, paste0("SP_C_", h3)),
+    mkclq(h2, NA_character_)
+  )
+  run <- function(match) {
+    clique_intensity_test(cliques, sps,
+      edges = edges, n_perm = 400L, seed = 4L,
+      null_model = "matched_edges", match_clique_size = match
+    )
+  }
+  matched <- run(TRUE)
+  pooled <- run(FALSE)
+  is3 <- !is.na(cliques$SP_C)
+
+  # every clique scored either way
+  expect_true(all(matched$n_matched == 400L))
+  expect_true(all(pooled$n_matched == 400L))
+  # the 3-cliques face a stronger null once the weak 2-clique edges are
+  # excluded from their pool, so their null mean rises and their z falls
+  expect_gt(mean(matched$null_mean[is3]), mean(pooled$null_mean[is3]))
+  expect_lt(mean(matched$z_score[is3]), mean(pooled$z_score[is3]))
+  # the size-2 cliques only ever had the A-B pair, so matching on size
+  # removes the strong 3-clique edges and lowers their null instead
+  expect_lt(mean(matched$null_mean[!is3]), mean(pooled$null_mean[!is3]))
+})
+
+
+test_that("min_pool_size rejects a non-integer threshold", {
+  # as.integer() truncates, so validating the coerced value would take
+  # 1.5 as 1 and quietly change the null instead of rejecting an
+  # argument documented as a positive integer. Validation has to happen
+  # before the coercion, and only a value that survives it may be used.
+  fx <- make_clique_fixture_3sp()
+  run <- function(v) {
+    clique_intensity_test(fx$cliques, fx$target_species,
+      edges = fx$edges, n_perm = 10L, seed = 1L,
+      null_model = "matched_edges", min_pool_size = v
+    )
+  }
+  for (bad in list(1.5, 0.9, -1, 0, NA_real_, Inf, c(1, 2), "2")) {
+    expect_error(run(bad), "min_pool_size must be a single positive integer")
+  }
+  # whole numbers pass whether given as double or integer
+  expect_s3_class(run(1), "data.frame")
+  expect_s3_class(run(2L), "data.frame")
+})
+
+
+test_that("min_pool_size leaves a thin pool unscored", {
+  fx <- make_clique_fixture_3sp()
+  # this fixture has one conserved edge per species pair, so any
+  # threshold above 1 refuses every draw
+  thin <- clique_intensity_test(fx$cliques, fx$target_species,
+    edges = fx$edges, n_perm = 50L, seed = 1L,
+    null_model = "matched_edges", min_pool_size = 5L
+  )
+  expect_true(all(thin$n_matched == 0L))
+  expect_true(all(is.na(thin$z_score)))
+  # and the default of 1 scores it, with no spread, as before
+  kept <- clique_intensity_test(fx$cliques, fx$target_species,
+    edges = fx$edges, n_perm = 50L, seed = 1L,
+    null_model = "matched_edges"
+  )
+  expect_true(all(kept$n_matched == 50L))
+  expect_true(all(kept$null_sd == 0))
+})
+
+
 test_that("null_model is validated and defaults to global", {
   fx <- formals(rcomplex:::clique_intensity_test.default)
   expect_identical(eval(fx$null_model)[1], "global")

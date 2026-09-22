@@ -1,5 +1,31 @@
 # rcomplex 0.3.0
 
+- **`clique_intensity_test(null_model = "matched_edges")` draws its null
+  from cliques of the same size** (`match_clique_size`, `TRUE` by
+  default). Pooling by species pair alone confounded the score with
+  clique size in two compounding ways. The null's spread shrinks as
+  `1/sqrt(E)`: on the eight-species Pooideae root run `null_sd` ran
+  0.0473 at three species to 0.0155 at eight, with `null_sd * sqrt(E)`
+  constant to within 1%. And a clique exists only because all of its
+  edges passed together -- 28 simultaneous calls at eight species
+  against 3 at three -- so larger cliques are assembled from
+  systematically stronger edges: median edge weight by the clique size
+  an edge belongs to ran 0.615, 0.641, 0.663, 0.687, 0.720, 0.752 for
+  sizes three to eight, against a pair-only pool median of 0.638 and
+  0.609 for edges in no clique. Net effect on that run: median `z` ran
+  -0.51 at three species to +6.32 at eight, so ranking cliques on `z`
+  was largely ranking them on size.
+
+  **`z_score`, `p_value`, `null_mean` and `null_sd` change on every
+  `matched_edges` table**; `observed_intensity`, clique membership and
+  the other clique columns do not. A membership, not an edge, is the
+  pooling unit, so an edge belonging to cliques of several sizes backs
+  the null of each. `match_clique_size = FALSE` restores the previous
+  pooling. `min_pool_size` (default 1) leaves a clique unscored when its
+  pool is thinner than that; the default reproduces the previous
+  behaviour exactly, including a single-weight pool giving `null_sd = 0`
+  and `z = NA`.
+
 - **Clique intensity and coherence weight each edge by its ensemble
   connection probability**, not by a Jaccard percentile (#15). The Jaccard
   index is not degree-normalised: for neighbourhoods of size `k`, `m` drawn
