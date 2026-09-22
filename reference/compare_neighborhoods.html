@@ -165,6 +165,17 @@ neighbors. Range \([0, 1]\).</p></dd>
 <dd><p>Jaccard index of neighborhood overlap
 (direction 2).</p></dd>
 
+<dt>Species1.urn</dt>
+<dd><p>Hypergeometric population for direction 1:
+the number of genes in net1 less the anchor gene itself. Constant
+within a call. Downstream <code>power</code> uses it directly rather
+than reconstructing it from the effect sizes.</p></dd>
+
+<dt>Species2.urn</dt>
+<dd><p>Hypergeometric population for direction 2
+(genes in net2 less the anchor). Differs from
+<code>Species1.urn</code> whenever the two networks differ in size.</p></dd>
+
 
 </dl></div>
     <div id="details">
