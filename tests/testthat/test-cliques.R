@@ -393,15 +393,17 @@ test_that("max_missing_edges n_missing output is 0 when all edges present", {
 
 # --- Tests for intensity and min_effect_size ---
 #
-# Onnela weights are each edge's Jaccard-index percentile among every
-# tested pair of its species pair. 1 - q.value pinned every weight above
-# 1 - alpha, because cliques only contain edges that already passed alpha
-# (#11); effect size would have ranked genes by inverse degree, because
-# fold enrichment falls like 1 / degree at a fixed conserved fraction (#12).
+# Onnela weights are each edge's ensemble connection probability: its
+# association strength (effect_size) mapped to p = z * w / (1 + z * w),
+# with z fitted per species pair by maximum entropy over every tested
+# pair. 1 - q.value pinned every weight above 1 - alpha, because cliques
+# only contain edges that already passed alpha (#11); the Jaccard index
+# has a null expectation that grows with neighbourhood size and ranked
+# hub genes above equally conserved low-degree ones (#15).
 
 # One conserved triangle (HOG1: A1, B1, C1) plus background rows of type
 # "ns" in other HOGs. find_cliques() never builds cliques from the ns rows,
-# but they belong to the tested population the percentiles are taken over.
+# but they belong to the tested population the weight scale is fitted on.
 make_percentile_edges <- function(jac_ab = 0.2, jac_ac = 0.6, jac_bc = 0.4,
                                   background = TRUE) {
   tri <- data.frame(
@@ -433,7 +435,7 @@ make_percentile_edges <- function(jac_ab = 0.2, jac_ac = 0.6, jac_bc = 0.4,
 }
 
 
-test_that("intensity weights are within-pair Jaccard percentiles", {
+test_that("intensity is the geometric mean of ensemble probabilities", {
   edges <- make_percentile_edges()
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
 
