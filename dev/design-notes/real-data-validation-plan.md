@@ -832,13 +832,15 @@ Under `validation-2026-09-17/`:
 ### Still open
 
 - **#22** — fraction vs count; decides what `underpowered` means.
-- **#20** — answered above: standardising does not rescue coherence
-  (z_coh is the raw ratio within a size class and 0.35·sqrt(E) across
-  them). Decision pending: retire it, or keep it documented as
-  non-discriminating.
-- **Intensity `z` across sizes** — location bias gone (#23), but |z|
-  still grows with size because the null treats a clique's edges as
-  independent draws. Rank within size or on the gap; no issue filed.
+- **#20** — closed: `coherence` retired in #26 (`3a99584`) after the
+  S7 measurement above.
+- **#25** — intensity `z` across sizes: location bias gone (#23), but
+  |z| still grows with size because the null treats a clique's edges as
+  independent draws. Rank within size or on the gap until decided.
+- **#22** — a suggestion is posted there: the alternative
+  `f0 * min(k, m)` sits below the null mean for hubs, so define power
+  against an excess over chance and let a degree-flatness measurement
+  on the edge tables choose fold enrichment or excess fraction.
 - **Naming** — `classify_cliques()` vs `classify_gene_cliques()` differ by
   one word and do different things; proposed `classify_species_cliques()`
   as the canonical name with `classify_cliques()` kept as an alias
