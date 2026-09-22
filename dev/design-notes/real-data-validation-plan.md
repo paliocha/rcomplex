@@ -841,8 +841,8 @@ Under `validation-2026-09-17/`:
   `f0 * min(k, m)` sits below the null mean for hubs, so define power
   against an excess over chance and let a degree-flatness measurement
   on the edge tables choose fold enrichment or excess fraction.
-- **Naming** — `classify_cliques()` vs `classify_gene_cliques()` differ by
-  one word and do different things; proposed `classify_species_cliques()`
-  as the canonical name with `classify_cliques()` kept as an alias
-  (precedent: `find_coexpressologs()` / `run_pairwise_comparisons()`).
+- **Two clique classifiers** — Martin (2026-09-22): having both
+  `classify_cliques()` (species graph) and `classify_gene_cliques()`
+  (gene graph) is awkward. The `classify_species_cliques()` rename is
+  shelved; the direction is consolidation, not clearer names for two.
   Not started.
