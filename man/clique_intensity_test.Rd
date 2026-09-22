@@ -157,8 +157,12 @@ permutations (direction determined by \code{alternative})}
 \item{n_perm}{Total number of permutations run}
 \item{n_matched}{Number of permutations where clique had a
 matching HOG with Jaccard > 0}
-\item{n_edges}{Number of the clique's edges found in
-\code{edges} and scored}
+\item{n_edges}{Number of rows of \code{edges} joining two clique
+members within the clique's HOG: the edges the observed
+intensity is taken over and, under \code{"matched_edges"}, the
+edges the null resamples. Equals \code{n_edges} of
+\code{\link{find_cliques}} when \code{edges} is the table the
+cliques were built from.}
 }
 }
 \description{
@@ -195,9 +199,10 @@ baseline). Unmatched permutations are excluded, not counted as zeros.
 }
 \section{Comparing cliques of different sizes}{
 
-\code{z_score} and \code{p_value} test whether the clique's edges are
-exchangeable with the pool's, and the null draws its \code{n_edges}
-edges independently, so \code{null_sd} shrinks as
+Under \code{null_model = "matched_edges"}, \code{z_score} and
+\code{p_value} test whether the clique's edges are exchangeable with
+the pool's, and the null draws its \code{n_edges} edges
+independently, so \code{null_sd} shrinks as
 \code{1 / sqrt(n_edges)}. A real clique's edges all belong to one
 HOG and share its conservation level, so the observed \code{gap}
 does not shrink: on the eight-species Pooideae run its IQR was 0.067
