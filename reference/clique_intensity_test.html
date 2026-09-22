@@ -134,6 +134,8 @@ stronger co-expression conservation than random mappings.</p>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
 <span>  pi0_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"storey"</span>, <span class="st">"randomized"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  null_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"global"</span>, <span class="st">"within_hog"</span>, <span class="st">"matched_edges"</span><span class="op">)</span>,</span>
+<span>  match_clique_size <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  min_pool_size <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -267,6 +269,30 @@ than merely small. <code>"within_hog"</code> permutes <code>Species2</code> with
 each HOG instead, preserving the HOG's gene multiset, so the clique can
 be rebuilt and the null asks whether this particular paralog combination
 is unusually intense given those genes.</p></dd>
+
+
+<dt id="arg-match-clique-size">match_clique_size<a class="anchor" aria-label="anchor" href="#arg-match-clique-size"></a></dt>
+<dd><p>For <code>null_model = "matched_edges"</code>,
+draw each clique's null from edges belonging to cliques of the
+<em>same size</em> rather than from the species pair at large.
+<code>TRUE</code> by default because pair-only pooling confounds the
+score with clique size: a clique exists only because all of its
+edges passed together, so larger cliques are built from stronger
+edges and beat a pool dominated by small-clique ones. An edge
+belonging to cliques of several sizes backs the null of each.
+<code>FALSE</code> restores the pair-only pooling.</p></dd>
+
+
+<dt id="arg-min-pool-size">min_pool_size<a class="anchor" aria-label="anchor" href="#arg-min-pool-size"></a></dt>
+<dd><p>Smallest pool a matched-edge draw will use;
+a clique whose pool is thinner is left unscored
+(<code>n_matched = 0</code>). The default of 1 is off in practice and
+preserves the behaviour of a pool that holds a single weight: the
+draw is that constant, so <code>null_sd</code> is 0 and <code>z</code> is
+<code>NA</code>, which is the right answer rather than a degenerate one.
+Raise it only where pools are genuinely thin – on the
+eight-species Pooideae run the size-matched pools hold roughly
+350-575 weights, so it never binds there.</p></dd>
 
 </dl></div>
     <div id="value">
