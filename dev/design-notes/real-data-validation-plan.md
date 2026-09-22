@@ -966,3 +966,40 @@ at typical enrichment. That is the flag doing what #12 introduced it
 for, on data the package was not tuned on.
 
 Complete cliques on the strict graph: 50,750 vs their 50,697.
+
+**E3: the 333 refused partial-present HOGs are negative evidence.** In
+all 8,944 of their five-member cliques the sixth species was tested
+against the members (`missing_reason = tested_ns`); the maximum power
+among those tests is 1.0 in three quarters of cliques (minimum 0.33),
+the smallest q is 0.82 at the median, and `min_power` rescues 12 HOGs at
+0.8, 17 at 0.9, 45 at 0.99. The rule stands. The missing species is
+aspen in 3,391 of those cliques, birch and cherry about 2,200 each, the
+conifers 187-604; aspen's data come from a different study.
+
+## 12. Pooideae under 0.3.0 with power, 2026-09-22 (P2)
+
+Analytical-path edge tables rebuilt with `lib-main-f176fb9`
+(`s2_edges_log.R` → `s2_<tissue>_v030/`, alpha 0.1, `pval_combine =
+"max"`, randomized pi0), then both classifiers with and without the
+`power` column (`p2_classify_v030.R` → `s4_<tissue>_v030/`). Power is
+the fold-enrichment power of #27. Mean edge power 0.94 root / 0.94 leaf;
+9.4% / 7.8% of edges below 0.8.
+
+**Species graph (`classify_cliques()`, trait = annual/perennial,
+`min_species = 3`).** No HOG is `differentiated` in either tissue; the
+divergence signal of the study is entirely `trait_specific`.
+
+| | root | leaf |
+|---|---|---|
+| complete / partial / trait_specific / unclassified (power-blind) | 346 / 7745 / 297 / 8017 | 440 / 6609 / 384 / 8502 |
+| trait_specific flagged `underpowered`, `min_power = 0.5` | 17 (6%) | 0 |
+| `min_power = 0.8` (default) | **130 (44%)** | **118 (31%)** |
+| `min_power = 0.9` | 192 (65%) | 209 (54%) |
+
+So at the default gate roughly a third to a half of the trait-specific
+HOGs rest on a cross-trait edge whose gene could not have been called at
+typical enrichment; the flag qualifies the call, it does not remove it,
+but any downstream claim about those HOGs needs the flag beside it.
+
+**Gene graph (`classify_gene_cliques()`, 0.1 / 0.9 / Inf, lineage =
+trait):** [P2 gene graph pending]

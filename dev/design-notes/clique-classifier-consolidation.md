@@ -33,8 +33,17 @@ Evidence (plan doc §10 and §11):
 
 - Wood (EVOTREE): the gene-graph classifier reproduces every published
   tier exactly except partial_present (226 of 620; the 333 refused ones
-  are `tested_ns` gaps — E3 says how many are genuinely well powered:
-  [E3 pending]). Power gating moved 114 of 16,892 HOGs. The species-graph
+  are `tested_ns` gaps). E3 (`prepare_data/evotree/e3_partial_present.R`)
+  looked at the sixth species' tested edges to the five members in all
+  8,944 such cliques: the maximum power among them is 1.0 in three
+  quarters of cliques (minimum 0.33), the smallest q is 0.82 at the
+  median, and `min_power` rescues 12 HOGs at 0.8, 17 at 0.9, 45 at 0.99.
+  So the refusal is negative evidence, not a power artefact: the sixth
+  species was there, was tested at full power, and its co-expression was
+  not conserved with the members. The rule stands. (Aside: the missing
+  species is aspen in 3,391 of the 8,944 cliques, birch and cherry about
+  2,200 each, the conifers 187-604; aspen's data come from a different
+  study than the other five.). Power gating moved 114 of 16,892 HOGs. The species-graph
   classifier flagged 319 of 416 `differentiated` and 648 of 7,817
   `trait_specific` HOGs as underpowered.
 - Pooideae, analytical path with fold-enrichment power (P2): [P2 pending:
@@ -67,8 +76,8 @@ nothing downstream needs the other. Sequence:
 
 1. `underpowered` → flag column in `classify_gene_cliques()` (mirrors
    #24; breaking for code that filters on the tier).
-2. Decide the partial_present rule from E3, and document it as the one
-   rule.
+2. Keep the partial_present rule (E3: the refused gaps are well-powered
+   negative evidence) and document it as the one rule.
 3. Deprecate `classify_cliques()`; move its `stability` / `persistence`
    annotation to a join on `hog`.
 4. Update CLAUDE.md "Two clique backends" to "one classifier, two
