@@ -547,6 +547,45 @@ in full, plus the cross-species precedent they lead to.
   null: scores are cMonkey's per-data-type likelihood P-values combined
   under annealing, not SAMBA's statistical model.
 
+- **Hochbaum 1998**, "Approximating clique and biclique problems",
+  J Algorithms 29:174, doi:10.1006/jagm.1998.0964 (Martin, 2026-09-23,
+  "interesting, too"; read in full). The complexity map behind SAMBA's
+  design choices, and the exact tool for the step SAMBA does
+  heuristically. Results: (i) the *node*-deletion biclique problem on a
+  bipartite graph (delete the minimum weight of nodes so that what is
+  left is complete bipartite) is polynomial, by one minimum cut, since
+  it is maximum-weight independent set on the bipartite complement
+  (Yannakakis 1981); the general-graph version without the independence
+  requirement is also polynomial (monotone IP2), and equals node
+  connectivity of the complement; (ii) the *edge*-deletion biclique
+  problem is NP-hard (Dawande et al. 1997, by reduction from maximum
+  clique, which is why Tanay 2002 needs the bounded-degree restriction)
+  but 2-approximable by a single minimum cut on a bipartite network
+  whose node weight is half the adjacent edge weight (their Fig. 5);
+  (iii) edge-deletion to a clique is NP-hard and 2-approximable via a
+  vertex cover in which edges cover non-edges; (iv) every NP-hard
+  variant here is MAX SNP-hard, so 2 is the floor unless vertex cover
+  falls. All via Hochbaum's IP2 half-integrality framework, minimum cut
+  in T(n, m) ~ O(nm log(n^2/m)).
+
+  Why it matters for design D: SAMBA's exactness rests on hashing every
+  subset of a gene's condition neighbourhood, which is fine at 20
+  conditions per species but not for a joint bicluster whose condition
+  side is 8 species x 20 samples. Hochbaum supplies the cleaning step
+  for the joint object: given a candidate (HOG set, sample set across
+  species), form the bipartite graph HOG x (species, sample) with an
+  edge when some copy of the HOG responds in that sample, and delete the
+  minimum weight of HOGs and samples so that what remains is a biclique.
+  That is CAST's add/remove step done *optimally* and in polynomial time
+  by one minimum cut, with node weights taken from SAMBA's
+  log-likelihood contributions; paralogs enter through the OR over
+  copies, so no copy choice is needed. The edge-deletion 2-approximation
+  is the fallback when a block is allowed to keep a few non-responding
+  cells. For the clique layer the edge-deletion-clique result is the
+  formal name of what `find_cliques()`'s backtracker does (fewest missing
+  edges first); at <= 8 species exhaustive search is fine and the
+  2-approximation is not needed.
+
 - Related, none with SAMBA's degree-corrected significance: Bergmann
   2004 ISA across six organisms (Section 4); R `isa2` (CRAN) is ISA;
   `biclust` (CRAN: Cheng-Church, Bimax, Plaid, Xmotifs, Quest,
@@ -742,7 +781,8 @@ the joint weight; then per-species elaboration with the core locked
 - Cost: SAMBA's core is a few hundred lines (hash the subsets of each
   gene's <= 20-condition neighbourhood, keep the k heaviest, local
   improvement); the joint step reuses `gene_clique_graph()`'s HOG
-  bookkeeping. Gate: P3 unchanged (split-half replication of bicluster
+  bookkeeping, and its clean-up is Hochbaum's node-deletion biclique by
+  minimum cut (5.10), for which igraph's `max_flow()` suffices. Gate: P3 unchanged (split-half replication of bicluster
   membership per species, real minus shuffled), plus SAMBA's own
   calibration against a degree-preserving random bipartite graph.
 
