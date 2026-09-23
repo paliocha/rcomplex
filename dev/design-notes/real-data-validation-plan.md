@@ -1029,7 +1029,11 @@ consolidation note.
 97 leaf HOGs, against the species graph's 297 / 384 at `min_species = 3`
 and 129 / 116 at `min_species = 4` (overlap 39 / 35). 226 / 307 of the
 species-graph calls use three of the group's four species; 45 / 33 are
-outranked by `partial_significant`; 45 / 44 remain unclassified. See the
+outranked by `partial_significant`; 45 / 44 remain unclassified. The tier's HOGs are 70 annual + 23
+perennial (root) and 81 + 16 (leaf). Of the species graph's extra calls
+(282 / 364), the fourth group member is absent in 96 / 122, tested and
+rejected in 88 / 157, and in 90 / 76 the group triangle sits inside a
+larger mixed clique with one species of the other group. See the
 consolidation note, step 0.
 
 Trap: `gene_clique_graph(alpha_graph = Inf)` on all Pooideae HOGs ran

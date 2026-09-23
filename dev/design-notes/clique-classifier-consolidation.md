@@ -97,10 +97,20 @@ does, plus `missing_reason` and paralog combinations. Sequence:
    refuses; required to use the whole group, the species graph finds
    129 / 116, sharing 39 / 35 with the gene graph, with 45 / 33 of the
    rest outranked by `partial_significant` and 45 / 44 still
-   unclassified (outside-species reasons not yet tabulated). Open
-   choice before step 3: let the tier accept a lineage clique missing
-   up to `max_gap` of its own members when those members are gaps, or
-   keep the whole-lineage rule and let the species-graph count fall.
+   unclassified (outside-species reasons not yet tabulated). Why
+   the species graph calls more (`p5_list_ts.R`, its 282 / 364 extra
+   HOGs): the fourth group member is **absent** from the HOG in 96 /
+   122 (gene loss: recoverable by a gap allowance), **tested and
+   rejected** in 88 / 157 (within-group divergence: refused on
+   principle), and in 90 / 76 the group triangle is not a maximal
+   clique because one species of the *other* group is conserved with
+   it (the species graph's `trait_specific` tolerates cross-group
+   edges; the gene graph reports only maximal cliques). The gene-graph
+   tier itself: 93 root = 70 annual + 23 perennial, 97 leaf = 81 + 16.
+   Open choice before step 3: accept a lineage clique missing up to
+   `max_gap` of its own members when those are gaps (recovers the 96 /
+   122), and whether a one-group clique with a single conserved
+   outside species is still trait-specific (the 90 / 76).
 1. `underpowered` → flag column in `classify_gene_cliques()` (mirrors
    #24; breaking for code that filters on the tier).
 2. Keep the partial_present rule (E3: the refused gaps are well-powered
