@@ -1033,9 +1033,45 @@ Next steps in order: (a) consensus over seeds and sample subsamples at
 kappa 4 with the null calibration of item 5, to see how much of the
 0.18 is optimiser noise; (b) a resolution sweep at kappa 4 (gamma
 below 1 was not tried; 7 modules is the resolution limit of modularity
-on a 4 M-edge graph); (c) the cpm engine's table for the effect of the
-cross-layer null; (d) root; (e) the design D probe, which needs
+on a 4 M-edge graph); (c) done, Section 11.1; (d) root; (e) the design D probe, which needs
 SAMBA's scoring reimplemented and is independent of all of the above.
+
+### 11.1 The cpm engine: what the cross-layer null term does
+
+Same graph, same halves, `igraph::cluster_leiden` CPM with vertex
+weights `k_is / sqrt(2 m_s)`, run until stable. Merged table:
+`gate_leaf_cpm_merged.tsv`.
+
+| kappa | agreement real / shuffled | modules >= 10 per layer | Q_s (range) | split-half real (range) | split-half shuffled (range) | seed ARI |
+|---|---|---|---|---|---|---|
+| 0 to 1 | 0.000 / 0.000 | 9 to 16 | 0.56 to 0.66 | 0.03 to 0.16 | <= 0.005 | 0.36 to 0.63 |
+| 2 | 0.009 / 0.362 | 10 to 15 | 0.54 to 0.66 | 0.03 to 0.15 | ~0.01 | 0.36 to 0.76 |
+| 4 | 0.976 / 0.869 | **548 to 648** | 0.08 to 0.13 | 0.28 to 0.40 | **0.09 to 0.23** | 0.66 to 0.72 |
+
+Three things the exact engine does not show:
+
+1. **No coupling at all below kappa 2.** Agreement is exactly zero up
+   to kappa 1: the size-product penalty of the cross-layer null term
+   blocks every cross-species merge, as the smoke run predicted.
+2. **When coupling arrives it fragments.** At kappa 4 the partition has
+   about 600 modules of at least 10 genes per layer instead of 7. The
+   penalty grows with the product of the two module sizes, so the
+   optimum under this objective is many small cross-species modules,
+   which is the ortholog graph's fine structure (HOG families), not
+   co-expression modules. Q_s is 0.08 to 0.13.
+3. **The coupling artefact in full.** Split-half ARI on shuffled
+   expression is 0.09 to 0.23 at kappa 4, against 0.01 for the exact
+   engine, because a fine orthology-dictated partition *is*
+   reproducible between halves whatever the expression. The real minus
+   shuffled gap (median gain +0.088) happens to match the exact
+   engine's (+0.086), but it sits on top of an artefact and describes a
+   different object.
+
+Conclusion: the R trick is retired as an engine. It stays in the
+script only as the measurement above. Any future R-native
+implementation must carry the per-layer null without a cross-layer
+term, which means leidenalg's multiplex bookkeeping in C++ (Section
+5.9), not a vertex-weight trick.
 
 ## 12. Sources and provenance
 
