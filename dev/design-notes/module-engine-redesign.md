@@ -1033,7 +1033,7 @@ Next steps in order: (a) consensus over seeds and sample subsamples at
 kappa 4 with the null calibration of item 5, to see how much of the
 0.18 is optimiser noise; (b) a resolution sweep at kappa 4 (gamma
 below 1 was not tried; 7 modules is the resolution limit of modularity
-on a 4 M-edge graph); (c) done, Section 11.1; (d) root; (e) the design D probe, which needs
+on a 4 M-edge graph); (c) done, Section 11.1; (d) done, Section 11.2; (e) the design D probe, which needs
 SAMBA's scoring reimplemented and is independent of all of the above.
 
 ### 11.1 The cpm engine: what the cross-layer null term does
@@ -1072,6 +1072,50 @@ script only as the measurement above. Any future R-native
 implementation must carry the per-layer null without a cross-layer
 term, which means leidenalg's multiplex bookkeeping in C++ (Section
 5.9), not a vertex-weight trick.
+
+### 11.2 Root (exact engine, same settings)
+
+Root networks: 2.03 M ortholog edges from 18 107 multi-species HOGs,
+2 v 2 halves per time point, run 16:46 to 18:52. Merged table:
+`gate_root_exact_merged.tsv`.
+
+| species | split-half ARI, kappa 0 | kappa 2 | kappa 4 | shuffled, kappa 4 | seed ARI, kappa 4 | Q_s, kappa 0 -> 4 |
+|---|---|---|---|---|---|---|
+| BDIS | 0.097 | 0.111 | 0.223 | 0.004 | 0.51 | 0.62 -> 0.35 |
+| BMAX | 0.078 | 0.120 | 0.220 | 0.003 | 0.50 | 0.61 -> 0.30 |
+| BMED | 0.027 | 0.033 | 0.187 | 0.004 | 0.49 | 0.63 -> 0.15 |
+| BSYL | 0.087 | 0.121 | 0.224 | 0.003 | 0.50 | 0.70 -> 0.31 |
+| FPRA | 0.061 | 0.078 | 0.210 | 0.002 | 0.50 | 0.57 -> 0.25 |
+| HJUB | 0.131 | 0.238 | 0.210 | 0.007 | 0.50 | 0.66 -> 0.35 |
+| HVUL | 0.029 | 0.053 | 0.215 | 0.003 | 0.50 | 0.67 -> 0.32 |
+| VBRO | 0.161 | 0.136 | 0.219 | 0.003 | 0.50 | 0.67 -> 0.27 |
+
+Agreement real / shuffled: kappa 1 0.13 / 0.06, kappa 2 0.28 / 0.83,
+kappa 4 0.93 / 0.98. Modules >= 10 per layer: 10 to 14 at kappa <= 1,
+7 to 9 at kappa 2, 6 at kappa 4. Median gap change over kappa 0: 0.00
+up to kappa 1, +0.014 at kappa 2, **+0.140 at kappa 4** (leaf +0.086).
+
+Same shape as leaf, three differences worth recording:
+
+1. **The gain is larger and cleaner.** Gap 0.18 to 0.22 in every
+   species at kappa 4, shuffled split-half <= 0.007 at every kappa
+   (leaf had a 0.05 to 0.07 bump at kappa 2; root's is <= 0.009), and
+   the transition on shuffled data is less abrupt (agreement 0.83 at
+   kappa 2 against 0.96 in leaf).
+2. **The weakest species gain most, again by projection.** HVUL's own
+   root network replicates at 0.03 (leaf: 0.12) and reaches 0.22 under
+   coupling; BMED 0.03 -> 0.19. Their Q_s at kappa 4 (0.15, 0.32) says
+   how little of their own wiring the joint modules use. Species data
+   quality differs by tissue as much as by species.
+3. **Optimiser noise is lower** (seed ARI 0.50 at kappa 4 against 0.33
+   in leaf), so gap / seed ARI is 0.37 to 0.44: closer to the ceiling,
+   same conclusion that consensus is the next lever.
+
+Verdict unchanged: conditional go for design A on both tissues, with
+the same caveats (coarse orthology-driven partition, 6 modules per
+layer, within-species Q_s not to be read as divergence). Two tissues
+agreeing on the shape of the curve rules out the leaf result being a
+property of one dataset.
 
 ## 12. Sources and provenance
 
