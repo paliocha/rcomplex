@@ -1025,6 +1025,13 @@ has no tier for "one trait group conserved, the other present but not
 co-conserved". That is the decisive input for the classifier
 consolidation note.
 
+**With the `trait_specific` tier (PR #29, `lib-main-a305ac4`):** 93 root /
+97 leaf HOGs, against the species graph's 297 / 384 at `min_species = 3`
+and 129 / 116 at `min_species = 4` (overlap 39 / 35). 226 / 307 of the
+species-graph calls use three of the group's four species; 45 / 33 are
+outranked by `partial_significant`; 45 / 44 remain unclassified. See the
+consolidation note, step 0.
+
 Trap: `gene_clique_graph(alpha_graph = Inf)` on all Pooideae HOGs ran
 for an hour on one core at 39 GB without finishing (eight species, up to
 ten paralogs each); it took 0.9 min on wood. Restrict it to leftover

@@ -88,8 +88,19 @@ within-group clique in the other group (else `differentiated`), and the
 Then the gene-graph classifier carries everything the species-graph one
 does, plus `missing_reason` and paralog combinations. Sequence:
 
-0. Add `trait_specific` to `classify_gene_cliques()` as defined above;
-   check it reproduces the 297 / 384 Pooideae HOGs and the flag shares.
+0. Add `trait_specific` to `classify_gene_cliques()` as defined above.
+   **Done in PR #29 (2026-09-23).** It classifies 93 root / 97 leaf
+   Pooideae HOGs, not the species graph's 297 / 384, and the diagnostic
+   (`p4_diag_ts.R`) says the gap is definitional: 226 / 307 of the
+   species-graph calls rest on a within-group clique of three of the
+   four species (`min_species = 3`), which the whole-lineage tier
+   refuses; required to use the whole group, the species graph finds
+   129 / 116, sharing 39 / 35 with the gene graph, with 45 / 33 of the
+   rest outranked by `partial_significant` and 45 / 44 still
+   unclassified (outside-species reasons not yet tabulated). Open
+   choice before step 3: let the tier accept a lineage clique missing
+   up to `max_gap` of its own members when those members are gaps, or
+   keep the whole-lineage rule and let the species-graph count fall.
 1. `underpowered` → flag column in `classify_gene_cliques()` (mirrors
    #24; breaking for code that filters on the tier).
 2. Keep the partial_present rule (E3: the refused gaps are well-powered
