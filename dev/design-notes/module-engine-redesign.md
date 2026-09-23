@@ -791,9 +791,14 @@ graph once, cache it.
   Python; verified 2026-09-23 on a toy two-layer graph), with one
   `RBConfigurationVertexPartition` per species holding that species'
   edges and a `CPMVertexPartition(resolution_parameter = 0)` layer
-  holding the ortholog edges at layer weight kappa. Leiden runs until
-  stable (`n_iterations = -1`): at three iterations the seed-to-seed
-  ARI on the smoke run was only 0.3 to 0.8.
+  holding the ortholog edges at layer weight kappa. Two Leiden
+  iterations per run: at full size (158 049 nodes, 2.36 M intra-layer
+  and 1.92 M ortholog edges) graph construction takes under 20 s and
+  one optimisation takes 194 s at `n_iterations = 2` (11 joint modules
+  at kappa = 1), while run-until-stable had not returned after 35
+  minutes and was killed. Seed-to-seed ARI is reported per run so the
+  cost of stopping at two iterations is visible. The kappa grid is
+  split across two processes (`kappas` argument).
 - the same objective's R stand-in, engine `cpm`:
   `igraph::cluster_leiden(objective_function = "CPM", vertex_weights =
   k_is / sqrt(2 * m_s))`, which reproduces Mucha's per-layer
