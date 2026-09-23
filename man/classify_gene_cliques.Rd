@@ -108,7 +108,8 @@ The two floor diagnostics are also attributes, alongside
 \code{max_gap}. All are set even when the result is empty.
 }
 \description{
-Applies the published five-tier taxonomy to the cliques returned by
+Applies the published five-tier taxonomy of Rodriguez et al. (2026),
+plus a \code{trait_specific} tier, to the cliques returned by
 \code{\link{gene_clique_graph}}. Every threshold is derived from
 the number of species actually supplied, so nothing is tied to the
 six species and fifteen species-pairs of the original workflow.
@@ -124,8 +125,9 @@ and \code{X = P - W} cross-lineage pairs, the tiers are:
 with no species outside it testable against the clique. A species
 that \emph{was} compared against every member and came back
 non-significant is evidence of a boundary rather than a gap, so
-it blocks this tier -- that clique is a candidate for
-\code{differentiated}, on the cliques of the unfiltered graph.}
+it blocks this tier: that clique is \code{trait_specific}, or with both
+lineages conserved within a candidate for \code{differentiated} on the
+cliques of the unfiltered graph.}
 \item{partial_significant}{All \code{S} species present, every clique
 edge below \code{alpha_graph}, and at least \code{choose(S - 1, 2) + 1}
 pairs significant at \code{alpha_call}.}
@@ -137,12 +139,24 @@ rather than a rejected test.}
 at least one lineage of two or more species, every such lineage
 fully significant within itself, and at most \code{cross_max}
 cross-lineage pairs significant.}
-\item{underpowered}{A clique that would be \code{lineage_specific} or
-\code{differentiated} but for tests that could not have succeeded,
-read from a \code{power} column in \code{edges} (see
-\code{\link{comparison_to_edges}}). It takes the place of
-\code{lineage_specific} when every outside species is a gap or
-\code{underpowered} and at least one is \code{underpowered}, and of
+\item{trait_specific}{A complete clique over one entire lineage, at
+least one outside species compared against every member and
+rejected at adequate power (\code{tested_ns}), no outside species
+\code{underpowered}, and no complete clique of another lineage in the
+same HOG. Where \code{lineage_specific} reads the other lineage's
+absence as a gap, this reads its presence and rejection as a
+boundary: one trait group conserved, the other present but not
+co-conserved. Two lineages each conserved within and rejected
+across is \code{differentiated}, scored on the unfiltered graph's
+clique, and their one-lineage cliques stay \code{unclassified}. This
+tier is rcomplex's addition to the published five.}
+\item{underpowered}{A clique that would be \code{lineage_specific},
+\code{trait_specific} or \code{differentiated} but for tests that could not
+have succeeded, read from a \code{power} column in \code{edges} (see
+\code{\link{comparison_to_edges}}). It takes the place of the
+two specificity tiers when at least one outside species is
+\code{underpowered} -- reading that species as conserved would extend
+the clique, so neither call survives -- and of
 \code{differentiated} when \code{n_sig_cross + n_underpowered_cross}
 exceeds \code{cross_max}: a specificity or divergence call must survive
 treating every underpowered pair as possibly significant. A

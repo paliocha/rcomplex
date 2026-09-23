@@ -300,12 +300,12 @@ test_that("lineage_specific outranks partial_present", {
 })
 
 
-test_that("lineage_specific refuses a tested, diverged outside species", {
+test_that("a tested, rejected outside lineage is trait_specific", {
   # HOG6 (L2 absent from the orthogroup) is lineage_specific; the same
   # L1 triangle with L2 compared against every member and rejected is
-  # not. The published workflow requires Cross == 0 in a matrix whose
-  # 1s mark a *tested* pair, so a rejected comparison disqualifies
-  # there too, and its differentiated set is the one that scores it.
+  # trait_specific: one group conserved, the other present but not
+  # co-conserved. The published workflow has no such tier (its Cross ==
+  # 0 rule marks tested pairs), so this is rcomplex's addition.
   l1 <- gcg_six[1:3]
   h <- gcg_pairs(l1, c("a1", "b1", "c1"), "HOG1", 0.01)
   cross <- do.call(rbind, lapply(gcg_six[4:6], function(s) {
@@ -319,21 +319,41 @@ test_that("lineage_specific refuses a tested, diverged outside species", {
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
   res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
   expect_equal(res$missing_reason, "tested_ns,tested_ns,tested_ns")
-  expect_equal(res$classification, "unclassified")
+  expect_equal(res$classification, "trait_specific")
+  expect_equal(res$hog_class, "trait_specific")
+  # A rejected outside species next to an absent one is still a boundary.
+  e1 <- e[!(e$species2 == "SP_F"), ]
+  cl1 <- gene_clique_graph(e1, alpha_graph = 0.9)
+  res1 <- classify_gene_cliques(cl1, e1, gcg_six, lineage = gcg_lin)
+  expect_equal(res1$missing_reason, "tested_ns,tested_ns,absent")
+  expect_equal(res1$classification, "trait_specific")
 
-  # And the tier that does own this pattern picks it up, once the
-  # outside species are testable among themselves and the cliques come
-  # from the unfiltered graph.
+  # Both lineages conserved within and rejected across: neither
+  # one-lineage clique is trait_specific; the pattern belongs to
+  # differentiated, on the cliques of the unfiltered graph.
   cmb <- utils::combn(6L, 2L)
   same <- gcg_lin[gcg_six[cmb[1L, ]]] == gcg_lin[gcg_six[cmb[2L, ]]]
   e2 <- gcg_pairs(
     gcg_six, paste0(c("a", "b", "c", "d", "e", "f"), 1),
     "HOG1", ifelse(same, 0.01, 0.95)
   )
+  cl2s <- gene_clique_graph(e2, alpha_graph = 0.1, id_prefix = "s_")
+  res2s <- classify_gene_cliques(cl2s, e2, gcg_six, lineage = gcg_lin)
+  expect_equal(sort(res2s$n_members), c(3L, 3L))
+  expect_equal(res2s$classification, c("unclassified", "unclassified"))
   cl2 <- gene_clique_graph(e2, alpha_graph = Inf)
   res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
   expect_equal(res2$n_members, 6L)
   expect_equal(res2$classification, "differentiated")
+  # Row-bound, the HOG is differentiated and the triangles stay put.
+  res2b <- classify_gene_cliques(rbind(cl2s, cl2), e2, gcg_six,
+    lineage = gcg_lin
+  )
+  expect_true(all(res2b$hog_class == "differentiated"))
+  expect_setequal(
+    res2b$classification,
+    c("unclassified", "unclassified", "differentiated")
+  )
 })
 
 
@@ -1191,13 +1211,13 @@ test_that("an outside species tested without power reads underpowered", {
 })
 
 
-test_that("a powered or unmeasured failed test still blocks the tier", {
+test_that("a powered or unmeasured failed test is a rejection", {
   for (pw in list(0.95, NA_real_)) {
     e <- gcg_up_lineage(pw)
     cl <- gene_clique_graph(e, alpha_graph = 0.9)
     res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
     expect_equal(res$missing_reason, "tested_ns,tested_ns,tested_ns")
-    expect_equal(res$classification, "unclassified")
+    expect_equal(res$classification, "trait_specific")
   }
 
   # Power at or above min_power is powered.
@@ -1207,10 +1227,11 @@ test_that("a powered or unmeasured failed test still blocks the tier", {
     lineage = gcg_lin,
     min_power = 0.1
   )
-  expect_equal(res$classification, "unclassified")
+  expect_equal(res$classification, "trait_specific")
 
-  # One powered failure among a species' tests keeps it tested_ns, and a
-  # single powered species blocks the call however many others are not.
+  # One powered failure among a species' tests keeps it tested_ns, but
+  # any underpowered outside species withholds the trait-specific call:
+  # read as conserved it would extend the clique.
   e2 <- gcg_up_lineage(0.1)
   e2$power[e2$species2 == "SP_D"][1] <- 0.95
   cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
@@ -1218,7 +1239,7 @@ test_that("a powered or unmeasured failed test still blocks the tier", {
   expect_equal(
     res2$missing_reason, "tested_ns,underpowered,underpowered"
   )
-  expect_equal(res2$classification, "unclassified")
+  expect_equal(res2$classification, "underpowered")
 })
 
 

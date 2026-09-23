@@ -263,7 +263,7 @@ z_test <- clique_intensity_test(cliques, annual_sp, edges = edges,
                                  n_perm = 2000, null_model = "matched_edges")
 
 # Gene-graph backend: maximal cliques of the per-HOG GENE graph, then the
-# published five-tier taxonomy. Row-bind a strict and a loose graph (with
+# published five-tier taxonomy plus `trait_specific`. Row-bind a strict and a loose graph (with
 # distinct id_prefix) so both tolerance tiers can be reached -- a clique
 # that is maximal at one threshold need not be maximal at the other.
 gene_cl <- rbind(
@@ -375,7 +375,7 @@ multiplier) error with a message asking for a larger `store_density`.
 | `get_coexpressed_hogs()` | Query co-expression partners of a candidate HOG across species |
 | `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting (species graph, one best gene assignment) |
 | `gene_clique_graph()` | Maximal cliques of the per-HOG gene graph (Rodriguez et al., 2026) |
-| `classify_gene_cliques()` | Five-tier taxonomy for gene-graph cliques, tolerating weak wiring (`partial_significant`) and a missing gene (`partial_present`), plus `underpowered` for calls resting on low-power tests |
+| `classify_gene_cliques()` | Six-tier taxonomy for gene-graph cliques, tolerating weak wiring (`partial_significant`) and a missing gene (`partial_present`), plus `underpowered` for calls resting on low-power tests |
 | `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
 | `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
 | `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |
