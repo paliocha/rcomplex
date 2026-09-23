@@ -1,3 +1,22 @@
+# rcomplex 0.3.1
+
+- **`classify_gene_cliques()` gains a `trait_specific` tier.** A
+  complete clique over one lineage whose outside species were compared
+  against every member and rejected at adequate power was
+  `unclassified`: `lineage_specific` needs the other lineage absent or
+  untested, and `differentiated` needs it conserved within itself. On
+  the Pooideae design the other trait group is always present and
+  tested, so the gene graph found none of the 297 (root) / 384 (leaf)
+  trait-specific HOGs the species graph finds. The new tier is that
+  case: one trait group conserved, the other present but not
+  co-conserved (`missing_reason` all `tested_ns`, `absent` or
+  `untested` with at least one `tested_ns`), with no complete clique of
+  another lineage in the same HOG; `underpowered` takes its place when
+  any outside species is underpowered, since reading that species as
+  conserved would extend the clique. It sits after `differentiated` in
+  the waterfall and in `hog_class`. Cliques that were `unclassified` for
+  this reason change tier; nothing else moves.
+
 # rcomplex 0.3.0
 
 - **`clique_intensity_test()` reports `gap` and `n_edges`** (#25).

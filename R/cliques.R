@@ -2212,8 +2212,9 @@ clique_intensity_test.default <- function(
 #' built by \code{\link{gene_clique_graph}}. It asks which individual
 #' gene copies are mutually conserved, so one HOG can yield several
 #' overlapping cliques and the answer names paralogs rather than
-#' species. It applies the five-tier taxonomy of Rodriguez et al.
-#' (2026), with two explicit tolerance tiers (\code{partial_significant}
+#' species. It applies the taxonomy of Rodriguez et al. (2026), plus
+#' \code{trait_specific}, with two explicit tolerance tiers
+#' (\code{partial_significant}
 #' for weak wiring, \code{partial_present} for a missing gene), and its
 #' \code{lineage} split is an argument rather than the trait vector, so
 #' it can be run against a clade partition the trait does not follow.

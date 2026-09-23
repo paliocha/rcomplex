@@ -470,13 +470,14 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 .gcg_tiers <- c(
   "complete_conserved", "lineage_specific",
   "partial_significant", "partial_present",
-  "differentiated", "underpowered", "unclassified"
+  "differentiated", "trait_specific", "underpowered", "unclassified"
 )
 
 
 #' Classify gene-graph cliques into conservation tiers
 #'
-#' Applies the published five-tier taxonomy to the cliques returned by
+#' Applies the published five-tier taxonomy of Rodriguez et al. (2026),
+#' plus a `trait_specific` tier, to the cliques returned by
 #' \code{\link{gene_clique_graph}}. Every threshold is derived from
 #' the number of species actually supplied, so nothing is tied to the
 #' six species and fifteen species-pairs of the original workflow.
@@ -491,8 +492,9 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     with no species outside it testable against the clique. A species
 #'     that *was* compared against every member and came back
 #'     non-significant is evidence of a boundary rather than a gap, so
-#'     it blocks this tier -- that clique is a candidate for
-#'     `differentiated`, on the cliques of the unfiltered graph.}
+#'     it blocks this tier: that clique is `trait_specific`, or with both
+#'     lineages conserved within a candidate for `differentiated` on the
+#'     cliques of the unfiltered graph.}
 #'   \item{partial_significant}{All `S` species present, every clique
 #'     edge below `alpha_graph`, and at least `choose(S - 1, 2) + 1`
 #'     pairs significant at `alpha_call`.}
@@ -504,12 +506,24 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     at least one lineage of two or more species, every such lineage
 #'     fully significant within itself, and at most `cross_max`
 #'     cross-lineage pairs significant.}
-#'   \item{underpowered}{A clique that would be `lineage_specific` or
-#'     `differentiated` but for tests that could not have succeeded,
-#'     read from a `power` column in `edges` (see
-#'     \code{\link{comparison_to_edges}}). It takes the place of
-#'     `lineage_specific` when every outside species is a gap or
-#'     `underpowered` and at least one is `underpowered`, and of
+#'   \item{trait_specific}{A complete clique over one entire lineage, at
+#'     least one outside species compared against every member and
+#'     rejected at adequate power (`tested_ns`), no outside species
+#'     `underpowered`, and no complete clique of another lineage in the
+#'     same HOG. Where `lineage_specific` reads the other lineage's
+#'     absence as a gap, this reads its presence and rejection as a
+#'     boundary: one trait group conserved, the other present but not
+#'     co-conserved. Two lineages each conserved within and rejected
+#'     across is `differentiated`, scored on the unfiltered graph's
+#'     clique, and their one-lineage cliques stay `unclassified`. This
+#'     tier is rcomplex's addition to the published five.}
+#'   \item{underpowered}{A clique that would be `lineage_specific`,
+#'     `trait_specific` or `differentiated` but for tests that could not
+#'     have succeeded, read from a `power` column in `edges` (see
+#'     \code{\link{comparison_to_edges}}). It takes the place of the
+#'     two specificity tiers when at least one outside species is
+#'     `underpowered` -- reading that species as conserved would extend
+#'     the clique, so neither call survives -- and of
 #'     `differentiated` when `n_sig_cross + n_underpowered_cross`
 #'     exceeds `cross_max`: a specificity or divergence call must survive
 #'     treating every underpowered pair as possibly significant. A
@@ -850,6 +864,23 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   )
   if (has_effect) out$mean_effect_size <- pick("mean_e", numeric(1))
 
+  # A trait-specific call needs the other lineage to have no complete
+  # clique of its own in the HOG: two lineages each conserved within and
+  # rejected across is `differentiated`, scored on the unfiltered graph's
+  # clique, and their one-lineage cliques stay unclassified.
+  if (!is.null(lin)) {
+    core_lin <- pick("core_lin", character(1))
+    ts <- which(out$classification == "trait_specific")
+    if (length(ts) > 0L) {
+      has_core <- !is.na(core_lin)
+      cores <- split(core_lin[has_core], out$hog[has_core])
+      other <- vapply(ts, function(i) {
+        any(cores[[out$hog[i]]] != core_lin[i])
+      }, logical(1))
+      out$classification[ts[other]] <- "unclassified"
+    }
+  }
+
   # HOG-level precedence: the published scripts removed a whole
   # orthogroup from later tiers once any of its cliques matched.
   rank <- match(out$classification, .gcg_tiers)
@@ -986,10 +1017,15 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   gap_only <- length(gone) == 0L ||
     all(reason %in% c("absent", "untested"))
   # An underpowered outside species was tested, so it is no gap, but its
-  # failure is no boundary either: a lineage-specific call has to survive
-  # reading it as conserved, which it cannot.
+  # failure is no boundary either: a lineage- or trait-specific call has
+  # to survive reading it as conserved, which it cannot.
   up_only <- length(gone) > 0L && any(reason == "underpowered") &&
-    all(reason %in% c("absent", "untested", "underpowered"))
+    all(reason %in% c("absent", "untested", "underpowered", "tested_ns"))
+  # At least one outside species was compared against every member and
+  # rejected at adequate power, and no rejection is excused by power: a
+  # boundary, not a gap.
+  ts_ok <- length(gone) > 0L && any(reason == "tested_ns") &&
+    all(reason %in% c("absent", "untested", "tested_ns"))
   # partial_present only asks that no missing species was *rejected*. An
   # underpowered one is unknown, not rejected, so it counts as a gap here;
   # lineage_specific keeps gap_only, because its call would have to
@@ -998,6 +1034,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     all(reason %in% c("absent", "untested", "underpowered"))
 
   cls <- "unclassified"
+  core_lin <- NA_character_
   # One gene per species is the invariant the pair arithmetic rests on;
   # a within-species edge in the input breaks it, so refuse to score.
   # A one-member "clique" has choose(1, 2) == 0 pairs, which every tier
@@ -1026,6 +1063,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     gap <- n_sp - m_sp
     is_complete <- m_sp == n_sp && n_sig == choose(n_sp, 2)
     lin_core <- !is.na(n_l) && m_sp == n_l && n_sig == choose(n_l, 2)
+    if (lin_core) core_lin <- lin_m
     is_lineage <- lin_core && gap_only
     # choose(S - 1, 2) + 1 == choose(S, 2) - (S - 2): the tolerance is
     # S - 2 non-significant edges, the largest that cannot isolate a
@@ -1053,6 +1091,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       } else {
         "differentiated"
       }
+    } else if (lin_core && ts_ok) {
+      cls <- "trait_specific"
     }
   }
 
@@ -1062,6 +1102,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     n_sig_x = n_sig_x, n_up_x = n_up_x, n_missing = length(gone),
     missing_species = paste(gone, collapse = ","),
     missing_reason = paste(reason, collapse = ","),
-    mean_q = mean_q, max_q = max_q, mean_e = mean_e
+    mean_q = mean_q, max_q = max_q, mean_e = mean_e,
+    core_lin = core_lin
   )
 }

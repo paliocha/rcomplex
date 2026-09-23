@@ -38,7 +38,7 @@
 #'     the stability and sweep rankings consume}
 #'   \item{[gene_clique_graph()]}{Maximal cliques of the per-orthogroup
 #'     gene graph, one row per clique member}
-#'   \item{[classify_gene_cliques()]}{Five-tier gene-clique taxonomy
+#'   \item{[classify_gene_cliques()]}{Six-tier gene-clique taxonomy
 #'     (Rodriguez et al. 2026): copy-level rather than HOG-level, so use
 #'     it when which paralog sits in the conserved core matters, or when
 #'     that published taxonomy has to be reported. Neither it nor

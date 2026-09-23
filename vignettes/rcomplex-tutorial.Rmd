@@ -944,7 +944,7 @@ per-orthogroup *species* graph and returns one best gene assignment each.
 graph instead, following Rodriguez *et al.* (2026,
 doi:10.1038/s41467-026-75624-2), so a multi-copy HOG can yield several
 overlapping cliques, and `classify_gene_cliques()` applies that paper's
-five-tier taxonomy. Its two tolerance tiers cover different kinds of gap:
+six-tier taxonomy. Its two tolerance tiers cover different kinds of gap:
 `partial_significant` admits an edge to the graph at a loose threshold but
 counts it as evidence only at the strict one (weak wiring), while
 `partial_present` accepts a fully significant clique that is one species
@@ -1175,7 +1175,7 @@ on this side.
 `gene_clique_graph()`. It asks which individual gene copies are
 mutually conserved, so one HOG can produce several overlapping cliques
 and the answer names paralogs rather than species. It applies the
-five-tier taxonomy of Rodriguez *et al.* (2026) with two explicit
+taxonomy of Rodriguez *et al.* (2026), plus rcomplex's `trait_specific`, with two explicit
 tolerance tiers, and its lineage split is an argument rather than the
 trait vector, so it can be run against a clade partition the trait does
 not follow. Reach for it when which copy sits in the conserved core
