@@ -20,7 +20,7 @@ detection parameters per step, call find_cliques() directly."><!-- mathjax --><s
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
       </span>
     </div>
 
@@ -264,8 +264,9 @@ exist only on this side.</p>
 built by <code><a href="gene_clique_graph.html">gene_clique_graph</a></code>. It asks which individual
 gene copies are mutually conserved, so one HOG can yield several
 overlapping cliques and the answer names paralogs rather than
-species. It applies the five-tier taxonomy of Rodriguez et al.
-(2026), with two explicit tolerance tiers (<code>partial_significant</code>
+species. It applies the taxonomy of Rodriguez et al. (2026), plus
+<code>trait_specific</code>, with two explicit tolerance tiers
+(<code>partial_significant</code>
 for weak wiring, <code>partial_present</code> for a missing gene), and its
 <code>lineage</code> split is an argument rather than the trait vector, so
 it can be run against a clade partition the trait does not follow.</p>

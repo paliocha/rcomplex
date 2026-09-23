@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
       </span>
     </div>
 
@@ -57,6 +57,11 @@
       <small>Source: <a href="https://github.com/paliocha/rcomplex/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.3.1" id="rcomplex-031">rcomplex 0.3.1<a class="anchor" aria-label="anchor" href="#rcomplex-031"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> gains a <code>trait_specific</code> tier.</strong> A complete clique over one lineage whose outside species were compared against every member and rejected at adequate power was <code>unclassified</code>: <code>lineage_specific</code> needs the other lineage absent or untested, and <code>differentiated</code> needs it conserved within itself. On the Pooideae design the other trait group is always present and tested, so the gene graph found none of the 297 (root) / 384 (leaf) trait-specific HOGs the species graph finds. The new tier is that case: one trait group conserved, the other present but not co-conserved (<code>missing_reason</code> all <code>tested_ns</code>, <code>absent</code> or <code>untested</code> with at least one <code>tested_ns</code>), with no complete clique of another lineage in the same HOG; <code>underpowered</code> takes its place when any outside species is underpowered, since reading that species as conserved would extend the clique. It sits after <code>differentiated</code> in the waterfall and in <code>hog_class</code>. Cliques that were <code>unclassified</code> for this reason change tier; nothing else moves.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="0.3.0" id="rcomplex-030">rcomplex 0.3.0<a class="anchor" aria-label="anchor" href="#rcomplex-030"></a></h2>
 <ul><li><p><strong><code><a href="../reference/clique_intensity_test.html">clique_intensity_test()</a></code> reports <code>gap</code> and <code>n_edges</code></strong> (<a href="https://github.com/paliocha/rcomplex/issues/25" class="external-link">#25</a>). <code>z_score</code> and <code>p_value</code> test whether a clique’s edges are exchangeable with its pool’s, and the null draws the edges independently, so <code>null_sd</code> shrinks as <code>1 / sqrt(n_edges)</code>. A real clique’s edges all belong to one HOG and share its conservation level, so the observed gap does not shrink with size: on the eight-species Pooideae run under the size-matched null the IQR of <code>observed_intensity - null_mean</code> was 0.067 at three species and 0.080 at eight, while the IQR of <code>z_score</code> grew from 1.6 to 5.6 and the share of |z| &gt; 1.96 from 0.12 to 0.67, symmetrically in both tails. <code>z_score</code> is evidence, and more edges are more evidence for the same effect. The effect is now a column, <code>gap</code>, comparable across clique sizes; <code>n_edges</code> is the number of clique edges scored. Compare <code>z_score</code> and <code>p_value</code> within a clique size and <code>gap</code> across sizes. Nothing else in the output changes.</p></li>

@@ -32,7 +32,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
       </span>
     </div>
 
@@ -998,7 +998,7 @@ returns one best gene assignment each. <code><a href="../reference/gene_clique_g
 builds maximal cliques of the per-orthogroup <em>gene</em> graph
 instead, following Rodriguez <em>et al.</em> (2026, <a href="doi:10.1038/s41467-026-75624-2" class="uri">doi:10.1038/s41467-026-75624-2</a>), so a multi-copy HOG can
 yield several overlapping cliques, and
-<code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> applies that paper’s five-tier
+<code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> applies that paper’s six-tier
 taxonomy. Its two tolerance tiers cover different kinds of gap:
 <code>partial_significant</code> admits an edge to the graph at a loose
 threshold but counts it as evidence only at the strict one (weak
@@ -1225,14 +1225,14 @@ earlier in this section only exists on this side.</p>
 built by <code><a href="../reference/gene_clique_graph.html">gene_clique_graph()</a></code>. It asks which individual gene
 copies are mutually conserved, so one HOG can produce several
 overlapping cliques and the answer names paralogs rather than species.
-It applies the five-tier taxonomy of Rodriguez <em>et al.</em> (2026)
-with two explicit tolerance tiers, and its lineage split is an argument
-rather than the trait vector, so it can be run against a clade partition
-the trait does not follow. Reach for it when which copy sits in the
-conserved core matters, or when the published taxonomy is what you need
-to report; reach for <code><a href="../reference/classify_cliques.html">classify_cliques()</a></code> for a
-one-row-per-HOG trait summary wired into the stability and sweep
-machinery.</p>
+It applies the taxonomy of Rodriguez <em>et al.</em> (2026), plus
+rcomplex’s <code>trait_specific</code>, with two explicit tolerance
+tiers, and its lineage split is an argument rather than the trait
+vector, so it can be run against a clade partition the trait does not
+follow. Reach for it when which copy sits in the conserved core matters,
+or when the published taxonomy is what you need to report; reach for
+<code><a href="../reference/classify_cliques.html">classify_cliques()</a></code> for a one-row-per-HOG trait summary
+wired into the stability and sweep machinery.</p>
 <p>The gene graph below is built from <code>edges_analytical</code>, not
 from the permutation <code>edges</code>. The tolerance tiers need
 q-values that reach up to <code>alpha_graph</code>, and the
