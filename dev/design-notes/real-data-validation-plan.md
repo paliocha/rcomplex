@@ -1073,4 +1073,19 @@ each) as the design, `roast()` with 9,999 rotations, a random set of
   give ample permutations. It would on EVOTREE's three trees per
   species, which is where a sample-level clique test belongs.
 
+**With `camera()` (competitive) and `fry()` added** (same sets, same
+design; table `rot_test_HOG0022829_camera.tsv`): `fry` reproduces
+`roast` throughout. `camera` on the random control sets gives 0 of 59
+below 0.05 against roast's 22, so the competitive null is the
+calibrated one here. On the focal sets `camera` is extreme for the
+age-responsive perennial copies (p down to 1e-57) and, unlike the
+self-contained tests, also significant for two annual clique
+neighbourhoods (BDIS 7.6e-5, VBRO 2.7e-7, both "down") although their
+single-gene |t| is about 1.2 and roast/fry give p 0.2-0.3. That is the
+competitive question showing: the annual sets are *flatter* than a
+transcriptome that drifts with age, so they stand out from the
+background without moving themselves. Read together: the annual
+programme is age-stable in absolute terms and unusually so relative to
+the genome; the perennial family is age-responsive on both readings.
+
 Not a package feature; kept as the reference run for that decision.
