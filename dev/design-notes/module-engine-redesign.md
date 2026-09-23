@@ -1117,6 +1117,89 @@ layer, within-species Q_s not to be read as divergence). Two tissues
 agreeing on the shape of the curve rules out the leaf result being a
 property of one dataset.
 
+### 11.3 Consensus over seeds (Orion array, 2026-09-23 evening)
+
+600 runs on Orion (job 1368015 plus two reruns): both tissues, all six
+conditions, {kappa 0, 2, 4} at gamma 1 and kappa 4 at gamma 0.5 and
+0.25, ten seeds each, two Leiden iterations, 1.1 min per run at 200
+concurrent. Analysis `p4_consensus.R`: co-classification frequency
+f_ij over seeds on the union-graph edges; consensus partition = Leiden
+on edges with f_ij >= 0.5 weighted by f_ij; per-node stability s_i =
+mean f_ij over the node's intra-layer edges; stable core = s_i above
+the 95th percentile of s_i on the shuffled full data; split-half ARI
+between the consensus partitions of the two halves. Tables:
+`consensus_leaf.tsv`, `consensus_root.tsv`, per-node
+`consensus_nodes_<tissue>.tsv.gz`.
+
+Split-half ARI per species, gamma 1, real (shuffled in brackets):
+
+| tissue | statistic | kappa 0 | kappa 2 | kappa 4 |
+|---|---|---|---|---|
+| leaf | single seed | 0.03 to 0.15 (<= 0.005) | 0.04 to 0.20 (0.03 to 0.05) | 0.12 to 0.16 (0.01) |
+| leaf | consensus, all nodes | 0.01 to 0.25 (0.00 to 0.48, degenerate) | 0.04 to 0.28 (0.04 to 0.05) | **0.22 to 0.28** (0.03 to 0.04) |
+| leaf | consensus, stable core | 0.02 to 0.38, cores 30 to 61 % | 0.04 to 0.29, cores 96 to 99 % | **0.24 to 0.35**, cores 38 to 63 % (shuffled 0.02 to 0.06) |
+| root | single seed | 0.02 to 0.15 (<= 0.012) | 0.02 to 0.27 (<= 0.02) | 0.23 to 0.26 (0.01) |
+| root | consensus, all nodes | 0.02 to 0.19 (0.00 to 0.11) | 0.02 to 0.29 (~0) | **0.25 to 0.27** (0.03 to 0.05) |
+| root | consensus, stable core | **0.69 to 0.90 in BDIS, BMAX, FPRA, HJUB, VBRO; 0.11 to 0.22 in BMED, BSYL, HVUL**; cores 0.6 to 6 % (shuffled cores empty or ~0) | 0.44 to 0.78 / -0.03 to 0.33, cores 5 to 14 % | **0.28 to 0.36**, cores 28 to 66 % (shuffled ~0) |
+
+Seed-to-seed ARI on the full real data: leaf 0.40 to 0.60 at kappa 0,
+0.48 to 0.51 at kappa 4; root 0.34 to 0.63 at kappa 0, 0.24 to 0.25 at
+kappa 4. On shuffled data at kappa 4 it is 0.03 (leaf) and 0.08
+(root). Gamma 0.25 and 0.5 at kappa 4 collapse every layer into one
+giant module in both tissues (single-seed ARI undefined, consensus ARI
+0.87 on shuffled data from the giant cluster alone): resolution below
+1 is out.
+
+What it says:
+
+1. **Optimiser noise explained part of leaf, little of root.** Ten-seed
+   consensus at kappa 4 lifts leaf from about 0.14 to 0.25 and root
+   from 0.24 to 0.27. Both tissues end at ARI 0.25 to 0.28, which is
+   the data ceiling of the joint partition on this design, not the
+   optimiser's. Section 11's caveat "half of what is left is optimiser
+   noise" was right for leaf and wrong for root.
+2. **Stable cores at kappa 4 are large and only modestly better.**
+   Co-classification stability separates real from shuffled cleanly
+   (real cores 28 to 66 % of genes, shuffled 5 % by construction and
+   with ARI ~0), but restricting to the core raises ARI only to 0.24 to
+   0.36. The joint modules are reproducible as a whole at that level,
+   not as a small hard nucleus plus noise.
+3. **At kappa 0 in root there *is* a hard nucleus.** The 95th percentile
+   of shuffled stability saturates at 1.0, so the core is the set of
+   genes whose every intra-layer edge is co-classified in all ten
+   seeds: 0.6 to 6 % of genes (about 340 in BDIS). Between the halves
+   those cores replicate at ARI 0.69 to 0.90 in five species, and the
+   shuffled cores are empty or at ~0. The three species where the real
+   core fails (BMED, BSYL, HVUL, ARI 0.11 to 0.22) are exactly the three
+   whose *shuffled* root networks carry large seed-stable cores (5, 39,
+   22 % of genes), i.e. whose data behave most like noise; their
+   per-species baseline was also the lowest (0.02 to 0.03). This is
+   Tseng and Wong's tight clustering doing what it promises: a small
+   reproducible set per species, the rest unassigned. Leaf does not
+   show it (threshold 0.74, cores 30 to 61 %, core ARI 0.02 to 0.38).
+4. **Consensus partitions are finer than single-seed ones.** At kappa 4
+   the consensus graph at tau 0.5 splits the 6 to 7 modules per layer
+   into 100 to 170 pieces per species (400 to 550 on shuffled data), so
+   the ARI above compares fine partitions. At kappa 0 the shuffled
+   consensus collapses to one giant module, which makes its ARI (up to
+   0.48 in BMAX leaf) a giant-cluster artefact rather than a null.
+
+Verdict, updated: design A's joint partition replicates at about 0.25
+after consensus in both tissues and no cheaper lever remains
+(resolution below 1 collapses, more seeds do not help). The
+per-species tight cores in root are the more interesting object: a
+reproducible nucleus of a few hundred genes per species that exists
+without any coupling, in the species whose data are clean enough. That
+is design C/D territory (a seed set, not a partition), and it argues
+for the next probe being D (SAMBA-style scoring on the gene x sample
+graph), with sample-subsample consensus (the A/B halves generalised)
+as the replication test.
+
+Next steps, revised: (a) done, this section; (b) done, negative;
+(c), (d) done; (e) design D probe; (f) design B on the cached graph;
+(g) sample-subsample consensus (Tseng and Wong proper) for the root
+kappa 0 cores, to see whether the nucleus survives more than one split.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
