@@ -1196,9 +1196,103 @@ graph), with sample-subsample consensus (the A/B halves generalised)
 as the replication test.
 
 Next steps, revised: (a) done, this section; (b) done, negative;
-(c), (d) done; (e) design D probe; (f) design B on the cached graph;
-(g) sample-subsample consensus (Tseng and Wong proper) for the root
-kappa 0 cores, to see whether the nucleus survives more than one split.
+(c), (d) done; (e) done, Section 11.4; (f) design B on the cached
+graph; (g) sample-subsample consensus (Tseng and Wong proper) for the
+root kappa 0 cores, to see whether the nucleus survives more than one
+split; (h) the unit decision at the end of 11.4.
+
+### 11.4 Design D probe (2026-09-23 evening, both tissues)
+
+Scripts: `p5_bicluster.R` (sample-subset biclusters),
+`p6_timepoint_biclusters.R` and `p6b_timepoint_auroc.R` (time-point
+variant). Same halves and shuffles as the module probe. Martin: "Begin
+with D, then continue with D."
+
+**Sample-subset biclusters (SAMBA as published, applied to 20 samples).**
+Gene x sample response graph (|z| > z_thr), Tanay log-likelihood
+weights against a Chung-Lu degree null, every sample subset of size 3
+to 6 enumerated exactly (60 249 on the full data, 582 on a half),
+gene set = positive summed weight (loose) or a complete biclique
+(strict), top 50 per sign after an overlap filter, significance
+against the shuffled subsets of the same size.
+
+| variant | full data, real | split-half best Jaccard, real (shuffled) | cross-species HOG Jaccard, real (shuffled) |
+|---|---|---|---|
+| loose, z > 1 (leaf) | 50 per sign, median 1 500 genes, all above the shuffled maximum | 0.05 to 0.11 (0.03); none at >= 0.5 | 0.10 (0.06) |
+| complete, z > 1 (leaf) | 50 per sign, median 215 genes, all above the shuffled maximum | **0.02 to 0.03 (0.02 to 0.03)**: chance | 0.03 (0.02) |
+| complete, z > 1.5 (leaf) | 14 to 31 per sign, median 18 genes, 90 to 100 % above the shuffled maximum; 346 of 348 are triples of single samples mixing time points | nothing survives on a 10-sample half, real or shuffled | 0.02 (no shuffled biclusters) |
+
+Verdict on the unit: dead on this design. Every real bicluster is
+"significant" against the degree null, yet the objects do not
+replicate between halves at all, because a subset of three to six
+*individual samples* out of twenty is a sample-specific object (the
+strict biclusters are mostly co-outlier triples), and a half has
+different samples. SAMBA's null was placed correctly (5.1); what fails
+is the condition side being twenty samples rather than hundreds of
+conditions. The root strict runs were stopped unrun: two leaf variants
+at chance and one with no objects settle it.
+
+**Time-point response sets (the design-aware unit).** Condition = time
+point; a gene responds at t when |z| > 1 in at least 3 of 4 replicates
+(2 of 2 on a half); biclusters = complete bicliques over the 31
+time-point subsets. Because time points are shared by design, halves
+and species are compared for the *same* condition.
+
+| | leaf | root |
+|---|---|---|
+| genes responding per single time point, real (shuffled), median over species | T1 899, T2 717, T3 296, T4 272, T5 788 (161 to 169) | T1 636, T2 196, T3 152, T4 338, T5 432 (125 to 130) |
+| multi-time-point sets | empty | empty |
+| split-half Jaccard, single time points, real (shuffled) | 0.01 to 0.38 (0.01); T1 and T5 best | 0.00 to 0.41 (0.01) |
+| **split-half AUROC** (genes called in one half ranked by the other half's mean z), real (shuffled) | **0.72 to 0.91 at T1, 0.67 to 0.89 at T5**, 0.38 to 0.86 at T3; median 0.77 / 0.79 down / up (0.50) | 0.66 to 0.91 at T1; median 0.72 / 0.73 (0.50) |
+| cross-species HOG Jaccard, single time points, real (shuffled) | 0.05 at T1 and T5, 0.01 to 0.04 elsewhere (0.01) | 0.05 at T1 (0.01) |
+| **cross-species AUROC** (HOGs called in species 1 ranked by species 2's mean z at the same time point), real (shuffled) | 0.57 at T1, 0.56 at T5, 0.51 to 0.54 elsewhere (0.50) | 0.60 at T1, 0.56 at T2, 0.50 to 0.55 elsewhere (0.50) |
+| best time point in the other species (heterochrony check) | max over tp2 0.54 to 0.58, same-time 0.51 to 0.58; matrix diagonal-dominant | max 0.55 to 0.60, same-time 0.50 to 0.60 |
+
+What it says:
+
+1. **Within a species the time-point programs are real and reproducible
+   in rank terms.** Called sets are 2 to 6 times the shuffled size and
+   the other half ranks them at AUROC about 0.8 at the ends of the time
+   course. The Jaccard of two hard-thresholded two-replicate sets
+   (0.1 to 0.4) understates this badly; the threshold, not the biology,
+   is what fails to replicate.
+2. **Across species the same programs are only weakly shared.** AUROC
+   0.55 to 0.60 at T1 and T2, near 0.50 at T3 and T4, no species
+   receiving above 0.57, and allowing the other species to respond at a
+   different time point adds at most 0.01. So this is not
+   heterochrony masking conservation; the T1 response (and T5 in leaf)
+   is partly shared, the middle of the course is not.
+3. The sets never combine across time points, so the "bicluster" here
+   is a per-time-point differential-expression set, not a
+   co-expression module. D on this design reduces to: which orthologs
+   respond at the same point of the course in which species.
+
+**Verdict on D**: the null placement is right and the within-species
+half of the promise holds (AUROC 0.8 against 0.25 ARI for any
+partition), but the cross-species half is weak, and the unit is a
+response program, not a wiring module. It does not replace the module
+engine; it is a cleaner cross-species *readout* than module
+preservation: per HOG and time point, the rank of its orthologs'
+response in each species, with shuffled expression as the null and no
+partition anywhere. That readout is cheap (seconds), exact, and gives
+the trait test a HOG x species x time-point matrix with a clean null,
+which is closer to what `tag_permutation()` wants than anything the
+module engine produces.
+
+**Overall after the D probe.** Three units have now been gated on the
+same halves and shuffles: joint modules (design A) replicate at ARI
+0.25 after consensus and are coarse; per-species tight cores (kappa 0,
+root) replicate at 0.7 to 0.9 but cover 1 to 6 % of genes and only in
+the cleaner species; time-point programs replicate at AUROC 0.8 within
+species and 0.55 to 0.60 across. None of the three lifts the n = 20
+ceiling on cross-species inference; each measures a different thing
+honestly. The next decision is which object the trait test should be
+built on, and that is a scientific choice, not an engineering one:
+(i) design A cores for "conserved wiring", (ii) time-point programs for
+"conserved response", or (iii) both, with the gene-level
+neighbourhood conservation (`compare_neighborhoods()`, the Crow AUROC)
+kept as the per-gene statistic. Design B (layered SBM) and the
+subsample consensus of the root cores remain unrun.
 
 ## 12. Sources and provenance
 
