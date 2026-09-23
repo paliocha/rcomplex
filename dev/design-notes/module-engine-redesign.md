@@ -467,7 +467,7 @@ over any partition ensemble.
 | assortative SBM `PPBlockState` (Zhang & Peixoto 2020) | no (single layer) | MDL | no | no | graph-tool | minutes | hours |
 | Infomap multilayer (De Domenico 2015; Edler 2017) | yes: state-node links between different nodes | no gamma; MDL of flow | no (Rosvall 2010 bootstrap separate) | no | C++; Python; R via r-universe | seconds to minutes | minutes to hours |
 | leidenalg multiplex | yes: hand-built ortholog CPM layer | no (gamma per layer) | no | no | Python | seconds | minutes |
-| igraph `cluster_leiden` CPM trick | yes, approximately (Section 8) | no | no | no | R, installed | seconds | minutes |
+| igraph `cluster_leiden` CPM trick | yes, but with a cross-layer null term: a different objective (Section 8, P2) | no | no | no | R, installed | seconds | minutes |
 | GenLouvain (Mucha 2010) | yes: arbitrary B | no | no | with RMT null (Bazzi 2016) | MATLAB | minutes | memory-bound |
 | multinet `glouvain_ml` | data model yes; use in objective unverified | no | no | no | R (CRAN) | minutes | untested |
 | OrthoClust (Yan 2014) | yes: kappa-coupled ortholog edges | no | no | no | Julia 0.4, dead | port needed | no |
@@ -617,10 +617,20 @@ One script under `prepare_data/` (gitignored, like the other validation
 scripts), leaf and root separately, all eight species. No package code
 until P3 passes.
 
+Script: `prepare_data/probe-module-engine/p1_probe_multilayer.R`
+(gitignored with the rest of `prepare_data/`; args `<tissue> <outdir>
+[k_top] [gene_cap] [n_cores] [engine]`). First run 2026-09-23, leaf,
+k = 25, 20 000 most variable HOG-mapped genes per species, both
+engines, output under `prepare_data/probe-module-engine/out-2026-09-23/`.
+
 **P1. Build the union graph.** Node = (species, gene) for every gene in
 the species' MR network (top-k sparsified, k in {25, 50}, so about
 8 x 0.5 M edges; the 3 % stores are 8 x 6 M and only needed to check
-that top-k did not change the answer). Intra-layer edges = MR edges,
+that top-k did not change the answer). The script caps each species at
+the 20 000 most variable HOG-mapped genes (HJUB has 44 000) so eight
+dense MR builds fit a 64 GB laptop; the gene universe is fixed on the
+full data so the ortholog edges are identical across halves and
+shuffles. Intra-layer edges = MR edges,
 weight 1 or the MR-derived weight. Inter-layer edges = every
 cross-species HOG pair, weight `kappa * (1 / n_A + 1 / n_B) / 2` where
 `n_A`, `n_B` are the copy numbers in the two species (OrthoClust's
@@ -629,13 +639,36 @@ graph once, cache it.
 
 **P2. Run the candidate optimisers on the same graph.** At minimum:
 
-- multilayer modularity with per-layer null (design A). In R this is
+- multilayer modularity with per-layer null (design A), exact form:
+  Python leidenalg `optimise_partition_multiplex` through reticulate
+  (`py_require()` pulls leidenalg 0.12 into reticulate's uv-managed
+  Python; verified 2026-09-23 on a toy two-layer graph), with one
+  `RBConfigurationVertexPartition` per species holding that species'
+  edges and a `CPMVertexPartition(resolution_parameter = 0)` layer
+  holding the ortholog edges at layer weight kappa. Leiden runs until
+  stable (`n_iterations = -1`): at three iterations the seed-to-seed
+  ARI on the smoke run was only 0.3 to 0.8.
+- the same objective's R stand-in, engine `cpm`:
   `igraph::cluster_leiden(objective_function = "CPM", vertex_weights =
   k_is / sqrt(2 * m_s))`, which reproduces Mucha's per-layer
-  configuration null exactly for within-species pairs and adds a small
-  spurious null term to cross-species pairs (absorbed by kappa; the
-  exact optimiser is Python leidenalg `optimise_partition_multiplex` if
-  the approximation turns out to matter). Checked 2026-09-23 on igraph
+  configuration null exactly for within-species pairs. It also adds a
+  null term `v_i v_j` to every *cross-species* pair in a module, which
+  Mucha's objective does not have. Per pair it is tiny, but it sums over
+  all `n_A x n_B` pairs of two merged modules to a size-product penalty
+  of about `f_s f_t sqrt(4 m_s m_t)` (f = the fraction of a layer's
+  edges inside the module), so coupling only takes effect above a
+  threshold kappa* ~ f x mean degree / p_ortholog. The smoke run
+  (1500 genes, top-10) showed exactly that: ortholog-edge agreement
+  0.01 at kappa = 1, 0.75 at kappa = 2, on shuffled data too. So the
+  trick is a *different* objective (multilayer modularity with a
+  cross-layer configuration null), not an approximation of OrthoClust's.
+  The exact optimiser is Python leidenalg
+  `optimise_partition_multiplex` (Section 5.9), which the probe script
+  uses; the R trick is kept as a second engine so the effect of the
+  cross-layer null is itself measurable. On the smoke run the exact
+  engine's agreement rose smoothly (0.27 at kappa = 0.5 on real data
+  against 0.08 shuffled) with no threshold. Checked
+  2026-09-23 on igraph
   2.3.3: on one graph the trick returns the identical partition and
   modularity as `objective_function = "modularity"` (0.4707 both,
   NMI 1); on two disjoint layers of different density the global null
@@ -644,13 +677,14 @@ graph once, cache it.
   is why fastOC's single-graph Louvain is only an approximation: the
   global `m` lets the dense species set the null for the sparse ones.
   Sweep kappa over
-  {0, 0.5, 1, 2, 4, 8}; kappa = 0 is the current engine on the union
-  graph and the baseline.
+  {0, 0.25, 0.5, 1, 2, 4}; kappa = 0 is the current engine on the union
+  graph and the baseline (agreement saturates by kappa = 4).
 - the MDL candidates from Section 5 that passed the scale check, on
   the top-k graph.
 
 **P3. Go / no-go statistic.** For each species, split the 20 samples
-5 v 5 replicates within time point (as in the 2026-09-15 diagnostic),
+2 v 2 replicates within each of the 5 time points, 10 v 10 (as in the
+2026-09-15 diagnostic),
 rebuild both halves' networks, rebuild the union graph twice, run the
 optimiser on each, and report per species: ARI between halves,
 restricted to that species' genes. Baseline is the kappa = 0 column
