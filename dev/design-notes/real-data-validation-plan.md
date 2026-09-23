@@ -1040,3 +1040,37 @@ Trap: `gene_clique_graph(alpha_graph = Inf)` on all Pooideae HOGs ran
 for an hour on one core at 39 GB without finishing (eight species, up to
 ten paralogs each); it took 0.9 min on wood. Restrict it to leftover
 HOGs, or skip it when no HOG is differentiated.
+
+## 13. Rotation gene-set pilot, 2026-09-23 (Dørum et al. 2009, limma::roast)
+
+Question: is the rotation test a useful layer for rcomplex? Pilot on
+HOG:0022829, an annual-specific root clique (Bradi1g51520 with its
+barley, B. mexicanum and V. bromoides orthologs). Per species and
+tissue, the focal gene's top-100 co-expressed genes as the set, a
+linear trend in log(day) over the five time points (four replicates
+each) as the design, `roast()` with 9,999 rotations, a random set of
+100 as control, and the single-gene trend beside it. Script and table:
+`prepare_data/validation-2026-09-17/rotation_pilot/`.
+
+- The four annual clique genes are age-stable in root: single-gene
+  |t| 0.5-1.3 (p 0.22-0.59), set p 0.22-0.68, active proportion
+  0-0.34. The HOG's perennial copies (8 in B. sylvaticum, 14 in the
+  tetraploid H. jubatum, 8 in the B. mediterraneum assembly, 2 in
+  F. pratensis) are often strongly age-responsive: |t| up to 5.3
+  (Brasyl.7G013700, down) and 7.7 (HJUBATUM 4H_1G00353160, up), with
+  set p down to 1e-4. So the conserved annual programme is not an
+  age-tracking one, while the expanded perennial family is.
+- Caveat that limits the set p-values: random 100-gene sets reach
+  p < 0.05 in 19 of 61 tests, because much of the root transcriptome
+  tracks age. `roast()` is self-contained (null = no association), so
+  set p-values are inflated for any set here; a competitive test or a
+  random-set reference is needed before a set p means "this set more
+  than others". The single-gene contrast above does not depend on it.
+- The neighbourhood is defined on the same samples it is tested on,
+  which is circular; a cross-species conserved neighbourhood would be
+  the honest set.
+- Rotation itself buys nothing on this design: 20 samples per tissue
+  give ample permutations. It would on EVOTREE's three trees per
+  species, which is where a sample-level clique test belongs.
+
+Not a package feature; kept as the reference run for that decision.
