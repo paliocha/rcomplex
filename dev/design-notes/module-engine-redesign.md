@@ -1,0 +1,750 @@
+# Module engine: assessment and redesign options
+
+Date: 2026-09-23. Status: design note, nothing implemented. Audience:
+Martin and an implementing agent. Martin: "the module engine is
+fundamentally flawed", asked whether PR #4 is a starting point and what
+the literature offers, "from the computational/mathematical side rather
+than bioinformatics" too, and "I do not need to shoehorn Leiden in if
+there are better algorithms at hand, I just used it because it is super
+fast."
+
+Companion notes: [network-sparsification-plan.md](network-sparsification-plan.md)
+(the gated work-package pattern this note reuses),
+[mdl-engine.md](mdl-engine.md) (MDL for *edge* selection; this note is
+MDL for *module* selection, a different question),
+[clique-classifier-consolidation.md](clique-classifier-consolidation.md).
+
+## 1. Recommendation
+
+The engine is flawed at the level of the **unit**, not the algorithm.
+Independently detected per-species partitions of n = 20 networks are
+not reproducible objects, so no pairwise preservation statistic
+downstream can rescue them. Three things follow.
+
+0. **Fix the null and the unit before the algorithm.** At n = 20 every
+   gene is a unit vector in R^19, so the correlation graph is a random
+   geometric graph under H0 and every configuration-model or MDL null
+   sees structure in it (Section 5.1). Shuffled expression is the only
+   valid null, and the only statistic with a clean null is a
+   cross-species one, because the eight noise geometries are
+   independent under permutation. Within-species module p-values go,
+   whichever engine is chosen.
+1. **Detect modules jointly across species**, with orthology as the
+   coupling, so that a module's evidence is pooled over eight species
+   instead of being matched post hoc between two unstable partitions.
+   The published objective is OrthoClust's (Section 4); the same
+   objective is Mucha's multislice modularity with ortholog inter-layer
+   edges, and Peixoto's layered SBM is the MDL version with model
+   comparison built in (Section 5.3, design B).
+2. **Gate it** exactly as the sparsification plan gates T1 to T3: one
+   probe script, one go/no-go statistic (split-half replication of the
+   joint partition on real minus shuffled expression, versus the
+   per-species baseline), no package code before the gate passes.
+
+PR #4 is not the starting point. Its instinct (ortholog-anchored local
+structure instead of global per-species partitions) is right and is
+kept here as one of the candidate designs (Section 7, design C), but the
+branch is an analysis script with a ZDS interpretation on top, not an
+engine. Salvage the idea, not the branch.
+
+## 2. What is broken, with the measurements
+
+All numbers from the 2026-09-15 leaf-only diagnostics (n = 20 per
+species: 5 time points x 4 replicates; MR density 0.03; scripts were in
+a session scratchpad, not the repo).
+
+| observation | value | consequence |
+|---|---|---|
+| Leiden seed stability (HVUL, modularity, res 1) | ARI 0.97 | the algorithm is deterministic enough |
+| Leiden split-half stability (10 v 10 replicates) | ARI 0.15 HVUL, 0.06 FPRA | the partition is not a property of the biology |
+| edge Jaccard between halves | 0.107 / 0.056 (chance 0.015) | the network itself is mostly noise at n = 20 |
+| edge FDR of top-3 % Pearson edges (gene-wise shuffle null) | HVUL 0.04, FPRA 0.37 | species differ tenfold in data quality |
+| Leiden on shuffled expression | 8 to 11 modules, Q 0.25 | modularity finds structure in noise |
+| transitivity of shuffled-data graph | 0.18 (rewired 0.03) | n = 20 correlation graphs are geometric |
+| nested SBM (graph-tool 2.98) on shuffled data | 205 blocks (1 on rewired) | MDL does not fix it: a geometric graph is compressible by blocks, so these are real blocks, not modules (5.1) |
+| `detect_modules()` K = 1 test | rejects on pure noise | its rewiring null destroys the geometry every correlation graph has |
+| MR degree, 5 to 95 % (HVUL) | 278 to 1057 | flat: hub-based and local-search methods have nothing to grip |
+| gene-level AUROC conservation (Crow 2022, HVUL v BDIS) | 0.63 real, 0.50 shuffled, ceiling 0.78, per-gene reliability r 0.71 | the cross-species signal is real and replicates at the gene level |
+
+Two conclusions. The signal survives at the level of *gene
+neighbourhoods compared across species*; it does not survive the step
+"partition one species, then compare". And the null model question is
+prior to the algorithm question: any method whose null is the
+configuration model (modularity, degree-corrected SBM, the K = 1 test)
+will call geometric noise "structure".
+
+Two further known confounds are unchanged by any engine: pooled
+leaf + root networks are dominated by the tissue contrast (PC1 85 to
+96 % of variance; run per tissue), and the trait test's label space on
+four genera of two is 2^4 under the blocked null (`pvalue_resolution()`).
+
+## 3. PR #4 assessed
+
+Branch `experiment/clique-module-deployment`, 11 commits, 50 files,
+46 k added lines (44 of the files are CSV/HTML outputs), CI failing,
+diverged from `main`. Package code touched: none. The method lives in
+`analysis/probe-clique-module-deployment.R` (2445 lines).
+
+What it does:
+
+1. `find_cliques()` at `min_species = 4`; rank cliques; keep the top 12
+   HOGs as anchors (6 multi-copy, 6 "strongest remainder").
+2. Per anchor and species, take the anchor gene's 1-hop MR neighbourhood
+   (`threshold` and above), map neighbours to HOGs.
+3. "Core" = HOGs present in the neighbourhood in at least
+   `max(3, ceiling(0.5 * n_represented))` species. This is the local
+   module family.
+4. Compare edge profiles among core HOGs across species (topology);
+   score the module eigengene against time and tissue (deployment);
+   screen annual v perennial rewiring; the last eight commits are
+   heterochrony / ZDS interpretation.
+
+What is right:
+
+- modules anchored on cross-species evidence rather than on one
+  species' partition;
+- paralogs resolved by the clique's gene assignment, so a multi-copy
+  HOG contributes one gene per species per anchor;
+- conservation expressed as recurrence across eight species, not
+  pairwise matching.
+
+This is COMODO reinvented (Zarrineh et al. 2011, Section 4): seed,
+expand per species, keep what orthologs share.
+
+What disqualifies it as a starting point:
+
+- **Twelve hand-picked anchors.** Coverage is whatever the clique
+  ranking puts first; it is a case study, not detection.
+- **No null on the core.** With MR degree flat at 278 to 1057 the
+  neighbourhoods are large and overlapping, so "in 50 % of species" is
+  uncalibrated. The pairwise version of this recurrence is exactly
+  `compare_neighborhoods()`, which does have a null.
+- **Circular.** Anchors are chosen for conservation, the core is the
+  conserved part of their neighbourhood, and divergence is read off
+  the remainder.
+- **Not package code**, and the branch would have to be rebuilt on
+  0.3.1 anyway.
+
+## 4. Published cross-species module methods (bioinformatics side)
+
+Verified against paper or repository unless marked "(abstract only)".
+
+| method | citation | coupling | paralogs | software | fit |
+|---|---|---|---|---|---|
+| OrthoClust | Yan et al. 2014, Genome Biol 15:R100, doi:10.1186/gb-2014-15-8-r100 | sum of per-species modularities + kappa x ortholog-edge agreement | explicit: each ortholog edge weighted down by copy number at both ends; unweighted version collapsed paralog families into one giant module (their Fig S4) | Julia, github.com/gersteinlab/OrthoClust, 31 commits, no release, ~3 h for 35 k genes | **the objective to use**; software not |
+| fastOC | github.com/mzinkgraf/fastOC; used in Zinkgraf et al. 2020, New Phytol 228:1811, doi:10.1111/nph.16819 (abstract only) | same objective, approximated by `igraph::cluster_louvain` on one merged graph, ortholog weight `(1/n_A + 1/n_B)/2` | as OrthoClust | R, 44 commits, dormant, WGCNA dependency | closest plant precedent (13 tree species, conserved v lineage-specific wood modules); global null model is an approximation |
+| SCSC | Cai et al. 2010, PLoS Comput Biol 6:e1000707, doi:10.1371/journal.pcbi.1000707 | probabilistic: orthologs *encouraged*, not forced, into one cluster | soft | none maintained | likelihood analogue of OrthoClust; idea only |
+| COMODO | Zarrineh et al. 2011, NAR 39:e41, doi:10.1093/nar/gkq1275 | seed module expanded per species until ortholog sharing is statistically optimal | via orthology tables | KU Leuven web page, dormant, <= 3 species | what PR #4 rediscovered; its stopping rule is the null #4 lacks |
+| BiTSC | Sun, Zhou, Li 2021, Bioinformatics 37:1225, doi:10.1093/bioinformatics/btaa741 | orthology as bipartite graph, expression as node covariates, bipartite spectral clustering | designed for many-to-many and orphans | Python, github.com/edensunyidan/BiTSC, two species; n-partite sketched, not built | **borrow the subsample-consensus tight clustering** (Section 6) |
+| ManiNetCluster | Nguyen, Blaby, Wang 2019, BMC Genomics 20(S12):1003, doi:10.1186/s12864-019-6329-2 | manifold alignment into a shared latent space, k-medoids | 0/1 correspondence matrix, many-to-many never discussed | R over Python, last commit 2019 | two networks only; no |
+| IsoRankN / Ficklin & Feltus | Liao et al. 2009, Bioinformatics 25:i253; Ficklin & Feltus 2011, Plant Physiol 156:1244, doi:10.1104/pp.111.173047 | network alignment, homology weight alpha | forces a node mapping | C++, old | grass precedent (maize v rice), but alignment tops out at 5 to 6 networks and does not yield modules |
+| Stuart metagenes | Stuart et al. 2003, Science 302:249 | 1:1 RBH orthologs, joint P over species | none | none | historical |
+| Bergmann / ISA; Piasecka | Bergmann et al. 2004, PLoS Biol 2:E9; Piasecka et al. 2012, BMC Genomics 13:124 | per-species biclusters compared through orthologs | none | none | historical |
+| WGCNA lineage | Oldham 2006 PNAS; Miller 2010 PNAS; Langfelder et al. 2011, PLoS Comput Biol 7:e1001057 | per-species modules, Zsummary preservation | 1:1 | WGCNA / NetRep | the lineage the current engine descends from and whose flaw it inherits |
+| ComPlEx | Netotea et al. 2014, BMC Genomics 15:106 | pairwise hypergeometric neighbourhood tests | many-to-many, gene level | rcomplex | gene level only; no modules |
+| CoCoCoNet / Crow 2022 | Lee et al. 2020, NAR 48:W566; Crow et al. 2022, NAR 50:4302, doi:10.1093/nar/gkac276 | aggregate rank networks, neighbour-voting AUROC | 1:1 OrthoDB | R/web | the gene-level score that *did* replicate on our data; not a module method |
+| MVBC | Sun et al. 2016, Bioinformatics 32:i137, doi:10.1093/bioinformatics/btw278 | joint sparse rank-one factorisation | 1:1 common gene set | R/C++ | excludes the paralog-rich HOGs; no |
+| MEGENA, DiffCoEx, DINGO, multiWGCNA | Song & Zhang 2015; Tesson 2010; Ha 2015; Tommasini & Fogel 2023 (Bioconductor) | shared gene set across conditions | none | R | only after collapsing to HOGs; no |
+| Juxtapose, GenePlexusZoo | Ovens et al. 2021, BMC Bioinf 22:125; Mancuso et al. 2024, PLoS Comput Biol 20:e1011773 | random-walk / node2vec on a union graph with ortholog cross-edges | GenePlexusZoo: degree-weighted many-to-many eggNOG | Python | embeddings, not modules; same union-graph object as OrthoClust |
+| Russell et al. 2023 | PLoS Comput Biol 19:e1011616, doi:10.1371/journal.pcbi.1011616; github.com/russell-madison/corr_comm_detection | multilayer modularity on correlation matrices, correlation-matrix null, data-driven omega, GenLouvain + consensus | identity coupling (tissue layers) | MATLAB | **borrow the correlation null and the generalist/specialist readout** |
+| EVOTREE | Rodriguez et al. 2026, Nat Commun 17:8916, doi:10.1038/s41467-026-75624-2 | per-orthogroup gene graph, cliques | one gene per species per clique | R | clique-based; rcomplex reproduces it already |
+| TEA-GCN, CoNekT, Plant Atlas Viewer | Lim et al. 2026, Nat Commun, doi:10.1038/s41467-026-72380-1; Proost & Mutwil 2018 | per-species networks / clusters | none | Python / web | network construction and lookup, not joint detection |
+| Ruprecht 2017; Julca 2021 | Plant J 90:447 (abstract only); Nat Plants 7:1143 | per-species clusters mapped through families; orthogroup-level organ programs | family level | none | not joint detection |
+
+Review: Ovens, Eames & McQuillan 2021, Front Genet 12:695399,
+doi:10.3389/fgene.2021.695399, tabulates IsoRankN, OrthoClust, WGCNA,
+BiNA, SCHype, COMODO, ManiNetCluster, Juxtapose and concludes alignment
+methods top out at 2 to 6 species and that multilayer approaches are
+the open direction. No 2024 to 2026 paper was found that jointly detects
+modules across Poaceae with paralog-explicit coupling.
+
+Not found or unverifiable: "phylo-WGCNA", "MultiSpecies WGCNA",
+"Sherlock", "SimBic".
+
+Statistical framing for the trait step (unchanged by the engine):
+Dunn et al. 2018, PNAS 115:E409, doi:10.1073/pnas.1707515115 (pairwise
+cross-species comparisons are non-independent); EVE (Rohlfs & Nielsen
+2015, Syst Biol 64:695), CAGEE (Bertram et al. 2023, MBE 40:msad106) and
+`phytools::phylANOVA` take one continuous statistic per species per
+module, so a per-layer module statistic can be fed in, with residual df
+about 6 on eight tips; phylogenetically structured permutations
+(Lapointe & Garland 2001, J Classif 18:109; Adams & Collyer 2015,
+Evolution 69:823, `RRPP`) make the free null honest but do not lift the
+2^4 floor.
+
+## 5. Computational side: MDL, SBM, hierarchy, stability, correlation-native nulls
+
+Verified against Crossref, arXiv, publisher or repository unless marked
+"unverified". Read 5.1 first: it is the finding that orders everything
+else.
+
+### 5.1 The null is a random geometric graph, and that is the whole problem
+
+With n = 20 samples each standardised gene is a unit vector in R^19,
+Pearson r is a cosine, and a thresholded correlation graph is a
+spherical random geometric graph (RGG) in 19 dimensions *even under
+H0*. Mutual rank is a per-node monotone transform of the same cosines,
+so it stays geometric. This is the mechanism behind every number in
+Section 2: transitivity 0.18 on shuffled data, 8 to 11 Leiden modules,
+205 nested-SBM blocks.
+
+- Devroye, György, Lugosi & Udina 2011, Electron J Probab 16,
+  doi:10.1214/EJP.v16-967: clique number of high-dimensional RGGs is far
+  above Erdős–Rényi when d is fixed and p grows.
+- Bubeck, Ding, Eldan & Rácz 2016, Random Struct Alg 49:503,
+  doi:10.1002/rsa.20633: geometry is detectable from signed triangle
+  counts whenever d is small relative to p^3; at d = 19, p = 20 000 it
+  is overwhelming.
+- Krioukov 2016, Phys Rev Lett 116:208302 ("clustering implies
+  geometry"); Boguñá et al. 2021, Nat Rev Phys 3:114,
+  doi:10.1038/s42254-020-00264-4.
+- Guimerà, Sales-Pardo & Amaral 2004, Phys Rev E 70:025101 (modularity
+  of random graphs is large); Good, de Montjoye & Clauset 2010, Phys Rev
+  E 81:046106 (the modularity landscape is degenerate: the split-half
+  ARI 0.06 to 0.15).
+- Schaub, Delvenne, Yaliraki & Barahona 2012, PLoS ONE 7:e32210,
+  doi:10.1371/journal.pone.0032210: the field-of-view limit. Modularity
+  *and* Infomap see only clique-like communities; geometric structure at
+  scale looks like many small modules to both. So Infomap is not an
+  escape.
+- Peixoto 2023, *Descriptive vs. inferential community detection*,
+  Cambridge Elements, doi:10.1017/9781009118897: inferential methods
+  report only compressible structure. That does not rescue us: an RGG
+  *is* compressible by blocks (spatial neighbourhoods), so the 205 SBM
+  blocks on noise are real blocks, they are just not modules.
+- MacMahon & Garlaschelli 2015, Phys Rev X 5:021006,
+  doi:10.1103/PhysRevX.5.021006: modularity on correlation matrices
+  with a random-matrix (Marchenko–Pastur) null. At p/n = 1000 the bulk
+  edge is lambda_+ = (1 + sqrt(1000))^2 ~ 1064 while a rank-19
+  correlation matrix of trace 20 000 has 19 non-zero eigenvalues
+  averaging ~1053: essentially the whole spectrum sits at the bulk edge
+  and the RMT null declares nearly everything noise. That is the honest
+  verdict on within-species module significance at n = 20, not a reason
+  to avoid the method.
+
+Consequences, which Sections 6 to 8 build on:
+
+1. Shuffled expression is the RGG null. Degree-preserving rewiring is
+   not, and any statistic with a configuration-model null (modularity,
+   DC-SBM, OSLOM, conductance, the K = 1 test) rejects "no structure" on
+   noise. This is a property of the data, not of Leiden.
+2. **The one thing shuffling cannot fake is cross-species agreement.**
+   Each species' noise geometry is independent under permutation. So a
+   statistic of the form "genes that co-cluster jointly are
+   co-expressed across species beyond what permuted expression gives"
+   has a clean null; a within-species statistic at n = 20 does not.
+   This is exactly why the gene-level AUROC replicated (Section 2) and
+   the per-species partitions did not.
+3. Spatial null models for modularity (Expert, Evans, Blondel &
+   Lambiotte 2011, PNAS 108:7663) need an external geometry; for a
+   correlation graph the "space" is the data itself, so they are
+   circular here. Geometric block models (Galhotra et al. 2018, AAAI;
+   Abbe, Baccelli & Sankararaman 2018, SODA; arXiv 2403.02802) are
+   theory without maintained software (unverified).
+
+### 5.2 MDL and inferential community detection
+
+- Karrer & Newman 2011, Phys Rev E 83:016107 (degree-corrected SBM);
+  Newman 2016, Phys Rev E 94:052315 (modularity at fixed resolution is
+  DC-SBM maximum likelihood, so Leiden already is an SBM fit with K and
+  gamma chosen for it).
+- Peixoto 2014, Phys Rev X 4:011047 (nested SBM, MDL); Peixoto 2017,
+  Phys Rev E 95:012317 (the microcanonical MDL actually implemented).
+  Agglomerative heuristic O(N ln^2 N), "reliable results for networks in
+  excess of 10^7 edges"; graph-tool's `multilevel_mcmc_sweep` is
+  O(E ln^2 N). One species at 20 k x 6 M edges is inside the tested
+  range (tens of minutes to hours per fit); the eight-layer union at
+  ~50 M edges is beyond the paper's largest example but near-linear in
+  E, so day-scale per fit (estimate). Top-k at 8 x 200 k edges: minutes.
+  Posterior sampling multiplies by the number of sweeps. Python only;
+  graph-tool 2.98 is installed on Martin's Mac; R via reticulate.
+- Zhang & Peixoto 2020, Phys Rev Research 2:043271 (assortative
+  "planted partition" SBM with MDL; graph-tool `PPBlockState`). The
+  inferential replacement for modularity when modules, not arbitrary
+  blocks, are wanted. The 205 nested-SBM blocks on shuffled data were
+  general blocks; the assortative-only MDL fit is the cleaner question
+  and has not been run.
+- Peixoto 2018, Phys Rev E 97:012306 (weighted SBM, `rec_types`
+  real-normal / real-exponential): fits the top-k *weighted* graph
+  without a hard threshold.
+- Peixoto 2021, Phys Rev X 11:021003 (partition modes: consensus *and
+  dissensus* of a partition ensemble; graph-tool `PartitionModeState`,
+  `ModeClusterState`). Usable today on the existing Leiden ensembles:
+  split-half ARI 0.1 is dissensus, and this says how many alternative
+  module systems there are and which genes are stable across modes.
+- Rosvall & Bergstrom 2007, PNAS 104:7327 (compression view);
+  Rosvall & Bergstrom 2011, PLoS ONE 6:e18209 (hierarchical Infomap);
+  De Domenico, Lancichinetti, Arenas & Rosvall 2015, Phys Rev X
+  5:011027 (multilayer Infomap); Edler, Bohlin & Rosvall 2017,
+  Algorithms 10:112, doi:10.3390/a10040112 (state-node formulation).
+  Infomap v2.15.1 (2026), C++ with Python bindings, R via r-universe and
+  `infomapecology` (Farage et al. 2021, Methods Ecol Evol 12:778).
+  Multilayer input allows links between *different* physical nodes in
+  different layers, and several state nodes per physical node: set
+  physical node = HOG, state nodes = (species, copy), intra-layer links
+  = co-expression, and paralogs are first-class with no coupling
+  constant (a relax rate instead). Different objective (flow), so not
+  comparable with modularity results, and field-of-view applies.
+- Newman & Reinert 2016, Phys Rev Lett 117:078301 (Bayesian K for the
+  DC-SBM): single layer, superseded by nested-SBM MDL in practice.
+
+### 5.3 Multilayer SBMs where layers are different node sets
+
+Only one published model handles "different nodes per layer, coupled by
+an explicit inter-layer edge set", and it does so by construction:
+
+- **Peixoto 2015, Phys Rev E 92:042807, doi:10.1103/PhysRevE.92.042807**
+  (layered SBM; graph-tool `LayeredBlockState`, `LayeredNestedBlockState`,
+  edge covariate `ec`, `independent = TRUE/FALSE`). Layers are edge
+  covariates on one node set, so take the union of all (species, gene)
+  nodes, give each species' co-expression edges its own layer, and put
+  the ortholog edges in a ninth layer; a node absent from a layer has
+  degree zero there. `clabel` / `pclabel` = species forces
+  within-species blocks, after which the block-block edge counts of the
+  ortholog layer *are* the module-correspondence matrix, inferred
+  jointly with the modules. Leaving the constraint off allows
+  cross-species blocks. The description-length difference between fits
+  with and without the ortholog layer is a direct test of whether
+  orthology explains co-expression block structure; against shuffled
+  expression it is a clean one (5.1, consequence 2).
+
+The rest assume a shared node set with identity coupling, so they
+apply only after collapsing to HOG nodes (losing paralogs): Stanley,
+Shai, Taylor & Mucha 2016, IEEE Trans Netw Sci Eng 3:95 (strata
+multilayer SBM: layers grouped into strata sharing one SBM; the idea
+"strata = annual v perennial" is attractive but identity-coupled);
+Vallès-Català et al. 2016, Phys Rev X 6:011036; Paul & Chen 2016,
+Electron J Stat 10:3807 and 2020, Ann Stat 48:230; De Bacco, Power,
+Larremore & Moore 2017, Phys Rev E 95:042317 (MULTITENSOR, mixed
+membership); Bazzi et al. 2020, Phys Rev Research 2:023100 (generative
+benchmark, useful for synthetic tests; node-set flexibility
+unverified).
+
+### 5.4 Correlation-native methods (no thresholding)
+
+- MacMahon & Garlaschelli 2015 (5.1): RMT null; MATLAB reference, any
+  Louvain with a custom B. Dense 20 k^2 per species is feasible; the
+  verdict at n = 20 is "almost nothing".
+- Masuda, Kojaku & Sano 2018, Phys Rev E 98:012312 (maximum-entropy
+  configuration model for correlation matrices); Kojaku & Masuda 2019,
+  Proc R Soc A 475:20190578 (Scola, github.com/skojaku/scola, Python):
+  an edge only where the correlation is unexpected under a null chosen
+  by a BIC-type criterion that knows n. The correlation-native
+  replacement for "MR + hard threshold". O(p^2) memory (3.2 GB at
+  20 k), iterative lasso; scalability to 20 k nodes unverified; expect
+  very sparse output at n = 20, and that sparseness is information.
+- Russell et al. 2023 (Section 4): Masuda 2018 null per layer,
+  GenLouvain + consensus, 203 genes, identity coupling.
+- Bazzi et al. 2016, Multiscale Model Simul 14:1 (temporal multilayer
+  modularity on correlation networks with RMT nulls; the null plumbing
+  for GenLouvain).
+- Hoffmann, Peel, Lambiotte & Jones 2020, Sci Adv 6:eaav1478,
+  doi:10.1126/sciadv.aav1478: communities inferred end to end from the
+  node time series, no edges ever formed, full posterior. Hundreds of
+  nodes; not scalable to 20 k without re-engineering. Related: Peixoto
+  2019, Phys Rev Lett 123:128301 (dynamics, not iid samples).
+- Bongiorno, Miccichè & Mantegna 2022, Physica A 593:126933: bootstrap
+  replicas of the dissimilarity matrix give a p-value per clade of a
+  hierarchical clustering. Correlation-native, but bootstrapping 20
+  samples is thin.
+
+### 5.5 Markov stability and scale selection
+
+Delvenne, Yaliraki & Barahona 2010, PNAS 107:12755; Lambiotte,
+Delvenne & Barahona 2014, IEEE Trans Netw Sci Eng 1:76; Arnaudon et al.
+2024, "Algorithm 1044: PyGenStability", ACM Trans Math Softw 50(2),
+doi:10.1145/3651225 (Python, Louvain or Leiden, robust scale selection
+by NVI across scales and across runs). Custom constructors are
+supported, so a supra-adjacency with eight intra-species blocks and an
+ortholog coupling block can be supplied; Mucha's multislice modularity
+is itself a Laplacian-dynamics derivation, so this is well defined.
+`linearized` constructor at 6 M edges; the continuous ones need a
+matrix exponential. Caveat: robust scales on an RGG are still
+geometric scales. NVI fixes the split-half instability, not the null.
+
+### 5.6 Significance and stability of communities
+
+- Lancichinetti, Radicchi, Ramasco & Fortunato 2011, PLoS ONE 6:e18961
+  (OSLOM: local significance of a cluster via order statistics of its
+  worst member; the principled "seed, expand, stop when no longer
+  significant"; C++, R wrapper `bioregion::netclu_oslom`). Null is
+  configuration, so geometric clusters pass.
+- Zhang & Moore 2014, PNAS 111:18144 (belief propagation, retrieval
+  modularity as a structure-vs-null test). Same null caveat.
+- Rosvall & Bergstrom 2010, PLoS ONE 5:e8694 (bootstrap edge weights,
+  recluster, report significance cores). Bootstrapping *samples*
+  instead of edges turns this into the split-half test already run.
+- Decelle, Krzakala, Moore & Zdeborová 2011, Phys Rev E 84:066106
+  (detectability threshold): our problem is the opposite regime, too
+  much detectable structure.
+- Lancichinetti & Fortunato 2012, Sci Rep 2:336; Jeub, Sporns &
+  Fortunato 2018, Sci Rep 8:3259 (both already in `detect_modules()`).
+- Monti et al. 2003, Mach Learn 52:91 (consensus clustering); von
+  Luxburg 2010, Found Trends Mach Learn 2:235 (stability can be high at
+  the wrong K; it is not significance); **Şenbabaoğlu, Michailidis &
+  Li 2014, Sci Rep 4:6207, doi:10.1038/srep06207** (consensus
+  clustering finds stable structure on null data unless calibrated
+  against a null; PAC score); **Tseng & Wong 2005, Biometrics 61:10,
+  doi:10.1111/j.0006-341X.2005.031032.x** (tight clustering: subsample,
+  keep only tight stable cores, leave the rest unassigned; what BiTSC
+  borrowed). Ballouz, Verleyen & Gillis 2015, Bioinformatics 31:2123
+  (sample-size guidance for co-expression).
+- Ghasemian, Hosseinmardi & Clauset 2020, IEEE TKDE 32:1722 (held-out
+  link prediction as model selection across 16 methods).
+- Peel, Larremore & Clauset 2017, Sci Adv 3:e1602548,
+  doi:10.1126/sciadv.1602548: metadata is not ground truth; their
+  BESTest is the right shape for "module divergence v annual/perennial"
+  on eight tips.
+
+### 5.7 Local, seed-based and overlapping communities
+
+- Palla, Derényi, Farkas & Vicsek 2005, Nature 435:814 (clique
+  percolation): the original clique-anchored method and PR #4's closest
+  relative; on a high-dimensional RGG cliques percolate massively, so it
+  returns giant components on noise.
+- Lancichinetti, Fortunato & Kertész 2009, New J Phys 11:033015 (local
+  fitness expansion; OSLOM is its significance-based successor).
+- Andersen, Chung & Lang 2006, FOCS, doi:10.1109/FOCS.2006.44
+  (PageRank-Nibble, conductance guarantee via local Cheeger); Kloster &
+  Gleich 2014, KDD (HK-relax); Whang, Gleich & Dhillon 2016, IEEE TKDE
+  28:1272 (NISE seed-set expansion); Yang & Leskovec 2013, Knowl Inf
+  Syst 42:181 (conductance among the best scoring functions against
+  ground truth); Coscia et al. 2012, KDD (DEMON). Software:
+  LocalGraphClustering (github.com/kfoynt/LocalGraphClustering, Python;
+  ACL, HK, MQI, FlowImprove, SimpleLocal; 100 M-edge graphs on a
+  laptop). Conductance has no null, so calibrate against shuffled
+  expression; the cross-species comparison of per-species expansions
+  from one ortholog-clique seed is the quantity with a clean null.
+- Ahn, Bagrow & Lehmann 2010, Nature 466:761 (link communities): cost
+  ~ sum of k^2 over nodes, fine at 200 k edges, heavy at 6 M.
+
+### 5.8 Hierarchy beyond nested SBM
+
+Ravasz & Barabási 2003, Phys Rev E 67:026112 (descriptive signature);
+Clauset, Moore & Newman 2008, Nature 453:98 (HRG, thousands of nodes at
+most); Sales-Pardo et al. 2007, PNAS 104:15224 (co-classification
+against the modularity-fluctuation null; small networks); Bonald et al.
+2018, arXiv 1806.01664 (Paris: agglomerative, near-linear,
+parameter-free; scikit-network, cdlib); Lyzinski et al. 2017, IEEE
+Trans Netw Sci Eng 4:13 (HSBM via spectral embedding; no official
+software); Schaub, Li & Peel 2023, Phys Rev E 107:054305 (what
+"hierarchical" should mean, with a spectral test). Multilayer
+hierarchical options that exist today: graph-tool nested + layered;
+Infomap multilevel on multilayer input; Jeub 2018 hierarchical consensus
+over any partition ensemble.
+
+### 5.9 Multilayer modularity optimisers and R coverage
+
+- Mucha, Richardson, Macon, Porter & Onnela 2010, Science 328:876,
+  doi:10.1126/science.1184819. GenLouvain (MATLAB + MEX, v2.2 2019)
+  accepts an arbitrary modularity matrix B, so ortholog inter-layer
+  edges are encodable.
+- leidenalg (Traag; Traag, Waltman & van Eck 2019, Sci Rep 9:5233):
+  `optimise_partition_multiplex` needs all layers on one vertex set but
+  allows a different partition type, resolution and weight per layer.
+  Hand-built construction: vertex set = all (species, gene) pairs, one
+  `RBConfigurationVertexPartition` per species (its own null), one
+  `CPMVertexPartition(resolution_parameter = 0, node_sizes = 0)` layer
+  holding the ortholog edges, layer weight = kappa. Undocumented but
+  uses only documented API.
+- igraph R: single graph, but the CPM `vertex_weights` trick reproduces
+  the per-layer null (Section 8, P2, verified).
+- multinet 4.3.4 (CRAN 2026-03; Magnani, Rossi & Vega 2021, J Stat
+  Softw 98(8)): `glouvain_ml(gamma, omega)`, `infomap_ml`,
+  `clique_percolation_ml`; the data model accepts inter-layer edges
+  between *different* actors, but whether `glouvain_ml` uses them
+  rather than only the omega identity coupling is unverified.
+- muxViz (De Domenico, Porter & Arenas 2015, J Complex Netw 3:159; R,
+  Infomap-based, GUI-first); MolTi (Didier, Brun & Baudot 2015, PeerJ
+  3:e1525; same node set only); leidenAlg, leidenbase, netmem, cdlib:
+  single layer or no multiplex section.
+
+### 5.10 Summary table
+
+| method | different-node-set layers via explicit inter-layer edges | resolution-free / MDL | significance or stability built in | correlation-native | software | 8 x 200 k edges | 8 x 6 M edges |
+|---|---|---|---|---|---|---|---|
+| nested + layered SBM (Peixoto 2014/2015) | yes: union graph + ortholog layer + `clabel` | MDL | posterior modes (Peixoto 2021); null still SBM | no (weighted variant on top-k) | graph-tool, Python | minutes | hours to a day per fit (est.) |
+| assortative SBM `PPBlockState` (Zhang & Peixoto 2020) | no (single layer) | MDL | no | no | graph-tool | minutes | hours |
+| Infomap multilayer (De Domenico 2015; Edler 2017) | yes: state-node links between different nodes | no gamma; MDL of flow | no (Rosvall 2010 bootstrap separate) | no | C++; Python; R via r-universe | seconds to minutes | minutes to hours |
+| leidenalg multiplex | yes: hand-built ortholog CPM layer | no (gamma per layer) | no | no | Python | seconds | minutes |
+| igraph `cluster_leiden` CPM trick | yes, approximately (Section 8) | no | no | no | R, installed | seconds | minutes |
+| GenLouvain (Mucha 2010) | yes: arbitrary B | no | no | with RMT null (Bazzi 2016) | MATLAB | minutes | memory-bound |
+| multinet `glouvain_ml` | data model yes; use in objective unverified | no | no | no | R (CRAN) | minutes | untested |
+| OrthoClust (Yan 2014) | yes: kappa-coupled ortholog edges | no | no | no | Julia 0.4, dead | port needed | no |
+| MULTITENSOR / sMLSBM / Vallès-Català / Paul–Chen | no (identity coupling) | mixed | no | no | Python / MATLAB / none | n/a | n/a |
+| BiTSC (Sun 2021) | bipartite orthology, 2 species | K by tightness | tight clustering | expression as covariates | Python | fine | n/a |
+| Hoffmann 2020 no-edge SBM | no | Bayesian K | full posterior | yes | Python | hundreds of nodes | no |
+| MacMahon–Garlaschelli RMT modularity | no (multilayer via Bazzi 2016) | no | RMT null | yes | MATLAB reference; any Louvain with custom B | dense 20 k^2 feasible | same |
+| Scola / Masuda null | no | null-model BIC | edge test | yes | Python | O(p^2), unverified at 20 k | same |
+| PyGenStability (Arnaudon 2024) | yes via custom constructor | scale selection by NVI | stability (NVI) | with custom B | Python | minutes | hours (linearized) |
+| OSLOM | no | free | local significance, configuration null | no | C++; R `bioregion` | minutes | hours (est.) |
+| Peixoto 2021 partition modes | post hoc, any partitions | n/a | dissensus | n/a | graph-tool | fast | fast |
+| tight clustering / consensus + null (Tseng–Wong; Şenbabaoğlu) | post hoc | stability-chosen | stability, needs null calibration | either | R `tightClust` / own code | cheap | cost = detector x runs |
+| ACL / HK-relax / NISE seed expansion | per layer, seeds from ortholog cliques | local, no gamma | conductance, no null | no | LocalGraphClustering, Python | instant | fine |
+| clique percolation (Palla 2005) | no | k | no | no | igraph-based | fine | percolates on noise |
+| Paris (Bonald 2018) | no | dendrogram | no | no | scikit-network, cdlib | fast | fast |
+| link communities (Ahn 2010) | no | dendrogram | no | no | R `linkcomm` (not re-verified) | fine | heavy |
+
+## 6. What to borrow
+
+Ordered by how much of the problem each removes.
+
+1. **The null and the unit (5.1).** Shuffled expression is the only
+   valid null; the reported statistic must be cross-species. Every
+   candidate engine below is evaluated that way, and within-species
+   module p-values are dropped from the package whichever engine wins.
+   This is a reframing, not software, and it applies to the current
+   engine today.
+2. **Ortholog-coupled joint detection with paralog down-weighting**
+   (Yan et al. 2014; fastOC). Inter-layer edge weight
+   `kappa * (1 / n_A + 1 / n_B) / 2`; the unweighted version collapses
+   paralog families, which with HJUB at 86 % multi-copy is decisive.
+3. **Per-layer null** (Mucha 2010), so that the densest species does
+   not set the null for the sparsest. Verified in R via the CPM
+   `vertex_weights` trick (Section 8, P2).
+4. **MDL model comparison with and without the ortholog layer**
+   (Peixoto 2015), real against shuffled. This is what an SBM backend
+   buys that a modularity backend cannot: a description-length gain
+   that is a test, not a score, and a module-correspondence matrix
+   inferred jointly with the modules.
+5. **Tight-core consensus calibrated against null co-clustering**
+   (Tseng & Wong 2005; Şenbabaoğlu 2014; BiTSC's use of it). Subsample
+   the *samples* (not the edges), re-detect, keep only gene pairs whose
+   co-clustering frequency exceeds the frequency on shuffled data, and
+   leave everything else unassigned. Attacks the split-half instability
+   directly, reuses the existing consensus machinery in `R/modules.R`,
+   and costs only detector runs.
+6. **Dissensus, not only consensus** (Peixoto 2021; Rosvall 2010).
+   Report how many alternative module systems the ensemble contains and
+   which genes are stable across them. Runs on the Leiden ensembles the
+   package already produces.
+7. **Per-layer contribution and the generalist/specialist readout**
+   (Russell et al. 2023) as the per-module per-species statistic that
+   replaces `Zsummary_std` and feeds `preservation_matrix_test()`.
+8. **Seed expansion with a conductance or significance stop** (Andersen
+   2006; Kloster & Gleich 2014; OSLOM's criterion; COMODO's stopping
+   rule) as the principled version of PR #4's neighbourhood step.
+9. **Paralogs as state nodes** (Edler 2017; Infomap multilayer) if an
+   Infomap backend is ever tried: the only formulation where copies
+   need no weighting rule.
+10. **BESTest** (Peel et al. 2017) for the trait step: is the
+    annual/perennial labelling of species informative about the module
+    profile, against the correct label space.
+
+## 7. Candidate designs
+
+All three consume the same cached union graph (Section 8, P1) and are
+judged by the same gate (P3). They are not exclusive: C is a local
+complement to A or B.
+
+### A. Multilayer modularity with ortholog coupling (OrthoClust objective, Leiden optimiser)
+
+Objective: sum over species of per-layer modularity, plus kappa times
+ortholog-edge agreement with paralog down-weighting. R-native today via
+`igraph::cluster_leiden` with the CPM trick; exact via leidenalg
+multiplex through reticulate if the cross-layer null contamination
+turns out to matter; fastOC is the published R precedent (13 tree
+species).
+
+- Pro: an afternoon to run; seconds per fit, so subsample consensus
+  (borrow 5) and kappa sweeps are cheap; one partition gives
+  `module x species` membership; per-layer Q_s(c) is the divergence
+  statistic (borrow 7).
+- Con: two free parameters (kappa, gamma) with no internal criterion;
+  no significance of its own, so everything rests on borrow 1 and 5;
+  field-of-view limit (5.1).
+- kappa selection: the smallest kappa at which split-half replication
+  on real data separates from replication on shuffled data (Section 8,
+  P3), not an external gold standard as in OrthoClust.
+
+### B. Layered nested SBM on the union graph (graph-tool)
+
+Eight co-expression layers plus one ortholog layer as edge covariates
+on the union node set, `clabel = species`, nested, MDL. One fit returns
+joint modules, the module-correspondence matrix (ortholog-layer block
+counts), per-species block matrices, a hierarchy, and a description
+length to compare with the no-ortholog-layer fit and with the shuffled
+fit.
+
+- Pro: no kappa, no gamma, no K; model comparison is built in; posterior
+  modes (borrow 6) come from the same machinery; `PPBlockState` gives
+  the assortative-only variant when modules rather than blocks are
+  wanted.
+- Con: Python dependency (reticulate, graph-tool install is heavy;
+  Orion has Apptainer, the Mac has 2.98); minutes at top-k, hours to a
+  day per fit at full 3 % density, and subsample consensus multiplies
+  that; the SBM null is still not geometric, so the 205-blocks-on-noise
+  behaviour will recur within species and only the ortholog-layer
+  description-length gain against shuffled expression is a test.
+- If B is adopted the package boundary is a graph export plus a result
+  import, not an embedded solver; the note in the sparsification plan
+  about not porting PANINIpy applies here too.
+
+### C. Seed expansion from co-expressolog cliques (the principled PR #4)
+
+Seeds = cliques from `find_cliques()` or `gene_clique_graph()`; per
+species, expand the seed gene with a PageRank-Nibble or heat-kernel
+push on that species' graph, stop by conductance (or OSLOM's
+significance), map the expansion to HOGs, and compare expansions across
+species against shuffled expression. Overlapping by construction;
+covers only seeded HOGs.
+
+- Pro: reuses the clique machinery, which is the part of the package
+  that is validated (EVOTREE reproduction); milliseconds per seed; the
+  cross-species comparison of per-species expansions is the statistic
+  with the clean null; answers the question #4 actually asked
+  ("what travels with a conserved clique") without pretending to be a
+  partition.
+- Con: not a module engine; no global partition, so
+  `preservation_matrix_test()` gets a seed x species matrix rather than
+  a module x species one; needs a small Rcpp port of ACL push or Python
+  LocalGraphClustering.
+
+### Not carried forward
+
+Infomap multilayer (field-of-view, incomparable objective; keep as a
+fallback if A and B both fail the gate for reasons that look like
+resolution); PyGenStability (scale selection is a refinement of A once
+A passes); correlation-native nulls at n = 20 (Scola / RMT: the answer
+is known to be "almost nothing" within species, which is borrow 1 said
+differently; revisit if a compendium with n in the hundreds appears);
+network alignment, ManiNetCluster, MVBC, identity-coupled multilayer
+SBMs (Section 4 and 5.3).
+
+## 8. Probe plan (the gate)
+
+One script under `prepare_data/` (gitignored, like the other validation
+scripts), leaf and root separately, all eight species. No package code
+until P3 passes.
+
+**P1. Build the union graph.** Node = (species, gene) for every gene in
+the species' MR network (top-k sparsified, k in {25, 50}, so about
+8 x 0.5 M edges; the 3 % stores are 8 x 6 M and only needed to check
+that top-k did not change the answer). Intra-layer edges = MR edges,
+weight 1 or the MR-derived weight. Inter-layer edges = every
+cross-species HOG pair, weight `kappa * (1 / n_A + 1 / n_B) / 2` where
+`n_A`, `n_B` are the copy numbers in the two species (OrthoClust's
+down-weighting; the unweighted version is known to collapse). Write the
+graph once, cache it.
+
+**P2. Run the candidate optimisers on the same graph.** At minimum:
+
+- multilayer modularity with per-layer null (design A). In R this is
+  `igraph::cluster_leiden(objective_function = "CPM", vertex_weights =
+  k_is / sqrt(2 * m_s))`, which reproduces Mucha's per-layer
+  configuration null exactly for within-species pairs and adds a small
+  spurious null term to cross-species pairs (absorbed by kappa; the
+  exact optimiser is Python leidenalg `optimise_partition_multiplex` if
+  the approximation turns out to matter). Checked 2026-09-23 on igraph
+  2.3.3: on one graph the trick returns the identical partition and
+  modularity as `objective_function = "modularity"` (0.4707 both,
+  NMI 1); on two disjoint layers of different density the global null
+  merges the sparse layer into one module while the per-layer weights
+  recover its three planted blocks (1/2 v 3/2 modules per layer). This
+  is why fastOC's single-graph Louvain is only an approximation: the
+  global `m` lets the dense species set the null for the sparse ones.
+  Sweep kappa over
+  {0, 0.5, 1, 2, 4, 8}; kappa = 0 is the current engine on the union
+  graph and the baseline.
+- the MDL candidates from Section 5 that passed the scale check, on
+  the top-k graph.
+
+**P3. Go / no-go statistic.** For each species, split the 20 samples
+5 v 5 replicates within time point (as in the 2026-09-15 diagnostic),
+rebuild both halves' networks, rebuild the union graph twice, run the
+optimiser on each, and report per species: ARI between halves,
+restricted to that species' genes. Baseline is the kappa = 0 column
+(measured 0.06 to 0.15). Also report modules found on gene-wise
+shuffled expression (baseline 8 to 11) and the module-size
+distribution. **Go** if coupling raises split-half ARI materially in
+most species at some kappa without the shuffled-expression module count
+rising. **No-go** if not; then the joint direction is dead and no
+engine choice matters, and the honest fallback is gene-level
+conservation only (`compare_neighborhoods()` plus the Crow 2022 AUROC
+score), with modules dropped from the trait test.
+
+One trap in P3, found while writing this note: the ortholog edges are
+identical in both halves (HOG membership does not depend on the
+samples), so at large kappa the joint partition follows orthology alone
+and split-half ARI rises *trivially*, on shuffled expression as much as
+on real. The gate statistic is therefore split-half ARI on real minus
+split-half ARI on shuffled expression, per species and per kappa, and
+"go" means that gap widens with kappa before the shuffled ARI itself
+climbs. For design B the equivalent is the description-length gain of
+the ortholog layer on real minus on shuffled expression. Rewiring nulls
+are never used anywhere in the gate (5.1).
+
+**P4. Only after go**: kappa selection rule (Section 6), per-layer
+statistics, and the consensus / tight-cluster wrapper. Then a plan for
+the package change, as a separate note.
+
+## 9. Downstream consequences in the package
+
+If the gate passes, the change is a contraction, not an addition.
+
+| today | after |
+|---|---|
+| `detect_modules()` per species, then `preservation_paired()` over `choose(8, 2)` contrasts | one joint call returning `module x species` membership; the per-species runs become the kappa = 0 special case |
+| `module_correspondence()` to match modules between species | unnecessary: the joint label *is* the correspondence |
+| `resolve_ortholog_map()` to choose which paralog copy carries a label | mostly unnecessary: every copy is a node and gets its own label; keep only for consumers that still need a 1:1 projection |
+| `module_preservation()`'s `avg.weight` and `cor.degree` under gene-identity permutation | keep the statistics as **descriptive** per-module per-species scores (they are exactly the per-layer contribution); drop the pairwise permutation p-value, which would be circular after joint detection (the coupling already pulled the genes together) |
+| `classify_preservation()` on `Zsummary_std` per contrast | a per-module *profile* over species: which layers carry the module (Russell 2023's generalist v specialist), read against the trait |
+| `preservation_matrix_test()` | unchanged in mechanics; the input matrix becomes module x species instead of module-direction x contrast, which removes the all-pairs non-independence Dunn 2018 warns about |
+| `tag_permutation()` | unchanged |
+| K = 1 test (`test_k1`) | retire: wrong null (Section 2); replaced by the shuffled-expression control and by MDL model selection where an MDL backend is used |
+
+Circularity, stated once: with kappa > 0 a module is found partly
+*because* its orthologs co-cluster, so "is module c preserved in species
+s" cannot be tested by a within-species permutation of the same genes.
+What can be tested is (a) whether c's within-species density in s is
+above what a species-s-only partition would give (the kappa = 0
+contrast), and (b) whether the per-species profile of c is associated
+with the trait under relabelling. Divergence becomes "departure from a
+well-supported core", which is the better-posed question.
+
+## 10. Limits no engine lifts
+
+- **n = 20 per species per tissue.** Coupling pools evidence for
+  modules present in several species; a lineage-specific module still
+  rests on one species and stays as fragile as today. Expect the engine
+  to be good at conserved cores and honest about the rest.
+- **Species data quality differs tenfold** (edge FDR 0.04 v 0.37).
+  A species with a noisy network will look "diverged" in every module.
+  Report per-species edge reliability next to every per-species module
+  score; consider weighting layers by it.
+- **The trait test's label space** is 2^4 under the blocked null
+  whatever the module engine produces; see `pvalue_resolution()`.
+- **Tissue confound**: per-tissue networks, or species x tissue layers
+  with identity coupling across tissues within a species and ortholog
+  coupling across species. The latter is the multilayer generality
+  paying off, but it is scope for after the gate.
+- **Geometric graphs.** At n = 20 every configuration-model or SBM
+  null sees structure in a correlation graph (5.1), and the RMT null
+  says the honest within-species answer is "almost nothing". No engine
+  changes that; the shuffled-expression control and the cross-species
+  statistic are the only defences and must stay in the gate whatever
+  the backend.
+
+## 11. Sources and provenance
+
+- Two literature surveys run 2026-09-23 by subagents in this session,
+  one on the bioinformatics side (Section 4) and one on the
+  network-science side (Section 5). Each citation was checked against
+  Crossref, arXiv, publisher page, PMC or the software repository
+  unless marked "(abstract only)" or "unverified" in place. Items the
+  surveys could not find or confirm are listed as such rather than
+  omitted.
+- Local measurements: the 2026-09-15 leaf-only diagnostics (Section 2;
+  scripts were in a session scratchpad, not the repo, numbers recorded
+  in the maintainer's memory notes) and the 2026-09-23 igraph 2.3.3
+  check of the CPM `vertex_weights` trick (Section 8, P2; planted SBM,
+  600 and 1200 nodes).
+- PR #4 read from `origin/experiment/clique-module-deployment` at
+  `e6f32aa` (2026-09-23).
+- Data shape from `prepare_data/data/*_se.rds`: 8 species x 40 samples
+  (38 for VBRO), 14 211 to 16 144 HOGs per species, 16 to 30 % of HOGs
+  multi-copy (HJUB 86 %), maximum copies per HOG 78 to 329.
+- Corrections made while verifying: PyGenStability is ACM TOMS 2024
+  (Algorithm 1044), not JOSS; Yang & Leskovec is Knowl Inf Syst 2013
+  (42:181); Stanley et al. is IEEE TNSE 3:95 (2016); ManiNetCluster is
+  BMC Genomics 2019, not Nat Commun.
