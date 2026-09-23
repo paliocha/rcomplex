@@ -950,7 +950,94 @@ well-supported core", which is the better-posed question.
   statistic are the only defences and must stay in the gate whatever
   the backend.
 
-## 11. Sources and provenance
+## 11. First probe results (2026-09-23, leaf, exact engine)
+
+Settings: leaf, top-25 MR neighbours, 20 000 most variable HOG-mapped
+genes per species (158 049 nodes, 2.36 M intra-layer edges, 1.92 M
+ortholog edges from 17 839 multi-species HOGs), leidenalg multiplex,
+two iterations, kappa in {0, 0.25, 0.5, 1, 2, 4}, halves = 2 v 2
+replicates per time point. Merged table:
+`prepare_data/probe-module-engine/out-2026-09-23/gate_leaf_exact_merged.tsv`.
+
+| species | split-half ARI, kappa 0 | kappa 1 | kappa 2 | kappa 4 | shuffled, kappa 4 | seed ARI, kappa 4 | Q_s, kappa 0 -> 4 |
+|---|---|---|---|---|---|---|---|
+| BDIS | 0.081 | 0.066 | 0.086 | 0.176 | 0.008 | 0.33 | 0.60 -> 0.23 |
+| BMAX | 0.081 | 0.073 | 0.153 | 0.186 | 0.008 | 0.32 | 0.63 -> 0.27 |
+| BMED | 0.033 | 0.024 | 0.032 | 0.155 | 0.009 | 0.32 | 0.57 -> 0.15 |
+| BSYL | 0.119 | 0.159 | 0.177 | 0.188 | 0.008 | 0.34 | 0.62 -> 0.24 |
+| FPRA | 0.079 | 0.088 | 0.108 | 0.193 | 0.006 | 0.33 | 0.55 -> 0.21 |
+| HJUB | 0.138 | 0.164 | 0.144 | 0.208 | 0.009 | 0.39 | 0.66 -> 0.24 |
+| HVUL | 0.122 | 0.135 | 0.224 | 0.184 | 0.011 | 0.32 | 0.65 -> 0.29 |
+| VBRO | 0.103 | 0.116 | 0.169 | 0.191 | 0.009 | 0.35 | 0.64 -> 0.24 |
+
+Ortholog-edge agreement on the full data, real / shuffled: kappa 0.25
+0.11 / 0.06, kappa 1 0.15 / 0.09, kappa 2 0.28 / 0.96, kappa 4 0.95 /
+1.00. Modules of at least 10 genes per layer: 9 to 13 at kappa <= 1, 8
+at kappa 2, 7 at kappa 4 (real and shuffled alike). Split-half ARI on
+shuffled expression: <= 0.005 at kappa <= 1, 0.05 to 0.07 at kappa 2,
+<= 0.011 at kappa 4.
+
+What it says:
+
+1. **The kappa = 0 baseline reproduces the 2026-09-15 diagnostic**:
+   per-species split-half ARI 0.03 to 0.14 (median 0.09) against
+   about 0 on shuffled expression.
+2. **Weak coupling does nothing.** At kappa <= 1 only 10 to 15 % of
+   ortholog edges fall inside a module, per-layer Q and module counts
+   are unchanged, and the gap moves by at most 0.01. The per-species
+   partitions resist the pull.
+3. **The transition is sharp and sits between kappa 2 and 4.** On
+   shuffled expression the partition follows orthology already at
+   kappa 2 (agreement 0.96); on real data only at kappa 4 (0.95). Real
+   within-species structure resists the coupling that noise does not,
+   which is itself evidence that the structure is real. Kappa 2 is the
+   worst place to be: mixed regime, shuffled split-half artefact at its
+   maximum (0.05 to 0.07), gap down in three species.
+4. **At kappa 4 replication doubles, uniformly.** Real split-half ARI
+   0.16 to 0.21 in every species (median gain +0.086 over kappa 0),
+   shuffled 0.01, so the gap is 0.15 to 0.20 and is not the coupling
+   artefact of Section 8's trap paragraph: on shuffled data the
+   orthology-driven partition does *not* replicate between halves,
+   because the ortholog graph alone has many equivalent cuts and noise
+   picks different ones. What stabilises the cut on real data is the
+   pooled within-species structure of eight species. BMED, the species
+   with the weakest own structure (Q_s 0.15 at kappa 4), gains most
+   (0.03 -> 0.16): its modules there are the other species' modules
+   projected through orthology.
+5. **The price**: at kappa 4 the partition is orthology-dominated, 7
+   modules per layer of roughly 2 500 genes, and per-layer Q_s falls
+   from about 0.6 to 0.15 to 0.29. The joint partition fits each
+   species' wiring poorly. There is no kappa that gives both decent
+   Q_s and improved replication at resolution 1; the objective flips
+   from per-species to orthology with nothing usable in between.
+6. **Half of what is left is optimiser noise.** Seed-to-seed ARI on the
+   full data is 0.3 to 0.5 at every kappa (two Leiden iterations), so
+   the split-half ARI is bounded by the optimiser, not only by the
+   data; gap / seed ARI is 0.05 to 0.28 at kappa 0 and 0.45 to 0.56 at
+   kappa 4. Consensus over seeds and subsamples (Section 6, item 5)
+   is the obvious next lever and should raise both numbers.
+
+Verdict against the P3 rule: **conditional go**. Coupling raises
+split-half replication materially in all eight species at kappa 4
+without the shuffled artefact rising, so the joint direction is not
+dead. But what replicates is a coarse shared partition, not
+per-species modules, at ARI 0.18 in absolute terms, and it is bought
+by giving up within-species fit. The result supports design A as a
+way to find conserved *cores* and argues against reading its
+per-species Q_s as divergence. It does not lift the n = 20 ceiling on
+within-species structure, which is exactly what 5.1 predicted, and it
+does not change the case for design D, whose null is placed where
+this ceiling does not apply.
+
+Next steps in order: (a) consensus over seeds and sample subsamples at
+kappa 4 with the null calibration of item 5, to see how much of the
+0.18 is optimiser noise; (b) a resolution sweep at kappa 4 (gamma
+below 1 was not tried; 7 modules is the resolution limit of modularity
+on a 4 M-edge graph); (c) the cpm engine's table for the effect of the
+cross-layer null; (d) root; (e) the design D probe, which needs
+SAMBA's scoring reimplemented and is independent of all of the above.
+
+## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
   one on the bioinformatics side (Section 4) and one on the
