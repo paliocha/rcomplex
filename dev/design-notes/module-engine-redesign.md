@@ -47,6 +47,14 @@ kept here as one of the candidate designs (Section 7, design C), but the
 branch is an analysis script with a ZDS interpretation on top, not an
 engine. Salvage the idea, not the branch.
 
+Added 2026-09-23 after Martin supplied Tanay 2002 and Ben-Dor 1999:
+design D (Section 7), significance-scored biclustering on the gene x
+sample graph with orthology as a shared row set, is the one candidate
+that removes the geometric-null problem instead of working around it,
+because its null is a random bipartite graph with fixed gene degrees,
+which is the shuffled-expression null in closed form. It should be
+probed beside A and B, not after them.
+
 ## 2. What is broken, with the measurements
 
 All numbers from the 2026-09-15 leaf-only diagnostics (n = 20 per
@@ -459,7 +467,96 @@ over any partition ensemble.
   3:e1525; same node set only); leidenAlg, leidenbase, netmem, cdlib:
   single layer or no multiplex section.
 
-### 5.10 Summary table
+### 5.10 Biclustering on the gene x sample graph
+
+Two papers Martin supplied on 2026-09-23 as "highly relevant", both read
+in full, plus the cross-species precedent they lead to.
+
+- **Tanay, Sharan & Shamir 2002 (SAMBA)**, Bioinformatics 18:S136,
+  doi:10.1093/bioinformatics/18.suppl_1.S136. Expression becomes a
+  bipartite graph, conditions U x genes V, with an edge when the gene's
+  standardised level in that condition is above 1 or below -1 (a signed
+  variant finds *consistent* biclusters by a reduction that doubles the
+  graph). A bicluster is a heavy subgraph. Weights are log-likelihood
+  ratios: an edge scores `log(p_c / p_uv)`, a non-edge
+  `log((1 - p_c) / (1 - p_uv))`, where `p_uv` is the probability of that
+  edge in a random bipartite graph with the observed degree sequence
+  (estimated by Monte Carlo) and `p_c > max p_uv` is the bicluster's
+  constant edge probability (0.9 in practice). So a bicluster's weight
+  *is* its significance against a degree-preserving null. Polynomial
+  algorithm under bounded gene degree d: hash every subset of each
+  gene's neighbourhood of size N1 to N2, keep the k heaviest bicliques
+  per gene, local add/remove improvement, greedy overlap filter. A
+  p-value by the Liapunov CLT on the weight of the best subgraph for a
+  fixed condition set, Bonferroni over condition subsets. Validation: a
+  random bipartite graph with the same degree sequence gives
+  significance values well separated from the real data (their Fig.
+  3c). 15 000 genes x 500 conditions in minutes on a 2002 PC. Software:
+  SAMBA shipped inside EXPANDER (Shamir lab, Java GUI); EXPANDER 7.2
+  (October 2017) is the last release and its page highlights ISA, not
+  SAMBA; no library, no CLI. A reimplementation is a few hundred lines.
+
+  Why it matters here (5.1): the null sits on the gene x sample
+  *response* graph, and gene-wise shuffling of expression is exactly a
+  random bipartite graph with fixed gene degrees. SAMBA's null is our
+  shuffled-expression null in closed form, and a gene x gene
+  correlation graph is never formed, so the RGG structure never
+  arises. With 20 samples a gene's neighbourhood has at most 20
+  conditions, so the bounded-degree algorithm is exact, not heuristic.
+  The price is binarisation: a bicluster says "these genes all respond
+  in these samples", not "these genes are correlated". On a 5 time
+  point x 4 replicate design that is close to what a co-expression
+  module means, and the signed variant keeps direction.
+
+- **Ben-Dor, Shamir & Yakhini 1999 (corrupted clique, CAST)**, J Comput
+  Biol 6:281, doi:10.1089/106652799318274. Generative model: the true
+  clustering is a clique graph (disjoint union of cliques) and the
+  observed similarity graph flips every edge and non-edge independently
+  with probability alpha < 1/2. PCC (theoretical) recovers the
+  clustering with high probability in O(n^2 log^c n) by sampling a small
+  core and classifying every other vertex by attraction; CAST
+  (practical) grows one cluster at a time by an affinity threshold t
+  with add *and remove* steps, then moves vertices to their
+  highest-affinity cluster until stable. Matlab, 1999; the model, not
+  the code, is the asset.
+
+  Why it matters: (i) it is the generative model behind rcomplex's
+  clique layer, a conserved module being a clique corrupted by noise,
+  and the per-species alpha is exactly the edge FDR measured on shuffled
+  data (HVUL 0.04, FPRA 0.37), so it says which species' networks are
+  recoverable at all (alpha near 1/2 is not); (ii) its independent-error
+  assumption is what the RGG violates (transitivity 0.18), so the
+  guarantee does not transfer to a thresholded correlation graph, which
+  is 5.1 stated a third way, while on SAMBA's bipartite graph it does
+  hold; (iii) CAST's add/remove clean-up is the step design C's seed
+  expansion lacks.
+
+- **Multi-species cMonkey** (Waltman et al. 2010, Genome Biol 11:R96,
+  PMC2965388; full text read via Europe PMC). The cross-species
+  biclustering precedent. Phase 1, shared space: biclustering over an
+  "orthologous core" (InParanoid families, paralogs allowed), where an
+  ortholog pair's membership score is a logistic combination of the two
+  species' single-species cMonkey scores, `pi_ik ∝ exp(b0 + b1 (g_U +
+  g_V))`, "easily extended to more than two organisms"; each species
+  keeps its own condition space, so a bicluster is a shared gene core
+  with a per-species condition set. Phase 2, elaboration: per-species
+  addition of species-specific genes with the core locked, and several
+  paralogs per family allowed. Three Firmicutes. R code was at
+  meatwad.bio.nyu.edu (not re-verified; cMonkey2, Reiss et al. 2015,
+  NAR, is the maintained successor and single-species). No explicit
+  null: scores are cMonkey's per-data-type likelihood P-values combined
+  under annealing, not SAMBA's statistical model.
+
+- Related, none with SAMBA's degree-corrected significance: Bergmann
+  2004 ISA across six organisms (Section 4); R `isa2` (CRAN) is ISA;
+  `biclust` (CRAN: Cheng-Church, Bimax, Plaid, Xmotifs, Quest,
+  spectral); `QUBIC` (Bioconductor; discretised expression, gene graph
+  weighted by shared levels, greedy expansion, C, fast); `fabia`
+  (Bioconductor; factor-analysis biclustering); Bi-EB (2022, empirical
+  Bayes cross-species multi-omics biclustering, PMC9690013,
+  unverified). None installed locally.
+
+### 5.11 Summary table
 
 | method | different-node-set layers via explicit inter-layer edges | resolution-free / MDL | significance or stability built in | correlation-native | software | 8 x 200 k edges | 8 x 6 M edges |
 |---|---|---|---|---|---|---|---|
@@ -484,6 +581,8 @@ over any partition ensemble.
 | clique percolation (Palla 2005) | no | k | no | no | igraph-based | fine | percolates on noise |
 | Paris (Bonald 2018) | no | dendrogram | no | no | scikit-network, cdlib | fast | fast |
 | link communities (Ahn 2010) | no | dendrogram | no | no | R `linkcomm` (not re-verified) | fine | heavy |
+| SAMBA (Tanay 2002) on gene x sample graph | orthology as shared HOG rows (design D), not edges | free; LLR weights | yes: degree-preserving bipartite null, CLT p-value | bypasses correlation entirely | EXPANDER 7.2 (2017, Java GUI); reimplement | trivial (degree <= 20) | n/a (no gene graph) |
+| multi-species cMonkey (Waltman 2010) | shared ortholog core + per-species conditions; paralogs allowed | annealed scores | no explicit null | expression-native | R 2010, unmaintained | n/a | n/a |
 
 ## 6. What to borrow
 
@@ -530,6 +629,19 @@ Ordered by how much of the problem each removes.
 10. **BESTest** (Peel et al. 2017) for the trait step: is the
     annual/perennial labelling of species informative about the module
     profile, against the correct label space.
+11. **SAMBA's null placement** (Tanay 2002): score modules on the
+    bipartite gene x sample response graph against the degree-preserving
+    random bipartite null, which is the shuffled-expression null in
+    closed form. The only item in this list that removes 5.1 instead of
+    working around it. Design D.
+12. **Corrupted-clique alpha** (Ben-Dor 1999) as the per-species
+    recoverability parameter: report the shuffled-data edge FDR per
+    species next to every module statistic, and use CAST's add/remove
+    clean-up in any seed expansion.
+13. **cMonkey's two phases** (Waltman 2010): a shared core across
+    species first, then per-species elaboration with the core locked.
+    That is "conserved core plus species-specific departure" as an
+    algorithm, and it is the shape Section 9 asks for.
 
 ## 7. Candidate designs
 
@@ -599,6 +711,40 @@ covers only seeded HOGs.
   `preservation_matrix_test()` gets a seed x species matrix rather than
   a module x species one; needs a small Rcpp port of ACL push or Python
   LocalGraphClustering.
+
+### D. Joint significance-scored biclustering on the gene x sample graph (SAMBA + orthology)
+
+Rows = (species, gene), columns = (species, sample). A joint bicluster
+is a set of HOGs H and, for every species s that carries it, a copy set
+from H and a sample set S_s. Its weight is the sum over species of
+SAMBA's log-likelihood-ratio weight on species s's (copies, S_s)
+subgraph; orthology enters as the shared H (cMonkey's phase 1), not as
+coupling edges, so there is no kappa. Seeds: per-species SAMBA
+bicliques (exact at degree <= 20), mapped to HOGs, joined across
+species where the HOG overlap is significant; CAST-style add/remove on
+the joint weight; then per-species elaboration with the core locked
+(cMonkey's phase 2).
+
+- Pro: the null is right at n = 20 and within-species significance is
+  honest without a shuffled control (5.1 removed, not worked around);
+  paralogs are rows and need no weighting rule; conservation is which
+  species contribute a copy set, divergence is a species whose copies
+  respond in no sample subset; the per-species sample sets say *when* a
+  module is deployed, which is what PR #4's deployment analysis wanted
+  and what no partition method gives, and they absorb tissue and time
+  point without a covariate model.
+- Con: no maintained software (SAMBA in EXPANDER 7.2, 2017, GUI only;
+  MSCM R code from 2010); binarisation at |z| > 1 discards correlation
+  magnitude; output is overlapping and non-exhaustive, so consumers
+  built for partitions get a bicluster x species matrix instead of a
+  module x species one; the joint weight's p-value needs the CLT plus
+  Bonferroni argument redone for a sum over species (same form).
+- Cost: SAMBA's core is a few hundred lines (hash the subsets of each
+  gene's <= 20-condition neighbourhood, keep the k heaviest, local
+  improvement); the joint step reuses `gene_clique_graph()`'s HOG
+  bookkeeping. Gate: P3 unchanged (split-half replication of bicluster
+  membership per species, real minus shuffled), plus SAMBA's own
+  calibration against a degree-preserving random bipartite graph.
 
 ### Not carried forward
 
