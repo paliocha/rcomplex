@@ -1294,6 +1294,92 @@ neighbourhood conservation (`compare_neighborhoods()`, the Crow AUROC)
 kept as the per-gene statistic. Design B (layered SBM) and the
 subsample consensus of the root cores remain unrun.
 
+### 11.5 Anchored cliques (Martin's proposal, 2026-09-24)
+
+Martin: co-expressolog cliques as anchors, within-species co-expression
+cliques around the anchor gene as the nucleus, compared across species
+through HOGs; and per anchor, a species x species matrix of the
+similarity of those nuclei. Scripts `p7_anchored_cliques.R` (probe)
+and `p7b_trait_readout.R` (matrix readout). Same top-25 graphs, halves
+and shuffles as before; every statistic cross-species or cross-half.
+
+Design: anchors selected on **half A only**, by a lightweight
+co-expressolog test (hypergeometric overlap of two genes' neighbour-HOG
+sets, single-copy HOGs, BH per species pair, q < 0.05, overlap >= 3)
+and a clique of >= 4 species in the significant-pair graph. Nucleus per
+species = union of the maximal cliques of size >= k containing the
+anchor gene; the other top-25 neighbours are the non-clique
+neighbours. Tests on **half B**: recurrence of nucleus HOGs across the
+anchor's species (nucleus3 = HOGs in >= 3 of them), against the same
+anchors on shuffled B and against degree-matched random anchors;
+replication of the nucleus between halves; and the pairwise Jaccard of
+nuclei across the anchor's species on the full data.
+
+| | leaf, k = 4 | leaf, k = 6 | root, k = 4 |
+|---|---|---|---|
+| anchors (half A) | 32 (21 x 4 species, 10 x 5, 1 x 7) | 32 | 43 (25 x 4, 13 x 5, 5 x 6) |
+| anchor-species pairs with no such clique, real (shuffled) | 0 (0) | 0.035 (**0.326**) | 0 (0) |
+| nucleus genes per species, median | 30 | 24 | 31 |
+| nucleus3 per anchor, real (random anchors; shuffled) | **4.3 (0.06; 0)**, 81 % of anchors >= 1 | 3.6 (0.00; 0), 75 % | **6.5 (0.02; 0)**, 98 % |
+| nucleus3 by anchor scope, 4 / 5 / 6 or 7 species | 2.5 / 7.1 / 14 | 1.9 / 6.2 / 13 | 5.0 / 8.2 / 10 |
+| nucleus HOGs in >= 2 species, real (random; shuffled) | 13.4 (0.9; 0.8) | 11.3 (0.3; 0.1) | 16.4 (0.9; 0.4) |
+| within-anchor contrast, fraction of HOGs recurring in >= 2 species, clique vs non-clique | 0.128 vs 0.000 | 0.142 vs 0.013 | 0.157 vs 0.000 |
+| replication A vs B, median Jaccard, real (shuffled) | 0.118 (0.000) | 0.121 (0.000) | 0.132 (0.000) |
+| pairwise nucleus Jaccard on full data, median, real (non-clique; random; shuffled) | **0.121 (0; 0; 0)** | 0.129 (0; 0; 0) | **0.159 (0; 0; 0)** |
+| species pairs sharing >= 3 nucleus HOGs, full data | 92 % | 90 % | 98 % |
+
+Trait readout on the pairwise matrices (`p7b`): concordant minus
+discordant mean Jaccard over between-genus pairs, aggregated over
+anchors, exact relabelling nulls: leaf -0.0005 (p 0.60 free, 0.63
+blocked), root +0.002 (p 0.37 free, 0.50 blocked). Nothing, at floors
+of 1/70 and 1/16 with 31 to 43 anchors.
+
+What it says:
+
+1. **The idea works, and it is the cleanest cross-species object so
+   far.** Around a conserved anchor there is a nucleus of a few HOGs
+   (2 to 14, growing with the anchor's scope) that recur in at least
+   three of its species on data the anchor was not selected on;
+   degree-matched random genes have essentially none, and shuffled
+   expression has none. Every species pair shares nucleus HOGs on the
+   full data. Specificity is as good as it gets on this design.
+2. **Absolute similarity is modest, as everywhere.** Nucleus Jaccard
+   between species is 0.12 to 0.16 and between halves 0.12; a quarter
+   of one half's nucleus is even among the other half's top-25
+   neighbours. The nucleus is a reproducible *core* of a few HOGs
+   inside a noisy neighbourhood, which is the same shape as the
+   kappa = 0 tight cores of Section 11.3, now with a cross-species
+   identity and a null.
+3. **Size-4 cliques are not selective within a species; size 6 is.**
+   On the top-25 graphs every gene sits in 4-cliques, real or
+   shuffled (geometry, 5.1), so the "clique" at k = 4 is the dense
+   neighbourhood and the within-anchor contrast is uninformative (the
+   non-clique remainder is 2 HOGs per anchor). At k = 6 a third of the
+   shuffled anchor-species pairs have no clique while 3.5 % of the real
+   ones do, at a cost of about 20 % of the nucleus. The clique
+   criterion buys within-species selectivity; the cross-species
+   nulls carry the inference either way.
+4. **Few anchors.** 32 and 43, because the lightweight test on a
+   10-sample half is conservative. The package's own co-expressolog
+   calls on the full data would give hundreds, at the price of
+   selecting and testing on the same samples; a proper version splits
+   the design once for selection and once for testing, or uses
+   subsamples.
+5. **The trait readout is exactly as powered as the note predicted.**
+   Per-anchor matrices feed the relabelling test directly, and with
+   two labellings tied at the top of a 16-element space nothing under
+   about 40 anchors of strong effect can reach p < 0.05.
+
+Verdict: adopt as the core layer of the engine sketch (Section 10's
+successor in the next note): anchors from co-expressologs, nuclei as
+k-cliques around the anchor with k chosen where shuffled data lose
+theirs, nucleus recurrence across the anchor's species against
+matched-random and shuffled nulls, per-anchor species x species
+matrices as the trait-test input. It replaces design C and makes PR
+#4's question answerable; the multilayer partition (design A) becomes
+the frame that groups anchors, and the time-point programs (design D)
+the response readout beside it.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
