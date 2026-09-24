@@ -623,6 +623,57 @@ in full, plus the cross-species precedent they lead to.
 | SAMBA (Tanay 2002) on gene x sample graph | orthology as shared HOG rows (design D), not edges | free; LLR weights | yes: degree-preserving bipartite null, CLT p-value | bypasses correlation entirely | EXPANDER 7.2 (2017, Java GUI); reimplement | trivial (degree <= 20) | n/a (no gene graph) |
 | multi-species cMonkey (Waltman 2010) | shared ortholog core + per-species conditions; paralogs allowed | annealed scores | no explicit null | expression-native | R 2010, unmaintained | n/a | n/a |
 
+### 5.12 Suresh et al. 2023 (primate MTG, Gillis lab): aggregation, conservation AUROC, expressolog
+
+Martin (2026-09-24 evening): read the paper (Nat Ecol Evol 7:1930) and the
+code (github.com/hamsinisuresh/Primate-MTG-coexpression, six R scripts).
+What the code actually does:
+
+1. **Consensus states across species** (MetaNeighbor one_vs_best AUROC on
+   within-species clusters, reciprocal best hits and AUROC > 0.6 in at
+   least one pair) gives 57 cell types shared by five primates. Not in
+   this repo (AllenInstitute/Great_Ape_MTG), but the idea is what a
+   data-driven alignment of the wood gradient needs: match the
+   published per-species section clusters (`DATA/sampleClusters/cct_*`)
+   across species by replicability instead of by annotation boundaries
+   or by my two-landmark warp.
+2. **Aggregate network** (`get_coexpression_network.R`): per state,
+   pseudobulk samples of 20 cells; Spearman correlation; the upper
+   triangle rank-standardised to [0, 1]; the 57 state networks summed
+   and rank-standardised again. Genes restricted to 4,500 by expression
+   breadth. This is CoCoCoNet-style meta-analysis: composition effects
+   cancel because each state contributes an equal-weight rank matrix.
+   The analogue here is per-tree networks (20 to 28 sections each) on
+   wood and per-tissue networks on Pooideae, rank-averaged; it is the
+   answer to the tree-split Jaccard of 0.04 in 11.7 that does not
+   throw away samples.
+3. **Co-expression conservation** (`get_coexpression_conservation.R`):
+   top-10 neighbours of gene i in species 1 as a 0/1 row, multiplied by
+   species 2's rank matrix, gives for every gene j of species 2 the
+   rank-sum of i's neighbours in j's row; the analytic AUROC of that
+   sum; the score is the ortholog's AUROC, and the **specificity** is
+   the rank of the ortholog's AUROC among all j (`roc_bg_predict`),
+   bidirectional and averaged. That is the co-expressolog test with a
+   continuous, self-calibrated null: no hypergeometric, no discrete
+   FDR, and paralogs surface as the best-ranked j rather than being
+   excluded. It also matches the AUROC conservation that already
+   worked on the leaf diagnostics.
+4. **Expressolog score** (`get_expressolog_score.R`): Pearson
+   correlation of the two orthologs' profiles across the 57 matched
+   states, ranked against all other genes of the other species, as an
+   AUROC; computed at class, subclass and cluster level and averaged.
+   Needs matched states; on our data those are the five time points or
+   the eight gradient bins, so it is coarse but defined.
+5. **Divergence** = expressolog < 0.55 in a class and co-expression
+   conservation human-vs-mammal below mammal-vs-mammal (one-sided
+   Wilcoxon over species pairs, BH) on 22 CoCoCoNet species. The test
+   is one species against many; with six or eight species and a
+   balanced contrast the pairs are as dependent as our labellings, so
+   the form transfers and the power does not.
+
+Limits for us: 1:1 orthologs only (14,131), bulk meta-networks from
+thousands of samples, and a single-species divergence question.
+
 ## 6. What to borrow
 
 Ordered by how much of the problem each removes.
@@ -681,6 +732,21 @@ Ordered by how much of the problem each removes.
     species first, then per-species elaboration with the core locked.
     That is "conserved core plus species-specific departure" as an
     algorithm, and it is the shape Section 9 asks for.
+
+
+Added 2026-09-24 evening from Suresh et al. 2023 (5.12):
+
+14. **Rank-aggregated networks across replicate units** (per tree, per
+    tissue): equal-weight rank matrices summed and re-ranked. Removes
+    tree and composition effects without splitting samples.
+15. **Conservation AUROC with a specificity rank** as the co-expressolog
+    score: continuous null, paralog-aware, replaces the hypergeometric
+    and the discrete-FDR item in Section 9.
+16. **Replicability-matched states** (MetaNeighbor one_vs_best) to align
+    the wood gradient across species from the published section
+    clusters, in place of annotation boundaries or landmark warps.
+17. **Expressolog profile score** over matched states as the per-gene
+    complement of the program-level shape coherence.
 
 ## 7. Candidate designs
 
