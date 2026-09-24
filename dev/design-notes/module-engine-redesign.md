@@ -1714,6 +1714,100 @@ rule, or a congener pair dominates. And the trait readout has to
 start from the number of programs at the attainable floor against its
 expectation, before any program is read.
 
+### 11.9 Two Suresh borrows tried: rank aggregation and the specificity score (2026-09-24 night)
+
+Martin: "Try the first two (network agg. and conservation score)".
+Script `p13_agg_cons_probe.R <pooideae|wood> [n_genes] [skip_loto]
+[pair_from]`, 8,000 top-variance HOG-mapped genes per species,
+Spearman networks rank-standardised as in `get_coexpression_network.R`,
+six species pairs per dataset. Outputs under `p13_wood/` and
+`p13_pooideae/` (the first run died when macOS revoked the directory
+during a write; the rerun writes to the session scratchpad and the
+files were copied back).
+
+**Aggregation.** Wood, leave one tree out: the network of the held-out
+tree against a network built from the other trees either by pooling
+their sections or by rank-averaging their per-tree networks (Suresh's
+aggregate). Reproducibility as the mean AUROC of the training top-25
+neighbourhood in the test tree's rank rows, and the top-25 Jaccard.
+
+| species (trees) | pooled AUROC / Jaccard | aggregate AUROC / Jaccard | shuffled test |
+|---|---|---|---|
+| Asp (4) | 0.981 / 0.205 | 0.981 / 0.206 | 0.500 / 0.002 |
+| Cher (3) | 0.929 / 0.062 | 0.925 / 0.058 | |
+| Lodge (3) | 0.915 / 0.073 | 0.914 / 0.073 | |
+| Scots (3) | 0.907 / 0.072 | 0.911 / 0.075 | |
+| Birch (3) | 0.888 / 0.043 | 0.880 / 0.034 | |
+| Nor (3) | 0.835 / 0.035 | 0.831 / 0.032 | |
+| all 19 trees | 0.913 / 0.088 | 0.911 / 0.086 | |
+
+Aggregation over trees gives nothing over pooling, and for the
+cross-species step it costs calls (below). Two other things the table
+says: the fourth aspen tree lifts the held-out AUROC from 0.93 to 0.98,
+so sample count, not tree effects, limits the wood networks; and a
+neighbourhood AUROC of 0.9 coexists with a top-25 Jaccard of 0.09, the
+same lesson as the leaf diagnostics, set overlap is the wrong
+reproducibility measure at this depth. On Pooideae the aggregate is
+over tissues (leaf and root rank-averaged), where it did help (below).
+
+**Conservation score.** For gene i of species 1, its top-25 neighbour
+HOGs mapped to every copy in species 2 as a 0/1 row, times species 2's
+row-rank matrix, gives an analytic AUROC for every species-2 gene j;
+the specificity is the rank of the ortholog's AUROC among all j,
+averaged over both directions; the best copy pair per HOG is kept.
+Calibration: the same score against a partner network built from
+per-gene sample-permuted expression, calls at the threshold where
+shuffled calls are at most 5 % of real calls. Same universe and same
+top-25 sets for the hypergeometric-lite test (best copy pair, Sidak,
+BH q < 0.05, overlap >= 3), also run against the shuffled partner.
+Means over six pairs:
+
+| network | spec calls at 5 % FDR | hypergeometric calls (on shuffled) | Jaccard of call sets | best copy not the top-variance copy |
+|---|---|---|---|---|
+| Pooideae leaf | 455 | 453 (112) | 0.33 | 0.65 |
+| Pooideae root | 989 | 493 (8) | 0.33 | 0.69 |
+| Pooideae leaf+root aggregate | 1,137 | 465 (0) | 0.32 | 0.67 |
+| Pooideae leaf+root pooled | 1,589 | 751 (0) | 0.36 | 0.66 |
+| wood pooled sections | 697 | 434 (0) | 0.27 | 0.70 |
+| wood tree aggregate | 578 | 380 (1) | 0.23 | 0.73 |
+
+Per pair on wood (pooled): Scots-Lodge 1,700 against 1,423, Nor-Scots
+420 against 557, Asp-Birch 882 against 255, Birch-Cher 1,117 against
+344, Asp-Nor 5 against 1, Cher-Lodge 57 against 21.
+
+Readings.
+
+1. **The hypergeometric is anti-conservative on the n = 20 leaf
+   networks**: 112 of 453 calls per pair recur on a partner whose
+   expression was shuffled (25 % empirical FDR), against 8 of 493 on
+   root and none on the aggregates. Ties and sparse genes survive a
+   permutation of samples, and the hypergeometric has no way to see
+   them; the specificity score is calibrated against exactly that.
+2. **At matched FDR the specificity score calls two to three times as
+   many pairs** on root, on the tissue aggregate and on the angiosperm
+   tree pairs, the same number on leaf, and fewer only on Nor-Scots.
+   The call sets overlap at Jaccard 0.3: the hypergeometric calls are
+   nearly all high-specificity (0.97), the score adds pairs whose
+   overlap is small in count but specific in rank.
+3. **Paralogs matter**: in two thirds of multi-copy calls the best
+   pair is not the two top-variance copies, on both datasets and all
+   network types.
+4. **Tissue aggregation helps on Pooideae, tree aggregation does not on
+   wood.** The leaf+root rank-average calls 1,137 against 455 and 989
+   for the single tissues with zero false hypergeometric calls, and
+   sits below the pooled 1,589 that carries the tissue axis (the
+   confound in the memory note). Aggregating over units that differ in
+   state removes the state axis; aggregating over replicate trees only
+   throws away sample size.
+5. **Cross-lineage wood pairs stay near zero** under either score
+   (5 to 57 calls), so the anchor asymmetry of 11.7 is in the data,
+   not in the test.
+
+For the engine: replace the hypergeometric co-expressolog test by the
+specificity score with shuffled calibration (this also retires the
+discrete-FDR item in Section 9), keep best-copy pairs, and offer
+rank-aggregation across contexts (tissues) but not across replicates.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
