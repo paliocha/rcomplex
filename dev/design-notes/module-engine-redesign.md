@@ -1536,6 +1536,118 @@ engine needs either a per-lineage anchor quota or, better, the
 within-lineage co-expression clique as an alternative anchor when the
 cross-lineage co-expressolog clique is absent.
 
+### 11.8 Version 2 of the anchored engine on both datasets (2026-09-24 evening)
+
+Martin: "DO that for both the Pooideae and wood data", after the
+improvement list in 11.7. Shared engine `engine2.R` (Pooideae drivers
+`p10_regulons_v2.R` per tissue, `p11_score_v2.R`; wood driver
+`w5_regulons_v2.R`; all under `prepare_data/`, gitignored). What
+changed, in the order of 11.7:
+
+1. **Species-level cross-fitting instead of sample halves.** Networks
+   on all samples. Validation is leave-one-species-out: anchors are
+   re-selected from the pairs that do not involve the held-out
+   species, and its nucleus around the ortholog is scored by the HOGs
+   it shares with the reference nuclei (HOGs in at least two of the
+   anchor's scope nuclei), against the held-out species' shuffled
+   network and against ten degree-matched random genes.
+2. **Blocks.** Congeners count once: an anchor clique must span
+   `min_blocks` blocks (Pooideae: four species over three genera; wood:
+   two species over two blocks with Scots and Lodge one block, so a
+   conifer anchor needs spruce plus a pine). Nulls are enumerated as
+   unordered partitions where possible; on Pooideae the 16 genus flips
+   keep the complement tie, so the floor is 2/16 (and 2/70 free).
+3. **Best paralog pair.** Every copy pair up to five copies a side is
+   tested, the minimum p is Sidak-corrected for the pairs tried, BH per
+   species pair. Tests rose from 59k to 110k on wood and significant
+   pairs from 1.8k to 6.5k; on Pooideae 284k / 272k tests with 12.9k /
+   19.4k significant (leaf / root).
+4. **Scores on member genes, paralogs averaged per HOG**, so copy
+   number no longer weights a HOG; per-replicate bin means (plants on
+   Pooideae, trees on wood) with a 200-fold bootstrap band and CI, and
+   |split| also in units of the pooled replicate SD.
+5. **Wiring at HOG level** (any copy pair is an edge) with a z against
+   100 random HOG sets matched for copy number.
+6. **Wood landmarks.** Each tree is re-warped on the peak of a cambium
+   set (PXY, WOX4, ANT, ATHB8, LBD1, LBD4) and of a secondary-wall set
+   (CESA4/7/8, COBL4, IRX9, GUT1), running mean over three sections,
+   mapped to 0.31 and 0.60; all 19 trees had the cambium peak before
+   the wall peak. Per-tree peaks of every program (loess over sections)
+   are drawn as a strip and summarised as the lineage peak offset.
+7. **Names.** 1,283 further Pooideae HOGs named by NCBI Gene on the
+   Brachypodium locus tag; 754 wood HOGs without an Arabidopsis member
+   named from the spruce eggNOG annotation (marked with an asterisk).
+
+Grouping changed too: merged groups are the connected components of
+**mutual** anchor-nucleus links only, and a merged program is emitted
+only when its union has at most 30 HOGs. Connected components of
+one-directional links had swallowed the map (a 397- and a 740-HOG
+"group" on Pooideae, 3,485 on wood).
+
+| | Pooideae leaf | Pooideae root | wood |
+|---|---|---|---|
+| anchors | 431 | 668 | 2,175 |
+| anchors spanning both sides | 407 | 599 | 167 |
+| LOSO tests (anchor x held-out species) | 2,488 | 3,887 | 6,634 |
+| shared HOGs, real / shuffled / random | 5.50 / 0.05 / 0.10 | 5.04 / 0.07 / 0.10 | 0.61 / 0.00 / 0.02 |
+| held-out species on the anchors' own side | 5.53 (82 % >= 1) | 5.10 (80 %) | 1.08 (43 %) |
+| held-out species on the other side | 2.41, n = 27 (70 %) | 2.72, n = 100 (76 %) | 0.15, n = 3,360 (11 %) |
+| weakest held-out species | BMED 3.16 | BMED 1.83 | Asp 0.36, Nor 0.38 |
+| programs with >= 4 HOGs (merged) | 1,063 over both tissues (39 merged) | | 2,095 (145 merged) |
+
+Readings.
+
+1. **The cross-fit confirms the unit on Pooideae and qualifies it on
+   wood.** A held-out grass recovers five to seven of the reference
+   HOGs around the ortholog against a tenth of one for random genes,
+   in 80 % of anchors, and the trait side of the anchor does not
+   matter (2.4 to 2.7 shared HOGs when the held-out species is from
+   the other trait). On wood a held-out tree species recovers 0.6, and
+   0.15 across the lineage boundary, ten times the random level but a
+   nucleus that only rarely exists on the other side. Spruce is the
+   weakest conifer (0.38) and aspen the weakest angiosperm (0.36).
+2. **Anchor coverage on wood is repaired but not symmetric.** 167
+   anchors now span both lineages (was 4) and the angiosperm pairs
+   carry 430 to 600 significant co-expressologs (was 55 to 174), but
+   the Pinus pair still carries 2,702 against 900 for spruce-pine and
+   the cross-lineage pairs 39 to 71. 1,014 of 1,593 scored wood
+   programs sit at the blocked floor (1/4) against 398 expected, which
+   is the one-sided anchoring, not lineage biology.
+3. **On Pooideae the trait is not the axis that organises the
+   programs.** Of 1,061 scored programs, 62 (leaf) and 73 (root) put
+   the true annual/perennial labelling at the blocked floor of 2/16,
+   against 133 expected under exchangeability. Fewer than expected
+   means the within-genus annual-minus-perennial differences carry
+   mixed signs across genera more often than not, so the trait
+   grouping cancels them where a genus flip does not. Programs that do
+   divide the traits exist (galactoside fucosyltransferase, ELF3-like,
+   peroxidase 2, CML31, LHCII), each with a coherent course on both
+   sides, but there is no excess of them.
+4. **Wood divergences with both sides coherent** are of the kind 11.7
+   suggested, now with tree-level peaks: AtSS2 (starch synthase 2),
+   WVD2/WDL1 and APX3 nuclei are angiosperm-anchored, coherent in both
+   lineages (r 0.7 to 0.97), and peak a zone apart; FLY2/FLY1 is
+   anchored in aspen, spruce and lodgepole pine, coherent on both sides
+   at r 0.95 / 0.91, and the angiosperms peak 0.12 axis units later
+   than the conifers at the wall stage. The AtMC9 one-zone offset of
+   11.7 is not among the top coherent divergences on the landmark
+   axis.
+
+Artifacts: "Pooideae Regulon Course" version 4,
+https://claude.ai/artifact/ESPjqBzfs2hXrZQn1h2qxn; "Wood Regulon
+Gradient" version 3, https://claude.ai/artifact/83Lyauv8DC3YkieCvkRYan.
+Both pages: rank by expression, wiring, both or coherent divergence;
+scope filter for anchors on both sides; hash parameters
+`#rank=coh&show=merged&scope=both&ctx=root`.
+
+For the engine, three things carry over. The anchor step should
+select on all samples and validate by leaving a species out; sample
+halves were the wrong holdout for data with three replicates. Anchor
+scope must be reported per side and the blocks must enter the clique
+rule, or a congener pair dominates. And the trait readout has to
+start from the number of programs at the attainable floor against its
+expectation, before any program is read.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
