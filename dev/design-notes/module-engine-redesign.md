@@ -1515,6 +1515,20 @@ warping; the offsets run both ways, so they are not one systematic
 boundary shift. Artifact: "Wood Regulon Gradient",
 https://claude.ai/artifact/83Lyauv8DC3YkieCvkRYan.
 
+Diagnosis of the asymmetry (scratchpad `w_diag.R`, same half-A test
+per species pair): the significant co-expressolog-lite pairs are
+Scots-Lodge 1,016 of 6,714 shared single-copy HOGs (15 %), Nor-Scots
+244 and Nor-Lodge 243 (4 %), Birch-Cher 174 (3 %), Asp-Birch 54 and
+Asp-Cher 56 (1.5 %), and every cross-lineage pair 0 to 7. The conifer
+anchors are the Pinus congeners plus spruce; the angiosperm trio's
+weakest links run through aspen, which has 5,946 single-copy HOGs
+against 8,000 to 9,200 elsewhere (salicoid WGD). And the tree split
+itself is thin: the top-25 edge sets of half A and half B overlap at
+Jaccard 0.04 in five species (0.015 in spruce with 14 sections on B),
+0.21 in aspen with two trees a side. The half-B nucleus tests were run
+against networks that barely reproduce half A's edges, which is why
+nucleus3 is 0.86 here against 2.4 to 4.1 on Pooideae.
+
 For the engine: the anchor step's coverage bias is now measured on a
 second dataset and is the design's main exposure. An anchor set that
 is 90 % one lineage cannot be read against that lineage's trait; the
