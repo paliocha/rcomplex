@@ -1451,6 +1451,77 @@ What it says:
    co-expression also groups genes by expression class; a function
    annotation is not evidence that a nucleus is a regulon.
 
+### 11.7 Wood replication (EVOTREE data, 2026-09-24 evening)
+
+Martin: "Redo the same module detection and visualisation with the
+wood data." Same anchored-clique pipeline on the Rodriguez et al. 2026
+wood-formation series (aspen, birch, cherry; Norway spruce, Scots pine,
+lodgepole pine), scripts `prepare_data/evotree/module-probe/w0-w4`.
+Samples are tangential cryosections per tree (Asp 106 samples / 4
+trees, Birch 66 / 3, Cher 82 / 3, Nor 65 / 3, Scots 84 / 3, Lodge
+84 / 3); halves are odd versus even trees, so half B of spruce has 14
+samples. The gradient is warped per species into the four published
+section zones (phloem-cambium, expansion, secondary wall, maturation)
+and binned into eight steps for the page. Parameters as on Pooideae
+except `min_species = 3` (six species instead of eight) and the
+lineage contrast angiosperm versus conifer with its ten unordered
+3-versus-3 relabellings (floor p = 0.1).
+
+| | wood, k = 4 |
+|---|---|
+| co-expressolog-lite tests on half A (significant) | 59,002 (1,827; 3.1 %) |
+| anchors (clique >= 3 species) | 103 (101 of size 3) |
+| anchor scope | 93 conifer-only, 6 angiosperm-only, 4 mixed |
+| nucleus3 on half B: real / shuffled / random | 0.86 / 0 / 0.01 |
+| anchors with >= 1 recurrent nucleus HOG on B | 44 % |
+| replication A vs B, median Jaccard: real / shuffled | 0.136 / 0 |
+| pairwise nucleus Jaccard (full): real / B / shuffled / random | 0.094 / 0.043 / 0 / 0 |
+| programs (merged groups) | 115 (12); 76 with >= 3 HOGs |
+
+Three things differ from Pooideae.
+
+1. **The anchors are almost all conifer cliques.** The two pines and
+   spruce share far more co-expressologs than aspen, birch and cherry,
+   which belong to three orders; 93 of 103 anchors are Lodge/Nor/Scots
+   cliques. So a wood program is wired in conifers by selection, and
+   the angiosperm side of every comparison is unselected. The page
+   states this and adds a within-lineage **shape coherence** (mean
+   Pearson correlation of the binned courses between the species of a
+   lineage) so a reader can see whether the angiosperm orthologs still
+   form a program at all; the "coherent divergence" ranking multiplies
+   the split by the smaller coherence. Half of the 62 scored programs
+   sit at the expression floor p = 0.1 against 6 expected, which is
+   this selection bias, not lineage biology.
+2. **The nuclei are weaker but still clean.** nucleus3 is 0.86 against
+   2.4 to 4.1 on Pooideae leaf and root, and only 44 % of anchors carry
+   any recurrent nucleus HOG on half B; the shuffled and random
+   controls are at zero as before. Half B has three trees per species,
+   and in spruce 14 sections, so the replication half is thin.
+3. **The one program anchored in all six species is the secondary-wall
+   program** (CESA4 / CESA8 / TRM30 group, 18 HOGs), and it is the most
+   conserved course on the page (|split| 0.15, p 0.5): the positive
+   control the wood series was published on.
+
+What the coherent-divergence ranking surfaces (both lineages coherent,
+r >= 0.8 within each, courses differ): the AtMC9 (metacaspase 9,
+xylem cell death) nucleus peaks at secondary wall in conifers and one
+zone later, at maturation, in all three angiosperms; the POK2 / kinesin
+(cytokinesis) nucleus stays high through expansion in angiosperms and
+falls earlier in conifers; the pectinesterase / AtDMP7 nucleus and the
+GUT1 (IRX10) / FLA15-16 / GPK1 nuclei show the same one-zone offsets
+in opposite directions. Whether these are heterochrony or where each
+species' published zone boundaries fall is not separable on this
+warping; the offsets run both ways, so they are not one systematic
+boundary shift. Artifact: "Wood Regulon Gradient",
+https://claude.ai/artifact/83Lyauv8DC3YkieCvkRYan.
+
+For the engine: the anchor step's coverage bias is now measured on a
+second dataset and is the design's main exposure. An anchor set that
+is 90 % one lineage cannot be read against that lineage's trait; the
+engine needs either a per-lineage anchor quota or, better, the
+within-lineage co-expression clique as an alternative anchor when the
+cross-lineage co-expressolog clique is absent.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
