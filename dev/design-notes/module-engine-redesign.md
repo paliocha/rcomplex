@@ -918,6 +918,17 @@ If the gate passes, the change is a contraction, not an addition.
 | `tag_permutation()` | unchanged |
 | K = 1 test (`test_k1`) | retire: wrong null (Section 2); replaced by the shuffled-expression control and by MDL model selection where an MDL backend is used |
 
+One correction that predates the engine and applies to its foundation
+(Martin, 2026-09-24): `summarize_comparison()`'s pair-level
+hypergeometric tests have a different discrete support per gene pair,
+and Liang's method in DiscreteQvalue assumes one shared support, which
+only the permutation HOG test has. The right procedure for the pair
+level is the Döhler, Durand and Roquain (2018) discrete step-up (a
+BH-type procedure using each test's own support, FDR control under
+independence). Two routes: DiscreteFDR as a new dependency, or about
+40 lines in-house with DiscreteFDR in Suggests to test against. The
+anchor step of Section 11.5 used plain BH and inherits the same fix.
+
 Circularity, stated once: with kappa > 0 a module is found partly
 *because* its orthologs co-cluster, so "is module c preserved in species
 s" cannot be tested by a within-species permutation of the same genes.
@@ -1379,6 +1390,66 @@ matrices as the trait-test input. It replaces design C and makes PR
 #4's question answerable; the multilayer partition (design A) becomes
 the frame that groups anchors, and the time-point programs (design D)
 the response readout beside it.
+
+### 11.6 What the anchored nuclei are (annotation, 2026-09-24)
+
+Martin: "Does this surface any biology in the example data?" Nuclei
+recomputed on the full data (`p7c_nucleus_members.R`, k = 4, HOGs in
+>= 3 of the anchor's species), annotated through the Brachypodium
+member of each HOG via NCBI Gene (RefSeq descriptions, 747 of 785
+genes; barley has almost no UniProt cross-references in Ensembl,
+21 of 650). Anchors were grouped by connected components of the
+anchor-to-nucleus links among anchors: leaf 32 anchors in 15 groups,
+root 43 in 9. Full listings: `anchored_nucleus_members_<tissue>_k4.tsv`
+and `bdis_annotation_ncbi.tsv`.
+
+The groups are canonical regulons, named here by their members:
+
+| group (tissue) | anchors | nucleus members (Brachypodium RefSeq names) | reading |
+|---|---|---|---|
+| leaf 1 / root 2, 7 species | SPX5, SPX6, SQD2, NIGT1, VIP1, inorganic pyrophosphatase 1, UGPase 3, LTI6A, FadD26 | SPX1, MGD2, GDPD1/2, sn1-DAG lipase, PAP15/22/23, NPC-type PI-PLC X, U-box 33, SPX membrane protein | **phosphate-starvation response**: PHR1/SPX signalling with the VIP1 InsP8 sensor, NIGT1, and the phospholipid-to-galacto/sulfolipid remodelling enzymes; the same nucleus in both tissues |
+| root 1, 8 species | expansin A17, XTH26, extensin, AGP30, peroxidase 1/7, blue copper protein, IQD14, SFH3 (COW1), PBL23 | endoglucanases, ROP-GEFs, XTH12, peroxidase 5, WRKY25, MIZU-KUSSEI 1 | **root hair / cell expansion**: ROP-GEF and SFH3 tip growth, wall loosening, hydrotropism |
+| root 3 | GPAT5, BODYGUARD 3, GPAT6, peroxidase 11, cytochrome b561 DOMON, ADIPOR1 | CASP-like 1C1, GDSL lipases, KCS1, LTP, laccases, MYB93, PELPK1 | **suberin / Casparian strip** endodermal barrier, with its regulator MYB93 |
+| root 4 | RAP2-3 and ERF071 (group VII ERFs), prolyl 4-hydroxylase 6, stearoyl-ACP desaturase | plant cysteine oxidases 1/2/3, RBOH, PHOS32/34, LOB42, CYP73A | **low-oxygen response**: the ERF-VII / PCO N-degron oxygen sensing module, anchored in HVUL in all five |
+| root 7 | G6PD2, 6PGD2, FNR root isozyme | nitrite reductase, nitrate reductase, GS1, APR1, MDAR5, root ferredoxin, PGI | **root nitrate assimilation** with the OPPP reductant supply |
+| root 8 | MTR-1-P isomerase, DEP1, DMAS1 | NAS, NAAT, ARD, MTK, MTN, YSL9, ZIF1, ZTP29, FIT | **Strategy II iron uptake**: phytosiderophore synthesis fed by the methionine salvage cycle, grass-specific |
+| root 6 | LTI65 | dehydrins DHN3/4, Rab16B, Rab21, LEA6/14, DC-8, PM19L, aldose reductase | **ABA / dehydration** LEA module |
+| root 5 | four uncharacterised | PTM, BIG, PIE1, LSD1-like, BRM, MED12, UPL3, PRP8 | large nuclear regulators; co-expressed by size and expression class rather than function |
+| leaf 2 | PSI subunits II, VI, XI; CP26; OEE2 | LHCII, PSI-O/IV/III/V/psaK, PSII 5 kDa, OEE1, beta-amylase | **light harvesting**; anchored only in BMAX, BSYL, FPRA, BMED (and once VBRO), not in BDIS, HVUL, HJUB |
+| leaf 3, 9 / root 9 | HSA32, HSP70-8, BAG6, LIFEGUARD 2 | ClpB, sHSPs, DnaJ, HOP | **heat shock**; BMAX, BSYL, FPRA, VBRO |
+| leaf 4, 6 | RPL26, RPS17, RPS4 | cytosolic ribosomal proteins, EF1 subunits | cytosolic translation |
+| leaf 7, 8 | plastid RPL21, RP3 | plastid ribosomal proteins | plastid translation |
+| leaf 10, 12, 14 | plastocyanin, FBPase, an uncharacterised gene | RbcS, transketolase, GAPDH A, SBPase, PGK, glycine cleavage H, CP41 | **Calvin cycle / photorespiration** |
+| leaf 11 | chalcone-flavonone isomerase 3 | CHS, PAL, CHI, C-glucosyltransferase, CYP93G2, MYB P | **flavone biosynthesis** with its MYB, in BDIS, BMAX, HJUB, HVUL |
+| leaf 13, 15 | uncharacterised; FLA16 | PTAC10/12, tRNase Z; RLK, GAUT-like, GT | plastid transcription; wall glycosylation |
+
+What it says:
+
+1. **The unit finds biology, and the biology is conserved regulons.**
+   Every group with more than one anchor is a known co-regulated
+   program (phosphate starvation, root hair growth, suberin, hypoxia,
+   nitrate assimilation, iron uptake, dehydration, light harvesting,
+   heat shock), recovered from 20 samples per species by cross-species
+   recurrence alone, with no annotation used in the selection. The
+   phosphate module is the same nucleus in leaf and root across seven
+   species, down to the InsP8 sensor and the lipid-remodelling enzymes.
+2. **Anchors are not independent; they are cores of the same module.**
+   The 32 and 43 anchors reduce to about a dozen programs, and within a
+   program the anchors anchor each other's nuclei. That is the
+   structure the engine's joint frame (design A) should organise: one
+   module per program, many anchors per module.
+3. **Species coverage of a program is a result in itself.** Light
+   harvesting anchors only in BMAX, BSYL, FPRA and BMED; heat shock in
+   BMAX, BSYL, FPRA and VBRO; hypoxia in HVUL every time; iron uptake
+   rarely in the Hordeum pair. Whether these are biology (sampling
+   stage, annual leaves senescing), design (which species carry a
+   co-expressolog clique on half A) or data quality (edge FDR) is
+   exactly what the per-species reliability and the split-selection
+   version of the anchor step have to separate before any of it is
+   read against the trait.
+4. The nuclear-regulator group (root 5) is the reminder that
+   co-expression also groups genes by expression class; a function
+   annotation is not evidence that a nucleus is a regulon.
 
 ## 12. Sources and provenance
 
