@@ -29,7 +29,7 @@ mr_block_network_cpp(
 \value{
 List with dgCMatrix slots \code{i}, \code{p}, \code{x}, the \code{threshold} and
 \code{store_threshold}, the number of joined candidate pairs
-\code{n_candidates}, and the grid \code{fraction} that sufficed.
+\code{n_candidates}, and the rank \code{fraction} that sufficed.
 }
 \description{
 Blockwise sparse mutual-rank network

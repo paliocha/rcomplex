@@ -80,6 +80,8 @@ for (mode in names(block_modes)) {
   }
 }
 
+# The rank fraction starts at 3 * store_density: raw MR passes there on
+# this fixture, log MR's looser bound forces widening (by 1.5x, up to 1).
 test_that("block network widens the candidate fraction when needed", {
   x <- block_fixture(60, 12, 1)
   for (m in block_modes[c("pearson_raw", "pearson_log")]) {
@@ -90,7 +92,11 @@ test_that("block network widens the candidate fraction when needed", {
     )
     blk <- run_block(block_zt(x, "pearson"), m, store_density = 0.1)
     expect_identical(net_slots(blk), net_slots(ref))
-    expect_gt(blk$fraction, 2 * 0.1)
+    if (m$log) {
+      expect_gt(blk$fraction, 3 * 0.1)
+    } else {
+      expect_equal(blk$fraction, 3 * 0.1)
+    }
   }
 })
 

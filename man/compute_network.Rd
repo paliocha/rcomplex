@@ -78,11 +78,12 @@ speedup instead. On CUDA, float64 is used with no precision tradeoff.}
 
 \item{block_size}{\code{NULL} (default) builds the dense n x n matrix first.
 A positive whole number builds the network a block of genes at a
-time; the correlation blocks take \code{block_size * n} memory instead of
-\code{n^2}, but the candidate pairs are held in memory as well, and at the
-default \code{store_density} they are about a fifth of all pairs, so peak
-memory is currently above the dense build (8.7 against 5.1 GB at
-n = 20,000). The result equals the dense build up to floating-point
+time and never forms the n x n matrix: each gene keeps only its
+partners in the top fraction of its correlation ranks, which at the
+default \code{store_density} is 15\% of all pairs held at 8 bytes each. On
+BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
+1.2-1.4 GB against 5.1 GB for the dense build, in 6.8-7.4 s against
+8.2 s. The result equals the dense build up to floating-point
 near-ties between correlations: the two builds compute correlations
 with different BLAS calls, so two correlations of one gene that differ
 only in the last bits can be ranked in the other order, shifting an MR

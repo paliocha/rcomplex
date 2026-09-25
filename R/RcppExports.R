@@ -390,7 +390,7 @@ compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2,
 #' @param n_cores Number of OpenMP threads.
 #' @return List with dgCMatrix slots `i`, `p`, `x`, the `threshold` and
 #'   `store_threshold`, the number of joined candidate pairs
-#'   `n_candidates`, and the grid `fraction` that sufficed.
+#'   `n_candidates`, and the rank `fraction` that sufficed.
 #'
 #' @keywords internal
 mr_block_network_cpp <- function(zt, log_transform, abs_cor, density, store_density, block_size, n_cores) {
