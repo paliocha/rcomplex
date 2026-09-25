@@ -13,7 +13,7 @@ resolve_ortholog_map(
   edges = NULL,
   cliques = NULL,
   rank_by = c("effect_size", "jaccard", "q.value"),
-  alpha = 0.05
+  alpha = 0.1
 )
 }
 \arguments{
@@ -38,7 +38,7 @@ column per species holding a gene identifier or \code{NA}, and \code{n_species}.
 (default), \code{"jaccard"}, or \code{"q.value"} (lower is better).}
 
 \item{alpha}{Significance threshold applied to \code{edges$q.value} when the
-table has no \code{type} column (default 0.05).}
+table has no \code{type} column (default 0.1).}
 }
 \value{
 A data frame with columns:

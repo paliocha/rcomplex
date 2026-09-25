@@ -1,5 +1,20 @@
 # rcomplex 0.3.1
 
+- **Every q-value call threshold now defaults to 0.1.** `alpha` in
+  `find_coexpressologs()`, `density_sweep()`, `summarize_comparison()`,
+  `summarize_specificity()`, `comparison_to_edges()`,
+  `resolve_ortholog_map()`, `coexpressolog_strength()`, the clique tests
+  (`clique_threshold_sweep()`, `clique_perturbation_test()`,
+  `clique_intensity_test()`), `module_preservation()`,
+  `classify_preservation()`, `preservation_paired()` and
+  `classify_hub_conservation()` moves from 0.05 to 0.1, the level
+  `gene_clique_graph()` and `classify_gene_cliques()` already used, so one
+  pipeline no longer mixes two false discovery rates. Default runs call
+  more edges, cliques and modules than before; pass `alpha = 0.05` for the
+  old behaviour. Unchanged: the single-test permutation levels of
+  `test_community_structure()` and `detect_modules(alpha_k1)`, and the
+  loose `alpha_graph = 0.9` of `classify_gene_cliques()`.
+
 - **New opt-in pair-level test `method = "rank"`** in
   `find_coexpressologs()` and `density_sweep()`, built from
   `compare_specificity()`, `null_network()` and

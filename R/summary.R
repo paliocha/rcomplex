@@ -126,7 +126,7 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' @param alternative Which tail to test: `"greater"` (default) for
 #'   conservation (upper-tail, uses `.p.val.con` columns) or `"less"` for
 #'   divergence (lower-tail, uses `.p.val.div` columns).
-#' @param alpha Significance threshold applied to q-values (default 0.05).
+#' @param alpha Significance threshold applied to q-values (default 0.1).
 #' @param filter_zero If `TRUE` (default for `"greater"`), remove rows where
 #'   both overlap values are zero. Defaults to `FALSE` for `"less"`.
 #' @param sp1,sp2 Optional species abbreviations. When both are provided,
@@ -200,7 +200,7 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' @export
 summarize_comparison <- function(comparison,
                                  alternative = c("greater", "less"),
-                                 alpha = 0.05,
+                                 alpha = 0.1,
                                  filter_zero = NULL,
                                  sp1 = NULL, sp2 = NULL,
                                  pi0_method = c(
@@ -441,7 +441,7 @@ summarize_comparison <- function(comparison,
 #' @param null_p `NULL`, or `list(sp1 = , sp2 = )` of null p-values for
 #'   the 1 -> 2 and 2 -> 1 directions from the shuffled partner. `NA`
 #'   entries are dropped.
-#' @param alpha Significance threshold applied to q-values (default 0.05).
+#' @param alpha Significance threshold applied to q-values (default 0.1).
 #' @param pi0_method `"storey"` (default) estimates pi0 from the p-values;
 #'   `"none"` fixes pi0 = 1 (Benjamini-Hochberg).
 #' @inheritParams summarize_comparison
@@ -470,7 +470,7 @@ summarize_comparison <- function(comparison,
 #' Sciences}, 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
 #'
 #' @export
-summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.05,
+summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
                                   pi0_method = c("storey", "none"),
                                   sp1 = NULL, sp2 = NULL,
                                   pval_combine = c("max", "min")) {
@@ -842,7 +842,7 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #' hog_results <- permutation_hog_test(net1, net2, comparison,
 #'   n_cores = 8L, use_torch = TRUE
 #' )
-#' significant <- hog_results[hog_results$q.value < 0.05, ]
+#' significant <- hog_results[hog_results$q.value < 0.1, ]
 #' }
 #'
 #' @export

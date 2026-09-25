@@ -1062,7 +1062,7 @@ clique_persistence <- function(cliques, target_species, networks, edges) {
 #'   \code{\link{comparison_to_edges}}: \code{"greater"} (default) or
 #'   \code{"less"}.
 #' @param alpha Significance threshold for edge classification
-#'   (default 0.05).
+#'   (default 0.1).
 #' @param min_species Minimum species per clique
 #'   (default \code{length(target_species)}).
 #' @param max_genes_per_sp Maximum genes per species per HOG (default 10).
@@ -1113,7 +1113,7 @@ clique_threshold_sweep <- function(
   species_pairs = NULL,
   multipliers = c(1.5, 2, 3, 5, 10),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,
@@ -1415,7 +1415,7 @@ jaccard_clique_match <- function(row1, row2, target_species) {
 #' @param noise_sd Standard deviation of Gaussian noise added to MR scores
 #'   (default 0.1).
 #' @param alternative Direction of test (default \code{"greater"}).
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold (default 0.1).
 #' @param min_species Minimum species per clique.
 #' @param max_genes_per_sp Maximum genes per species per HOG.
 #' @param max_missing_edges Maximum missing species-pair edges per clique
@@ -1478,7 +1478,7 @@ clique_perturbation_test.default <- function(
   n_boot = 100L,
   noise_sd = 0.1,
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,
@@ -1695,7 +1695,7 @@ clique_perturbation_test.default <- function(
 #' @param alternative Direction of test: \code{"greater"} (default) tests
 #'   whether observed intensity exceeds the null; \code{"less"} tests
 #'   whether it is below the null.
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold (default 0.1).
 #' @param min_species Minimum species per clique.
 #' @param max_genes_per_sp Maximum genes per species per HOG.
 #' @param max_missing_edges Maximum missing species-pair edges per clique
@@ -1820,7 +1820,7 @@ clique_intensity_test.default <- function(
   species_pairs = NULL,
   n_perm = 500L,
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,

@@ -6,7 +6,7 @@
 \usage{
 classify_preservation(
   pres,
-  alpha = 0.05,
+  alpha = 0.1,
   z_conserved = 10,
   z_scale = c("standardized", "raw"),
   species = NA_character_,
@@ -16,7 +16,7 @@ classify_preservation(
 \arguments{
 \item{pres}{Output of \code{\link[=module_preservation]{module_preservation()}}.}
 
-\item{alpha}{Significance threshold for the combined q-value (default 0.05).}
+\item{alpha}{Significance threshold for the combined q-value (default 0.1).}
 
 \item{z_conserved}{Cut point at or above which a significant module is
 called conserved rather than moderately preserved (default 10).}

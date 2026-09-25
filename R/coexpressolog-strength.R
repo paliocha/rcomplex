@@ -426,7 +426,7 @@
 #'   pairs to compare, or `NULL` (default) for every pairwise combination
 #'   of `names(networks)`, matching [find_coexpressologs()].
 #' @param alpha Significance threshold for `reference`'s `type` column
-#'   (default `0.05`).
+#'   (default `0.1`).
 #' @param alternative `"greater"` (conservation, default) or `"less"`
 #'   (divergence); passed to `reference`'s q-value computation.
 #' @param pval_combine `"max"` (default, reciprocal criterion) or `"min"`;
@@ -484,7 +484,7 @@ coexpressolog_strength <- function(networks, ...) {
 coexpressolog_strength.default <- function(networks, orthologs, densities,
                                            reference_density,
                                            species_pairs = NULL,
-                                           alpha = 0.05,
+                                           alpha = 0.1,
                                            alternative = c("greater", "less"),
                                            pval_combine = c("max", "min"),
                                            n_cores = 1L, seed = NULL, ...) {

@@ -1968,7 +1968,7 @@ test_that("edge power matches a brute-force computation", {
     tolerance = 1e-12
   )
 
-  edges <- comparison_to_edges(res, "SP_A", "SP_B", rho0 = 3)
+  edges <- comparison_to_edges(res, "SP_A", "SP_B", alpha = 0.05, rho0 = 3)
   expect_equal(edges$power, pmin(b3[[1]], b3[[2]]), tolerance = 1e-12)
 })
 

@@ -394,7 +394,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   classification: \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold for the \code{type} column
-#'   (default 0.05).
+#'   (default 0.1).
 #' @param pval_combine How the two directional q-values are combined into
 #'   \code{q.value}: \code{"max"} (default; both directions must be
 #'   significant -- the reciprocal criterion of Netotea et al. (2014),
@@ -451,7 +451,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' @export
 comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
-                                alpha = 0.05,
+                                alpha = 0.1,
                                 pval_combine = c("max", "min"),
                                 rho0 = NULL) {
   alternative <- match.arg(alternative)
@@ -567,7 +567,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   \code{NA}.
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold (default 0.1).
 #' @param n_cores Number of threads (default 1).
 #' @param use_torch Logical. Use GPU-accelerated fold-enrichment
 #'   precomputation for permutation method (default \code{FALSE}).
@@ -689,7 +689,7 @@ find_coexpressologs.default <- function(
   species_pairs = NULL,
   method = c("hypergeometric", "rank", "permutation"),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,
@@ -932,7 +932,7 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   same multiplier as its species' network.
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold (default 0.1).
 #' @param n_cores Number of threads (default 1).
 #' @param use_torch Logical; GPU acceleration for permutation method
 #'   (default \code{FALSE}).
@@ -993,7 +993,7 @@ density_sweep.default <- function(
   multipliers = seq(0.95, 1.05, by = 0.01),
   method = c("permutation", "hypergeometric", "rank"),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,

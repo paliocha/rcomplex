@@ -13,7 +13,7 @@ coexpressolog_strength(networks, ...)
   densities,
   reference_density,
   species_pairs = NULL,
-  alpha = 0.05,
+  alpha = 0.1,
   alternative = c("greater", "less"),
   pval_combine = c("max", "min"),
   n_cores = 1L,
@@ -48,7 +48,7 @@ pairs to compare, or \code{NULL} (default) for every pairwise combination
 of \code{names(networks)}, matching \code{\link[=find_coexpressologs]{find_coexpressologs()}}.}
 
 \item{alpha}{Significance threshold for \code{reference}'s \code{type} column
-(default \code{0.05}).}
+(default \code{0.1}).}
 
 \item{alternative}{\code{"greater"} (conservation, default) or \code{"less"}
 (divergence); passed to \code{reference}'s q-value computation.}

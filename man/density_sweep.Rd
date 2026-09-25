@@ -13,7 +13,7 @@ density_sweep(networks, ...)
   multipliers = seq(0.95, 1.05, by = 0.01),
   method = c("permutation", "hypergeometric", "rank"),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,
@@ -47,7 +47,7 @@ density_sweep(networks, ...)
 \item{alternative}{\code{"greater"} (conservation, default) or
 \code{"less"} (divergence).}
 
-\item{alpha}{Significance threshold (default 0.05).}
+\item{alpha}{Significance threshold (default 0.1).}
 
 \item{n_cores}{Number of threads (default 1).}
 

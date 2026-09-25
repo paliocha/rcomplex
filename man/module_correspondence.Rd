@@ -65,7 +65,7 @@ map <- resolve_ortholog_map(
   rownames(net_b$network)
 )
 corr <- module_correspondence(mods_a, mods_b, map)
-subset(corr$pairs, q.value < 0.05)
+subset(corr$pairs, q.value < 0.1)
 }
 
 }

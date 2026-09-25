@@ -7,7 +7,7 @@
 summarize_specificity(
   comparison,
   null_p = NULL,
-  alpha = 0.05,
+  alpha = 0.1,
   pi0_method = c("storey", "none"),
   sp1 = NULL,
   sp2 = NULL,
@@ -21,7 +21,7 @@ summarize_specificity(
 the 1 -> 2 and 2 -> 1 directions from the shuffled partner. \code{NA}
 entries are dropped.}
 
-\item{alpha}{Significance threshold applied to q-values (default 0.05).}
+\item{alpha}{Significance threshold applied to q-values (default 0.1).}
 
 \item{pi0_method}{\code{"storey"} (default) estimates pi0 from the p-values;
 \code{"none"} fixes pi0 = 1 (Benjamini-Hochberg).}
