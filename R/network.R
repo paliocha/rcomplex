@@ -152,12 +152,15 @@ cor_rfast <- function(x, method = "pearson") {
 #'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
 #' @param block_size `NULL` (default) builds the dense n x n matrix first.
 #'   A positive whole number builds the network a block of genes at a
-#'   time; peak memory grows with `block_size * n` instead of `n^2`. The
-#'   result equals the dense build up to floating-point near-ties between
-#'   correlations: the two builds compute correlations with different BLAS
-#'   calls, so two correlations of one gene that differ only in the last
-#'   bits can be ranked in the other order, shifting an MR value.
-#'   Requires `sparse = TRUE`, `norm_method = "MR"` and
+#'   time; the correlation blocks take `block_size * n` memory instead of
+#'   `n^2`, but the candidate pairs are held in memory as well, and at the
+#'   default `store_density` they are about a fifth of all pairs, so peak
+#'   memory is currently above the dense build (8.7 against 5.1 GB at
+#'   n = 20,000). The result equals the dense build up to floating-point
+#'   near-ties between correlations: the two builds compute correlations
+#'   with different BLAS calls, so two correlations of one gene that differ
+#'   only in the last bits can be ranked in the other order, shifting an MR
+#'   value. Requires `sparse = TRUE`, `norm_method = "MR"` and
 #'   `use_torch = FALSE`. With `mr_log_transform = TRUE` the bound that
 #'   limits which pairs are ranked exactly is looser and the build can
 #'   fall back to all pairs, saving no memory (a message says so). The

@@ -1,5 +1,17 @@
 # rcomplex 0.3.1
 
+- **`compute_network()` gains an opt-in blockwise build (`block_size`).**
+  The sparse MR network is built from correlation blocks of
+  `block_size` genes, ranking exactly only the pairs that can reach the
+  store threshold, and returns the same object as the dense build, slot
+  for slot, up to floating-point near-ties between correlations. It does
+  not save memory yet. On BDIS leaf data (20 samples, n = 20,000,
+  8 threads) the dense build peaked at 5.1 GB RSS in 8.0 s and the
+  blockwise build at 8.7 GB in 15.9 s (`block_size = 1024`; 8.8 GB and
+  16.3 s at 256): at `store_density = 0.05` the candidate set is a fifth
+  of all pairs, stored as 24-byte triplets. `NULL` (default) keeps the
+  dense build.
+
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
   complete clique over one lineage whose outside species were compared
   against every member and rejected at adequate power was
