@@ -24,12 +24,17 @@
   maps the anchor's partners to the other species, takes their AUROC in
   every partner gene's co-expression ranking, and reports the
   ortholog's rank among all of them; q-values are empirical against a
-  shuffled-partner null network, then Storey. In the design-note probe
-  on the n = 20 Pooideae leaf networks, 25 % of hypergeometric calls
-  recurred on a shuffled partner; at 5 % empirical FDR the score called
-  two to three times as many pairs on root, tissue-aggregate and wood
-  networks, and in two thirds of multi-copy calls the best copy pair was
-  not the top-variance copy. `null_networks` is required; `power` is
+  shuffled-partner null network, then Storey. Against a null network
+  built from shuffled expression, the package's hypergeometric test at
+  network density 0.03 made about 1 call in 28,000 on the n = 20
+  Pooideae leaf networks and calls about twice as many pairs as the rank
+  test at q < 0.1 (design note 11.12), so the rank test is not the fix
+  for a false-call problem there. What it adds is calibration by
+  construction and a rank for every paralog copy: in the design-note
+  probe the best copy pair was not the top-variance copy in two thirds
+  of multi-copy calls. The 25 % false-call rate reported in note 11.9
+  belongs to a hypergeometric test on top-25 neighbour lists, not to
+  this package's test. `null_networks` is required; `power` is
   `NA`. The default is unchanged: the hypergeometric test, now named
   `method = "hypergeometric"`; the old name `"analytical"` is still
   accepted.

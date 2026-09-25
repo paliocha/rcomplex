@@ -1774,8 +1774,10 @@ Per pair on wood (pooled): Scots-Lodge 1,700 against 1,423, Nor-Scots
 
 Readings.
 
-1. **The hypergeometric is anti-conservative on the n = 20 leaf
-   networks**: 112 of 453 calls per pair recur on a partner whose
+1. **The top-25 hypergeometric is anti-conservative on the n = 20 leaf
+   networks** (correction, 2026-09-25: this is the probe's test on top-25
+   neighbour lists; the package's `compare_neighborhoods()` at density 0.03
+   is not, see 11.12): 112 of 453 calls per pair recur on a partner whose
    expression was shuffled (25 % empirical FDR), against 8 of 493 on
    root and none on the aggregates. Ties and sparse genes survive a
    permutation of samples, and the hypergeometric has no way to see
@@ -1882,6 +1884,30 @@ spruce links to the angiosperms more than the pines do. The top wood
 program is the same as under the lite test (AtSS2 nucleus, starch synthase,
 maturation in angiosperms and cambium in conifers), which is the stability
 check that matters.
+
+### 11.12 Correction: the package hypergeometric at density 0.03 is not anti-conservative (2026-09-25)
+
+The regulon ablation (scripts `abl_phase1.R`, `abl_phase2.R`, outputs in
+`out-2026-09-23/ablation/`) ran the package's pair tests at q < 0.1 on MR
+networks at density 0.03 and repeated each with species 2 replaced by its
+`null_network()` (expression shuffled within genes), three species pairs
+per dataset:
+
+| arm | leaf calls, real / null | wood calls, real / null |
+|---|---|---|
+| hypergeometric, raw MR | 10,312 / 0; 10,504 / 0; 7,242 / 0 | 11,339 / 0; 14,837 / 0; 4,398 / 0 |
+| hypergeometric, log MR | 10,485 / 0; 10,692 / 1; 7,377 / 0 | 11,837 / 0; 15,353 / 0; 4,459 / 0 |
+| rank, raw MR | 5,847 / 0; 6,204 / 0; 963 / 0 | 5,516 / 0; 8,078 / 0; 1,535 / 0 |
+| rank, log MR | 5,889 / 0; 6,088 / 0; 1,235 / 0 | 6,036 / 0; 8,719 / 0; 1,640 / 0 |
+
+Across all copy pairs the hypergeometric calls 35 % (leaf) and 43-45 %
+(wood), the rank test 16-17 % and 20-22 %; log versus raw MR moves the
+counts by 1-9 %. So the anti-conservativeness of 11.9 belonged to the
+top-25 neighbour-list test, whose small neighbourhoods let ties and sparse
+genes dominate; at density 0.03 (about 600 neighbours) the urn test holds
+against the same null. The case for the rank test rests on calibration by
+construction and per-copy ranking, not on fewer false calls. Regulon-level
+results of the ablation follow when phase 2 completes.
 
 ## 12. Sources and provenance
 
