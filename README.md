@@ -800,6 +800,9 @@ null_mean`) across sizes.
 | `src/clr.cpp` | CLR normalization |
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
 | `src/sparse_extract.cpp` | Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix |
+| `src/network_block.cpp` | Blockwise sparse MR network (`compute_network(block_size =)`): one correlation pass, per-gene top-ranked partner lists joined by binary search |
+| `src/density_k.h` | Shared count of top pairs for a density, used by dense and blockwise thresholding |
+| `src/rank_column.h` | Shared average-rank kernel for one correlation column |
 | `src/neighbor_lists.h` | Shared neighbour-list construction (dense matrix or validated dgCMatrix slots) |
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
@@ -809,6 +812,12 @@ null_mean`) across sizes.
 | `src/find_cliques.cpp` | C++ clique detection wrapper |
 | `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
 | `src/sample_k_distinct.h` | Shared rejection-sampling utility for subset generation |
+
+### Development scripts
+
+| File | Purpose |
+|------|---------|
+| `dev/bench/network_memory.R` | Time and peak RSS of `compute_network()`, dense against blockwise |
 
 All C++ functions use integer indices only (string mapping is done in R)
 due to Homebrew clang ABI constraints. Network matrices are accessed

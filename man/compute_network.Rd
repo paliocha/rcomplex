@@ -19,7 +19,8 @@ compute_network(x, ...)
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE
+  use_torch = FALSE,
+  block_size = NULL
 )
 
 \S4method{compute_network}{SummarizedExperiment}(x, assay = 1L, ...)
@@ -74,6 +75,27 @@ normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
 MPS, keep \code{use_torch = FALSE} here and use
 \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
 speedup instead. On CUDA, float64 is used with no precision tradeoff.}
+
+\item{block_size}{\code{NULL} (default) builds the dense n x n matrix first.
+A positive whole number builds the network a block of genes at a
+time and never forms the n x n matrix: each gene keeps only its
+partners in the top fraction of its correlation ranks, which at the
+default \code{store_density} is 15\% of all pairs held at 8 bytes each. On
+BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
+1.2-1.4 GB against 5.1 GB for the dense build, in 6.8-7.4 s against
+8.2 s. The result equals the dense build up to floating-point
+near-ties between correlations: the two builds compute correlations
+with different BLAS calls, so two correlations of one gene that differ
+only in the last bits can be ranked in the other order, shifting an MR
+value. Requires \code{sparse = TRUE}, \code{norm_method = "MR"} and
+\code{use_torch = FALSE}. With \code{mr_log_transform = TRUE} a pair is kept
+when either gene ranks the other in its top 10\% (twice
+\code{store_density}) and a second correlation pass reads the other rank;
+on the same data peak memory was 1.7 GB against 5.1 GB dense in
+8.3 s against 8.0 s. If the store threshold cannot prove the kept
+pairs complete the fraction widens, and at all pairs the build saves
+no memory (a message says so). The default stays dense until the
+blockwise build is validated at scale.}
 
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
