@@ -1841,6 +1841,48 @@ Bug found on the way, not fixed on this branch: `compute_network()`'s
 (floating-point variance of about 1e-30), and Spearman then errors with
 "sim contains NaN". It bites on tissue subsets.
 
+### 11.11 The anchored regulons rebuilt on the rank engine (2026-09-25)
+
+The anchor pair test of 11.8 (hypergeometric-lite on top-25 neighbour HOG
+sets, q < 0.05, overlap >= 3) replaced by the package's
+`find_coexpressologs(method = "rank")` on MR networks at density 0.03 (store
+0.05), one `null_network()` per species, every copy pair up to five a side,
+call at q < 0.10. Everything downstream (blocks, LOSO, nuclei, programs,
+scores, wiring) unchanged. Scripts `engine2.R::pair_tests_rank()`,
+`p10_regulons_rank.R`, `p11_score_rank.R`, `w5_regulons_rank.R`; outputs
+`v3r_*`, payloads `regulon_course_v4_rank.json`,
+`regulon_course_wood_v3_rank.json`. Both pages republished (Pooideae
+version 5, wood version 4).
+
+| | Pooideae leaf | Pooideae root | wood |
+|---|---|---|---|
+| copy pairs tested / called at q < 0.10 | 736,338 / 120,715 (16 %) | 737,759 / 226,776 (31 %) | 296,808 / 59,011 (20 %) |
+| anchors (11.8 lite test) | 3,625 (431) | 6,972 (668) | 8,419 (2,175) |
+| anchors spanning both sides | 3,445 | 6,718 | 1,011 (167) |
+| LOSO shared HOGs, real / shuffled / random | 1.12 / 0.02 / 0.04 | 0.94 / 0.03 / 0.04 | 0.33 / 0.00 / 0.01 |
+| LOSO, held-out species from the other side | 0.28 | 0.42 | 0.17 |
+| programs with >= 4 HOGs | 1,698 over both tissues | | 2,709 |
+
+Wood calls per species pair: Scots-Lodge 59 % (Lodge is mapped on the Scots
+genome), Birch-Cher 32 %, spruce-pine 26 %, aspen-birch 23 %, aspen-cherry
+20 %, then spruce-angiosperm 4 to 12 % and pine-angiosperm 1 to 3 %.
+
+Readings. The rank test calls five to fifteen times as many copy pairs as
+the lite test, so there are many more anchors, and each anchor's nucleus is
+smaller and replicates less across held-out species (LOSO 1 against 5 on
+Pooideae), while shuffled and random controls stay near zero. The extra
+calls are orthologs whose partner lists are recognised better than a
+shuffled partner would recognise them, which includes broad conserved
+programs (a shared time or tissue axis), not only tight regulons: a call
+rate of 31 % in root says the calibration is honest about the null, not that
+a third of genes sit in regulons. For anchoring, the useful filter is now the
+nucleus (recurrent HOGs across the scope), not the pair test. The lineage
+asymmetry on wood is repaired further (1,011 cross-lineage anchors), and
+spruce links to the angiosperms more than the pines do. The top wood
+program is the same as under the lite test (AtSS2 nucleus, starch synthase,
+maturation in angiosperms and cambium in conifers), which is the stability
+check that matters.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
