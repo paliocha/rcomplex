@@ -246,7 +246,9 @@ setMethod("compute_network", "matrix", function(
   if (!is.null(min_var)) {
     row_var <- rowSums((x - rowMeans(x))^2) /
       (ncol(x) - 1L)
-    keep <- row_var > min_var
+    # A constant row can come out at ~1e-30 instead of 0 in floating point
+    # and pass `> 0`; its correlations are then NaN. Test constancy exactly.
+    keep <- row_var > min_var & rowSums(x != x[, 1L]) > 0L
     n_removed <- sum(!keep)
     if (n_removed > 0L) {
       x <- x[keep, , drop = FALSE]
