@@ -170,15 +170,16 @@ the results into a single edge data frame ready for
 \item{analytical}{Fast path: pair-level Storey q-values via
 \code{\link{summarize_comparison}}. Appropriate when most HOGs
 are single-copy.}
-\item{specificity}{Opt-in: \code{\link{compare_specificity}}
+\item{rank}{Opt-in: \code{\link{compare_specificity}}
 against shuffled-partner networks from \code{\link{null_network}}
 (argument \code{null_networks}), q-values via
 \code{\link{summarize_specificity}}. The hypergeometric test counts
 how many of gene A's translated partners are among ortholog B's
-partners, against an urn of random draws. It cannot tell biology
-from "sticky" genes, such as genes with many zeros that are
-co-expressed with each other in every species for technical
-reasons. The specificity score asks where A's translated partners
+partners, against an urn of random draws. With small
+neighbourhoods (top-25 lists) that urn let technically "sticky"
+genes, such as genes with many zeros, through as false calls; at
+network density 0.03 it held against a shuffled-expression null.
+The rank test asks where A's translated partners
 sit in B's full co-expression ranking, checks every other gene of
 B's species the same way, and reports B's rank in that contest,
 so a list that thousands of genes recognise as well as B is not
