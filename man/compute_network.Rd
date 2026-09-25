@@ -88,10 +88,14 @@ near-ties between correlations: the two builds compute correlations
 with different BLAS calls, so two correlations of one gene that differ
 only in the last bits can be ranked in the other order, shifting an MR
 value. Requires \code{sparse = TRUE}, \code{norm_method = "MR"} and
-\code{use_torch = FALSE}. With \code{mr_log_transform = TRUE} the bound that
-limits which pairs are ranked exactly is looser and the build can
-fall back to all pairs, saving no memory (a message says so). The
-default stays dense until the blockwise build is validated at scale.}
+\code{use_torch = FALSE}. With \code{mr_log_transform = TRUE} a pair is kept
+when either gene ranks the other in its top 10\% (twice
+\code{store_density}) and a second correlation pass reads the other rank;
+on the same data peak memory was 1.7 GB against 5.1 GB dense in
+8.3 s against 8.0 s. If the store threshold cannot prove the kept
+pairs complete the fraction widens, and at all pairs the build saves
+no memory (a message says so). The default stays dense until the
+blockwise build is validated at scale.}
 
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the

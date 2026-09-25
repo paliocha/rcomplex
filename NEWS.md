@@ -14,6 +14,12 @@
   near-tied correlations from 20 samples, differ); the 20,517-gene
   spruce wood network was bit-identical (1.2 GB in 5 s against 3.8 GB
   in 9 s).
+  With `mr_log_transform = TRUE` a pair is a candidate when either
+  gene ranks the other in its top fraction, since log MR at or above T
+  bounds the smaller rank by n^(1 - T), and a second correlation pass
+  reads the other rank exactly; BDIS leaf needed a fraction of 0.1 at
+  the default `store_density` (n = 20,000, `block_size = 512`: 1.7 GB in
+  8.3 s against 5.1 GB in 8.0 s dense, identical output).
   `NULL` (default) keeps the dense build.
 
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
