@@ -19,7 +19,8 @@ compute_network(x, ...)
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE
+  use_torch = FALSE,
+  block_size = NULL
 )
 
 \S4method{compute_network}{SummarizedExperiment}(x, assay = 1L, ...)
@@ -74,6 +75,19 @@ normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
 MPS, keep \code{use_torch = FALSE} here and use
 \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
 speedup instead. On CUDA, float64 is used with no precision tradeoff.}
+
+\item{block_size}{\code{NULL} (default) builds the dense n x n matrix first.
+A positive whole number builds the network a block of genes at a
+time; peak memory grows with \code{block_size * n} instead of \code{n^2}. The
+result equals the dense build up to floating-point near-ties between
+correlations: the two builds compute correlations with different BLAS
+calls, so two correlations of one gene that differ only in the last
+bits can be ranked in the other order, shifting an MR value.
+Requires \code{sparse = TRUE}, \code{norm_method = "MR"} and
+\code{use_torch = FALSE}. With \code{mr_log_transform = TRUE} the bound that
+limits which pairs are ranked exactly is looser and the build can
+fall back to all pairs, saving no memory (a message says so). The
+default stays dense until the blockwise build is validated at scale.}
 
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the

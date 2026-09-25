@@ -97,6 +97,14 @@ cor_rfast <- function(x, method = "pearson") {
   }
 }
 
+# Samples x genes matrix zt with crossprod(zt) equal to the correlation
+# matrix cor_rfast() builds (Spearman ranks each gene first).
+.standardise_for_cor <- function(x, cor_method) {
+  xs <- if (cor_method == "pearson") t(x) else apply(x, 1, rank)
+  mat <- t(xs) - Rfast::colmeans(xs)
+  t(mat / sqrt(Rfast::rowsums(mat^2)))
+}
+
 #' Compute co-expression network
 #'
 #' Calculates correlation, applies normalization (Mutual Rank or CLR),
@@ -142,6 +150,18 @@ cor_rfast <- function(x, method = "pearson") {
 #'   MPS, keep `use_torch = FALSE` here and use
 #'   \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
 #'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
+#' @param block_size `NULL` (default) builds the dense n x n matrix first.
+#'   A positive whole number builds the network a block of genes at a
+#'   time; peak memory grows with `block_size * n` instead of `n^2`. The
+#'   result equals the dense build up to floating-point near-ties between
+#'   correlations: the two builds compute correlations with different BLAS
+#'   calls, so two correlations of one gene that differ only in the last
+#'   bits can be ranked in the other order, shifting an MR value.
+#'   Requires `sparse = TRUE`, `norm_method = "MR"` and
+#'   `use_torch = FALSE`. With `mr_log_transform = TRUE` the bound that
+#'   limits which pairs are ranked exactly is looser and the build can
+#'   fall back to all pairs, saving no memory (a message says so). The
+#'   default stays dense until the blockwise build is validated at scale.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -211,7 +231,8 @@ setMethod("compute_network", "matrix", function(
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE) {
+  use_torch = FALSE,
+  block_size = NULL) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
   if (is.null(rownames(x))) {
@@ -233,6 +254,16 @@ setMethod("compute_network", "matrix", function(
     }
   } else if (!is.null(store_density)) {
     stop("store_density requires sparse = TRUE")
+  }
+  if (!is.null(block_size)) {
+    if (!is.numeric(block_size) || length(block_size) != 1L ||
+          is.na(block_size) || block_size < 1 ||
+          block_size != round(block_size)) {
+      stop("block_size must be NULL or a positive whole number")
+    }
+    if (!sparse) stop("block_size requires sparse = TRUE")
+    if (norm_method != "MR") stop("block_size requires norm_method = \"MR\"")
+    if (use_torch) stop("block_size requires use_torch = FALSE")
   }
   if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
     stop(
@@ -263,6 +294,42 @@ setMethod("compute_network", "matrix", function(
 
   gene_names <- rownames(x)
   n_genes <- nrow(x)
+
+  params <- list(
+    cor_method = cor_method,
+    norm_method = norm_method,
+    density = density,
+    abs_cor = abs_cor,
+    mr_log_transform = mr_log_transform,
+    min_var = min_var
+  )
+
+  if (!is.null(block_size)) {
+    slots <- mr_block_network_cpp(
+      .standardise_for_cor(x, cor_method), mr_log_transform, abs_cor,
+      density, store_density, as.integer(block_size), n_cores
+    )
+    if (slots$fraction >= 1) {
+      message(
+        "Blockwise build fell back to all pairs and saved no memory ",
+        "(the usual cause is mr_log_transform = TRUE)"
+      )
+    }
+    return(list(
+      network = methods::new(
+        "dgCMatrix",
+        i = slots$i, p = slots$p, x = slots$x,
+        Dim = c(n_genes, n_genes),
+        Dimnames = list(gene_names, gene_names)
+      ),
+      threshold = slots$threshold,
+      n_genes = n_genes,
+      n_removed = n_removed,
+      params = c(params, list(store_density = store_density)),
+      store_density = store_density,
+      store_threshold = slots$store_threshold
+    ))
+  }
 
   # Correlation
   cor_fn <- if (use_torch) cor_torch else cor_rfast
@@ -295,15 +362,6 @@ setMethod("compute_network", "matrix", function(
 
   # Compute density threshold (always from the full dense matrix)
   thr <- density_threshold_cpp(net, density)
-
-  params <- list(
-    cor_method = cor_method,
-    norm_method = norm_method,
-    density = density,
-    abs_cor = abs_cor,
-    mr_log_transform = mr_log_transform,
-    min_var = min_var
-  )
 
   if (!sparse) {
     return(list(
