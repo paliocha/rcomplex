@@ -10,9 +10,7 @@ block_fixture <- function(n, s, seed) {
 
 # Standardise like Rfast::cora(): crossprod(zt) is the correlation matrix
 block_zt <- function(x, cor_method) {
-  xs <- if (cor_method == "pearson") t(x) else apply(x, 1, rank)
-  mat <- t(xs) - Rfast::colmeans(xs)
-  t(mat / sqrt(Rfast::rowsums(mat^2)))
+  rcomplex:::.standardise_for_cor(x, cor_method)
 }
 
 # No two distinct correlations in one column closer than 1e-12, so BLAS
@@ -100,4 +98,79 @@ test_that("block network errors on NaN input", {
   zt <- block_zt(block_fixture(60, 12, 1), "pearson")
   zt[, 5] <- NaN
   expect_error(run_block(zt, block_modes$pearson_raw), "NaN")
+})
+
+# Through compute_network(): block_size must return the dense sparse object
+for (mode in names(block_modes)) {
+  m <- block_modes[[mode]]
+  for (fx in block_fixtures[[m$cor]]) {
+    test_that(paste("compute_network block_size matches:", fx[1], mode), {
+      x <- block_fixture(fx[1], fx[2], fx[3])
+      build <- function(bs) {
+        # log MR can fall back to all pairs; the fallback test covers it
+        suppressMessages(compute_network(
+          x,
+          cor_method = m$cor, density = 0.03, store_density = 0.05,
+          mr_log_transform = m$log, abs_cor = m$abs, block_size = bs
+        ))
+      }
+      ref <- build(NULL)
+      for (bs in c(1L, 7L, nrow(x))) {
+        expect_identical(build(bs), ref)
+      }
+    })
+  }
+}
+
+test_that("compute_network block_size validates its arguments", {
+  x <- block_fixture(60, 12, 1)
+  expect_error(compute_network(x, block_size = 0), "positive whole")
+  expect_error(compute_network(x, block_size = 2.5), "positive whole")
+  expect_error(compute_network(x, block_size = "a"), "positive whole")
+  expect_error(compute_network(x, block_size = c(1, 2)), "positive whole")
+  expect_error(
+    compute_network(x, sparse = FALSE, block_size = 7), "sparse = TRUE"
+  )
+  expect_error(
+    compute_network(x, norm_method = "CLR", block_size = 7), "MR"
+  )
+  expect_error(
+    compute_network(x, use_torch = TRUE, block_size = 7), "use_torch"
+  )
+})
+
+test_that("compute_network block_size keeps the variance filter", {
+  x <- block_fixture(60, 12, 1)
+  x[3, ] <- 5
+  x[10, ] <- x[10, ] * 1e-3
+  for (mv in list(0, 1e-3)) {
+    ref <- compute_network(x, min_var = mv)
+    blk <- compute_network(x, min_var = mv, block_size = 7)
+    expect_identical(blk$n_removed, ref$n_removed)
+    expect_identical(rownames(blk$network), rownames(ref$network))
+    expect_identical(blk, ref)
+  }
+  expect_identical(compute_network(x, block_size = 7)$n_removed, 1L)
+})
+
+test_that("mr_block() agrees on block and dense networks", {
+  x <- block_fixture(60, 12, 1)
+  genes <- paste0("g", c(2, 9, 17, 40))
+  ref <- compute_network(x)
+  blk <- compute_network(x, block_size = 7)
+  expect_identical(mr_block(x, genes, blk), mr_block(x, genes, ref))
+})
+
+test_that("compute_network block_size reports the all-pairs fallback", {
+  x <- block_fixture(60, 12, 1)
+  expect_message(
+    blk <- compute_network(
+      x,
+      store_density = 0.1, mr_log_transform = TRUE, block_size = 7
+    ),
+    "all pairs"
+  )
+  ref <- compute_network(x, store_density = 0.1, mr_log_transform = TRUE)
+  expect_identical(blk, ref)
+  expect_silent(compute_network(x, block_size = 7))
 })
