@@ -12,7 +12,7 @@ find_coexpressologs(networks, ...)
   networks,
   orthologs,
   species_pairs = NULL,
-  method = c("analytical", "permutation"),
+  method = c("analytical", "specificity", "permutation"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -25,6 +25,7 @@ find_coexpressologs(networks, ...)
   seed = NULL,
   out_file = NULL,
   rho0 = NULL,
+  null_networks = NULL,
   ...
 )
 
@@ -44,8 +45,13 @@ keyed by species abbreviation.}
 specifying which pairs to compare. Defaults to all
 \code{combn(names(networks), 2)}.}
 
-\item{method}{Testing method: \code{"analytical"} (default, fast)
-or \code{"permutation"} (rigorous).}
+\item{method}{Testing method: \code{"analytical"} (default, fast),
+\code{"specificity"} or \code{"permutation"} (rigorous).
+\code{"specificity"} scores each ortholog pair with
+\code{\link{compare_specificity}} and calibrates it against
+\code{null_networks} via \code{\link{summarize_specificity}};
+\code{filter_zero} and \code{rho0} do not apply and \code{power} is
+\code{NA}.}
 
 \item{alternative}{\code{"greater"} (conservation, default) or
 \code{"less"} (divergence).}
@@ -133,6 +139,10 @@ the \code{power} column, passed to
 effect size of the called pairs). The permutation path always
 reports \code{power = NA}: its HOG-level q-value has no per-pair
 call threshold to measure power against.}
+
+\item{null_networks}{Specificity method only (required there): named
+list with one \code{\link{null_network}} object, or a list of them,
+per species.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},

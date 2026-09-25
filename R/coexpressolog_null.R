@@ -174,6 +174,9 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
                                n_perm = 100L, swap_factor = 10L,
                                n_cores = 1L, seed = NULL,
                                filter_zero = TRUE, ...) {
+  if (identical(list(...)$method, "specificity")) {
+    stop("coexpressolog_null() supports the analytical path only")
+  }
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
   }

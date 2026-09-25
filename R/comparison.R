@@ -542,8 +542,13 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' @param species_pairs Optional list of length-2 character vectors
 #'   specifying which pairs to compare. Defaults to all
 #'   \code{combn(names(networks), 2)}.
-#' @param method Testing method: \code{"analytical"} (default, fast)
-#'   or \code{"permutation"} (rigorous).
+#' @param method Testing method: \code{"analytical"} (default, fast),
+#'   \code{"specificity"} or \code{"permutation"} (rigorous).
+#'   \code{"specificity"} scores each ortholog pair with
+#'   \code{\link{compare_specificity}} and calibrates it against
+#'   \code{null_networks} via \code{\link{summarize_specificity}};
+#'   \code{filter_zero} and \code{rho0} do not apply and \code{power} is
+#'   \code{NA}.
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold (default 0.05).
@@ -619,6 +624,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   \code{find_coexpressologs.rcomplex}), which stores the in-memory
 #'   edge table on \code{$edges}. Default \code{NULL} keeps the original
 #'   in-memory behaviour.
+#' @param null_networks Specificity method only (required there): named
+#'   list with one \code{\link{null_network}} object, or a list of them,
+#'   per species.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
@@ -660,7 +668,7 @@ find_coexpressologs <- function(networks, ...) UseMethod("find_coexpressologs")
 find_coexpressologs.default <- function(
   networks, orthologs,
   species_pairs = NULL,
-  method = c("analytical", "permutation"),
+  method = c("analytical", "specificity", "permutation"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -671,7 +679,7 @@ find_coexpressologs.default <- function(
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  out_file = NULL, rho0 = NULL, ...
+  out_file = NULL, rho0 = NULL, null_networks = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
@@ -681,6 +689,7 @@ find_coexpressologs.default <- function(
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_specificity_args(method, alternative, null_networks)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
@@ -701,6 +710,9 @@ find_coexpressologs.default <- function(
   if (is.null(species_pairs)) {
     species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
   }
+  nulls <- .check_null_networks(
+    null_networks, networks, unique(unlist(species_pairs))
+  )
 
   streaming <- !is.null(out_file)
   if (streaming) {
@@ -745,17 +757,31 @@ find_coexpressologs.default <- function(
       stop("species '", sp_b, "' not found in networks")
     }
 
-    comparison <- tryCatch(
-      compare_neighborhoods(
-        networks[[sp_a]], networks[[sp_b]],
-        orthologs, n_cores
-      ),
-      error = function(e) {
-        warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
-        NULL
-      }
-    )
-    if (is.null(comparison) || nrow(comparison) == 0) next
+    if (method == "specificity") {
+      edges_df <- tryCatch(
+        .specificity_pair_edges(
+          networks[[sp_a]], networks[[sp_b]], nulls[[sp_a]], nulls[[sp_b]],
+          orthologs, sp_a, sp_b, alpha, n_cores, pi0_method, pval_combine
+        ),
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(edges_df) || nrow(edges_df) == 0) next
+    } else {
+      comparison <- tryCatch(
+        compare_neighborhoods(
+          networks[[sp_a]], networks[[sp_b]],
+          orthologs, n_cores
+        ),
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(comparison) || nrow(comparison) == 0) next
+    }
 
     if (method == "analytical") {
       summary_res <- tryCatch(
@@ -780,7 +806,7 @@ find_coexpressologs.default <- function(
         alternative, alpha,
         pval_combine = pval_combine, rho0 = rho0
       )
-    } else {
+    } else if (method == "permutation") {
       # Permutation path: HOG-level permutation test
       hog_res <- tryCatch(
         permutation_hog_test(networks[[sp_a]], networks[[sp_b]],
@@ -879,8 +905,11 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #' @param multipliers Numeric vector of threshold multipliers
 #'   (default \code{seq(0.95, 1.05, by = 0.01)}).
 #' @param method Comparison method passed to
-#'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default)
-#'   or \code{"analytical"}.
+#'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default),
+#'   \code{"analytical"} or \code{"specificity"}.
+#' @param null_networks Passed to \code{\link{find_coexpressologs}}
+#'   (specificity method only); every null's threshold is scaled by the
+#'   same multiplier as its species' network.
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold (default 0.05).
@@ -942,7 +971,7 @@ density_sweep <- function(networks, ...) UseMethod("density_sweep")
 density_sweep.default <- function(
   networks, orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
-  method = c("permutation", "analytical"),
+  method = c("permutation", "analytical", "specificity"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -953,7 +982,7 @@ density_sweep.default <- function(
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
-  seed = NULL, rho0 = NULL, ...
+  seed = NULL, rho0 = NULL, null_networks = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
@@ -963,6 +992,7 @@ density_sweep.default <- function(
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_specificity_args(method, alternative, null_networks)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue
@@ -991,6 +1021,12 @@ density_sweep.default <- function(
   if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
     stop("orthologs must have columns: Species1, Species2, hog")
   }
+  sweep_species <- if (is.null(species_pairs)) {
+    names(networks)
+  } else {
+    unique(unlist(species_pairs))
+  }
+  nulls <- .check_null_networks(null_networks, networks, sweep_species)
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
 
@@ -1012,9 +1048,11 @@ density_sweep.default <- function(
     m <- multipliers[i]
     message("Threshold sweep: multiplier ", m)
 
-    tight_nets <- lapply(networks, function(net) {
+    scale_thr <- function(net) {
       modifyList(net, list(threshold = net$threshold * m))
-    })
+    }
+    tight_nets <- lapply(networks, scale_thr)
+    tight_nulls <- if (!is.null(nulls)) lapply(nulls, lapply, scale_thr)
 
     densities <- vapply(tight_nets, function(net) {
       # .net_check() also fires the store guard: a multiplier below the
@@ -1042,7 +1080,8 @@ density_sweep.default <- function(
         min_exceedances = min_exceedances,
         max_permutations = max_permutations,
         pi0_method = pi0_method,
-        pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0
+        pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0,
+        null_networks = tight_nulls
       ),
       error = function(e) {
         warning(

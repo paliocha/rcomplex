@@ -228,6 +228,48 @@ make_graded_nets <- function() {
   list(net1 = net1, net2 = net2, ortho = ortho)
 }
 
+#' RNG-free specificity pipeline fixture
+#'
+#' 120 genes per species, 1:1 orthologs (one HOG per pair). Genes 1-20 and
+#' 21-35 form cliques in both species, genes 36-50 a clique in species 1
+#' only; the rest are isolated. Clique weights are graded 1 + (i + j) / 100
+#' so the neighbourhoods are the cliques at threshold 1. `nulls` holds one
+#' relabelled copy per species (`m[perm, perm]`, dimnames kept).
+make_spec_nets <- function() {
+  n <- 120
+  cliques <- list(1:20, 21:35, 36:50)
+  build <- function(prefix, cl) {
+    m <- matrix(0, n, n)
+    for (g in cl) m[g, g] <- outer(g, g, function(i, j) 1 + (i + j) / 100)
+    diag(m) <- 0
+    rownames(m) <- colnames(m) <- paste0(prefix, sprintf("%03d", 1:n))
+    m
+  }
+  mk <- function(m) {
+    list(
+      network = m, threshold = 1, n_genes = n,
+      params = list(density = mean(m[upper.tri(m)] >= 1))
+    )
+  }
+  relabel <- function(net) {
+    perm <- c(61:120, 1:60)
+    m <- net$network[perm, perm]
+    dimnames(m) <- dimnames(net$network)
+    modifyList(net, list(network = m))
+  }
+  net1 <- mk(build("A", cliques))
+  net2 <- mk(build("B", cliques[1:2]))
+  ortho <- data.frame(
+    Species1 = rownames(net1$network), Species2 = rownames(net2$network),
+    hog = paste0("HOG", sprintf("%03d", 1:n)), stringsAsFactors = FALSE
+  )
+  list(
+    networks = list(sp1 = net1, sp2 = net2), ortho = ortho,
+    nulls = list(sp1 = relabel(net1), sp2 = relabel(net2)),
+    shared = c(1:35), one_sided = 36:50
+  )
+}
+
 #' 12-gene self-excluded urn fixture (D5)
 #'
 #' HOG1 members (genes 1-3) are co-expressed with each other and with genes

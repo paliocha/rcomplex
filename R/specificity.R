@@ -59,11 +59,66 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     return(net)
   }
   m <- .net_check(net, net$threshold)
-  slots <- extract_sparse_cpp(m, min(net$threshold, m[m != 0]), n_cores)
+  # every nonzero is stored, so the store threshold is exact even when
+  # the analysis threshold sits below the smallest nonzero entry
+  net$store_threshold <- min(net$threshold, m[m != 0])
+  slots <- extract_sparse_cpp(m, net$store_threshold, n_cores)
   net$network <- methods::new(
     "dgCMatrix",
     i = slots$i, p = slots$p, x = slots$x,
     Dim = dim(m), Dimnames = dimnames(m)
   )
   net
+}
+
+
+#' Argument checks shared by the specificity path of find_coexpressologs()
+#' and density_sweep()
+#' @noRd
+.check_specificity_args <- function(method, alternative, null_networks) {
+  if (method != "specificity" && !is.null(null_networks)) {
+    stop("null_networks is only used with method = \"specificity\"")
+  }
+  if (method == "specificity") {
+    if (is.null(null_networks)) {
+      stop(
+        "method = \"specificity\" needs null_networks; build one per ",
+        "species with null_network()"
+      )
+    }
+    if (alternative == "less") {
+      stop("method = \"specificity\" supports alternative = \"greater\" only")
+    }
+  }
+}
+
+
+#' Specificity edges for one species pair against pooled null draws
+#'
+#' Direction 1 -> 2 is calibrated by comparing `net1` with each null of
+#' species 2, direction 2 -> 1 by each null of species 1 against `net2`.
+#' @noRd
+.specificity_pair_edges <- function(net1, net2, nulls1, nulls2, orthologs,
+                                    sp1, sp2, alpha, n_cores, pi0_method,
+                                    pval_combine) {
+  cmp <- compare_specificity(net1, net2, orthologs, n_cores)
+  null_p <- list(
+    sp1 = unlist(lapply(nulls2, function(nb) {
+      compare_specificity(net1, nb, orthologs, n_cores,
+        directions = "1to2"
+      )$Species1.p.val
+    })),
+    sp2 = unlist(lapply(nulls1, function(na) {
+      compare_specificity(na, net2, orthologs, n_cores,
+        directions = "2to1"
+      )$Species2.p.val
+    }))
+  )
+  # the specificity p-values are continuous-ish ranks, so the randomized
+  # pi0 of the hypergeometric path reduces to plain Storey
+  if (pi0_method == "randomized") pi0_method <- "storey"
+  summarize_specificity(cmp, null_p, alpha,
+    pi0_method = pi0_method, sp1 = sp1, sp2 = sp2,
+    pval_combine = pval_combine
+  )$edges
 }

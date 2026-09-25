@@ -11,7 +11,7 @@ density_sweep(networks, ...)
   networks,
   orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
-  method = c("permutation", "analytical"),
+  method = c("permutation", "analytical", "specificity"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -24,6 +24,7 @@ density_sweep(networks, ...)
   filter_zero = FALSE,
   seed = NULL,
   rho0 = NULL,
+  null_networks = NULL,
   ...
 )
 }
@@ -39,8 +40,8 @@ density_sweep(networks, ...)
 (default \code{seq(0.95, 1.05, by = 0.01)}).}
 
 \item{method}{Comparison method passed to
-\code{\link{find_coexpressologs}}: \code{"permutation"} (default)
-or \code{"analytical"}.}
+\code{\link{find_coexpressologs}}: \code{"permutation"} (default),
+\code{"analytical"} or \code{"specificity"}.}
 
 \item{alternative}{\code{"greater"} (conservation, default) or
 \code{"less"} (divergence).}
@@ -88,6 +89,10 @@ seed does and does not pin under each \code{method}.}
 
 \item{rho0}{Passed to \code{\link{find_coexpressologs}}: reference
 fold enrichment for the analytical \code{power} column.}
+
+\item{null_networks}{Passed to \code{\link{find_coexpressologs}}
+(specificity method only); every null's threshold is scaled by the
+same multiplier as its species' network.}
 }
 \value{
 A data frame with columns \code{multiplier},
