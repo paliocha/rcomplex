@@ -1,23 +1,22 @@
 // rank_column.h
-// In-place average ranks of one contiguous column (shared by the mutual
-// rank transform and the specificity kernel).
+// In-place average ranking of one column, shared by the dense and the
+// blockwise mutual-rank kernels and the specificity kernel.
 
 #ifndef RCOMPLEX_RANK_COLUMN_H
 #define RCOMPLEX_RANK_COLUMN_H
 
-#include <Rinternals.h>
+#include <RcppArmadillo.h>
 #include <algorithm>
+#include <functional>
 #include <numeric>
 #include <ranges>
 #include <vector>
 
 // In-place average ranks of one column; same tie handling as
-// compute_ranks_impl in mutual_rank.cpp. `indices` is a caller-owned
-// buffer that must have size n (it is iota'd and sorted whole, so resize
-// it to the column length before each call). Overwriting col[] while
-// walking the sorted order is safe: every position is written exactly
-// once, only after every comparison that reads it has been made (tie
-// groups are contiguous in `indices`).
+// compute_ranks_impl. `indices` is a caller-owned buffer of size n (reused
+// across columns). Overwriting col[] while walking the sorted order is safe:
+// every position is written exactly once, only after every comparison that
+// reads it has been made (tie groups are contiguous in `indices`).
 inline void rank_column_inplace(double* col, const R_xlen_t n,
                                 const bool ascending,
                                 std::vector<R_xlen_t>& indices) {
@@ -44,4 +43,4 @@ inline void rank_column_inplace(double* col, const R_xlen_t n,
     }
 }
 
-#endif // RCOMPLEX_RANK_COLUMN_H
+#endif  // RCOMPLEX_RANK_COLUMN_H

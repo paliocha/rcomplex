@@ -11,6 +11,8 @@
 #include <ranges>
 #include <vector>
 
+#include "density_k.h"
+
 using namespace Rcpp;
 
 //' Compute density threshold from a symmetric matrix
@@ -45,10 +47,8 @@ double density_threshold_cpp(const arma::mat& mat, double density) {
         }
     }
 
-    auto k = static_cast<decltype(tri_size)>(
-        std::round(density * static_cast<double>(tri_size)));
-    if (k == 0) k = 1;
-    if (k >= tri_size) k = tri_size - 1;
+    const auto k = static_cast<decltype(tri_size)>(
+        density_k(density, tri_size));
 
     auto pos = tri_size - k;
     std::ranges::nth_element(values, values.begin() + static_cast<ptrdiff_t>(pos));
