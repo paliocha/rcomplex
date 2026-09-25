@@ -22,6 +22,11 @@ SummarizedExperiment)}
 \item{\code{\link[=summarize_comparison]{summarize_comparison()}}}{Q-value correction and summary}
 \item{\code{\link[=comparison_to_edges]{comparison_to_edges()}}}{Convert comparison results to clique
 edge format}
+\item{\code{\link[=compare_specificity]{compare_specificity()}}}{Pair-level specificity score (opt-in
+\code{method = "rank"})}
+\item{\code{\link[=null_network]{null_network()}}}{Shuffled-partner null network}
+\item{\code{\link[=summarize_specificity]{summarize_specificity()}}}{Empirical calibration and q-values
+for the specificity score}
 \item{\code{\link[=run_pairwise_comparisons]{run_pairwise_comparisons()}}}{Batch pairwise comparison pipeline}
 \item{\code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}}{Query co-expression partners of a
 candidate HOG}

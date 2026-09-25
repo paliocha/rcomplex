@@ -15,7 +15,7 @@ clique_intensity_test(cliques, ...)
   species_pairs = NULL,
   n_perm = 500L,
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,
@@ -55,7 +55,7 @@ combinations of \code{target_species}.}
 whether observed intensity exceeds the null; \code{"less"} tests
 whether it is below the null.}
 
-\item{alpha}{Significance threshold (default 0.05).}
+\item{alpha}{Significance threshold (default 0.1).}
 
 \item{min_species}{Minimum species per clique.}
 

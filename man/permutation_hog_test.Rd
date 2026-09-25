@@ -146,7 +146,7 @@ is correctly calibrated (pi0 = 1 on null simulations).
 hog_results <- permutation_hog_test(net1, net2, comparison,
   n_cores = 8L, use_torch = TRUE
 )
-significant <- hog_results[hog_results$q.value < 0.05, ]
+significant <- hog_results[hog_results$q.value < 0.1, ]
 }
 
 }

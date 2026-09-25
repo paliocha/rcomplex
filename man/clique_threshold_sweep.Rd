@@ -12,7 +12,7 @@ clique_threshold_sweep(
   species_pairs = NULL,
   multipliers = c(1.5, 2, 3, 5, 10),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,
@@ -46,7 +46,7 @@ Default \code{c(1.5, 2, 3, 5, 10)}.}
 \code{"less"}.}
 
 \item{alpha}{Significance threshold for edge classification
-(default 0.05).}
+(default 0.1).}
 
 \item{min_species}{Minimum species per clique
 (default \code{length(target_species)}).}

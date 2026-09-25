@@ -104,7 +104,7 @@
 #' @param binary Treat every surviving edge as weight 1 (default `FALSE`).
 #'   On a hard-thresholded network this changes little and makes `avg.weight`
 #'   exactly the module edge density.
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold (default 0.1).
 #' @param calibrate How the combined p-value is calibrated before FDR
 #'   correction. `"mixture"` (default) recalibrates `pmax` toward the
 #'   empirical joint null of the two statistics; `"none"` uses `pmax`
@@ -237,7 +237,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
                                 map = NULL, edges = NULL, cliques = NULL,
                                 sp_ref = NULL, sp_test = NULL,
                                 n_perm = 10000L, min_module_size = 10L,
-                                binary = FALSE, alpha = 0.05,
+                                binary = FALSE, alpha = 0.1,
                                 calibrate = c("mixture", "none"),
                                 qvalue_method = NULL,
                                 sensitivity = FALSE, copy_draws = 200L,
@@ -993,7 +993,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' modules. It takes no part in the classification.
 #'
 #' @param pres Output of [module_preservation()].
-#' @param alpha Significance threshold for the combined q-value (default 0.05).
+#' @param alpha Significance threshold for the combined q-value (default 0.1).
 #' @param z_conserved Cut point at or above which a significant module is
 #'   called conserved rather than moderately preserved (default 10).
 #' @param z_scale Which `Zsummary` the cut point is read against.
@@ -1029,7 +1029,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 #' }
 #'
 #' @export
-classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
+classify_preservation <- function(pres, alpha = 0.1, z_conserved = 10,
                                   z_scale = c("standardized", "raw"),
                                   species = NA_character_,
                                   pair_name = NA_character_) {
@@ -1166,7 +1166,7 @@ classify_preservation <- function(pres, alpha = 0.05, z_conserved = 10,
 #'   rownames(net_b$network)
 #' )
 #' corr <- module_correspondence(mods_a, mods_b, map)
-#' subset(corr$pairs, q.value < 0.05)
+#' subset(corr$pairs, q.value < 0.1)
 #' }
 #'
 #' @export
@@ -1308,7 +1308,7 @@ preservation_paired <- function(modules, ...) {
 #' @export
 preservation_paired.default <- function(modules, networks, orthologs, pairs,
                                         group = NULL, edges = NULL,
-                                        cliques = NULL, alpha = 0.05,
+                                        cliques = NULL, alpha = 0.1,
                                         z_conserved = 10, seed = NULL, ...) {
   # Seeded once for the whole run; the module_preservation() calls below
   # leave seed at NULL and continue this stream, so the directions do not

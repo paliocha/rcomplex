@@ -179,6 +179,12 @@ rng_contract_cases <- function(fx) {
       call = function(seed) summarize_comparison(cmp, seed = seed)$results
     ),
     list(
+      name = "null_network",
+      call = function(seed) {
+        null_network(fx$null_x, fx$null_net, seed = seed)$network
+      }
+    ),
+    list(
       name = "find_coexpressologs.default",
       call = function(seed) find_coexpressologs(nets, td$ortho, seed = seed)
     ),
@@ -186,7 +192,7 @@ rng_contract_cases <- function(fx) {
       name = "density_sweep.default",
       call = function(seed) {
         suppressMessages(density_sweep(nets, td$ortho,
-          multipliers = 1, method = "analytical", seed = seed
+          multipliers = 1, method = "hypergeometric", seed = seed
         ))$edges
       }
     ),

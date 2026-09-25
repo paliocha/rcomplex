@@ -17,7 +17,7 @@ module_preservation(
   n_perm = 10000L,
   min_module_size = 10L,
   binary = FALSE,
-  alpha = 0.05,
+  alpha = 0.1,
   calibrate = c("mixture", "none"),
   qvalue_method = NULL,
   sensitivity = FALSE,
@@ -60,7 +60,7 @@ module to be tested (default 10).}
 On a hard-thresholded network this changes little and makes \code{avg.weight}
 exactly the module edge density.}
 
-\item{alpha}{Significance threshold (default 0.05).}
+\item{alpha}{Significance threshold (default 0.1).}
 
 \item{calibrate}{How the combined p-value is calibrated before FDR
 correction. \code{"mixture"} (default) recalibrates \code{pmax} toward the

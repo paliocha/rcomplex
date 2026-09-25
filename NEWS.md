@@ -1,5 +1,44 @@
 # rcomplex 0.3.1
 
+- **Every q-value call threshold now defaults to 0.1.** `alpha` in
+  `find_coexpressologs()`, `density_sweep()`, `summarize_comparison()`,
+  `summarize_specificity()`, `comparison_to_edges()`,
+  `resolve_ortholog_map()`, `coexpressolog_strength()`, the clique tests
+  (`clique_threshold_sweep()`, `clique_perturbation_test()`,
+  `clique_intensity_test()`), `module_preservation()`,
+  `classify_preservation()`, `preservation_paired()` and
+  `classify_hub_conservation()` moves from 0.05 to 0.1, the level
+  `gene_clique_graph()` and `classify_gene_cliques()` already used, so one
+  pipeline no longer mixes two false discovery rates. Default runs call
+  more edges, cliques and modules than before; pass `alpha = 0.05` for the
+  old behaviour. Unchanged: the single-test permutation levels of
+  `test_community_structure()` and `detect_modules(alpha_k1)`, and the
+  loose `alpha_graph = 0.9` of `classify_gene_cliques()`.
+
+- **New opt-in pair-level test `method = "rank"`** in
+  `find_coexpressologs()` and `density_sweep()`, built from
+  `compare_specificity()`, `null_network()` and
+  `summarize_specificity()`. The hypergeometric test counts shared
+  partners against a random-draw urn and cannot tell technically
+  "sticky" genes from conserved co-expression. The specificity score
+  maps the anchor's partners to the other species, takes their AUROC in
+  every partner gene's co-expression ranking, and reports the
+  ortholog's rank among all of them; q-values are empirical against a
+  shuffled-partner null network, then Storey. Against a null network
+  built from shuffled expression, the package's hypergeometric test at
+  network density 0.03 made about 1 call in 28,000 on the n = 20
+  Pooideae leaf networks and calls about twice as many pairs as the rank
+  test at q < 0.1 (design note 11.12), so the rank test is not the fix
+  for a false-call problem there. What it adds is calibration by
+  construction and a rank for every paralog copy: in the design-note
+  probe the best copy pair was not the top-variance copy in two thirds
+  of multi-copy calls. The 25 % false-call rate reported in note 11.9
+  belongs to a hypergeometric test on top-25 neighbour lists, not to
+  this package's test. `null_networks` is required; `power` is
+  `NA`. The default is unchanged: the hypergeometric test, now named
+  `method = "hypergeometric"`; the old name `"analytical"` is still
+  accepted.
+
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
   complete clique over one lineage whose outside species were compared
   against every member and rejected at adequate power was

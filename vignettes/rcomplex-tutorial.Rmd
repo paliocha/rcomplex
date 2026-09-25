@@ -225,7 +225,7 @@ count: two knits on the very same machine with the same `n_cores` can
 still give different conserved-edge counts. Set `n_cores = 1L` if
 the permutation numbers must be bit-reproducible.
 
-For quick exploration without GPU, the `"analytical"` method uses
+For quick exploration without GPU, the `"hypergeometric"` method uses
 pair-level Storey q-values (less statistically rigorous for multi-copy
 HOGs, but much faster). Since v0.2.0 its default `pi0_method =
 "randomized"` estimates the null proportion pi0 from randomized
@@ -246,7 +246,7 @@ the `seed` below.
 
 ```{r analytical-edges}
 edges_analytical <- find_coexpressologs(networks, orthologs,
-  method = "analytical", seed = 1
+  method = "hypergeometric", seed = 1
 )
 cat(
   "Analytical:", sum(edges_analytical$type == "conserved"), "conserved edges\n"

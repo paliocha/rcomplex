@@ -288,7 +288,7 @@ test_that("null intensities are the permuted runs' own Jaccard weights", {
     sh <- setup$orthologs
     sh$Species2 <- sample(sh$Species2)
     e_p <- find_coexpressologs(setup$networks, sh,
-      method = "analytical", pval_combine = "min", pi0_method = "none"
+      method = "hypergeometric", pval_combine = "min", pi0_method = "none"
     )
     if (nrow(e_p) == 0L) next
     cl_p <- find_cliques(e_p, sp, min_species = length(sp))
@@ -334,7 +334,7 @@ test_that("within_hog null matches cliques where global cannot", {
     stringsAsFactors = FALSE
   )
   edges <- find_coexpressologs(networks, orthologs,
-    method = "analytical", pi0_method = "storey"
+    method = "hypergeometric", pi0_method = "storey"
   )
   cliques <- find_cliques(edges, sp, min_species = 2L)
   expect_gt(nrow(cliques), 0L)
