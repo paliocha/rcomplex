@@ -2,13 +2,14 @@
 # Usage (from the repo root):
 #   Rscript dev/bench/network_memory.R [n_values=5000,10000,20000]
 #     [block_sizes=256,1024] [out=dev/bench/network_memory.tsv] [lib=<path>]
+#     [mr_log=0|1]
 # Without lib=, each child loads rcomplex with devtools::load_all(".").
 # Each configuration runs in its own Rscript child under /usr/bin/time, so
 # peak RSS is that of one compute_network() call plus R and package startup.
 
 args <- c(
   n_values = "5000,10000,20000", block_sizes = "256,1024",
-  out = "dev/bench/network_memory.tsv", lib = ""
+  out = "dev/bench/network_memory.tsv", lib = "", mr_log = "0"
 )
 for (a in commandArgs(trailingOnly = TRUE)) {
   kv <- strsplit(a, "=", fixed = TRUE)[[1]]
@@ -17,6 +18,7 @@ for (a in commandArgs(trailingOnly = TRUE)) {
 }
 n_values <- as.integer(strsplit(args[["n_values"]], ",")[[1]])
 block_sizes <- as.integer(strsplit(args[["block_sizes"]], ",")[[1]])
+mr_log <- args[["mr_log"]] == "1"
 linux <- Sys.info()[["sysname"]] == "Linux"
 
 se_path <- "prepare_data/data/BDIS_se.rds"
@@ -68,16 +70,21 @@ loader <- if (nzchar(args[["lib"]])) {
 run_child <- function(x_file, block) {
   res_file <- tempfile(fileext = ".rds")
   extra <- if (is.na(block)) "" else sprintf(", block_size = %dL", block)
+  # The trace records the rank fraction the blockwise kernel settled on
   code <- paste0(
     "suppressMessages(", loader, "); x <- readRDS('", x_file, "'); ",
+    "frac <- NA_real_; suppressMessages(trace('mr_block_network_cpp', ",
+    "where = asNamespace('rcomplex'), print = FALSE, exit = quote(",
+    "frac <<- returnValue()$fraction))); ",
     "t0 <- proc.time()[['elapsed']]; ",
     "r <- tryCatch(compute_network(x, density = 0.03, ",
-    "store_density = 0.05, sparse = TRUE, n_cores = 8L", extra, "), ",
+    "store_density = 0.05, sparse = TRUE, n_cores = 8L, ",
+    "mr_log_transform = ", mr_log, extra, "), ",
     "error = function(e) conditionMessage(e)); ",
     "s <- proc.time()[['elapsed']] - t0; ",
     "saveRDS(if (is.character(r)) list(err = r) else list(seconds = s, ",
     "threshold = r$threshold, store_threshold = r$store_threshold, ",
-    "nnz = length(r$network@x)), '", res_file, "')"
+    "nnz = length(r$network@x), fraction = frac), '", res_file, "')"
   )
   out <- suppressWarnings(system2(
     "/usr/bin/time", c(
@@ -105,7 +112,7 @@ run_child <- function(x_file, block) {
     cat("  blockwise not supported yet (", r$err, "): recording NA\n")
     r <- list(
       seconds = NA_real_, threshold = NA_real_,
-      store_threshold = NA_real_, nnz = NA_integer_
+      store_threshold = NA_real_, nnz = NA_integer_, fraction = NA_real_
     )
     rss_mb <- NA_real_
   }
@@ -122,11 +129,12 @@ for (n in n_values) {
       n = n, mode = if (is.na(b)) "dense" else "blockwise",
       block_size = b, seconds = r$seconds,
       peak_rss_mb = r$peak_rss_mb, threshold = r$threshold,
-      store_threshold = r$store_threshold, nnz = r$nnz
+      store_threshold = r$store_threshold, nnz = r$nnz,
+      fraction = r$fraction
     )
     msg <- sprintf(
-      "n=%d %s block=%s: %.1f s, %.0f MB peak, nnz=%s",
-      n, row$mode, b, row$seconds, row$peak_rss_mb, row$nnz
+      "n=%d %s block=%s: %.1f s, %.0f MB peak, nnz=%s, fraction=%s",
+      n, row$mode, b, row$seconds, row$peak_rss_mb, row$nnz, row$fraction
     )
     if (!is.na(b)) {
       d <- rows[[paste(n, NA)]]
