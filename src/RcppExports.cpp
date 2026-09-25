@@ -340,6 +340,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// mr_block_network_cpp
+List mr_block_network_cpp(const arma::mat& zt, bool log_transform, bool abs_cor, double density, double store_density, int block_size, int n_cores);
+RcppExport SEXP _rcomplex_mr_block_network_cpp(SEXP ztSEXP, SEXP log_transformSEXP, SEXP abs_corSEXP, SEXP densitySEXP, SEXP store_densitySEXP, SEXP block_sizeSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type zt(ztSEXP);
+    Rcpp::traits::input_parameter< bool >::type log_transform(log_transformSEXP);
+    Rcpp::traits::input_parameter< bool >::type abs_cor(abs_corSEXP);
+    Rcpp::traits::input_parameter< double >::type density(densitySEXP);
+    Rcpp::traits::input_parameter< double >::type store_density(store_densitySEXP);
+    Rcpp::traits::input_parameter< int >::type block_size(block_sizeSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(mr_block_network_cpp(zt, log_transform, abs_cor, density, store_density, block_size, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 // reduce_orthogroups_cpp
 List reduce_orthogroups_cpp(const arma::mat& expr, const List& hog_members, const IntegerVector& non_hog_idx, double cor_threshold);
 RcppExport SEXP _rcomplex_reduce_orthogroups_cpp(SEXP exprSEXP, SEXP hog_membersSEXP, SEXP non_hog_idxSEXP, SEXP cor_thresholdSEXP) {
@@ -401,6 +418,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_mutual_rank_inplace_cpp", (DL_FUNC) &_rcomplex_mutual_rank_inplace_cpp, 4},
     {"_rcomplex_compare_neighborhoods_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_cpp, 9},
     {"_rcomplex_compare_neighborhoods_sparse_cpp", (DL_FUNC) &_rcomplex_compare_neighborhoods_sparse_cpp, 13},
+    {"_rcomplex_mr_block_network_cpp", (DL_FUNC) &_rcomplex_mr_block_network_cpp, 7},
     {"_rcomplex_reduce_orthogroups_cpp", (DL_FUNC) &_rcomplex_reduce_orthogroups_cpp, 4},
     {"_rcomplex_rewire_degseq_cpp", (DL_FUNC) &_rcomplex_rewire_degseq_cpp, 4},
     {"_rcomplex_extract_sparse_cpp", (DL_FUNC) &_rcomplex_extract_sparse_cpp, 3},

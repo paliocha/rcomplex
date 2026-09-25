@@ -380,6 +380,23 @@ compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2,
     .Call(`_rcomplex_compare_neighborhoods_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores)
 }
 
+#' Blockwise sparse mutual-rank network
+#'
+#' @param zt Standardised expression (samples x genes) such that
+#'   `crossprod(zt)` is the correlation matrix.
+#' @param log_transform,abs_cor As in [mutual_rank_inplace_cpp()].
+#' @param density,store_density Analysis and store densities.
+#' @param block_size Columns per correlation block.
+#' @param n_cores Number of OpenMP threads.
+#' @return List with dgCMatrix slots `i`, `p`, `x`, the `threshold` and
+#'   `store_threshold`, the number of joined candidate pairs
+#'   `n_candidates`, and the grid `fraction` that sufficed.
+#'
+#' @keywords internal
+mr_block_network_cpp <- function(zt, log_transform, abs_cor, density, store_density, block_size, n_cores) {
+    .Call(`_rcomplex_mr_block_network_cpp`, zt, log_transform, abs_cor, density, store_density, block_size, n_cores)
+}
+
 #' Reduce orthogroups by merging correlated paralogs
 #'
 #' For each HOG with multiple paralogs, computes pairwise Pearson correlation
