@@ -1805,6 +1805,42 @@ specificity score with shuffled calibration (this also retires the
 discrete-FDR item in Section 9), keep best-copy pairs, and offer
 rank-aggregation across contexts (tissues) but not across replicates.
 
+### 11.10 Package implementation against the probe (2026-09-25)
+
+`method = "specificity"` on branch `feature/specificity-score`
+(`compare_specificity()`, `null_network()`, `summarize_specificity()`),
+cross-checked by `prepare_data/probe-module-engine/p14_package_crosscheck.R`
+and `p14b_definition_check.R` on the p13 genes (8,000 per species,
+Spearman correlation, MR network at density 0.03, one null network per
+species). Outputs in `out-2026-09-23/p14/`.
+
+| pair / tissue | Spearman probe vs package | probe calls | package calls | Jaccard | analytical calls | Jaccard analytical vs package |
+|---|---|---|---|---|---|---|
+| BDIS-HVUL leaf | 0.780 | 788 | 624 | 0.47 | 1,532 | 0.40 |
+| BDIS-HVUL root | 0.785 | 1,233 | 2,866 | 0.42 | 2,442 | 0.85 |
+| FPRA-VBRO leaf | 0.774 | 475 | 996 | 0.39 | 1,738 | 0.55 |
+| FPRA-VBRO root | 0.816 | 1,231 | 1,774 | 0.54 | 2,361 | 0.74 |
+
+The gap is definitional. The probe's own score recomputed on the package's
+MR network with density neighbourhoods (mean 228 genes) agrees with the
+package at Spearman 0.962 and picks the same best copy pair in 96 % of
+HOGs; with top-25 neighbourhoods on the same network it agrees at 0.80.
+Runtime: about 1 s per pair for both directions plus both null directions
+at 8 cores, after 5 to 6 s of network builds.
+
+Two readings. At density 0.03 the package's specificity and analytical
+calls overlap more with each other (Jaccard 0.40 to 0.85) than either does
+with the top-25 probe, so the neighbourhood definition matters as much as
+the test; the n = 20 leaf case, where the hypergeometric was
+anti-conservative, is where they part most. Paralog choice is the least
+stable quantity across definitions (53 to 59 % agreement on multi-copy
+HOGs against the probe).
+
+Bug found on the way, not fixed on this branch: `compute_network()`'s
+`min_var` filter lets a gene that is constant within the samples through
+(floating-point variance of about 1e-30), and Spearman then errors with
+"sim contains NaN". It bites on tissue subsets.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
