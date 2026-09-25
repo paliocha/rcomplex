@@ -270,28 +270,7 @@ summarize_comparison <- function(comparison,
   }
 
   if (nrow(res) == 0) {
-    out <- list(
-      results = res,
-      summary = list(
-        gene_pairs = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
-        genes = list(
-          sp1 = 0L, sp2 = 0L,
-          reciprocal_sp1 = 0L, reciprocal_sp2 = 0L
-        ),
-        orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
-        pi0 = c(sp1 = NA_real_, sp2 = NA_real_)
-      )
-    )
-    if (!is.null(sp1) && !is.null(sp2)) {
-      out$edges <- data.frame(
-        gene1 = character(0), gene2 = character(0),
-        species1 = character(0), species2 = character(0),
-        hog = character(0), q.value = numeric(0),
-        effect_size = numeric(0), jaccard = numeric(0),
-        power = numeric(0), type = character(0)
-      )
-    }
-    return(out)
+    return(.summary_empty(res, sp1, sp2))
   }
 
   # Compute q-values on selected p-value columns. Randomized p-value for
@@ -321,37 +300,11 @@ summarize_comparison <- function(comparison,
   res[[q1_col]] <- qv1$qvalues
   res[[q2_col]] <- qv2$qvalues
 
-  # Helper: count groups where the best (min) q-value is significant
-  count_sig <- function(qvals, groups) {
-    sum(tapply(qvals, groups, min) < alpha)
-  }
-
-  q1 <- res[[q1_col]]
-  q2 <- res[[q2_col]]
-  max_q <- pmax(q1, q2)
-
   out <- list(
     results = res,
-    summary = list(
-      gene_pairs = list(
-        sp1 = sum(q1 < alpha),
-        sp2 = sum(q2 < alpha),
-        reciprocal = sum(q1 < alpha & q2 < alpha),
-        total = nrow(res)
-      ),
-      genes = list(
-        sp1 = count_sig(q1, res$Species1),
-        sp2 = count_sig(q2, res$Species2),
-        reciprocal_sp1 = count_sig(max_q, res$Species1),
-        reciprocal_sp2 = count_sig(max_q, res$Species2)
-      ),
-      orthogroups = list(
-        sp1 = count_sig(q1, res$hog),
-        sp2 = count_sig(q2, res$hog),
-        reciprocal = count_sig(max_q, res$hog),
-        total = length(unique(res$hog))
-      ),
-      pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0)
+    summary = c(
+      .summary_counts(res, q1_col, q2_col, alpha),
+      list(pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0))
     )
   )
 
@@ -361,6 +314,216 @@ summarize_comparison <- function(comparison,
     )
   }
 
+  out
+}
+
+
+#' Significant-call counts at gene-pair, gene and orthogroup level
+#'
+#' The count block shared by [summarize_comparison()] and
+#' [summarize_specificity()]: a gene or orthogroup counts as called when
+#' its best (minimum) q-value is below `alpha`; `reciprocal` requires both
+#' directions.
+#'
+#' @param res Results frame carrying the two q-value columns.
+#' @param q1_col,q2_col Names of the Species1 / Species2 q-value columns.
+#' @param alpha Significance threshold on q-values.
+#' @return `list(gene_pairs = , genes = , orthogroups = )`.
+#' @noRd
+.summary_counts <- function(res, q1_col, q2_col, alpha) {
+  count_sig <- function(qvals, groups) {
+    sum(tapply(qvals, groups, min) < alpha)
+  }
+  q1 <- res[[q1_col]]
+  q2 <- res[[q2_col]]
+  max_q <- pmax(q1, q2)
+  list(
+    gene_pairs = list(
+      sp1 = sum(q1 < alpha),
+      sp2 = sum(q2 < alpha),
+      reciprocal = sum(q1 < alpha & q2 < alpha),
+      total = nrow(res)
+    ),
+    genes = list(
+      sp1 = count_sig(q1, res$Species1),
+      sp2 = count_sig(q2, res$Species2),
+      reciprocal_sp1 = count_sig(max_q, res$Species1),
+      reciprocal_sp2 = count_sig(max_q, res$Species2)
+    ),
+    orthogroups = list(
+      sp1 = count_sig(q1, res$hog),
+      sp2 = count_sig(q2, res$hog),
+      reciprocal = count_sig(max_q, res$hog),
+      total = length(unique(res$hog))
+    )
+  )
+}
+
+
+#' The summary of a comparison with no testable rows
+#'
+#' Zero counts, undefined pi0, and an empty edge frame when `sp1` and
+#' `sp2` are given.
+#'
+#' @param res The (empty) results frame.
+#' @param sp1,sp2 Species abbreviations or `NULL`.
+#' @return `list(results = , summary = )`, plus `edges` when named.
+#' @noRd
+.summary_empty <- function(res, sp1, sp2) {
+  out <- list(
+    results = res,
+    summary = list(
+      gene_pairs = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
+      genes = list(
+        sp1 = 0L, sp2 = 0L,
+        reciprocal_sp1 = 0L, reciprocal_sp2 = 0L
+      ),
+      orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
+      pi0 = c(sp1 = NA_real_, sp2 = NA_real_)
+    )
+  )
+  if (!is.null(sp1) && !is.null(sp2)) {
+    out$edges <- data.frame(
+      gene1 = character(0), gene2 = character(0),
+      species1 = character(0), species2 = character(0),
+      hog = character(0), q.value = numeric(0),
+      effect_size = numeric(0), jaccard = numeric(0),
+      power = numeric(0), type = character(0)
+    )
+  }
+  out
+}
+
+
+#' Empirical p-values against a null draw
+#'
+#' `(1 + #{p0 <= p}) / (1 + n0)`, the permutation-style estimate that
+#' never returns 0. `NA` null draws (anchors the null network could not
+#' test) are not draws and are dropped.
+#'
+#' @param p Observed p-values.
+#' @param p0 Null p-values.
+#' @return Numeric vector the length of `p`.
+#' @noRd
+.p_empirical <- function(p, p0) {
+  p0 <- sort(p0)
+  (1 + findInterval(p, p0)) / (1 + length(p0))
+}
+
+
+#' Summarize a specificity comparison
+#'
+#' Computes q-values for the per-direction specificity p-values from
+#' [compare_specificity()], optionally calibrated against a shuffled
+#' partner null, and the same gene-pair, gene and orthogroup counts as
+#' [summarize_comparison()]. Rows where either direction is `NA` (an
+#' anchor gene with no mapped neighbours) are dropped before testing.
+#'
+#' @section Multiple testing correction:
+#' With `null_p`, each direction's p-values are first made empirical
+#' against the p-values of the same comparison run against a shuffled
+#' partner network ([null_network()]), pooled over pairs:
+#' `p.emp = (1 + #{null p <= p}) / (1 + n_null)`. Q-values are then
+#' Storey q-values on the empirical (or, without `null_p`, the raw)
+#' p-values, with Benjamini-Hochberg as the fallback when the pi0 fit
+#' fails. All tests of one direction share one support of `1/n2` steps,
+#' so no discrete correction is needed.
+#'
+#' @param comparison Data frame from [compare_specificity()].
+#' @param null_p `NULL`, or `list(sp1 = , sp2 = )` of null p-values for
+#'   the 1 -> 2 and 2 -> 1 directions from the shuffled partner. `NA`
+#'   entries are dropped.
+#' @param alpha Significance threshold applied to q-values (default 0.05).
+#' @param pi0_method `"storey"` (default) estimates pi0 from the p-values;
+#'   `"none"` fixes pi0 = 1 (Benjamini-Hochberg).
+#' @inheritParams summarize_comparison
+#' @return A list with components:
+#'   \describe{
+#'     \item{results}{The complete rows of `comparison` with
+#'       `Species1.p.emp` / `Species2.p.emp` (when `null_p` is given) and
+#'       `Species1.q.val.con` / `Species2.q.val.con` added.}
+#'     \item{summary}{The counts of [summarize_comparison()], `pi0` per
+#'       direction, `n_null` (null draws used per direction, 0 without
+#'       `null_p`) and `n_dropped` (rows with an `NA` p-value).}
+#'     \item{edges}{(Only when `sp1` and `sp2` are provided.) Edge frame
+#'       from [comparison_to_edges()]; `power` is `NA` because the
+#'       specificity test has no hypergeometric urn.}
+#'   }
+#'
+#' @references
+#' Suresh, H., Crow, M., Jorstad, N., Hodge, R., Lein, E., Dobin, A.,
+#' Bakken, T. & Gillis, J. (2023). Comparative single-cell transcriptomic
+#' analysis of primate brains highlights human-specific regulatory
+#' evolution. \emph{Nature Ecology & Evolution}, 7(11), 1930--1943.
+#' \doi{10.1038/s41559-023-02186-7}
+#'
+#' Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
+#' genomewide studies. \emph{Proceedings of the National Academy of
+#' Sciences}, 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
+#'
+#' @export
+summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.05,
+                                  pi0_method = c("storey", "none"),
+                                  sp1 = NULL, sp2 = NULL,
+                                  pval_combine = c("max", "min")) {
+  pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
+  if (xor(is.null(sp1), is.null(sp2))) {
+    stop("Both sp1 and sp2 must be provided, or neither.")
+  }
+  p_cols <- c("Species1.p.val", "Species2.p.val")
+  if (!all(c("Species1", "Species2", "hog", p_cols) %in% names(comparison))) {
+    stop("comparison must be output from compare_specificity()")
+  }
+  if (!is.null(null_p)) {
+    if (!is.list(null_p) || !all(c("sp1", "sp2") %in% names(null_p))) {
+      stop("null_p must be NULL or list(sp1 = , sp2 = )")
+    }
+    null_p <- lapply(null_p[c("sp1", "sp2")], function(p) p[!is.na(p)])
+  }
+
+  keep <- stats::complete.cases(comparison[p_cols])
+  res <- comparison[keep, , drop = FALSE]
+  n_dropped <- sum(!keep)
+  n_null <- c(sp1 = length(null_p$sp1), sp2 = length(null_p$sp2))
+
+  if (nrow(res) == 0L) {
+    out <- .summary_empty(res, sp1, sp2)
+    out$summary$n_null <- n_null
+    out$summary$n_dropped <- n_dropped
+    return(out)
+  }
+
+  p1 <- res$Species1.p.val
+  p2 <- res$Species2.p.val
+  if (!is.null(null_p)) {
+    p1 <- res$Species1.p.emp <- .p_empirical(p1, null_p$sp1)
+    p2 <- res$Species2.p.emp <- .p_empirical(p2, null_p$sp2)
+  }
+  qv1 <- compute_qvalues(p1, pi0_method = pi0_method)
+  qv2 <- compute_qvalues(p2, pi0_method = pi0_method)
+  res$Species1.q.val.con <- qv1$qvalues
+  res$Species2.q.val.con <- qv2$qvalues
+
+  out <- list(
+    results = res,
+    summary = c(
+      .summary_counts(
+        res, "Species1.q.val.con", "Species2.q.val.con",
+        alpha
+      ),
+      list(
+        pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0),
+        n_null = n_null,
+        n_dropped = n_dropped
+      )
+    )
+  )
+  if (!is.null(sp1) && !is.null(sp2)) {
+    out$edges <- comparison_to_edges(res, sp1, sp2,
+      alternative = "greater", alpha = alpha, pval_combine = pval_combine
+    )
+  }
   out
 }
 
