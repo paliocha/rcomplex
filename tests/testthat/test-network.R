@@ -173,6 +173,23 @@ test_that("min_var removes constant genes", {
   expect_false("gene3" %in% rownames(result$network))
 })
 
+test_that("min_var drops constant genes with float-noise variance", {
+  set.seed(1)
+  expr <- matrix(rnorm(200), nrow = 20,
+                 dimnames = list(paste0("g", 1:20), NULL))
+  # 0.1 is not exact in binary: rowMeans() leaves ~1e-33 of residual
+  # variance, so a plain `var > 0` test keeps this constant gene
+  expr["g20", ] <- 0.1
+  g <- expr["g20", , drop = FALSE]
+  v <- rowSums((g - rowMeans(g))^2) / (ncol(g) - 1L)
+  expect_gt(v, 0) # guard: the fixture really has float-noise variance
+  for (cm in c("pearson", "spearman")) {
+    net <- compute_network(expr, cor_method = cm, density = 0.1)
+    expect_false("g20" %in% rownames(net$network))
+    expect_equal(net$n_removed, 1L)
+  }
+})
+
 test_that("min_var threshold filters near-invariant genes", {
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
