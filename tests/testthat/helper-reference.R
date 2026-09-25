@@ -333,3 +333,71 @@ reference_preservation_stats <- function(adj_ref, idx_ref, adj_test,
     cor.MAR = reference_safe_cor(ref$MAR, tst$MAR)
   )
 }
+
+
+# ---- neighbourhood specificity reference (compare_specificity()) ----
+
+#' Reference neighbourhood specificity on dense matrices
+#'
+#' Per column j, the off-diagonal entries are ranked ascending with average
+#' ties; with `store`, entries below it are first set to -Inf so they tie
+#' at the bottom exactly as unstored sparse entries do. Direction 1 -> 2:
+#' for anchor i, T_i is the species-2 orthologs of i's neighbours minus the
+#' orthologs of i itself; every species-2 gene j scores the AUROC of
+#' T_i \ {j} in column j; p is the rank of the paired gene among all
+#' species-2 genes on the 1 / n2 grid (NaN scores never count). Direction
+#' 2 -> 1 swaps the roles.
+reference_specificity <- function(net1, net2, thr1, thr2, ortho,
+                                  store1 = NULL, store2 = NULL) {
+  col_ranks <- function(m, store) {
+    r <- m * NA_real_
+    for (j in seq_len(ncol(m))) {
+      v <- m[-j, j]
+      if (!is.null(store)) v[v < store] <- -Inf
+      r[-j, j] <- rank(v, ties.method = "average")
+    }
+    r
+  }
+  nb <- function(m, thr, g) setdiff(names(which(m[, g] >= thr)), g)
+  one <- function(ma, mb, thra, thrb, pa, pb, store_b) {
+    rk <- col_ranks(mb, store_b)
+    genes_b <- rownames(mb)
+    n_b <- length(genes_b)
+    np <- length(pa)
+    out <- data.frame(
+      neigh = integer(np), mapped = integer(np), auroc = NA_real_,
+      p.val = NA_real_, jaccard = 0
+    )
+    for (q in seq_len(np)) {
+      i <- pa[q]
+      js <- pb[q]
+      n_i <- nb(ma, thra, i)
+      t_i <- setdiff(unique(pb[pa %in% n_i]), pb[pa == i])
+      a <- rep(NA_real_, n_b)
+      names(a) <- genes_b
+      for (j in genes_b) {
+        tj <- setdiff(t_i, j)
+        t <- length(tj)
+        if (t == 0 || t >= n_b - 1) next
+        a[j] <- (sum(rk[tj, j]) - t * (t + 1) / 2) / (t * (n_b - 1 - t))
+      }
+      back <- setdiff(unique(pa[pb %in% nb(mb, thrb, js)]), i)
+      x <- length(intersect(n_i, back))
+      u <- length(n_i) + length(back) - x
+      out$neigh[q] <- length(n_i)
+      out$mapped[q] <- length(t_i)
+      out$jaccard[q] <- if (u > 0) x / u else 0
+      if (!is.na(a[js])) {
+        ge <- sum(a[names(a) != js] >= a[js], na.rm = TRUE)
+        out$auroc[q] <- a[[js]]
+        out$p.val[q] <- (1 + ge) / n_b
+      }
+    }
+    out
+  }
+  d1 <- one(net1, net2, thr1, thr2, ortho$Species1, ortho$Species2, store2)
+  d2 <- one(net2, net1, thr2, thr1, ortho$Species2, ortho$Species1, store1)
+  names(d1) <- paste0("Species1.", names(d1))
+  names(d2) <- paste0("Species2.", names(d2))
+  cbind(d1, d2)
+}

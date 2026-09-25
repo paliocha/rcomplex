@@ -105,45 +105,12 @@
 #'
 #' @export
 compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
-  # Validate inputs
-  if (!is.list(net1) || is.null(net1$network)) {
-    stop("net1 must be a network object from compute_network()")
-  }
-  if (!is.list(net2) || is.null(net2$network)) {
-    stop("net2 must be a network object from compute_network()")
-  }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
-  }
-
-  net1_mat <- net1$network
-  net2_mat <- net2$network
+  op <- .ortholog_pair_index(net1, net2, orthologs)
+  orthologs <- op$orthologs
+  sp1_idx <- op$sp1_idx
+  sp2_idx <- op$sp2_idx
   thr1 <- net1$threshold
   thr2 <- net2$threshold
-
-  net1_genes <- rownames(net1_mat)
-  net2_genes <- rownames(net2_mat)
-
-  # Filter orthologs to genes present in both networks and deduplicate
-  orthologs <- orthologs[
-    orthologs$Species1 %in% net1_genes &
-      orthologs$Species2 %in% net2_genes, ,
-    drop = FALSE
-  ]
-  orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
-                        drop = FALSE
-                      ])
-
-  if (nrow(orthologs) == 0) {
-    stop("No orthologs found in both networks")
-  }
-
-  # Build gene name -> 0-based index maps
-  idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
-  idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
-
-  sp1_idx <- as.integer(idx1[orthologs$Species1])
-  sp2_idx <- as.integer(idx2[orthologs$Species2])
 
   # Call C++ (dense or sparse entry point, chosen by storage class)
   a1 <- .net_cpp_args(net1, thr1)
@@ -182,8 +149,57 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   cbind(
     orthologs[, c("Species1", "Species2", "hog"), drop = FALSE],
     result,
-    Species1.urn = length(net1_genes) - 1L,
-    Species2.urn = length(net2_genes) - 1L
+    Species1.urn = nrow(net1$network) - 1L,
+    Species2.urn = nrow(net2$network) - 1L
+  )
+}
+
+
+#' Validate a network pair and index its ortholog pairs
+#'
+#' Shared prologue of [compare_neighborhoods()] and
+#' [compare_specificity()]: checks the network objects and ortholog
+#' columns, restricts the ortholog table to genes present in both
+#' networks, deduplicates it, and maps gene names to 0-based indices.
+#'
+#' @return `list(orthologs = , sp1_idx = , sp2_idx = )`.
+#' @noRd
+.ortholog_pair_index <- function(net1, net2, orthologs) {
+  if (!is.list(net1) || is.null(net1$network)) {
+    stop("net1 must be a network object from compute_network()")
+  }
+  if (!is.list(net2) || is.null(net2$network)) {
+    stop("net2 must be a network object from compute_network()")
+  }
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: Species1, Species2, hog")
+  }
+
+  net1_genes <- rownames(net1$network)
+  net2_genes <- rownames(net2$network)
+
+  # Filter orthologs to genes present in both networks and deduplicate
+  orthologs <- orthologs[
+    orthologs$Species1 %in% net1_genes &
+      orthologs$Species2 %in% net2_genes, ,
+    drop = FALSE
+  ]
+  orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
+                        drop = FALSE
+                      ])
+
+  if (nrow(orthologs) == 0) {
+    stop("No orthologs found in both networks")
+  }
+
+  # Build gene name -> 0-based index maps
+  idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
+  idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
+
+  list(
+    orthologs = orthologs,
+    sp1_idx = as.integer(idx1[orthologs$Species1]),
+    sp2_idx = as.integer(idx2[orthologs$Species2])
   )
 }
 
