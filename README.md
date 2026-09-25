@@ -800,7 +800,7 @@ null_mean`) across sizes.
 | `src/clr.cpp` | CLR normalization |
 | `src/density_threshold.cpp` | Quantile-based density thresholding |
 | `src/sparse_extract.cpp` | Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix |
-| `src/network_block.cpp` | Blockwise sparse MR network (`compute_network(block_size =)`): two correlation passes, exact ranks for candidate pairs only |
+| `src/network_block.cpp` | Blockwise sparse MR network (`compute_network(block_size =)`): one correlation pass, per-gene top-ranked partner lists joined by binary search |
 | `src/density_k.h` | Shared count of top pairs for a density, used by dense and blockwise thresholding |
 | `src/rank_column.h` | Shared average-rank kernel for one correlation column |
 | `src/neighbor_lists.h` | Shared neighbour-list construction (dense matrix or validated dgCMatrix slots) |
