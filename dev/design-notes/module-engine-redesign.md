@@ -1972,6 +1972,55 @@ next test is therefore the rank test at a tight density (about 25-50
 neighbours per gene, density ~0.0015-0.0025) feeding D1 nuclei: calibrated
 calls at the scale regulons live at.
 
+### 11.14 Tight neighbourhoods, fastOC borrowings, and the pipeline switch (2026-09-25/26)
+
+**Tight-density arms** (`abl_phase1_tight.R`, same scoring as 11.13; q < 0.1):
+A5 rank at density 0.0015 (~30 neighbours per gene), A6 rank at 0.0025
+(~50), A7 hypergeometric at 0.0025. Held-out shared HOGs per anchor, D1
+(strongest anchors, same N as 11.13):
+
+| arm | leaf | leaf, other trait | wood | wood, other lineage | leaf wiring z |
+|---|---|---|---|---|---|
+| A0 legacy lite (top-25) | 5.49 | 2.41 | 1.08 | 0.12 | 29.2 |
+| A1 hypergeometric, 0.03 | 3.36 | 0.19 | 0.84 | 0.03 | 25.4 |
+| A3 rank, 0.03 | 2.68 | 0.45 | 0.50 | 0.06 | 23.2 |
+| A5 rank, 0.0015 | 3.80 | 1.06 | 0.85 | 0.28 | 32.9 |
+| A6 rank, 0.0025 | 3.67 | 1.05 | 0.81 | 0.20 | 30.0 |
+| A7 hypergeometric, 0.0025 | 4.64 | 1.26 | 0.80 | 0.05 | 31.2 |
+
+All tight arms made no calls against shuffled partners (six pairs each).
+D3 (nuclei on the test's own network) becomes usable at tight density
+(7-10-HOG programs, 20-30x above shuffled) where at 0.03 it collapsed.
+Known-program recovery is unchanged (A5 D1: photosynthesis 0.39, ribosome
+0.85, secondary wall 0.87). The scale of anchor selection was the artefact
+of 11.13: selecting at the scale the nuclei are built at recovers most of
+the gap to the legacy test with calibrated calls.
+
+**fastOC borrowings** (Zinkgraf et al. 2018, 2020; github.com/mzinkgraf/fastOC,
+OrthoClust on Louvain with top-5 kNN graphs, ortholog weight
+(1/cA + 1/cB)/2, co-appearance over 100 runs; `abl_phase2b.R`):
+1. Copy-number weighting as an anchor-ranking penalty: multi-copy share of
+   the top anchors falls from 65 % to 6 % (wood) and 52 % to 1 % (leaf),
+   but replication falls 0.85 -> 0.49 (wood) and 3.80 -> 1.64 (leaf) and
+   secondary-wall recall 0.87 -> 0.40. The best anchors are multi-copy
+   families. Rejected.
+2. Tight neighbourhoods: adopted (above).
+3. Continuous membership score (fraction of scope nuclei holding a HOG):
+   ranks control members above other members at chance (AUC wood 0.55,
+   leaf photosynthesis 0.59, ribosome 0.51). Rejected.
+
+**Pipeline switch.** `engine2.R::pair_tests_rank(density = 0.0015)`,
+drivers `p10_regulons_tight.R`, `p11_score_tight.R`, `w5_regulons_tight.R`
+(outputs `v4t_*`, payloads `regulon_course_v5_tight.json`,
+`regulon_course_wood_v4_tight.json`); definition D0 unchanged. Held-out
+replication over all anchors (loso_test): Pooideae leaf 1.12 -> 2.34,
+root 0.94 -> 1.69; wood 0.33 -> 0.26 (other lineage 0.17 -> 0.12). Wood
+gains on the matched top-500 sample (11.13 protocol) but not over all
+anchors: the tight test calls 5,628 anchors there, more weak ones than the
+top-500 sample sees. Pages republished (Pooideae version 6, wood version 5).
+Next candidates: D1-style anchor restriction in the pipeline for wood, and
+the hypergeometric at tight density as an alternative anchor test.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
