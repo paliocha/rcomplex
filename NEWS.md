@@ -8,6 +8,12 @@
   correlations. On BDIS leaf data (20 samples, n = 20,000, 8 threads)
   the dense build peaked at 5.1 GB RSS in 8.2 s and the blockwise build
   at 1.4 GB in 7.4 s (`block_size = 1024`; 1.2 GB and 6.8 s at 256).
+  On Orion (16 cores, `block_size = 512`) the 52,452-gene Hordeum
+  jubatum root network peaked at 5.9 GB in 31 s against 32.8 GB in
+  66 s dense, with identical thresholds and entry counts (4 columns,
+  near-tied correlations from 20 samples, differ); the 20,517-gene
+  spruce wood network was bit-identical (1.2 GB in 5 s against 3.8 GB
+  in 9 s).
   `NULL` (default) keeps the dense build.
 
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
