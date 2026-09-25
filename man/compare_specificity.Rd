@@ -28,18 +28,63 @@ or \code{"2to1"}.}
 \value{
 A data frame with \code{Species1}, \code{Species2}, \code{hog} and, per
 requested direction (\code{Species1.} for 1 to 2, \code{Species2.} for 2 to
-1): \code{neigh} (anchor degree), \code{mapped} (size of the mapped set),
-\code{auroc}, \code{p.val}, \code{jaccard} (as in \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}) and
-\code{effect.size} (equal to \code{auroc}). \code{auroc} and \code{p.val} are \code{NA} when
-the mapped set is empty or spans every other partner gene.
+1):
+\describe{
+\item{neigh}{Anchor degree.}
+\item{mapped}{Size of the translated set \eqn{T}.}
+\item{auroc}{AUROC of \eqn{T} in the paired ortholog's ranking.}
+\item{p.val}{Rank p-value of the paired ortholog, as above.}
+\item{jaccard}{As in \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}.}
+\item{effect.size}{Equal to \code{auroc}.}
+}
+\code{auroc} and \code{p.val} are \code{NA} when \eqn{T} is empty or spans every
+other partner gene.
 }
 \description{
-For each ortholog pair and direction, the anchor's co-expression
-neighbourhood is mapped through the ortholog table to the partner
-species (orthologs of the anchor's own group removed) and every gene of
-the partner species is scored by the AUROC of that mapped set against
-the gene's co-expression column. The reported p-value is the rank of
-the paired gene among all partner-species genes, on the \code{1 / n} grid.
+Pair-level co-expressolog test that ranks each ortholog pair against
+every other gene of the partner species. The anchor's co-expression
+partners are translated to the partner species, and the paired
+ortholog is scored by how well its own co-expression ranking
+recognises that translated list compared with how well every other
+partner-species gene recognises it. It follows the co-expression
+conservation score of Suresh et al. (2023). It is the engine of
+\code{method = "specificity"} in \code{\link[=find_coexpressologs]{find_coexpressologs()}} and
+\code{\link[=density_sweep]{density_sweep()}}; \code{\link[=summarize_specificity]{summarize_specificity()}} turns its p-values into
+q-values.
+}
+\details{
+For anchor gene \eqn{i} in species 1 and direction 1 to 2:
+\enumerate{
+\item \eqn{T} is the set of species-2 genes orthologous, through
+any copy, to a network neighbour of \eqn{i} (an entry at or above
+the analysis threshold), minus every species-2 gene in \eqn{i}'s
+own ortholog group. Removing the own group keeps a pair from
+scoring itself through its paralogs.
+\item For every species-2 gene \eqn{j}, the AUROC of
+\eqn{T} (without \eqn{j}) among the other \eqn{n_2 - 1} genes,
+ranked by their co-expression with \eqn{j}. Stored entries of
+column \eqn{j} are ranked exactly; unstored entries tie at the
+bottom with their mid-rank. A sparse network therefore ranks only
+its stored top entries, so \code{store_density} sets the resolution.
+\item The p-value of the ortholog pair \eqn{(i, o)} is
+\eqn{(1 + g) / n_2}, where \eqn{g} counts the genes
+\eqn{j \ne o} whose AUROC is at least that of \eqn{o}: the rank
+of the ortholog among all species-2 genes. A translated list that
+thousands of genes recognise as well as \eqn{o} gives a large
+p-value however high its AUROC.
+}
+Direction 2 to 1 swaps the roles. All p-values of one direction lie on
+the same \eqn{1 / n_2} grid. They are not calibrated on their own:
+pass them with the p-values of a comparison against \code{\link[=null_network]{null_network()}}
+to \code{\link[=summarize_specificity]{summarize_specificity()}}.
+
 Runs on the sparse representation; dense networks are converted with
 every nonzero entry stored.
+}
+\references{
+Suresh, H., Crow, M., Jorstad, N., Hodge, R., Lein, E., Dobin, A.,
+Bakken, T. & Gillis, J. (2023). Comparative single-cell transcriptomic
+analysis of primate brains highlights human-specific regulatory
+evolution. \emph{Nature Ecology & Evolution}, 7(11), 1930--1943.
+\doi{10.1038/s41559-023-02186-7}
 }

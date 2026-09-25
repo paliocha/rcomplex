@@ -63,8 +63,8 @@ passed to \code{\link{find_coexpressologs}} at each threshold
 level. Defaults to all pairwise combinations.}
 
 \item{pi0_method}{Passed to \code{\link{find_coexpressologs}} (used
-by the analytical method): \code{"randomized"} (default),
-\code{"storey"} or \code{"none"}. The default draws; pass
+by the analytical and specificity methods): \code{"randomized"}
+(default), \code{"storey"} or \code{"none"}. The default draws; pass
 \code{seed} to pin those draws.}
 
 \item{pval_combine}{Passed to \code{\link{find_coexpressologs}}:

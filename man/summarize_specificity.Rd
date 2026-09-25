@@ -66,8 +66,16 @@ partner network (\code{\link[=null_network]{null_network()}}), pooled over pairs
 \verb{p.emp = (1 + #\{null p <= p\}) / (1 + n_null)}. Q-values are then
 Storey q-values on the empirical (or, without \code{null_p}, the raw)
 p-values, with Benjamini-Hochberg as the fallback when the pi0 fit
-fails. All tests of one direction share one support of \code{1/n2} steps,
-so no discrete correction is needed.
+fails.
+
+No discrete FDR correction is applied. All tests of one direction
+share one support, the \code{1/n2} grid of the rank p-value, so the
+Liang discrete q-values of \code{DiscreteQvalue} gain nothing over Storey,
+and the Doehler-Durand-Roquain procedures, which exploit supports that
+differ between tests (as the hypergeometric p-values of
+\code{\link[=summarize_comparison]{summarize_comparison()}} do), have nothing to exploit. The raw rank
+p-values are not uniform under the null; the empirical step against
+the shuffled partner calibrates them before Storey is applied.
 }
 
 \references{

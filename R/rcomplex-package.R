@@ -16,6 +16,11 @@
 #'   \item{[summarize_comparison()]}{Q-value correction and summary}
 #'   \item{[comparison_to_edges()]}{Convert comparison results to clique
 #'     edge format}
+#'   \item{[compare_specificity()]}{Pair-level specificity score (opt-in
+#'     `method = "specificity"`)}
+#'   \item{[null_network()]}{Shuffled-partner null network}
+#'   \item{[summarize_specificity()]}{Empirical calibration and q-values
+#'     for the specificity score}
 #'   \item{[run_pairwise_comparisons()]}{Batch pairwise comparison pipeline}
 #'   \item{[get_coexpressed_hogs()]}{Query co-expression partners of a
 #'     candidate HOG}

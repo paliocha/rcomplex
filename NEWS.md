@@ -1,5 +1,22 @@
 # rcomplex 0.3.1
 
+- **New opt-in pair-level test `method = "specificity"`** in
+  `find_coexpressologs()` and `density_sweep()`, built from
+  `compare_specificity()`, `null_network()` and
+  `summarize_specificity()`. The hypergeometric test counts shared
+  partners against a random-draw urn and cannot tell technically
+  "sticky" genes from conserved co-expression. The specificity score
+  maps the anchor's partners to the other species, takes their AUROC in
+  every partner gene's co-expression ranking, and reports the
+  ortholog's rank among all of them; q-values are empirical against a
+  shuffled-partner null network, then Storey. In the design-note probe
+  on the n = 20 Pooideae leaf networks, 25 % of hypergeometric calls
+  recurred on a shuffled partner; at 5 % empirical FDR the score called
+  two to three times as many pairs on root, tissue-aggregate and wood
+  networks, and in two thirds of multi-copy calls the best copy pair was
+  not the top-variance copy. `null_networks` is required; `power` is
+  `NA`. The default is unchanged: `method = "analytical"` remains.
+
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
   complete clique over one lineage whose outside species were compared
   against every member and rejected at adequate power was

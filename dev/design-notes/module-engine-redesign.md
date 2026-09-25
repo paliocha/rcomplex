@@ -984,16 +984,13 @@ If the gate passes, the change is a contraction, not an addition.
 | `tag_permutation()` | unchanged |
 | K = 1 test (`test_k1`) | retire: wrong null (Section 2); replaced by the shuffled-expression control and by MDL model selection where an MDL backend is used |
 
-One correction that predates the engine and applies to its foundation
-(Martin, 2026-09-24): `summarize_comparison()`'s pair-level
-hypergeometric tests have a different discrete support per gene pair,
-and Liang's method in DiscreteQvalue assumes one shared support, which
-only the permutation HOG test has. The right procedure for the pair
-level is the Döhler, Durand and Roquain (2018) discrete step-up (a
-BH-type procedure using each test's own support, FDR control under
-independence). Two routes: DiscreteFDR as a new dependency, or about
-40 lines in-house with DiscreteFDR in Suggests to test against. The
-anchor step of Section 11.5 used plain BH and inherits the same fix.
+The pair-level discrete-FDR item recorded here (Martin, 2026-09-24:
+per-pair hypergeometric supports, with the Döhler, Durand and Roquain
+step-up as the fix) is retired by the specificity score
+(`compare_specificity()`, Section 11.9). Its p-values share one `1/n2`
+support per direction, so there is no support heterogeneity to exploit,
+and they are calibrated empirically against a shuffled partner before
+Storey q-values are taken.
 
 Circularity, stated once: with kappa > 0 a module is found partly
 *because* its orthologs co-cluster, so "is module c preserved in species

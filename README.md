@@ -355,6 +355,9 @@ multiplier) error with a message asking for a larger `store_density`.
 | `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
 | `summarize_comparison()` | Storey q-values (randomized-p pi0) and summary statistics |
 | `comparison_to_edges()` | Convert comparison results to edge format for clique analysis |
+| `compare_specificity()` | Pair-level specificity score: rank of the ortholog's AUROC for the translated neighbourhood among all partner-species genes |
+| `summarize_specificity()` | Empirical p-values against a shuffled-partner null, Storey q-values and summary statistics |
+| `null_network()` | Shuffled-partner null network (samples permuted within each gene) for `method = "specificity"` |
 | `permutation_hog_test()` | Permutation-based HOG-level conservation test |
 | `find_coexpressologs()` | Batch co-expressolog calling across all species pairs (alias: `run_pairwise_comparisons()`) |
 | `density_sweep()` | Re-run the co-expressolog pipeline across density multipliers |
@@ -781,8 +784,10 @@ null_mean`) across sizes.
 | `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `find_coexpressologs()`, `density_sweep()`, `get_coexpressed_hogs()` -- pair-level hypergeometric, edge conversion, batch orchestration |
 | `R/network-sparse.R` | Sparse network dispatch: validation, store-threshold guard, `as_sparse_network()` |
 | `R/mr_block.R` | `mr_block()` -- exact local MR reconstruction for gene subsets |
+| `R/specificity.R` | `compare_specificity()` -- pair-level specificity score (opt-in `method = "specificity"`) |
+| `R/null_network.R` | `null_network()` -- shuffled-partner null network for the specificity q-values |
 | `R/coexpressolog_null.R` | `coexpressolog_null()` -- degree-preserving edge-swap null |
-| `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
+| `R/summary.R` | `summarize_comparison()`, `summarize_specificity()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
 | `R/ortholog_map.R` | `resolve_ortholog_map()` -- paralog resolution waterfall (cliques, coexpressologs, unresolved remainder) |
 | `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
@@ -802,6 +807,7 @@ null_mean`) across sizes.
 | `src/sparse_extract.cpp` | Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix |
 | `src/neighbor_lists.h` | Shared neighbour-list construction (dense matrix or validated dgCMatrix slots) |
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
+| `src/specificity.cpp` | Specificity kernel: per-anchor AUROC of the translated neighbourhood in every partner gene's ranking (sparse) |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
 | `src/module_preservation.cpp` | Module preservation permutation kernel (dense and sparse entry points) |

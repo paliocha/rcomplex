@@ -69,14 +69,17 @@ permutation method (default 50).}
 \item{max_permutations}{Maximum permutations for permutation method
 (default 10000).}
 
-\item{pi0_method}{Analytical method only: how pi0 is estimated for the
-pair-level Storey q-values, passed to
+\item{pi0_method}{Analytical and specificity methods: how pi0 is
+estimated for the pair-level Storey q-values, passed to
 \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
-draws; pass \code{seed} to pin those draws.}
+draws; pass \code{seed} to pin those draws. Under
+\code{"specificity"}, \code{"randomized"} is read as
+\code{"storey"}.}
 
-\item{pval_combine}{Analytical method only: how the two directional
-q-values are combined, passed to \code{\link{comparison_to_edges}}:
+\item{pval_combine}{Analytical and specificity methods: how the two
+directional q-values are combined, passed to
+\code{\link{comparison_to_edges}}:
 \code{"max"} (default; both directions significant -- the reciprocal
 criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 the original ComPlEx) or \code{"min"} (permissive; either direction,
@@ -166,6 +169,21 @@ the results into a single edge data frame ready for
 \item{analytical}{Fast path: pair-level Storey q-values via
 \code{\link{summarize_comparison}}. Appropriate when most HOGs
 are single-copy.}
+\item{specificity}{Opt-in: \code{\link{compare_specificity}}
+against shuffled-partner networks from \code{\link{null_network}}
+(argument \code{null_networks}), q-values via
+\code{\link{summarize_specificity}}. The hypergeometric test counts
+how many of gene A's translated partners are among ortholog B's
+partners, against an urn of random draws. It cannot tell biology
+from "sticky" genes, such as genes with many zeros that are
+co-expressed with each other in every species for technical
+reasons. The specificity score asks where A's translated partners
+sit in B's full co-expression ranking, checks every other gene of
+B's species the same way, and reports B's rank in that contest,
+so a list that thousands of genes recognise as well as B is not
+evidence. The q-value is read against a partner whose expression
+was shuffled within each gene. \code{effect_size} is
+\code{sqrt(auroc12 * auroc21)} and \code{power} is \code{NA}.}
 \item{permutation}{Rigorous path: gene-identity permutation via
 \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
 stopping and Liang discrete q-values. Required for multi-copy
