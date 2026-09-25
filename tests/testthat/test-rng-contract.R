@@ -32,6 +32,8 @@ case_label <- function(case) {
 rng_fx <- local({
   td <- make_graded_nets()
   nets <- list(SP_A = td$net1, SP_B = td$net2)
+  null_x <- withr::with_seed(1L, matrix(stats::rnorm(480), 40L))
+  rownames(null_x) <- paste0("g", seq_len(40L))
   list(
     td = td,
     nets = nets,
@@ -40,7 +42,9 @@ rng_fx <- local({
     mf = rng_module_fixture(),
     cf = make_clique_fixture(),
     mx = rng_matrix_classification(),
-    tf = rng_tag_fixture()
+    tf = rng_tag_fixture(),
+    null_x = null_x,
+    null_net = compute_network(null_x, density = 0.1)
   )
 })
 
