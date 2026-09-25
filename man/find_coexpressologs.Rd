@@ -12,7 +12,7 @@ find_coexpressologs(networks, ...)
   networks,
   orthologs,
   species_pairs = NULL,
-  method = c("analytical", "specificity", "permutation"),
+  method = c("hypergeometric", "rank", "permutation"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -45,9 +45,10 @@ keyed by species abbreviation.}
 specifying which pairs to compare. Defaults to all
 \code{combn(names(networks), 2)}.}
 
-\item{method}{Testing method: \code{"analytical"} (default, fast),
-\code{"specificity"} or \code{"permutation"} (rigorous).
-\code{"specificity"} scores each ortholog pair with
+\item{method}{Testing method: \code{"hypergeometric"} (default, fast;
+\code{"analytical"} is accepted as its former name), \code{"rank"} or
+\code{"permutation"} (rigorous).
+\code{"rank"} scores each ortholog pair with
 \code{\link{compare_specificity}} and calibrates it against
 \code{null_networks} via \code{\link{summarize_specificity}};
 \code{filter_zero} and \code{rho0} do not apply and \code{power} is
@@ -69,15 +70,15 @@ permutation method (default 50).}
 \item{max_permutations}{Maximum permutations for permutation method
 (default 10000).}
 
-\item{pi0_method}{Analytical and specificity methods: how pi0 is
+\item{pi0_method}{Hypergeometric and rank methods: how pi0 is
 estimated for the pair-level Storey q-values, passed to
 \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
 draws; pass \code{seed} to pin those draws. Under
-\code{"specificity"}, \code{"randomized"} is read as
+\code{"rank"}, \code{"randomized"} is read as
 \code{"storey"}.}
 
-\item{pval_combine}{Analytical and specificity methods: how the two
+\item{pval_combine}{Hypergeometric and rank methods: how the two
 directional q-values are combined, passed to
 \code{\link{comparison_to_edges}}:
 \code{"max"} (default; both directions significant -- the reciprocal
@@ -106,7 +107,7 @@ loop, rather than being handed to each
 through the pairs in order, so each pair draws its own uniforms
 instead of every pair reusing the same ones.
 
-What a seed buys differs by method. Under \code{"analytical"} it
+What a seed buys differs by method. Under \code{"hypergeometric"} it
 pins the randomized-p draws behind pi0, and the result is
 reproducible at any \code{n_cores}. Under \code{"permutation"} it
 pins the per-thread seeds that the C++ engines draw from R's RNG,

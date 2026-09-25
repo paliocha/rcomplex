@@ -557,9 +557,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' @param species_pairs Optional list of length-2 character vectors
 #'   specifying which pairs to compare. Defaults to all
 #'   \code{combn(names(networks), 2)}.
-#' @param method Testing method: \code{"analytical"} (default, fast),
-#'   \code{"specificity"} or \code{"permutation"} (rigorous).
-#'   \code{"specificity"} scores each ortholog pair with
+#' @param method Testing method: \code{"hypergeometric"} (default, fast;
+#'   \code{"analytical"} is accepted as its former name), \code{"rank"} or
+#'   \code{"permutation"} (rigorous).
+#'   \code{"rank"} scores each ortholog pair with
 #'   \code{\link{compare_specificity}} and calibrates it against
 #'   \code{null_networks} via \code{\link{summarize_specificity}};
 #'   \code{filter_zero} and \code{rho0} do not apply and \code{power} is
@@ -574,12 +575,12 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   permutation method (default 50).
 #' @param max_permutations Maximum permutations for permutation method
 #'   (default 10000).
-#' @param pi0_method Analytical and specificity methods: how pi0 is
+#' @param pi0_method Hypergeometric and rank methods: how pi0 is
 #'   estimated for the pair-level Storey q-values, passed to
 #'   \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 #'   \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
 #'   draws; pass \code{seed} to pin those draws. Under
-#'   \code{"specificity"}, \code{"randomized"} is read as
+#'   \code{"rank"}, \code{"randomized"} is read as
 #'   \code{"storey"}.
 #' @param filter_zero Analytical method only: passed to
 #'   \code{\link{summarize_comparison}}. \code{FALSE} (default) keeps
@@ -601,7 +602,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   through the pairs in order, so each pair draws its own uniforms
 #'   instead of every pair reusing the same ones.
 #'
-#'   What a seed buys differs by method. Under \code{"analytical"} it
+#'   What a seed buys differs by method. Under \code{"hypergeometric"} it
 #'   pins the randomized-p draws behind pi0, and the result is
 #'   reproducible at any \code{n_cores}. Under \code{"permutation"} it
 #'   pins the per-thread seeds that the C++ engines draw from R's RNG,
@@ -613,7 +614,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   on exit; with \code{seed = NULL} the draws come from the ambient
 #'   stream and leave it advanced. Same contract as
 #'   \code{\link{detect_modules}} and \code{\link{summarize_comparison}}.
-#' @param pval_combine Analytical and specificity methods: how the two
+#' @param pval_combine Hypergeometric and rank methods: how the two
 #'   directional q-values are combined, passed to
 #'   \code{\link{comparison_to_edges}}:
 #'   \code{"max"} (default; both directions significant -- the reciprocal
@@ -686,7 +687,7 @@ find_coexpressologs <- function(networks, ...) UseMethod("find_coexpressologs")
 find_coexpressologs.default <- function(
   networks, orthologs,
   species_pairs = NULL,
-  method = c("analytical", "specificity", "permutation"),
+  method = c("hypergeometric", "rank", "permutation"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -702,7 +703,7 @@ find_coexpressologs.default <- function(
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
   }
-  method <- match.arg(method)
+  method <- match.arg(.method_alias(method), eval(formals()$method))
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
@@ -775,7 +776,7 @@ find_coexpressologs.default <- function(
       stop("species '", sp_b, "' not found in networks")
     }
 
-    if (method == "specificity") {
+    if (method == "rank") {
       edges_df <- tryCatch(
         .specificity_pair_edges(
           networks[[sp_a]], networks[[sp_b]], nulls[[sp_a]], nulls[[sp_b]],
@@ -801,7 +802,7 @@ find_coexpressologs.default <- function(
       if (is.null(comparison) || nrow(comparison) == 0) next
     }
 
-    if (method == "analytical") {
+    if (method == "hypergeometric") {
       summary_res <- tryCatch(
         # filter_zero = FALSE by default: a tested pair with zero overlap
         # is a failure the power column can explain, so it belongs in the
@@ -924,9 +925,10 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   (default \code{seq(0.95, 1.05, by = 0.01)}).
 #' @param method Comparison method passed to
 #'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default),
-#'   \code{"analytical"} or \code{"specificity"}.
+#'   \code{"hypergeometric"} (formerly \code{"analytical"}) or
+#'   \code{"rank"}.
 #' @param null_networks Passed to \code{\link{find_coexpressologs}}
-#'   (specificity method only); every null's threshold is scaled by the
+#'   (rank method only); every null's threshold is scaled by the
 #'   same multiplier as its species' network.
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
@@ -941,7 +943,7 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   passed to \code{\link{find_coexpressologs}} at each threshold
 #'   level. Defaults to all pairwise combinations.
 #' @param pi0_method Passed to \code{\link{find_coexpressologs}} (used
-#'   by the analytical and specificity methods): \code{"randomized"}
+#'   by the hypergeometric and rank methods): \code{"randomized"}
 #'   (default), \code{"storey"} or \code{"none"}. The default draws; pass
 #'   \code{seed} to pin those draws.
 #' @param filter_zero Passed to \code{\link{find_coexpressologs}}:
@@ -989,7 +991,7 @@ density_sweep <- function(networks, ...) UseMethod("density_sweep")
 density_sweep.default <- function(
   networks, orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
-  method = c("permutation", "analytical", "specificity"),
+  method = c("permutation", "hypergeometric", "rank"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -1005,7 +1007,7 @@ density_sweep.default <- function(
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
   }
-  method <- match.arg(method)
+  method <- match.arg(.method_alias(method), eval(formals()$method))
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)

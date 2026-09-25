@@ -48,7 +48,7 @@ ortholog is scored by how well its own co-expression ranking
 recognises that translated list compared with how well every other
 partner-species gene recognises it. It follows the co-expression
 conservation score of Suresh et al. (2023). It is the engine of
-\code{method = "specificity"} in \code{\link[=find_coexpressologs]{find_coexpressologs()}} and
+\code{method = "rank"} in \code{\link[=find_coexpressologs]{find_coexpressologs()}} and
 \code{\link[=density_sweep]{density_sweep()}}; \code{\link[=summarize_specificity]{summarize_specificity()}} turns its p-values into
 q-values.
 }

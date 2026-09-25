@@ -4,7 +4,7 @@
 #' permuting every gene's expression values across samples independently,
 #' which keeps each gene's marginal distribution and the gene universe
 #' but destroys all co-expression. It is the partner network for the
-#' empirical calibration of `method = "specificity"`: p-values from a
+#' empirical calibration of `method = "rank"`: p-values from a
 #' comparison against it are the null draws that
 #' [summarize_specificity()] turns into empirical p-values.
 #'

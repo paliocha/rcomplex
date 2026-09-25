@@ -1584,7 +1584,7 @@ clique_perturbation_test.default <- function(
     edges_b <- tryCatch(
       find_coexpressologs(perturbed_networks, orthologs,
         species_pairs = species_pairs,
-        method = "analytical",
+        method = "hypergeometric",
         alternative = alternative,
         alpha = alpha, n_cores = n_cores,
         pval_combine = pval_combine,
@@ -1912,7 +1912,7 @@ clique_intensity_test.default <- function(
   if (is.null(edges)) {
     edges <- find_coexpressologs(networks, orthologs,
       species_pairs = species_pairs,
-      method = "analytical",
+      method = "hypergeometric",
       alternative = alternative,
       alpha = alpha, n_cores = n_cores,
       pval_combine = pval_combine,
@@ -2058,7 +2058,7 @@ clique_intensity_test.default <- function(
     edges_p <- tryCatch(
       find_coexpressologs(networks, shuffled_orthologs,
         species_pairs = species_pairs,
-        method = "analytical",
+        method = "hypergeometric",
         alternative = alternative,
         alpha = alpha, n_cores = n_cores,
         pval_combine = pval_combine,

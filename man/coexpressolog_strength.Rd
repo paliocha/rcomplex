@@ -82,7 +82,7 @@ rank statistic), \code{min_overlap}, \code{normalized_rank}, \code{supported}
 randomized-p pi0 estimator: \code{species1}, \code{species2}, \code{gene1},
 \code{gene2}, \code{hog}, \code{q.value}, \code{effect_size}, \code{jaccard}, \code{type}.}
 \item{params}{List echoing \code{densities}, \code{reference_density},
-\code{alpha}, \code{alternative}, \code{pval_combine} and \code{method = "analytical"} (the only density-profile method implemented so
+\code{alpha}, \code{alternative}, \code{pval_combine} and \code{method = "hypergeometric"} (the only density-profile method implemented so
 far; HOG permutation inference stays reserved for \code{reference}).}
 }
 }

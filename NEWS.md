@@ -1,6 +1,6 @@
 # rcomplex 0.3.1
 
-- **New opt-in pair-level test `method = "specificity"`** in
+- **New opt-in pair-level test `method = "rank"`** in
   `find_coexpressologs()` and `density_sweep()`, built from
   `compare_specificity()`, `null_network()` and
   `summarize_specificity()`. The hypergeometric test counts shared
@@ -15,7 +15,9 @@
   two to three times as many pairs on root, tissue-aggregate and wood
   networks, and in two thirds of multi-copy calls the best copy pair was
   not the top-variance copy. `null_networks` is required; `power` is
-  `NA`. The default is unchanged: `method = "analytical"` remains.
+  `NA`. The default is unchanged: the hypergeometric test, now named
+  `method = "hypergeometric"`; the old name `"analytical"` is still
+  accepted.
 
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
   complete clique over one lineage whose outside species were compared

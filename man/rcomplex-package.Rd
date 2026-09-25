@@ -23,7 +23,7 @@ SummarizedExperiment)}
 \item{\code{\link[=comparison_to_edges]{comparison_to_edges()}}}{Convert comparison results to clique
 edge format}
 \item{\code{\link[=compare_specificity]{compare_specificity()}}}{Pair-level specificity score (opt-in
-\code{method = "specificity"})}
+\code{method = "rank"})}
 \item{\code{\link[=null_network]{null_network()}}}{Shuffled-partner null network}
 \item{\code{\link[=summarize_specificity]{summarize_specificity()}}}{Empirical calibration and q-values
 for the specificity score}

@@ -8,7 +8,7 @@
 #' recognises that translated list compared with how well every other
 #' partner-species gene recognises it. It follows the co-expression
 #' conservation score of Suresh et al. (2023). It is the engine of
-#' `method = "specificity"` in [find_coexpressologs()] and
+#' `method = "rank"` in [find_coexpressologs()] and
 #' [density_sweep()]; [summarize_specificity()] turns its p-values into
 #' q-values.
 #'
@@ -122,18 +122,18 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' and density_sweep()
 #' @noRd
 .check_specificity_args <- function(method, alternative, null_networks) {
-  if (method != "specificity" && !is.null(null_networks)) {
-    stop("null_networks is only used with method = \"specificity\"")
+  if (method != "rank" && !is.null(null_networks)) {
+    stop("null_networks is only used with method = \"rank\"")
   }
-  if (method == "specificity") {
+  if (method == "rank") {
     if (is.null(null_networks)) {
       stop(
-        "method = \"specificity\" needs null_networks; build one per ",
+        "method = \"rank\" needs null_networks; build one per ",
         "species with null_network()"
       )
     }
     if (alternative == "less") {
-      stop("method = \"specificity\" supports alternative = \"greater\" only")
+      stop("method = \"rank\" supports alternative = \"greater\" only")
     }
   }
 }
@@ -167,4 +167,11 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     pi0_method = pi0_method, sp1 = sp1, sp2 = sp2,
     pval_combine = pval_combine
   )$edges
+}
+
+
+#' Accept the pre-0.3.1 name of the hypergeometric arm
+#' @noRd
+.method_alias <- function(method) {
+  if (identical(method, "analytical")) "hypergeometric" else method
 }

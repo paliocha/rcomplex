@@ -33,7 +33,7 @@ Rebuilds a network with the parameters recorded in \code{net} after
 permuting every gene's expression values across samples independently,
 which keeps each gene's marginal distribution and the gene universe
 but destroys all co-expression. It is the partner network for the
-empirical calibration of \code{method = "specificity"}: p-values from a
+empirical calibration of \code{method = "rank"}: p-values from a
 comparison against it are the null draws that
 \code{\link[=summarize_specificity]{summarize_specificity()}} turns into empirical p-values.
 }

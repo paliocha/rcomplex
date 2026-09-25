@@ -192,7 +192,7 @@ rng_contract_cases <- function(fx) {
       name = "density_sweep.default",
       call = function(seed) {
         suppressMessages(density_sweep(nets, td$ortho,
-          multipliers = 1, method = "analytical", seed = seed
+          multipliers = 1, method = "hypergeometric", seed = seed
         ))$edges
       }
     ),

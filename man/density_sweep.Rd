@@ -11,7 +11,7 @@ density_sweep(networks, ...)
   networks,
   orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
-  method = c("permutation", "analytical", "specificity"),
+  method = c("permutation", "hypergeometric", "rank"),
   alternative = c("greater", "less"),
   alpha = 0.05,
   n_cores = 1L,
@@ -41,7 +41,8 @@ density_sweep(networks, ...)
 
 \item{method}{Comparison method passed to
 \code{\link{find_coexpressologs}}: \code{"permutation"} (default),
-\code{"analytical"} or \code{"specificity"}.}
+\code{"hypergeometric"} (formerly \code{"analytical"}) or
+\code{"rank"}.}
 
 \item{alternative}{\code{"greater"} (conservation, default) or
 \code{"less"} (divergence).}
@@ -63,7 +64,7 @@ passed to \code{\link{find_coexpressologs}} at each threshold
 level. Defaults to all pairwise combinations.}
 
 \item{pi0_method}{Passed to \code{\link{find_coexpressologs}} (used
-by the analytical and specificity methods): \code{"randomized"}
+by the hypergeometric and rank methods): \code{"randomized"}
 (default), \code{"storey"} or \code{"none"}. The default draws; pass
 \code{seed} to pin those draws.}
 
@@ -91,7 +92,7 @@ seed does and does not pin under each \code{method}.}
 fold enrichment for the analytical \code{power} column.}
 
 \item{null_networks}{Passed to \code{\link{find_coexpressologs}}
-(specificity method only); every null's threshold is scaled by the
+(rank method only); every null's threshold is scaled by the
 same multiplier as its species' network.}
 }
 \value{

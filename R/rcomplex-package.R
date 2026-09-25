@@ -17,7 +17,7 @@
 #'   \item{[comparison_to_edges()]}{Convert comparison results to clique
 #'     edge format}
 #'   \item{[compare_specificity()]}{Pair-level specificity score (opt-in
-#'     `method = "specificity"`)}
+#'     `method = "rank"`)}
 #'   \item{[null_network()]}{Shuffled-partner null network}
 #'   \item{[summarize_specificity()]}{Empirical calibration and q-values
 #'     for the specificity score}

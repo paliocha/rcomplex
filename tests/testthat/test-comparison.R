@@ -771,7 +771,7 @@ make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
 }
 
 
-test_that("find_coexpressologs default method is analytical", {
+test_that("find_coexpressologs default method is hypergeometric", {
   skip_on_cran()
   fix <- make_coexpr_fixtures()
   # randomized pi0 (the default) draws from the global RNG
@@ -779,7 +779,7 @@ test_that("find_coexpressologs default method is analytical", {
   result_default <- find_coexpressologs(fix$nets, fix$ortho)
   set.seed(1)
   result_explicit <- find_coexpressologs(fix$nets, fix$ortho,
-    method = "analytical"
+    method = "hypergeometric"
   )
   expect_identical(result_default, result_explicit)
 })
@@ -842,7 +842,7 @@ test_that("find_coexpressologs alternative='less' produces 'diverged' labels", {
   expect_true(all(result_perm$type %in% c("diverged", "ns")))
 
   result_anal <- find_coexpressologs(fix$nets, fix$ortho,
-    method = "analytical",
+    method = "hypergeometric",
     alternative = "less"
   )
   expect_true(all(result_anal$type %in% c("diverged", "ns")))
@@ -857,11 +857,12 @@ test_that(
     out <- withr::local_tempfile(fileext = ".csv")
 
     set.seed(1)
-    in_memory <- find_coexpressologs(fix$nets, fix$ortho, method = "analytical")
+    in_memory <- find_coexpressologs(fix$nets, fix$ortho,
+                                     method = "hypergeometric")
 
     set.seed(1)
     ret <- find_coexpressologs(fix$nets, fix$ortho,
-      method = "analytical", out_file = out
+      method = "hypergeometric", out_file = out
     )
 
     expect_identical(ret, out)
@@ -883,7 +884,7 @@ test_that("find_coexpressologs(out_file = ) overwrites a stale file", {
   writeLines("stale,content", out)
 
   find_coexpressologs(fix$nets, fix$ortho,
-    method = "analytical", out_file = out
+    method = "hypergeometric", out_file = out
   )
   from_file <- data.table::fread(out)
   expect_false("stale" %in% names(from_file))
@@ -937,7 +938,7 @@ test_that("find_coexpressologs out_file: errors if stale file removal fails", {
 
   expect_error(
     find_coexpressologs(fix$nets, fix$ortho,
-      method = "analytical", out_file = out
+      method = "hypergeometric", out_file = out
     ),
     "could not remove existing out_file"
   )
@@ -990,10 +991,10 @@ test_that("find_coexpressologs out_file: one header across pairs", {
   out <- withr::local_tempfile(fileext = ".csv")
 
   set.seed(1)
-  in_memory <- find_coexpressologs(nets, ortho, method = "analytical")
+  in_memory <- find_coexpressologs(nets, ortho, method = "hypergeometric")
   set.seed(1)
   ret <- find_coexpressologs(nets, ortho,
-    method = "analytical", out_file = out
+    method = "hypergeometric", out_file = out
   )
 
   expect_identical(ret, out)
@@ -1071,7 +1072,7 @@ test_that("density_sweep at multiplier=1 matches find_coexpressologs", {
   set.seed(1)
   result <- suppressMessages(density_sweep(
     networks = fix$nets, orthologs = fix$ortho,
-    multipliers = 1.0, method = "analytical"
+    multipliers = 1.0, method = "hypergeometric"
   ))
 
   expect_equal(nrow(result), 1)
@@ -1079,7 +1080,7 @@ test_that("density_sweep at multiplier=1 matches find_coexpressologs", {
 
   set.seed(1)
   direct <- find_coexpressologs(
-    networks = fix$nets, orthologs = fix$ortho, method = "analytical"
+    networks = fix$nets, orthologs = fix$ortho, method = "hypergeometric"
   )
 
   sweep_edges <- result$edges[[1]]
@@ -1497,16 +1498,16 @@ test_that("sparse networks must be square with identical row/col names", {
 
 
 test_that(
-  "find_coexpressologs (analytical) equals dense with sparse networks",
+  "find_coexpressologs (hypergeometric) equals dense with sparse networks",
   {
     td <- make_cmp_nets()
     nets_d <- list(A = td$net1, B = td$net2)
     nets_s <- list(A = sparse_net(td$net1), B = sparse_net(td$net2))
 
     set.seed(1)
-    res_d <- find_coexpressologs(nets_d, td$ortho, method = "analytical")
+    res_d <- find_coexpressologs(nets_d, td$ortho, method = "hypergeometric")
     set.seed(1)
-    res_s <- find_coexpressologs(nets_s, td$ortho, method = "analytical")
+    res_s <- find_coexpressologs(nets_s, td$ortho, method = "hypergeometric")
     expect_equal(res_s, res_d)
     expect_gt(nrow(res_d), 0L)
   }
@@ -1656,12 +1657,12 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
 
   sw_min <- suppressMessages(density_sweep(
     nets, ortho,
-    multipliers = 1.0, method = "analytical",
+    multipliers = 1.0, method = "hypergeometric",
     pi0_method = "none", pval_combine = "min"
   ))
   sw_max <- suppressMessages(density_sweep(
     nets, ortho,
-    multipliers = 1.0, method = "analytical",
+    multipliers = 1.0, method = "hypergeometric",
     pi0_method = "none", pval_combine = "max"
   ))
   e_min <- find_coexpressologs(nets, ortho,
@@ -1684,7 +1685,7 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
   set.seed(9)
   invisible(suppressMessages(density_sweep(
     nets, ortho,
-    multipliers = 1.0, method = "analytical",
+    multipliers = 1.0, method = "hypergeometric",
     pi0_method = "none"
   )))
   expect_identical(runif(1), u)
@@ -1751,7 +1752,7 @@ test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
 
   sw_def <- suppressMessages(density_sweep(
     nets, ortho,
-    multipliers = 1.0, method = "analytical",
+    multipliers = 1.0, method = "hypergeometric",
     pi0_method = "none"
   ))
   expect_equal(sw_def$edges[[1]], e_max)
@@ -1781,7 +1782,7 @@ test_that("a seed on find_coexpressologs reaches summarize_comparison", {
     pval_combine = "max"
   )
   wrapped <- find_coexpressologs(nets, td$ortho,
-    method = "analytical", seed = 11
+    method = "hypergeometric", seed = 11
   )
   expect_equal(wrapped$q.value, direct$q.value)
   expect_identical(wrapped$type, direct$type)
@@ -1823,7 +1824,7 @@ test_that("density_sweep(seed = ) is reproducible and pins level one", {
   nets <- list(SP_A = td$net1, SP_B = td$net2)
   run <- function(s) {
     suppressMessages(density_sweep(nets, td$ortho,
-      multipliers = c(1, 1.02), method = "analytical", seed = s
+      multipliers = c(1, 1.02), method = "hypergeometric", seed = s
     ))
   }
   a <- run(3)
@@ -1833,7 +1834,7 @@ test_that("density_sweep(seed = ) is reproducible and pins level one", {
   # nothing is drawn before the first multiplier, so level one reproduces
   # a bare find_coexpressologs() at the same seed
   direct <- find_coexpressologs(nets, td$ortho,
-    method = "analytical", seed = 3
+    method = "hypergeometric", seed = 3
   )
   expect_equal(a$edges[[1]]$q.value, direct$q.value)
 
@@ -2076,7 +2077,7 @@ test_that("find_coexpressologs carries power on both paths", {
   expect_true(any(!is.na(an$power)))
 
   sweep <- suppressMessages(density_sweep(fx$networks, fx$orthologs,
-    multipliers = 1, method = "analytical", pi0_method = "none", rho0 = 2
+    multipliers = 1, method = "hypergeometric", pi0_method = "none", rho0 = 2
   ))
   expect_equal(sweep$edges[[1]]$power, an$power)
 

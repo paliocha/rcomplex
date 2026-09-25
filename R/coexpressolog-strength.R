@@ -456,7 +456,7 @@
 #'       `gene2`, `hog`, `q.value`, `effect_size`, `jaccard`, `type`.}
 #'     \item{params}{List echoing `densities`, `reference_density`,
 #'       `alpha`, `alternative`, `pval_combine` and `method =
-#'       "analytical"` (the only density-profile method implemented so
+#'       "hypergeometric"` (the only density-profile method implemented so
 #'       far; HOG permutation inference stays reserved for `reference`).}
 #'   }
 #'
@@ -578,7 +578,7 @@ coexpressolog_strength.default <- function(networks, orthologs, densities,
     reference = reference,
     params = list(
       densities = densities, reference_density = reference_density,
-      method = "analytical", alpha = alpha, alternative = alternative,
+      method = "hypergeometric", alpha = alpha, alternative = alternative,
       pval_combine = pval_combine
     )
   )

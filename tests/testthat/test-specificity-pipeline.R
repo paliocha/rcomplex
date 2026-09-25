@@ -1,15 +1,15 @@
-# method = "specificity" through find_coexpressologs(), density_sweep() and
+# method = "rank" through find_coexpressologs(), density_sweep() and
 # the clique consumers. Fixtures: make_spec_nets(), sparse_net() from
 # helper-reference.R.
 
 spec_edges <- function(f, ...) {
   find_coexpressologs(f$networks, f$ortho,
-    method = "specificity",
+    method = "rank",
     null_networks = f$nulls, ...
   )
 }
 
-test_that("specificity edges have the analytical shape", {
+test_that("rank edges have the hypergeometric shape", {
   f <- make_spec_nets()
   e <- spec_edges(f)
   a <- find_coexpressologs(f$networks, f$ortho)
@@ -50,7 +50,7 @@ test_that("specificity arguments are validated", {
     "only used with method"
   )
   expect_error(
-    find_coexpressologs(f$networks, f$ortho, method = "specificity"),
+    find_coexpressologs(f$networks, f$ortho, method = "rank"),
     "null_network\\(\\)"
   )
   expect_error(spec_edges(f, alternative = "less"), "greater")
@@ -65,7 +65,7 @@ test_that("specificity arguments are validated", {
 test_that("density_sweep at multiplier 1 equals find_coexpressologs", {
   f <- make_spec_nets()
   sw <- suppressMessages(density_sweep(f$networks, f$ortho,
-    multipliers = 1, method = "specificity", null_networks = f$nulls
+    multipliers = 1, method = "rank", null_networks = f$nulls
   ))
   expect_equal(sw$edges[[1]], spec_edges(f))
 })
@@ -96,8 +96,8 @@ test_that("dense and sparse input give the same specificity edges", {
 test_that("coexpressolog_null refuses the specificity path", {
   f <- make_spec_nets()
   expect_error(
-    coexpressolog_null(f$networks, f$ortho, method = "specificity"),
-    "analytical path only"
+    coexpressolog_null(f$networks, f$ortho, method = "rank"),
+    "hypergeometric path only"
   )
 })
 
@@ -126,4 +126,14 @@ test_that("specificity p-values are uniform under independence", {
   dimnames(n2_same$network) <- list(paste0("B", 1:80), paste0("B", 1:80))
   p_same <- compare_specificity(n1, n2_same, ortho)$Species1.p.val
   expect_lt(mean(p_same, na.rm = TRUE), 0.2)
+})
+
+test_that("\"analytical\" is still accepted as the hypergeometric arm", {
+  fx <- make_spec_nets()
+  old <- find_coexpressologs(fx$networks, fx$ortho,
+                             method = "analytical", seed = 1L)
+  new <- find_coexpressologs(fx$networks, fx$ortho,
+                             method = "hypergeometric", seed = 1L)
+  expect_identical(old, new)
+  expect_gt(nrow(new), 0L)
 })
