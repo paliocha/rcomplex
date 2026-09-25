@@ -1909,6 +1909,69 @@ against the same null. The case for the rank test rests on calibration by
 construction and per-copy ranking, not on fewer false calls. Regulon-level
 results of the ablation follow when phase 2 completes.
 
+### 11.13 Regulon ablation: pair test x MR form x regulon definition (2026-09-25)
+
+Question (Martin): are the noisy regulons of 11.11 an artefact of how
+regulons are defined? Call threshold fixed at q < 0.1. Arms: A0 legacy
+top-25 hypergeometric-lite; A1/A2 package hypergeometric on raw/log MR at
+density 0.03; A3/A4 package rank test on raw/log MR. Definitions: D0
+current (clique anchors, 4-clique nuclei on the top-25 graph, recurrence
+>= 2); D1 D0 restricted to the N strongest anchors (N = smallest anchor
+count across arms: 433 leaf, 2,224 wood); D2 D0 without the clique step
+(recurring top-25 neighbours); D3 nuclei from the pair test's own network
+(density 0.03, recurrence >= 60 % of scope). Scores: leave-one-species-out
+shared HOGs (real / shuffled / random), known-program recovery
+(photosynthesis and cytosolic ribosome in leaf, secondary wall in wood),
+within-species wiring z. Scripts `abl_*.R`, table
+`out-2026-09-23/ablation/ablation_metrics.tsv`.
+
+Held-out shared HOGs per anchor, real (shuffled):
+
+| | leaf D0 | leaf D1 | leaf D2 | wood D0 | wood D1 | wood D2 |
+|---|---|---|---|---|---|---|
+| A0 legacy lite | 5.49 (0.05) | 5.49 (0.05) | 5.32 (0.10) | 1.08 (0) | 1.08 (0) | 1.06 (0.03) |
+| A1 hyper raw | 3.14 (0.03) | 3.36 (0.03) | 3.12 (0.07) | 0.84 (0) | 0.84 (0) | 0.81 (0.02) |
+| A2 hyper log | 3.28 (0.03) | 3.43 (0.03) | 3.24 (0.07) | 0.92 (0) | 0.92 (0) | 0.89 (0.02) |
+| A3 rank raw | 2.61 (0.02) | 2.68 (0.03) | 2.58 (0.06) | 0.50 (0) | 0.50 (0) | 0.48 (0.02) |
+| A4 rank log | 2.77 (0.03) | 2.87 (0.03) | 2.73 (0.06) | 0.49 (0) | 0.49 (0) | 0.48 (0.02) |
+
+Readings.
+
+1. **The pair test moves replication most, and the rank test is last.**
+   Legacy lite > package hypergeometric > rank, on both datasets; the
+   rank test's regulons replicate at about half the legacy level in leaf
+   and wood. Every arm is 25-60 times above its shuffled and random
+   controls, so none is noise; the difference is effect size.
+2. **The regulon definition is not the artefact, with one exception.**
+   Restricting to the strongest anchors (D1) barely changes replication
+   (+0.1 to +0.2) but tightens programs (leaf wiring z 17 -> 25, wood
+   10 -> 14) at a small cost in control recall; dropping the clique step
+   (D2) changes nothing. D3 (nuclei on the test's 600-neighbour network)
+   is the exception: programs of 60-155 HOGs, real/null ratio 4-5, and
+   control precision collapses (ribosome 0.015). Large neighbourhoods do
+   not make regulons.
+3. **MR form is a small effect**: log MR adds 0.1-0.15 shared HOGs in
+   leaf, nothing in wood.
+4. **Known programs are recovered by every arm under D0-D2**: ribosome
+   recall 0.79-0.88 (random 0.0001), photosynthesis 0.30-0.44, secondary
+   wall 0.67-1.0. Photosynthesis precision is highest for the legacy test
+   (0.28 against 0.15 hypergeometric, 0.20 rank).
+5. **Cross-trait replication** (held-out species from the other trait,
+   leaf): legacy 2.4, rank 0.45, hypergeometric 0.15-0.2.
+6. The legacy lite test is slightly anti-conservative in leaf against the
+   shuffled null (0-1 % of calls), clean in wood.
+
+Interpretation. What separates the arms is the neighbourhood scale of
+anchor selection. The legacy test selects genes whose top-25 lists are
+conserved and then builds nuclei on the same top-25 graph; the package
+tests select on conservation of about 600-gene neighbourhoods (density
+0.03) and the nuclei are built on the top-25 graph, a scale the selection
+never looked at. The rank test is the most selective about broad
+neighbourhood identity, which is the least related to tight nuclei. The
+next test is therefore the rank test at a tight density (about 25-50
+neighbours per gene, density ~0.0015-0.0025) feeding D1 nuclei: calibrated
+calls at the scale regulons live at.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,
