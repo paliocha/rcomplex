@@ -50,12 +50,11 @@ From here, three analysis paths are available.
 
 ```r
 # Pair-level q-values (Storey & Tibshirani, 2003). pi0 is estimated from
-# randomized p-values, which draw from the global RNG: seed first for
-# reproducible q-values. Directional q-values are combined with
-# pval_combine = "max" by default (both directions must be significant --
-# the reciprocal criterion of Netotea et al., 2014).
-set.seed(1)
-summary <- summarize_comparison(comparison)
+# randomized p-values: pass `seed` for reproducible q-values. Directional
+# q-values are combined with pval_combine = "max" by default (both
+# directions must be significant -- the reciprocal criterion of Netotea
+# et al., 2014).
+summary <- summarize_comparison(comparison, seed = 1)
 
 # Convert to edge format for clique analysis (multi-species)
 edges_AB <- comparison_to_edges(summary$results, "SP_A", "SP_B")
@@ -381,11 +380,10 @@ over one-sided associations with hubs.
   `S(i,j) = 1 - log(MR(i,j)) / log(n)`. Values are in [0, 1] with
   1 = strongest co-expression. The log compression reduces the dynamic
   range, making the threshold less sensitive to outlier correlations.
-  This is the recommended mode for density-thresholded networks.
 
-- **`mr_log_transform = FALSE`** (raw mutual rank): Returns `MR(i,j)`
-  directly. Values range from 1 to n. Useful when downstream analysis
-  needs the raw rank scale.
+- **`mr_log_transform = FALSE`** (raw mutual rank, the default): Returns
+  `MR(i,j)` directly. Values range from 1 to n. On the Pooideae and wood
+  data the two modes changed co-expressolog call counts by 1-9 %.
 
 Both modes produce the same pair ordering for density thresholding --
 the top-k% edges are identical regardless of the transform.
