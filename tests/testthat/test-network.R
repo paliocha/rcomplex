@@ -177,12 +177,11 @@ test_that("min_var drops constant genes with float-noise variance", {
   set.seed(1)
   expr <- matrix(rnorm(200), nrow = 20,
                  dimnames = list(paste0("g", 1:20), NULL))
-  # 0.1 is not exact in binary: rowMeans() leaves ~1e-33 of residual
-  # variance, so a plain `var > 0` test keeps this constant gene
+  # 0.1 is not exact in binary: where rowMeans() accumulates in double
+  # (macOS arm64) the row keeps ~1e-34 of residual variance and a plain
+  # `var > 0` test kept it; with long-double accumulation (x86_64 Linux)
+  # the variance is exactly 0. The removal must hold on both.
   expr["g20", ] <- 0.1
-  g <- expr["g20", , drop = FALSE]
-  v <- rowSums((g - rowMeans(g))^2) / (ncol(g) - 1L)
-  expect_gt(v, 0) # guard: the fixture really has float-noise variance
   for (cm in c("pearson", "spearman")) {
     net <- compute_network(expr, cor_method = cm, density = 0.1)
     expect_false("g20" %in% rownames(net$network))
