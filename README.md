@@ -5,39 +5,38 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/paliocha/rcomplex)
 <!-- badges: end -->
 
-Comparative analysis of plant co-expression networks in R
+rcomplex compares gene co-expression networks between species. It asks
+which genes, modules and gene groups keep their co-expression partners
+across species, and whether that differs between species with different
+traits, such as annual and perennial life cycles. You build one network
+per species from RNA-seq data, link the networks through ortholog
+groups, and test conservation for single genes, for modules (groups of
+genes that are co-expressed with each other), and for ortholog groups
+across many species at once. The method extends ComPlEx by [Netotea
+*et al.* (2014)](https://doi.org/10.1186/1471-2164-15-106).
 
-**rcomplex** maps orthologous genes between species, builds co-expression
-networks independently, then tests conservation at three complementary
-levels:
+For the statistics behind each test, see [Methods in
+detail](https://paliocha.github.io/rcomplex/articles/methods.html).
 
-- **Gene / HOG level** -- Are individual genes' co-expression
-  neighborhoods preserved across species?
-- **Module level** -- Does a module's internal wiring -- its connection
-  density and which genes are its hubs -- survive in the other species'
-  network?
-- **Clique level** -- Which fully connected subsets of ortholog groups
-  are conserved, and how robust is their trait exclusivity to species
-  removal?
+## What you need
 
-Based on [Netotea *et al.*
-(2014)](https://doi.org/10.1186/1471-2164-15-106), extended with
-permutation-based HOG-level testing, iterative multi-resolution
-consensus modules (Jeub *et al.*, 2018), C++ clique detection with
-Bron-Kerbosch / Tomita pivoting, and leave-k-out jackknife stability
-analysis.
-
-## Validation
-
-rcomplex reproduces natstreet's
-[ComPlEx_python](https://github.com/natstreet/ComPlEx_python) (itself
-validated against Hvidsten's `RComPlEx.Rmd`) on a seeded fixture
-under the ortholog-restricted gene universe: identical neighborhood overlaps
-and BH-adjusted co-expressolog calls (149 pairs) under matched density
-thresholds (`tests/testthat/test-equivalence.R`). Since v0.2.0 the
-hypergeometric urn excludes the anchor gene (see `NEWS.md`), shifting
-p-values by O(1/N) relative to canonical ComPlEx: the fixture call set is
-unchanged and the combined BH values agree within 5e-3.
+- One expression matrix per species: genes in rows, samples in
+  columns, normalised and on a log-like scale (for example DESeq2 VST).
+  A plain matrix or a `SummarizedExperiment` both work.
+- Enough samples: aim for at least 15 to 20 samples per species,
+  taken under matched conditions (same tissues, time points or
+  treatments in every species). A co-expression network built from few
+  samples is noisy: many of its edges are chance correlations, and
+  conservation tests then have little to find. See
+  [pitfalls](#reading-the-results-and-common-pitfalls).
+- Ortholog groups: a table that places genes of all species into
+  ortholog groups (HOGs), from OrthoFinder, FastOMA, PLAZA or similar.
+  See [the file format](#ortholog-file-format).
+- For trait tests, several species per trait. A comparison of one
+  annual with one perennial species cannot separate the trait from
+  everything else that differs between the two. Use several species per
+  trait, ideally as phylogenetic pairs (one annual and one perennial in
+  each genus).
 
 ## Installation
 
@@ -48,340 +47,220 @@ devtools::install_github("paliocha/rcomplex")
 **System requirements:** C++23 compiler, GNU make. OpenMP is optional
 but recommended for parallel permutation and stability tests.
 
-## Quick start
+## A first analysis in five steps
+
+This example uses data that ships with the package: VST-normalised
+RNA-seq for 2,000 to 4,000 genes in each of four Pooideae grasses, two
+annual and two perennial. It keeps only the 20 leaf samples per species
+(see [pitfalls](#reading-the-results-and-common-pitfalls) on pooled
+tissues).
+It runs in under a minute.
+
+### 1. Load expression data and ortholog pairs
 
 ```r
 library(rcomplex)
+library(SummarizedExperiment)
 
-# 1. Parse ortholog groups (tab-delimited, see format below)
-orthologs <- parse_orthologs("orthogroups.txt", "species1", "species2")
+se_list <- readRDS(system.file("extdata", "pooideae_vignette.rds",
+                               package = "rcomplex"))
+species <- c("BDIS", "BSYL", "HVUL", "HJUB")
+se_list <- lapply(se_list[species], function(se) se[, se$tissue == "leaf"])
 
-# 2. Build co-expression networks (accepts matrix or SummarizedExperiment).
-#    Networks are stored sparsely since v0.2.0 (see below);
-#    sparse = FALSE restores the dense object.
-net1 <- compute_network(expr1, norm_method = "MR", density = 0.03)
-net2 <- compute_network(expr2, norm_method = "MR", density = 0.03)
-
-# 3. Compare neighborhoods (pair-level hypergeometric tests)
-comparison <- compare_neighborhoods(net1, net2, orthologs)
+# Ortholog pairs from the HOG column of rowData(). With an ortholog
+# file instead, use parse_orthologs("orthogroups.txt", "BDIS", "BSYL").
+orthologs <- prepare_orthologs(se_list)
+head(orthologs)
 ```
 
-From here, three analysis paths are available.
+`orthologs` has one row per pair of genes that share an ortholog group.
+A gene with paralogs appears in several rows.
 
-### Gene / HOG-level analysis
+### 2. Build one network per species
 
 ```r
-# Pair-level q-values (Storey & Tibshirani, 2003). pi0 is estimated from
-# randomized p-values, which draw from the global RNG: seed first for
-# reproducible q-values. Directional q-values are combined with
-# pval_combine = "max" by default (both directions must be significant --
-# the reciprocal criterion of Netotea et al., 2014).
-set.seed(1)
-summary <- summarize_comparison(comparison)
-
-# Convert to edge format for clique analysis (multi-species)
-edges_AB <- comparison_to_edges(summary$results, "SP_A", "SP_B")
-
-# HOG-level permutation test (recommended for multi-copy gene families)
-hog_results <- permutation_hog_test(net1, net2, comparison, n_cores = 4L)
-
-# Degree-preserving edge-swap null: are there more conserved calls than
-# expected for these degree sequences? (requires sparse networks)
-networks <- list(SP_A = net1, SP_B = net2)
-null <- coexpressolog_null(networks, orthologs, n_perm = 100L, seed = 1L)
-null[null$statistic == "total", ]
+networks <- lapply(se_list, compute_network, density = 0.03)
 ```
 
-### Module-level analysis
+`compute_network()` correlates every pair of genes and turns the
+correlations into Mutual Rank (MR) scores. MR asks whether two genes
+rank each other among their best partners, so a gene correlated with
+everything does not dominate. The network keeps the top 3% of gene
+pairs (`density = 0.03`) as edges. Each gene's neighbourhood is the set
+of genes it shares an edge with.
+
+### 3. Find co-expressologs
 
 ```r
-# Detect modules (single resolution)
-mod1 <- detect_modules(net1, method = "leiden", resolution = 1.0)
-
-# Or: iterative multi-resolution consensus (Jeub et al., 2018)
-mod1 <- detect_modules(net1, resolution = seq(0.1, 5, by = 0.1), seed = 42)
-# mod1$resolution_scan shows n_modules, modularity, ARI at each resolution
-# mod1$params$n_consensus_iterations shows how many iterations until convergence
-
-mod2 <- detect_modules(net2, resolution = seq(0.1, 5, by = 0.1), seed = 42)
-
-# Does mod1's wiring survive in species 2? Preservation is DIRECTIONAL:
-# this asks about SP_A's modules in SP_B's network, which is a different
-# question from the reverse. Run both to get both answers.
-# edges_AB feeds the paralog resolver: without it the ortholog map runs no
-# resolution layer and every multi-copy HOG stays unresolved.
-pres <- module_preservation(mod1, net1, net2, orthologs,
-                            edges = edges_AB,
-                            sp_ref = "SP_A", sp_test = "SP_B",
-                            n_perm = 10000L, n_cores = 4L, seed = 1L)
-pres$preservation  # avg.weight, cor.degree, Zsummary, q.value per module
-
-# Classify: the call comes from the combined permutation q-value over
-# avg.weight (module density) and cor.degree (hub identity), combined
-# with pmax so both must be significant. Four classes: conserved
-# (q < alpha, Zsummary >= 10), moderate (q < alpha, Zsummary < 10),
-# diverged (q >= alpha), untested (q is NA -- nothing was measured).
-classes <- classify_preservation(pres)
-
-# PRIMARY trait test. It steps outside the two-species example above,
-# because the test needs a clade: from here `networks`, `modules`,
-# `orthologs` and `edges` are the eight-species versions, keyed by
-# species.
-annual_sp    <- c("BDIS", "HVUL", "BMAX", "VBRO")
-perennial_sp <- c("BSYL", "HJUB", "BMED", "FPRA")
-all_sp       <- c(annual_sp, perennial_sp)
-trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
-genus <- setNames(rep(c("Brachypodium", "Hordeum", "Briza", "Festuca"), 2),
-                  all_sp)
-
-# Run preservation for EVERY species pair, then ask whether
-# trait-discordant pairs are the less-preserved ones. All pairs rather
-# than a designated few is not a matter of extra resolution -- it is what
-# makes the test exist. The statistic is the concordant mean minus the
-# discordant mean, and a designated annual-vs-perennial table holds no
-# trait-concordant pair at all, so the concordant side is empty and
-# preservation_matrix_test() errors instead of running. Only the
-# between-genus pairs supply same-trait contrasts.
-pairs    <- all_species_pairs(all_sp)
-pres_all <- preservation_paired(modules, networks, orthologs, pairs,
-                                group = trait, edges = edges,
-                                n_cores = 4L, seed = 1L)
-
-# The statistic averages Zsummary_std -- the standardised effect size --
-# and never the q-value. `block` names the phylogenetic group (a genus),
-# which enables the conservative within-block null and drops the
-# within-block pairs, where trait and phylogeny are confounded.
-# Both label spaces belong to the species and their trait labels, not to
-# the pairs table: 4/4 over eight species gives choose(8, 4) = 70 free
-# labellings and 2^4 = 16 that permute only within a genus. Renaming the
-# two trait levels reproduces the statistic, so each floor is AT LEAST 2
-# over its own count -- 2/70 = 0.029 free, 2/16 = 0.125 blocked, and
-# higher when further labellings tie at the maximum. Read `p_blocked`
-# as a check on the direction and rank of the effect; nothing can reach
-# alpha = 0.05 against it.
-pmt <- preservation_matrix_test(pres_all$classification, trait,
-                                block = genus)
-c(pmt$observed, pmt$p_free, pmt$p_blocked)
-pmt$class_means   # the class means the statistic is built from
-pmt$saturation    # resolution left in the q-values behind it
-
-# Identify hub genes within modules (6-tier tie-breaking cascade).
-# Back to the two-species example: mod1/mod2 and net1/net2 again.
-hubs1 <- identify_module_hubs(mod1, net1, orthologs,
-                              comparison = summary$results)
-hubs2 <- identify_module_hubs(mod2, net2, orthologs,
-                              comparison = summary$results)
-hubs1[hubs1$is_hub, ]
-
-# Classify hub conservation across traits. This needs module
-# correspondence ("which module matches which"), not the preservation
-# call. Reuse the map module_preservation() already resolved rather than
-# rebuilding a naive one -- a bare resolve_ortholog_map() with no edges
-# or cliques runs no resolution layer at all.
-trait <- c(SP_A = "annual", SP_B = "perennial")
-corr <- module_correspondence(mod1, mod2, pres$map,
-                              sp_ref = "SP_A", sp_test = "SP_B")
-hub_class <- classify_hub_conservation(
-  list(SP_A = hubs1, SP_B = hubs2), trait,
-  # The list key must be the ALPHABETICALLY SORTED species pair.
-  module_comparisons = list("SP_A.SP_B" = corr)
-)
-hub_class[hub_class$classification != "non_hub", ]
-
-# Query co-expression partners of a hub HOG across all species
-partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
-                                  species_trait = trait, min_species = 2L,
-                                  edges = edges)
-partners[partners$coexpressed_traits == "annual", ]      # annual-only partners
-partners[grepl(",", partners$coexpressed_traits), ]       # cross-trait partners
+edges <- find_coexpressologs(networks, orthologs, seed = 1)
+table(edges$type)
+head(edges[order(-edges$effect_size), ])
 ```
 
-### P-value saturation
+Each row is one ortholog pair in one pair of species. The test asks
+whether the gene's neighbours in species A have orthologs among its
+partner's neighbours in species B more often than chance (a
+hypergeometric test). `type == "conserved"` marks a co-expressolog: an
+ortholog pair that kept its co-expression partners in both species.
+The test runs in both directions and both must pass.
 
-A permutation p-value cannot go below `1 / (n_perm + 1)`, because the
-observed labelling is one of the draws. Every test whose true p-value
-lies below that floor comes back holding exactly it, and Benjamini-
-Hochberg maps a tied block of inputs to a tied block of outputs. On the
-eight-species Pooideae run at `n_perm = 2000`, the 511 module-directions
-produced only 172 distinct q-values: 35 tied at the floor of 0.00071 and
-20 at exactly 1.0. Among those 35, `Zsummary_std` ranged from 6.4 to
-66.7 -- a tenfold spread in effect size that the q-value cannot see.
+- `q.value`: the false discovery rate at which this pair would be
+  called conserved.
+- `effect_size`: fold enrichment, the observed number of shared
+  neighbours divided by the number expected by chance. An effect of 5
+  means five times more shared partners than chance.
+- `power`: the chance that the test would have called this pair had it
+  been conserved at a typical effect size. Genes with few neighbours
+  have low power, so a non-significant result for them is weak
+  evidence of divergence.
 
-So: **rank, weight and order on `Zsummary_std`; use `p` and `q` for the
-significance call only.** `preservation_matrix_test()` follows that rule,
-and `pvalue_resolution()` reports how much resolution any p- or q-value
-vector has left, so the tie count can be published next to the p-value.
+### 4. Detect modules and test whether they are preserved
 
 ```r
-pvalue_resolution(pres_all$classification$q.value)
-# 511 values, 172 distinct, 35 tied at the minimum, 20 at 1
-
-# With n_perm it also says whether the tie is the sampling or the data.
-# It must be the n_perm the p-values were actually computed with -- 10000
-# for the module_preservation() call above.
-pvalue_resolution(pres$preservation$p.value, n_perm = 10000L)
+mods <- detect_modules(networks$BDIS, resolution = c(0.5, 1, 1.5, 2),
+                       objective_function = "modularity",
+                       n_perm_k1 = 20L, seed = 1)
+pres <- module_preservation(mods, networks$BDIS, networks$BSYL, orthologs,
+                            edges = edges, sp_ref = "BDIS",
+                            sp_test = "BSYL", n_perm = 1000L, seed = 1)
+classify_preservation(pres)[, c("module", "size", "classification",
+                                "Zsummary_std", "q.value")]
 ```
 
-### Clique-level analysis
+`detect_modules()` first tests whether the network has module structure
+at all, then groups genes into modules with the Leiden algorithm over
+several resolutions and keeps the consensus. `module_preservation()`
+then asks whether each *Brachypodium distachyon* module keeps its wiring
+in the *B. sylvaticum* network: are its genes' orthologs still densely
+connected to each other, and are the same genes still the hubs? A module
+whose genes all survive but lost their connections counts as diverged.
+
+`Zsummary_std` is the effect size: how many standard deviations the
+module's preservation lies above what random gene sets of the same size
+show. Values above 10 are strong preservation. `q.value` is the false
+discovery rate for calling the module preserved. `classification` is
+`conserved` (significant, `Zsummary_std` of at least 10), `moderate`
+(significant, weaker), `diverged` (not significant) or `untested`
+(a statistic could not be computed). Preservation is directional: run
+the reverse direction to ask about *B. sylvaticum* modules in
+*B. distachyon*.
+
+With 1,000 permutations no p-value can go below 1/1001. In this example
+every module ties at the same smallest q-value, while `Zsummary_std`
+ranges from about 8 to 41. Rank modules on `Zsummary_std`, not on q.
+
+### 5. Find conserved and lineage-specific cliques
 
 ```r
-# Species and trait definitions
-annual_sp    <- c("BDIS", "HVUL", "BMAX", "VBRO")
-perennial_sp <- c("BSYL", "HJUB", "BMED", "FPRA")
-all_sp       <- c(annual_sp, perennial_sp)
-trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
-
-# Find annual-exclusive cliques (C++ Bron-Kerbosch / Tomita pivoting)
-cliques <- find_cliques(edges, annual_sp)
-
-# Leave-k-out stability over the full 8-species universe
-# max_k defaults to length(all_sp) - 2 = 6, testing all meaningful depths
-stab <- clique_stability(edges, annual_sp, trait,
-                         all_species = all_sp,
-                         full_cliques = cliques, n_cores = 4L)
-
-# Phylogenetically stable cliques (survive any single species dropout)
-k1 <- stab$stability[stab$stability$k == 1, ]
-stable_cliques <- cliques[k1$clique_idx[k1$stability_score == 1], ]
-
-# Co-expressolog persistence (robustness to threshold tightening)
-persist <- clique_persistence(cliques, annual_sp, networks, edges)
-persist[persist$persistence > 2.0, ]  # survive 2x stricter thresholds
-
-# Edge-weight robustness metrics (already in find_cliques output)
-cliques$intensity   # Onnela geometric mean of edge connection probabilities
-
-# Bootstrap perturbation test (noise robustness)
-pert <- clique_perturbation_test(cliques, annual_sp, networks, orthologs,
-                                  n_boot = 100, noise_sd = 0.1)
-
-# Matched edge-set null for clique intensity: each clique edge is redrawn
-# from its own (species pair, clique size) pool, so no networks or
-# orthologs are needed. Compare z_score within a clique size and gap
-# across sizes.
-z_test <- clique_intensity_test(cliques, annual_sp, edges = edges,
-                                 n_perm = 2000, null_model = "matched_edges")
-
-# Gene-graph backend: maximal cliques of the per-HOG GENE graph, then the
-# published five-tier taxonomy plus `trait_specific`. Row-bind a strict and a loose graph (with
-# distinct id_prefix) so both tolerance tiers can be reached -- a clique
-# that is maximal at one threshold need not be maximal at the other.
-gene_cl <- rbind(
+cliques <- rbind(
   gene_clique_graph(edges, alpha_graph = 0.1, id_prefix = "strict_"),
   gene_clique_graph(edges, alpha_graph = 0.9, id_prefix = "loose_")
 )
-genus <- setNames(rep(c("Brachypodium", "Hordeum", "Briza", "Festuca"), 2),
-                  all_sp)
-# `edges` here must be the FULL, unfiltered table: the gap tier needs to
-# see pairs that were tested and failed in order to refuse them.
-gene_classes <- classify_gene_cliques(gene_cl, edges, all_sp,
-                                      lineage = genus)
+life_cycle <- c(BDIS = "annual", HVUL = "annual",
+                BSYL = "perennial", HJUB = "perennial")
+classes <- classify_gene_cliques(cliques, edges, species,
+                                 lineage = life_cycle)
+table(classes$classification)
 ```
 
-`find_cliques()` and `gene_clique_graph()` are different computations, not
-two spellings of one. `find_cliques()` builds cliques of a per-orthogroup
-*species* graph and returns the single best gene assignment;
-`gene_clique_graph()` builds maximal cliques of the per-orthogroup *gene*
-graph, as published by [Rodriguez *et al.*
-(2026)](https://doi.org/10.1038/s41467-026-75624-2), so a multi-copy HOG
-can yield several. Every hard-coded constant of the six-species original is
-replaced by a formula in the number of species `S`: 15 becomes
-`choose(S, 2)`, 11 becomes `choose(S - 1, 2) + 1`, 10 becomes
-`choose(S - g, 2)`.
+A clique is a set of genes, one per species, from one ortholog group,
+where every pair is a co-expressolog. A clique over all species is an
+ortholog group whose co-expression is conserved across the whole
+sample. `classify_gene_cliques()` sorts cliques into tiers:
 
-The point of `classify_gene_cliques()` is that it tolerates annotation
-gaps, and there are two orthogonal kinds of gap under two names.
-`partial_significant` is **weak wiring**: the edge is admitted to the graph
-at the loose threshold (`alpha_graph`, default 0.9) but counted as evidence
-only at the strict one (`alpha_call`, default 0.1), so the clique stays
-intact. `partial_present` is **a missing gene**: a fully significant clique
-that is one species short. Each species pair is tracked in three states --
-significant, tested but not significant, and never tested -- so the second
-tier never silently absorbs the first, and a pair that was never compared
-is not read as evidence of divergence.
+- `complete_conserved`: every species present, every pair conserved.
+- `partial_significant`: every species present, a few pairs just miss
+  the strict cut-off.
+- `partial_present`: conserved in all but one species, and that species
+  lacks the gene, was not tested, or had too little power.
+- `lineage_specific` or `trait_specific`: conserved within one group
+  (here a life cycle), and absent or rejected outside it.
+- `differentiated`: conserved within each group but not between them.
+- `underpowered`: would be specific or differentiated, but the tests
+  that separate the groups had too little power to count as evidence.
+- `unclassified`: fits none of the tiers, for example a clique that
+  lacks a species whose test was run and failed.
 
-A tested, non-significant pair is evidence only when the test could have
-succeeded. Hypergeometric power rises with neighbourhood size, so a
-low-degree gene misses the call whatever its conservation. The `power`
-column of `find_coexpressologs()` output is the probability that the pair
-would have been called had its partners been shared at the typical fold
-enrichment of a called pair (`rho0`, the median `effect_size`, about 2.5
-on the Pooideae data). Both clique classifiers read it through `min_power`
-(default 0.8): a `lineage_specific`, `differentiated` or `trait_specific`
-call has to survive treating every underpowered pair as possibly
-conserved. One that does not becomes the `underpowered` tier in
-`classify_gene_cliques()`, and keeps its call with the `underpowered`
-flag set in `classify_cliques()`. An underpowered missing species still
-counts as a gap for
-`partial_present`, which only refuses species that were rejected. Without a
-`power` column the classification is unchanged.
+Pass `edges` unfiltered. A tier that claims divergence needs to see
+the pairs that were tested and failed. The group-specific tiers need a
+clique of at least three species inside one group, so they stay empty
+in this four-species example; the tutorial runs eight species.
 
-## Sparse network storage (v0.2.0)
+## Which test should I use?
 
-`compute_network()` returns the network as a sparse `dgCMatrix` by
-default: only entries at or above the `store_density` quantile (default
-`max(density, 0.05)`) are stored (both triangles, diagonal absent),
-extracted in C++ so the dense n x n matrix never leaves the function.
-The analysis `threshold` is unchanged -- still computed from the full
-dense MR matrix -- and every downstream statistic is identical to the
-dense path. Approximate network object sizes:
+| Biological question | Level | Functions |
+|---|---|---|
+| Has this gene kept its co-expression partners in the other species? | Gene pair | `find_coexpressologs()` |
+| Is this gene family conserved as a whole, counting all its paralogs? | Ortholog group | `find_coexpressologs(method = "permutation")`, `permutation_hog_test()` |
+| Are there more co-expressologs than the network structure alone would produce? | Whole network | `coexpressolog_null()` |
+| Does a call depend on the chosen network density? | Gene pair | `density_sweep()`, `coexpressolog_strength()` |
+| Does this module keep its wiring in the other species? | Module | `module_preservation()`, `classify_preservation()` |
+| Which module in species B corresponds to this module in species A? | Module | `module_correspondence()` |
+| Are the hub genes of a module the same across traits? | Gene within module | `identify_module_hubs()`, `classify_hub_conservation()` |
+| Do species pairs that differ in the trait preserve fewer modules? | Trait | `preservation_paired()`, `preservation_matrix_test()` |
+| Do the same ortholog groups sit in diverged modules in every trait contrast? | Trait | `tag_permutation()` |
+| Which ortholog groups are conserved in all species, or in one lineage or trait group only? | Ortholog group | `gene_clique_graph()`, `classify_gene_cliques()` |
+| Does a trait-exclusive clique survive when species are left out? | Ortholog group | `find_cliques()`, `clique_stability()`, `classify_cliques()` |
+| What does this ortholog group co-express with in each species? | Ortholog group | `get_coexpressed_hogs()` |
 
-| Genes  | Dense object | Sparse object (`store_density = 0.05`) |
-|--------|--------------|----------------------------------------|
-| 5,000  | 191 MB (measured) | 15 MB (measured) |
-| 30,000 | 7.2 GB | ~0.5 GB |
+## Reading the results and common pitfalls
 
-The `compute_network()` peak transient also dropped from ~4 n^2 to
-~1.5 n^2 doubles (in-place MR normalization): ~11 GB instead of ~29 GB
-at 30,000 genes.
+### Few samples make noisy networks
 
-Edge weights below the stored superset can be reconstructed exactly for
-any gene subset (e.g. a module heatmap) with `mr_block(x, genes, net)`.
-`as_sparse_network()` converts a dense network object;
-`compute_network(sparse = FALSE)` keeps the dense path. Analyses that
-would need entries below the store (e.g. `density_sweep()` with a loose
-multiplier) error with a message asking for a larger `store_density`.
+With 10 samples, a correlation of
+0.6 or stronger turns up by chance in about 7% of unrelated gene pairs;
+with 20 samples, in 0.5%. Chance edges differ between species, so
+conservation looks weaker than it is and modules are not reproducible.
+Use 15 to 20 or more samples per species under comparable conditions.
 
-## Main functions
+### Network density changes the answer
 
-| Function | Purpose |
-|----------|---------|
-| `parse_orthologs()` | Parse ortholog group files (tab-delimited) |
-| `reduce_orthogroups()` | Merge correlated paralogs within HOGs (Ward.D2 clustering) |
-| `extract_orthologs()` | Derive ortholog pairs from two SummarizedExperiment objects by HOG |
-| `compute_network()` | Correlation + MR/CLR normalization + density threshold (S4 generic: matrix or SE); sparse storage by default |
-| `as_sparse_network()` | Convert a dense network object to the sparse representation |
-| `mr_block()` | Exact local reconstruction of MR values for a gene subset (incl. sub-store entries) |
-| `compare_neighborhoods()` | Pair-level hypergeometric neighborhood tests |
-| `summarize_comparison()` | Storey q-values (randomized-p pi0) and summary statistics |
-| `comparison_to_edges()` | Convert comparison results to edge format for clique analysis |
-| `permutation_hog_test()` | Permutation-based HOG-level conservation test |
-| `find_coexpressologs()` | Batch co-expressolog calling across all species pairs (alias: `run_pairwise_comparisons()`) |
-| `density_sweep()` | Re-run the co-expressolog pipeline across density multipliers |
-| `coexpressolog_null()` | Degree-preserving edge-swap null for co-expressolog statistics |
-| `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
-| `resolve_ortholog_map()` | Reduce multi-copy HOGs toward one counterpart per gene (cliques, then coexpressologs); the rest stay `unresolved` |
-| `module_preservation()` | Permutation test of module density and hub identity in the other species' network |
-| `classify_preservation()` | Four-tier preservation classification (conserved / moderate / diverged / untested) |
-| `module_correspondence()` | Match modules across species by ortholog overlap on the resolved map |
-| `preservation_paired()` | Batch module preservation across species pairs, both directions |
-| `all_species_pairs()` | Build the all-pairs `pairs` table for `preservation_paired()` |
-| `preservation_matrix_test()` | Primary trait test: relabelling null on the all-pairs preservation matrix (ranks on `Zsummary_std`) |
-| `pvalue_resolution()` | How much resolution a set of p- or q-values has left (ties at the permutation floor) |
-| `tag_permutation()` | Secondary: do the same HOGs recur in diverged modules across pairs? (floor `2^-k`, `k` = connected components of the contrast graph, not contrasts; needs `k >= 5`) |
-| `identify_module_hubs()` | Within-module hub identification with 6-tier conservation-aware tie-breaking |
-| `characterize_hubs()` | Regulatory-potential metrics for hub genes (bridge fraction, betweenness/degree ratio) |
-| `classify_hub_conservation()` | Hub conservation across traits (conserved / rewired / trait-specific) |
-| `get_coexpressed_hogs()` | Query co-expression partners of a candidate HOG across species |
-| `find_cliques()` | C++ clique detection via Bron-Kerbosch with Tomita pivoting (species graph, one best gene assignment) |
-| `gene_clique_graph()` | Maximal cliques of the per-HOG gene graph (Rodriguez et al., 2026) |
-| `classify_gene_cliques()` | Six-tier taxonomy for gene-graph cliques, tolerating weak wiring (`partial_significant`) and a missing gene (`partial_present`), plus `underpowered` for calls resting on low-power tests |
-| `clique_stability()` | Leave-k-out jackknife stability for trait-exclusive cliques |
-| `clique_persistence()` | Co-expressolog persistence scores (robustness to threshold tightening) |
-| `clique_threshold_sweep()` | Structural survival of cliques across stricter density thresholds |
-| `clique_perturbation_test()` | Bootstrap noise robustness for clique edge weights |
-| `clique_intensity_test()` | Matched edge-set (or permutation) null for clique intensity: `z_score`, `p_value`, `gap` |
-| `classify_cliques()` | Waterfall HOG classification (complete/partial/differentiated/trait_specific/unclassified), with an `underpowered` flag qualifying a call that rests on a low-power edge |
+A denser network gives each gene
+more neighbours, which raises power but adds weaker edges. The default
+of 3% is a convention. Check that your conclusions hold
+over a range with `density_sweep()`, or pick a density from the data
+with `suggest_reference_density()`.
+
+### Pooled tissues dominate the network
+
+If leaf and root samples are in
+one matrix, the strongest correlations separate leaf genes from root
+genes. Most modules then reflect tissue, and species comparisons mostly
+compare tissue programs. Build and compare networks one tissue at a
+time.
+
+### Permutation tests have a floor
+
+A permutation p-value compares the
+real labelling of species with every other possible labelling. With few
+species there are few labellings, and the p-value cannot go below a
+floor set by the design. Eight species split four annual and four
+perennial can be labelled in `choose(8, 4) = 70` ways. Swapping the
+labels "annual" and "perennial" gives the same statistic, so at least
+two labellings tie at the top and the smallest p-value is 2/70 = 0.029.
+If you only allow swaps within each of four genera (to respect
+phylogeny), there are 2^4 = 16 labellings and the floor is 2/16 =
+0.125, which can never reach 0.05. This is a property of the species
+set, not of the number of permutations. `preservation_matrix_test()`
+reports the floor, and `pvalue_resolution()` reports how many p- or
+q-values are tied at it.
+
+### Paralogs complicate the ortholog map
+
+A gene family with several
+copies in one species has several candidate partners in the other.
+`resolve_ortholog_map()` picks one copy per gene, first from cliques,
+then from mutual best co-expressologs, and leaves the rest unresolved.
+`module_preservation()` calls it for you when you pass `edges`. For
+recent duplicates with near-identical expression, `reduce_orthogroups()`
+can merge them before you build networks.
+
+### Rank on effect size, call on q
+
+Many strong results tie at the
+smallest q-value a permutation test can give. Use `q.value` to decide
+what is significant, and `effect_size`, `Zsummary_std` or
+`mean_effect_size` to rank what is.
 
 ## Ortholog file format
 
@@ -390,495 +269,109 @@ columns:
 
 | Column | Description |
 |--------|-------------|
-| `species` | Species code for the anchor species |
+| `species` | Species code of the anchor species |
 | `gene_id` | Gene identifier in the anchor species |
-| `gene_content` | Semicolon-delimited list of `species_code:gene1,gene2,...` entries |
-
-Each row defines one ortholog group from the anchor species' perspective.
-The `gene_content` field lists members from other species in the format
-`species_code:gene_id1,gene_id2,...`, separated by semicolons.
-
-This format is produced by PLAZA, OrthoFinder, and FastOMA (with
-appropriate reformatting). Any tool that can produce a tab-delimited file
-with these three columns will work.
-
-### Paralog reduction (optional)
-
-Multi-copy gene families often contain recent duplicates with nearly
-identical expression. `reduce_orthogroups()` merges these within each
-HOG using Ward.D2 hierarchical clustering on Pearson correlation
-distance (1 - r). Paralogs above `cor_threshold` (default 0.7) are
-replaced by their averaged expression. Subfunctionalized copies with
-distinct expression programs are preserved as separate clusters.
-
-```r
-reduced <- reduce_orthogroups(expr1, orthologs, cor_threshold = 0.7)
-net1 <- compute_network(reduced$expr_matrix, norm_method = "MR", density = 0.03)
-```
-
-### SummarizedExperiment integration
-
-`compute_network()` is an S4 generic that accepts either a numeric matrix
-or a `SummarizedExperiment`. When passed an SE, it extracts the specified
-assay and proceeds as usual:
-
-```r
-net1 <- compute_network(se1, assay = "vst.count", norm_method = "MR", density = 0.03)
-```
-
-`extract_orthologs()` derives ortholog pairs by matching HOG identifiers
-in `rowData()` of two SE objects, producing the same data frame format as
-`parse_orthologs()`:
-
-```r
-orthologs <- extract_orthologs(se1, se2, hog_col = "hog")
-comparison <- compare_neighborhoods(net1, net2, orthologs)
-```
-
-## Statistical methods
-
-### Network normalization (Mutual Rank)
-
-Raw correlation values aren't comparable across genes. A hub gene that
-participates in many pathways will show moderate correlation with hundreds
-of partners; a narrowly expressed gene might correlate strongly with just
-a few. A single correlation cutoff ends up selecting hubs and missing the
-specific relationships.
-
-Mutual Rank (Obayashi & Kinoshita, 2009) turns correlations into per-gene
-ranks instead. Each gene's partners are ranked from strongest to weakest
-(rank 1 = best partner). The MR between two genes is the geometric mean
-of their reciprocal ranks: MR(*i*,*j*) = sqrt(rank\_*i*(*j*) x
-rank\_*j*(*i*)). Two genes that both rank each other near the top get a
-high MR. But if gene A considers B a top partner while B has hundreds of
-stronger associations and ranks A somewhere in the middle, the geometric
-mean pulls the score down. So MR favours mutual, specific co-expression
-over one-sided associations with hubs.
-
-`compute_network()` supports two MR modes via `mr_log_transform`:
-
-- **`mr_log_transform = TRUE`** (Obayashi 2009 formula): Computes
-  `S(i,j) = 1 - log(MR(i,j)) / log(n)`. Values are in [0, 1] with
-  1 = strongest co-expression. The log compression reduces the dynamic
-  range, making the threshold less sensitive to outlier correlations.
-  This is the recommended mode for density-thresholded networks.
-
-- **`mr_log_transform = FALSE`** (raw mutual rank): Returns `MR(i,j)`
-  directly. Values range from 1 to n. Useful when downstream analysis
-  needs the raw rank scale.
-
-Both modes produce the same pair ordering for density thresholding --
-the top-k% edges are identical regardless of the transform.
-
-### Neighborhood comparison
-
-For each ortholog pair, the co-expression neighborhood in species 1 is
-mapped to species 2 through the ortholog table and tested for significant
-overlap with the species-2 neighborhood using `phyper()`. The test is
-performed in both directions. Effect sizes are fold-enrichments over the
-hypergeometric expectation.
-
-The anchor gene is excluded from the urn since v0.2.0 (it can never be
-its own neighbour): the population is the other N - 1 network genes and
-the mapped set drops the anchor. Directional q-values are combined with
-`pval_combine = "max"` by default -- a co-expressolog is called only when
-both directions are significant, the reciprocal criterion of Netotea
-*et al.* (2014) -- with `"min"` as the permissive either-direction
-option. Storey's pi0 is estimated from randomized p-values
-`P(X > x) + U * P(X = x)`, which are exactly uniform under the null for
-discrete hypergeometric tests; the exact p-values pile up at 1 and would
-otherwise force pi0 = 1 (no gain over BH).
-
-### HOG-level permutation test
-
-Fisher's method for combining pair-level p-values is invalid within HOGs
-because pairs share network neighborhoods and the ortholog mapping,
-violating the independence assumption.
-
-`permutation_hog_test()` instead uses a gene-identity permutation null:
-for each HOG, M random species-1 genes and N random species-2 genes are
-drawn (matching the HOG's gene counts) and the sum-of-fold-enrichments
-statistic is recomputed. The permutation p-value is exact regardless of
-the dependency structure.
-
-Besag & Clifford (1991) adaptive stopping terminates early once enough
-exceedances are observed, and Liang (2016) discrete q-values handle the
-non-uniform null distribution that adaptive stopping produces.
-
-### Multi-resolution consensus modules
-
-When `detect_modules()` receives a vector of resolutions, it runs
-iterative multi-resolution consensus clustering (Jeub *et al.*, 2018):
-
-1. (Optional) Test K = 1 null via spectral norm permutation: compare the
-   leading eigenvalue of the excess co-classification matrix against a
-   null from degree-preserving rewiring. If p > 0.05, return a single
-   module.
-2. Run Leiden at each resolution on the original network.
-3. For each gene pair connected in the original thresholded network,
-   compute co-classification C (fraction of resolutions placing the pair
-   in the same module) and per-pair expected E(i,j) = (1/K) sum_k
-   (s_m(i)/N) * (s_m(j)/N). Memory is O(|E|), not O(N^2).
-4. Build a sparse consensus graph from edges with positive excess C - E.
-5. Run Leiden at all resolutions on the consensus graph.
-6. Repeat from step 3 until all resolutions yield the same partition
-   (ARI > 0.999), or `max_consensus_iter` is reached.
-
-The sparse edge-restricted co-classification (step 3) replaces the
-dense N x N matrix, reducing memory from ~3.2 GB to ~48 MB for N = 20K
-genes at 3% density. Re-running the full resolution sweep on the
-consensus graph (step 5) avoids the resolution limit that afflicts
-single-resolution Leiden on dense graphs (Fortunato & Barthélemy, 2007).
-
-### Module preservation
-
-Gene overlap is the wrong test for module conservation. A module whose
-genes all have orthologs in the same partner module scores as conserved
-even when none of the edges between them survived -- membership was kept,
-the wiring was gone. Connectivity, not membership, is what selection acts
-on (Mähler *et al.*, 2017). The overlap hypergeometric was also
-anti-conservative on multi-copy HOGs: one HOG with three paralogs
-contributed three correlated draws to the same urn.
-
-`module_preservation()` instead asks whether a reference module's
-topology survives in the test species' network, using the pair of
-statistics NetRep computes when only an adjacency matrix is available
-(Ritchie *et al.*, 2016):
-
-- **`avg.weight`** = `sum(kIM) / (m^2 - m)` -- the module's connection
-  density among its mapped genes.
-- **`cor.degree`** -- Pearson correlation of intramodular connectivity
-  (kIM) between the reference and test networks: is hub identity
-  conserved?
-
-`meanClusterCoeff` and `meanMAR` are reported as diagnostics only and
-take no part in the call. A hard-thresholded MR network leaves the
-surviving edge weights nearly constant (max/min ratio about 1.04 at
-density 0.03), so both lose their dynamic range; including them in a
-median-of-three collapsed a density signal of Z = 124 to Z = 5.3 and
-misclassified a perfectly preserved module.
-
-The null shuffles gene identities while holding edges constant, handing
-each module a contiguous block of the shuffled genes of its own size.
-Only ortholog-mappable test-species genes enter the shuffle -- NetRep's
-overlap null model. P-values are one-sided,
-`(exceedances + 1) / (permutations + 1)`, and combined across the two
-statistics with `pmax`, so a module is preserved only when both are
-significant -- the same reciprocal criterion as `pval_combine = "max"`
-elsewhere in the package. `n_perm` (default 10000) therefore sets the
-p-value floor at `1 / (n_perm + 1)`: at 1000 permutations every strongly
-preserved module ties at the floor and cannot be ranked.
-
-`pmax` is a valid p-value for this intersection-union null, but it is
-calibrated against a bound rather than the joint null, and measured on this
-engine it ran roughly 400x conservative -- the smallest q-value it could
-emit was 0.10. The reported `p.calibrated` blends `pmax` with the
-permutation joint null of the two statistics in proportion to the estimated
-fraction of modules null on *both*, which is a super-uniform bound for any
-dependence structure. The rejection region is unchanged -- still
-`max(p1, p2) <= c` -- so this recalibrates the statistic rather than
-replacing it, and `calibrate = "none"` recovers the raw `pmax`. Q-values are
-Benjamini-Hochberg on `p.calibrated`.
-
-`Zsummary = (Z_avg.weight + Z_cor.degree) / 2` is reported alongside for
-continuity with the WGCNA literature (Langfelder *et al.*, 2011); on
-adjacency-only inputs this is the GWENA `z_summary()` formula reduced to
-the statistics available.
-
-Multi-copy HOGs are reduced toward one counterpart per gene by
-`resolve_ortholog_map()`: cliques first (globally consistent across every
-species at once), then mutual-best coexpressologs. Whatever neither layer
-claims is carried as `unresolved`, and `module_preservation()` settles it
-by majority vote over the candidate labels, dropping ties. Resolution may
-only choose *which* paralog copy carries a module label, never which genes
-are **mappable** -- filtering the mappable set on coexpressolog evidence
-would select the tested genes on the statistic being tested.
-
-The mappable set is invariant by construction, but the **tested** set is
-not: a gene whose candidate labels tie in the majority vote is dropped
-under one map and rescued under the other, so the resolved and naive runs
-can score different gene sets. `module_preservation(sensitivity = TRUE)`
-reports that as `same_projected_set` / `n_rescued` / `n_lost` rather than
-asserting it away. The circularity defence is therefore the `p_copy`
-columns -- a null over random copy choices that holds the projected set
-fixed -- not the projected-set equality.
-
-Preservation is directional: whether A's modules survive in B is a
-different question from the reverse. `preservation_paired()` always runs
-both.
-
-`classify_preservation()` assigns each module to one of four categories:
-
-| Classification | Criteria |
-|----------------|----------|
-| Conserved | q < alpha AND `Zsummary_std` >= `z_conserved` (default 10) |
-| Moderate | q < alpha AND `Zsummary_std` < `z_conserved` |
-| Diverged | q >= alpha |
-| Untested | q is NA -- nothing was measured |
-
-`Zsummary_std` rather than `Zsummary`: the familiar 10 / 2 cut points were
-calibrated for a Zsummary built from medians over several statistics, and
-only two are available from an adjacency matrix, so the raw mean of two
-standardized values has null spread `sqrt(2 + 2*rho)/2` rather than 1 --
-about 0.71 here, since the two statistics are near-independent under the
-null. Dividing by it restores the threshold's intended meaning, "this many
-null standard deviations". `z_scale = "raw"` reads the older scale.
-
-`cor.degree` is undefined when intramodular connectivity is constant in
-either network, which leaves the `pmax` combination and hence the
-q-value `NA`. Such a module is reported untested rather than diverged:
-divergence would be a positive claim the data does not support.
-
-`module_correspondence()` answers the separate "which module corresponds
-to which" question, which `classify_hub_conservation()` needs. It
-cross-tabulates the two species' modules over the resolved map and tests
-each module pair with `phyper()`. Because the resolved map contributes
-one draw per test gene instead of one per paralog, this hypergeometric is
-no longer anti-conservative. Its q-values default to the randomized-p
-pi0 estimator, which draws from the global RNG: seed first, or the
-`conserved_hub` / `rewired_hub` split downstream will move between runs.
-Jaccard is computed on the one-to-one projected map, so values run
-systematically higher than under the retired gene-overlap engine and the
-unchanged `jaccard_threshold = 0.1` is now slightly more permissive.
-
-### Hub identification
-
-`identify_module_hubs()` identifies hub genes within each species' modules
-and reports all three within-module centrality measures (weighted degree,
-betweenness, eigenvector), mean edge weight, and global degree. **Weighted
-degree is the recommended primary centrality** for co-expression networks:
-it directly measures the total co-expression strength to module neighbours,
-which is the standard definition of a hub in the co-expression literature.
-Betweenness identifies bridge genes between sub-clusters (a different
-property), while eigenvector centrality can be unstable on disconnected
-subgraphs.
-
-Hub selection uses a 6-tier biologically informed tie-breaking cascade
-when genes share the same primary centrality:
-
-1. Primary centrality (user-selected)
-2. Global weighted degree (importance beyond the module)
-3. Alternative centrality (betweenness if primary is degree; degree otherwise)
-4. Mean within-module edge weight (strong edges vs many weak edges)
-5. Per-gene conservation effect size (optional; from `summarize_comparison()`)
-6. Per-HOG minimum q-value (optional; lower = more conserved)
-
-`classify_hub_conservation()` then classifies each HOG by whether it acts
-as a hub across trait groups: **conserved_hub** (hub in both traits, in
-corresponding modules), **rewired_hub** (hub in both traits, in
-non-corresponding modules), **trait-specific** (hub in one trait only),
-**sporadic**, or **non_hub**.
-
-### Clique detection
-
-`find_cliques()` uses a two-level decomposition to find conserved
-cliques across species within each ortholog group:
-
-1. **Species-level**: Bron-Kerbosch with Tomita pivoting (Tomita *et al.*,
-   2006) on the species adjacency graph (up to 64 species) to enumerate
-   all maximal species cliques. The pivot is chosen as the vertex in
-   P ∪ X maximising |N(u) ∩ P|, giving worst-case O(3^(n/3)) time.
-2. **Gene-level**: Backtracking search assigns one gene per species,
-   minimising a composite cost across all C(k, 2) edges. By default
-   cost is the mean q-value; the `cost_weights = c(q = 1, effect = 0)`
-   argument lets users blend in effect size to favour paralogs with
-   stronger enrichment. Early pruning rejects partial assignments where
-   any required edge is missing.
-
-This avoids the combinatorial explosion of enumerating cliques directly
-on the gene-level graph when HOGs contain many paralogs.
-
-### Clique stability
-
-`clique_stability()` performs leave-k-out jackknife analysis to assess
-phylogenetic robustness of trait-exclusive cliques. A clique is
-*trait-exclusive* if all its species share the same value of a discrete
-trait (e.g., life habit, climate zone, ploidy level).
-
-For k = 1, 2, ..., max_k species removed at a time:
-
-1. All edges involving the removed species are dropped
-2. Full clique detection re-runs on the reduced edge set
-3. Reduced cliques are matched to full-dataset cliques by Jaccard
-   similarity of gene assignments (ignoring removed species)
-4. Trait exclusivity preservation is checked for each match
-
-A clique's *stability score* at level k is the fraction of C(N, k)
-species-removal subsets where its trait exclusivity is preserved. The
-*stability class* is the highest k at which the score equals 1.0.
-
-The analysis is parallelised over subsets with OpenMP (`n_cores`
-parameter) and uses uint64_t bitmask filtering for species membership
-(supports up to 64 species).
-
-### Clique persistence
-
-`clique_persistence()` measures how robust each clique's conservation
-signal is to threshold tightening. For each clique edge (species pair),
-it identifies co-expressologs -- genes that are co-expression neighbours
-of the clique gene in both species -- and computes the ratio of the
-weakest co-expressolog edge's MR value to the species' density threshold.
-
-A persistence of 1.0 means the weakest supporting edge is exactly at
-threshold (marginal). Values above 1.0 indicate the conservation signal
-would survive at stricter density thresholds.
-
-### Clique edge-weight robustness
-
-`find_cliques()` returns two per-clique edge-weight summary statistics
-following Onnela *et al.* (2005):
-
-- **Intensity**: geometric mean, across clique edges, of each edge's
-  ensemble connection probability (in (0, 1)). Each edge's association
-  strength (`effect_size`, observed overlap over its expectation) is
-  mapped to `p = z * w / (1 + z * w)`, with `z` fitted per species pair
-  by maximum entropy, so intensity reads as the per-edge probability
-  that the whole clique exists. Not 1 - q, because every clique edge
-  already passed alpha, which left 1 - q no room to vary (#11); not the
-  Jaccard index, whose null expectation grows with neighbourhood size
-  and ranked hub genes above equally conserved low-degree ones (#15).
-  Pass `find_cliques()` the unfiltered edge table so the scale is
-  fitted on every tested pair.
-- **min_effect_size**: minimum fold-enrichment across clique edges,
-  identifying the bottleneck enrichment.
-
-`clique_threshold_sweep()` returns a `$persistence` element with
-`birth`, `death`, and `persistence` per clique (persistence-diagram
-compatible), quantifying the range of density thresholds over which each
-clique exists.
-
-`clique_perturbation_test()` assesses noise robustness by adding
-Gaussian noise to MR scores, re-running network thresholding and clique
-detection, and measuring survival of original cliques across bootstrap
-replicates.
-
-`clique_intensity_test()` tests whether each clique's edge-weight
-intensity is stronger than expected under a null. Use
-`null_model = "matched_edges"` on real data: the ortholog mapping is
-held fixed and each clique edge is redrawn from the pool of edges of the
-same species pair that belong to cliques of the same size, so nothing is
-re-clustered and the null stays defined for single-copy HOGs. The
-permutation models (`"global"`, `"within_hog"`) instead shuffle the
-ortholog mapping and re-run neighborhood comparison and clique detection
-per permutation; on real data the global shuffle rarely reproduces a
-clique's HOG (0 of 204 matched on the Pooideae run) and the within-HOG
-shuffle is the identity for single-copy HOGs. Empirical p-values use
-the Phipson & Smyth (2010) correction (`(b + 1) / (m + 1)`, b =
-exceedances, m = matched draws). `z_score` is evidence and grows with
-the clique's edge count for the same effect, because the null draws
-edges independently while a real clique's edges share one HOG; compare
-`z_score` within a clique size and `gap` (`observed_intensity -
-null_mean`) across sizes.
-
-## Architecture
-
-### R layer
-
-| File | Purpose |
-|------|---------|
-| `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
-| `R/network.R` | `compute_network()` -- S4 generic (matrix / SE), correlation, MR/CLR, density threshold |
-| `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `find_coexpressologs()`, `density_sweep()`, `get_coexpressed_hogs()` -- pair-level hypergeometric, edge conversion, batch orchestration |
-| `R/network-sparse.R` | Sparse network dispatch: validation, store-threshold guard, `as_sparse_network()` |
-| `R/mr_block.R` | `mr_block()` -- exact local MR reconstruction for gene subsets |
-| `R/coexpressolog_null.R` | `coexpressolog_null()` -- degree-preserving edge-swap null |
-| `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
-| `R/modules.R` | `detect_modules()`, `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
-| `R/ortholog_map.R` | `resolve_ortholog_map()` -- paralog resolution waterfall (cliques, coexpressologs, unresolved remainder) |
-| `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
-| `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
-| `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
-
-### C++ layer (RcppArmadillo + OpenMP)
-
-| File | Purpose |
-|------|---------|
-| `src/rewire_degseq.cpp` | Degree-preserving edge-swap kernel (bit-matrix adjacency) for `coexpressolog_null()` |
-| `src/reduce_orthogroups.cpp` | Ward.D2 paralog merging engine |
-| `src/coclassification.cpp` | Dense and sparse co-classification with per-pair null subtraction; spectral norm for K=1 test |
-| `src/mutual_rank.cpp` | MR normalization with column-major access (in-place kernel + cached reference) |
-| `src/clr.cpp` | CLR normalization |
-| `src/density_threshold.cpp` | Quantile-based density thresholding |
-| `src/sparse_extract.cpp` | Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix |
-| `src/neighbor_lists.h` | Shared neighbour-list construction (dense matrix or validated dgCMatrix slots) |
-| `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
-| `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
-| `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
-| `src/module_preservation.cpp` | Module preservation permutation kernel (dense and sparse entry points) |
-| `src/find_cliques_common.h` | Shared clique primitives (Bron-Kerbosch / Tomita, backtracking, Jaccard, trait) |
-| `src/find_cliques.cpp` | C++ clique detection wrapper |
-| `src/find_cliques_stability.cpp` | Leave-k-out stability engine with OpenMP |
-| `src/sample_k_distinct.h` | Shared rejection-sampling utility for subset generation |
-
-All C++ functions use integer indices only (string mapping is done in R)
-due to Homebrew clang ABI constraints. Network matrices are accessed
-column-major for cache-friendly reads on symmetric Armadillo matrices.
-
-## References
-
-- Obayashi, T. & Kinoshita, K. (2009). Rank of correlation coefficient as
-  a comparable measure for biological significance of gene coexpression.
-  *DNA Research*, 16(5), 249--260.
-  [doi:10.1093/dnares/dsp016](https://doi.org/10.1093/dnares/dsp016)
-- Netotea, S. *et al.* (2014). ComPlEx: conservation and divergence of
-  co-expression networks in *A. thaliana*, *Populus* and *O. sativa*.
-  *BMC Genomics*, 15, 106.
+| `gene_content` | Members in other species, as `code:gene1,gene2;code:gene3` |
+
+Each row defines one ortholog group from the anchor species' point of
+view. `gene_content` lists the members per species, separated by
+semicolons. PLAZA writes this format; OrthoFinder and FastOMA output can
+be reshaped into it. If your expression data are `SummarizedExperiment`
+objects with a HOG column in `rowData()`, use `extract_orthologs()` or
+`prepare_orthologs()` instead and skip the file.
+
+## Function index
+
+Full documentation is in the [reference
+pages](https://paliocha.github.io/rcomplex/reference/).
+
+**Input and networks**
+
+- [`parse_orthologs()`](https://paliocha.github.io/rcomplex/reference/parse_orthologs.html): read an ortholog group file into ortholog pairs.
+- [`extract_orthologs()`](https://paliocha.github.io/rcomplex/reference/extract_orthologs.html): ortholog pairs from the HOG column of two `SummarizedExperiment` objects.
+- [`prepare_orthologs()`](https://paliocha.github.io/rcomplex/reference/prepare_orthologs.html): ortholog pairs for many species, optionally after paralog reduction.
+- [`reduce_orthogroups()`](https://paliocha.github.io/rcomplex/reference/reduce_orthogroups.html): merge paralogs with near-identical expression within each HOG.
+- [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.html): correlation, MR or CLR normalisation and density threshold for one species.
+- [`as_sparse_network()`](https://paliocha.github.io/rcomplex/reference/as_sparse_network.html): convert a dense network object to sparse storage.
+- [`mr_block()`](https://paliocha.github.io/rcomplex/reference/mr_block.html): exact MR values for a gene subset, including pairs below the stored edges.
+- [`suggest_reference_density()`](https://paliocha.github.io/rcomplex/reference/suggest_reference_density.html): choose a network density from a scale-free fit diagnostic.
+- [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.html): container that carries species, networks and results through the pipeline.
+
+**Gene and ortholog-group conservation**
+
+- [`compare_neighborhoods()`](https://paliocha.github.io/rcomplex/reference/compare_neighborhoods.html): hypergeometric neighbourhood tests for one species pair.
+- [`summarize_comparison()`](https://paliocha.github.io/rcomplex/reference/summarize_comparison.html): q-values and summaries for `compare_neighborhoods()` output.
+- [`comparison_to_edges()`](https://paliocha.github.io/rcomplex/reference/comparison_to_edges.html): convert comparison results to the edge table used downstream.
+- [`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.html): co-expressolog calls for all species pairs (alias `run_pairwise_comparisons()`).
+- [`permutation_hog_test()`](https://paliocha.github.io/rcomplex/reference/permutation_hog_test.html): permutation test of conservation for whole ortholog groups.
+- [`density_sweep()`](https://paliocha.github.io/rcomplex/reference/density_sweep.html): rerun the co-expressolog calls at several network densities.
+- [`coexpressolog_strength()`](https://paliocha.github.io/rcomplex/reference/coexpressolog_strength.html): edge strength integrated over several densities.
+- [`coexpressolog_null()`](https://paliocha.github.io/rcomplex/reference/coexpressolog_null.html): degree-preserving rewiring null for co-expressolog counts.
+
+**Modules and hubs**
+
+- [`detect_modules()`](https://paliocha.github.io/rcomplex/reference/detect_modules.html): Leiden, Infomap or SBM modules, with multi-resolution consensus.
+- [`resolve_ortholog_map()`](https://paliocha.github.io/rcomplex/reference/resolve_ortholog_map.html): pick one paralog copy per gene where evidence allows.
+- [`module_preservation()`](https://paliocha.github.io/rcomplex/reference/module_preservation.html): test whether modules keep their density and hubs in another species.
+- [`classify_preservation()`](https://paliocha.github.io/rcomplex/reference/classify_preservation.html): label modules conserved, moderate, diverged or untested.
+- [`module_correspondence()`](https://paliocha.github.io/rcomplex/reference/module_correspondence.html): match modules across species by ortholog overlap.
+- [`identify_module_hubs()`](https://paliocha.github.io/rcomplex/reference/identify_module_hubs.html): hub genes within each module.
+- [`characterize_hubs()`](https://paliocha.github.io/rcomplex/reference/characterize_hubs.html): bridge and betweenness metrics for hub genes.
+- [`classify_hub_conservation()`](https://paliocha.github.io/rcomplex/reference/classify_hub_conservation.html): hub conservation across trait groups.
+- [`get_coexpressed_hogs()`](https://paliocha.github.io/rcomplex/reference/get_coexpressed_hogs.html): co-expression partners of one ortholog group across species.
+
+**Trait tests**
+
+- [`all_species_pairs()`](https://paliocha.github.io/rcomplex/reference/all_species_pairs.html): table of every species pair for `preservation_paired()`.
+- [`preservation_paired()`](https://paliocha.github.io/rcomplex/reference/preservation_paired.html): module preservation over many species pairs, both directions.
+- [`preservation_matrix_test()`](https://paliocha.github.io/rcomplex/reference/preservation_matrix_test.html): do trait-discordant species pairs preserve less?
+- [`tag_permutation()`](https://paliocha.github.io/rcomplex/reference/tag_permutation.html): do the same ortholog groups recur in diverged modules across contrasts?
+- [`pvalue_resolution()`](https://paliocha.github.io/rcomplex/reference/pvalue_resolution.html): how many p- or q-values are tied at the permutation floor.
+
+**Cliques**
+
+- [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.html): all maximal cliques of each ortholog group's gene graph.
+- [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.html): conservation tiers for gene-graph cliques.
+- [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.html): species-graph cliques with one best gene per species.
+- [`classify_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_cliques.html): conservation classes for ortholog groups from species-graph cliques.
+- [`clique_stability()`](https://paliocha.github.io/rcomplex/reference/clique_stability.html): leave-k-species-out stability of trait-exclusive cliques.
+- [`clique_persistence()`](https://paliocha.github.io/rcomplex/reference/clique_persistence.html): how far each clique's supporting edges sit above the threshold.
+- [`clique_threshold_sweep()`](https://paliocha.github.io/rcomplex/reference/clique_threshold_sweep.html): clique survival at stricter densities.
+- [`clique_perturbation_test()`](https://paliocha.github.io/rcomplex/reference/clique_perturbation_test.html): clique survival under added noise.
+- [`clique_intensity_test()`](https://paliocha.github.io/rcomplex/reference/clique_intensity_test.html): are a clique's edges stronger than matched random edges?
+
+## Citation
+
+If you use rcomplex, please cite the method paper and the package:
+
+- Netotea, S., Sundell, D., Street, N. R. & Hvidsten, T. R. (2014).
+  ComPlEx: conservation and divergence of co-expression networks in
+  *A. thaliana*, *Populus* and *O. sativa*. *BMC Genomics*, 15, 106.
   [doi:10.1186/1471-2164-15-106](https://doi.org/10.1186/1471-2164-15-106)
-- Besag, J. & Clifford, P. (1991). Sequential Monte Carlo p-values.
-  *Biometrika*, 78(2), 301--304.
-  [doi:10.1093/biomet/78.2.301](https://doi.org/10.1093/biomet/78.2.301)
-- Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
-  genomewide studies. *PNAS*, 100(16), 9440--9445.
-  [doi:10.1073/pnas.1530509100](https://doi.org/10.1073/pnas.1530509100)
-- Liang, K. (2016). False discovery rate estimation for large-scale
-  homogeneous discrete p-values. *Biometrics*, 72(2), 639--648.
-  [doi:10.1111/biom.12429](https://doi.org/10.1111/biom.12429)
-- Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in
-  complex networks. *Scientific Reports*, 2, 336.
-  [doi:10.1038/srep00336](https://doi.org/10.1038/srep00336)
+- Paliocha, M. rcomplex: Comparative Co-Expression Network Analysis
+  Across Species. R package version 0.3.1.
+  <https://github.com/paliocha/rcomplex>
+
+Key references for the methods:
+
+- Obayashi, T. & Kinoshita, K. (2009). Rank of correlation coefficient
+  as a comparable measure for biological significance of gene
+  coexpression. *DNA Research*, 16(5), 249-260.
+  [doi:10.1093/dnares/dsp016](https://doi.org/10.1093/dnares/dsp016)
 - Jeub, L. G. S., Sporns, O. & Fortunato, S. (2018). Multiresolution
   consensus clustering in networks. *Scientific Reports*, 8, 3259.
   [doi:10.1038/s41598-018-21352-7](https://doi.org/10.1038/s41598-018-21352-7)
-- Langfelder, P., Luo, R., Oldham, M. C. & Horvath, S. (2011). Is my
-  network module preserved and reproducible? *PLoS Computational
-  Biology*, 7(1), e1001057.
-  [doi:10.1371/journal.pcbi.1001057](https://doi.org/10.1371/journal.pcbi.1001057)
-- Ritchie, S. C. *et al.* (2016). A scalable permutation approach reveals
-  replication and preservation patterns of network modules in large
-  datasets. *Cell Systems*, 3(1), 71--82.
+- Ritchie, S. C. *et al.* (2016). A scalable permutation approach
+  reveals replication and preservation patterns of network modules in
+  large datasets. *Cell Systems*, 3(1), 71-82.
   [doi:10.1016/j.cels.2016.06.012](https://doi.org/10.1016/j.cels.2016.06.012)
-- Mähler, N. *et al.* (2017). Gene co-expression network connectivity is
-  an important determinant of selective constraint. *PLoS Genetics*,
-  13(4), e1006402.
-  [doi:10.1371/journal.pgen.1006402](https://doi.org/10.1371/journal.pgen.1006402)
-- Senbabaoglu, Y. *et al.* (2014). Critical limitations of consensus
-  clustering in class discovery. *Scientific Reports*, 4, 6207.
-  [doi:10.1038/srep06207](https://doi.org/10.1038/srep06207)
-- Fortunato, S. & Barthélemy, M. (2007). Resolution limit in community
-  detection. *PNAS*, 104(1), 36--41.
-  [doi:10.1073/pnas.0605965104](https://doi.org/10.1073/pnas.0605965104)
-- Bron, C. & Kerbosch, J. (1973). Algorithm 457: finding all cliques of
-  an undirected graph. *Communications of the ACM*, 16(9), 575--577.
-  [doi:10.1145/362342.362367](https://doi.org/10.1145/362342.362367)
-- Onnela, J.-P. *et al.* (2005). Intensity and coherence of motifs in
-  weighted complex networks. *Physical Review E*, 71, 065103.
-  [doi:10.1103/PhysRevE.71.065103](https://doi.org/10.1103/PhysRevE.71.065103)
-- Tomita, E., Tanaka, A. & Takahashi, H. (2006). The worst-case time
-  complexity for generating all maximal cliques and computational
-  experiments. *Theoretical Computer Science*, 363(1), 28--42.
-  [doi:10.1016/j.tcs.2006.06.015](https://doi.org/10.1016/j.tcs.2006.06.015)
-- Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to
-  Leiden: guaranteeing well-connected communities. *Scientific Reports*,
-  9, 5233.
-  [doi:10.1038/s41598-019-41695-z](https://doi.org/10.1038/s41598-019-41695-z)
-- Rosvall, M. & Bergstrom, C. T. (2008). Maps of random walks on complex
-  networks reveal community structure. *PNAS*, 105(4), 1118--1123.
-  [doi:10.1073/pnas.0706851105](https://doi.org/10.1073/pnas.0706851105)
-- Phipson, B. & Smyth, G. K. (2010). Permutation p-values should never
-  be zero: calculating exact p-values when permutations are randomly
-  drawn. *Statistical Applications in Genetics and Molecular Biology*,
-  9(1), Article 39.
-  [doi:10.2202/1544-6115.1585](https://doi.org/10.2202/1544-6115.1585)
+- Rodriguez, E. *et al.* (2026). Comparative regulomics of wood
+  formation across dicot and conifer trees. *Nature Communications*,
+  17, 8916.
+  [doi:10.1038/s41467-026-75624-2](https://doi.org/10.1038/s41467-026-75624-2)
+
+The full reference list is in [Methods in
+detail](https://paliocha.github.io/rcomplex/articles/methods.html#references).
 
 ## License
 
