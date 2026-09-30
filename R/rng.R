@@ -170,14 +170,16 @@
       cnd$call <- NULL
       stop(cnd)
     }
-    rlang::abort(sub(": $", "", prefix), parent = cnd, call = NULL)
+    rlang::abort(sub(": $", "", prefix),
+      class = setdiff(class(cnd), c("rlang_error", "error", "condition")),
+      parent = cnd, call = NULL
+    )
   }
   failed <- vapply(res, is.null, logical(1))
   if (any(failed)) {
     stop(
-      "forked workers returned no result (a worker may have crashed) for ",
-      what, " ", paste(labels[failed], collapse = ", "),
-      "; rerun with n_cores = 1",
+      "no result for ", what, " ", paste(labels[failed], collapse = ", "),
+      " (on a forked run a worker may have crashed; rerun with n_cores = 1)",
       call. = FALSE
     )
   }

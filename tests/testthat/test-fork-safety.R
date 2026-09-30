@@ -47,7 +47,7 @@ test_that(".check_fork_results() names failed tasks and crashed workers", {
   )
   expect_error(
     check(list(1, NULL, NULL), 1:3, "permutation"),
-    "no result \\(a worker may have crashed\\) for permutation 2, 3"
+    "no result for permutation 2, 3 \\(on a forked run a worker may have"
   )
   expect_error(check(list(NULL), 1L, "p"), "rerun with n_cores = 1")
   bare <- structure("Error in f() : raw failure\n", class = "try-error")
@@ -68,10 +68,9 @@ test_that("a condition with an empty header is wrapped, not duplicated", {
   check <- rcomplex:::.check_fork_results
   cnd <- rlang::error_cnd("custom_error", message = "", body = c(i = "detail"))
   e <- structure("Error\n", class = "try-error", condition = cnd)
-  msg <- tryCatch(check(list(e), 5L, "task"), error = function(x) {
-    paste(conditionMessage(x), conditionMessage(x$parent %||% x))
-  })
-  expect_match(msg, "task 5 failed")
+  err <- tryCatch(check(list(e), 5L, "task"), error = identity)
+  expect_s3_class(err, "custom_error")
+  expect_match(conditionMessage(err), "task 5 failed")
 })
 
 test_that("a worker killed mid-batch stops with a named error", {
@@ -84,13 +83,14 @@ test_that("a worker killed mid-batch stops with a named error", {
   }, mc.cores = 2L))
   expect_error(
     rcomplex:::.check_fork_results(res, 1:4, "permutation"),
-    "a worker may have crashed\\) for permutation .*3"
+    "no result for permutation .*3 \\(on a forked run"
   )
 })
 
 test_that("the serial fallback under Accelerate says so once", {
   skip_on_os("windows")
   skip_on_cran()
+  skip_if(identical(Sys.getenv("R_COVR"), "true"), "covr disables forking")
   skip_if(
     rcomplex:::.blas_fork_safe(),
     "BLAS is fork-safe here, so the K = 1 test forks"
