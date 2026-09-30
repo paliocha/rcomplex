@@ -159,8 +159,6 @@
     prefix <- paste0(what, " ", labels[errs[1L]], " failed: ")
     cnd <- attr(e, "condition")
     if (is.null(cnd)) stop(prefix, trimws(as.character(e)), call. = FALSE)
-    # re-raise the worker's own condition, class and fields intact, as the
-    # serial path would, with the task named in its message
     # Re-raise the worker's own condition, class and fields intact, as the
     # serial path would, with the task named in its header. Prefix the
     # header only: for rlang conditions conditionMessage() also renders body
@@ -185,4 +183,3 @@
   }
   res
 }
-
