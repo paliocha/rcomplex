@@ -20,6 +20,22 @@ test_that(".blas_fork_safe() refuses Accelerate unless pinned to one thread", {
   expect_length(rcomplex:::.blas_fork_safe(), 1L)
 })
 
+test_that("VECLIB_MAXIMUM_THREADS set after loading does not unlock forks", {
+  acc <- "/System/Library/Frameworks/Accelerate.framework/libBLAS.dylib"
+  old <- Sys.getenv("VECLIB_MAXIMUM_THREADS", unset = NA)
+  on.exit(if (is.na(old)) {
+    Sys.unsetenv("VECLIB_MAXIMUM_THREADS")
+  } else {
+    Sys.setenv(VECLIB_MAXIMUM_THREADS = old)
+  })
+  at_load <- get("veclib_threads", rcomplex:::.load_env)
+  Sys.setenv(VECLIB_MAXIMUM_THREADS = if (identical(at_load, "1")) "4" else "1")
+  expect_identical(
+    rcomplex:::.blas_fork_safe(acc),
+    rcomplex:::.blas_fork_safe(acc, at_load)
+  )
+})
+
 test_that(".check_fork_results() names failed tasks and crashed workers", {
   check <- rcomplex:::.check_fork_results
   ok <- list(1, "a", list(2))

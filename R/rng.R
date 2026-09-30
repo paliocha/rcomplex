@@ -116,14 +116,17 @@
 #' Accelerate reads it once, at initialisation, so a `Sys.setenv()` inside
 #' the session passes this check without taking effect.
 #'
+#' The default reads the variable as it was when the package loaded, not
+#' at call time, so the common "set it in the console after the crash" path
+#' does not unlock forking; a value set before loading but after R started
+#' still cannot be told apart.
+#'
 #' @param blas Path of the BLAS R is linked against.
 #' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
 #' @return `TRUE` unless the BLAS is Accelerate and not pinned to one thread.
 #' @noRd
 .blas_fork_safe <- function(blas = extSoftVersion()[["BLAS"]],
-                            veclib_threads = Sys.getenv(
-                              "VECLIB_MAXIMUM_THREADS"
-                            )) {
+                            veclib_threads = .load_env$veclib_threads) {
   !grepl("Accelerate|vecLib", blas) || identical(veclib_threads, "1")
 }
 
@@ -161,4 +164,13 @@
     )
   }
   res
+}
+
+
+# Environment captured when the package loads (see .blas_fork_safe()).
+.load_env <- new.env(parent = emptyenv())
+.load_env$veclib_threads <- ""
+
+.onLoad <- function(libname, pkgname) {
+  .load_env$veclib_threads <- Sys.getenv("VECLIB_MAXIMUM_THREADS")
 }
