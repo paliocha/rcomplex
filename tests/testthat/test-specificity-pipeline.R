@@ -15,7 +15,7 @@ test_that("rank edges have the hypergeometric shape", {
   a <- find_coexpressologs(f$networks, f$ortho)
   expect_identical(names(e), names(a))
   expect_gt(nrow(e), 0L)
-  expect_true(all(is.na(e$power)))
+  expect_true(all(is.finite(e$power) & e$power >= 0 & e$power <= 1))
   expect_false(anyNA(e$type))
 })
 
@@ -136,4 +136,35 @@ test_that("\"analytical\" is still accepted as the hypergeometric arm", {
                              method = "hypergeometric", seed = 1L)
   expect_identical(old, new)
   expect_gt(nrow(new), 0L)
+})
+
+test_that("rank power falls with the reference rank and checks p0", {
+  f <- make_spec_nets()
+  nets <- f$networks
+  cmp <- compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  null_p <- list(
+    sp1 = compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
+      directions = "1to2"
+    )$Species1.p.val,
+    sp2 = compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
+      directions = "2to1"
+    )$Species2.p.val
+  )
+  pw <- function(p0) {
+    summarize_specificity(cmp, null_p,
+      sp1 = "sp1", sp2 = "sp2", p0 = p0
+    )$edges$power
+  }
+  lo <- pw(0.5)
+  hi <- pw(0.01)
+  expect_true(all(hi >= lo - 1e-12, na.rm = TRUE))
+  expect_gt(mean(hi, na.rm = TRUE), mean(lo, na.rm = TRUE))
+  expect_error(pw(0), "p0")
+  expect_error(pw(c(0.1, 0.2)), "p0")
+  # "min" never reports less power than "max" (either direction suffices)
+  e_min <- summarize_specificity(cmp, null_p,
+    sp1 = "sp1", sp2 = "sp2", pval_combine = "min"
+  )$edges
+  e_max <- summarize_specificity(cmp, null_p, sp1 = "sp1", sp2 = "sp2")$edges
+  expect_true(all(e_min$power >= e_max$power - 1e-12, na.rm = TRUE))
 })

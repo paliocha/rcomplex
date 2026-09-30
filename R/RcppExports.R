@@ -431,12 +431,17 @@ extract_sparse_cpp <- function(m, thr, n_cores = 1L) {
 #'
 #' @inheritParams compare_neighborhoods_sparse_cpp
 #' @param do_12,do_21 Compute direction 1 -> 2 / 2 -> 1.
-#' @return DataFrame with, per requested direction, `Species1.neigh`,
+#' @param grid_frac Ascending fractions f in (0, 1]; for each, the AUROC
+#'   grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
+#'   Empty skips the grid.
+#' @return List with, per requested direction, `Species1.neigh`,
 #'   `Species1.mapped`, `Species1.auroc`, `Species1.p.val`,
-#'   `Species1.jaccard` (and the `Species2.*` set), one row per pair.
+#'   `Species1.jaccard`, `Species1.n.cand` (one element per pair) and the
+#'   matrix `Species1.auroc.grid` (pairs x fractions), and the `Species2.*`
+#'   set.
 #'
 #' @keywords internal
-specificity_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores) {
-    .Call(`_rcomplex_specificity_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores)
+specificity_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac) {
+    .Call(`_rcomplex_specificity_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac)
 }
 

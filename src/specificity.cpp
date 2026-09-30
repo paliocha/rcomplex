@@ -5,6 +5,9 @@
 // orthologs removed) and every species-b gene j is scored by the AUROC of
 // T_i \ {j} against the ranks of column j of network b. The reported
 // p-value is the rank of j* among all n_b candidates on the 1 / n_b grid.
+// For detection power, each anchor also reports its "AUROC grid": the
+// r-th largest candidate AUROC at r = ceil(f * n_b) for every requested
+// fraction f, i.e. the AUROC an ortholog needs to reach raw p ~ f.
 //
 // Sparse only. Ranks come from a per-network "rank store": the stored
 // entries of column j are its top d_j values and take ranks
@@ -22,6 +25,7 @@
 #include <RcppArmadillo.h>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <vector>
 
 #ifdef _OPENMP
@@ -121,7 +125,8 @@ void specificity_direction(
     const IntegerVector& pair_a, const IntegerVector& pair_b,
     int n_cores,
     int* out_neigh, int* out_mapped, double* out_auroc, double* out_p,
-    double* out_jaccard
+    double* out_jaccard,
+    const std::vector<double>& grid_frac, double* out_grid
 ) {
     const int n_a = static_cast<int>(neigh_a.size());
     const int n_b = static_cast<int>(neigh_b.size());
@@ -146,12 +151,13 @@ void specificity_direction(
     const double* rks = store_b.rk_sym.data();
     const double* mid = store_b.mid.data();
     const int* pb = pair_b.begin();
+    const int n_grid = static_cast<int>(grid_frac.size());
 
 #ifdef _OPENMP
     #pragma omp parallel num_threads(n_cores) if(n_cores > 1)
 #endif
     {
-        std::vector<double> S(n_b), A(n_b);
+        std::vector<double> S(n_b), A(n_b), buf, gv(n_grid);
         std::vector<int> cnt(n_b), T;
         std::vector<char> inT(n_b, 0), flags(n_a, 0);
 #ifdef _OPENMP
@@ -190,6 +196,33 @@ void specificity_direction(
                     A[j] = (s - tj * (tj + 1.0) / 2.0) /
                         (tj * (n_b - 1.0 - tj));
                 }
+                // Grid: r-th largest finite AUROC for r = ceil(f * n_b),
+                // clamped to [1, #finite]. Fractions ascend, so ranks are
+                // visited from the largest down and each selection only
+                // searches the prefix the previous one left above it.
+                if (n_grid > 0) {
+                    buf.clear();
+                    for (int j = 0; j < n_b; ++j) {
+                        if (!std::isnan(A[j])) buf.push_back(A[j]);
+                    }
+                    const int m = static_cast<int>(buf.size());
+                    int hi = m;
+                    for (int g = n_grid - 1; g >= 0; --g) {
+                        if (m == 0) {
+                            gv[g] = NA_REAL;
+                            continue;
+                        }
+                        int r = static_cast<int>(
+                            std::ceil(grid_frac[g] * n_b));
+                        r = std::min(std::max(r, 1), m);
+                        r = std::min(r, hi);
+                        std::nth_element(buf.begin(), buf.begin() + (r - 1),
+                                         buf.begin() + hi,
+                                         std::greater<double>());
+                        gv[g] = buf[r - 1];
+                        hi = r;
+                    }
+                }
             }
             for (int q = aptr[i]; q < aptr[i + 1]; ++q) {
                 const int row = rows[q];
@@ -198,6 +231,10 @@ void specificity_direction(
                 out_mapped[row] = t;
                 out_jaccard[row] = jaccard(neigh_a[i], neigh_b[js], b_to_a,
                                            i, flags);
+                for (int g = 0; g < n_grid; ++g) {
+                    out_grid[row + static_cast<R_xlen_t>(g) * n_pairs] =
+                        t > 0 ? gv[g] : NA_REAL;
+                }
                 if (t == 0 || std::isnan(A[js])) {
                     out_auroc[row] = NA_REAL;
                     out_p[row] = NA_REAL;
@@ -228,13 +265,18 @@ void specificity_direction(
 //'
 //' @inheritParams compare_neighborhoods_sparse_cpp
 //' @param do_12,do_21 Compute direction 1 -> 2 / 2 -> 1.
-//' @return DataFrame with, per requested direction, `Species1.neigh`,
+//' @param grid_frac Ascending fractions f in (0, 1]; for each, the AUROC
+//'   grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
+//'   Empty skips the grid.
+//' @return List with, per requested direction, `Species1.neigh`,
 //'   `Species1.mapped`, `Species1.auroc`, `Species1.p.val`,
-//'   `Species1.jaccard` (and the `Species2.*` set), one row per pair.
+//'   `Species1.jaccard`, `Species1.n.cand` (one element per pair) and the
+//'   matrix `Species1.auroc.grid` (pairs x fractions), and the `Species2.*`
+//'   set.
 //'
 //' @keywords internal
 // [[Rcpp::export]]
-Rcpp::DataFrame specificity_sparse_cpp(
+Rcpp::List specificity_sparse_cpp(
     const Rcpp::IntegerVector& p1, const Rcpp::IntegerVector& i1,
     const Rcpp::NumericVector& x1, double thr1,
     const Rcpp::IntegerVector& p2, const Rcpp::IntegerVector& i2,
@@ -243,7 +285,8 @@ Rcpp::DataFrame specificity_sparse_cpp(
     const Rcpp::IntegerVector& pair_sp2_idx,
     const Rcpp::IntegerVector& ortho_sp1_idx,
     const Rcpp::IntegerVector& ortho_sp2_idx,
-    bool do_12, bool do_21, int n_cores
+    bool do_12, bool do_21, int n_cores,
+    const Rcpp::NumericVector& grid_frac
 ) {
     const auto neigh1 = neighbor_lists_sparse(p1, i1, x1, thr1, n_cores);
     const auto neigh2 = neighbor_lists_sparse(p2, i2, x2, thr2, n_cores);
@@ -270,36 +313,49 @@ Rcpp::DataFrame specificity_sparse_cpp(
         }
     }
 
+    const std::vector<double> gf(grid_frac.begin(), grid_frac.end());
+    for (std::size_t g = 0; g < gf.size(); ++g) {
+        if (!(gf[g] > 0.0 && gf[g] <= 1.0) || (g > 0 && gf[g] <= gf[g - 1])) {
+            stop("grid_frac must be strictly ascending in (0, 1]");
+        }
+    }
+    const int n_grid = static_cast<int>(gf.size());
     Rcpp::List out;
     if (do_12) {
         IntegerVector neigh(n_pairs), mapped(n_pairs);
         NumericVector auroc(n_pairs), pv(n_pairs), jac(n_pairs);
+        NumericMatrix grid(n_pairs, n_grid);
         const RankStore s2 = build_rank_store(p2, i2, x2, n_cores);
         specificity_direction(
             neigh1, neigh2, sp1_to_sp2, sp2_to_sp1, p2, i2, s2,
             pair_sp1_idx, pair_sp2_idx, n_cores,
             neigh.begin(), mapped.begin(), auroc.begin(), pv.begin(),
-            jac.begin());
+            jac.begin(), gf, grid.begin());
         out["Species1.neigh"] = neigh;
         out["Species1.mapped"] = mapped;
         out["Species1.auroc"] = auroc;
         out["Species1.p.val"] = pv;
         out["Species1.jaccard"] = jac;
+        out["Species1.n.cand"] = IntegerVector(n_pairs, n2);
+        out["Species1.auroc.grid"] = grid;
     }
     if (do_21) {
         IntegerVector neigh(n_pairs), mapped(n_pairs);
         NumericVector auroc(n_pairs), pv(n_pairs), jac(n_pairs);
+        NumericMatrix grid(n_pairs, n_grid);
         const RankStore s1 = build_rank_store(p1, i1, x1, n_cores);
         specificity_direction(
             neigh2, neigh1, sp2_to_sp1, sp1_to_sp2, p1, i1, s1,
             pair_sp2_idx, pair_sp1_idx, n_cores,
             neigh.begin(), mapped.begin(), auroc.begin(), pv.begin(),
-            jac.begin());
+            jac.begin(), gf, grid.begin());
         out["Species2.neigh"] = neigh;
         out["Species2.mapped"] = mapped;
         out["Species2.auroc"] = auroc;
         out["Species2.p.val"] = pv;
         out["Species2.jaccard"] = jac;
+        out["Species2.n.cand"] = IntegerVector(n_pairs, n1);
+        out["Species2.auroc.grid"] = grid;
     }
-    return Rcpp::DataFrame(out);
+    return out;
 }

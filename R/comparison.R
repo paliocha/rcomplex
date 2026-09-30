@@ -534,7 +534,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'     so a list that thousands of genes recognise as well as B is not
 #'     evidence. The q-value is read against a partner whose expression
 #'     was shuffled within each gene. \code{effect_size} is
-#'     \code{sqrt(auroc12 * auroc21)} and \code{power} is \code{NA}.}
+#'     \code{sqrt(auroc12 * auroc21)}; \code{power} is the rank-test
+#'     power of \code{\link{summarize_specificity}} at its default
+#'     reference rank.}
 #'   \item{permutation}{Rigorous path: gene-identity permutation via
 #'     \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
 #'     stopping and Liang discrete q-values. Required for multi-copy
@@ -564,8 +566,8 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   \code{"rank"} scores each ortholog pair with
 #'   \code{\link{compare_specificity}} and calibrates it against
 #'   \code{null_networks} via \code{\link{summarize_specificity}};
-#'   \code{filter_zero} and \code{rho0} do not apply and \code{power} is
-#'   \code{NA}.
+#'   \code{filter_zero} and \code{rho0} do not apply; \code{power} is
+#'   the rank-test power (see \code{\link{summarize_specificity}}).
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold (default 0.1).

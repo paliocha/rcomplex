@@ -444,6 +444,11 @@ summarize_comparison <- function(comparison,
 #' @param alpha Significance threshold applied to q-values (default 0.1).
 #' @param pi0_method `"storey"` (default) estimates pi0 from the p-values;
 #'   `"none"` fixes pi0 = 1 (Benjamini-Hochberg).
+#' @param p0 Reference raw p for the `power` column of `$edges`: the
+#'   rank among its candidates at which a conserved ortholog is assumed to
+#'   sit, as a fraction in (0, 1). `NULL` (default) uses the median raw p
+#'   of the called pairs, per direction -- the rank-test counterpart of
+#'   `rho0`.
 #' @inheritParams summarize_comparison
 #' @return A list with components:
 #'   \describe{
@@ -454,11 +459,25 @@ summarize_comparison <- function(comparison,
 #'       direction, `n_null` (null draws used per direction, 0 without
 #'       `null_p`) and `n_dropped` (rows with an `NA` p-value).}
 #'     \item{edges}{(Only when `sp1` and `sp2` are provided.) Edge frame
-#'       from [comparison_to_edges()]; `power` is `NA` because the
-#'       specificity test has no hypergeometric urn.}
+#'       from [comparison_to_edges()]. `power` is the probability that
+#'       the pair would have been called had the ortholog ranked at raw p
+#'       `p0` among its candidates: per direction, the anchor's
+#'       `auroc.grid` (log-linear interpolation) gives the AUROC at `p0`
+#'       and at the largest called raw p, and the ortholog's AUROC over
+#'       its `mapped` genes is taken as normal around the former with the
+#'       Hanley-McNeil (1982) standard error. It is at least 0.5 when
+#'       `p0` lies below the call threshold, and like the hypergeometric
+#'       power it orders pairs by how detectable conservation is rather
+#'       than giving calibrated rates. Directions combine like
+#'       `pval_combine`. The clique classifiers read it through
+#'       `min_power`.}
 #'   }
 #'
 #' @references
+#' Hanley, J. A. & McNeil, B. J. (1982). The meaning and use of the area
+#' under a receiver operating characteristic (ROC) curve. \emph{Radiology},
+#' 143(1), 29--36. \doi{10.1148/radiology.143.1.7063747}
+#'
 #' Suresh, H., Crow, M., Jorstad, N., Hodge, R., Lein, E., Dobin, A.,
 #' Bakken, T. & Gillis, J. (2023). Comparative single-cell transcriptomic
 #' analysis of primate brains highlights human-specific regulatory
@@ -473,9 +492,11 @@ summarize_comparison <- function(comparison,
 summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
                                   pi0_method = c("storey", "none"),
                                   sp1 = NULL, sp2 = NULL,
-                                  pval_combine = c("max", "min")) {
+                                  pval_combine = c("max", "min"),
+                                  p0 = NULL) {
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
+  .check_p0(p0)
   if (xor(is.null(sp1), is.null(sp2))) {
     stop("Both sp1 and sp2 must be provided, or neither.")
   }
@@ -531,6 +552,7 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
     out$edges <- comparison_to_edges(res, sp1, sp2,
       alternative = "greater", alpha = alpha, pval_combine = pval_combine
     )
+    out$edges$power <- .rank_power(res, alpha, pval_combine, p0)
   }
   out
 }

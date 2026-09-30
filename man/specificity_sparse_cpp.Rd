@@ -19,7 +19,8 @@ specificity_sparse_cpp(
   ortho_sp2_idx,
   do_12,
   do_21,
-  n_cores
+  n_cores,
+  grid_frac
 )
 }
 \arguments{
@@ -50,11 +51,17 @@ specificity_sparse_cpp(
 \item{do_12, do_21}{Compute direction 1 -> 2 / 2 -> 1.}
 
 \item{n_cores}{Number of OpenMP threads (default: 1)}
+
+\item{grid_frac}{Ascending fractions f in (0, 1]; for each, the AUROC
+grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
+Empty skips the grid.}
 }
 \value{
-DataFrame with, per requested direction, \code{Species1.neigh},
+List with, per requested direction, \code{Species1.neigh},
 \code{Species1.mapped}, \code{Species1.auroc}, \code{Species1.p.val},
-\code{Species1.jaccard} (and the \verb{Species2.*} set), one row per pair.
+\code{Species1.jaccard}, \code{Species1.n.cand} (one element per pair) and the
+matrix \code{Species1.auroc.grid} (pairs x fractions), and the \verb{Species2.*}
+set.
 }
 \description{
 Takes the \code{dgCMatrix} slots of both networks (both triangles stored, no

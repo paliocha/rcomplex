@@ -92,10 +92,27 @@
   probe the best copy pair was not the top-variance copy in two thirds
   of multi-copy calls. The 25 % false-call rate reported in note 11.9
   belongs to a hypergeometric test on top-25 neighbour lists, not to
-  this package's test. `null_networks` is required; `power` is
-  `NA`. The default is unchanged: the hypergeometric test, now named
+  this package's test. `null_networks` is required. The default is
+  unchanged: the hypergeometric test, now named
   `method = "hypergeometric"`; the old name `"analytical"` is still
   accepted.
+
+- **Rank-test edges carry a `power` column.** `compare_specificity()`
+  records per anchor an AUROC grid (`auroc.grid`: the AUROC an ortholog
+  needs to reach raw p of 1e-4 to 0.5, and `n.cand`), and
+  `summarize_specificity(p0 = NULL)` turns it into the probability that the
+  pair would have been called had the ortholog ranked at the reference raw
+  p `p0` (default: the median raw p of the called pairs), with the
+  Hanley-McNeil standard error of an AUROC over the translated set. The
+  clique classifiers read it through `min_power`, so a rank-test miss no
+  longer counts as a rejection regardless of how detectable conservation
+  was. A fixed reference AUROC, the direct analogue of `rho0`, inverted the
+  power and was dropped. On Pooideae leaf, among pairs called by both tests
+  in root, the leaf call rate was 0.04, 0.20 and 0.62 in the power bins
+  0.5-0.7, 0.7-0.9 and above 0.9 (root 0.13, 0.38, 0.75); like the
+  hypergeometric power it orders detectability and overstates the rate,
+  so `min_power = 0.9` is the more defensible gate for rank edges (design
+  note 11.15).
 
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
   complete clique over one lineage whose outside species were compared
