@@ -99,3 +99,86 @@
   .Platform$OS.type == "unix" && n_cores > 1L &&
     !identical(Sys.getenv("R_COVR"), "true")
 }
+
+
+#' Can forked workers call into BLAS safely?
+#'
+#' Apple's Accelerate (vecLib) BLAS is not fork-safe once the parent process
+#' has run a threaded BLAS call: a forked worker that calls into BLAS again
+#' can segfault. The K = 1 test of [detect_modules()] is the one fork site
+#' whose workers do (`arma::eigs_sym()`, and `arma::eig_sym()` when it does
+#' not converge, in `sparse_excess_spectral_norm_cpp()`), and it crashed on
+#' real Pooideae leaf networks under R's Accelerate BLAS. The other fork
+#' sites (Leiden sweeps, edge rewiring) never call BLAS in the worker.
+#' `VECLIB_MAXIMUM_THREADS=1` keeps Accelerate single-threaded and makes
+#' forking safe again (verified: identical to the serial result), but only
+#' when it is in the environment before R starts (shell or `.Renviron`):
+#' Accelerate reads it once, at initialisation, so a `Sys.setenv()` inside
+#' the session passes this check without taking effect.
+#'
+#' The default reads the variable as it was when the package loaded, not
+#' at call time, so the common "set it in the console after the crash" path
+#' does not unlock forking; a value set before loading but after R started
+#' still cannot be told apart.
+#'
+#' Only Accelerate is known to crash here; `TRUE` means "not known to be
+#' unsafe", not a guarantee (MKL or an OpenBLAS without fork handlers could
+#' have the same hazard and would pass).
+#'
+#' @param blas Path of the BLAS R is linked against.
+#' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
+#' @return `FALSE` only for Accelerate not pinned to one thread.
+#' @noRd
+.blas_fork_safe <- function(blas = extSoftVersion()[["BLAS"]],
+                            veclib_threads = .load_env$veclib_threads) {
+  !grepl("Accelerate|vecLib", blas) || identical(veclib_threads, "1")
+}
+
+
+#' Check the results of an `mclapply()` call
+#'
+#' `mclapply()` returns a `try-error` for a task that failed and `NULL` for
+#' one whose worker died without reporting (e.g. a segfault), with only a
+#' warning. Unchecked, either surfaces later as an unrelated error or as a
+#' silently shortened result. Every fork site routes its results through
+#' here.
+#'
+#' @param res List returned by `mclapply()` (or `lapply()`), one element
+#'   per task.
+#' @param labels Label of each task for the message (a resolution, a
+#'   permutation index).
+#' @param what What the tasks are, e.g. `"permutation"`.
+#' @return `res`, unchanged, when every task returned a result. A failed
+#'   task raises an error naming it, with the worker's condition as its
+#'   parent and the worker's classes kept.
+#' @noRd
+.check_fork_results <- function(res, labels, what) {
+  errs <- which(vapply(res, inherits, logical(1), "try-error"))
+  if (length(errs)) {
+    e <- res[[errs[1L]]]
+    head <- paste0(what, " ", labels[errs[1L]], " failed")
+    cnd <- attr(e, "condition")
+    if (is.null(cnd)) {
+      rlang::abort(paste0(head, ": ", trimws(as.character(e))), call = NULL)
+    }
+    # The worker's condition becomes the parent of the new error, so rlang
+    # renders its message once whatever its shape (bullets, several lines,
+    # a cnd_header() method) and records the backtrace; its own classes are
+    # kept on the new error, so class-based handlers match on either path.
+    rlang::abort(head,
+      class = setdiff(
+        class(cnd), c("rlang_error", "error", "condition", "simpleError")
+      ),
+      parent = cnd, call = NULL
+    )
+  }
+  failed <- vapply(res, is.null, logical(1))
+  if (any(failed)) {
+    stop(
+      "no result for ", what, " ", paste(labels[failed], collapse = ", "),
+      " (on a forked run a worker may have crashed; rerun with n_cores = 1)",
+      call. = FALSE
+    )
+  }
+  res
+}

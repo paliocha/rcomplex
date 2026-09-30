@@ -88,6 +88,26 @@ test_that("forked K = 1 workers survive the parent's OpenMP threads", {
   expect_gt(res$k1_test$n_perm_completed, 0L)
 })
 
+test_that("the K = 1 test gives the serial result at n_cores = 2", {
+  skip_on_cran()
+  skip_on_os("windows") # mclapply falls back to serial
+  # Under R's Accelerate BLAS without VECLIB_MAXIMUM_THREADS=1 at start-up
+  # the K = 1 permutations run serially (.blas_fork_safe()), so this
+  # compares serial with serial there; it exercises the fork on Linux CI.
+  # n_cores = 2 stays inside R CMD check --as-cran's core limit.
+  net <- make_ambiguous_net(n = 200L)
+  run <- function(nc) {
+    detect_modules(net,
+      resolution = c(0.5, 1, 2), seed = 1L, n_cores = nc,
+      test_k1 = TRUE, n_perm_k1 = 20L
+    )$k1_test
+  }
+  serial <- run(1L)
+  two <- run(2L)
+  expect_identical(two$lambda_null, serial$lambda_null)
+  expect_identical(two$p_value, serial$p_value)
+})
+
 test_that("detect_modules leaves the ambient RNG stream core-count invariant", {
   skip_on_cran()
   skip_on_os("windows")

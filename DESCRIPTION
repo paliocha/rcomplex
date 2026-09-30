@@ -28,7 +28,7 @@ Imports:
     DiscreteQvalue,
     qvalue,
     parallel,
-    rlang,
+    rlang (>= 1.0.0),
     stats,
     utils
 LinkingTo:
@@ -50,7 +50,7 @@ Suggests:
     SummarizedExperiment,
     tibble (>= 3.1.0),
     torch,
-    testthat (>= 3.0.0),
+    testthat (>= 3.1.5),
     lintr,
     withr,
     pkgdown

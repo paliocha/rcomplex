@@ -57,7 +57,11 @@
 #' @param n_cores Number of parallel cores (default 1). Used for
 #'   \code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
 #'   Uses fork-based parallelism; avoid combining with active CUDA
-#'   contexts in the same session.
+#'   contexts in the same session. The K = 1 permutations run serially
+#'   when R uses Apple's Accelerate BLAS, which is not fork-safe for their
+#'   eigensolver, unless \code{VECLIB_MAXIMUM_THREADS=1} was set before R
+#'   started (shell or \code{.Renviron}; Accelerate ignores a later
+#'   \code{Sys.setenv()}).
 #' @param max_consensus_iter Maximum number of consensus iterations for
 #'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
 #'   Iteration stops when the sweep reproduces its own input (a fixed
@@ -426,25 +430,15 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       },
       add = TRUE
     )
+    # one fork per task (not per core chunk), so a failure names its task
     results <- parallel::mclapply(seq_len(n_res), run_initial,
-      mc.cores = n_cores
+      mc.cores = n_cores, mc.preschedule = FALSE
     )
   } else {
     results <- lapply(seq_len(n_res), run_initial)
   }
 
-  errs <- which(vapply(results, inherits, logical(1), "try-error"))
-  if (length(errs)) {
-    e <- results[[errs[1L]]]
-    stop(attr(e, "condition") %||% as.character(e))
-  }
-  failed <- vapply(results, is.null, logical(1))
-  if (any(failed)) {
-    stop(
-      "Parallel workers returned NULL at resolutions: ",
-      paste(resolutions[failed], collapse = ", ")
-    )
-  }
+  .check_fork_results(results, resolutions, "resolution")
 
   memberships <- lapply(results, `[[`, "mem")
   scan_n_modules <- vapply(results, `[[`, integer(1), "n_mod")
@@ -660,7 +654,7 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
     mem
   }
 
-  if (.Platform$OS.type == "unix" && n_cores > 1L) {
+  if (.can_fork(n_cores)) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
     on.exit(
@@ -673,15 +667,12 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
       },
       add = TRUE
     )
-    results <- parallel::mclapply(seq_along(resolutions), run_one,
-      mc.cores = n_cores
+    .check_fork_results(
+      parallel::mclapply(seq_along(resolutions), run_one,
+        mc.cores = n_cores, mc.preschedule = FALSE
+      ),
+      resolutions, "resolution"
     )
-    errs <- which(vapply(results, inherits, logical(1), "try-error"))
-    if (length(errs)) {
-      e <- results[[errs[1L]]]
-      stop(attr(e, "condition") %||% as.character(e))
-    }
-    results
   } else {
     lapply(seq_along(resolutions), run_one)
   }
@@ -813,7 +804,21 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
   }
 
-  use_mc <- .can_fork(n_cores)
+  # Workers here call into BLAS (the eigensolver), so they may only fork
+  # when the BLAS survives it; see .blas_fork_safe().
+  fork_ok <- .can_fork(n_cores)
+  use_mc <- fork_ok && .blas_fork_safe()
+  if (fork_ok && !use_mc) {
+    rlang::inform(
+      paste0(
+        "The K = 1 permutations run serially: R uses Apple's Accelerate ",
+        "BLAS, which is not fork-safe for their eigensolver. Set ",
+        "VECLIB_MAXIMUM_THREADS=1 before starting R (e.g. in .Renviron) ",
+        "to run them in parallel."
+      ),
+      .frequency = "once", .frequency_id = "rcomplex_k1_serial"
+    )
+  }
   # Batch on the significance grid, not on the core count: the early-stop rule
   # must be evaluated at the same points regardless of the machine. The batch
   # is still spread over mc.cores below, so on typical hardware concurrency is
@@ -846,10 +851,12 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     batch_idx <- seq.int(batch_start, batch_end)
 
     if (use_mc) {
-      batch_vals <- unlist(parallel::mclapply(
-        batch_idx, run_one_perm,
-        mc.cores = n_cores
-      ))
+      batch_vals <- vapply(.check_fork_results(
+        parallel::mclapply(batch_idx, run_one_perm,
+          mc.cores = n_cores, mc.preschedule = FALSE
+        ),
+        batch_idx, "K = 1 permutation"
+      ), identity, numeric(1))
     } else {
       batch_vals <- vapply(batch_idx, run_one_perm, numeric(1))
     }

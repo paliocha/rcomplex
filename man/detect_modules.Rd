@@ -74,7 +74,11 @@ applies a fixed threshold without iteration (single pass).}
 \item{n_cores}{Number of parallel cores (default 1). Used for
 \code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
 Uses fork-based parallelism; avoid combining with active CUDA
-contexts in the same session.}
+contexts in the same session. The K = 1 permutations run serially
+when R uses Apple's Accelerate BLAS, which is not fork-safe for their
+eigensolver, unless \code{VECLIB_MAXIMUM_THREADS=1} was set before R
+started (shell or \code{.Renviron}; Accelerate ignores a later
+\code{Sys.setenv()}).}
 
 \item{max_consensus_iter}{Maximum number of consensus iterations for
 adaptive mode (\code{consensus_threshold = NULL}). Default 10.

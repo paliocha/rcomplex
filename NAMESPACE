@@ -85,6 +85,7 @@ importFrom(methods,
   setMethod
 )
 importFrom(rlang,
+  "%||%",
   .data,
   .env
 )
