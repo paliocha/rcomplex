@@ -12,9 +12,9 @@ find_coexpressologs(networks, ...)
   networks,
   orthologs,
   species_pairs = NULL,
-  method = c("analytical", "permutation"),
+  method = c("hypergeometric", "rank", "permutation"),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,
@@ -25,6 +25,7 @@ find_coexpressologs(networks, ...)
   seed = NULL,
   out_file = NULL,
   rho0 = NULL,
+  null_networks = NULL,
   ...
 )
 
@@ -44,13 +45,19 @@ keyed by species abbreviation.}
 specifying which pairs to compare. Defaults to all
 \code{combn(names(networks), 2)}.}
 
-\item{method}{Testing method: \code{"analytical"} (default, fast)
-or \code{"permutation"} (rigorous).}
+\item{method}{Testing method: \code{"hypergeometric"} (default, fast;
+\code{"analytical"} is accepted as its former name), \code{"rank"} or
+\code{"permutation"} (rigorous).
+\code{"rank"} scores each ortholog pair with
+\code{\link{compare_specificity}} and calibrates it against
+\code{null_networks} via \code{\link{summarize_specificity}};
+\code{filter_zero} and \code{rho0} do not apply and \code{power} is
+\code{NA}.}
 
 \item{alternative}{\code{"greater"} (conservation, default) or
 \code{"less"} (divergence).}
 
-\item{alpha}{Significance threshold (default 0.05).}
+\item{alpha}{Significance threshold (default 0.1).}
 
 \item{n_cores}{Number of threads (default 1).}
 
@@ -63,14 +70,17 @@ permutation method (default 50).}
 \item{max_permutations}{Maximum permutations for permutation method
 (default 10000).}
 
-\item{pi0_method}{Analytical method only: how pi0 is estimated for the
-pair-level Storey q-values, passed to
+\item{pi0_method}{Hypergeometric and rank methods: how pi0 is
+estimated for the pair-level Storey q-values, passed to
 \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
-draws; pass \code{seed} to pin those draws.}
+draws; pass \code{seed} to pin those draws. Under
+\code{"rank"}, \code{"randomized"} is read as
+\code{"storey"}.}
 
-\item{pval_combine}{Analytical method only: how the two directional
-q-values are combined, passed to \code{\link{comparison_to_edges}}:
+\item{pval_combine}{Hypergeometric and rank methods: how the two
+directional q-values are combined, passed to
+\code{\link{comparison_to_edges}}:
 \code{"max"} (default; both directions significant -- the reciprocal
 criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 the original ComPlEx) or \code{"min"} (permissive; either direction,
@@ -97,7 +107,7 @@ loop, rather than being handed to each
 through the pairs in order, so each pair draws its own uniforms
 instead of every pair reusing the same ones.
 
-What a seed buys differs by method. Under \code{"analytical"} it
+What a seed buys differs by method. Under \code{"hypergeometric"} it
 pins the randomized-p draws behind pi0, and the result is
 reproducible at any \code{n_cores}. Under \code{"permutation"} it
 pins the per-thread seeds that the C++ engines draw from R's RNG,
@@ -133,6 +143,10 @@ the \code{power} column, passed to
 effect size of the called pairs). The permutation path always
 reports \code{power = NA}: its HOG-level q-value has no per-pair
 call threshold to measure power against.}
+
+\item{null_networks}{Specificity method only (required there): named
+list with one \code{\link{null_network}} object, or a list of them,
+per species.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
@@ -156,6 +170,22 @@ the results into a single edge data frame ready for
 \item{analytical}{Fast path: pair-level Storey q-values via
 \code{\link{summarize_comparison}}. Appropriate when most HOGs
 are single-copy.}
+\item{rank}{Opt-in: \code{\link{compare_specificity}}
+against shuffled-partner networks from \code{\link{null_network}}
+(argument \code{null_networks}), q-values via
+\code{\link{summarize_specificity}}. The hypergeometric test counts
+how many of gene A's translated partners are among ortholog B's
+partners, against an urn of random draws. With small
+neighbourhoods (top-25 lists) that urn let technically "sticky"
+genes, such as genes with many zeros, through as false calls; at
+network density 0.03 it held against a shuffled-expression null.
+The rank test asks where A's translated partners
+sit in B's full co-expression ranking, checks every other gene of
+B's species the same way, and reports B's rank in that contest,
+so a list that thousands of genes recognise as well as B is not
+evidence. The q-value is read against a partner whose expression
+was shuffled within each gene. \code{effect_size} is
+\code{sqrt(auroc12 * auroc21)} and \code{power} is \code{NA}.}
 \item{permutation}{Rigorous path: gene-identity permutation via
 \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
 stopping and Liang discrete q-values. Required for multi-copy

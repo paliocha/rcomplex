@@ -1222,7 +1222,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   universes. Pass `sp_ref` / `sp_test` to [module_correspondence()] and
 #'   that orientation is checked here instead of taken on trust. A module
 #'   pair absent from the table counts as not corresponding.
-#' @param alpha Significance threshold for module correspondence (default 0.05).
+#' @param alpha Significance threshold for module correspondence (default 0.1).
 #' @param jaccard_threshold Jaccard threshold for module correspondence
 #'   (default 0.1). [module_correspondence()] computes this over the
 #'   one-to-one paralog-resolved projection, whereas the retired gene-overlap
@@ -1289,7 +1289,7 @@ classify_hub_conservation <- function(hub_results, ...) {
 #' @export
 classify_hub_conservation.default <- function(hub_results, species_trait,
                                               module_comparisons = NULL,
-                                              alpha = 0.05,
+                                              alpha = 0.1,
                                               jaccard_threshold = 0.1,
                                               min_trait_fraction = 0.5,
                                               correspondence_threshold = 0.5,

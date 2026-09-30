@@ -228,6 +228,48 @@ make_graded_nets <- function() {
   list(net1 = net1, net2 = net2, ortho = ortho)
 }
 
+#' RNG-free specificity pipeline fixture
+#'
+#' 120 genes per species, 1:1 orthologs (one HOG per pair). Genes 1-20 and
+#' 21-35 form cliques in both species, genes 36-50 a clique in species 1
+#' only; the rest are isolated. Clique weights are graded 1 + (i + j) / 100
+#' so the neighbourhoods are the cliques at threshold 1. `nulls` holds one
+#' relabelled copy per species (`m[perm, perm]`, dimnames kept).
+make_spec_nets <- function() {
+  n <- 120
+  cliques <- list(1:20, 21:35, 36:50)
+  build <- function(prefix, cl) {
+    m <- matrix(0, n, n)
+    for (g in cl) m[g, g] <- outer(g, g, function(i, j) 1 + (i + j) / 100)
+    diag(m) <- 0
+    rownames(m) <- colnames(m) <- paste0(prefix, sprintf("%03d", 1:n))
+    m
+  }
+  mk <- function(m) {
+    list(
+      network = m, threshold = 1, n_genes = n,
+      params = list(density = mean(m[upper.tri(m)] >= 1))
+    )
+  }
+  relabel <- function(net) {
+    perm <- c(61:120, 1:60)
+    m <- net$network[perm, perm]
+    dimnames(m) <- dimnames(net$network)
+    modifyList(net, list(network = m))
+  }
+  net1 <- mk(build("A", cliques))
+  net2 <- mk(build("B", cliques[1:2]))
+  ortho <- data.frame(
+    Species1 = rownames(net1$network), Species2 = rownames(net2$network),
+    hog = paste0("HOG", sprintf("%03d", 1:n)), stringsAsFactors = FALSE
+  )
+  list(
+    networks = list(sp1 = net1, sp2 = net2), ortho = ortho,
+    nulls = list(sp1 = relabel(net1), sp2 = relabel(net2)),
+    shared = c(1:35), one_sided = 36:50
+  )
+}
+
 #' 12-gene self-excluded urn fixture (D5)
 #'
 #' HOG1 members (genes 1-3) are co-expressed with each other and with genes
@@ -332,4 +374,72 @@ reference_preservation_stats <- function(adj_ref, idx_ref, adj_test,
     cor.clusterCoeff = reference_safe_cor(ref$CC, tst$CC),
     cor.MAR = reference_safe_cor(ref$MAR, tst$MAR)
   )
+}
+
+
+# ---- neighbourhood specificity reference (compare_specificity()) ----
+
+#' Reference neighbourhood specificity on dense matrices
+#'
+#' Per column j, the off-diagonal entries are ranked ascending with average
+#' ties; with `store`, entries below it are first set to -Inf so they tie
+#' at the bottom exactly as unstored sparse entries do. Direction 1 -> 2:
+#' for anchor i, T_i is the species-2 orthologs of i's neighbours minus the
+#' orthologs of i itself; every species-2 gene j scores the AUROC of
+#' T_i \ {j} in column j; p is the rank of the paired gene among all
+#' species-2 genes on the 1 / n2 grid (NaN scores never count). Direction
+#' 2 -> 1 swaps the roles.
+reference_specificity <- function(net1, net2, thr1, thr2, ortho,
+                                  store1 = NULL, store2 = NULL) {
+  col_ranks <- function(m, store) {
+    r <- m * NA_real_
+    for (j in seq_len(ncol(m))) {
+      v <- m[-j, j]
+      if (!is.null(store)) v[v < store] <- -Inf
+      r[-j, j] <- rank(v, ties.method = "average")
+    }
+    r
+  }
+  nb <- function(m, thr, g) setdiff(names(which(m[, g] >= thr)), g)
+  one <- function(ma, mb, thra, thrb, pa, pb, store_b) {
+    rk <- col_ranks(mb, store_b)
+    genes_b <- rownames(mb)
+    n_b <- length(genes_b)
+    np <- length(pa)
+    out <- data.frame(
+      neigh = integer(np), mapped = integer(np), auroc = NA_real_,
+      p.val = NA_real_, jaccard = 0
+    )
+    for (q in seq_len(np)) {
+      i <- pa[q]
+      js <- pb[q]
+      n_i <- nb(ma, thra, i)
+      t_i <- setdiff(unique(pb[pa %in% n_i]), pb[pa == i])
+      a <- rep(NA_real_, n_b)
+      names(a) <- genes_b
+      for (j in genes_b) {
+        tj <- setdiff(t_i, j)
+        t <- length(tj)
+        if (t == 0 || t >= n_b - 1) next
+        a[j] <- (sum(rk[tj, j]) - t * (t + 1) / 2) / (t * (n_b - 1 - t))
+      }
+      back <- setdiff(unique(pa[pb %in% nb(mb, thrb, js)]), i)
+      x <- length(intersect(n_i, back))
+      u <- length(n_i) + length(back) - x
+      out$neigh[q] <- length(n_i)
+      out$mapped[q] <- length(t_i)
+      out$jaccard[q] <- if (u > 0) x / u else 0
+      if (!is.na(a[js])) {
+        ge <- sum(a[names(a) != js] >= a[js], na.rm = TRUE)
+        out$auroc[q] <- a[[js]]
+        out$p.val[q] <- (1 + ge) / n_b
+      }
+    }
+    out
+  }
+  d1 <- one(net1, net2, thr1, thr2, ortho$Species1, ortho$Species2, store2)
+  d2 <- one(net2, net1, thr2, thr1, ortho$Species2, ortho$Species1, store1)
+  names(d1) <- paste0("Species1.", names(d1))
+  names(d2) <- paste0("Species2.", names(d2))
+  cbind(d1, d2)
 }

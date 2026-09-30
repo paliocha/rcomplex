@@ -11,7 +11,7 @@ classify_hub_conservation(hub_results, ...)
   hub_results,
   species_trait,
   module_comparisons = NULL,
-  alpha = 0.05,
+  alpha = 0.1,
   jaccard_threshold = 0.1,
   min_trait_fraction = 0.5,
   correspondence_threshold = 0.5,
@@ -39,7 +39,7 @@ universes. Pass \code{sp_ref} / \code{sp_test} to \code{\link[=module_correspond
 that orientation is checked here instead of taken on trust. A module
 pair absent from the table counts as not corresponding.}
 
-\item{alpha}{Significance threshold for module correspondence (default 0.05).}
+\item{alpha}{Significance threshold for module correspondence (default 0.1).}
 
 \item{jaccard_threshold}{Jaccard threshold for module correspondence
 (default 0.1). \code{\link[=module_correspondence]{module_correspondence()}} computes this over the

@@ -7,7 +7,7 @@
 summarize_comparison(
   comparison,
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   filter_zero = NULL,
   sp1 = NULL,
   sp2 = NULL,
@@ -25,7 +25,7 @@ summarize_comparison(
 conservation (upper-tail, uses \code{.p.val.con} columns) or \code{"less"} for
 divergence (lower-tail, uses \code{.p.val.div} columns).}
 
-\item{alpha}{Significance threshold applied to q-values (default 0.05).}
+\item{alpha}{Significance threshold applied to q-values (default 0.1).}
 
 \item{filter_zero}{If \code{TRUE} (default for \code{"greater"}), remove rows where
 both overlap values are zero. Defaults to \code{FALSE} for \code{"less"}.}

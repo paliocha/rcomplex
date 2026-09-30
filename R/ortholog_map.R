@@ -68,7 +68,7 @@
 #' @param rank_by Column ranking coexpressolog partners: `"effect_size"`
 #'   (default), `"jaccard"`, or `"q.value"` (lower is better).
 #' @param alpha Significance threshold applied to `edges$q.value` when the
-#'   table has no `type` column (default 0.05).
+#'   table has no `type` column (default 0.1).
 #'
 #' @return A data frame with columns:
 #'   \describe{
@@ -95,7 +95,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
                                    "effect_size", "jaccard",
                                    "q.value"
                                  ),
-                                 alpha = 0.05) {
+                                 alpha = 0.1) {
   rank_by <- match.arg(rank_by)
 
   if (!is.data.frame(orthologs)) {

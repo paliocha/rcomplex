@@ -13,7 +13,7 @@ coexpressolog_strength(networks, ...)
   densities,
   reference_density,
   species_pairs = NULL,
-  alpha = 0.05,
+  alpha = 0.1,
   alternative = c("greater", "less"),
   pval_combine = c("max", "min"),
   n_cores = 1L,
@@ -48,7 +48,7 @@ pairs to compare, or \code{NULL} (default) for every pairwise combination
 of \code{names(networks)}, matching \code{\link[=find_coexpressologs]{find_coexpressologs()}}.}
 
 \item{alpha}{Significance threshold for \code{reference}'s \code{type} column
-(default \code{0.05}).}
+(default \code{0.1}).}
 
 \item{alternative}{\code{"greater"} (conservation, default) or \code{"less"}
 (divergence); passed to \code{reference}'s q-value computation.}
@@ -82,7 +82,7 @@ rank statistic), \code{min_overlap}, \code{normalized_rank}, \code{supported}
 randomized-p pi0 estimator: \code{species1}, \code{species2}, \code{gene1},
 \code{gene2}, \code{hog}, \code{q.value}, \code{effect_size}, \code{jaccard}, \code{type}.}
 \item{params}{List echoing \code{densities}, \code{reference_density},
-\code{alpha}, \code{alternative}, \code{pval_combine} and \code{method = "analytical"} (the only density-profile method implemented so
+\code{alpha}, \code{alternative}, \code{pval_combine} and \code{method = "hypergeometric"} (the only density-profile method implemented so
 far; HOG permutation inference stays reserved for \code{reference}).}
 }
 }

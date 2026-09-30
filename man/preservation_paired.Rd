@@ -15,7 +15,7 @@ preservation_paired(modules, ...)
   group = NULL,
   edges = NULL,
   cliques = NULL,
-  alpha = 0.05,
+  alpha = 0.1,
   z_conserved = 10,
   seed = NULL,
   ...

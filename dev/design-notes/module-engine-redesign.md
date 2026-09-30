@@ -984,16 +984,13 @@ If the gate passes, the change is a contraction, not an addition.
 | `tag_permutation()` | unchanged |
 | K = 1 test (`test_k1`) | retire: wrong null (Section 2); replaced by the shuffled-expression control and by MDL model selection where an MDL backend is used |
 
-One correction that predates the engine and applies to its foundation
-(Martin, 2026-09-24): `summarize_comparison()`'s pair-level
-hypergeometric tests have a different discrete support per gene pair,
-and Liang's method in DiscreteQvalue assumes one shared support, which
-only the permutation HOG test has. The right procedure for the pair
-level is the Döhler, Durand and Roquain (2018) discrete step-up (a
-BH-type procedure using each test's own support, FDR control under
-independence). Two routes: DiscreteFDR as a new dependency, or about
-40 lines in-house with DiscreteFDR in Suggests to test against. The
-anchor step of Section 11.5 used plain BH and inherits the same fix.
+The pair-level discrete-FDR item recorded here (Martin, 2026-09-24:
+per-pair hypergeometric supports, with the Döhler, Durand and Roquain
+step-up as the fix) is retired by the specificity score
+(`compare_specificity()`, Section 11.9). Its p-values share one `1/n2`
+support per direction, so there is no support heterogeneity to exploit,
+and they are calibrated empirically against a shuffled partner before
+Storey q-values are taken.
 
 Circularity, stated once: with kappa > 0 a module is found partly
 *because* its orthologs co-cluster, so "is module c preserved in species
@@ -1777,8 +1774,10 @@ Per pair on wood (pooled): Scots-Lodge 1,700 against 1,423, Nor-Scots
 
 Readings.
 
-1. **The hypergeometric is anti-conservative on the n = 20 leaf
-   networks**: 112 of 453 calls per pair recur on a partner whose
+1. **The top-25 hypergeometric is anti-conservative on the n = 20 leaf
+   networks** (correction, 2026-09-25: this is the probe's test on top-25
+   neighbour lists; the package's `compare_neighborhoods()` at density 0.03
+   is not, see 11.12): 112 of 453 calls per pair recur on a partner whose
    expression was shuffled (25 % empirical FDR), against 8 of 493 on
    root and none on the aggregates. Ties and sparse genes survive a
    permutation of samples, and the hypergeometric has no way to see
@@ -1807,6 +1806,220 @@ For the engine: replace the hypergeometric co-expressolog test by the
 specificity score with shuffled calibration (this also retires the
 discrete-FDR item in Section 9), keep best-copy pairs, and offer
 rank-aggregation across contexts (tissues) but not across replicates.
+
+### 11.10 Package implementation against the probe (2026-09-25)
+
+`method = "specificity"` on branch `feature/specificity-score`
+(`compare_specificity()`, `null_network()`, `summarize_specificity()`),
+cross-checked by `prepare_data/probe-module-engine/p14_package_crosscheck.R`
+and `p14b_definition_check.R` on the p13 genes (8,000 per species,
+Spearman correlation, MR network at density 0.03, one null network per
+species). Outputs in `out-2026-09-23/p14/`.
+
+| pair / tissue | Spearman probe vs package | probe calls | package calls | Jaccard | analytical calls | Jaccard analytical vs package |
+|---|---|---|---|---|---|---|
+| BDIS-HVUL leaf | 0.780 | 788 | 624 | 0.47 | 1,532 | 0.40 |
+| BDIS-HVUL root | 0.785 | 1,233 | 2,866 | 0.42 | 2,442 | 0.85 |
+| FPRA-VBRO leaf | 0.774 | 475 | 996 | 0.39 | 1,738 | 0.55 |
+| FPRA-VBRO root | 0.816 | 1,231 | 1,774 | 0.54 | 2,361 | 0.74 |
+
+The gap is definitional. The probe's own score recomputed on the package's
+MR network with density neighbourhoods (mean 228 genes) agrees with the
+package at Spearman 0.962 and picks the same best copy pair in 96 % of
+HOGs; with top-25 neighbourhoods on the same network it agrees at 0.80.
+Runtime: about 1 s per pair for both directions plus both null directions
+at 8 cores, after 5 to 6 s of network builds.
+
+Two readings. At density 0.03 the package's specificity and analytical
+calls overlap more with each other (Jaccard 0.40 to 0.85) than either does
+with the top-25 probe, so the neighbourhood definition matters as much as
+the test; the n = 20 leaf case, where the hypergeometric was
+anti-conservative, is where they part most. Paralog choice is the least
+stable quantity across definitions (53 to 59 % agreement on multi-copy
+HOGs against the probe).
+
+Bug found on the way, not fixed on this branch: `compute_network()`'s
+`min_var` filter lets a gene that is constant within the samples through
+(floating-point variance of about 1e-30), and Spearman then errors with
+"sim contains NaN". It bites on tissue subsets.
+
+### 11.11 The anchored regulons rebuilt on the rank engine (2026-09-25)
+
+The anchor pair test of 11.8 (hypergeometric-lite on top-25 neighbour HOG
+sets, q < 0.05, overlap >= 3) replaced by the package's
+`find_coexpressologs(method = "rank")` on MR networks at density 0.03 (store
+0.05), one `null_network()` per species, every copy pair up to five a side,
+call at q < 0.10. Everything downstream (blocks, LOSO, nuclei, programs,
+scores, wiring) unchanged. Scripts `engine2.R::pair_tests_rank()`,
+`p10_regulons_rank.R`, `p11_score_rank.R`, `w5_regulons_rank.R`; outputs
+`v3r_*`, payloads `regulon_course_v4_rank.json`,
+`regulon_course_wood_v3_rank.json`. Both pages republished (Pooideae
+version 5, wood version 4).
+
+| | Pooideae leaf | Pooideae root | wood |
+|---|---|---|---|
+| copy pairs tested / called at q < 0.10 | 736,338 / 120,715 (16 %) | 737,759 / 226,776 (31 %) | 296,808 / 59,011 (20 %) |
+| anchors (11.8 lite test) | 3,625 (431) | 6,972 (668) | 8,419 (2,175) |
+| anchors spanning both sides | 3,445 | 6,718 | 1,011 (167) |
+| LOSO shared HOGs, real / shuffled / random | 1.12 / 0.02 / 0.04 | 0.94 / 0.03 / 0.04 | 0.33 / 0.00 / 0.01 |
+| LOSO, held-out species from the other side | 0.28 | 0.42 | 0.17 |
+| programs with >= 4 HOGs | 1,698 over both tissues | | 2,709 |
+
+Wood calls per species pair: Scots-Lodge 59 % (Lodge is mapped on the Scots
+genome), Birch-Cher 32 %, spruce-pine 26 %, aspen-birch 23 %, aspen-cherry
+20 %, then spruce-angiosperm 4 to 12 % and pine-angiosperm 1 to 3 %.
+
+Readings. The rank test calls five to fifteen times as many copy pairs as
+the lite test, so there are many more anchors, and each anchor's nucleus is
+smaller and replicates less across held-out species (LOSO 1 against 5 on
+Pooideae), while shuffled and random controls stay near zero. The extra
+calls are orthologs whose partner lists are recognised better than a
+shuffled partner would recognise them, which includes broad conserved
+programs (a shared time or tissue axis), not only tight regulons: a call
+rate of 31 % in root says the calibration is honest about the null, not that
+a third of genes sit in regulons. For anchoring, the useful filter is now the
+nucleus (recurrent HOGs across the scope), not the pair test. The lineage
+asymmetry on wood is repaired further (1,011 cross-lineage anchors), and
+spruce links to the angiosperms more than the pines do. The top wood
+program is the same as under the lite test (AtSS2 nucleus, starch synthase,
+maturation in angiosperms and cambium in conifers), which is the stability
+check that matters.
+
+### 11.12 Correction: the package hypergeometric at density 0.03 is not anti-conservative (2026-09-25)
+
+The regulon ablation (scripts `abl_phase1.R`, `abl_phase2.R`, outputs in
+`out-2026-09-23/ablation/`) ran the package's pair tests at q < 0.1 on MR
+networks at density 0.03 and repeated each with species 2 replaced by its
+`null_network()` (expression shuffled within genes), three species pairs
+per dataset:
+
+| arm | leaf calls, real / null | wood calls, real / null |
+|---|---|---|
+| hypergeometric, raw MR | 10,312 / 0; 10,504 / 0; 7,242 / 0 | 11,339 / 0; 14,837 / 0; 4,398 / 0 |
+| hypergeometric, log MR | 10,485 / 0; 10,692 / 1; 7,377 / 0 | 11,837 / 0; 15,353 / 0; 4,459 / 0 |
+| rank, raw MR | 5,847 / 0; 6,204 / 0; 963 / 0 | 5,516 / 0; 8,078 / 0; 1,535 / 0 |
+| rank, log MR | 5,889 / 0; 6,088 / 0; 1,235 / 0 | 6,036 / 0; 8,719 / 0; 1,640 / 0 |
+
+Across all copy pairs the hypergeometric calls 35 % (leaf) and 43-45 %
+(wood), the rank test 16-17 % and 20-22 %; log versus raw MR moves the
+counts by 1-9 %. So the anti-conservativeness of 11.9 belonged to the
+top-25 neighbour-list test, whose small neighbourhoods let ties and sparse
+genes dominate; at density 0.03 (about 600 neighbours) the urn test holds
+against the same null. The case for the rank test rests on calibration by
+construction and per-copy ranking, not on fewer false calls. Regulon-level
+results of the ablation follow when phase 2 completes.
+
+### 11.13 Regulon ablation: pair test x MR form x regulon definition (2026-09-25)
+
+Question (Martin): are the noisy regulons of 11.11 an artefact of how
+regulons are defined? Call threshold fixed at q < 0.1. Arms: A0 legacy
+top-25 hypergeometric-lite; A1/A2 package hypergeometric on raw/log MR at
+density 0.03; A3/A4 package rank test on raw/log MR. Definitions: D0
+current (clique anchors, 4-clique nuclei on the top-25 graph, recurrence
+>= 2); D1 D0 restricted to the N strongest anchors (N = smallest anchor
+count across arms: 433 leaf, 2,224 wood); D2 D0 without the clique step
+(recurring top-25 neighbours); D3 nuclei from the pair test's own network
+(density 0.03, recurrence >= 60 % of scope). Scores: leave-one-species-out
+shared HOGs (real / shuffled / random), known-program recovery
+(photosynthesis and cytosolic ribosome in leaf, secondary wall in wood),
+within-species wiring z. Scripts `abl_*.R`, table
+`out-2026-09-23/ablation/ablation_metrics.tsv`.
+
+Held-out shared HOGs per anchor, real (shuffled):
+
+| | leaf D0 | leaf D1 | leaf D2 | wood D0 | wood D1 | wood D2 |
+|---|---|---|---|---|---|---|
+| A0 legacy lite | 5.49 (0.05) | 5.49 (0.05) | 5.32 (0.10) | 1.08 (0) | 1.08 (0) | 1.06 (0.03) |
+| A1 hyper raw | 3.14 (0.03) | 3.36 (0.03) | 3.12 (0.07) | 0.84 (0) | 0.84 (0) | 0.81 (0.02) |
+| A2 hyper log | 3.28 (0.03) | 3.43 (0.03) | 3.24 (0.07) | 0.92 (0) | 0.92 (0) | 0.89 (0.02) |
+| A3 rank raw | 2.61 (0.02) | 2.68 (0.03) | 2.58 (0.06) | 0.50 (0) | 0.50 (0) | 0.48 (0.02) |
+| A4 rank log | 2.77 (0.03) | 2.87 (0.03) | 2.73 (0.06) | 0.49 (0) | 0.49 (0) | 0.48 (0.02) |
+
+Readings.
+
+1. **The pair test moves replication most, and the rank test is last.**
+   Legacy lite > package hypergeometric > rank, on both datasets; the
+   rank test's regulons replicate at about half the legacy level in leaf
+   and wood. Every arm is 25-60 times above its shuffled and random
+   controls, so none is noise; the difference is effect size.
+2. **The regulon definition is not the artefact, with one exception.**
+   Restricting to the strongest anchors (D1) barely changes replication
+   (+0.1 to +0.2) but tightens programs (leaf wiring z 17 -> 25, wood
+   10 -> 14) at a small cost in control recall; dropping the clique step
+   (D2) changes nothing. D3 (nuclei on the test's 600-neighbour network)
+   is the exception: programs of 60-155 HOGs, real/null ratio 4-5, and
+   control precision collapses (ribosome 0.015). Large neighbourhoods do
+   not make regulons.
+3. **MR form is a small effect**: log MR adds 0.1-0.15 shared HOGs in
+   leaf, nothing in wood.
+4. **Known programs are recovered by every arm under D0-D2**: ribosome
+   recall 0.79-0.88 (random 0.0001), photosynthesis 0.30-0.44, secondary
+   wall 0.67-1.0. Photosynthesis precision is highest for the legacy test
+   (0.28 against 0.15 hypergeometric, 0.20 rank).
+5. **Cross-trait replication** (held-out species from the other trait,
+   leaf): legacy 2.4, rank 0.45, hypergeometric 0.15-0.2.
+6. The legacy lite test is slightly anti-conservative in leaf against the
+   shuffled null (0-1 % of calls), clean in wood.
+
+Interpretation. What separates the arms is the neighbourhood scale of
+anchor selection. The legacy test selects genes whose top-25 lists are
+conserved and then builds nuclei on the same top-25 graph; the package
+tests select on conservation of about 600-gene neighbourhoods (density
+0.03) and the nuclei are built on the top-25 graph, a scale the selection
+never looked at. The rank test is the most selective about broad
+neighbourhood identity, which is the least related to tight nuclei. The
+next test is therefore the rank test at a tight density (about 25-50
+neighbours per gene, density ~0.0015-0.0025) feeding D1 nuclei: calibrated
+calls at the scale regulons live at.
+
+### 11.14 Tight neighbourhoods, fastOC borrowings, and the pipeline switch (2026-09-25/26)
+
+**Tight-density arms** (`abl_phase1_tight.R`, same scoring as 11.13; q < 0.1):
+A5 rank at density 0.0015 (~30 neighbours per gene), A6 rank at 0.0025
+(~50), A7 hypergeometric at 0.0025. Held-out shared HOGs per anchor, D1
+(strongest anchors, same N as 11.13):
+
+| arm | leaf | leaf, other trait | wood | wood, other lineage | leaf wiring z |
+|---|---|---|---|---|---|
+| A0 legacy lite (top-25) | 5.49 | 2.41 | 1.08 | 0.12 | 29.2 |
+| A1 hypergeometric, 0.03 | 3.36 | 0.19 | 0.84 | 0.03 | 25.4 |
+| A3 rank, 0.03 | 2.68 | 0.45 | 0.50 | 0.06 | 23.2 |
+| A5 rank, 0.0015 | 3.80 | 1.06 | 0.85 | 0.28 | 32.9 |
+| A6 rank, 0.0025 | 3.67 | 1.05 | 0.81 | 0.20 | 30.0 |
+| A7 hypergeometric, 0.0025 | 4.64 | 1.26 | 0.80 | 0.05 | 31.2 |
+
+All tight arms made no calls against shuffled partners (six pairs each).
+D3 (nuclei on the test's own network) becomes usable at tight density
+(7-10-HOG programs, 20-30x above shuffled) where at 0.03 it collapsed.
+Known-program recovery is unchanged (A5 D1: photosynthesis 0.39, ribosome
+0.85, secondary wall 0.87). The scale of anchor selection was the artefact
+of 11.13: selecting at the scale the nuclei are built at recovers most of
+the gap to the legacy test with calibrated calls.
+
+**fastOC borrowings** (Zinkgraf et al. 2018, 2020; github.com/mzinkgraf/fastOC,
+OrthoClust on Louvain with top-5 kNN graphs, ortholog weight
+(1/cA + 1/cB)/2, co-appearance over 100 runs; `abl_phase2b.R`):
+1. Copy-number weighting as an anchor-ranking penalty: multi-copy share of
+   the top anchors falls from 65 % to 6 % (wood) and 52 % to 1 % (leaf),
+   but replication falls 0.85 -> 0.49 (wood) and 3.80 -> 1.64 (leaf) and
+   secondary-wall recall 0.87 -> 0.40. The best anchors are multi-copy
+   families. Rejected.
+2. Tight neighbourhoods: adopted (above).
+3. Continuous membership score (fraction of scope nuclei holding a HOG):
+   ranks control members above other members at chance (AUC wood 0.55,
+   leaf photosynthesis 0.59, ribosome 0.51). Rejected.
+
+**Pipeline switch.** `engine2.R::pair_tests_rank(density = 0.0015)`,
+drivers `p10_regulons_tight.R`, `p11_score_tight.R`, `w5_regulons_tight.R`
+(outputs `v4t_*`, payloads `regulon_course_v5_tight.json`,
+`regulon_course_wood_v4_tight.json`); definition D0 unchanged. Held-out
+replication over all anchors (loso_test): Pooideae leaf 1.12 -> 2.34,
+root 0.94 -> 1.69; wood 0.33 -> 0.26 (other lineage 0.17 -> 0.12). Wood
+gains on the matched top-500 sample (11.13 protocol) but not over all
+anchors: the tight test calls 5,628 anchors there, more weak ones than the
+top-500 sample sees. Pages republished (Pooideae version 6, wood version 5).
+Next candidates: D1-style anchor restriction in the pipeline for wood, and
+the hypergeometric at tight density as an alternative anchor test.
 
 ## 12. Sources and provenance
 

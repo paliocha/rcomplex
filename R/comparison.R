@@ -105,45 +105,12 @@
 #'
 #' @export
 compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
-  # Validate inputs
-  if (!is.list(net1) || is.null(net1$network)) {
-    stop("net1 must be a network object from compute_network()")
-  }
-  if (!is.list(net2) || is.null(net2$network)) {
-    stop("net2 must be a network object from compute_network()")
-  }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
-  }
-
-  net1_mat <- net1$network
-  net2_mat <- net2$network
+  op <- .ortholog_pair_index(net1, net2, orthologs)
+  orthologs <- op$orthologs
+  sp1_idx <- op$sp1_idx
+  sp2_idx <- op$sp2_idx
   thr1 <- net1$threshold
   thr2 <- net2$threshold
-
-  net1_genes <- rownames(net1_mat)
-  net2_genes <- rownames(net2_mat)
-
-  # Filter orthologs to genes present in both networks and deduplicate
-  orthologs <- orthologs[
-    orthologs$Species1 %in% net1_genes &
-      orthologs$Species2 %in% net2_genes, ,
-    drop = FALSE
-  ]
-  orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
-                        drop = FALSE
-                      ])
-
-  if (nrow(orthologs) == 0) {
-    stop("No orthologs found in both networks")
-  }
-
-  # Build gene name -> 0-based index maps
-  idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
-  idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
-
-  sp1_idx <- as.integer(idx1[orthologs$Species1])
-  sp2_idx <- as.integer(idx2[orthologs$Species2])
 
   # Call C++ (dense or sparse entry point, chosen by storage class)
   a1 <- .net_cpp_args(net1, thr1)
@@ -182,8 +149,57 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   cbind(
     orthologs[, c("Species1", "Species2", "hog"), drop = FALSE],
     result,
-    Species1.urn = length(net1_genes) - 1L,
-    Species2.urn = length(net2_genes) - 1L
+    Species1.urn = nrow(net1$network) - 1L,
+    Species2.urn = nrow(net2$network) - 1L
+  )
+}
+
+
+#' Validate a network pair and index its ortholog pairs
+#'
+#' Shared prologue of [compare_neighborhoods()] and
+#' [compare_specificity()]: checks the network objects and ortholog
+#' columns, restricts the ortholog table to genes present in both
+#' networks, deduplicates it, and maps gene names to 0-based indices.
+#'
+#' @return `list(orthologs = , sp1_idx = , sp2_idx = )`.
+#' @noRd
+.ortholog_pair_index <- function(net1, net2, orthologs) {
+  if (!is.list(net1) || is.null(net1$network)) {
+    stop("net1 must be a network object from compute_network()")
+  }
+  if (!is.list(net2) || is.null(net2$network)) {
+    stop("net2 must be a network object from compute_network()")
+  }
+  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: Species1, Species2, hog")
+  }
+
+  net1_genes <- rownames(net1$network)
+  net2_genes <- rownames(net2$network)
+
+  # Filter orthologs to genes present in both networks and deduplicate
+  orthologs <- orthologs[
+    orthologs$Species1 %in% net1_genes &
+      orthologs$Species2 %in% net2_genes, ,
+    drop = FALSE
+  ]
+  orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
+                        drop = FALSE
+                      ])
+
+  if (nrow(orthologs) == 0) {
+    stop("No orthologs found in both networks")
+  }
+
+  # Build gene name -> 0-based index maps
+  idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
+  idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
+
+  list(
+    orthologs = orthologs,
+    sp1_idx = as.integer(idx1[orthologs$Species1]),
+    sp2_idx = as.integer(idx2[orthologs$Species2])
   )
 }
 
@@ -378,7 +394,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   classification: \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold for the \code{type} column
-#'   (default 0.05).
+#'   (default 0.1).
 #' @param pval_combine How the two directional q-values are combined into
 #'   \code{q.value}: \code{"max"} (default; both directions must be
 #'   significant -- the reciprocal criterion of Netotea et al. (2014),
@@ -435,7 +451,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' @export
 comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
-                                alpha = 0.05,
+                                alpha = 0.1,
                                 pval_combine = c("max", "min"),
                                 rho0 = NULL) {
   alternative <- match.arg(alternative)
@@ -503,6 +519,22 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   \item{analytical}{Fast path: pair-level Storey q-values via
 #'     \code{\link{summarize_comparison}}. Appropriate when most HOGs
 #'     are single-copy.}
+#'   \item{rank}{Opt-in: \code{\link{compare_specificity}}
+#'     against shuffled-partner networks from \code{\link{null_network}}
+#'     (argument \code{null_networks}), q-values via
+#'     \code{\link{summarize_specificity}}. The hypergeometric test counts
+#'     how many of gene A's translated partners are among ortholog B's
+#'     partners, against an urn of random draws. With small
+#'     neighbourhoods (top-25 lists) that urn let technically "sticky"
+#'     genes, such as genes with many zeros, through as false calls; at
+#'     network density 0.03 it held against a shuffled-expression null.
+#'     The rank test asks where A's translated partners
+#'     sit in B's full co-expression ranking, checks every other gene of
+#'     B's species the same way, and reports B's rank in that contest,
+#'     so a list that thousands of genes recognise as well as B is not
+#'     evidence. The q-value is read against a partner whose expression
+#'     was shuffled within each gene. \code{effect_size} is
+#'     \code{sqrt(auroc12 * auroc21)} and \code{power} is \code{NA}.}
 #'   \item{permutation}{Rigorous path: gene-identity permutation via
 #'     \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
 #'     stopping and Liang discrete q-values. Required for multi-copy
@@ -526,11 +558,17 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' @param species_pairs Optional list of length-2 character vectors
 #'   specifying which pairs to compare. Defaults to all
 #'   \code{combn(names(networks), 2)}.
-#' @param method Testing method: \code{"analytical"} (default, fast)
-#'   or \code{"permutation"} (rigorous).
+#' @param method Testing method: \code{"hypergeometric"} (default, fast;
+#'   \code{"analytical"} is accepted as its former name), \code{"rank"} or
+#'   \code{"permutation"} (rigorous).
+#'   \code{"rank"} scores each ortholog pair with
+#'   \code{\link{compare_specificity}} and calibrates it against
+#'   \code{null_networks} via \code{\link{summarize_specificity}};
+#'   \code{filter_zero} and \code{rho0} do not apply and \code{power} is
+#'   \code{NA}.
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold (default 0.1).
 #' @param n_cores Number of threads (default 1).
 #' @param use_torch Logical. Use GPU-accelerated fold-enrichment
 #'   precomputation for permutation method (default \code{FALSE}).
@@ -538,11 +576,13 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   permutation method (default 50).
 #' @param max_permutations Maximum permutations for permutation method
 #'   (default 10000).
-#' @param pi0_method Analytical method only: how pi0 is estimated for the
-#'   pair-level Storey q-values, passed to
+#' @param pi0_method Hypergeometric and rank methods: how pi0 is
+#'   estimated for the pair-level Storey q-values, passed to
 #'   \code{\link{summarize_comparison}}: \code{"randomized"} (default),
 #'   \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
-#'   draws; pass \code{seed} to pin those draws.
+#'   draws; pass \code{seed} to pin those draws. Under
+#'   \code{"rank"}, \code{"randomized"} is read as
+#'   \code{"storey"}.
 #' @param filter_zero Analytical method only: passed to
 #'   \code{\link{summarize_comparison}}. \code{FALSE} (default) keeps
 #'   every tested ortholog pair, including those whose neighbourhood
@@ -563,7 +603,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   through the pairs in order, so each pair draws its own uniforms
 #'   instead of every pair reusing the same ones.
 #'
-#'   What a seed buys differs by method. Under \code{"analytical"} it
+#'   What a seed buys differs by method. Under \code{"hypergeometric"} it
 #'   pins the randomized-p draws behind pi0, and the result is
 #'   reproducible at any \code{n_cores}. Under \code{"permutation"} it
 #'   pins the per-thread seeds that the C++ engines draw from R's RNG,
@@ -575,8 +615,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   on exit; with \code{seed = NULL} the draws come from the ambient
 #'   stream and leave it advanced. Same contract as
 #'   \code{\link{detect_modules}} and \code{\link{summarize_comparison}}.
-#' @param pval_combine Analytical method only: how the two directional
-#'   q-values are combined, passed to \code{\link{comparison_to_edges}}:
+#' @param pval_combine Hypergeometric and rank methods: how the two
+#'   directional q-values are combined, passed to
+#'   \code{\link{comparison_to_edges}}:
 #'   \code{"max"} (default; both directions significant -- the reciprocal
 #'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 #'   the original ComPlEx) or \code{"min"} (permissive; either direction,
@@ -603,6 +644,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   \code{find_coexpressologs.rcomplex}), which stores the in-memory
 #'   edge table on \code{$edges}. Default \code{NULL} keeps the original
 #'   in-memory behaviour.
+#' @param null_networks Specificity method only (required there): named
+#'   list with one \code{\link{null_network}} object, or a list of them,
+#'   per species.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
@@ -644,9 +688,9 @@ find_coexpressologs <- function(networks, ...) UseMethod("find_coexpressologs")
 find_coexpressologs.default <- function(
   networks, orthologs,
   species_pairs = NULL,
-  method = c("analytical", "permutation"),
+  method = c("hypergeometric", "rank", "permutation"),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,
@@ -655,16 +699,17 @@ find_coexpressologs.default <- function(
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  out_file = NULL, rho0 = NULL, ...
+  out_file = NULL, rho0 = NULL, null_networks = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
   }
-  method <- match.arg(method)
+  method <- match.arg(.method_alias(method), eval(formals()$method))
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_specificity_args(method, alternative, null_networks)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
@@ -685,6 +730,9 @@ find_coexpressologs.default <- function(
   if (is.null(species_pairs)) {
     species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
   }
+  nulls <- .check_null_networks(
+    null_networks, networks, unique(unlist(species_pairs))
+  )
 
   streaming <- !is.null(out_file)
   if (streaming) {
@@ -729,19 +777,33 @@ find_coexpressologs.default <- function(
       stop("species '", sp_b, "' not found in networks")
     }
 
-    comparison <- tryCatch(
-      compare_neighborhoods(
-        networks[[sp_a]], networks[[sp_b]],
-        orthologs, n_cores
-      ),
-      error = function(e) {
-        warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
-        NULL
-      }
-    )
-    if (is.null(comparison) || nrow(comparison) == 0) next
+    if (method == "rank") {
+      edges_df <- tryCatch(
+        .specificity_pair_edges(
+          networks[[sp_a]], networks[[sp_b]], nulls[[sp_a]], nulls[[sp_b]],
+          orthologs, sp_a, sp_b, alpha, n_cores, pi0_method, pval_combine
+        ),
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(edges_df) || nrow(edges_df) == 0) next
+    } else {
+      comparison <- tryCatch(
+        compare_neighborhoods(
+          networks[[sp_a]], networks[[sp_b]],
+          orthologs, n_cores
+        ),
+        error = function(e) {
+          warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(comparison) || nrow(comparison) == 0) next
+    }
 
-    if (method == "analytical") {
+    if (method == "hypergeometric") {
       summary_res <- tryCatch(
         # filter_zero = FALSE by default: a tested pair with zero overlap
         # is a failure the power column can explain, so it belongs in the
@@ -764,7 +826,7 @@ find_coexpressologs.default <- function(
         alternative, alpha,
         pval_combine = pval_combine, rho0 = rho0
       )
-    } else {
+    } else if (method == "permutation") {
       # Permutation path: HOG-level permutation test
       hog_res <- tryCatch(
         permutation_hog_test(networks[[sp_a]], networks[[sp_b]],
@@ -863,11 +925,15 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #' @param multipliers Numeric vector of threshold multipliers
 #'   (default \code{seq(0.95, 1.05, by = 0.01)}).
 #' @param method Comparison method passed to
-#'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default)
-#'   or \code{"analytical"}.
+#'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default),
+#'   \code{"hypergeometric"} (formerly \code{"analytical"}) or
+#'   \code{"rank"}.
+#' @param null_networks Passed to \code{\link{find_coexpressologs}}
+#'   (rank method only); every null's threshold is scaled by the
+#'   same multiplier as its species' network.
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
-#' @param alpha Significance threshold (default 0.05).
+#' @param alpha Significance threshold (default 0.1).
 #' @param n_cores Number of threads (default 1).
 #' @param use_torch Logical; GPU acceleration for permutation method
 #'   (default \code{FALSE}).
@@ -878,8 +944,8 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   passed to \code{\link{find_coexpressologs}} at each threshold
 #'   level. Defaults to all pairwise combinations.
 #' @param pi0_method Passed to \code{\link{find_coexpressologs}} (used
-#'   by the analytical method): \code{"randomized"} (default),
-#'   \code{"storey"} or \code{"none"}. The default draws; pass
+#'   by the hypergeometric and rank methods): \code{"randomized"}
+#'   (default), \code{"storey"} or \code{"none"}. The default draws; pass
 #'   \code{seed} to pin those draws.
 #' @param filter_zero Passed to \code{\link{find_coexpressologs}}:
 #'   whether zero-overlap ortholog pairs are dropped before the
@@ -926,9 +992,9 @@ density_sweep <- function(networks, ...) UseMethod("density_sweep")
 density_sweep.default <- function(
   networks, orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
-  method = c("permutation", "analytical"),
+  method = c("permutation", "hypergeometric", "rank"),
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
   min_exceedances = 50L,
@@ -937,16 +1003,17 @@ density_sweep.default <- function(
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
-  seed = NULL, rho0 = NULL, ...
+  seed = NULL, rho0 = NULL, null_networks = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
   }
-  method <- match.arg(method)
+  method <- match.arg(.method_alias(method), eval(formals()$method))
   alternative <- match.arg(alternative)
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_specificity_args(method, alternative, null_networks)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue
@@ -975,6 +1042,12 @@ density_sweep.default <- function(
   if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
     stop("orthologs must have columns: Species1, Species2, hog")
   }
+  sweep_species <- if (is.null(species_pairs)) {
+    names(networks)
+  } else {
+    unique(unlist(species_pairs))
+  }
+  nulls <- .check_null_networks(null_networks, networks, sweep_species)
 
   type_label <- if (alternative == "greater") "conserved" else "diverged"
 
@@ -996,9 +1069,11 @@ density_sweep.default <- function(
     m <- multipliers[i]
     message("Threshold sweep: multiplier ", m)
 
-    tight_nets <- lapply(networks, function(net) {
+    scale_thr <- function(net) {
       modifyList(net, list(threshold = net$threshold * m))
-    })
+    }
+    tight_nets <- lapply(networks, scale_thr)
+    tight_nulls <- if (!is.null(nulls)) lapply(nulls, lapply, scale_thr)
 
     densities <- vapply(tight_nets, function(net) {
       # .net_check() also fires the store guard: a multiplier below the
@@ -1026,7 +1101,8 @@ density_sweep.default <- function(
         min_exceedances = min_exceedances,
         max_permutations = max_permutations,
         pi0_method = pi0_method,
-        pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0
+        pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0,
+        null_networks = tight_nulls
       ),
       error = function(e) {
         warning(

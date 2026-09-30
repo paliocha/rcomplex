@@ -225,12 +225,12 @@ test_that(
     sw_d <- suppressMessages(density_sweep(
       nets_d, td$ortho,
       multipliers = c(0.9, 1, 1.1),
-      method = "analytical", pi0_method = "storey"
+      method = "hypergeometric", pi0_method = "storey"
     ))
     sw_s <- suppressMessages(density_sweep(
       nets_s, td$ortho,
       multipliers = c(0.9, 1, 1.1),
-      method = "analytical", pi0_method = "storey"
+      method = "hypergeometric", pi0_method = "storey"
     ))
     expect_equal(sw_s, sw_d)
   }
@@ -436,7 +436,7 @@ test_that("density_sweep errors when a multiplier falls below the store", {
   expect_error(
     suppressMessages(density_sweep(nets_s, td$ortho,
       multipliers = 0.1,
-      method = "analytical"
+      method = "hypergeometric"
     )),
     "store_density"
   )

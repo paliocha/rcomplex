@@ -9,7 +9,7 @@ comparison_to_edges(
   sp1,
   sp2,
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   pval_combine = c("max", "min"),
   rho0 = NULL
 )
@@ -30,7 +30,7 @@ classification: \code{"greater"} (conservation, default) or
 \code{"less"} (divergence).}
 
 \item{alpha}{Significance threshold for the \code{type} column
-(default 0.05).}
+(default 0.1).}
 
 \item{pval_combine}{How the two directional q-values are combined into
 \code{q.value}: \code{"max"} (default; both directions must be

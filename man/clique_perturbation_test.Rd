@@ -16,7 +16,7 @@ clique_perturbation_test(cliques, ...)
   n_boot = 100L,
   noise_sd = 0.1,
   alternative = c("greater", "less"),
-  alpha = 0.05,
+  alpha = 0.1,
   min_species = length(target_species),
   max_genes_per_sp = 10L,
   max_missing_edges = 0L,
@@ -53,7 +53,7 @@ combinations of \code{target_species}.}
 
 \item{alternative}{Direction of test (default \code{"greater"}).}
 
-\item{alpha}{Significance threshold (default 0.05).}
+\item{alpha}{Significance threshold (default 0.1).}
 
 \item{min_species}{Minimum species per clique.}
 
