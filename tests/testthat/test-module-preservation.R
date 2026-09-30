@@ -292,7 +292,7 @@ test_that("module_preservation validates its inputs", {
 
   expect_error(
     module_preservation(list(a = 1), fx$netA, fx$netB, fx$ortho),
-    "must be output from detect_modules"
+    "must be a module assignment"
   )
   expect_error(
     module_preservation(tm, fx$netA, fx$netB, fx$ortho, n_perm = 0L),
@@ -742,7 +742,7 @@ test_that("module_correspondence validates its inputs", {
 
   expect_error(
     module_correspondence(list(a = 1), tm, map),
-    "must be output from detect_modules"
+    "must be a module assignment"
   )
   expect_error(
     module_correspondence(tm, tm, data.frame(x = 1)),

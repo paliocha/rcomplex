@@ -244,7 +244,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
                                 n_cores = 1L, seed = NULL) {
   if (!is.list(modules_ref) || is.null(modules_ref$module_genes) ||
         is.null(modules_ref$modules)) {
-    stop("modules_ref must be output from detect_modules()")
+    stop(
+      "modules_ref must be a module assignment from detect_modules() ",
+      "or as_modules()"
+    )
   }
   n_perm <- as.integer(n_perm)
   if (is.na(n_perm) || n_perm < 1L) stop("n_perm must be >= 1")
@@ -1180,7 +1183,10 @@ module_correspondence <- function(modules_ref, modules_test, map,
   for (nm in c("modules_ref", "modules_test")) {
     m <- get(nm)
     if (!is.list(m) || is.null(m$modules) || is.null(m$module_genes)) {
-      stop(nm, " must be output from detect_modules()")
+      stop(
+        nm, " must be a module assignment from detect_modules() ",
+        "or as_modules()"
+      )
     }
   }
   if (!is.data.frame(map) ||
