@@ -1,0 +1,17 @@
+species	objective	n_mod_half1	n_mod_half2	split_half_ari	seed_ari	shuffled_ari	n_mod_shuffled
+BDIS	CPM	8	1	0	0.858	NA	1
+BDIS	modularity	8	7	0.432	0.932	0	9
+BMAX	CPM	1	1	NA	NA	NA	1
+BMAX	modularity	8	8	0.33	0.589	0	8
+BMED	CPM	8	1	0	0.85	0.002	10
+BMED	modularity	7	8	0.171	0.862	0	12
+BSYL	CPM	1	1	NA	NA	NA	1
+BSYL	modularity	8	7	0.398	0.878	0.001	9
+FPRA	CPM	9	8	0.053	0.542	0.002	10
+FPRA	modularity	8	8	0.054	0.6	-0.002	10
+HJUB	CPM	10	1	0	0.84	0.001	10
+HJUB	modularity	9	9	0.436	0.668	0.001	11
+HVUL	CPM	6	1	0	0.965	NA	1
+HVUL	modularity	6	8	0.389	0.753	0.002	9
+VBRO	CPM	10	9	0.274	0.949	NA	1
+VBRO	modularity	8	8	0.266	0.896	0.011	17

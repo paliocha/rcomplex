@@ -177,3 +177,37 @@ Rscript -e 'devtools::test()'
 Rscript -e 'lintr::lint_package()'
 R CMD build . && R CMD check --no-manual rcomplex_0.3.1.tar.gz
 ```
+
+## Results (2026-09-30)
+
+**WP1 done** (04eb62e): `as_modules()`; preservation, correspondence and
+paired results identical through it (278 tests pass).
+
+**WP2: the K = 1 test is calibrated.** `dev/bench/k1_null_check.tsv`,
+2,000 top-variance genes, `resolution = c(0.5, 1, 2)`, package defaults
+(CPM): rejected on 0 of 10 rnorm and 0 of 8 shuffled Pooideae leaf data
+sets (each collapsed to 1 module); rejected on 6 of 8 real species (not
+BMED, not FPRA). The "rejects on noise" argument above came from
+modularity-objective Leiden and does not hold for the default call.
+Decision rule: keep `test_k1 = TRUE`.
+
+**Split-half replication at 10 vs 10 samples** (`dev/bench/modules_split_half.tsv`,
+same genes, `test_k1 = FALSE`; ARI between the two halves' partitions):
+
+| objective | split-half ARI (median, range) | seed ARI | shuffled ARI |
+|---|---|---|---|
+| CPM (default) | 0 (0-0.27); in 5 of 8 species one half gives 6-10 modules and the other 1; BMAX, BSYL 1 module in both | 0.54-0.97 | ~0; 3 shuffled halves gave 10 modules |
+| modularity | 0.36 (0.05-0.44) | 0.59-0.93 | 0.00-0.01 |
+
+So the premise of WP3 is only half right: with the modularity objective,
+modules replicate partially and well above noise (about half the seed
+ceiling); with the default CPM objective, whether modules exist at all
+flips between sample halves. WP3 is on hold for Martin's decision.
+
+**Found on the way (separate bug):** on macOS with R's Accelerate BLAS,
+`detect_modules(test_k1 = TRUE, n_cores > 1)` segfaults in forked K = 1
+workers inside `arma::eigs_sym` (`sparse_excess_spectral_norm_cpp`);
+reproducible on BMAX leaf, 2,000 genes. `VECLIB_MAXIMUM_THREADS=1` avoids it
+and gives the serial result exactly. Accelerate is not fork-safe once the
+parent has used its threads (the parent computes the observed statistic
+first).
