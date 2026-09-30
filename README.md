@@ -191,6 +191,7 @@ in this four-species example; the tutorial runs eight species.
 | Biological question | Level | Functions |
 |---|---|---|
 | Has this gene kept its co-expression partners in the other species? | Gene pair | `find_coexpressologs()` |
+| Is the ortholog more specifically tied to those partners than any other gene? (opt-in; calibrated against shuffled expression, one test per paralog copy) | Gene pair | `find_coexpressologs(method = "rank")`, `null_network()` |
 | Is this gene family conserved as a whole, counting all its paralogs? | Ortholog group | `find_coexpressologs(method = "permutation")`, `permutation_hog_test()` |
 | Are there more co-expressologs than the network structure alone would produce? | Whole network | `coexpressolog_null()` |
 | Does a call depend on the chosen network density? | Gene pair | `density_sweep()`, `coexpressolog_strength()` |
@@ -240,7 +241,7 @@ labels "annual" and "perennial" gives the same statistic, so at least
 two labellings tie at the top and the smallest p-value is 2/70 = 0.029.
 If you only allow swaps within each of four genera (to respect
 phylogeny), there are 2^4 = 16 labellings and the floor is 2/16 =
-0.125, which can never reach 0.05. This is a property of the species
+0.125, which can never reach the default call level of 0.1. This is a property of the species
 set, not of the number of permutations. `preservation_matrix_test()`
 reports the floor, and `pvalue_resolution()` reports how many p- or
 q-values are tied at it.
@@ -301,6 +302,9 @@ pages](https://paliocha.github.io/rcomplex/reference/).
 
 - [`compare_neighborhoods()`](https://paliocha.github.io/rcomplex/reference/compare_neighborhoods.html): hypergeometric neighbourhood tests for one species pair.
 - [`summarize_comparison()`](https://paliocha.github.io/rcomplex/reference/summarize_comparison.html): q-values and summaries for `compare_neighborhoods()` output.
+- [`compare_specificity()`](https://paliocha.github.io/rcomplex/reference/compare_specificity.html): rank test for one species pair: where the ortholog ranks among all partner-species genes at matching the translated neighbourhood.
+- [`summarize_specificity()`](https://paliocha.github.io/rcomplex/reference/summarize_specificity.html): q-values for `compare_specificity()` output, calibrated against a null network.
+- [`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.html): the same network built from expression shuffled within each gene, the null for `method = "rank"`.
 - [`comparison_to_edges()`](https://paliocha.github.io/rcomplex/reference/comparison_to_edges.html): convert comparison results to the edge table used downstream.
 - [`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.html): co-expressolog calls for all species pairs (alias `run_pairwise_comparisons()`).
 - [`permutation_hog_test()`](https://paliocha.github.io/rcomplex/reference/permutation_hog_test.html): permutation test of conservation for whole ortholog groups.

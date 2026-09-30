@@ -135,7 +135,7 @@ pres_all <- preservation_paired(modules, networks, orthologs, pairs,
 # over its own count -- 2/70 = 0.029 free, 2/16 = 0.125 blocked, and
 # higher when further labellings tie at the maximum. Read `p_blocked`
 # as a check on the direction and rank of the effect; nothing can reach
-# alpha = 0.05 against it.
+# the default alpha = 0.1 against it.
 pmt <- preservation_matrix_test(pres_all$classification, trait,
                                 block = genus)
 c(pmt$observed, pmt$p_free, pmt$p_blocked)
@@ -406,6 +406,23 @@ option. Storey's pi0 is estimated from randomized p-values
 `P(X > x) + U * P(X = x)`, which are exactly uniform under the null for
 discrete hypergeometric tests; the exact p-values pile up at 1 and would
 otherwise force pi0 = 1 (no gain over BH).
+
+### Specificity (rank) test
+
+`find_coexpressologs(method = "rank")` is an opt-in alternative to the
+hypergeometric test (`compare_specificity()`, `summarize_specificity()`).
+For anchor gene i, the set T is its neighbours mapped to species 2
+through every ortholog copy, minus the copies of i's own HOG. Every
+species-2 gene j gets the AUROC of T in j's co-expression ranking; the
+p-value is the rank of the ortholog's AUROC among all species-2 genes.
+It is calibrated empirically against the same test on a partner network
+built from expression shuffled within each gene (`null_network()`,
+required), pooled over pairs, then Storey q-values; both directions are
+combined as above. The edge `effect_size` is `sqrt(auroc12 * auroc21)`
+and `power` is `NA`. On the Pooideae and wood networks at density 0.03
+both tests made no calls against shuffled partners, and the
+hypergeometric test called about twice as many pairs; the rank test adds
+calibration by construction and a separate test for every paralog copy.
 
 ### HOG-level permutation test
 
@@ -700,7 +717,9 @@ null_mean`) across sizes.
 | `R/network-sparse.R` | Sparse network dispatch: validation, store-threshold guard, `as_sparse_network()` |
 | `R/mr_block.R` | `mr_block()` -- exact local MR reconstruction for gene subsets |
 | `R/coexpressolog_null.R` | `coexpressolog_null()` -- degree-preserving edge-swap null |
-| `R/summary.R` | `summarize_comparison()`, `permutation_hog_test()`, shared q-value helpers |
+| `R/specificity.R` | `compare_specificity()` -- pair-level rank test (opt-in `method = "rank"`) |
+| `R/null_network.R` | `null_network()` -- shuffled-expression null network for the rank test |
+| `R/summary.R` | `summarize_comparison()`, `summarize_specificity()`, `permutation_hog_test()`, shared q-value helpers |
 | `R/modules.R` | `detect_modules()`, `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
 | `R/ortholog_map.R` | `resolve_ortholog_map()` -- paralog resolution waterfall (cliques, coexpressologs, unresolved remainder) |
 | `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
@@ -720,6 +739,7 @@ null_mean`) across sizes.
 | `src/sparse_extract.cpp` | Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix |
 | `src/neighbor_lists.h` | Shared neighbour-list construction (dense matrix or validated dgCMatrix slots) |
 | `src/neighborhood_comparison.cpp` | Pairwise neighborhood overlap |
+| `src/specificity.cpp` | Rank-test kernel: AUROC of the translated neighbourhood in every partner gene's ranking (sparse) |
 | `src/hog_permutation.cpp` | HOG permutation engine (bit-vector / flag-vector intersections) |
 | `src/fe_permutation.cpp` | GPU-precomputed FE permutation engine |
 | `src/module_preservation.cpp` | Module preservation permutation kernel (dense and sparse entry points) |
