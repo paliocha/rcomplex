@@ -120,6 +120,15 @@ objects in `prepare_data/data/`. It is not part of the package.
   R-CMD-check's `--as-cran` makes it skip via `_R_CHECK_LIMIT_CORES_` and
   covr disables forking -- so the `n_cores = 2` regression test next to it
   is the one R-CMD-check runs. Both workflows carry `timeout-minutes: 30`.
+- **Accelerate BLAS is not fork-safe (macOS).** With R linked to Apple's
+  vecLib, a forked worker that calls into BLAS after the parent ran a
+  threaded BLAS call can segfault. The only fork site whose workers do is
+  the K = 1 test (`sparse_excess_spectral_norm_cpp()` -> `arma::eigs_sym()` /
+  `eig_sym()`); it now forks only when `.blas_fork_safe()` (`R/rng.R`) says
+  so (not Accelerate, or `VECLIB_MAXIMUM_THREADS=1`). A new fork site whose
+  workers call BLAS must check it too. `.collect_perm_batch()` turns
+  crashed workers (`mclapply()` returns `NULL` with only a warning) into a
+  clear error.
 - **`mclapply()` forking deadlocks under `covr` coverage instrumentation.**
   `covr::package_coverage()` compiles the package with gcov instrumentation;
   forking under gcov is a documented deadlock (a forked child can inherit a

@@ -57,7 +57,9 @@
 #' @param n_cores Number of parallel cores (default 1). Used for
 #'   \code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
 #'   Uses fork-based parallelism; avoid combining with active CUDA
-#'   contexts in the same session.
+#'   contexts in the same session. The K = 1 permutations run serially
+#'   when R uses Apple's Accelerate BLAS, which is not fork-safe for their
+#'   eigensolver, unless \code{VECLIB_MAXIMUM_THREADS=1} is set.
 #' @param max_consensus_iter Maximum number of consensus iterations for
 #'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
 #'   Iteration stops when the sweep reproduces its own input (a fixed
@@ -813,7 +815,9 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     sparse_excess_spectral_norm_cpp(mems_perm, n_genes, el_perm)
   }
 
-  use_mc <- .can_fork(n_cores)
+  # Workers here call into BLAS (the eigensolver), so they may only fork
+  # when the BLAS survives it; see .blas_fork_safe().
+  use_mc <- .can_fork(n_cores) && .blas_fork_safe()
   # Batch on the significance grid, not on the core count: the early-stop rule
   # must be evaluated at the same points regardless of the machine. The batch
   # is still spread over mc.cores below, so on typical hardware concurrency is
@@ -846,10 +850,10 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
     batch_idx <- seq.int(batch_start, batch_end)
 
     if (use_mc) {
-      batch_vals <- unlist(parallel::mclapply(
-        batch_idx, run_one_perm,
-        mc.cores = n_cores
-      ))
+      batch_vals <- .collect_perm_batch(
+        parallel::mclapply(batch_idx, run_one_perm, mc.cores = n_cores),
+        "K = 1 test"
+      )
     } else {
       batch_vals <- vapply(batch_idx, run_one_perm, numeric(1))
     }

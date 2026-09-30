@@ -99,3 +99,59 @@
   .Platform$OS.type == "unix" && n_cores > 1L &&
     !identical(Sys.getenv("R_COVR"), "true")
 }
+
+
+#' Can forked workers call into BLAS safely?
+#'
+#' Apple's Accelerate (vecLib) BLAS is not fork-safe once the parent process
+#' has run a threaded BLAS call: a forked worker that calls into BLAS again
+#' can segfault. The K = 1 test of [detect_modules()] is the one fork site
+#' whose workers do (`arma::eigs_sym()`, and `arma::eig_sym()` when it does
+#' not converge, in `sparse_excess_spectral_norm_cpp()`), and it crashed on
+#' real Pooideae leaf networks under R's Accelerate BLAS. The other fork
+#' sites (Leiden sweeps, edge rewiring) never call BLAS in the worker.
+#' `VECLIB_MAXIMUM_THREADS=1` keeps Accelerate single-threaded and makes
+#' forking safe again (verified: identical to the serial result).
+#'
+#' @param blas Path of the BLAS R is linked against.
+#' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
+#' @return `TRUE` unless the BLAS is Accelerate and not pinned to one thread.
+#' @noRd
+.blas_fork_safe <- function(blas = extSoftVersion()[["BLAS"]],
+                            veclib_threads = Sys.getenv(
+                              "VECLIB_MAXIMUM_THREADS"
+                            )) {
+  !grepl("Accelerate|vecLib", blas) || identical(veclib_threads, "1")
+}
+
+
+#' Collect one batch of forked permutation results
+#'
+#' `mclapply()` returns a `try-error` for a worker that failed and `NULL`
+#' for one that died without reporting (e.g. a segfault), with only a
+#' warning. Unchecked, either surfaces later as an unrelated error or, worse,
+#' as a shortened null distribution. Stop instead, naming the cause.
+#'
+#' @param res List returned by `mclapply()`, one scalar per task.
+#' @param what Label for the error message.
+#' @return Numeric vector, one value per task.
+#' @noRd
+.collect_perm_batch <- function(res, what) {
+  bad <- vapply(res, function(v) !is.numeric(v) || length(v) != 1L,
+    logical(1)
+  )
+  if (length(res) == 0L || any(bad)) {
+    first <- if (any(bad)) res[[which(bad)[1L]]] else NULL
+    cause <- if (inherits(first, "try-error")) {
+      trimws(as.character(first))
+    } else {
+      "a worker returned no result (it may have crashed)"
+    }
+    stop(
+      what, ": ", sum(bad), " of ", length(res), " forked workers failed -- ",
+      cause, ". Rerun with n_cores = 1.",
+      call. = FALSE
+    )
+  }
+  unlist(res, use.names = FALSE)
+}

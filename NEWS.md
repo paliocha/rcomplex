@@ -1,5 +1,15 @@
 # rcomplex 0.3.1
 
+- **`detect_modules(test_k1 = TRUE, n_cores > 1)` no longer segfaults
+  on macOS with R's Accelerate BLAS.** The K = 1 permutations fork
+  workers that call the eigensolver (`arma::eigs_sym()`), and Accelerate
+  is not fork-safe once the parent has used its threads; on Pooideae leaf
+  networks the workers crashed and the run ended in "replacement has
+  length zero". Those permutations now run serially under Accelerate
+  unless `VECLIB_MAXIMUM_THREADS=1` is set (then forking is safe and gives
+  the serial result), and a failed or crashed worker stops the run with a
+  message naming the cause instead of an unrelated error.
+
 - **Every q-value call threshold now defaults to 0.1.** `alpha` in
   `find_coexpressologs()`, `density_sweep()`, `summarize_comparison()`,
   `summarize_specificity()`, `comparison_to_edges()`,
