@@ -28,7 +28,7 @@ Imports:
     DiscreteQvalue,
     qvalue,
     parallel,
-    rlang,
+    rlang (>= 1.0.0),
     stats,
     utils
 LinkingTo:
