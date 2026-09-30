@@ -71,6 +71,16 @@ test_that("a condition with an empty header is wrapped, not duplicated", {
   err <- tryCatch(check(list(e), 5L, "task"), error = identity)
   expect_s3_class(err, "custom_error")
   expect_match(conditionMessage(err), "task 5 failed")
+  # a base condition with an empty message is not dressed up as rlang's
+  base <- structure("Error\n", class = "try-error", condition = simpleError(""))
+  err <- tryCatch(check(list(base), 2L, "task"), error = identity)
+  expect_false(inherits(err, "rlang_error"))
+  expect_match(conditionMessage(err), "^task 2 failed$")
+  # a zero-length message does not collapse the prefix
+  odd <- simpleError("x")
+  odd$message <- character(0)
+  e0 <- structure("Error\n", class = "try-error", condition = odd)
+  expect_error(check(list(e0), 7L, "task"), "task 7 failed")
 })
 
 test_that("a worker killed mid-batch stops with a named error", {

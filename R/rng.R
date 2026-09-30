@@ -121,12 +121,12 @@
 #' does not unlock forking; a value set before loading but after R started
 #' still cannot be told apart.
 #'
-#' @param blas Path of the BLAS R is linked against.
-#' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
 #' Only Accelerate is known to crash here; `TRUE` means "not known to be
 #' unsafe", not a guarantee (MKL or an OpenBLAS without fork handlers could
 #' have the same hazard and would pass).
 #'
+#' @param blas Path of the BLAS R is linked against.
+#' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
 #' @return `FALSE` only for Accelerate not pinned to one thread.
 #' @noRd
 .blas_fork_safe <- function(blas = extSoftVersion()[["BLAS"]],
@@ -164,16 +164,21 @@
     # header only: for rlang conditions conditionMessage() also renders body
     # and parent, which stay on the object and would repeat. A condition
     # whose header comes from a cnd_header() method (empty message) is
-    # wrapped as the parent of a new error instead.
-    if (is.character(cnd$message) && nzchar(cnd$message[1L])) {
-      cnd$message <- paste0(prefix, cnd$message)
+    # wrapped, class kept, as the parent of a new rlang error; a base
+    # condition with an empty message just stops with the task named.
+    m <- cnd$message
+    if (is.character(m) && length(m) == 1L && nzchar(m)) {
+      cnd$message <- paste0(prefix, m)
       cnd$call <- NULL
       stop(cnd)
     }
-    rlang::abort(sub(": $", "", prefix),
-      class = setdiff(class(cnd), c("rlang_error", "error", "condition")),
-      parent = cnd, call = NULL
-    )
+    if (inherits(cnd, "rlang_error")) {
+      rlang::abort(sub(": $", "", prefix),
+        class = setdiff(class(cnd), c("rlang_error", "error", "condition")),
+        parent = cnd, call = NULL
+      )
+    }
+    stop(sub(": $", "", prefix), call. = FALSE)
   }
   failed <- vapply(res, is.null, logical(1))
   if (any(failed)) {
