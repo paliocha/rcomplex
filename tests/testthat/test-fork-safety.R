@@ -64,6 +64,30 @@ test_that(".check_fork_results() names failed tasks and crashed workers", {
   expect_identical(lengths(regmatches(msg, gregexpr("detail", msg))), 1L)
 })
 
+test_that("a condition with an empty header is wrapped, not duplicated", {
+  check <- rcomplex:::.check_fork_results
+  cnd <- rlang::error_cnd("custom_error", message = "", body = c(i = "detail"))
+  e <- structure("Error\n", class = "try-error", condition = cnd)
+  msg <- tryCatch(check(list(e), 5L, "task"), error = function(x) {
+    paste(conditionMessage(x), conditionMessage(x$parent %||% x))
+  })
+  expect_match(msg, "task 5 failed")
+})
+
+test_that("a worker killed mid-batch stops with a named error", {
+  skip_on_os("windows")
+  skip_on_cran()
+  skip_if(identical(Sys.getenv("R_COVR"), "true"), "covr disables forking")
+  res <- suppressWarnings(parallel::mclapply(1:4, function(i) {
+    if (i == 3L) tools::pskill(Sys.getpid())
+    i
+  }, mc.cores = 2L))
+  expect_error(
+    rcomplex:::.check_fork_results(res, 1:4, "permutation"),
+    "a worker may have crashed\\) for permutation .*3"
+  )
+})
+
 test_that("the serial fallback under Accelerate says so once", {
   skip_on_os("windows")
   skip_on_cran()

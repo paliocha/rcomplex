@@ -803,8 +803,9 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 
   # Workers here call into BLAS (the eigensolver), so they may only fork
   # when the BLAS survives it; see .blas_fork_safe().
-  use_mc <- .can_fork(n_cores) && .blas_fork_safe()
-  if (.can_fork(n_cores) && !use_mc) {
+  fork_ok <- .can_fork(n_cores)
+  use_mc <- fork_ok && .blas_fork_safe()
+  if (fork_ok && !use_mc) {
     rlang::inform(
       paste0(
         "The K = 1 permutations run serially: R uses Apple's Accelerate ",

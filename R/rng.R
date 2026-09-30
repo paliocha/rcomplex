@@ -161,11 +161,18 @@
     if (is.null(cnd)) stop(prefix, trimws(as.character(e)), call. = FALSE)
     # re-raise the worker's own condition, class and fields intact, as the
     # serial path would, with the task named in its message
-    # prefix the header only: for rlang conditions conditionMessage() also
-    # renders body and parent, which stay on the object and would repeat
-    cnd$message <- paste0(prefix, cnd$message %||% conditionMessage(cnd))
-    cnd$call <- NULL
-    stop(cnd)
+    # Re-raise the worker's own condition, class and fields intact, as the
+    # serial path would, with the task named in its header. Prefix the
+    # header only: for rlang conditions conditionMessage() also renders body
+    # and parent, which stay on the object and would repeat. A condition
+    # whose header comes from a cnd_header() method (empty message) is
+    # wrapped as the parent of a new error instead.
+    if (is.character(cnd$message) && nzchar(cnd$message[1L])) {
+      cnd$message <- paste0(prefix, cnd$message)
+      cnd$call <- NULL
+      stop(cnd)
+    }
+    rlang::abort(sub(": $", "", prefix), parent = cnd, call = NULL)
   }
   failed <- vapply(res, is.null, logical(1))
   if (any(failed)) {
@@ -179,11 +186,3 @@
   res
 }
 
-
-# Environment captured when the package loads (see .blas_fork_safe()).
-.load_env <- new.env(parent = emptyenv())
-.load_env$veclib_threads <- ""
-
-.onLoad <- function(libname, pkgname) {
-  .load_env$veclib_threads <- Sys.getenv("VECLIB_MAXIMUM_THREADS")
-}
