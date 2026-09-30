@@ -653,7 +653,7 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
     mem
   }
 
-  if (.Platform$OS.type == "unix" && n_cores > 1L) {
+  if (.can_fork(n_cores)) {
     old_omp <- Sys.getenv("OMP_NUM_THREADS", unset = NA)
     Sys.setenv(OMP_NUM_THREADS = 1L)
     on.exit(
