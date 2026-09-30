@@ -255,7 +255,7 @@ homogeneous discrete p-values. <em>Biometrics</em>, 72(2), 639–648.
 <span class="r-in"><span><span class="va">hog_results</span> <span class="op">&lt;-</span> <span class="fu">permutation_hog_test</span><span class="op">(</span><span class="va">net1</span>, <span class="va">net2</span>, <span class="va">comparison</span>,</span></span>
 <span class="r-in"><span>  n_cores <span class="op">=</span> <span class="fl">8L</span>, use_torch <span class="op">=</span> <span class="cn">TRUE</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">significant</span> <span class="op">&lt;-</span> <span class="va">hog_results</span><span class="op">[</span><span class="va">hog_results</span><span class="op">$</span><span class="va">q.value</span> <span class="op">&lt;</span> <span class="fl">0.05</span>, <span class="op">]</span></span></span>
+<span class="r-in"><span><span class="va">significant</span> <span class="op">&lt;-</span> <span class="va">hog_results</span><span class="op">[</span><span class="va">hog_results</span><span class="op">$</span><span class="va">q.value</span> <span class="op">&lt;</span> <span class="fl">0.1</span>, <span class="op">]</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

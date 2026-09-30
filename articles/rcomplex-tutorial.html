@@ -305,7 +305,7 @@ machine, or the core count: two knits on the very same machine with the
 same <code>n_cores</code> can still give different conserved-edge
 counts. Set <code>n_cores = 1L</code> if the permutation numbers must be
 bit-reproducible.</p>
-<p>For quick exploration without GPU, the <code>"analytical"</code>
+<p>For quick exploration without GPU, the <code>"hypergeometric"</code>
 method uses pair-level Storey q-values (less statistically rigorous for
 multi-copy HOGs, but much faster). Since v0.2.0 its default
 <code>pi0_method = "randomized"</code> estimates the null proportion pi0
@@ -324,7 +324,7 @@ by a few cliques. Those two numbers are only reproducible from one knit
 to the next because of the <code>seed</code> below.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">edges_analytical</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/find_coexpressologs.html">find_coexpressologs</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"analytical"</span>, seed <span class="op">=</span> <span class="fl">1</span></span>
+<span>  method <span class="op">=</span> <span class="st">"hypergeometric"</span>, seed <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span></span>
 <span>  <span class="st">"Analytical:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">edges_analytical</span><span class="op">$</span><span class="va">type</span> <span class="op">==</span> <span class="st">"conserved"</span><span class="op">)</span>, <span class="st">"conserved edges\n"</span></span>

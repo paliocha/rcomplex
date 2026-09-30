@@ -74,9 +74,9 @@ the results into a single edge data frame ready for
 <span>  <span class="va">networks</span>,</span>
 <span>  <span class="va">orthologs</span>,</span>
 <span>  species_pairs <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"analytical"</span>, <span class="st">"permutation"</span><span class="op">)</span>,</span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"hypergeometric"</span>, <span class="st">"rank"</span>, <span class="st">"permutation"</span><span class="op">)</span>,</span>
 <span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
-<span>  alpha <span class="op">=</span> <span class="fl">0.05</span>,</span>
+<span>  alpha <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  min_exceedances <span class="op">=</span> <span class="fl">50L</span>,</span>
@@ -87,6 +87,7 @@ the results into a single edge data frame ready for
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  out_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  rho0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  null_networks <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -119,8 +120,14 @@ specifying which pairs to compare. Defaults to all
 
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
-<dd><p>Testing method: <code>"analytical"</code> (default, fast)
-or <code>"permutation"</code> (rigorous).</p></dd>
+<dd><p>Testing method: <code>"hypergeometric"</code> (default, fast;
+<code>"analytical"</code> is accepted as its former name), <code>"rank"</code> or
+<code>"permutation"</code> (rigorous).
+<code>"rank"</code> scores each ortholog pair with
+<code><a href="compare_specificity.html">compare_specificity</a></code> and calibrates it against
+<code>null_networks</code> via <code><a href="summarize_specificity.html">summarize_specificity</a></code>;
+<code>filter_zero</code> and <code>rho0</code> do not apply and <code>power</code> is
+<code>NA</code>.</p></dd>
 
 
 <dt id="arg-alternative">alternative<a class="anchor" aria-label="anchor" href="#arg-alternative"></a></dt>
@@ -129,7 +136,7 @@ or <code>"permutation"</code> (rigorous).</p></dd>
 
 
 <dt id="arg-alpha">alpha<a class="anchor" aria-label="anchor" href="#arg-alpha"></a></dt>
-<dd><p>Significance threshold (default 0.05).</p></dd>
+<dd><p>Significance threshold (default 0.1).</p></dd>
 
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
@@ -152,16 +159,19 @@ permutation method (default 50).</p></dd>
 
 
 <dt id="arg-pi-method">pi0_method<a class="anchor" aria-label="anchor" href="#arg-pi-method"></a></dt>
-<dd><p>Analytical method only: how pi0 is estimated for the
-pair-level Storey q-values, passed to
+<dd><p>Hypergeometric and rank methods: how pi0 is
+estimated for the pair-level Storey q-values, passed to
 <code><a href="summarize_comparison.html">summarize_comparison</a></code>: <code>"randomized"</code> (default),
 <code>"storey"</code> or <code>"none"</code> (Benjamini-Hochberg). The default
-draws; pass <code>seed</code> to pin those draws.</p></dd>
+draws; pass <code>seed</code> to pin those draws. Under
+<code>"rank"</code>, <code>"randomized"</code> is read as
+<code>"storey"</code>.</p></dd>
 
 
 <dt id="arg-pval-combine">pval_combine<a class="anchor" aria-label="anchor" href="#arg-pval-combine"></a></dt>
-<dd><p>Analytical method only: how the two directional
-q-values are combined, passed to <code><a href="comparison_to_edges.html">comparison_to_edges</a></code>:
+<dd><p>Hypergeometric and rank methods: how the two
+directional q-values are combined, passed to
+<code><a href="comparison_to_edges.html">comparison_to_edges</a></code>:
 <code>"max"</code> (default; both directions significant – the reciprocal
 criterion of Netotea et al. (2014), the <code>Max.p.val</code> filter of
 the original ComPlEx) or <code>"min"</code> (permissive; either direction,
@@ -191,7 +201,7 @@ loop, rather than being handed to each
 <code><a href="summarize_comparison.html">summarize_comparison</a></code> call: one seeded stream flows
 through the pairs in order, so each pair draws its own uniforms
 instead of every pair reusing the same ones.</p>
-<p>What a seed buys differs by method. Under <code>"analytical"</code> it
+<p>What a seed buys differs by method. Under <code>"hypergeometric"</code> it
 pins the randomized-p draws behind pi0, and the result is
 reproducible at any <code>n_cores</code>. Under <code>"permutation"</code> it
 pins the per-thread seeds that the C++ engines draw from R's RNG,
@@ -231,6 +241,12 @@ effect size of the called pairs). The permutation path always
 reports <code>power = NA</code>: its HOG-level q-value has no per-pair
 call threshold to measure power against.</p></dd>
 
+
+<dt id="arg-null-networks">null_networks<a class="anchor" aria-label="anchor" href="#arg-null-networks"></a></dt>
+<dd><p>Specificity method only (required there): named
+list with one <code><a href="null_network.html">null_network</a></code> object, or a list of them,
+per species.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
@@ -252,6 +268,24 @@ is returned (invisibly).</p>
 <dd><p>Fast path: pair-level Storey q-values via
 <code><a href="summarize_comparison.html">summarize_comparison</a></code>. Appropriate when most HOGs
 are single-copy.</p></dd>
+
+<dt>rank</dt>
+<dd><p>Opt-in: <code><a href="compare_specificity.html">compare_specificity</a></code>
+against shuffled-partner networks from <code><a href="null_network.html">null_network</a></code>
+(argument <code>null_networks</code>), q-values via
+<code><a href="summarize_specificity.html">summarize_specificity</a></code>. The hypergeometric test counts
+how many of gene A's translated partners are among ortholog B's
+partners, against an urn of random draws. With small
+neighbourhoods (top-25 lists) that urn let technically "sticky"
+genes, such as genes with many zeros, through as false calls; at
+network density 0.03 it held against a shuffled-expression null.
+The rank test asks where A's translated partners
+sit in B's full co-expression ranking, checks every other gene of
+B's species the same way, and reports B's rank in that contest,
+so a list that thousands of genes recognise as well as B is not
+evidence. The q-value is read against a partner whose expression
+was shuffled within each gene. <code>effect_size</code> is
+<code>sqrt(auroc12 * auroc21)</code> and <code>power</code> is <code>NA</code>.</p></dd>
 
 <dt>permutation</dt>
 <dd><p>Rigorous path: gene-identity permutation via

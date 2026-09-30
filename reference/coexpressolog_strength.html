@@ -104,7 +104,7 @@ the clique-level robustness analyses (<code><a href="clique_persistence.html">cl
 <span>  <span class="va">densities</span>,</span>
 <span>  <span class="va">reference_density</span>,</span>
 <span>  species_pairs <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  alpha <span class="op">=</span> <span class="fl">0.05</span>,</span>
+<span>  alpha <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
@@ -156,7 +156,7 @@ of <code>names(networks)</code>, matching <code><a href="find_coexpressologs.htm
 
 <dt id="arg-alpha">alpha<a class="anchor" aria-label="anchor" href="#arg-alpha"></a></dt>
 <dd><p>Significance threshold for <code>reference</code>'s <code>type</code> column
-(default <code>0.05</code>).</p></dd>
+(default <code>0.1</code>).</p></dd>
 
 
 <dt id="arg-alternative">alternative<a class="anchor" aria-label="anchor" href="#arg-alternative"></a></dt>
@@ -205,7 +205,7 @@ randomized-p pi0 estimator: <code>species1</code>, <code>species2</code>, <code>
 
 <dt>params</dt>
 <dd><p>List echoing <code>densities</code>, <code>reference_density</code>,
-<code>alpha</code>, <code>alternative</code>, <code>pval_combine</code> and <code>method = "analytical"</code> (the only density-profile method implemented so
+<code>alpha</code>, <code>alternative</code>, <code>pval_combine</code> and <code>method = "hypergeometric"</code> (the only density-profile method implemented so
 far; HOG permutation inference stays reserved for <code>reference</code>).</p></dd>
 
 

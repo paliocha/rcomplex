@@ -28,6 +28,7 @@
 <url><loc>/reference/compare_neighborhoods.html</loc></url>
 <url><loc>/reference/compare_neighborhoods_cpp.html</loc></url>
 <url><loc>/reference/compare_neighborhoods_sparse_cpp.html</loc></url>
+<url><loc>/reference/compare_specificity.html</loc></url>
 <url><loc>/reference/comparison_to_edges.html</loc></url>
 <url><loc>/reference/compute_network.html</loc></url>
 <url><loc>/reference/density_sweep.html</loc></url>
@@ -55,6 +56,7 @@
 <url><loc>/reference/mr_block.html</loc></url>
 <url><loc>/reference/mutual_rank_inplace_cpp.html</loc></url>
 <url><loc>/reference/mutual_rank_transform_cached_cpp.html</loc></url>
+<url><loc>/reference/null_network.html</loc></url>
 <url><loc>/reference/parse_orthologs.html</loc></url>
 <url><loc>/reference/permutation_hog_test.html</loc></url>
 <url><loc>/reference/prepare_orthologs.html</loc></url>
@@ -67,8 +69,10 @@
 <url><loc>/reference/reduce_orthogroups_cpp.html</loc></url>
 <url><loc>/reference/resolve_ortholog_map.html</loc></url>
 <url><loc>/reference/sparse_excess_spectral_norm_cpp.html</loc></url>
+<url><loc>/reference/specificity_sparse_cpp.html</loc></url>
 <url><loc>/reference/suggest_reference_density.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
+<url><loc>/reference/summarize_specificity.html</loc></url>
 <url><loc>/reference/tag_permutation.html</loc></url>
 </urlset>
 
