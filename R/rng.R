@@ -149,36 +149,28 @@
 #'   permutation index).
 #' @param what What the tasks are, e.g. `"permutation"`.
 #' @return `res`, unchanged, when every task returned a result. A failed
-#'   task re-raises the worker's condition (its class kept) with the task
-#'   named in the message.
+#'   task raises an error naming it, with the worker's condition as its
+#'   parent and the worker's classes kept.
 #' @noRd
 .check_fork_results <- function(res, labels, what) {
   errs <- which(vapply(res, inherits, logical(1), "try-error"))
   if (length(errs)) {
     e <- res[[errs[1L]]]
-    prefix <- paste0(what, " ", labels[errs[1L]], " failed: ")
+    head <- paste0(what, " ", labels[errs[1L]], " failed")
     cnd <- attr(e, "condition")
-    if (is.null(cnd)) stop(prefix, trimws(as.character(e)), call. = FALSE)
-    # Re-raise the worker's own condition, class and fields intact, as the
-    # serial path would, with the task named in its header. Prefix the
-    # header only: for rlang conditions conditionMessage() also renders body
-    # and parent, which stay on the object and would repeat. A condition
-    # whose header comes from a cnd_header() method (empty message) is
-    # wrapped, class kept, as the parent of a new rlang error; a base
-    # condition with an empty message just stops with the task named.
-    m <- cnd$message
-    if (is.character(m) && length(m) == 1L && nzchar(m)) {
-      cnd$message <- paste0(prefix, m)
-      cnd$call <- NULL
-      stop(cnd)
+    if (is.null(cnd)) {
+      rlang::abort(paste0(head, ": ", trimws(as.character(e))), call = NULL)
     }
-    if (inherits(cnd, "rlang_error")) {
-      rlang::abort(sub(": $", "", prefix),
-        class = setdiff(class(cnd), c("rlang_error", "error", "condition")),
-        parent = cnd, call = NULL
-      )
-    }
-    stop(sub(": $", "", prefix), call. = FALSE)
+    # The worker's condition becomes the parent of the new error, so rlang
+    # renders its message once whatever its shape (bullets, several lines,
+    # a cnd_header() method) and records the backtrace; its own classes are
+    # kept on the new error, so class-based handlers match on either path.
+    rlang::abort(head,
+      class = setdiff(
+        class(cnd), c("rlang_error", "error", "condition", "simpleError")
+      ),
+      parent = cnd, call = NULL
+    )
   }
   failed <- vapply(res, is.null, logical(1))
   if (any(failed)) {
