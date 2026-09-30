@@ -50,6 +50,8 @@ test_that(".check_fork_results() names failed tasks and crashed workers", {
     "no result \\(a worker may have crashed\\) for permutation 2, 3"
   )
   expect_error(check(list(NULL), 1L, "p"), "rerun with n_cores = 1")
+  bare <- structure("Error in f() : raw failure\n", class = "try-error")
+  expect_error(check(list(1, bare), 1:2, "task"), "task 2 failed: .*raw")
   classed <- try(rlang::abort("bad arg", class = "my_error"), silent = TRUE)
   expect_error(
     check(list(classed), 3L, "permutation"),
