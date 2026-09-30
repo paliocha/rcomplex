@@ -56,6 +56,10 @@ test_that(".check_fork_results() names failed tasks and crashed workers", {
     "permutation 3 failed: bad arg",
     class = "my_error"
   )
+  bullets <- try(rlang::abort(c("bad arg", i = "detail")), silent = TRUE)
+  msg <- tryCatch(check(list(bullets), 1L, "t"), error = conditionMessage)
+  expect_match(msg, "t 1 failed: bad arg")
+  expect_identical(lengths(regmatches(msg, gregexpr("detail", msg))), 1L)
 })
 
 test_that("the serial fallback under Accelerate says so once", {

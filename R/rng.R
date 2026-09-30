@@ -161,7 +161,9 @@
     if (is.null(cnd)) stop(prefix, trimws(as.character(e)), call. = FALSE)
     # re-raise the worker's own condition, class and fields intact, as the
     # serial path would, with the task named in its message
-    cnd$message <- paste0(prefix, conditionMessage(cnd))
+    # prefix the header only: for rlang conditions conditionMessage() also
+    # renders body and parent, which stay on the object and would repeat
+    cnd$message <- paste0(prefix, cnd$message %||% conditionMessage(cnd))
     cnd$call <- NULL
     stop(cnd)
   }
