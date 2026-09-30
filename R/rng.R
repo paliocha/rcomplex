@@ -111,7 +111,10 @@
 #' real Pooideae leaf networks under R's Accelerate BLAS. The other fork
 #' sites (Leiden sweeps, edge rewiring) never call BLAS in the worker.
 #' `VECLIB_MAXIMUM_THREADS=1` keeps Accelerate single-threaded and makes
-#' forking safe again (verified: identical to the serial result).
+#' forking safe again (verified: identical to the serial result), but only
+#' when it is in the environment before R starts (shell or `.Renviron`):
+#' Accelerate reads it once, at initialisation, so a `Sys.setenv()` inside
+#' the session passes this check without taking effect.
 #'
 #' @param blas Path of the BLAS R is linked against.
 #' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
@@ -125,33 +128,37 @@
 }
 
 
-#' Collect one batch of forked permutation results
+#' Check the results of an `mclapply()` call
 #'
-#' `mclapply()` returns a `try-error` for a worker that failed and `NULL`
-#' for one that died without reporting (e.g. a segfault), with only a
-#' warning. Unchecked, either surfaces later as an unrelated error or, worse,
-#' as a shortened null distribution. Stop instead, naming the cause.
+#' `mclapply()` returns a `try-error` for a task that failed and `NULL` for
+#' one whose worker died without reporting (e.g. a segfault), with only a
+#' warning. Unchecked, either surfaces later as an unrelated error or as a
+#' silently shortened result. Every fork site routes its results through
+#' here.
 #'
-#' @param res List returned by `mclapply()`, one scalar per task.
-#' @param what Label for the error message.
-#' @return Numeric vector, one value per task.
+#' @param res List returned by `mclapply()` (or `lapply()`), one element
+#'   per task.
+#' @param labels Label of each task for the message (a resolution, a
+#'   permutation index).
+#' @param what What the tasks are, e.g. `"permutation"`.
+#' @return `res`, unchanged, when every task returned a result.
 #' @noRd
-.collect_perm_batch <- function(res, what) {
-  bad <- vapply(res, function(v) !is.numeric(v) || length(v) != 1L,
-    logical(1)
-  )
-  if (length(res) == 0L || any(bad)) {
-    first <- if (any(bad)) res[[which(bad)[1L]]] else NULL
-    cause <- if (inherits(first, "try-error")) {
-      trimws(as.character(first))
-    } else {
-      "a worker returned no result (it may have crashed)"
-    }
+.check_fork_results <- function(res, labels, what) {
+  errs <- which(vapply(res, inherits, logical(1), "try-error"))
+  if (length(errs)) {
+    e <- res[[errs[1L]]]
+    msg <- attr(e, "condition")
+    msg <- if (is.null(msg)) trimws(as.character(e)) else conditionMessage(msg)
+    stop(what, " ", labels[errs[1L]], " failed: ", msg, call. = FALSE)
+  }
+  failed <- vapply(res, is.null, logical(1))
+  if (any(failed)) {
     stop(
-      what, ": ", sum(bad), " of ", length(res), " forked workers failed -- ",
-      cause, ". Rerun with n_cores = 1.",
+      "forked workers returned no result (a worker may have crashed) for ",
+      what, " ", paste(labels[failed], collapse = ", "),
+      "; rerun with n_cores = 1",
       call. = FALSE
     )
   }
-  unlist(res, use.names = FALSE)
+  res
 }

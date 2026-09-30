@@ -1,5 +1,7 @@
-# Fork safety of the K = 1 test: .blas_fork_safe() gates forking on the
-# BLAS, .collect_perm_batch() turns failed or crashed workers into an error.
+# Fork safety: .blas_fork_safe() gates the K = 1 test's fork on the BLAS,
+# .check_fork_results() turns failed or crashed workers into an error at
+# every fork site. The end-to-end core-count check of the K = 1 test lives
+# in test-module-determinism.R.
 
 test_that(".blas_fork_safe() refuses Accelerate unless pinned to one thread", {
   acc <- paste0(
@@ -18,36 +20,18 @@ test_that(".blas_fork_safe() refuses Accelerate unless pinned to one thread", {
   expect_length(rcomplex:::.blas_fork_safe(), 1L)
 })
 
-test_that(".collect_perm_batch() passes scalars and stops on failed workers", {
-  collect <- rcomplex:::.collect_perm_batch
-  expect_identical(collect(list(1, 2.5, 3), "t"), c(1, 2.5, 3))
+test_that(".check_fork_results() names failed tasks and crashed workers", {
+  check <- rcomplex:::.check_fork_results
+  ok <- list(1, "a", list(2))
+  expect_identical(check(ok, 1:3, "task"), ok)
   failed <- try(stop("boom"), silent = TRUE)
   expect_error(
-    collect(list(1, failed, 3), "K = 1 test"),
-    "K = 1 test: 1 of 3 forked workers failed -- .*boom.*n_cores = 1"
+    check(list(1, failed, 3), c(0.5, 1, 2), "resolution"),
+    "resolution 1 failed: boom"
   )
-  expect_error(collect(list(1, NULL), "t"), "no result \\(it may have")
-  expect_error(collect(list(1, c(2, 3)), "t"), "1 of 2 forked workers failed")
-  expect_error(collect(list(), "t"), "0 of 0")
-})
-
-test_that("the K = 1 test gives the serial result on any fork path", {
-  skip_on_os("windows")
-  skip_on_cran()
-  set.seed(1)
-  x <- matrix(stats::rnorm(300 * 20), 300, 20)
-  f <- matrix(stats::rnorm(4 * 20), 4, 20)
-  x <- x + 1.5 * f[rep(1:4, length.out = 300), ]
-  rownames(x) <- sprintf("g%03d", seq_len(300))
-  net <- compute_network(x)
-  run <- function(nc) {
-    detect_modules(net,
-      resolution = c(0.5, 1, 2), seed = 1L, n_cores = nc,
-      test_k1 = TRUE, n_perm_k1 = 20L
-    )$k1_test
-  }
-  serial <- run(1L)
-  forked <- run(2L)
-  expect_identical(forked$lambda_null, serial$lambda_null)
-  expect_identical(forked$p_value, serial$p_value)
+  expect_error(
+    check(list(1, NULL, NULL), 1:3, "permutation"),
+    "no result \\(a worker may have crashed\\) for permutation 2, 3"
+  )
+  expect_error(check(list(NULL), 1L, "p"), "rerun with n_cores = 1")
 })

@@ -6,9 +6,12 @@
   is not fork-safe once the parent has used its threads; on Pooideae leaf
   networks the workers crashed and the run ended in "replacement has
   length zero". Those permutations now run serially under Accelerate
-  unless `VECLIB_MAXIMUM_THREADS=1` is set (then forking is safe and gives
-  the serial result), and a failed or crashed worker stops the run with a
-  message naming the cause instead of an unrelated error.
+  unless `VECLIB_MAXIMUM_THREADS=1` was set before R started (shell or
+  `.Renviron`; Accelerate reads it once, so `Sys.setenv()` in the session
+  does not help). Then forking is safe and gives the serial result. Every
+  fork site now checks its workers with one helper, so a failed or crashed
+  worker stops the run with a message naming the task instead of an
+  unrelated error.
 
 - **Every q-value call threshold now defaults to 0.1.** `alpha` in
   `find_coexpressologs()`, `density_sweep()`, `summarize_comparison()`,

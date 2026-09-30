@@ -307,21 +307,7 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     null_list <- lapply(seq_len(n_perm), one_perm)
   }
 
-  errs <- which(vapply(null_list, inherits, logical(1), "try-error"))
-  if (length(errs)) {
-    e <- null_list[[errs[1L]]]
-    stop(
-      "permutation ", errs[1L], " failed: ",
-      conditionMessage(attr(e, "condition"))
-    )
-  }
-  failed <- vapply(null_list, is.null, logical(1))
-  if (any(failed)) {
-    stop(
-      "parallel workers returned NULL for permutations: ",
-      paste(which(failed), collapse = ", ")
-    )
-  }
+  .check_fork_results(null_list, seq_len(n_perm), "permutation")
 
   nm <- names(observed)
   null_mat <- matrix(NA_real_,
