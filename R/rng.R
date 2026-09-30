@@ -148,15 +148,22 @@
 #' @param labels Label of each task for the message (a resolution, a
 #'   permutation index).
 #' @param what What the tasks are, e.g. `"permutation"`.
-#' @return `res`, unchanged, when every task returned a result.
+#' @return `res`, unchanged, when every task returned a result. A failed
+#'   task re-raises the worker's condition (its class kept) with the task
+#'   named in the message.
 #' @noRd
 .check_fork_results <- function(res, labels, what) {
   errs <- which(vapply(res, inherits, logical(1), "try-error"))
   if (length(errs)) {
     e <- res[[errs[1L]]]
-    msg <- attr(e, "condition")
-    msg <- if (is.null(msg)) trimws(as.character(e)) else conditionMessage(msg)
-    stop(what, " ", labels[errs[1L]], " failed: ", msg, call. = FALSE)
+    prefix <- paste0(what, " ", labels[errs[1L]], " failed: ")
+    cnd <- attr(e, "condition")
+    if (is.null(cnd)) stop(prefix, trimws(as.character(e)), call. = FALSE)
+    # re-raise the worker's own condition, class and fields intact, as the
+    # serial path would, with the task named in its message
+    cnd$message <- paste0(prefix, conditionMessage(cnd))
+    cnd$call <- NULL
+    stop(cnd)
   }
   failed <- vapply(res, is.null, logical(1))
   if (any(failed)) {

@@ -50,6 +50,12 @@ test_that(".check_fork_results() names failed tasks and crashed workers", {
     "no result \\(a worker may have crashed\\) for permutation 2, 3"
   )
   expect_error(check(list(NULL), 1L, "p"), "rerun with n_cores = 1")
+  classed <- try(rlang::abort("bad arg", class = "my_error"), silent = TRUE)
+  expect_error(
+    check(list(classed), 3L, "permutation"),
+    "permutation 3 failed: bad arg",
+    class = "my_error"
+  )
 })
 
 test_that("the serial fallback under Accelerate says so once", {
