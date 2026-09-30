@@ -430,8 +430,9 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       },
       add = TRUE
     )
+    # one fork per task (not per core chunk), so a failure names its task
     results <- parallel::mclapply(seq_len(n_res), run_initial,
-      mc.cores = n_cores
+      mc.cores = n_cores, mc.preschedule = FALSE
     )
   } else {
     results <- lapply(seq_len(n_res), run_initial)
@@ -667,7 +668,9 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
       add = TRUE
     )
     .check_fork_results(
-      parallel::mclapply(seq_along(resolutions), run_one, mc.cores = n_cores),
+      parallel::mclapply(seq_along(resolutions), run_one,
+        mc.cores = n_cores, mc.preschedule = FALSE
+      ),
       resolutions, "resolution"
     )
   } else {
@@ -849,7 +852,9 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
 
     if (use_mc) {
       batch_vals <- vapply(.check_fork_results(
-        parallel::mclapply(batch_idx, run_one_perm, mc.cores = n_cores),
+        parallel::mclapply(batch_idx, run_one_perm,
+          mc.cores = n_cores, mc.preschedule = FALSE
+        ),
         batch_idx, "K = 1 permutation"
       ), identity, numeric(1))
     } else {
