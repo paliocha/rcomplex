@@ -804,6 +804,17 @@ test_community_structure <- function(g, genes, resolutions, objective_function,
   # Workers here call into BLAS (the eigensolver), so they may only fork
   # when the BLAS survives it; see .blas_fork_safe().
   use_mc <- .can_fork(n_cores) && .blas_fork_safe()
+  if (.can_fork(n_cores) && !use_mc) {
+    rlang::inform(
+      paste0(
+        "The K = 1 permutations run serially: R uses Apple's Accelerate ",
+        "BLAS, which is not fork-safe for their eigensolver. Set ",
+        "VECLIB_MAXIMUM_THREADS=1 before starting R (e.g. in .Renviron) ",
+        "to run them in parallel."
+      ),
+      .frequency = "once", .frequency_id = "rcomplex_k1_serial"
+    )
+  }
   # Batch on the significance grid, not on the core count: the early-stop rule
   # must be evaluated at the same points regardless of the machine. The batch
   # is still spread over mc.cores below, so on typical hardware concurrency is

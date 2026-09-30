@@ -51,3 +51,26 @@ test_that(".check_fork_results() names failed tasks and crashed workers", {
   )
   expect_error(check(list(NULL), 1L, "p"), "rerun with n_cores = 1")
 })
+
+test_that("the serial fallback under Accelerate says so once", {
+  skip_on_os("windows")
+  skip_on_cran()
+  skip_if(
+    rcomplex:::.blas_fork_safe(),
+    "BLAS is fork-safe here, so the K = 1 test forks"
+  )
+  rlang::reset_message_verbosity("rcomplex_k1_serial")
+  set.seed(1)
+  x <- matrix(stats::rnorm(120 * 20), 120, 20)
+  x <- x + 1.5 * matrix(stats::rnorm(2 * 20), 2, 20)[rep(1:2, 60), ]
+  rownames(x) <- sprintf("g%03d", seq_len(120))
+  net <- compute_network(x)
+  run <- function() {
+    detect_modules(net,
+      resolution = c(0.5, 1), seed = 1L, n_cores = 2L,
+      test_k1 = TRUE, n_perm_k1 = 10L
+    )
+  }
+  expect_message(run(), "VECLIB_MAXIMUM_THREADS=1")
+  expect_no_message(run(), message = "VECLIB")
+})

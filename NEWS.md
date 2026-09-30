@@ -8,7 +8,8 @@
   length zero". Those permutations now run serially under Accelerate
   unless `VECLIB_MAXIMUM_THREADS=1` was set before R started (shell or
   `.Renviron`; Accelerate reads it once, so `Sys.setenv()` in the session
-  does not help). Then forking is safe and gives the serial result. Every
+  does not help), and say so once per session. Then forking is safe and
+  gives the serial result. Every
   fork site now checks its workers with one helper, so a failed or crashed
   worker stops the run with a message naming the task instead of an
   unrelated error.

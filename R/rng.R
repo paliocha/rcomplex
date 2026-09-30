@@ -123,7 +123,11 @@
 #'
 #' @param blas Path of the BLAS R is linked against.
 #' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
-#' @return `TRUE` unless the BLAS is Accelerate and not pinned to one thread.
+#' Only Accelerate is known to crash here; `TRUE` means "not known to be
+#' unsafe", not a guarantee (MKL or an OpenBLAS without fork handlers could
+#' have the same hazard and would pass).
+#'
+#' @return `FALSE` only for Accelerate not pinned to one thread.
 #' @noRd
 .blas_fork_safe <- function(blas = extSoftVersion()[["BLAS"]],
                             veclib_threads = .load_env$veclib_threads) {

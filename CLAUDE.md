@@ -126,8 +126,11 @@ objects in `prepare_data/data/`. It is not part of the package.
   the K = 1 test (`sparse_excess_spectral_norm_cpp()` -> `arma::eigs_sym()` /
   `eig_sym()`); it now forks only when `.blas_fork_safe()` (`R/rng.R`) says
   so (not Accelerate, or `VECLIB_MAXIMUM_THREADS=1` set before R starts --
-  Accelerate reads it once). A new fork site whose workers call BLAS must
-  check it too. Every fork site passes its results through
+  Accelerate reads it once; the value is snapshotted in `.onLoad()`). It
+  only knows Accelerate: `TRUE` means "not known to crash", not a
+  guarantee for MKL or other BLAS builds. A new fork site whose workers
+  call BLAS must check it too. Falling back to serial prints a one-time
+  notice. Every fork site passes its results through
   `.check_fork_results()`, which turns failed tasks and crashed workers
   (`mclapply()` returns `NULL` with only a warning) into a clear error.
 - **`mclapply()` forking deadlocks under `covr` coverage instrumentation.**
