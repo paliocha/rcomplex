@@ -619,6 +619,10 @@ test_that("copy resolution and the copy null do not depend on collation", {
   # and the same under en_US, which collates these IDs differently
   en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
   skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  skip_if(
+    identical(sort(c("b1", "B2")), c("B2", "b1")),
+    "en_US collates like C here, so the comparison would prove nothing"
+  )
   expect_identical(suppressWarnings(run()), r_c)
 })
 

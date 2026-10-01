@@ -27,7 +27,11 @@ mods <- function(x, obj, seed) {
   m$modules
 }
 rows <- list()
-for (f in list.files("prepare_data/data", "_se\\.rds$", full.names = TRUE)) {
+files <- list.files("prepare_data/data", "_se\\.rds$", full.names = TRUE)
+# stop before writing: without the data the committed table would be
+# overwritten with an empty one
+if (!length(files)) stop("prepare_data/data/ not found (maintainer checkout only)")
+for (f in files) {
   sp <- sub("_se\\.rds$", "", basename(f))
   se <- readRDS(f)
   se <- se[, colData(se)$tissue == "leaf"]

@@ -432,5 +432,9 @@ test_that("tied copies resolve the same way under any collation", {
   expect_identical(r_f, r_c)
   en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
   skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  skip_if(
+    identical(sort(c("b1", "B2")), c("B2", "b1")),
+    "en_US collates like C here, so the comparison would prove nothing"
+  )
   expect_identical(run(), r_c)
 })
