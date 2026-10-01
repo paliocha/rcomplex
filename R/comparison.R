@@ -638,6 +638,12 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 #'   the original ComPlEx) or \code{"min"} (permissive; either direction,
 #'   denser edge supply for \code{\link{find_cliques}}).
+#' @param p0 Rank method only: reference raw p for the \code{power}
+#'   column, passed to \code{\link{summarize_specificity}}. \code{NULL}
+#'   (default) takes, per species pair and direction, the median raw p of
+#'   the pairs called and significant in that direction, so references
+#'   differ between species pairs; a single number puts every pair on one
+#'   reference, as \code{rho0} does for the hypergeometric power.
 #' @param rho0 Analytical method only: reference fold enrichment for
 #'   the \code{power} column, passed to
 #'   \code{\link{comparison_to_edges}} (default \code{NULL}, the median
@@ -715,7 +721,7 @@ find_coexpressologs.default <- function(
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  out_file = NULL, rho0 = NULL, null_networks = NULL, ...
+  out_file = NULL, rho0 = NULL, null_networks = NULL, p0 = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
@@ -725,6 +731,7 @@ find_coexpressologs.default <- function(
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_p0(p0)
   .check_specificity_args(method, alternative, null_networks)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
@@ -797,7 +804,8 @@ find_coexpressologs.default <- function(
       edges_df <- tryCatch(
         .specificity_pair_edges(
           networks[[sp_a]], networks[[sp_b]], nulls[[sp_a]], nulls[[sp_b]],
-          orthologs, sp_a, sp_b, alpha, n_cores, pi0_method, pval_combine
+          orthologs, sp_a, sp_b, alpha, n_cores, pi0_method, pval_combine,
+          p0
         ),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
@@ -982,6 +990,8 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   calls a pair when either direction is significant.
 #' @param rho0 Passed to \code{\link{find_coexpressologs}}: reference
 #'   fold enrichment for the analytical \code{power} column.
+#' @param p0 Passed to \code{\link{find_coexpressologs}}: reference raw p
+#'   for the rank-test \code{power} column.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -1019,7 +1029,7 @@ density_sweep.default <- function(
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
-  seed = NULL, rho0 = NULL, null_networks = NULL, ...
+  seed = NULL, rho0 = NULL, null_networks = NULL, p0 = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
@@ -1029,6 +1039,7 @@ density_sweep.default <- function(
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_p0(p0)
   .check_specificity_args(method, alternative, null_networks)
 
   # Seeded once for the whole sweep; the per-multiplier
@@ -1118,7 +1129,7 @@ density_sweep.default <- function(
         max_permutations = max_permutations,
         pi0_method = pi0_method,
         pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0,
-        null_networks = tight_nulls
+        null_networks = tight_nulls, p0 = p0
       ),
       error = function(e) {
         warning(

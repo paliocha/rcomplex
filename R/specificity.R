@@ -182,7 +182,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' @noRd
 .specificity_pair_edges <- function(net1, net2, nulls1, nulls2, orthologs,
                                     sp1, sp2, alpha, n_cores, pi0_method,
-                                    pval_combine) {
+                                    pval_combine, p0 = NULL) {
   cmp <- compare_specificity(net1, net2, orthologs, n_cores)
   null_p <- list(
     sp1 = unlist(lapply(nulls2, function(nb) {
@@ -201,7 +201,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   if (pi0_method == "randomized") pi0_method <- "storey"
   summarize_specificity(cmp, null_p, alpha,
     pi0_method = pi0_method, sp1 = sp1, sp2 = sp2,
-    pval_combine = pval_combine
+    pval_combine = pval_combine, p0 = p0
   )$edges
 }
 
@@ -265,7 +265,13 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
       f0 <- stats::median(p[use])
     }
     grid <- col(".auroc.grid")
-    lf <- log(as.numeric(colnames(grid)))
+    lf <- suppressWarnings(log(as.numeric(colnames(grid))))
+    # the fractions travel as column names; a frame that lost them cannot
+    # be read, so it gets no power rather than a wrong one
+    if (length(lf) < 2L || length(lf) != ncol(grid) || anyNA(lf) ||
+          any(diff(lf) <= 0)) {
+      return(na_out)
+    }
     at <- function(f) {
       x <- min(max(log(f), lf[1L]), lf[length(lf)])
       k <- min(findInterval(x, lf), length(lf) - 1L)

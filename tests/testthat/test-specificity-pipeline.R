@@ -243,3 +243,37 @@ test_that("both routes to rank edges carry the same power", {
   expect_false(anyNA(two_step$power))
   expect_identical(two_step$power, sm$edges$power)
 })
+
+test_that(".rank_power() branches: clamp, no room, weaker side, bad grid", {
+  rp <- rcomplex:::.rank_power
+  d <- rank_frame(q1 = c(0.01, 0.02, 0.5), q2 = c(0.01, 0.02, 0.5),
+                  p1 = c(0.001, 0.004, 0.3), p2 = c(0.001, 0.004, 0.3))
+  # a reference below the grid is read as its first knot, 1e-5
+  expect_identical(rp(d, 0.1, p0 = 1e-7), rp(d, 0.1, p0 = 1e-5))
+  # no candidates left besides the translated set: no power
+  full <- d
+  full$Species1.mapped <- full$Species1.n.cand - 1L
+  expect_identical(rp(full, 0.1, p0 = 1e-3), c(0, 0, 0))
+  # "max" takes the weaker direction when the directions differ
+  steep <- rank_frame(q1 = c(0.01, 0.02, 0.5), q2 = c(0.01, 0.02, 0.5),
+                      p1 = c(0.001, 0.004, 0.3), p2 = c(0.001, 0.004, 0.3),
+                      b = 0.05)
+  mixed <- d
+  mixed$Species2.auroc.grid <- steep$Species2.auroc.grid
+  w1 <- rp(d, 0.1, p0 = 1e-3)
+  w2 <- rp(steep, 0.1, p0 = 1e-3)
+  expect_false(isTRUE(all.equal(w1, w2)))
+  expect_equal(rp(mixed, 0.1, p0 = 1e-3), pmin(w1, w2))
+  # a grid that lost its fraction names gives no power, not a wrong one
+  lost <- d
+  colnames(lost$Species1.auroc.grid) <- NULL
+  expect_true(all(is.na(rp(lost, 0.1))))
+})
+
+test_that("p0 reaches the rank power through find_coexpressologs()", {
+  f <- make_spec_nets()
+  lo <- spec_edges(f, p0 = 0.5)
+  hi <- spec_edges(f, p0 = 1e-5)
+  expect_false(isTRUE(all.equal(lo$power, hi$power)))
+  expect_error(spec_edges(f, p0 = 2), "p0")
+})

@@ -26,6 +26,7 @@ find_coexpressologs(networks, ...)
   out_file = NULL,
   rho0 = NULL,
   null_networks = NULL,
+  p0 = NULL,
   ...
 )
 
@@ -147,6 +148,13 @@ call threshold to measure power against.}
 \item{null_networks}{Specificity method only (required there): named
 list with one \code{\link{null_network}} object, or a list of them,
 per species.}
+
+\item{p0}{Rank method only: reference raw p for the \code{power}
+column, passed to \code{\link{summarize_specificity}}. \code{NULL}
+(default) takes, per species pair and direction, the median raw p of
+the pairs called and significant in that direction, so references
+differ between species pairs; a single number puts every pair on one
+reference, as \code{rho0} does for the hypergeometric power.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
