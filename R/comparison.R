@@ -439,10 +439,13 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'       \code{\link{classify_gene_cliques}} and
 #'       \code{\link{classify_cliques}} read it through
 #'       \code{min_power}. \code{NA} for \code{alternative = "less"},
-#'       when no pair is called, or when the comparison lacks the
-#'       neighbourhood-size columns. For a rank-test frame (one carrying
-#'       \code{*.auroc.grid}) it is the rank-test power instead, at
-#'       reference rank \code{p0} (see \code{\link{summarize_specificity}}).}
+#'       when no pair is called in a direction, or when the comparison
+#'       lacks the neighbourhood-size columns. For a rank-test frame (one
+#'       carrying \code{*.auroc.grid}) it is the rank-test power instead,
+#'       at reference rank \code{p0} (see
+#'       \code{\link{summarize_specificity}}); there a direction with no call
+#'       gives 0 rather than \code{NA}, so the classifiers read it as
+#'       uninformative, not as a rejection.}
 #'     \item{type}{\code{"conserved"} or \code{"diverged"} if
 #'       \code{q.value < alpha}; \code{"ns"} otherwise}
 #'   }
@@ -512,14 +515,15 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     stop("rho0 applies to hypergeometric frames; p0 sets the rank-test ",
          "power", call. = FALSE)
   }
-  if (!rank_frame && any(c("Species1.n.cand", "Species2.n.cand") %in%
+  if (!rank_frame && any(c("Species1.auroc", "Species2.auroc") %in%
                            names(comparison))) {
-    # a rank-test frame that lost its matrix columns (e.g. through
-    # write.csv()) would silently get NA power, which the classifiers read
-    # as "every miss is a rejection"
+    # a rank-test frame without its grid (saved before the grid existed,
+    # or flattened by write.csv()) would silently get NA power, which the
+    # classifiers read as "every miss is a rejection"
     warning(
       "comparison looks like rank-test output but has no *.auroc.grid ",
-      "columns, so power is NA; keep rank frames with saveRDS()",
+      "columns, so power is NA; rerun compare_specificity(), and keep ",
+      "rank frames with saveRDS()",
       call. = FALSE
     )
   }

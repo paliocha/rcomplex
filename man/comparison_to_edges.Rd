@@ -80,10 +80,13 @@ absent evidence, not evidence of divergence.
 \code{\link{classify_gene_cliques}} and
 \code{\link{classify_cliques}} read it through
 \code{min_power}. \code{NA} for \code{alternative = "less"},
-when no pair is called, or when the comparison lacks the
-neighbourhood-size columns. For a rank-test frame (one carrying
-\code{*.auroc.grid}) it is the rank-test power instead, at
-reference rank \code{p0} (see \code{\link{summarize_specificity}}).}
+when no pair is called in a direction, or when the comparison
+lacks the neighbourhood-size columns. For a rank-test frame (one
+carrying \code{*.auroc.grid}) it is the rank-test power instead,
+at reference rank \code{p0} (see
+\code{\link{summarize_specificity}}); there a direction with no call
+gives 0 rather than \code{NA}, so the classifiers read it as
+uninformative, not as a rejection.}
 \item{type}{\code{"conserved"} or \code{"diverged"} if
 \code{q.value < alpha}; \code{"ns"} otherwise}
 }
