@@ -581,7 +581,8 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   conservation (default 0.8). Only used when `edges` has `power`. For
 #'   rank-test edges (`find_coexpressologs(method = "rank")`) use 0.9: under
 #'   the default reference rank `p0` their power is at least 0.5 by
-#'   construction, and it overstates detection.
+#'   construction (0 when a direction of the species pair has no call), and
+#'   it overstates detection.
 #'
 #' @section rcomplex container:
 #' The `.rcomplex` method calls with `edges = x$edges`, which in the

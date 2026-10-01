@@ -16,6 +16,8 @@ test_that("rank edges have the hypergeometric shape", {
   expect_identical(names(e), names(a))
   expect_gt(nrow(e), 0L)
   expect_true(all(is.finite(e$power) & e$power >= 0 & e$power <= 1))
+  # under the default reference rank every called edge has power >= 0.5
+  expect_true(all(e$power[e$type == "conserved"] >= 0.5))
   expect_false(anyNA(e$type))
 })
 
@@ -225,6 +227,12 @@ test_that(".rank_power() matches a hand computation", {
                tolerance = 1e-12)
   # under "max" the uncalled direction bounds it at 0
   expect_identical(rp(one, alpha = 0.1, pval_combine = "max"), c(0, 0, 0))
+  # both directions call, but on disjoint rows: under "max" nothing is
+  # called both ways, so each direction takes its reference from its own
+  # calls -- here equal to its threshold, so power 0.5
+  disjoint <- rank_frame(q1 = c(0.01, 0.5), q2 = c(0.5, 0.01),
+                         p1 = c(0.001, 0.3), p2 = c(0.3, 0.001))
+  expect_equal(rp(disjoint, alpha = 0.1, pval_combine = "max"), c(0.5, 0.5))
 })
 
 test_that("both routes to rank edges carry the same power", {

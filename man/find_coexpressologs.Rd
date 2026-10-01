@@ -52,7 +52,8 @@ specifying which pairs to compare. Defaults to all
 \code{"rank"} scores each ortholog pair with
 \code{\link{compare_specificity}} and calibrates it against
 \code{null_networks} via \code{\link{summarize_specificity}};
-\code{filter_zero} and \code{rho0} do not apply; \code{power} is
+\code{filter_zero} does not apply and \code{rho0} is refused (use
+\code{p0}); \code{power} is
 the rank-test power (see \code{\link{summarize_specificity}}).}
 
 \item{alternative}{\code{"greater"} (conservation, default) or
