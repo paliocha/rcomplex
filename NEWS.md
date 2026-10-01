@@ -99,10 +99,11 @@
 
 - **Rank-test edges carry a `power` column.** `compare_specificity()`
   records per anchor an AUROC grid (`auroc.grid`: the AUROC an ortholog
-  needs to reach raw p of 1e-4 to 0.5, and `n.cand`), and
+  needs to reach raw p of 1e-5 to 1, and `n.cand`), and
   `summarize_specificity(p0 = NULL)` turns it into the probability that the
   pair would have been called had the ortholog ranked at the reference raw
-  p `p0` (default: the median raw p of the called pairs), with the
+  p `p0` (default: per direction, the median raw p of the pairs called
+  and significant in that direction), with the
   Hanley-McNeil standard error of an AUROC over the translated set. The
   clique classifiers read it through `min_power`, so a rank-test miss no
   longer counts as a rejection regardless of how detectable conservation

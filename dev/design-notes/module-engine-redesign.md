@@ -2051,10 +2051,12 @@ read every tested-but-uncalled rank pair as a rejection, and the
 p16e) was made of congeneric near misses (q 0.10-0.25, none >= 0.2 in all
 three non-Briza genera). The kernel now records, per anchor, the AUROC grid:
 the ceil(f n)-th largest candidate AUROC at 13 raw-p fractions f from 1e-4
-to 0.5 (exact against the R oracle). Power per direction is
+to 0.5 (exact against the R oracle; widened to 1e-5..1 after review, the
+old knots kept, so the validation below is unchanged inside that range). Power per direction is
 Phi((G(p0) - G(p_cut)) / se): G(p_cut) is the AUROC the ortholog needs for
 the largest called raw p, G(p0) the AUROC at the reference rank p0 (default
-the median raw p of called pairs), se the Hanley-McNeil standard error of an
+the median raw p of called pairs; later per direction, of pairs called
+and significant in it), se the Hanley-McNeil standard error of an
 AUROC over the pair's translated set; directions combine like
 `pval_combine`.
 

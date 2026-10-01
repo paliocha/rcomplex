@@ -40,9 +40,10 @@ al. (2014)) or \code{"min"} (either direction).}
 
 \item{p0}{Reference raw p for the \code{power} column of \verb{$edges}: the
 rank among its candidates at which a conserved ortholog is assumed to
-sit, as a fraction in (0, 1). \code{NULL} (default) uses the median raw p
-of the called pairs, per direction -- the rank-test counterpart of
-\code{rho0}.}
+sit, as a fraction in (0, 1); values below 1e-5 are read as 1e-5, the
+edge of the AUROC grid. \code{NULL} (default) uses, per direction, the
+median raw p of the pairs called and significant in that direction --
+the rank-test counterpart of \code{rho0}.}
 }
 \value{
 A list with components:
@@ -61,7 +62,8 @@ the pair would have been called had the ortholog ranked at raw p
 and at the largest called raw p, and the ortholog's AUROC over
 its \code{mapped} genes is taken as normal around the former with the
 Hanley-McNeil (1982) standard error. It is at least 0.5 when
-\code{p0} lies below the call threshold, and like the hypergeometric
+\code{p0} lies below the call threshold (always so for the default),
+and like the hypergeometric
 power it orders pairs by how detectable conservation is rather
 than giving calibrated rates. Directions combine like
 \code{pval_combine}. The clique classifiers read it through

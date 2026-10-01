@@ -57,7 +57,7 @@
 #'     \item{n.cand}{Number of candidate genes in the partner network.}
 #'     \item{effect.size}{Equal to `auroc`.}
 #'     \item{auroc.grid}{Matrix, one row per pair and one column per
-#'       raw-p fraction f (1e-4 to 0.5, the column names): the
+#'       raw-p fraction f (1e-5 to 1, the column names): the
 #'       `ceiling(f * n.cand)`-th largest candidate AUROC for the anchor,
 #'       i.e. the AUROC the ortholog needs to reach raw p of about f.
 #'       [summarize_specificity()] reads it for the edge `power`.}
@@ -82,9 +82,12 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 
 
 # Raw-p fractions at which each anchor's AUROC grid is recorded; the power
-# of a rank-test edge interpolates the call threshold on this grid.
+# of a rank-test edge interpolates the call threshold on this grid. From
+# 1e-5 (below 1 / n for up to 100,000 candidates) to 1, so neither the
+# reference rank nor a call threshold is clamped in practice.
 .rank_grid_frac <- c(
-  1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5
+  1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 0.01, 0.02, 0.05,
+  0.1, 0.2, 0.3, 0.5, 0.7, 1
 )
 
 
@@ -252,7 +255,10 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     }
     f0 <- p0
     if (is.null(f0)) {
-      use <- called & is.finite(p)
+      # pairs called and significant in this direction: under "min" a pair
+      # called through the other direction alone sits above this
+      # direction's threshold and would pull the reference past it
+      use <- called & sig & is.finite(p)
       if (!any(use)) {
         return(na_out)
       }

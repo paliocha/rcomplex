@@ -407,6 +407,12 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   are shared. \code{NULL} (default) takes, per direction, the median
 #'   \code{effect.size} of the called pairs (about 2.5 on the Pooideae
 #'   data); a single positive number fixes it for both directions.
+#' @param p0 Rank-test frames only (from
+#'   \code{\link{summarize_specificity}}, carrying the AUROC grid):
+#'   reference raw p for the \code{power} column, see
+#'   \code{\link{summarize_specificity}}. \code{NULL} (default) takes, per
+#'   direction, the median raw p of the pairs called and significant in
+#'   that direction.
 #'
 #' @return Data frame with columns:
 #'   \describe{
@@ -434,7 +440,9 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'       \code{\link{classify_cliques}} read it through
 #'       \code{min_power}. \code{NA} for \code{alternative = "less"},
 #'       when no pair is called, or when the comparison lacks the
-#'       neighbourhood-size columns.}
+#'       neighbourhood-size columns. For a rank-test frame (one carrying
+#'       \code{*.auroc.grid}) it is the rank-test power instead, at
+#'       reference rank \code{p0} (see \code{\link{summarize_specificity}}).}
 #'     \item{type}{\code{"conserved"} or \code{"diverged"} if
 #'       \code{q.value < alpha}; \code{"ns"} otherwise}
 #'   }
@@ -453,10 +461,11 @@ comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
                                 alpha = 0.1,
                                 pval_combine = c("max", "min"),
-                                rho0 = NULL) {
+                                rho0 = NULL, p0 = NULL) {
   alternative <- match.arg(alternative)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_p0(p0)
 
   suffix <- if (alternative == "greater") "con" else "div"
   q1_col <- paste0("Species1.q.val.", suffix)
@@ -502,7 +511,12 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     q.value = q_comb,
     effect_size = eff_geo,
     jaccard = jacc_geo,
-    power = .edge_power(comparison, alpha, alternative, pval_combine, rho0),
+    power = if (all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+                      names(comparison))) {
+      .rank_power(comparison, alpha, pval_combine, p0)
+    } else {
+      .edge_power(comparison, alpha, alternative, pval_combine, rho0)
+    },
     type = type
   )
 }

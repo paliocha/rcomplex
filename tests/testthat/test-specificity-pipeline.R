@@ -162,9 +162,84 @@ test_that("rank power falls with the reference rank and checks p0", {
   expect_error(pw(0), "p0")
   expect_error(pw(c(0.1, 0.2)), "p0")
   # "min" never reports less power than "max" (either direction suffices)
+  # at one fixed reference rank (the defaults differ between the modes)
   e_min <- summarize_specificity(cmp, null_p,
-    sp1 = "sp1", sp2 = "sp2", pval_combine = "min"
+    sp1 = "sp1", sp2 = "sp2", pval_combine = "min", p0 = 0.01
   )$edges
-  e_max <- summarize_specificity(cmp, null_p, sp1 = "sp1", sp2 = "sp2")$edges
+  e_max <- summarize_specificity(cmp, null_p,
+    sp1 = "sp1", sp2 = "sp2", p0 = 0.01
+  )$edges
   expect_true(all(e_min$power >= e_max$power - 1e-12, na.rm = TRUE))
+})
+
+# A rank-test results frame with a known AUROC grid, for pinning
+# .rank_power() by hand. Grid values G(f) = a - b * log(f) per row.
+rank_frame <- function(q1, q2, p1, p2, a = 0.6, b = 0.01, t = 30L, n = 1000L) {
+  gf <- rcomplex:::.rank_grid_frac
+  grid <- function(a) {
+    g <- matrix(rep(a - b * log(gf), each = length(q1)), length(q1))
+    colnames(g) <- format(gf, scientific = FALSE, drop0trailing = TRUE)
+    g
+  }
+  d <- data.frame(
+    Species1.p.val = p1, Species1.q.val.con = q1,
+    Species1.mapped = t, Species1.n.cand = n,
+    Species2.p.val = p2, Species2.q.val.con = q2,
+    Species2.mapped = t, Species2.n.cand = n
+  )
+  d$Species1.auroc.grid <- grid(a)
+  d$Species2.auroc.grid <- grid(a)
+  d
+}
+
+test_that(".rank_power() matches a hand computation", {
+  rp <- rcomplex:::.rank_power
+  hm <- function(a, t, m) {
+    q1 <- a / (2 - a)
+    q2 <- 2 * a^2 / (1 + a)
+    sqrt((a * (1 - a) + (t - 1) * (q1 - a^2) + (m - 1) * (q2 - a^2)) /
+           (t * m))
+  }
+  # rows 1-3 called both ways; raw p 0.001, 0.002, 0.004 -> cut 0.004
+  d <- rank_frame(q1 = c(0.01, 0.02, 0.05, 0.5), q2 = c(0.01, 0.02, 0.05, 0.5),
+                  p1 = c(0.001, 0.002, 0.004, 0.3),
+                  p2 = c(0.001, 0.002, 0.004, 0.3))
+  g <- function(f) 0.6 - 0.01 * log(f)
+  a_ref <- g(0.002) # median raw p of called rows
+  want <- stats::pnorm((a_ref - g(0.004)) / hm(a_ref, 30, 1000 - 1 - 30))
+  expect_equal(rp(d, alpha = 0.1), rep(want, 4), tolerance = 1e-12)
+  # a flat grid: reference and threshold need the same AUROC, power 0.5
+  flat <- rank_frame(q1 = c(0.01, 0.5), q2 = c(0.01, 0.5),
+                     p1 = c(0.001, 0.3), p2 = c(0.001, 0.3), b = 0)
+  expect_equal(rp(flat, alpha = 0.1, p0 = 0.01), c(0.5, 0.5))
+  # nothing called: NA
+  none <- rank_frame(q1 = c(0.5, 0.6), q2 = c(0.5, 0.6),
+                     p1 = c(0.2, 0.3), p2 = c(0.2, 0.3))
+  expect_true(all(is.na(rp(none, alpha = 0.1))))
+  # "min" with direction 2 never significant: direction 1's power
+  one <- rank_frame(q1 = c(0.01, 0.02, 0.5), q2 = c(0.5, 0.6, 0.7),
+                    p1 = c(0.001, 0.004, 0.3), p2 = c(0.2, 0.3, 0.4))
+  a1 <- g(0.0025) # median of 0.001 and 0.004
+  w1 <- stats::pnorm((a1 - g(0.004)) / hm(a1, 30, 1000 - 1 - 30))
+  expect_equal(rp(one, alpha = 0.1, pval_combine = "min"), rep(w1, 3),
+               tolerance = 1e-12)
+  expect_true(all(is.na(rp(one, alpha = 0.1, pval_combine = "max"))))
+})
+
+test_that("both routes to rank edges carry the same power", {
+  f <- make_spec_nets()
+  nets <- f$networks
+  cmp <- compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  null_p <- list(
+    sp1 = compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
+      directions = "1to2"
+    )$Species1.p.val,
+    sp2 = compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
+      directions = "2to1"
+    )$Species2.p.val
+  )
+  sm <- summarize_specificity(cmp, null_p, sp1 = "sp1", sp2 = "sp2")
+  two_step <- comparison_to_edges(sm$results, "sp1", "sp2")
+  expect_false(anyNA(two_step$power))
+  expect_identical(two_step$power, sm$edges$power)
 })
