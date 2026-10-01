@@ -723,6 +723,7 @@ null_mean`) across sizes.
 | `R/modules.R` | `detect_modules()`, `identify_module_hubs()`, `classify_hub_conservation()`, `characterize_hubs()` |
 | `R/ortholog_map.R` | `resolve_ortholog_map()` -- paralog resolution waterfall (cliques, coexpressologs, unresolved remainder) |
 | `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
+| `R/as_modules.R` | `as_modules()` -- module map from any gene partition for the preservation tests |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
 
