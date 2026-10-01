@@ -194,3 +194,14 @@ test_that("label and gene-ID order do not depend on the collation locale", {
   expect_identical(corr(), c_en)
   expect_identical(rcomplex:::.pres_project(tie), p_en)
 })
+
+test_that("a detect_modules() result passes through as_modules() unchanged", {
+  fx <- as_mod_fixture()
+  m <- detect_modules(fx$netA, resolution = 1, seed = 1L)
+  expect_s3_class(m$modules, "membership")
+  a <- module_preservation(m, fx$netA, fx$netB, fx$ortho,
+                           n_perm = 30L, seed = 2)
+  b <- module_preservation(as_modules(m$modules), fx$netA, fx$netB, fx$ortho,
+                           n_perm = 30L, seed = 2)
+  expect_identical(b, a)
+})

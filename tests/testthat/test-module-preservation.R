@@ -585,9 +585,9 @@ test_that("copy resolution and the copy null do not depend on collation", {
   dimnames(fx$netA$network) <- list(rn, rn)
   amb$ortho$Species1 <- ren(amb$ortho$Species1)
   amb$cliques$A <- ren(amb$cliques$A)
-  # and the multi-copy species-2 genes B0001-B0010, alternately b#### and
-  # Z#### ("Z" < "b" in C, the reverse in en_US), so the copy null's
-  # per-gene draw order is exercised too
+  # and the multi-copy species-2 genes B0001-B0010, alternately with a
+  # lower-case b and an upper-case Z prefix (Z sorts first in C, last in
+  # en_US), so the copy null's per-gene draw order is exercised too
   ren2 <- function(x) {
     x <- as.character(x)
     n <- suppressWarnings(as.integer(sub("^B", "", x)))

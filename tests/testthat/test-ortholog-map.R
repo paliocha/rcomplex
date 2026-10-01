@@ -391,10 +391,8 @@ test_that("edges missing hog are reported by name", {
 test_that("tied copies resolve the same way under any collation", {
   old <- Sys.getlocale("LC_COLLATE")
   on.exit(Sys.setlocale("LC_COLLATE", old))
-  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
-  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
   # Two species-1 copies per HOG whose names C and en_US order differently
-  # ("B2" < "b1" in C, "b1" < "B2" in en_US), tied in the clique layer (H1)
+  # (B2 before b1 in C, after it in en_US), tied in the clique layer (H1)
   # and in the coexpressolog layer (H2).
   ortho <- data.frame(
     Species1 = c("b1", "B2", "c3", "C4"),
@@ -417,11 +415,12 @@ test_that("tied copies resolve the same way under any collation", {
       sp1 = "SP_A", sp2 = "SP_B", edges = edges, cliques = cliques
     )
   }
-  r_en <- run()
+  # the C-locale (radix) order decides, uppercase first; needs no other locale
   Sys.setlocale("LC_COLLATE", "C")
   r_c <- run()
-  expect_identical(r_c, r_en)
-  # the C-locale order decides: uppercase first
   expect_identical(r_c$gene1[r_c$source == "clique"], "B2")
   expect_identical(r_c$gene1[r_c$source == "coexpressolog"], "C4")
+  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  expect_identical(run(), r_c)
 })
