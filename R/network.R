@@ -156,20 +156,22 @@ cor_rfast <- function(x, method = "pearson") {
 #'   partners in the top fraction of its correlation ranks, which at the
 #'   default `store_density` is 15% of all pairs held at 8 bytes each. On
 #'   BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
-#'   1.2-1.4 GB against 5.1 GB for the dense build, in 6.8-7.4 s against
-#'   8.2 s. The result equals the dense build up to floating-point
+#'   1.2-1.4 GB against 5.1 GB for the dense build, in 7.6-7.7 s against
+#'   9.1 s. The result equals the dense build up to floating-point
 #'   near-ties between correlations: the two builds compute correlations
 #'   with different BLAS calls, so two correlations of one gene that differ
 #'   only in the last bits can be ranked in the other order, shifting an MR
-#'   value. Requires `sparse = TRUE`, `norm_method = "MR"` and
+#'   value. With `cor_method = "spearman"` and few samples, correlations
+#'   that are equal as rationals are common and may round apart, so the
+#'   result can then differ from the dense build in many entries and
+#'   between block sizes. Requires `sparse = TRUE`, `norm_method = "MR"` and
 #'   `use_torch = FALSE`. With `mr_log_transform = TRUE` a pair is kept
 #'   when either gene ranks the other in its top 10% (twice
 #'   `store_density`) and a second correlation pass reads the other rank;
 #'   on the same data peak memory was 1.7 GB against 5.1 GB dense in
 #'   8.3 s against 8.0 s. If the store threshold cannot prove the kept
 #'   pairs complete the fraction widens, and at all pairs the build saves
-#'   no memory (a message says so). The default stays dense until the
-#'   blockwise build is validated at scale.
+#'   no memory (a message says so).
 #'
 #' @return A list with components:
 #'   \describe{

@@ -122,8 +122,8 @@
   keeps each gene's top-ranked partners, and returns the same object as
   the dense build, slot for slot, up to floating-point near-ties between
   correlations. On BDIS leaf data (20 samples, n = 20,000, 8 threads)
-  the dense build peaked at 5.1 GB RSS in 8.2 s and the blockwise build
-  at 1.4 GB in 7.4 s (`block_size = 1024`; 1.2 GB and 6.8 s at 256).
+  the dense build peaked at 5.1 GB RSS in 9.1 s and the blockwise build
+  at 1.4 GB in 7.6 s (`block_size = 1024`; 1.2 GB and 7.7 s at 256).
   On Orion (16 cores, `block_size = 512`) the 52,452-gene Hordeum
   jubatum root network peaked at 5.9 GB in 31 s against 32.8 GB in
   66 s dense, with identical thresholds and entry counts (4 columns,
@@ -136,6 +136,9 @@
   reads the other rank exactly; BDIS leaf needed a fraction of 0.1 at
   the default `store_density` (n = 20,000, `block_size = 512`: 1.7 GB in
   8.3 s against 5.1 GB in 8.0 s dense, identical output).
+  With `cor_method = "spearman"` and few samples, tied correlations are
+  common and may round apart, so the result can differ from the dense
+  build in many entries and between block sizes.
   `NULL` (default) keeps the dense build.
 
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A

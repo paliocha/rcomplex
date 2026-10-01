@@ -18,10 +18,10 @@ block_zt <- function(x, cor_method) {
 has_near_ties <- function(zt, abs_cor) {
   cm <- pmin(pmax(crossprod(zt), -1), 1)
   if (abs_cor) cm <- abs(cm)
-  near <- apply(cm, 2, function(v) {
-    d <- diff(sort(v))
-    any(d > 0 & d < 1e-12)
-  })
+  # exact ties count too: they may round apart under another BLAS
+  near <- vapply(seq_len(ncol(cm)), function(j) {
+    any(diff(sort(cm[-j, j])) < 1e-12)
+  }, logical(1))
   any(near)
 }
 
@@ -107,6 +107,35 @@ test_that("block network widens the candidate fraction when needed", {
   }
 })
 
+# Entries in {-0.5, 0, 0.5} over 4 samples make every cross-product an
+# exact multiple of 0.25 in [-1, 1], identical under any summation order,
+# so the kernel meets heavy rank ties (half-integer ranks, tie groups across
+# the list cut-off, tied MR at the thresholds) with nothing left to BLAS.
+test_that("block network matches the dense kernels under exact ties", {
+  set.seed(5)
+  zt <- matrix(sample(c(-0.5, 0, 0.5), 4 * 40, replace = TRUE), 4, 40)
+  for (lg in c(FALSE, TRUE)) {
+    m <- crossprod(zt) + 0
+    rcomplex:::mutual_rank_inplace_cpp(m, lg, FALSE, 1L)
+    t_s <- rcomplex:::density_threshold_cpp(m, 0.1)
+    ref <- c(
+      rcomplex:::extract_sparse_cpp(m, t_s, 1L),
+      list(
+        threshold = rcomplex:::density_threshold_cpp(m, 0.05),
+        store_threshold = t_s
+      )
+    )
+    m_mode <- list(log = lg, abs = FALSE)
+    for (bs in c(1L, 7L, 40L)) {
+      blk <- run_block(zt, m_mode,
+        density = 0.05, store_density = 0.1,
+        block_size = bs
+      )
+      expect_identical(net_slots(blk), net_slots(ref))
+    }
+  }
+})
+
 test_that("block network errors on NaN input", {
   zt <- block_zt(block_fixture(60, 12, 1), "pearson")
   zt[, 5] <- NaN
@@ -152,7 +181,8 @@ test_that("compute_network block_size validates its arguments", {
     compute_network(x, norm_method = "CLR", block_size = 7), "MR"
   )
   expect_error(
-    compute_network(x, use_torch = TRUE, block_size = 7), "use_torch"
+    compute_network(x, use_torch = TRUE, block_size = 7),
+    "block_size requires use_torch"
   )
 })
 
