@@ -126,3 +126,30 @@ test_that("twelve integer-labelled modules give the whole result unchanged", {
                            n_perm = 30L, seed = 3)
   expect_identical(b, a)
 })
+
+test_that("named gene sets in any order give the integer-labelled result", {
+  fx <- as_mod_fixture()
+  lab <- fx$labA
+  names_of <- c("ribosome", "auxin", "zinc", "calvin") # not alphabetical
+  sets <- stats::setNames(lapply(1:4, function(k) names(lab)[lab == k]),
+                          names_of)
+  a <- module_preservation(fx$handA, fx$netA, fx$netB, fx$ortho,
+                           n_perm = 50L, seed = 11)
+  b <- module_preservation(as_modules(sets), fx$netA, fx$netB, fx$ortho,
+                           n_perm = 50L, seed = 11)
+  expect_setequal(b$coverage$module, names_of)
+  pa <- a$preservation
+  pb <- b$preservation
+  pb <- pb[match(names_of[as.integer(pa$module)], pb$module), ]
+  # observed statistics match; the permutation columns do not, because
+  # module_preservation() draws its null per module in label order, so
+  # renaming the modules reorders the draws
+  obs <- c("size", "size_mapped", "avg.weight", "cor.degree")
+  expect_equal(unname(as.list(pb[obs])), unname(as.list(pa[obs])))
+})
+
+test_that("doubles that print alike share one label", {
+  m <- as_modules(c(g1 = 0.1 + 0.2, g2 = 0.3, g3 = 1))
+  expect_identical(m$n_modules, 2L)
+  expect_identical(names(m$module_genes), c("0.3", "1"))
+})

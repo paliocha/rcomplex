@@ -85,7 +85,8 @@ as_modules <- function(x, min_size = 1L) {
     # other labels keep their order of first appearance
     lab <- x[!is.na(x)]
     lab <- if (is.numeric(lab)) sort(unique(lab)) else unique(lab)
-    levels <- as.character(lab)
+    # unique after conversion: doubles that print alike share a label
+    levels <- unique(as.character(lab))
     modules <- stats::setNames(as.character(x), names(x))
     modules <- modules[!is.na(modules)]
     if (any(!nzchar(modules))) {

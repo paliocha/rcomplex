@@ -46,11 +46,11 @@
 #'     scored far above shuffled expression (statistic 63--89 against
 #'     14--22).
 #' }
-#' Treat modules as units only after they replicate on independent samples
-#' (or on shuffled-expression controls), not on the strength of the K = 1
-#' test; \code{"modularity"} replicated better here but needs that check
-#' most. To test gene sets from other sources (pathways, regulons, another
-#' tool) use [as_modules()] with [module_preservation()].
+#' Treat modules as units only after they replicate on independent samples,
+#' well above the same split on shuffled expression, not on the strength of
+#' the K = 1 test; \code{"modularity"} replicated better here but needs
+#' that check most. To test gene sets from other sources (pathways,
+#' regulons, another tool) use [as_modules()] with [module_preservation()].
 #'
 #' @param net Network object from [compute_network()].
 #' @param method Community detection method: `"leiden"` (default), `"infomap"`,

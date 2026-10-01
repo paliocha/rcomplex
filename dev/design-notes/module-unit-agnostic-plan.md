@@ -32,6 +32,9 @@ read only `$modules` (named vector gene -> label, NA = unassigned) and
 
 ## Outcome
 
+*As planned; superseded in part by the Results and Decision sections at
+the end (option A: nothing deprecated, no notice).*
+
 1. `as_modules()` turns any partition -- anchored regulons, root cores,
    curated pathways -- into the object the testing half takes, so it can be
    tested without `detect_modules()`.
@@ -52,7 +55,7 @@ and with one commit (no Co-Authored-By trailer, last line the
 ### WP1: `as_modules()` (new file `R/as_modules.R`, new test file)
 
 ```r
-as_modules(x, genes = NULL, min_size = 1L)
+as_modules(x, genes = NULL, min_size = 1L)   # shipped without `genes`
 #  x: named vector (gene -> module label; NA = unassigned), or a named list
 #     (label -> character vector of genes), or a detect_modules() result
 #     (returned unchanged, so the call is idempotent).
@@ -95,7 +98,7 @@ preservation tests unchanged):
 and (b) Pooideae leaf per species with sample labels shuffled within each
 gene (the shuffled-expression null used everywhere else; skip if
 `prepare_data/data/` is absent), 2,000 top-variance genes, `compute_network()`
-at the package defaults, then `detect_modules(resolution = seq(0.5, 2, 0.5),
+at the package defaults, then `detect_modules(resolution = seq(0.5, 2, 0.5)` (shipped: `c(0.5, 1, 2)`),
 test_k1 = TRUE, n_perm_k1 = 100)`; 10 seeds for (a), all 8 species for (b).
 Report per run `has_structure`, `p_value`, `n_modules`; write a TSV to
 `dev/bench/k1_null_check.tsv` and print the rejection rate.
@@ -106,6 +109,8 @@ rate on null data exceeds 0.2 (alpha is 0.05), flip the default; otherwise
 keep `test_k1 = TRUE` and only document.
 
 ### WP3: soft-deprecate detection (R/modules.R, docs)
+
+*Not done as written: replaced by option A (see Decision below).*
 
 - `detect_modules()` roxygen: a "Status: superseded" paragraph at the top of
   `@description`, in plain words: per-species modules at small sample sizes
@@ -180,7 +185,7 @@ R CMD build . && R CMD check --no-manual rcomplex_0.3.1.tar.gz
 
 ## Results (2026-09-30)
 
-**WP1 done** (04eb62e): `as_modules()`; preservation, correspondence and
+**WP1 done** (369175d on this branch): `as_modules()`; preservation, correspondence and
 paired results identical through it (278 tests pass).
 
 **WP2: the K = 1 test does not separate modules from noise.** First run
