@@ -69,8 +69,9 @@ script used a looser hard-coded 6.}
 \item{min_power}{Detection power below which a non-significant pair
 is read as uninformative rather than as evidence against
 conservation (default 0.8). Only used when \code{edges} has \code{power}. For
-rank-test edges (\code{find_coexpressologs(method = "rank")}) use 0.9: their
-power is at least 0.5 by construction and overstates detection.}
+rank-test edges (\code{find_coexpressologs(method = "rank")}) use 0.9: under
+the default reference rank \code{p0} their power is at least 0.5 by
+construction, and it overstates detection.}
 }
 \value{
 A data frame with one row per clique:

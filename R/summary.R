@@ -471,8 +471,9 @@ summarize_comparison <- function(comparison,
 #'       and like the hypergeometric
 #'       power it orders pairs by how detectable conservation is rather
 #'       than giving calibrated rates. Directions combine like
-#'       `pval_combine`. The clique classifiers read it through
-#'       `min_power`.}
+#'       `pval_combine`. A direction with no call gives power 0: nothing
+#'       was detectable there, so a miss is not evidence. The clique
+#'       classifiers read it through `min_power`.}
 #'   }
 #'
 #' @references

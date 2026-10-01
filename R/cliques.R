@@ -2256,7 +2256,8 @@ clique_intensity_test.default <- function(
 #'   read as uninformative rather than as evidence against conservation
 #'   (default 0.8). Only used when \code{edges} has \code{power}. For
 #'   rank-test edges (\code{find_coexpressologs(method = "rank")}) use 0.9:
-#'   their power is at least 0.5 by construction and overstates detection.
+#'   under the default reference rank \code{p0} their power is at least
+#'   0.5 by construction, and it overstates detection.
 #'
 #' @return A data frame with one row per HOG:
 #'   \describe{

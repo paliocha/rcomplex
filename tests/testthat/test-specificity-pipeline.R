@@ -212,10 +212,10 @@ test_that(".rank_power() matches a hand computation", {
   flat <- rank_frame(q1 = c(0.01, 0.5), q2 = c(0.01, 0.5),
                      p1 = c(0.001, 0.3), p2 = c(0.001, 0.3), b = 0)
   expect_equal(rp(flat, alpha = 0.1, p0 = 0.01), c(0.5, 0.5))
-  # nothing called: NA
+  # nothing called: nothing was detectable, power 0
   none <- rank_frame(q1 = c(0.5, 0.6), q2 = c(0.5, 0.6),
                      p1 = c(0.2, 0.3), p2 = c(0.2, 0.3))
-  expect_true(all(is.na(rp(none, alpha = 0.1))))
+  expect_identical(rp(none, alpha = 0.1), c(0, 0))
   # "min" with direction 2 never significant: direction 1's power
   one <- rank_frame(q1 = c(0.01, 0.02, 0.5), q2 = c(0.5, 0.6, 0.7),
                     p1 = c(0.001, 0.004, 0.3), p2 = c(0.2, 0.3, 0.4))
@@ -223,7 +223,8 @@ test_that(".rank_power() matches a hand computation", {
   w1 <- stats::pnorm((a1 - g(0.004)) / hm(a1, 30, 1000 - 1 - 30))
   expect_equal(rp(one, alpha = 0.1, pval_combine = "min"), rep(w1, 3),
                tolerance = 1e-12)
-  expect_true(all(is.na(rp(one, alpha = 0.1, pval_combine = "max"))))
+  # under "max" the uncalled direction bounds it at 0
+  expect_identical(rp(one, alpha = 0.1, pval_combine = "max"), c(0, 0, 0))
 })
 
 test_that("both routes to rank edges carry the same power", {
@@ -323,4 +324,13 @@ test_that("comparison_to_edges() refuses p0 on a hypergeometric frame", {
     compare_neighborhoods(f$networks$sp1, f$networks$sp2, f$ortho)
   )$results
   expect_error(comparison_to_edges(hy, "sp1", "sp2", p0 = 0.1), "rho0")
+})
+
+test_that("rho0 is refused on the rank path", {
+  f <- make_spec_nets()
+  expect_error(spec_edges(f, rho0 = 2), "rho0 is only used")
+  nets <- f$networks
+  cmp <- compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  res <- summarize_specificity(cmp)$results
+  expect_error(comparison_to_edges(res, "sp1", "sp2", rho0 = 2), "p0 sets")
 })

@@ -107,7 +107,7 @@
   Hanley-McNeil standard error of an AUROC over the translated set. The
   clique classifiers read it through `min_power`, so a rank-test miss no
   longer counts as a rejection regardless of how detectable conservation
-  was. A fixed reference AUROC, the direct analogue of `rho0`, inverted the
+  was. A direction with no call at all gives power 0, not `NA`. A fixed reference AUROC, the direct analogue of `rho0`, inverted the
   power and was dropped. On Pooideae leaf, among pairs called by both tests
   in root, the leaf call rate was 0.04, 0.20 and 0.62 in the power bins
   0.5-0.7, 0.7-0.9 and above 0.9 (root 0.13, 0.38, 0.75); like the

@@ -508,6 +508,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     stop("p0 applies to rank-test frames (with *.auroc.grid columns); ",
          "rho0 sets the hypergeometric power", call. = FALSE)
   }
+  if (rank_frame && !is.null(rho0)) {
+    stop("rho0 applies to hypergeometric frames; p0 sets the rank-test ",
+         "power", call. = FALSE)
+  }
   if (!rank_frame && any(c("Species1.n.cand", "Species2.n.cand") %in%
                            names(comparison))) {
     # a rank-test frame that lost its matrix columns (e.g. through
@@ -748,7 +752,7 @@ find_coexpressologs.default <- function(
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
   .check_p0(p0)
-  .check_specificity_args(method, alternative, null_networks, p0)
+  .check_specificity_args(method, alternative, null_networks, p0, rho0)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
@@ -1056,7 +1060,7 @@ density_sweep.default <- function(
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
   .check_p0(p0)
-  .check_specificity_args(method, alternative, null_networks, p0)
+  .check_specificity_args(method, alternative, null_networks, p0, rho0)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue

@@ -66,8 +66,9 @@ Hanley-McNeil (1982) standard error. It is at least 0.5 when
 and like the hypergeometric
 power it orders pairs by how detectable conservation is rather
 than giving calibrated rates. Directions combine like
-\code{pval_combine}. The clique classifiers read it through
-\code{min_power}.}
+\code{pval_combine}. A direction with no call gives power 0: nothing
+was detectable there, so a miss is not evidence. The clique
+classifiers read it through \code{min_power}.}
 }
 }
 \description{

@@ -161,9 +161,13 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' and density_sweep()
 #' @noRd
 .check_specificity_args <- function(method, alternative, null_networks,
-                                    p0 = NULL) {
+                                    p0 = NULL, rho0 = NULL) {
   if (method != "rank" && !is.null(null_networks)) {
     stop("null_networks is only used with method = \"rank\"")
+  }
+  if (method == "rank" && !is.null(rho0)) {
+    stop("rho0 is only used with method = \"hypergeometric\" (p0 sets the ",
+         "rank-test power)")
   }
   if (method != "rank" && !is.null(p0)) {
     stop("p0 is only used with method = \"rank\" (rho0 sets the ",
@@ -262,8 +266,11 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     q <- col(".q.val.con")
     p <- col(".p.val")
     sig <- !is.na(q) & q < alpha
+    # nothing called in this direction: nothing was detectable, so a miss
+    # here is no evidence -- power 0, not NA (which the classifiers would
+    # read as "every miss is a rejection")
     if (!any(sig)) {
-      return(na_out)
+      return(rep(0, nrow(res)))
     }
     f0 <- p0
     if (is.null(f0)) {
@@ -271,9 +278,9 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
       # called through the other direction alone sits above this
       # direction's threshold and would pull the reference past it
       use <- called & sig & is.finite(p)
-      if (!any(use)) {
-        return(na_out)
-      }
+      # no pair called overall (e.g. under "max" the other direction never
+      # calls): fall back on this direction's own calls
+      if (!any(use)) use <- sig & is.finite(p)
       f0 <- stats::median(p[use])
     }
     grid <- col(".auroc.grid")
