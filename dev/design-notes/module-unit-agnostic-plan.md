@@ -202,7 +202,15 @@ same genes, `test_k1 = FALSE`; ARI between the two halves' partitions):
 So the premise of WP3 is only half right: with the modularity objective,
 modules replicate partially and well above noise (about half the seed
 ceiling); with the default CPM objective, whether modules exist at all
-flips between sample halves. WP3 is on hold for Martin's decision.
+flips between sample halves. WP3 was on hold for Martin's decision.
+
+**Decision (2026-10-01): option A.** Do not deprecate `detect_modules()`
+and do not change its defaults. Its help page gains a section on
+reproducibility at small sample sizes with the numbers above, recommends
+`objective_function = "modularity"` there, and points to `as_modules()`;
+NEWS and CLAUDE.md say the same. No notice, no default change, so
+nf-rcomplex is unaffected. The macOS fork crash found in WP2 was fixed
+separately (PR #34).
 
 **Found on the way (separate bug):** on macOS with R's Accelerate BLAS,
 `detect_modules(test_k1 = TRUE, n_cores > 1)` segfaults in forked K = 1

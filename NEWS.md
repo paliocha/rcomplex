@@ -1,5 +1,24 @@
 # rcomplex 0.3.1
 
+- **`as_modules()` feeds any gene partition to the module-preservation
+  tests.** `module_preservation()`, `module_correspondence()` and
+  `preservation_paired()` read only a gene-to-module map, but checked for
+  `detect_modules()` output; `as_modules()` builds that map from a named
+  vector or a named list of gene sets (pathways, regulons, clusters from
+  another tool), validates it as a partition, and passes existing module
+  objects through. Results through it are identical to a hand-built map.
+
+- **`detect_modules()` documents how far its modules replicate.** On
+  Pooideae leaf networks split into two halves of 10 samples, the default
+  CPM objective was unstable -- whether modules existed at all flipped
+  between halves in 5 of 8 species -- while `objective_function =
+  "modularity"` replicated partially (median split-half adjusted Rand
+  index 0.36, against about 0 on shuffled expression). The K = 1 test is
+  calibrated at the defaults (0 of 18 null data sets rejected, 6 of 8 real
+  species). The help page now says so and recommends modularity at small
+  sample sizes, checking replication on independent samples, and
+  `as_modules()` for gene sets from elsewhere. Nothing is deprecated.
+
 - **`detect_modules(test_k1 = TRUE, n_cores > 1)` no longer segfaults
   on macOS with R's Accelerate BLAS.** The K = 1 permutations fork
   workers that call the eigensolver (`arma::eigs_sym()`), and Accelerate

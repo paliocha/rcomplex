@@ -18,6 +18,30 @@
 #'     Can detect both assortative and non-assortative structure.}
 #' }
 #'
+#' @section Reproducibility at small sample sizes:
+#' Modules can be stable across seeds and still not replicate across
+#' independent samples. On Pooideae leaf networks (2,000 genes, 20 samples
+#' split into two halves of 10, two replicates per time point each;
+#' `dev/bench/modules_split_half.tsv`), with
+#' \code{resolution = c(0.5, 1, 2)}:
+#' \itemize{
+#'   \item with the default \code{objective_function = "CPM"}, whether
+#'     modules exist at all flipped between the halves: in 5 of 8 species
+#'     one half gave 6--10 modules and the other 1, and two species gave 1
+#'     in both (median split-half adjusted Rand index 0);
+#'   \item with \code{objective_function = "modularity"}, modules
+#'     replicated partially (median split-half ARI 0.36, range 0.05--0.44,
+#'     against about 0 on shuffled expression and a seed-to-seed ARI of
+#'     0.59--0.93).
+#' }
+#' The K = 1 test is calibrated at the defaults: it rejected "no community
+#' structure" on 0 of 18 null data sets (random and per-gene shuffled
+#' expression) and on 6 of 8 real species (`dev/bench/k1_null_check.tsv`).
+#' At small sample sizes prefer \code{objective_function = "modularity"},
+#' check replication on independent samples before treating modules as
+#' units, and use [as_modules()] to test gene sets from other sources
+#' (pathways, regulons, another tool) with [module_preservation()].
+#'
 #' @param net Network object from [compute_network()].
 #' @param method Community detection method: `"leiden"` (default), `"infomap"`,
 #'   or `"sbm"`.
@@ -26,7 +50,9 @@
 #'   resolutions and produce a consensus partition via co-classification
 #'   (Lancichinetti & Fortunato, 2012). Ignored for other methods.
 #' @param objective_function Leiden objective: `"CPM"` (default) or
-#'   `"modularity"`. Ignored for other methods.
+#'   `"modularity"`. Ignored for other methods. At small sample sizes
+#'   `"modularity"` replicated better across independent samples; see the
+#'   section on reproducibility.
 #' @param n_iterations Number of Leiden iterations (default 2). Ignored for
 #'   other methods.
 #' @param nb_trials Number of Infomap attempts; best result is kept
