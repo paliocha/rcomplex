@@ -328,7 +328,9 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     stop("no test-species gene received an unambiguous module label")
   }
 
-  rows_by_mod <- split(seq_len(nrow(proj)), proj$module)
+  # radix (C-locale) order, so a seeded null is drawn in the same module
+  # order on every machine whatever the labels' case or alphabet
+  rows_by_mod <- split(seq_len(nrow(proj)), .radix_factor(proj$module))
   sizes <- vapply(rows_by_mod, length, integer(1))
   tested <- names(sizes)[sizes >= min_module_size]
   if (length(tested) == 0L) {
@@ -1207,7 +1209,7 @@ module_correspondence <- function(modules_ref, modules_test, map,
     stop("no mapped gene falls in a module of the test species")
   }
 
-  tab <- table(proj$module, proj$module_test)
+  tab <- table(.radix_factor(proj$module), .radix_factor(proj$module_test))
   n_total <- nrow(proj)
   ref_n <- rowSums(tab)
   test_n <- colSums(tab)
@@ -1468,4 +1470,13 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
       orthologs[c("Species2", "Species1")]
   }
   orthologs
+}
+
+
+# Factor with levels in radix (C-locale) order: split() and table() would
+# otherwise sort character labels by the session's collation, which differs
+# between machines for mixed-case or non-ASCII labels (as_modules() allows
+# any). Digit labels sort the same either way.
+.radix_factor <- function(x) {
+  factor(x, levels = sort(unique(x), method = "radix"))
 }

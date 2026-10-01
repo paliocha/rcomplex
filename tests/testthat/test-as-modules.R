@@ -153,3 +153,24 @@ test_that("doubles that print alike share one label", {
   expect_identical(m$n_modules, 2L)
   expect_identical(names(m$module_genes), c("0.3", "1"))
 })
+
+test_that("seeded results do not depend on the collation locale", {
+  old <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", old))
+  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  fx <- as_mod_fixture()
+  lab <- fx$labA
+  sets <- stats::setNames(
+    lapply(1:4, function(k) names(lab)[lab == k]),
+    c("Zinc", "auxin", "Beta", "calvin") # case-mixed: C and en_US differ
+  )
+  run <- function() {
+    module_preservation(as_modules(sets), fx$netA, fx$netB, fx$ortho,
+                        n_perm = 30L, seed = 5)
+  }
+  r_en <- run()
+  Sys.setlocale("LC_COLLATE", "C")
+  r_c <- run()
+  expect_identical(r_c, r_en)
+})
