@@ -561,6 +561,47 @@ test_that("p_copy is reproducible and pinned under a seed", {
   expect_equal(cd, c(7, 21, 51, 51) / 51)
 })
 
+test_that("copy resolution and the copy null do not depend on collation", {
+  old <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", old))
+  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  fx <- pres_fixture()
+  amb <- ambiguous_fixture(fx)
+  # Species-1 IDs that C and en_US order differently: the paralog copies
+  # (A0041-A0050) become a####, every other gene Q#### -- C sorts "Q"
+  # before "a", en_US the reverse.
+  ren <- function(x) {
+    x <- as.character(x)
+    n <- suppressWarnings(as.integer(sub("^A", "", x)))
+    i <- grepl("^A", x)
+    x[i] <- paste0(
+      ifelse(n[i] > fx$per & n[i] <= fx$per + 10L, "a", "Q"),
+      substring(x[i], 2L)
+    )
+    x
+  }
+  rn <- ren(rownames(fx$netA$network))
+  dimnames(fx$netA$network) <- list(rn, rn)
+  amb$ortho$Species1 <- ren(amb$ortho$Species1)
+  amb$cliques$A <- ren(amb$cliques$A)
+  tm <- true_modules(fx$netA, fx$mods)
+  run <- function() {
+    list(
+      map = resolve_ortholog_map(amb$ortho, rn, rownames(fx$netB$network),
+        sp1 = "A", sp2 = "B", cliques = amb$cliques
+      ),
+      pres = module_preservation(tm, fx$netA, fx$netB, amb$ortho,
+        cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+        n_perm = 50L, sensitivity = TRUE, copy_draws = 50L, seed = 1
+      )
+    )
+  }
+  r_en <- run()
+  Sys.setlocale("LC_COLLATE", "C")
+  expect_identical(run(), r_en)
+})
+
 test_that("p_copy does not depend on what the naive run consumed", {
   p <- pcopy_fixture()
   genes_a <- rownames(p$fx$netA$network)

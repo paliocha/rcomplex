@@ -11,14 +11,15 @@
   q-values depend on the labels (the null is drawn per module in label
   order), the observed statistics do not.
 
-- **`module_preservation()` and `module_correspondence()` order module
-  labels and gene IDs in C-locale (radix) order**, so a seeded call draws
-  the same way on every machine. Digit labels (as from `detect_modules()`)
+- **`resolve_ortholog_map()`, `module_preservation()` and
+  `module_correspondence()` order module labels and gene and HOG IDs in
+  C-locale (radix) order**, so ties resolve to the same copy and a seeded
+  call draws the same way on every machine. Digit labels (as from `detect_modules()`)
   and single-case ASCII gene IDs order as before. Mixed-case, non-ASCII or
   punctuated labels and IDs may now give different seeded p- and q-values,
   a different pick among tied reference genes, and a different row order
-  of `module_correspondence()$pairs` than 0.3.0 in a non-C session.
-  `resolve_ortholog_map()` still orders by the session's collation.
+  of `module_correspondence()$pairs` than 0.3.0 in a non-C session, and
+  `resolve_ortholog_map()` may pick another copy among tied candidates.
 
 - **`detect_modules()` documents how far its modules replicate.** On
   Pooideae leaf networks split into two halves of 10 samples
