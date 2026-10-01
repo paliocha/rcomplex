@@ -58,6 +58,22 @@ test_that("bad input fails with the offending value", {
   )
 })
 
+test_that("factor labels and empty input are handled", {
+  v <- c(g1 = "b", g2 = "a", g3 = "b")
+  f <- factor(v)
+  names(f) <- names(v)
+  expect_identical(as_modules(f), as_modules(v))
+  empty <- list(
+    as_modules(c(g1 = NA, g2 = NA)),
+    as_modules(list(a = character(0)))
+  )
+  for (z in empty) {
+    expect_identical(z$n_modules, 0L)
+    expect_length(z$module_genes, 0L)
+    expect_length(z$modules, 0L)
+  }
+})
+
 test_that("module order follows the labels, numerically for numbers", {
   v <- stats::setNames(c(1:12, 10L), sprintf("g%02d", 1:13))
   expect_identical(names(as_modules(v)$module_genes), as.character(1:12))

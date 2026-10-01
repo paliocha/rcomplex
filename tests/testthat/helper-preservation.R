@@ -1,6 +1,10 @@
 # Shared module-preservation fixture (test-module-preservation.R,
-# test-as-modules.R): four planted modules of 40 genes with shared
-# heavy-tailed loadings in two species, and a hand-built module map.
+# test-as-modules.R): two species sharing module structure, and a hand-built
+# module map. Gene loadings on each module's latent factor are heavy-tailed
+# and SHARED between species, so hub identity is conserved and cor.degree
+# has signal. A fixture where every gene in a module is exchangeable (one
+# factor, iid noise) correctly yields cor.degree ~ 0 even for preserved
+# modules, and would look like a bug.
 
 pres_expr <- function(seed, n, prefix, loadings, per, n_samp = 40) {
   set.seed(seed)
@@ -71,6 +75,3 @@ true_modules <- function(net, mods) {
     n_modules = length(mods)
   )
 }
-
-
-# ---- C++ kernel against the pure-R reference ----

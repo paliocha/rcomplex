@@ -1,10 +1,8 @@
-# Tests for module_preservation() and classify_preservation()
+# Tests for module_preservation() and classify_preservation(). Fixture:
+# pres_fixture() / true_modules() in helper-preservation.R.
 
-# Fixture: two species sharing module structure. Gene loadings on each
-# module's latent factor are heavy-tailed and SHARED between species, so hub
-# identity is conserved and cor.degree has signal. A fixture where every gene
-# in a module is exchangeable (one factor, iid noise) correctly yields
-# cor.degree ~ 0 even for preserved modules, and would look like a bug.
+# ---- C++ kernel against the pure-R reference ----
+
 test_that("kernel statistics match the R reference implementation", {
   fx <- pres_fixture()
   net <- fx$netA
