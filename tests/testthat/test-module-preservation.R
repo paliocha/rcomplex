@@ -585,10 +585,24 @@ test_that("copy resolution and the copy null do not depend on collation", {
   dimnames(fx$netA$network) <- list(rn, rn)
   amb$ortho$Species1 <- ren(amb$ortho$Species1)
   amb$cliques$A <- ren(amb$cliques$A)
+  # and the multi-copy species-2 genes B0001-B0010, alternately b#### and
+  # Z#### ("Z" < "b" in C, the reverse in en_US), so the copy null's
+  # per-gene draw order is exercised too
+  ren2 <- function(x) {
+    x <- as.character(x)
+    n <- suppressWarnings(as.integer(sub("^B", "", x)))
+    i <- grepl("^B", x) & !is.na(n) & n <= 10L
+    x[i] <- paste0(ifelse(n[i] %% 2L == 1L, "b", "Z"), substring(x[i], 2L))
+    x
+  }
+  rn2 <- ren2(rownames(fx$netB$network))
+  dimnames(fx$netB$network) <- list(rn2, rn2)
+  amb$ortho$Species2 <- ren2(amb$ortho$Species2)
+  amb$cliques$B <- ren2(amb$cliques$B)
   tm <- true_modules(fx$netA, fx$mods)
   run <- function() {
     list(
-      map = resolve_ortholog_map(amb$ortho, rn, rownames(fx$netB$network),
+      map = resolve_ortholog_map(amb$ortho, rn, rn2,
         sp1 = "A", sp2 = "B", cliques = amb$cliques
       ),
       pres = module_preservation(tm, fx$netA, fx$netB, amb$ortho,
