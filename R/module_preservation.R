@@ -602,7 +602,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     }
     # gene2, then module, then gene1: the first row of each (gene2, module)
     # run is that module's smallest gene1, which is the deterministic pick.
-    d <- df[order(df$gene2, df$module, df$gene1), , drop = FALSE]
+    # Radix (C-locale) order, so the pick is the same on every machine.
+    d <- df[order(df$gene2, df$module, df$gene1, method = "radix"), ,
+      drop = FALSE
+    ]
     runs <- rle(paste(d$gene2, d$module, sep = "\x01"))
     # Sorted by (gene2, module), so each run start is that module's smallest
     # gene1 and the run lengths are already the per-cell counts.
@@ -863,7 +866,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   # difference with the copy-choice effect this null exists to isolate.
   cand <- cand[!is.na(modules_ref$modules[cand$gene1]), , drop = FALSE]
   cand <- cand[cand$gene2 %in% projected, , drop = FALSE]
-  by_g2 <- split(seq_len(nrow(cand)), cand$gene2)
+  # radix order fixes which gene consumes which draws on every machine
+  by_g2 <- split(seq_len(nrow(cand)), .radix_factor(cand$gene2))
   # With a caller-supplied map the candidates need not cover the projected
   # genes, and then every draw would score fewer genes -- reintroducing the
   # set-size artefact this null exists to remove.
@@ -1474,9 +1478,9 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
 
 
 # Factor with levels in radix (C-locale) order: split() and table() would
-# otherwise sort character labels by the session's collation, which differs
-# between machines for mixed-case or non-ASCII labels (as_modules() allows
-# any). Digit labels sort the same either way.
+# otherwise sort character labels and gene IDs by the session's collation,
+# which differs between machines for mixed-case or non-ASCII values
+# (as_modules() allows any label). Digit labels sort the same either way.
 .radix_factor <- function(x) {
   factor(x, levels = sort(unique(x), method = "radix"))
 }

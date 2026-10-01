@@ -154,7 +154,7 @@ test_that("doubles that print alike share one label", {
   expect_identical(names(m$module_genes), c("0.3", "1"))
 })
 
-test_that("seeded results do not depend on the collation locale", {
+test_that("label and gene-ID order do not depend on the collation locale", {
   old <- Sys.getlocale("LC_COLLATE")
   on.exit(Sys.setlocale("LC_COLLATE", old))
   en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
@@ -169,8 +169,28 @@ test_that("seeded results do not depend on the collation locale", {
     module_preservation(as_modules(sets), fx$netA, fx$netB, fx$ortho,
                         n_perm = 30L, seed = 5)
   }
+  map <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  lab_b <- fx$labB
+  sets_b <- stats::setNames(
+    lapply(1:4, function(k) names(lab_b)[lab_b == k]),
+    c("yew", "Ash", "oak", "Birch")
+  )
+  corr <- function() {
+    module_correspondence(as_modules(sets), as_modules(sets_b), map,
+                          seed = 1)$pairs
+  }
+  # the deterministic pick among tied reference genes, mixed-case IDs
+  tie <- data.frame(
+    gene1 = c("b1", "B2"), gene2 = "t1", module = "m",
+    source = "unresolved", stringsAsFactors = FALSE
+  )
   r_en <- run()
+  c_en <- corr()
+  p_en <- rcomplex:::.pres_project(tie)
   Sys.setlocale("LC_COLLATE", "C")
-  r_c <- run()
-  expect_identical(r_c, r_en)
+  expect_identical(run(), r_en)
+  expect_identical(corr(), c_en)
+  expect_identical(rcomplex:::.pres_project(tie), p_en)
 })
