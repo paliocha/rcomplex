@@ -63,6 +63,11 @@ if (length(se_files)) {
   }
 }
 res <- do.call(rbind, rows)
-utils::write.table(res, "dev/bench/k1_null_check.tsv", sep = "\t", quote = FALSE, row.names = FALSE)
+# only a full run (with the Pooideae data) replaces the committed table
+if (length(se_files)) {
+  utils::write.table(res, "dev/bench/k1_null_check.tsv", sep = "\t", quote = FALSE, row.names = FALSE)
+} else {
+  message("prepare_data/data/ not found: random-data rows only, committed table left as is")
+}
 cat("\nK = 1 rejection rate (has_structure) by data set:\n")
 print(stats::aggregate(cbind(rejected = has_structure, n_modules) ~ data + objective, res, mean))
