@@ -434,93 +434,97 @@
 <td>Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus</td>
 </tr>
 <tr class="even">
+<td><code><a href="reference/as_modules.html">as_modules()</a></code></td>
+<td>Module map from any gene partition (pathways, regulons, another tool) for the preservation tests</td>
+</tr>
+<tr class="odd">
 <td><code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code></td>
 <td>Reduce multi-copy HOGs toward one counterpart per gene (cliques, then coexpressologs); the rest stay <code>unresolved</code>
 </td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/module_preservation.html">module_preservation()</a></code></td>
 <td>Permutation test of module density and hub identity in the other species’ network</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/classify_preservation.html">classify_preservation()</a></code></td>
 <td>Four-tier preservation classification (conserved / moderate / diverged / untested)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/module_correspondence.html">module_correspondence()</a></code></td>
 <td>Match modules across species by ortholog overlap on the resolved map</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/preservation_paired.html">preservation_paired()</a></code></td>
 <td>Batch module preservation across species pairs, both directions</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code></td>
 <td>Build the all-pairs <code>pairs</code> table for <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>
 </td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code></td>
 <td>Primary trait test: relabelling null on the all-pairs preservation matrix (ranks on <code>Zsummary_std</code>)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code></td>
 <td>How much resolution a set of p- or q-values has left (ties at the permutation floor)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/tag_permutation.html">tag_permutation()</a></code></td>
 <td>Secondary: do the same HOGs recur in diverged modules across pairs? (floor <code>2^-k</code>, <code>k</code> = connected components of the contrast graph, not contrasts; needs <code>k &gt;= 5</code>)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code></td>
 <td>Within-module hub identification with 6-tier conservation-aware tie-breaking</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/characterize_hubs.html">characterize_hubs()</a></code></td>
 <td>Regulatory-potential metrics for hub genes (bridge fraction, betweenness/degree ratio)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code></td>
 <td>Hub conservation across traits (conserved / rewired / trait-specific)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code></td>
 <td>Query co-expression partners of a candidate HOG across species</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/find_cliques.html">find_cliques()</a></code></td>
 <td>C++ clique detection via Bron-Kerbosch with Tomita pivoting (species graph, one best gene assignment)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code></td>
 <td>Maximal cliques of the per-HOG gene graph (Rodriguez et al., 2026)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code></td>
 <td>Six-tier taxonomy for gene-graph cliques, tolerating weak wiring (<code>partial_significant</code>) and a missing gene (<code>partial_present</code>), plus <code>underpowered</code> for calls resting on low-power tests</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/clique_stability.html">clique_stability()</a></code></td>
 <td>Leave-k-out jackknife stability for trait-exclusive cliques</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/clique_persistence.html">clique_persistence()</a></code></td>
 <td>Co-expressolog persistence scores (robustness to threshold tightening)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code></td>
 <td>Structural survival of cliques across stricter density thresholds</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/clique_perturbation_test.html">clique_perturbation_test()</a></code></td>
 <td>Bootstrap noise robustness for clique edge weights</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="reference/clique_intensity_test.html">clique_intensity_test()</a></code></td>
 <td>Matched edge-set (or permutation) null for clique intensity: <code>z_score</code>, <code>p_value</code>, <code>gap</code>
 </td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="reference/classify_cliques.html">classify_cliques()</a></code></td>
 <td>Waterfall HOG classification (complete/partial/differentiated/trait_specific/unclassified), with an <code>underpowered</code> flag qualifying a call that rests on a low-power edge</td>
 </tr>
