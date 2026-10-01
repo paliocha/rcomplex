@@ -99,16 +99,22 @@ test_that("pi0_method = 'none' is Benjamini-Hochberg on the empirical p", {
 test_that("sp1/sp2 give an edge frame with NA power", {
   cmp <- spec_frame()
   expect_null(summarize_specificity(cmp)$edges)
-  s <- summarize_specificity(cmp,
-    null_p = spec_null(), sp1 = "SP_A", sp2 = "SP_B"
+  # spec_frame() carries no AUROC grid, so power is NA -- and said so
+  expect_warning(
+    s <- summarize_specificity(cmp,
+      null_p = spec_null(), sp1 = "SP_A", sp2 = "SP_B"
+    ),
+    "no \\*\\.auroc\\.grid"
   )
   expect_named(s$edges, edge_names)
   expect_equal(nrow(s$edges), nrow(s$results))
   expect_true(all(is.na(s$edges$power)))
-  expect_equal(
-    s$edges,
-    comparison_to_edges(s$results, "SP_A", "SP_B")
+  # the two-step route warns the same way
+  expect_warning(
+    two_step <- comparison_to_edges(s$results, "SP_A", "SP_B"),
+    "no \\*\\.auroc\\.grid"
   )
+  expect_equal(s$edges, two_step)
   expect_error(summarize_specificity(cmp, sp1 = "SP_A"), "Both sp1 and sp2")
 })
 

@@ -390,7 +390,8 @@ reference_preservation_stats <- function(adj_ref, idx_ref, adj_test,
 #' species-2 genes on the 1 / n2 grid (NaN scores never count). Direction
 #' 2 -> 1 swaps the roles.
 reference_specificity <- function(net1, net2, thr1, thr2, ortho,
-                                  store1 = NULL, store2 = NULL) {
+                                  store1 = NULL, store2 = NULL,
+                                  grid_frac = NULL) {
   col_ranks <- function(m, store) {
     r <- m * NA_real_
     for (j in seq_len(ncol(m))) {
@@ -410,6 +411,7 @@ reference_specificity <- function(net1, net2, thr1, thr2, ortho,
       neigh = integer(np), mapped = integer(np), auroc = NA_real_,
       p.val = NA_real_, jaccard = 0
     )
+    grid <- matrix(NA_real_, np, length(grid_frac))
     for (q in seq_len(np)) {
       i <- pa[q]
       js <- pb[q]
@@ -426,6 +428,13 @@ reference_specificity <- function(net1, net2, thr1, thr2, ortho,
       back <- setdiff(unique(pa[pb %in% nb(mb, thrb, js)]), i)
       x <- length(intersect(n_i, back))
       u <- length(n_i) + length(back) - x
+      # AUROC grid: r-th largest finite AUROC (ortholog included) at
+      # r = ceil(f * n_b), clamped to [1, #finite]; NA when T_i is empty
+      fin <- sort(a[is.finite(a)], decreasing = TRUE)
+      if (length(t_i) > 0 && length(fin) > 0 && length(grid_frac) > 0) {
+        r <- pmin(pmax(ceiling(grid_frac * n_b), 1), length(fin))
+        grid[q, ] <- unname(fin[r])
+      }
       out$neigh[q] <- length(n_i)
       out$mapped[q] <- length(t_i)
       out$jaccard[q] <- if (u > 0) x / u else 0
@@ -435,6 +444,7 @@ reference_specificity <- function(net1, net2, thr1, thr2, ortho,
         out$p.val[q] <- (1 + ge) / n_b
       }
     }
+    if (length(grid_frac) > 0) out$auroc.grid <- grid
     out
   }
   d1 <- one(net1, net2, thr1, thr2, ortho$Species1, ortho$Species2, store2)

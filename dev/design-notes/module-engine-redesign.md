@@ -2021,6 +2021,76 @@ top-500 sample sees. Pages republished (Pooideae version 6, wood version 5).
 Next candidates: D1-style anchor restriction in the pipeline for wood, and
 the hypergeometric at tight density as an alternative anchor test.
 
+### 11.15 Rank calls against hypergeometric calls, and a power column for the rank test (2026-09-30)
+
+**Which calls differ, and are they biology?** Pairs tested by both tests
+(density 0.03, raw MR, q < 0.1; scripts `p16a`-`p16e`, outputs
+`out-2026-09-23/call_bins/`) binned as both / hypergeometric only / rank
+only / neither. The rank calls are nearly a subset of the hypergeometric
+calls: rank-only 1,170 in leaf and 1,043 in wood against 134,575 and 70,289
+hypergeometric-only. Pairs both tests call replicate across tissue best
+(leaf call also called in root 0.75, hypergeometric-only 0.56, rank-only
+0.57, neither 0.41) and have the most GO-coherent shared partners (2.05x
+over the gene's other neighbours in leaf, 1.53x hypergeometric-only; a
+modest edge that persists within shared-partner bands). Hypergeometric-only
+calls sit on high-degree genes, rank-only on low-degree ones. Wood
+rank-only calls are 95 % Scots pine-lodgepole pine (lodgepole mapped on the
+Scots genome, 47 % the same locus id), borderline on both tests, and
+Rodriguez et al. (2026) called 48 % of them at density 0.03 and 92.5 % at
+some density 0.01-0.06. In Pooideae root the tests disagree about species
+pairs, not genes: the log ratio of rank to hypergeometric call rates has
+species effects from -2.4 (BMED) to +0.3 (BDIS), annual-annual pairs keep
+0.66 / 0.92 (leaf / root) against 0.36 / 0.48 for perennial-perennial
+(BMED excluded), and HOG recurrence of rank-only calls equals its
+label-permuted null. Whether that is network sharpness or the annual
+syndrome is open.
+
+**A power column for the rank test.** Without one the clique classifiers
+read every tested-but-uncalled rank pair as a rejection, and the
+"conserved in annuals, lost in the congeneric perennial" list (114 HOGs,
+p16e) was made of congeneric near misses (q 0.10-0.25, none >= 0.2 in all
+three non-Briza genera). The kernel now records, per anchor, the AUROC grid:
+the ceil(f n)-th largest candidate AUROC at 13 raw-p fractions f from 1e-4
+to 0.5 (exact against the R oracle; widened to 1e-5..1 after review, the
+old knots kept, so the validation below is unchanged inside that range). Power per direction is
+Phi((G(p0) - G(p_cut)) / se): G(p_cut) is the AUROC the ortholog needs for
+the largest called raw p, G(p0) the AUROC at the reference rank p0 (default
+the median raw p of called pairs; later per direction, of pairs called
+and significant in it), se the Hanley-McNeil standard error of an
+AUROC over the pair's translated set; directions combine like
+`pval_combine`.
+
+A fixed reference AUROC (the first version, the direct analogue of `rho0`)
+failed: power was ~1 almost everywhere (median 0.92-1.00 in every degree
+decile) and inverted -- among pairs called by both tests in the other
+tissue, leaf call rate 0.63 at power < 0.1 and 0.30 at power > 0.9. Anchors
+whose candidates all score high need a high AUROC and also have orthologs
+that reach one, so effect size and bar move together; the rank-scale
+reference follows the anchor. Validation of the shipped definition, all 28
+species pairs, positives = pairs called by both tests in the other tissue
+(p16f):
+
+| power bin | leaf rank: n / call rate | root rank: n / call rate | leaf hypergeometric: n / call rate |
+|---|---|---|---|
+| 0.5-0.7 | 27,488 / 0.04 | 6,923 / 0.13 | 2,707 / 0.08 |
+| 0.7-0.9 | 65,347 / 0.20 | 28,011 / 0.38 | 11,393 / 0.16 |
+| > 0.9 | 60,771 / 0.62 | 58,262 / 0.75 | 138,950 / 0.57 |
+
+Rank power rises with degree (median 0.68 to 0.91 across leaf degree
+deciles) and spreads the positives over the range where the hypergeometric
+power puts 90 % of them above 0.9. Like the hypergeometric power it orders
+detectability and overstates the rate: at 0.7-0.9 only one conserved pair
+in five is called, so `min_power = 0.9` is the more defensible gate for the
+rank test. It is at least 0.5 by construction (p0 below the threshold).
+
+Rerun of the annual question with power: 19 of the 114 HOGs have the
+congeneric pair uncalled at power >= 0.8 in all three non-Briza genera
+(PPR proteins, dUTPase, tRNA splicing endonuclease, phytoene desaturase,
+CYFIP, a shikimate hydroxycinnamoyltransferase, among others). Given the
+calibration, a single miss at that power is weak evidence of loss, and the
+annual set was not special among the within-genus relabellings without
+Briza (rank 6 of 16, p16e); no annual-specific loss is claimed.
+
 ## 12. Sources and provenance
 
 - Two literature surveys run 2026-09-23 by subagents in this session,

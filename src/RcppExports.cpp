@@ -382,8 +382,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // specificity_sparse_cpp
-Rcpp::DataFrame specificity_sparse_cpp(const Rcpp::IntegerVector& p1, const Rcpp::IntegerVector& i1, const Rcpp::NumericVector& x1, double thr1, const Rcpp::IntegerVector& p2, const Rcpp::IntegerVector& i2, const Rcpp::NumericVector& x2, double thr2, const Rcpp::IntegerVector& pair_sp1_idx, const Rcpp::IntegerVector& pair_sp2_idx, const Rcpp::IntegerVector& ortho_sp1_idx, const Rcpp::IntegerVector& ortho_sp2_idx, bool do_12, bool do_21, int n_cores);
-RcppExport SEXP _rcomplex_specificity_sparse_cpp(SEXP p1SEXP, SEXP i1SEXP, SEXP x1SEXP, SEXP thr1SEXP, SEXP p2SEXP, SEXP i2SEXP, SEXP x2SEXP, SEXP thr2SEXP, SEXP pair_sp1_idxSEXP, SEXP pair_sp2_idxSEXP, SEXP ortho_sp1_idxSEXP, SEXP ortho_sp2_idxSEXP, SEXP do_12SEXP, SEXP do_21SEXP, SEXP n_coresSEXP) {
+Rcpp::List specificity_sparse_cpp(const Rcpp::IntegerVector& p1, const Rcpp::IntegerVector& i1, const Rcpp::NumericVector& x1, double thr1, const Rcpp::IntegerVector& p2, const Rcpp::IntegerVector& i2, const Rcpp::NumericVector& x2, double thr2, const Rcpp::IntegerVector& pair_sp1_idx, const Rcpp::IntegerVector& pair_sp2_idx, const Rcpp::IntegerVector& ortho_sp1_idx, const Rcpp::IntegerVector& ortho_sp2_idx, bool do_12, bool do_21, int n_cores, const Rcpp::NumericVector& grid_frac);
+RcppExport SEXP _rcomplex_specificity_sparse_cpp(SEXP p1SEXP, SEXP i1SEXP, SEXP x1SEXP, SEXP thr1SEXP, SEXP p2SEXP, SEXP i2SEXP, SEXP x2SEXP, SEXP thr2SEXP, SEXP pair_sp1_idxSEXP, SEXP pair_sp2_idxSEXP, SEXP ortho_sp1_idxSEXP, SEXP ortho_sp2_idxSEXP, SEXP do_12SEXP, SEXP do_21SEXP, SEXP n_coresSEXP, SEXP grid_fracSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -402,7 +402,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type do_12(do_12SEXP);
     Rcpp::traits::input_parameter< bool >::type do_21(do_21SEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(specificity_sparse_cpp(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores));
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type grid_frac(grid_fracSEXP);
+    rcpp_result_gen = Rcpp::wrap(specificity_sparse_cpp(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -429,7 +430,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_reduce_orthogroups_cpp", (DL_FUNC) &_rcomplex_reduce_orthogroups_cpp, 4},
     {"_rcomplex_rewire_degseq_cpp", (DL_FUNC) &_rcomplex_rewire_degseq_cpp, 4},
     {"_rcomplex_extract_sparse_cpp", (DL_FUNC) &_rcomplex_extract_sparse_cpp, 3},
-    {"_rcomplex_specificity_sparse_cpp", (DL_FUNC) &_rcomplex_specificity_sparse_cpp, 15},
+    {"_rcomplex_specificity_sparse_cpp", (DL_FUNC) &_rcomplex_specificity_sparse_cpp, 16},
     {NULL, NULL, 0}
 };
 

@@ -7,6 +7,18 @@ spec_cols <- function(prefix) {
 }
 both_cols <- c(spec_cols("Species1"), spec_cols("Species2"))
 
+# nolint start: object_usage_linter. (oracle from helper-reference.R)
+expect_grid_equal <- function(res, ...) {
+  ref <- reference_specificity(..., grid_frac = rcomplex:::.rank_grid_frac)
+  for (s in c("Species1", "Species2")) {
+    testthat::expect_equal(unname(res[[paste0(s, ".auroc.grid")]]),
+      unname(ref[[paste0(s, ".auroc.grid")]]),
+      tolerance = 1e-12
+    )
+  }
+}
+# nolint end
+
 expect_spec_equal <- function(res, ref, cols = both_cols) {
   testthat::expect_equal(as.list(res[cols]), as.list(ref[cols]),
     tolerance = 1e-12
@@ -22,8 +34,10 @@ test_that("dense compare_specificity matches the oracle in both directions", {
   )
   expect_s3_class(res, "data.frame")
   expect_named(res, c(
-    "Species1", "Species2", "hog", both_cols,
-    "Species1.effect.size", "Species2.effect.size"
+    "Species1", "Species2", "hog", spec_cols("Species1"), "Species1.n.cand",
+    spec_cols("Species2"), "Species2.n.cand",
+    "Species1.effect.size", "Species1.auroc.grid",
+    "Species2.effect.size", "Species2.auroc.grid"
   ))
   expect_equal(res$Species1, f$ortho$Species1)
   expect_equal(res$hog, f$ortho$hog)
@@ -42,6 +56,10 @@ test_that("a store above the lowest tier matches the oracle with store", {
     store1 = 5, store2 = 5
   )
   expect_spec_equal(res, ref)
+  expect_grid_equal(
+    res, f$net1$network, f$net2$network, 5, 5, f$ortho,
+    store1 = 5, store2 = 5
+  )
   # tier 4 really is unstored: collapsing it to the bottom block changes
   # other candidates' AUROCs (e.g. B16 for anchor A04), hence the p-values
   dense <- compare_specificity(f$net1, f$net2, f$ortho)
@@ -69,6 +87,13 @@ test_that("own-HOG orthologs leave the mapped set (paralog row)", {
   )
   expect_equal(nrow(res), 31L)
   expect_spec_equal(res, ref)
+  # several rows per anchor: the grid is written per row from one per-anchor
+  # selection, so a stale or misindexed grid would show here
+  expect_grid_equal(
+    res, f$net1$network, f$net2$network, f$net1$threshold,
+    f$net2$threshold, f$ortho,
+    store1 = f$net1$threshold, store2 = f$net2$threshold
+  )
   # A_001 maps to B_001 and B_031: both must be absent from its mapped set
   rows <- which(res$Species1 == "A_001")
   expect_length(rows, 2L)
@@ -105,8 +130,14 @@ test_that("directions restricts the columns and keeps the values", {
   d12 <- compare_specificity(f$net1, f$net2, f$ortho, directions = "1to2")
   d21 <- compare_specificity(f$net1, f$net2, f$ortho, directions = "2to1")
   keys <- c("Species1", "Species2", "hog")
-  expect_named(d12, c(keys, spec_cols("Species1"), "Species1.effect.size"))
-  expect_named(d21, c(keys, spec_cols("Species2"), "Species2.effect.size"))
+  expect_named(d12, c(
+    keys, spec_cols("Species1"), "Species1.n.cand",
+    "Species1.effect.size", "Species1.auroc.grid"
+  ))
+  expect_named(d21, c(
+    keys, spec_cols("Species2"), "Species2.n.cand",
+    "Species2.effect.size", "Species2.auroc.grid"
+  ))
   expect_identical(d12, both[names(d12)])
   expect_identical(d21, both[names(d21)])
 })
@@ -148,4 +179,36 @@ test_that("a membership-only network matches the oracle", {
     store1 = 1, store2 = 1
   )
   expect_spec_equal(res, ref)
+})
+
+test_that("the AUROC grid matches the oracle in both directions", {
+  f <- make_graded_nets()
+  res <- compare_specificity(f$net1, f$net2, f$ortho)
+  gf <- rcomplex:::.rank_grid_frac
+  ref <- reference_specificity(
+    f$net1$network, f$net2$network, 5, 5, f$ortho,
+    grid_frac = gf
+  )
+  for (s in c("Species1", "Species2")) {
+    g <- res[[paste0(s, ".auroc.grid")]]
+    expect_identical(dim(g), c(nrow(res), length(gf)))
+    expect_equal(unname(g), unname(ref[[paste0(s, ".auroc.grid")]]),
+      tolerance = 1e-12
+    )
+    expect_identical(res[[paste0(s, ".n.cand")]], rep(30L, nrow(res)))
+    # the grid is non-increasing along the fractions
+    d <- t(apply(g, 1L, diff))
+    expect_true(all(d <= 1e-12, na.rm = TRUE))
+  }
+})
+
+test_that("the kernel rejects a grid that is not ascending in (0, 1]", {
+  f <- make_graded_nets()
+  run <- function(gf) {
+    rcomplex:::.specificity_run(f$net1, f$net2, f$ortho, 1L, "both", gf)
+  }
+  expect_error(run(c(0.5, 0.1)), "strictly ascending")
+  expect_error(run(c(0, 0.1)), "strictly ascending")
+  expect_error(run(1.5), "strictly ascending")
+  expect_false("Species1.auroc.grid" %in% names(run(numeric(0))))
 })

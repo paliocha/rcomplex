@@ -407,6 +407,12 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   are shared. \code{NULL} (default) takes, per direction, the median
 #'   \code{effect.size} of the called pairs (about 2.5 on the Pooideae
 #'   data); a single positive number fixes it for both directions.
+#' @param p0 Rank-test frames only (from
+#'   \code{\link{summarize_specificity}}, carrying the AUROC grid):
+#'   reference raw p for the \code{power} column, see
+#'   \code{\link{summarize_specificity}}. \code{NULL} (default) takes, per
+#'   direction, the median raw p of the pairs called and significant in
+#'   that direction.
 #'
 #' @return Data frame with columns:
 #'   \describe{
@@ -433,8 +439,13 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'       \code{\link{classify_gene_cliques}} and
 #'       \code{\link{classify_cliques}} read it through
 #'       \code{min_power}. \code{NA} for \code{alternative = "less"},
-#'       when no pair is called, or when the comparison lacks the
-#'       neighbourhood-size columns.}
+#'       when no pair is called in a direction, or when the comparison
+#'       lacks the neighbourhood-size columns. For a rank-test frame (one
+#'       carrying \code{*.auroc.grid}) it is the rank-test power instead,
+#'       at reference rank \code{p0} (see
+#'       \code{\link{summarize_specificity}}); there a direction with no call
+#'       gives 0 rather than \code{NA}, so the classifiers read it as
+#'       uninformative, not as a rejection.}
 #'     \item{type}{\code{"conserved"} or \code{"diverged"} if
 #'       \code{q.value < alpha}; \code{"ns"} otherwise}
 #'   }
@@ -453,10 +464,11 @@ comparison_to_edges <- function(comparison, sp1, sp2,
                                 alternative = c("greater", "less"),
                                 alpha = 0.1,
                                 pval_combine = c("max", "min"),
-                                rho0 = NULL) {
+                                rho0 = NULL, p0 = NULL) {
   alternative <- match.arg(alternative)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_p0(p0)
 
   suffix <- if (alternative == "greater") "con" else "div"
   q1_col <- paste0("Species1.q.val.", suffix)
@@ -493,6 +505,28 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   type <- ifelse(q_comb < alpha, type_label, "ns")
 
+  rank_frame <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+                      names(comparison))
+  if (!rank_frame && !is.null(p0)) {
+    stop("p0 applies to rank-test frames (with *.auroc.grid columns); ",
+         "rho0 sets the hypergeometric power", call. = FALSE)
+  }
+  if (rank_frame && !is.null(rho0)) {
+    stop("rho0 applies to hypergeometric frames; p0 sets the rank-test ",
+         "power", call. = FALSE)
+  }
+  if (!rank_frame && any(c("Species1.auroc", "Species2.auroc") %in%
+                           names(comparison))) {
+    # a rank-test frame without its grid (saved before the grid existed,
+    # or flattened by write.csv()) would silently get NA power, which the
+    # classifiers read as "every miss is a rejection"
+    warning(
+      "comparison looks like rank-test output but has no *.auroc.grid ",
+      "columns, so power is NA; rerun compare_specificity(), and keep ",
+      "rank frames with saveRDS()",
+      call. = FALSE
+    )
+  }
   data.frame(
     gene1 = comparison$Species1,
     gene2 = comparison$Species2,
@@ -502,7 +536,11 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     q.value = q_comb,
     effect_size = eff_geo,
     jaccard = jacc_geo,
-    power = .edge_power(comparison, alpha, alternative, pval_combine, rho0),
+    power = if (rank_frame) {
+      .rank_power(comparison, alpha, pval_combine, p0)
+    } else {
+      .edge_power(comparison, alpha, alternative, pval_combine, rho0)
+    },
     type = type
   )
 }
@@ -534,7 +572,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'     so a list that thousands of genes recognise as well as B is not
 #'     evidence. The q-value is read against a partner whose expression
 #'     was shuffled within each gene. \code{effect_size} is
-#'     \code{sqrt(auroc12 * auroc21)} and \code{power} is \code{NA}.}
+#'     \code{sqrt(auroc12 * auroc21)}; \code{power} is the rank-test
+#'     power of \code{\link{summarize_specificity}} at its default
+#'     reference rank.}
 #'   \item{permutation}{Rigorous path: gene-identity permutation via
 #'     \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
 #'     stopping and Liang discrete q-values. Required for multi-copy
@@ -564,8 +604,9 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   \code{"rank"} scores each ortholog pair with
 #'   \code{\link{compare_specificity}} and calibrates it against
 #'   \code{null_networks} via \code{\link{summarize_specificity}};
-#'   \code{filter_zero} and \code{rho0} do not apply and \code{power} is
-#'   \code{NA}.
+#'   \code{filter_zero} does not apply and \code{rho0} is refused (use
+#'   \code{p0}); \code{power} is
+#'   the rank-test power (see \code{\link{summarize_specificity}}).
 #' @param alternative \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold (default 0.1).
@@ -622,6 +663,12 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 #'   the original ComPlEx) or \code{"min"} (permissive; either direction,
 #'   denser edge supply for \code{\link{find_cliques}}).
+#' @param p0 Rank method only: reference raw p for the \code{power}
+#'   column, passed to \code{\link{summarize_specificity}}. \code{NULL}
+#'   (default) takes, per species pair and direction, the median raw p of
+#'   the pairs called and significant in that direction, so references
+#'   differ between species pairs; a single number puts every pair on one
+#'   reference, as \code{rho0} does for the hypergeometric power.
 #' @param rho0 Analytical method only: reference fold enrichment for
 #'   the \code{power} column, passed to
 #'   \code{\link{comparison_to_edges}} (default \code{NULL}, the median
@@ -699,7 +746,7 @@ find_coexpressologs.default <- function(
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  out_file = NULL, rho0 = NULL, null_networks = NULL, ...
+  out_file = NULL, rho0 = NULL, null_networks = NULL, p0 = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
@@ -709,7 +756,8 @@ find_coexpressologs.default <- function(
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
-  .check_specificity_args(method, alternative, null_networks)
+  .check_p0(p0)
+  .check_specificity_args(method, alternative, null_networks, p0, rho0)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
@@ -781,7 +829,8 @@ find_coexpressologs.default <- function(
       edges_df <- tryCatch(
         .specificity_pair_edges(
           networks[[sp_a]], networks[[sp_b]], nulls[[sp_a]], nulls[[sp_b]],
-          orthologs, sp_a, sp_b, alpha, n_cores, pi0_method, pval_combine
+          orthologs, sp_a, sp_b, alpha, n_cores, pi0_method, pval_combine,
+          p0
         ),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
@@ -966,6 +1015,8 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   calls a pair when either direction is significant.
 #' @param rho0 Passed to \code{\link{find_coexpressologs}}: reference
 #'   fold enrichment for the analytical \code{power} column.
+#' @param p0 Passed to \code{\link{find_coexpressologs}}: reference raw p
+#'   for the rank-test \code{power} column.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -1003,7 +1054,7 @@ density_sweep.default <- function(
   pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
-  seed = NULL, rho0 = NULL, null_networks = NULL, ...
+  seed = NULL, rho0 = NULL, null_networks = NULL, p0 = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
@@ -1013,7 +1064,8 @@ density_sweep.default <- function(
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
-  .check_specificity_args(method, alternative, null_networks)
+  .check_p0(p0)
+  .check_specificity_args(method, alternative, null_networks, p0, rho0)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue
@@ -1102,7 +1154,7 @@ density_sweep.default <- function(
         max_permutations = max_permutations,
         pi0_method = pi0_method,
         pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0,
-        null_networks = tight_nulls
+        null_networks = tight_nulls, p0 = p0
       ),
       error = function(e) {
         warning(

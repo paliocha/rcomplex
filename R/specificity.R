@@ -54,7 +54,16 @@
 #'     \item{auroc}{AUROC of \eqn{T} in the paired ortholog's ranking.}
 #'     \item{p.val}{Rank p-value of the paired ortholog, as above.}
 #'     \item{jaccard}{As in [compare_neighborhoods()].}
+#'     \item{n.cand}{Number of candidate genes in the partner network.}
 #'     \item{effect.size}{Equal to `auroc`.}
+#'     \item{auroc.grid}{Matrix, one row per pair and one column per
+#'       raw-p fraction f (1e-5 to 1, the column names): the
+#'       `ceiling(f * n.cand)`-th largest candidate AUROC for the anchor,
+#'       i.e. the AUROC the ortholog needs to reach raw p of about f.
+#'       [summarize_specificity()] reads it for the edge `power`. It is
+#'       computed on every call; a comparison against a [null_network()]
+#'       partner, which only needs `p.val`, pays for it too (the package's
+#'       own null runs skip it).}
 #'   }
 #'   `auroc` and `p.val` are `NA` when \eqn{T} is empty or spans every
 #'   other partner gene.
@@ -69,7 +78,26 @@
 #' @export
 compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
                                 directions = c("both", "1to2", "2to1")) {
-  directions <- match.arg(directions)
+  .specificity_run(net1, net2, orthologs, n_cores, match.arg(directions),
+    grid_frac = .rank_grid_frac
+  )
+}
+
+
+# Raw-p fractions at which each anchor's AUROC grid is recorded; the power
+# of a rank-test edge interpolates the call threshold on this grid. From
+# 1e-5 (below 1 / n for up to 100,000 candidates) to 1, so neither the
+# reference rank nor a call threshold is clamped in practice.
+.rank_grid_frac <- c(
+  1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 0.01, 0.02, 0.05,
+  0.1, 0.2, 0.3, 0.5, 0.7, 1
+)
+
+
+# compare_specificity() without the argument checks; the null runs pass
+# grid_frac = numeric(0), since only the observed comparison needs a grid.
+.specificity_run <- function(net1, net2, orthologs, n_cores, directions,
+                             grid_frac) {
   op <- .ortholog_pair_index(net1, net2, orthologs)
   net1 <- .net_as_sparse(net1, n_cores)
   net2 <- .net_as_sparse(net2, n_cores)
@@ -83,12 +111,23 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     p2 = a2$p, i2 = a2$i, x2 = a2$x, thr2 = a2$thr,
     pair_sp1_idx = op$sp1_idx, pair_sp2_idx = op$sp2_idx,
     ortho_sp1_idx = op$sp1_idx, ortho_sp2_idx = op$sp2_idx,
-    do_12 = do_12, do_21 = do_21, n_cores = n_cores
+    do_12 = do_12, do_21 = do_21, n_cores = n_cores,
+    grid_frac = as.numeric(grid_frac)
   )
+  grid_cols <- grepl("\\.auroc\\.grid$", names(res))
+  out <- cbind(op$orthologs, as.data.frame(res[!grid_cols]))
   for (s in c("Species1", "Species2")[c(do_12, do_21)]) {
-    res[[paste0(s, ".effect.size")]] <- res[[paste0(s, ".auroc")]]
+    out[[paste0(s, ".effect.size")]] <- out[[paste0(s, ".auroc")]]
+    if (length(grid_frac)) {
+      g <- res[[paste0(s, ".auroc.grid")]]
+      colnames(g) <- format(grid_frac,
+        scientific = FALSE,
+        drop0trailing = TRUE
+      )
+      out[[paste0(s, ".auroc.grid")]] <- g
+    }
   }
-  cbind(op$orthologs, res)
+  out
 }
 
 
@@ -121,9 +160,18 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' Argument checks shared by the specificity path of find_coexpressologs()
 #' and density_sweep()
 #' @noRd
-.check_specificity_args <- function(method, alternative, null_networks) {
+.check_specificity_args <- function(method, alternative, null_networks,
+                                    p0 = NULL, rho0 = NULL) {
   if (method != "rank" && !is.null(null_networks)) {
     stop("null_networks is only used with method = \"rank\"")
+  }
+  if (method == "rank" && !is.null(rho0)) {
+    stop("rho0 is only used with method = \"hypergeometric\" (p0 sets the ",
+         "rank-test power)")
+  }
+  if (method != "rank" && !is.null(p0)) {
+    stop("p0 is only used with method = \"rank\" (rho0 sets the ",
+         "hypergeometric power)")
   }
   if (method == "rank") {
     if (is.null(null_networks)) {
@@ -146,17 +194,17 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' @noRd
 .specificity_pair_edges <- function(net1, net2, nulls1, nulls2, orthologs,
                                     sp1, sp2, alpha, n_cores, pi0_method,
-                                    pval_combine) {
+                                    pval_combine, p0 = NULL) {
   cmp <- compare_specificity(net1, net2, orthologs, n_cores)
   null_p <- list(
     sp1 = unlist(lapply(nulls2, function(nb) {
-      compare_specificity(net1, nb, orthologs, n_cores,
-        directions = "1to2"
+      .specificity_run(net1, nb, orthologs, n_cores, "1to2",
+        grid_frac = numeric(0)
       )$Species1.p.val
     })),
     sp2 = unlist(lapply(nulls1, function(na) {
-      compare_specificity(na, net2, orthologs, n_cores,
-        directions = "2to1"
+      .specificity_run(na, net2, orthologs, n_cores, "2to1",
+        grid_frac = numeric(0)
       )$Species2.p.val
     }))
   )
@@ -165,7 +213,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   if (pi0_method == "randomized") pi0_method <- "storey"
   summarize_specificity(cmp, null_p, alpha,
     pi0_method = pi0_method, sp1 = sp1, sp2 = sp2,
-    pval_combine = pval_combine
+    pval_combine = pval_combine, p0 = p0
   )$edges
 }
 
@@ -174,4 +222,120 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' @noRd
 .method_alias <- function(method) {
   if (identical(method, "analytical")) "hypergeometric" else method
+}
+
+
+# Detection power of each rank-test edge: the probability that the pair
+# would have been called had the ortholog ranked at the reference raw p
+# `p0` among the anchor's candidates (default: the median raw p of the
+# called pairs, per direction). Per direction, the call threshold on the
+# raw-p scale is the largest raw p called. The anchor's AUROC grid
+# (log-linear interpolation in the raw-p fraction) turns both into AUROCs,
+# G(p0) and G(p_cut), and the ortholog's AUROC over its t translated genes
+# against n - 1 - t others is taken as normal around G(p0) with the
+# Hanley-McNeil (1982) standard error. A fixed reference AUROC does not
+# work here: anchors whose candidates all score high need a high AUROC and
+# also have orthologs that reach one, so a fixed alternative inverted the
+# power (validation in dev/design-notes/module-engine-redesign.md, 11.15).
+# With p0 below the threshold the power is at least 0.5. The grid ranks
+# include the ortholog itself, a shift of at most one rank. Directions
+# combine like pval_combine, as in the hypergeometric .edge_power().
+.rank_power <- function(res, alpha, pval_combine = c("max", "min"),
+                        p0 = NULL) {
+  pval_combine <- match.arg(pval_combine)
+  .check_p0(p0)
+  na_out <- rep(NA_real_, nrow(res))
+  dirs <- c("Species1", "Species2")
+  need <- as.vector(outer(dirs, c(
+    ".p.val", ".q.val.con", ".mapped", ".n.cand", ".auroc.grid"
+  ), paste0))
+  if (nrow(res) == 0L) {
+    return(na_out)
+  }
+  if (!all(need %in% names(res))) {
+    .warn_rank_power_na(paste(setdiff(need, names(res)), collapse = ", "))
+    return(na_out)
+  }
+  combine <- if (pval_combine == "min") pmin else pmax
+  q_comb <- combine(res$Species1.q.val.con, res$Species2.q.val.con,
+    na.rm = TRUE
+  )
+  called <- is.finite(q_comb) & q_comb < alpha
+  pw <- lapply(dirs, function(d) {
+    col <- function(s) res[[paste0(d, s)]]
+    q <- col(".q.val.con")
+    p <- col(".p.val")
+    sig <- !is.na(q) & q < alpha
+    grid <- col(".auroc.grid")
+    lf <- suppressWarnings(log(as.numeric(colnames(grid))))
+    # the fractions travel as column names; a frame that lost them cannot
+    # be read, so it gets no power rather than a wrong one
+    if (length(lf) < 2L || length(lf) != ncol(grid) || anyNA(lf) ||
+          any(diff(lf) <= 0)) {
+      .warn_rank_power_na(paste0(d, ".auroc.grid fraction names"))
+      return(NULL) # a damaged direction voids the edge, whatever "min" does
+    }
+    # nothing called in this direction: nothing was detectable, so a miss
+    # here is no evidence -- power 0, not NA (which the classifiers would
+    # read as "every miss is a rejection")
+    if (!any(sig)) {
+      return(rep(0, nrow(res)))
+    }
+    f0 <- p0
+    if (is.null(f0)) {
+      # pairs called and significant in this direction: under "min" a pair
+      # called through the other direction alone sits above this
+      # direction's threshold and would pull the reference past it
+      use <- called & sig & is.finite(p)
+      # no pair called overall (e.g. under "max" the other direction never
+      # calls): fall back on this direction's own calls
+      if (!any(use)) use <- sig & is.finite(p)
+      f0 <- stats::median(p[use])
+    }
+    at <- function(f) {
+      x <- min(max(log(f), lf[1L]), lf[length(lf)])
+      k <- min(findInterval(x, lf), length(lf) - 1L)
+      w <- (x - lf[k]) / (lf[k + 1L] - lf[k])
+      grid[, k] + w * (grid[, k + 1L] - grid[, k])
+    }
+    a_crit <- at(max(p[sig]))
+    a_ref <- at(f0)
+    a <- pmin(pmax(a_ref, 0.5 + 1e-6), 1 - 1e-6)
+    t <- as.numeric(col(".mapped"))
+    m <- as.numeric(col(".n.cand")) - 1 - t
+    q1 <- a / (2 - a)
+    q2 <- 2 * a^2 / (1 + a)
+    se <- sqrt((a * (1 - a) + (t - 1) * (q1 - a^2) +
+                  (m - 1) * (q2 - a^2)) / (t * m))
+    out <- stats::pnorm((a_ref - a_crit) / se)
+    out[t <= 0 | m <= 0] <- 0
+    out
+  })
+  if (any(vapply(pw, is.null, logical(1)))) {
+    return(na_out)
+  }
+  if (pval_combine == "max") {
+    pmin(pw[[1L]], pw[[2L]])
+  } else {
+    pmax(pw[[1L]], pw[[2L]], na.rm = TRUE)
+  }
+}
+
+
+.check_p0 <- function(p0) {
+  ok <- is.null(p0) || (is.numeric(p0) && length(p0) == 1L &&
+                          !is.na(p0) && p0 > 0 && p0 < 1)
+  if (!ok) stop("p0 must be NULL or a single number in (0, 1)")
+}
+
+
+# Rank power that cannot be computed for a structural reason (a damaged
+# frame), as opposed to "no pair called": say so, because NA power makes
+# the clique classifiers read every miss as a rejection.
+.warn_rank_power_na <- function(what) {
+  warning(
+    "rank-test power is NA: the frame is missing or has unreadable ", what,
+    "; keep rank frames with saveRDS()",
+    call. = FALSE
+  )
 }

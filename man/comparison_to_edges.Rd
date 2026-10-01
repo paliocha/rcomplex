@@ -11,7 +11,8 @@ comparison_to_edges(
   alternative = c("greater", "less"),
   alpha = 0.1,
   pval_combine = c("max", "min"),
-  rho0 = NULL
+  rho0 = NULL,
+  p0 = NULL
 )
 }
 \arguments{
@@ -45,6 +46,13 @@ how many times more often than chance a conserved pair's partners
 are shared. \code{NULL} (default) takes, per direction, the median
 \code{effect.size} of the called pairs (about 2.5 on the Pooideae
 data); a single positive number fixes it for both directions.}
+
+\item{p0}{Rank-test frames only (from
+\code{\link{summarize_specificity}}, carrying the AUROC grid):
+reference raw p for the \code{power} column, see
+\code{\link{summarize_specificity}}. \code{NULL} (default) takes, per
+direction, the median raw p of the pairs called and significant in
+that direction.}
 }
 \value{
 Data frame with columns:
@@ -72,8 +80,13 @@ absent evidence, not evidence of divergence.
 \code{\link{classify_gene_cliques}} and
 \code{\link{classify_cliques}} read it through
 \code{min_power}. \code{NA} for \code{alternative = "less"},
-when no pair is called, or when the comparison lacks the
-neighbourhood-size columns.}
+when no pair is called in a direction, or when the comparison
+lacks the neighbourhood-size columns. For a rank-test frame (one
+carrying \code{*.auroc.grid}) it is the rank-test power instead,
+at reference rank \code{p0} (see
+\code{\link{summarize_specificity}}); there a direction with no call
+gives 0 rather than \code{NA}, so the classifiers read it as
+uninformative, not as a rejection.}
 \item{type}{\code{"conserved"} or \code{"diverged"} if
 \code{q.value < alpha}; \code{"ns"} otherwise}
 }

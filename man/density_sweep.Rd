@@ -25,6 +25,7 @@ density_sweep(networks, ...)
   seed = NULL,
   rho0 = NULL,
   null_networks = NULL,
+  p0 = NULL,
   ...
 )
 }
@@ -94,6 +95,9 @@ fold enrichment for the analytical \code{power} column.}
 \item{null_networks}{Passed to \code{\link{find_coexpressologs}}
 (rank method only); every null's threshold is scaled by the
 same multiplier as its species' network.}
+
+\item{p0}{Passed to \code{\link{find_coexpressologs}}: reference raw p
+for the rank-test \code{power} column.}
 }
 \value{
 A data frame with columns \code{multiplier},

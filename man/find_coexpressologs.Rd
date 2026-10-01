@@ -26,6 +26,7 @@ find_coexpressologs(networks, ...)
   out_file = NULL,
   rho0 = NULL,
   null_networks = NULL,
+  p0 = NULL,
   ...
 )
 
@@ -51,8 +52,9 @@ specifying which pairs to compare. Defaults to all
 \code{"rank"} scores each ortholog pair with
 \code{\link{compare_specificity}} and calibrates it against
 \code{null_networks} via \code{\link{summarize_specificity}};
-\code{filter_zero} and \code{rho0} do not apply and \code{power} is
-\code{NA}.}
+\code{filter_zero} does not apply and \code{rho0} is refused (use
+\code{p0}); \code{power} is
+the rank-test power (see \code{\link{summarize_specificity}}).}
 
 \item{alternative}{\code{"greater"} (conservation, default) or
 \code{"less"} (divergence).}
@@ -147,6 +149,13 @@ call threshold to measure power against.}
 \item{null_networks}{Specificity method only (required there): named
 list with one \code{\link{null_network}} object, or a list of them,
 per species.}
+
+\item{p0}{Rank method only: reference raw p for the \code{power}
+column, passed to \code{\link{summarize_specificity}}. \code{NULL}
+(default) takes, per species pair and direction, the median raw p of
+the pairs called and significant in that direction, so references
+differ between species pairs; a single number puts every pair on one
+reference, as \code{rho0} does for the hypergeometric power.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
@@ -185,7 +194,9 @@ B's species the same way, and reports B's rank in that contest,
 so a list that thousands of genes recognise as well as B is not
 evidence. The q-value is read against a partner whose expression
 was shuffled within each gene. \code{effect_size} is
-\code{sqrt(auroc12 * auroc21)} and \code{power} is \code{NA}.}
+\code{sqrt(auroc12 * auroc21)}; \code{power} is the rank-test
+power of \code{\link{summarize_specificity}} at its default
+reference rank.}
 \item{permutation}{Rigorous path: gene-identity permutation via
 \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
 stopping and Liang discrete q-values. Required for multi-copy

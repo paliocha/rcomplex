@@ -11,7 +11,8 @@ summarize_specificity(
   pi0_method = c("storey", "none"),
   sp1 = NULL,
   sp2 = NULL,
-  pval_combine = c("max", "min")
+  pval_combine = c("max", "min"),
+  p0 = NULL
 )
 }
 \arguments{
@@ -36,6 +37,13 @@ separate \code{comparison_to_edges()} call when preparing input for
 \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
+
+\item{p0}{Reference raw p for the \code{power} column of \verb{$edges}: the
+rank among its candidates at which a conserved ortholog is assumed to
+sit, as a fraction in (0, 1); values below 1e-5 are read as 1e-5, the
+edge of the AUROC grid. \code{NULL} (default) uses, per direction, the
+median raw p of the pairs called and significant in that direction --
+the rank-test counterpart of \code{rho0}.}
 }
 \value{
 A list with components:
@@ -47,8 +55,22 @@ A list with components:
 direction, \code{n_null} (null draws used per direction, 0 without
 \code{null_p}) and \code{n_dropped} (rows with an \code{NA} p-value).}
 \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.) Edge frame
-from \code{\link[=comparison_to_edges]{comparison_to_edges()}}; \code{power} is \code{NA} because the
-specificity test has no hypergeometric urn.}
+from \code{\link[=comparison_to_edges]{comparison_to_edges()}}. \code{power} is the probability that
+the pair would have been called had the ortholog ranked at raw p
+\code{p0} among its candidates: per direction, the anchor's
+\code{auroc.grid} (log-linear interpolation) gives the AUROC at \code{p0}
+and at the largest called raw p, and the ortholog's AUROC over
+its \code{mapped} genes is taken as normal around the former with the
+Hanley-McNeil (1982) standard error. It is at least 0.5 when
+\code{p0} lies below the call threshold (always so for the default),
+and like the hypergeometric
+power it orders pairs by how detectable conservation is rather
+than giving calibrated rates. Directions combine like
+\code{pval_combine}. A direction with no call gives power 0 for that
+direction (nothing was detectable there, so a miss is not
+evidence): the edge power under \code{"max"}, while \code{"min"} takes the
+other direction. The clique
+classifiers read it through \code{min_power}.}
 }
 }
 \description{
@@ -79,6 +101,10 @@ the shuffled partner calibrates them before Storey is applied.
 }
 
 \references{
+Hanley, J. A. & McNeil, B. J. (1982). The meaning and use of the area
+under a receiver operating characteristic (ROC) curve. \emph{Radiology},
+143(1), 29--36. \doi{10.1148/radiology.143.1.7063747}
+
 Suresh, H., Crow, M., Jorstad, N., Hodge, R., Lein, E., Dobin, A.,
 Bakken, T. & Gillis, J. (2023). Comparative single-cell transcriptomic
 analysis of primate brains highlights human-specific regulatory
