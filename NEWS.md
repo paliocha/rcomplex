@@ -19,7 +19,8 @@
   punctuated labels and IDs may now give different seeded p- and q-values,
   a different pick among tied reference genes, and a different row order
   of `module_correspondence()$pairs` than 0.3.0 in a non-C session, and
-  `resolve_ortholog_map()` may pick another copy among tied candidates.
+  `resolve_ortholog_map()` may pick another copy among tied candidates and
+  return its rows in another order.
 
 - **`detect_modules()` documents how far its modules replicate.** On
   Pooideae leaf networks split into two halves of 10 samples
