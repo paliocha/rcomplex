@@ -170,8 +170,9 @@ cor_rfast <- function(x, method = "pearson") {
 #'   `store_density`) and a second correlation pass reads the other rank;
 #'   on the same data peak memory was 1.7 GB against 5.1 GB dense in
 #'   9.2 s against 8.2 s. If the store threshold cannot prove the kept
-#'   pairs complete the fraction widens, and at all pairs the build saves
-#'   no memory (a message says so).
+#'   pairs complete the fraction widens and a message says so; peak memory
+#'   grows with it (for log MR it can exceed the dense build), and at all
+#'   pairs the build saves no memory.
 #'
 #' @return A list with components:
 #'   \describe{
