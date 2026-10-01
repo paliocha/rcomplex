@@ -258,3 +258,22 @@ test_that("named gene sets reach tag_permutation() via preservation_paired()", {
   expect_gt(p_hand$observed, 0L)
   expect_identical(p_named, p_hand)
 })
+
+test_that("a map with factor gene columns gives the character result", {
+  fx <- as_mod_fixture()
+  map <- resolve_ortholog_map(
+    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
+  )
+  map_f <- map
+  map_f$gene1 <- factor(map$gene1, levels = rev(unique(map$gene1)))
+  map_f$gene2 <- factor(map$gene2, levels = rev(unique(map$gene2)))
+  pres <- function(m) {
+    module_preservation(fx$handA, fx$netA, fx$netB, map = m,
+                        n_perm = 30L, seed = 4)
+  }
+  expect_identical(pres(map_f), pres(map))
+  expect_identical(
+    module_correspondence(fx$handA, fx$handB, map_f, seed = 1),
+    module_correspondence(fx$handA, fx$handB, map, seed = 1)
+  )
+})

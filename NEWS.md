@@ -22,6 +22,13 @@
   `resolve_ortholog_map()` may pick another copy among tied candidates and
   return its rows in another order.
 
+- **A caller-supplied `map` with factor gene columns is now read by gene
+  name.** `module_preservation()` and `module_correspondence()` indexed
+  module labels with `map$gene1`, which for a factor column used its
+  integer codes and silently gave genes the wrong labels. Both now coerce
+  the map's gene columns to character, as `resolve_ortholog_map()` does
+  for its input.
+
 - **`detect_modules()` documents how far its modules replicate.** On
   Pooideae leaf networks split into two halves of 10 samples
   (`test_k1 = FALSE`), the default CPM objective was unstable -- whether

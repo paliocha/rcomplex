@@ -304,6 +304,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
         !all(c("gene1", "gene2", "source") %in% names(map))) {
     stop("map must be a data frame from resolve_ortholog_map()")
   }
+  # character, not factor: a factor would index modules by its integer
+  # codes, and radix-order by codes that carry another session's collation
+  map$gene1 <- as.character(map$gene1)
+  map$gene2 <- as.character(map$gene2)
 
   # ---- Project reference module labels onto test-species genes ----
   map <- map[map$gene1 %in% genes_ref & map$gene2 %in% genes_test, ,
@@ -1199,6 +1203,10 @@ module_correspondence <- function(modules_ref, modules_test, map,
         !all(c("gene1", "gene2", "source") %in% names(map))) {
     stop("map must be a data frame from resolve_ortholog_map()")
   }
+  # character, not factor: a factor would index modules by its integer
+  # codes, and radix-order by codes that carry another session's collation
+  map$gene1 <- as.character(map$gene1)
+  map$gene2 <- as.character(map$gene2)
 
   map$module <- as.character(modules_ref$modules[map$gene1])
   map <- map[!is.na(map$module), , drop = FALSE]
