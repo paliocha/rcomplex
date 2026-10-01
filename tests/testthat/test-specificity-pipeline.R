@@ -278,6 +278,10 @@ test_that(".rank_power() branches: clamp, no room, weaker side, bad grid", {
   colnames(lost$Species1.auroc.grid) <- NULL
   expect_warning(pw_lost <- rp(lost, 0.1), "fraction names")
   expect_true(all(is.na(pw_lost)))
+  # also under "min": a damaged direction voids the edge, not just itself
+  expect_warning(pw_lost_min <- rp(lost, 0.1, pval_combine = "min"),
+                 "fraction names")
+  expect_true(all(is.na(pw_lost_min)))
   # so does a frame missing a supporting column
   short <- d
   short$Species2.n.cand <- NULL

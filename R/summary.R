@@ -471,8 +471,10 @@ summarize_comparison <- function(comparison,
 #'       and like the hypergeometric
 #'       power it orders pairs by how detectable conservation is rather
 #'       than giving calibrated rates. Directions combine like
-#'       `pval_combine`. A direction with no call gives power 0: nothing
-#'       was detectable there, so a miss is not evidence. The clique
+#'       `pval_combine`. A direction with no call gives power 0 for that
+#'       direction (nothing was detectable there, so a miss is not
+#'       evidence): the edge power under `"max"`, while `"min"` takes the
+#'       other direction. The clique
 #'       classifiers read it through `min_power`.}
 #'   }
 #'
@@ -552,9 +554,22 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
     )
   )
   if (!is.null(sp1) && !is.null(sp2)) {
+    has_grid <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+                      names(res))
+    has_ncand <- any(c("Species1.n.cand", "Species2.n.cand") %in% names(res))
+    # comparison_to_edges() warns itself when n.cand survived; without
+    # either (a frame from before the grid existed, or hand-built) only
+    # this function knows the input is rank-test output
+    if (!has_grid && !has_ncand) {
+      warning(
+        "comparison has no *.auroc.grid columns, so the edges' rank-test ",
+        "power is NA; rerun compare_specificity() for a power column",
+        call. = FALSE
+      )
+    }
     out$edges <- comparison_to_edges(res, sp1, sp2,
       alternative = "greater", alpha = alpha, pval_combine = pval_combine,
-      p0 = p0
+      p0 = if (has_grid) p0 else NULL
     )
   }
   out

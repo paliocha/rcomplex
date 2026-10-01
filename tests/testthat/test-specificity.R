@@ -7,6 +7,18 @@ spec_cols <- function(prefix) {
 }
 both_cols <- c(spec_cols("Species1"), spec_cols("Species2"))
 
+# nolint start: object_usage_linter. (oracle from helper-reference.R)
+expect_grid_equal <- function(res, ...) {
+  ref <- reference_specificity(..., grid_frac = rcomplex:::.rank_grid_frac)
+  for (s in c("Species1", "Species2")) {
+    testthat::expect_equal(unname(res[[paste0(s, ".auroc.grid")]]),
+      unname(ref[[paste0(s, ".auroc.grid")]]),
+      tolerance = 1e-12
+    )
+  }
+}
+# nolint end
+
 expect_spec_equal <- function(res, ref, cols = both_cols) {
   testthat::expect_equal(as.list(res[cols]), as.list(ref[cols]),
     tolerance = 1e-12
@@ -44,6 +56,10 @@ test_that("a store above the lowest tier matches the oracle with store", {
     store1 = 5, store2 = 5
   )
   expect_spec_equal(res, ref)
+  expect_grid_equal(
+    res, f$net1$network, f$net2$network, 5, 5, f$ortho,
+    store1 = 5, store2 = 5
+  )
   # tier 4 really is unstored: collapsing it to the bottom block changes
   # other candidates' AUROCs (e.g. B16 for anchor A04), hence the p-values
   dense <- compare_specificity(f$net1, f$net2, f$ortho)
@@ -71,6 +87,13 @@ test_that("own-HOG orthologs leave the mapped set (paralog row)", {
   )
   expect_equal(nrow(res), 31L)
   expect_spec_equal(res, ref)
+  # several rows per anchor: the grid is written per row from one per-anchor
+  # selection, so a stale or misindexed grid would show here
+  expect_grid_equal(
+    res, f$net1$network, f$net2$network, f$net1$threshold,
+    f$net2$threshold, f$ortho,
+    store1 = f$net1$threshold, store2 = f$net2$threshold
+  )
   # A_001 maps to B_001 and B_031: both must be absent from its mapped set
   rows <- which(res$Species1 == "A_001")
   expect_length(rows, 2L)

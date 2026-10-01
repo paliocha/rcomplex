@@ -70,7 +70,8 @@ read as uninformative rather than as evidence against conservation
 rank-test edges (\code{find_coexpressologs(method = "rank")}) use 0.9:
 under the default reference rank \code{p0} their power is at least
 0.5 by construction (0 when a direction of the species pair has no
-call), and it overstates detection.}
+call under \code{pval_combine = "max"}, or neither has under
+\code{"min"}), and it overstates detection.}
 }
 \value{
 A data frame with one row per HOG:

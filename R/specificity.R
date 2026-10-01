@@ -290,7 +290,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     if (length(lf) < 2L || length(lf) != ncol(grid) || anyNA(lf) ||
           any(diff(lf) <= 0)) {
       .warn_rank_power_na(paste0(d, ".auroc.grid fraction names"))
-      return(na_out)
+      return(NULL) # a damaged direction voids the edge, whatever "min" does
     }
     at <- function(f) {
       x <- min(max(log(f), lf[1L]), lf[length(lf)])
@@ -311,6 +311,9 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     out[t <= 0 | m <= 0] <- 0
     out
   })
+  if (any(vapply(pw, is.null, logical(1)))) {
+    return(na_out)
+  }
   if (pval_combine == "max") {
     pmin(pw[[1L]], pw[[2L]])
   } else {
