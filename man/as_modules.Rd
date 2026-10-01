@@ -19,6 +19,9 @@ are dropped from \code{module_genes}.}
 A list with \code{modules} (named character vector, gene -> module
 label, unassigned genes omitted), \code{module_genes} (named list, module
 label -> genes), \code{n_modules}, \code{method = "external"} and \code{params}.
+\code{module_genes} follows the list order for list input, numeric order for
+numeric labels, and order of first appearance for other labels; the
+order changes only listings such as \code{coverage}, not statistics.
 }
 \description{
 Turns gene sets from any source -- anchored regulons, curated pathways,

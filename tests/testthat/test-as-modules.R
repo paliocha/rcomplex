@@ -75,6 +75,13 @@ test_that("factor labels and empty input are handled", {
 })
 
 test_that("module order follows the labels, numerically for numbers", {
+  # numeric vector labels sort numerically; a list keeps its own order
+  expect_identical(names(as_modules(c(g1 = 2, g2 = 1))$module_genes),
+                   c("1", "2"))
+  expect_identical(
+    names(as_modules(list("2" = "g1", "1" = "g2"))$module_genes),
+    c("2", "1")
+  )
   v <- stats::setNames(c(1:12, 10L), sprintf("g%02d", 1:13))
   expect_identical(names(as_modules(v)$module_genes), as.character(1:12))
   expect_identical(
@@ -210,4 +217,44 @@ test_that("a detect_modules() result and its membership give one result", {
   b <- module_preservation(as_modules(m$modules), fx$netA, fx$netB, fx$ortho,
                            n_perm = 30L, seed = 2)
   expect_identical(b, a)
+})
+
+test_that("named gene sets reach tag_permutation() via preservation_paired()", {
+  fx <- as_mod_fixture()
+  # an unstructured partner makes A's modules diverge, so the HOG pool
+  # tag_permutation() reads is non-empty (as in the hand-built test)
+  set.seed(99)
+  e <- matrix(stats::rnorm(500 * 40), 500, 40)
+  rownames(e) <- paste0("B", sprintf("%04d", seq_len(500)))
+  net_b <- compute_network(e, density = 0.03, sparse = FALSE)
+  hand <- list(A = fx$handA, B = true_modules(net_b, fx$mods))
+  named_of <- function(m, nm) {
+    lab <- m$modules
+    as_modules(stats::setNames(
+      lapply(seq_along(nm), function(k) names(lab)[lab == k]), nm
+    ))
+  }
+  named <- list(
+    A = named_of(hand$A, c("ribosome", "auxin", "zinc", "calvin")),
+    B = named_of(hand$B, c("yew", "Ash", "oak", "Birch"))
+  )
+  nets <- list(A = fx$netA, B = net_b)
+  grp <- c(A = "annual", B = "perennial")
+  pairs <- data.frame(sp1 = "A", sp2 = "B", pair_name = "AB",
+                      stringsAsFactors = FALSE)
+  pool <- function(mods) {
+    res <- suppressWarnings(preservation_paired(mods, nets, fx$ortho, pairs,
+      group = grp, n_perm = 50L, min_module_size = 3L, seed = 1
+    ))
+    tp <- suppressMessages(suppressWarnings(tag_permutation(
+      res$classification, mods, fx$ortho, pairs,
+      group = grp, target_group = "annual",
+      n_perm = 50L, min_recurrence = 1L
+    )))
+    list(observed = tp$observed, hogs = sort(tp$recurrence_table$hog))
+  }
+  p_hand <- pool(hand)
+  p_named <- pool(named)
+  expect_gt(p_hand$observed, 0L)
+  expect_identical(p_named, p_hand)
 })

@@ -27,6 +27,9 @@
 #' @return A list with `modules` (named character vector, gene -> module
 #'   label, unassigned genes omitted), `module_genes` (named list, module
 #'   label -> genes), `n_modules`, `method = "external"` and `params`.
+#'   `module_genes` follows the list order for list input, numeric order for
+#'   numeric labels, and order of first appearance for other labels; the
+#'   order changes only listings such as `coverage`, not statistics.
 #' @export
 #' @examples
 #' mods <- as_modules(list(
