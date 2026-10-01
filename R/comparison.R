@@ -502,6 +502,19 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   type <- ifelse(q_comb < alpha, type_label, "ns")
 
+  rank_frame <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+                      names(comparison))
+  if (!rank_frame && any(c("Species1.n.cand", "Species2.n.cand") %in%
+                           names(comparison))) {
+    # a rank-test frame that lost its matrix columns (e.g. through
+    # write.csv()) would silently get NA power, which the classifiers read
+    # as "every miss is a rejection"
+    warning(
+      "comparison looks like rank-test output but has no *.auroc.grid ",
+      "columns, so power is NA; keep rank frames with saveRDS()",
+      call. = FALSE
+    )
+  }
   data.frame(
     gene1 = comparison$Species1,
     gene2 = comparison$Species2,
@@ -511,8 +524,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     q.value = q_comb,
     effect_size = eff_geo,
     jaccard = jacc_geo,
-    power = if (all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
-                      names(comparison))) {
+    power = if (rank_frame) {
       .rank_power(comparison, alpha, pval_combine, p0)
     } else {
       .edge_power(comparison, alpha, alternative, pval_combine, rho0)
@@ -732,7 +744,7 @@ find_coexpressologs.default <- function(
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
   .check_p0(p0)
-  .check_specificity_args(method, alternative, null_networks)
+  .check_specificity_args(method, alternative, null_networks, p0)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
@@ -1040,7 +1052,7 @@ density_sweep.default <- function(
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
   .check_p0(p0)
-  .check_specificity_args(method, alternative, null_networks)
+  .check_specificity_args(method, alternative, null_networks, p0)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue

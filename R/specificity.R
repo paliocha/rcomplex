@@ -60,7 +60,10 @@
 #'       raw-p fraction f (1e-5 to 1, the column names): the
 #'       `ceiling(f * n.cand)`-th largest candidate AUROC for the anchor,
 #'       i.e. the AUROC the ortholog needs to reach raw p of about f.
-#'       [summarize_specificity()] reads it for the edge `power`.}
+#'       [summarize_specificity()] reads it for the edge `power`. It is
+#'       computed on every call; a comparison against a [null_network()]
+#'       partner, which only needs `p.val`, pays for it too (the package's
+#'       own null runs skip it).}
 #'   }
 #'   `auroc` and `p.val` are `NA` when \eqn{T} is empty or spans every
 #'   other partner gene.
@@ -157,9 +160,14 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' Argument checks shared by the specificity path of find_coexpressologs()
 #' and density_sweep()
 #' @noRd
-.check_specificity_args <- function(method, alternative, null_networks) {
+.check_specificity_args <- function(method, alternative, null_networks,
+                                    p0 = NULL) {
   if (method != "rank" && !is.null(null_networks)) {
     stop("null_networks is only used with method = \"rank\"")
+  }
+  if (method != "rank" && !is.null(p0)) {
+    stop("p0 is only used with method = \"rank\" (rho0 sets the ",
+         "hypergeometric power)")
   }
   if (method == "rank") {
     if (is.null(null_networks)) {

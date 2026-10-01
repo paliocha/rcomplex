@@ -277,3 +277,36 @@ test_that("p0 reaches the rank power through find_coexpressologs()", {
   expect_false(isTRUE(all.equal(lo$power, hi$power)))
   expect_error(spec_edges(f, p0 = 2), "p0")
 })
+
+test_that("p0 reaches density_sweep() and is refused for other methods", {
+  f <- make_spec_nets()
+  sweep <- function(p0) {
+    suppressMessages(density_sweep(f$networks, f$ortho,
+      multipliers = 1, method = "rank", null_networks = f$nulls, p0 = p0
+    ))$edges[[1]]$power
+  }
+  expect_false(isTRUE(all.equal(sweep(0.5), sweep(1e-5))))
+  expect_error(sweep(2), "p0")
+  expect_error(
+    find_coexpressologs(f$networks, f$ortho, p0 = 0.1),
+    "p0 is only used with method = \"rank\""
+  )
+})
+
+test_that("a rank frame without its grid warns instead of going NA quietly", {
+  f <- make_spec_nets()
+  nets <- f$networks
+  cmp <- compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  null_p <- list(
+    sp1 = compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
+      directions = "1to2"
+    )$Species1.p.val,
+    sp2 = compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
+      directions = "2to1"
+    )$Species2.p.val
+  )
+  res <- summarize_specificity(cmp, null_p)$results
+  flat <- res[, !grepl("auroc\\.grid", names(res))]
+  expect_warning(comparison_to_edges(flat, "sp1", "sp2"), "saveRDS")
+  expect_no_warning(comparison_to_edges(res, "sp1", "sp2"))
+})

@@ -41,7 +41,10 @@ requested direction (\code{Species1.} for 1 to 2, \code{Species2.} for 2 to
 raw-p fraction f (1e-5 to 1, the column names): the
 \code{ceiling(f * n.cand)}-th largest candidate AUROC for the anchor,
 i.e. the AUROC the ortholog needs to reach raw p of about f.
-\code{\link[=summarize_specificity]{summarize_specificity()}} reads it for the edge \code{power}.}
+\code{\link[=summarize_specificity]{summarize_specificity()}} reads it for the edge \code{power}. It is
+computed on every call; a comparison against a \code{\link[=null_network]{null_network()}}
+partner, which only needs \code{p.val}, pays for it too (the package's
+own null runs skip it).}
 }
 \code{auroc} and \code{p.val} are \code{NA} when \eqn{T} is empty or spans every
 other partner gene.
