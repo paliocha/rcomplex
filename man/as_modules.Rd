@@ -33,7 +33,8 @@ not overlap. Split overlapping sets (for example regulons that share genes)
 into disjoint batches and test each batch separately.
 
 Module labels matter for reproducibility: \code{\link[=module_preservation]{module_preservation()}} draws
-its permutation null module by module in sorted-label order, so under a
+its permutation null module by module in the C-locale (radix) order of
+the labels as strings (so "10" before "2"), so under a
 fixed seed the permutation p- and q-values are reproducible for a given
 labelling but change when the same partition is relabelled. The observed
 statistics do not depend on the labels.

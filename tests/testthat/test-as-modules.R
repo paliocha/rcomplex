@@ -157,8 +157,6 @@ test_that("doubles that print alike share one label", {
 test_that("label and gene-ID order do not depend on the collation locale", {
   old <- Sys.getlocale("LC_COLLATE")
   on.exit(Sys.setlocale("LC_COLLATE", old))
-  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
-  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
   fx <- as_mod_fixture()
   lab <- fx$labA
   sets <- stats::setNames(
@@ -186,19 +184,27 @@ test_that("label and gene-ID order do not depend on the collation locale", {
     gene1 = c("b1", "B2"), gene2 = "t1", module = "m",
     source = "unresolved", stringsAsFactors = FALSE
   )
-  r_en <- run()
-  c_en <- corr()
-  p_en <- rcomplex:::.pres_project(tie)
+  # C-locale (radix) outcomes, checked without any other locale
   Sys.setlocale("LC_COLLATE", "C")
-  expect_identical(run(), r_en)
-  expect_identical(corr(), c_en)
-  expect_identical(rcomplex:::.pres_project(tie), p_en)
+  r_c <- run()
+  c_c <- corr()
+  c_order <- c("Beta", "Zinc", "auxin", "calvin")
+  expect_identical(r_c$preservation$module, c_order)
+  expect_identical(unique(c_c$module_sp1), c_order)
+  expect_identical(rcomplex:::.pres_project(tie)$gene1, "B2")
+  # and the same under en_US, which collates these differently
+  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  expect_identical(run(), r_c)
+  expect_identical(corr(), c_c)
+  expect_identical(rcomplex:::.pres_project(tie)$gene1, "B2")
 })
 
-test_that("a detect_modules() result passes through as_modules() unchanged", {
+test_that("a detect_modules() result and its membership give one result", {
   fx <- as_mod_fixture()
   m <- detect_modules(fx$netA, resolution = 1, seed = 1L)
   expect_s3_class(m$modules, "membership")
+  expect_identical(as_modules(m), m)
   a <- module_preservation(m, fx$netA, fx$netB, fx$ortho,
                            n_perm = 30L, seed = 2)
   b <- module_preservation(as_modules(m$modules), fx$netA, fx$netB, fx$ortho,
