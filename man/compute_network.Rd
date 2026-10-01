@@ -82,8 +82,8 @@ time and never forms the n x n matrix: each gene keeps only its
 partners in the top fraction of its correlation ranks, which at the
 default \code{store_density} is 15\% of all pairs held at 8 bytes each. On
 BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
-1.2-1.4 GB against 5.1 GB for the dense build, in 7.6-7.7 s against
-9.1 s. The result equals the dense build up to floating-point
+1.2-1.4 GB against 5.1 GB for the dense build, in 7.6-7.9 s against
+8.5 s. The result equals the dense build up to floating-point
 near-ties between correlations: the two builds compute correlations
 with different BLAS calls, so two correlations of one gene that differ
 only in the last bits can be ranked in the other order, shifting an MR
@@ -95,7 +95,7 @@ between block sizes. Requires \code{sparse = TRUE}, \code{norm_method = "MR"} an
 when either gene ranks the other in its top 10\% (twice
 \code{store_density}) and a second correlation pass reads the other rank;
 on the same data peak memory was 1.7 GB against 5.1 GB dense in
-8.3 s against 8.0 s. If the store threshold cannot prove the kept
+9.2 s against 8.2 s. If the store threshold cannot prove the kept
 pairs complete the fraction widens, and at all pairs the build saves
 no memory (a message says so).}
 

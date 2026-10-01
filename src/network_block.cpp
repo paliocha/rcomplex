@@ -121,6 +121,7 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
     // ranks. Columns are independent, so visit may run in parallel.
     auto sweep = [&](auto&& visit) {
         for (R_xlen_t c0 = 0; c0 < n; c0 += block_size) {
+            Rcpp::checkUserInterrupt();
             const R_xlen_t c1 = std::min<R_xlen_t>(n, c0 + block_size);
             arma::mat C = zt.t() * zt.cols(c0, c1 - 1);
 #ifdef _OPENMP

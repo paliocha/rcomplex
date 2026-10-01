@@ -86,7 +86,9 @@ run_child <- function(x_file, block) {
     "s <- proc.time()[['elapsed']] - t0; ",
     "saveRDS(if (is.character(r)) list(err = r) else list(seconds = s, ",
     "threshold = r$threshold, store_threshold = r$store_threshold, ",
-    "nnz = length(r$network@x), fraction = frac), '", res_file, "')"
+    "nnz = length(r$network@x), fraction = frac, ",
+    "hash = rlang::hash(list(r$network@i, r$network@p, r$network@x))), '",
+    res_file, "')"
   )
   out <- suppressWarnings(system2(
     "/usr/bin/time", c(
@@ -114,7 +116,8 @@ run_child <- function(x_file, block) {
     cat("  blockwise not supported yet (", r$err, "): recording NA\n")
     r <- list(
       seconds = NA_real_, threshold = NA_real_,
-      store_threshold = NA_real_, nnz = NA_integer_, fraction = NA_real_
+      store_threshold = NA_real_, nnz = NA_integer_, fraction = NA_real_,
+      hash = NA_character_
     )
     rss_mb <- NA_real_
   }
@@ -132,7 +135,7 @@ for (n in n_values) {
       block_size = b, seconds = r$seconds,
       peak_rss_mb = r$peak_rss_mb, threshold = r$threshold,
       store_threshold = r$store_threshold, nnz = r$nnz,
-      fraction = r$fraction
+      fraction = r$fraction, hash = r$hash
     )
     msg <- sprintf(
       "n=%d %s block=%s: %.1f s, %.0f MB peak, nnz=%s, fraction=%s",
@@ -141,11 +144,11 @@ for (n in n_values) {
     if (!is.na(b)) {
       d <- rows[[paste(n, NA)]]
       same <- identical(
-        c(d$threshold, d$store_threshold, d$nnz),
-        c(row$threshold, row$store_threshold, row$nnz)
+        c(d$threshold, d$store_threshold, d$nnz, d$hash),
+        c(row$threshold, row$store_threshold, row$nnz, row$hash)
       )
       msg <- paste0(
-        msg, ", equals dense: ",
+        msg, ", slots identical to dense: ",
         if (is.na(row$nnz)) NA else same
       )
     }
