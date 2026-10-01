@@ -1,0 +1,2 @@
+"n_perm","n_cores","swap_factor","seed","n_hotspot_anchors","n_annotated_hogs","n_regulator_hogs","null","selection"
+499,6,10,93481,23,1500,119,"degree-preserving edge swap within each species","conditional on fixed hotspots selected from observed deployment and topology"

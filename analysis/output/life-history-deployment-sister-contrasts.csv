@@ -1,0 +1,193 @@
+"anchor_id","anchor_hog","tissue","feature","interpretation","phylogenetic_pair","annual_species","perennial_species","annual_value","perennial_value","annual_minus_perennial"
+"anchor_01","HOG:0020610","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.72854952442182,0.764548396426448,-0.0359988720046277
+"anchor_01","HOG:0020610","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.829058693378147,0.69976086247057,0.129297830907577
+"anchor_01","HOG:0020610","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.78508431771336,0.736589061260908,0.0484952564524529
+"anchor_01","HOG:0020610","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.81644713670177,0.790256840293883,0.0261902964078867
+"anchor_01","HOG:0020610","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.156403181994594,-0.33471631731968,0.178313135325086
+"anchor_01","HOG:0020610","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.570056470518816,-0.153864829233296,-0.41619164128552
+"anchor_01","HOG:0020610","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.200871536370581,-0.140446614213292,-0.0604249221572893
+"anchor_01","HOG:0020610","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.282440678186193,-0.28391896554783,0.00147828736163647
+"anchor_01","HOG:0020610","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.653417271457515,-0.676604230445755,0.0231869589882399
+"anchor_01","HOG:0020610","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.637893092914906,-0.688856418722818,0.0509633258079115
+"anchor_01","HOG:0020610","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.642670897400467,-0.63882534205261,-0.00384555534785613
+"anchor_01","HOG:0020610","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.635514389139278,-0.632829467448772,-0.00268492169050594
+"anchor_01","HOG:0020610","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.016562160831061,-0.105156843263293,0.121719004094354
+"anchor_01","HOG:0020610","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.0126469293302045,0.0391009489869716,-0.0264540196567671
+"anchor_01","HOG:0020610","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0732132123136506,-0.0540103543264528,0.127223566640103
+"anchor_01","HOG:0020610","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0276780080468408,-0.000847109745324759,0.0285251177921656
+"anchor_02","HOG:0020076","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.723221914673157,0.755159101534436,-0.0319371868612787
+"anchor_02","HOG:0020076","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.817337940745185,0.686401365566599,0.130936575178586
+"anchor_02","HOG:0020076","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.774184869494429,0.733420701561174,0.0407641679332547
+"anchor_02","HOG:0020076","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.817665161790395,0.798846153598033,0.0188190081923619
+"anchor_02","HOG:0020076","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.130538154175032,-0.318941194151179,0.188403039976147
+"anchor_02","HOG:0020076","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.527286192966837,-0.116984408802908,-0.41030178416393
+"anchor_02","HOG:0020076","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.195042270091153,-0.137485196961627,-0.0575570731295267
+"anchor_02","HOG:0020076","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.262124844433963,-0.241737952923855,-0.0203868915101075
+"anchor_02","HOG:0020076","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.659749262142226,-0.689119644778861,0.0293703826366349
+"anchor_02","HOG:0020076","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.642145868810672,-0.701893229306158,0.0597473604954867
+"anchor_02","HOG:0020076","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.644956448424227,-0.63960529783106,-0.00535115059316638
+"anchor_02","HOG:0020076","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.637461343747252,-0.630076051934782,-0.00738529181246994
+"anchor_02","HOG:0020076","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0187914575418342,-0.143444807181153,0.162236264722987
+"anchor_02","HOG:0020076","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.00738820439624899,0.0511963520994322,-0.0438081477031832
+"anchor_02","HOG:0020076","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0826632915369705,-0.040019502142839,0.12268279367981
+"anchor_02","HOG:0020076","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0264201621995998,-0.000499887768968366,0.0269200499685681
+"anchor_03","HOG:0011532","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.723908034562405,0.728047443668547,-0.0041394091061413
+"anchor_03","HOG:0011532","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.801651491034229,0.683132404220915,0.118519086813314
+"anchor_03","HOG:0011532","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.74913559842413,0.735051491404937,0.014084107019193
+"anchor_03","HOG:0011532","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.745366823412427,0.782865563292016,-0.0374987398795888
+"anchor_03","HOG:0011532","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.142220475966955,-0.267251878463145,0.12503140249619
+"anchor_03","HOG:0011532","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.465737469260149,-0.0852006484384077,-0.380536820821742
+"anchor_03","HOG:0011532","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.141907513379213,-0.118967725759348,-0.0229397876198655
+"anchor_03","HOG:0011532","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.238196971413765,-0.254047508191762,0.0158505367779973
+"anchor_03","HOG:0011532","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.653619304137987,-0.717692793719818,0.0640734895818318
+"anchor_03","HOG:0011532","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.651533698882924,-0.704626650159064,0.0530929512761406
+"anchor_03","HOG:0011532","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.650342181960781,-0.638242616736491,-0.0120995652242899
+"anchor_03","HOG:0011532","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.67218914918423,-0.642838160393763,-0.0293509887904667
+"anchor_03","HOG:0011532","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0272929652836239,-0.10977061622069,0.137063581504313
+"anchor_03","HOG:0011532","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.0097898426345101,0.0575216231897222,-0.0477317805552121
+"anchor_03","HOG:0011532","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.123642706003519,0.00269288870370299,0.120949817299816
+"anchor_03","HOG:0011532","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0747961644720233,0.00404846475300868,0.0707476997190146
+"anchor_04","HOG:0019394","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.72221738820285,0.733348861193903,-0.011131472991053
+"anchor_04","HOG:0019394","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.83499926906485,0.680098114693118,0.154901154371731
+"anchor_04","HOG:0019394","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.764402224267241,0.740203786244779,0.0241984380224618
+"anchor_04","HOG:0019394","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.842443982574413,0.778801777235952,0.0636422053384605
+"anchor_04","HOG:0019394","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.14019595473755,-0.28180940162927,0.14161344689172
+"anchor_04","HOG:0019394","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.556418963411289,-0.105615807820891,-0.450803155590398
+"anchor_04","HOG:0019394","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.17849774046492,-0.127538008778476,-0.0509597316864443
+"anchor_04","HOG:0019394","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.262163642367235,-0.263388603986981,0.00122496161974583
+"anchor_04","HOG:0019394","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.663396870506352,-0.698023284186842,0.0346264136804907
+"anchor_04","HOG:0019394","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.63755534905338,-0.707098790474082,0.0695434414207018
+"anchor_04","HOG:0019394","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.651765795151826,-0.633121193739168,-0.0186446014126583
+"anchor_04","HOG:0019394","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.612360429274557,-0.642277133986654,0.0299167047120968
+"anchor_04","HOG:0019394","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0251829836453548,-0.0636552647496728,0.0888382483950275
+"anchor_04","HOG:0019394","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.00470159642608492,0.0659105610337037,-0.0612089646076188
+"anchor_04","HOG:0019394","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0826477215631423,-0.0128622423190224,0.0955099638821647
+"anchor_04","HOG:0019394","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.00620462416989542,0.00533114600228624,0.000873478167609187
+"anchor_05","HOG:0006205","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.708204902220094,0.734611132449821,-0.0264062302297265
+"anchor_05","HOG:0006205","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.842868835135371,0.687889229554158,0.154979605581213
+"anchor_05","HOG:0006205","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.768655533525474,0.738589568461147,0.0300659650643278
+"anchor_05","HOG:0006205","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.759843824068435,0.778356069766428,-0.0185122456979936
+"anchor_05","HOG:0006205","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.124072848145016,-0.287379825699122,0.163306977554106
+"anchor_05","HOG:0006205","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.559549216186269,-0.109972239267047,-0.449576976919221
+"anchor_05","HOG:0006205","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.181580479024606,-0.147052424576861,-0.0345280544477451
+"anchor_05","HOG:0006205","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.262512833293395,-0.242380828215697,-0.0201320050776981
+"anchor_05","HOG:0006205","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.665885836588609,-0.729664035327865,0.063778198739256
+"anchor_05","HOG:0006205","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.633740418711995,-0.697541310930293,0.0638008922182979
+"anchor_05","HOG:0006205","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.647414999372054,-0.637434627141887,-0.00998037223016679
+"anchor_05","HOG:0006205","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.658280385179342,-0.641743574619068,-0.0165368105602733
+"anchor_05","HOG:0006205","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0367546799392006,-0.139703682154576,0.176458362093777
+"anchor_05","HOG:0006205","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-2.62160214107299e-05,0.049236770654473,-0.0492629866758837
+"anchor_05","HOG:0006205","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0751307783335032,-0.0430455139672637,0.118176292300767
+"anchor_05","HOG:0006205","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0469932941389613,-0.00623074787707278,0.053224042016034
+"anchor_06","HOG:0028766","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.707556222585712,0.763441505889882,-0.0558852833041701
+"anchor_06","HOG:0028766","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.839293083702094,0.710150236604459,0.129142847097635
+"anchor_06","HOG:0028766","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.807009811865875,0.744257579639626,0.0627522322262489
+"anchor_06","HOG:0028766","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.833925306635881,0.797767791628078,0.0361575150078031
+"anchor_06","HOG:0028766","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.117762548052693,-0.332187285492485,0.214424737439792
+"anchor_06","HOG:0028766","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.546062403734004,-0.168245154270315,-0.377817249463689
+"anchor_06","HOG:0028766","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.224045407813253,-0.142393666637116,-0.0816517411761374
+"anchor_06","HOG:0028766","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.292357798421076,-0.266760295564574,-0.0255975028565012
+"anchor_06","HOG:0028766","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.662022484633241,-0.681700638489744,0.019678153856503
+"anchor_06","HOG:0028766","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.637357816059339,-0.682262230398321,0.0449044143389816
+"anchor_06","HOG:0028766","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.629704209582652,-0.632845655403265,0.00314144582061326
+"anchor_06","HOG:0028766","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.618342223982406,-0.629751777152472,0.0114095531700656
+"anchor_06","HOG:0028766","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0350563284656262,-0.168118370121296,0.203174698586922
+"anchor_06","HOG:0028766","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.0156820013440401,0.0469493760683923,-0.0312673747243523
+"anchor_06","HOG:0028766","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0851789366483446,-0.0279385119956281,0.113117448643973
+"anchor_06","HOG:0028766","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.00313450401832716,-0.00268333189035486,0.00581783590868201
+"anchor_07","HOG:0011862","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.715139268529244,0.739508026136441,-0.0243687576071966
+"anchor_07","HOG:0011862","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.822826318009097,0.698687851752547,0.12413846625655
+"anchor_07","HOG:0011862","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.77813354158231,0.737538525572503,0.0405950160098072
+"anchor_07","HOG:0011862","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.830635172899305,0.791757052729257,0.0388781201700487
+"anchor_07","HOG:0011862","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.137662049944691,-0.302903168764538,0.165241118819847
+"anchor_07","HOG:0011862","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.562380127762846,-0.148201069700002,-0.414179058062844
+"anchor_07","HOG:0011862","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.190788712082886,-0.146404633795581,-0.0443840782873051
+"anchor_07","HOG:0011862","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.277345820752642,-0.273478231786191,-0.00386758896645056
+"anchor_07","HOG:0011862","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.669375814508159,-0.688040538093277,0.0186647235851182
+"anchor_07","HOG:0011862","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.630761418330384,-0.698161160400939,0.0673997420705547
+"anchor_07","HOG:0011862","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.640829598353945,-0.638342779046157,-0.00248681930778805
+"anchor_07","HOG:0011862","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.626753241223157,-0.633212006427073,0.00645876520391597
+"anchor_07","HOG:0011862","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0504646854777907,-0.0212828312946323,0.071747516772423
+"anchor_07","HOG:0011862","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.0176292757793297,0.0624207513948247,-0.044791475615495
+"anchor_07","HOG:0011862","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.115833606863444,-0.0538537150560843,0.169687321919528
+"anchor_07","HOG:0011862","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0152055545211393,0.00634194315754777,0.00886361136359148
+"anchor_08","HOG:0006123","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.70650459453289,0.713249542265168,-0.00674494773227785
+"anchor_08","HOG:0006123","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.799967680717919,0.687074750713928,0.11289293000399
+"anchor_08","HOG:0006123","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.75383259434115,0.7382055793641,0.0156270149770501
+"anchor_08","HOG:0006123","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.777906157950816,0.777986454754601,-8.02968037854068e-05
+"anchor_08","HOG:0006123","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.114589799442937,-0.258099729875814,0.143509930432877
+"anchor_08","HOG:0006123","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.509959330858344,-0.111497376360369,-0.398461954497975
+"anchor_08","HOG:0006123","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.158797855342797,-0.141631170302027,-0.0171666850407691
+"anchor_08","HOG:0006123","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.24438265163454,-0.246029941083888,0.00164728944934833
+"anchor_08","HOG:0006123","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.674723781578945,-0.696034691825739,0.0213109102467935
+"anchor_08","HOG:0006123","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.64619201928455,-0.709792480673095,0.0636004613885444
+"anchor_08","HOG:0006123","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.653550234205717,-0.635745798045942,-0.0178044361597748
+"anchor_08","HOG:0006123","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.652622927020672,-0.646335719473722,-0.00628720754694934
+"anchor_08","HOG:0006123","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0502483586387822,-0.00556110529405196,0.0558094639328341
+"anchor_08","HOG:0006123","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.0165180007793412,0.0657627716703687,-0.0492447708910275
+"anchor_08","HOG:0006123","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0880704501324598,-0.0377052102364164,0.125775660368876
+"anchor_08","HOG:0006123","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0407736696173342,-0.00133295184904791,0.0421066214663821
+"anchor_09","HOG:0029484","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.736303732012259,0.769766428180406,-0.0334626961681467
+"anchor_09","HOG:0029484","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.842014240788956,0.706988961284878,0.135025279504078
+"anchor_09","HOG:0029484","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.802776771400115,0.754825900597632,0.0479508708024833
+"anchor_09","HOG:0029484","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.871531780596817,0.784379542714745,0.0871522378820718
+"anchor_09","HOG:0029484","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.168083306755457,-0.351817548348754,0.183734241593297
+"anchor_09","HOG:0029484","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.599101865317828,-0.190963348953357,-0.408138516364471
+"anchor_09","HOG:0029484","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.225925759957298,-0.173893193806326,-0.0520325661509723
+"anchor_09","HOG:0029484","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.318742665926709,-0.30602119991842,-0.0127214660082894
+"anchor_09","HOG:0029484","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.647071870018277,-0.673623386593488,0.0265515165752112
+"anchor_09","HOG:0029484","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.628339336197254,-0.68287932228263,0.0545399860853758
+"anchor_09","HOG:0029484","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.633718428851943,-0.621385495517493,-0.01233293333445
+"anchor_09","HOG:0029484","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.599840797433863,-0.632507696765629,0.0326668993317665
+"anchor_09","HOG:0029484","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0110258434162144,-0.102182524609667,0.113208368025882
+"anchor_09","HOG:0029484","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.00222655418809836,0.0261130011630389,-0.0283395553511373
+"anchor_09","HOG:0029484","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0600513590576041,-0.0613573238187122,0.121408682876316
+"anchor_09","HOG:0029484","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.027696505153445,-0.00651725269747228,-0.0211792524559727
+"anchor_10","HOG:0023085","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.708345385142729,0.7166635514669,-0.0083181663241706
+"anchor_10","HOG:0023085","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.796864730657373,0.683414278848137,0.113450451809236
+"anchor_10","HOG:0023085","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.764388312673816,0.733764171230286,0.0306241414435304
+"anchor_10","HOG:0023085","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.777236480797507,0.783078017717989,-0.0058415369204825
+"anchor_10","HOG:0023085","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.11235642446976,-0.253259630726722,0.140903206256963
+"anchor_10","HOG:0023085","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.482207721660852,-0.0982310497288451,-0.383976671932006
+"anchor_10","HOG:0023085","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.157098535429172,-0.115142404474476,-0.0419561309546963
+"anchor_10","HOG:0023085","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.241613870214088,-0.23591608871054,-0.00569778150354738
+"anchor_10","HOG:0023085","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.6655743256269,-0.702226544538314,0.0366522189114141
+"anchor_10","HOG:0023085","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.645483142239661,-0.707381903313118,0.0618987610734568
+"anchor_10","HOG:0023085","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.648800571699255,-0.636046913219671,-0.0127536584795844
+"anchor_10","HOG:0023085","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.657231413440278,-0.636628554291066,-0.0206028591492113
+"anchor_10","HOG:0023085","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0372341750413505,-0.0521525050027378,0.0893866800440883
+"anchor_10","HOG:0023085","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.0117115704390562,0.0815710148952011,-0.0698594444561449
+"anchor_10","HOG:0023085","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.102196757032693,-0.01444002252046,0.116636779553153
+"anchor_10","HOG:0023085","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0520125085177443,-0.000594003117010744,0.052606511634755
+"anchor_11","HOG:0026770","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.712459253102014,0.708397313169546,0.00406193993246851
+"anchor_11","HOG:0026770","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.808548044774903,0.690415391818794,0.118132652956109
+"anchor_11","HOG:0026770","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.767361172779865,0.73844846434217,0.0289127084376954
+"anchor_11","HOG:0026770","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.82821143744503,0.787609972423924,0.0406014650211063
+"anchor_11","HOG:0026770","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.123890822726876,-0.250751261130292,0.126860438403417
+"anchor_11","HOG:0026770","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.527831917925813,-0.120997289006454,-0.406834628919359
+"anchor_11","HOG:0026770","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.184304859527527,-0.131733898564941,-0.0525709609625864
+"anchor_11","HOG:0026770","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.269893444336043,-0.244021053906886,-0.025872390429157
+"anchor_11","HOG:0026770","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.671980070841151,-0.717799124116112,0.0458190532749612
+"anchor_11","HOG:0026770","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.636025881682444,-0.691165071439197,0.0551391897567529
+"anchor_11","HOG:0026770","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.64412202661508,-0.633841547862362,-0.0102804787527185
+"anchor_11","HOG:0026770","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.620325356162598,-0.634879226382972,0.0145538702203737
+"anchor_11","HOG:0026770","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.0478280726764987,3.65505956488876e-05,0.0477915220808498
+"anchor_11","HOG:0026770","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.00376787269384959,0.0433753165815999,-0.0396074438877503
+"anchor_11","HOG:0026770","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.104031763930485,-0.0142807405926186,0.118312504523103
+"anchor_11","HOG:0026770","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.00994914625876187,-0.00149228269968771,0.0114414289584496
+"anchor_12","HOG:0012056","leaf","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",0.706966340999629,0.69730188181284,0.00966445918678915
+"anchor_12","HOG:0012056","leaf","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",0.795421581818785,0.684668906439109,0.110752675379675
+"anchor_12","HOG:0012056","leaf","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",0.749000217529881,0.729070012768268,0.0199302047616131
+"anchor_12","HOG:0012056","leaf","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",0.789882612059072,0.77640477663224,0.0134778354268317
+"anchor_12","HOG:0012056","leaf","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",-0.114367902850779,-0.237002945307696,0.122635042456916
+"anchor_12","HOG:0012056","leaf","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",-0.479329227590261,-0.10268728593867,-0.376641941651591
+"anchor_12","HOG:0012056","leaf","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",-0.152065946081319,-0.119321016324256,-0.0327449297570633
+"anchor_12","HOG:0012056","leaf","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",-0.240507452053015,-0.22089192931765,-0.0196155227353648
+"anchor_12","HOG:0012056","root","mean_activity","equal-time-point mean module activity within tissue","Brachypodium","BDIS","BSYL",-0.673624492889802,-0.709998329484243,0.036373836594441
+"anchor_12","HOG:0012056","root","mean_activity","equal-time-point mean module activity within tissue","Hordeum","HVUL","HJUB",-0.646804015898999,-0.705406360092699,0.0586023441937001
+"anchor_12","HOG:0012056","root","mean_activity","equal-time-point mean module activity within tissue","Briza","BMAX","BMED",-0.655281771867894,-0.640584529171194,-0.0146972426967005
+"anchor_12","HOG:0012056","root","mean_activity","equal-time-point mean module activity within tissue","Festuca/Vulpia","VBRO","FPRA",-0.651370379737738,-0.645483912843187,-0.0058864668945513
+"anchor_12","HOG:0012056","root","early_to_late","last minus first matched time-point module activity","Brachypodium","BDIS","BSYL",0.057071559200632,0.0157378848613007,0.0413336743393313
+"anchor_12","HOG:0012056","root","early_to_late","last minus first matched time-point module activity","Hordeum","HVUL","HJUB",0.013779745634484,0.0717482476898366,-0.0579685020553525
+"anchor_12","HOG:0012056","root","early_to_late","last minus first matched time-point module activity","Briza","BMAX","BMED",0.0717486322663322,-0.0239428821773341,0.0956915144436663
+"anchor_12","HOG:0012056","root","early_to_late","last minus first matched time-point module activity","Festuca/Vulpia","VBRO","FPRA",0.0538688698270825,0.0111973773594072,0.0426714924676753

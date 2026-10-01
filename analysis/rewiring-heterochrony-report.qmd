@@ -1,0 +1,931 @@
+---
+title: "Candidate heterochrony and network context"
+subtitle: "Clique-resolved annual-perennial rewiring in Pooideae"
+date: last-modified
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    page-layout: full
+    embed-resources: true
+    smooth-scroll: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<style>
+:root {
+  --annual: #d95f02;
+  --perennial: #167d8d;
+  --ink: #27323a;
+  --muted: #65737e;
+}
+.quarto-title-banner {
+  background: linear-gradient(120deg, #16324f, #167d8d);
+  color: white;
+}
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0 1.5rem;
+}
+.metric-card {
+  border: 1px solid #dde4e8;
+  border-radius: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: #f8fafb;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 6%);
+}
+.metric-value {
+  color: var(--ink);
+  font-size: 1.55rem;
+  font-weight: 700;
+}
+.metric-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+.annual-text { color: var(--annual); font-weight: 650; }
+.perennial-text { color: var(--perennial); font-weight: 650; }
+.gt_table { font-size: 0.88rem; }
+</style>
+
+```{r}
+#| label: setup
+
+library(ggplot2)
+
+find_root <- function() {
+  candidates <- c(".", "..")
+  found <- candidates[file.exists(file.path(candidates, "DESCRIPTION"))]
+  if (length(found) == 0L) {
+    stop("Could not locate the rcomplex repository root")
+  }
+  normalizePath(found[1L])
+}
+
+root <- find_root()
+output_path <- function(name) {
+  file.path(root, "analysis", "output", name)
+}
+cache_path <- function(name) {
+  file.path(root, "analysis", "cache", "rewiring-screen", name)
+}
+
+safe_rbind <- function(x) {
+  x <- x[lengths(x) > 0L]
+  if (length(x) == 0L) {
+    return(data.frame())
+  }
+  result <- do.call(rbind, x)
+  rownames(result) <- NULL
+  result
+}
+
+candidates <- read.csv(
+  output_path("rewiring-heterochrony-candidates.csv"),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+profiles <- read.csv(
+  output_path("rewiring-heterochrony-candidate-profiles.csv"),
+  stringsAsFactors = FALSE
+)
+literature <- read.csv(
+  output_path("rewiring-hot-hog-literature.csv"),
+  stringsAsFactors = FALSE
+)
+selected <- read.csv(
+  cache_path("selected-anchors.csv"),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+regulator_copies <- read.csv(
+  output_path("rewiring-heterochrony-regulator-copies.csv"),
+  stringsAsFactors = FALSE
+)
+membership <- read.csv(
+  cache_path("module-membership.csv"),
+  stringsAsFactors = FALSE
+)
+
+annual_colour <- "#d95f02"
+perennial_colour <- "#167d8d"
+neutral_colour <- "#7a8790"
+
+first_nonempty <- function(...) {
+  values <- list(...)
+  result <- rep(NA_character_, max(lengths(values)))
+  for (value in values) {
+    value <- rep(value, length.out = length(result))
+    use <- is.na(result) & !is.na(value) & nzchar(value)
+    result[use] <- value[use]
+  }
+  result
+}
+
+short_text <- function(x, width = 52L) {
+  x <- ifelse(is.na(x), "", x)
+  ifelse(
+    nchar(x) > width,
+    paste0(substr(x, 1L, width - 1L), "\u2026"),
+    x
+  )
+}
+
+candidate_annotation <- first_nonempty(
+  candidates$best_arabi_defline,
+  candidates$regulator_arabi_defline,
+  candidates$best_rice_defline,
+  candidates$regulator_rice_defline
+)
+candidates$annotation <- candidate_annotation
+
+anchor_genes <- selected[c("hog", "BDIS")]
+names(anchor_genes) <- c("anchor_hog", "bdis_selected_gene")
+extra_genes <- regulator_copies[
+  regulator_copies$species == "BDIS" & regulator_copies$selected,
+  c("anchor_hog", "selected_gene"),
+  drop = FALSE
+]
+names(extra_genes)[2L] <- "bdis_selected_gene"
+anchor_genes <- rbind(anchor_genes, extra_genes)
+anchor_genes <- anchor_genes[!duplicated(anchor_genes$anchor_hog), ]
+candidates <- merge(
+  candidates,
+  anchor_genes,
+  by = "anchor_hog",
+  all.x = TRUE,
+  sort = FALSE
+)
+
+database_links <- function(gene) {
+  phytozome_gene <- sub("\\.v3\\.2$", "", gene)
+  ifelse(
+    is.na(gene) | !nzchar(gene),
+    "",
+    paste0(
+      "[Phytozome](",
+      "https://phytozome-next.jgi.doe.gov/report/gene/",
+      "Bdistachyon_v3_2/",
+      phytozome_gene,
+      ") \u00b7 [UniProt](",
+      "https://www.uniprot.org/uniprotkb?query=",
+      utils::URLencode(gene, reserved = TRUE),
+      ") \u00b7 [OrthoDB](",
+      "https://www.orthodb.org/?query=",
+      utils::URLencode(gene, reserved = TRUE),
+      ")"
+    )
+  )
+}
+
+candidates$database_links <- database_links(
+  candidates$bdis_selected_gene
+)
+candidates$annotation[candidates$anchor_hog == "HOG:0026234"] <-
+  paste(
+    "Zeta-carotene desaturase; upstream carotenoid precursor",
+    "supply for strigolactone biosynthesis"
+  )
+candidates$display_label <- paste0(
+  candidates$anchor_hog,
+  ifelse(
+    nzchar(candidates$annotation),
+    paste0(" \u00b7 ", short_text(candidates$annotation, 35L)),
+    ""
+  )
+)
+
+pattern_labels <- c(
+  coordinated_phase_shift = "Coordinated anchor + module",
+  anchor_only_phase_shift = "Anchor only",
+  module_only_phase_shift = "Module only",
+  anchor_module_decoupling = "Anchor/module decoupled",
+  no_recurrent_phase_shift = "No recurrent shift"
+)
+candidates$pattern_label <- unname(
+  pattern_labels[candidates$heterochrony_pattern]
+)
+candidates$phase_intervals <- 4 * candidates$anchor_phase_difference
+candidates$phase_label <- ifelse(
+  candidates$anchor_phase_difference > 0,
+  "Annual later",
+  ifelse(candidates$anchor_phase_difference < 0, "Annual earlier", "Tied")
+)
+
+strong <- candidates$heterochrony_pattern != "no_recurrent_phase_shift"
+n_hogs <- length(unique(candidates$anchor_hog))
+n_strong_rows <- sum(strong)
+n_coordinated <- sum(
+  candidates$heterochrony_pattern == "coordinated_phase_shift"
+)
+n_later <- sum(candidates$phase_label == "Annual later" & strong)
+n_earlier <- sum(candidates$phase_label == "Annual earlier" & strong)
+```
+
+::: {.callout-important}
+## Interpretation boundary
+
+Positive phase values mean later deployment in annuals on the matched
+five-point sampling axis. They do not prove delayed developmental stage:
+the samples lack an independent meristem-stage clock. Candidate selection
+also used these expression data, so this is a conditional exploratory screen,
+not a confirmatory significance analysis.
+:::
+
+```{r}
+#| output: asis
+
+cat(
+  '<div class="metric-strip">',
+  sprintf(
+    paste0(
+      '<div class="metric-card"><div class="metric-value">%d</div>',
+      '<div class="metric-label">candidate HOGs</div></div>'
+    ),
+    n_hogs
+  ),
+  sprintf(
+    paste0(
+      '<div class="metric-card"><div class="metric-value">%d</div>',
+      '<div class="metric-label">recurrent candidate-tissue shifts</div>',
+      '</div>'
+    ),
+    n_strong_rows
+  ),
+  sprintf(
+    paste0(
+      '<div class="metric-card"><div class="metric-value">%d</div>',
+      '<div class="metric-label">coordinated anchor/module shifts</div>',
+      '</div>'
+    ),
+    n_coordinated
+  ),
+  sprintf(
+    paste0(
+      '<div class="metric-card"><div class="metric-value annual-text">',
+      '%d</div><div class="metric-label">later annual profiles</div></div>'
+    ),
+    n_later
+  ),
+  sprintf(
+    paste0(
+      '<div class="metric-card"><div class="metric-value perennial-text">',
+      '%d</div><div class="metric-label">earlier annual profiles</div></div>'
+    ),
+    n_earlier
+  ),
+  "</div>",
+  sep = "\n"
+)
+```
+
+## Strongest recurrent shifts
+
+The primary phase statistic is an expression-weighted centroid on a normalized
+axis from 0 (T1) to 1 (T5). One sampling interval is 0.25 units. The table is
+sortable and searchable.
+
+```{r}
+
+top_table <- candidates[strong, c(
+  "anchor_hog", "tissue", "pattern_label", "phase_label",
+  "phase_intervals", "anchor_pair_agreement",
+  "anchor_bootstrap_support", "module_phase_difference", "annotation"
+)]
+top_table <- top_table[order(
+  top_table$pattern_label != "Coordinated anchor + module",
+  -abs(top_table$phase_intervals)
+), ]
+top_table$annotation <- short_text(top_table$annotation, 42L)
+gt::gt(top_table) |>
+  gt::cols_label(
+    anchor_hog = "HOG",
+    tissue = "Tissue",
+    pattern_label = "Evidence pattern",
+    phase_label = "Direction",
+    phase_intervals = "\u0394 phase (intervals)",
+    anchor_pair_agreement = "Anchor pairs",
+    anchor_bootstrap_support = "Bootstrap support",
+    module_phase_difference = "Module \u0394 phase",
+    annotation = "Annotation"
+  ) |>
+  gt::fmt_number(
+    columns = c("phase_intervals", "module_phase_difference"),
+    decimals = 2
+  ) |>
+  gt::fmt_percent(columns = "anchor_bootstrap_support", decimals = 0) |>
+  gt::data_color(
+    columns = "phase_intervals",
+    palette = c(perennial_colour, "#f7f7f7", annual_colour),
+    domain = c(-1, 1)
+  ) |>
+  gt::tab_header(
+    title = "Candidate heterochrony calls",
+    subtitle = "Ranked by evidence pattern and absolute anchor phase shift"
+  ) |>
+  gt::tab_source_note(
+    gt::md(
+      paste(
+        "Pair support is out of four sister pairs.",
+        "Positive phase means later annual deployment."
+      )
+    )
+  ) |>
+  gt::opt_interactive(
+    use_sorting = TRUE,
+    use_search = TRUE,
+    use_filters = TRUE,
+    use_compact_mode = TRUE,
+    use_page_size_select = TRUE,
+    page_size_default = 15
+  )
+```
+
+::: {.callout-tip}
+## A carotenoid-to-strigolactone candidate
+
+`HOG:0026234` is the ζ-carotene desaturase represented by
+[`Bradi1g54390`](https://phytozome-next.jgi.doe.gov/report/gene/Bdistachyon_v3_2/Bradi1g54390).
+It supplies the carotenoid pathway that produces β-carotene, the upstream
+substrate from which D27, CCD7/MAX3, and CCD8/MAX4 initiate strigolactone
+biosynthesis. Its signal should therefore be interpreted as potential
+**carotenoid precursor allocation**, not as a strigolactone-specific enzymatic
+step. In this screen the candidate transcript itself does not show a strong
+root phase shift, but its recurrent module shifts later in annuals
+(`Δ phase = 0.205`, 4/4 sister pairs). This is compatible with altered timing
+of a carotenoid-derived hormone program and merits targeted examination
+alongside D27, CCD7, CCD8, and MAX1 orthologues
+([Alder et al. 2012](https://doi.org/10.1126/science.1218094)).
+:::
+
+## Distribution across tissues
+
+```{r}
+
+summary_input <- candidates[c(
+  "tissue", "pattern_label", "phase_intervals",
+  "anchor_pair_agreement", "anchor_bootstrap_support",
+  "module_phase_difference"
+)]
+names(summary_input) <- c(
+  "Tissue", "Evidence pattern", "Anchor phase shift",
+  "Pair agreement", "Bootstrap support", "Module phase shift"
+)
+
+gtsummary::tbl_summary(
+  summary_input,
+  by = "Tissue",
+  statistic = list(
+    gtsummary::all_continuous() ~ "{median} ({p25}, {p75})",
+    gtsummary::all_categorical() ~ "{n} ({p}%)"
+  ),
+  digits = gtsummary::all_continuous() ~ 2,
+  missing = "no"
+) |>
+  gtsummary::add_overall(last = TRUE) |>
+  gtsummary::bold_labels() |>
+  gtsummary::modify_caption(
+    "**Candidate-level timing summaries by tissue**"
+  ) |>
+  gtsummary::as_gt()
+```
+
+## Expression-profile atlas
+
+Thin lines are individual species; thick lines are life-history means. Values
+are robustly standardized within each species and therefore describe
+deployment shape rather than absolute cross-species transcript abundance.
+Solid lines represent the clique-resolved candidate gene and dashed lines its
+recurrent local module.
+
+```{r}
+#| fig-width: 15
+#| fig-height: 12
+#| fig-alt: >
+#|   Faceted expression trajectories for candidate genes and their modules,
+#|   comparing annual and perennial species over five matched sampling points.
+
+profile_meta <- unique(candidates[c(
+  "anchor_hog", "display_label", "heterochrony_pattern"
+)])
+profile_meta <- profile_meta[
+  !duplicated(profile_meta$anchor_hog),
+  ,
+  drop = FALSE
+]
+profile_data <- merge(
+  profiles,
+  profile_meta,
+  by = "anchor_hog",
+  all.x = TRUE,
+  sort = FALSE
+)
+life_cycle <- c(
+  BDIS = "Annual", BSYL = "Perennial",
+  HVUL = "Annual", HJUB = "Perennial",
+  BMAX = "Annual", BMED = "Perennial",
+  VBRO = "Annual", FPRA = "Perennial"
+)
+profile_data$life_cycle <- unname(life_cycle[profile_data$species])
+profile_data$layer <- factor(
+  profile_data$layer,
+  levels = c("anchor", "module"),
+  labels = c("Candidate", "Module")
+)
+profile_data$life_cycle <- factor(
+  profile_data$life_cycle,
+  levels = c("Annual", "Perennial")
+)
+
+profile_order <- aggregate(
+  abs(anchor_phase_difference) ~ anchor_hog,
+  candidates,
+  max
+)
+profile_order <- profile_order[order(
+  -profile_order$`abs(anchor_phase_difference)`
+), ]
+profile_hogs <- profile_order$anchor_hog
+profile_pages <- split(
+  profile_hogs,
+  ceiling(seq_along(profile_hogs) / 7L)
+)
+
+plot_profile_page <- function(hogs) {
+  plot_data <- profile_data[
+    profile_data$anchor_hog %in% hogs,
+    ,
+    drop = FALSE
+  ]
+  plot_data$display_label <- factor(
+    plot_data$display_label,
+    levels = profile_meta$display_label[
+      match(hogs, profile_meta$anchor_hog)
+    ]
+  )
+  means <- aggregate(
+    value ~ display_label + tissue + stage_position + life_cycle + layer,
+    plot_data,
+    mean
+  )
+  ggplot(
+    plot_data,
+    aes(
+      x = stage_position,
+      y = value,
+      colour = life_cycle,
+      linetype = layer
+    )
+  ) +
+    geom_line(
+      aes(group = interaction(species, layer)),
+      alpha = 0.22,
+      linewidth = 0.45
+    ) +
+    geom_line(
+      data = means,
+      aes(group = interaction(life_cycle, layer)),
+      linewidth = 1.05
+    ) +
+    geom_point(data = means, size = 1.2) +
+    facet_grid(tissue ~ display_label) +
+    scale_colour_manual(
+      values = c(Annual = annual_colour, Perennial = perennial_colour)
+    ) +
+    scale_linetype_manual(values = c(Candidate = "solid", Module = "22")) +
+    scale_x_continuous(
+      breaks = seq(0, 1, by = 0.25),
+      labels = paste0("T", 1:5)
+    ) +
+    labs(
+      x = "Matched sampling position",
+      y = "Within-species robust z-score",
+      colour = NULL,
+      linetype = NULL
+    ) +
+    theme_minimal(base_size = 10) +
+    theme(
+      panel.grid.minor = element_blank(),
+      strip.text.x = element_text(size = 7.5),
+      legend.position = "top",
+      axis.text.x = element_text(size = 7)
+    )
+}
+
+for (page in profile_pages) {
+  print(plot_profile_page(page))
+}
+```
+
+## Annual and perennial ego-networks
+
+These views hold each candidate anchor fixed and count in how many annual or
+perennial species each recurrent HOG is an immediate network neighbour. They
+show neighbour recruitment, not regulation direction and not edges among
+neighbours.
+
+```{r}
+#| fig-width: 15
+#| fig-height: 8
+#| fig-alt: >
+#|   Annual and perennial candidate-centred ego networks, with edge width
+#|   indicating recurrence across four species and node colour indicating
+#|   which life-history group has stronger support.
+
+coordinated <- candidates[
+  candidates$heterochrony_pattern == "coordinated_phase_shift" &
+    candidates$is_eligible_anchor,
+  ,
+  drop = FALSE
+]
+ego_rank <- aggregate(
+  abs(anchor_phase_difference) ~ anchor_hog,
+  coordinated,
+  max
+)
+ego_rank <- ego_rank[order(-ego_rank$`abs(anchor_phase_difference)`), ]
+ego_hogs <- c(
+  "HOG:0025149",
+  utils::head(setdiff(ego_rank$anchor_hog, "HOG:0025149"), 7L)
+)
+
+membership$life_cycle <- unname(life_cycle[membership$species])
+ego_membership <- unique(membership[
+  membership$anchor_hog %in% ego_hogs &
+    membership$module_hog != membership$anchor_hog,
+  c("anchor_hog", "module_hog", "species", "life_cycle", "status")
+])
+ego_membership$is_neighbor <- ego_membership$status == "anchor_neighbor"
+ego_support <- aggregate(
+  is_neighbor ~ anchor_hog + module_hog + life_cycle,
+  ego_membership,
+  sum
+)
+names(ego_support)[names(ego_support) == "is_neighbor"] <- "support"
+ego_support <- reshape(
+  ego_support,
+  idvar = c("anchor_hog", "module_hog"),
+  timevar = "life_cycle",
+  direction = "wide"
+)
+for (column in c("support.Annual", "support.Perennial")) {
+  if (!column %in% names(ego_support)) {
+    ego_support[[column]] <- 0
+  }
+  ego_support[[column]][is.na(ego_support[[column]])] <- 0
+}
+ego_support$difference <- ego_support$support.Annual -
+  ego_support$support.Perennial
+ego_support$bias <- ifelse(
+  ego_support$difference >= 2,
+  "Annual-enriched",
+  ifelse(
+    ego_support$difference <= -2,
+    "Perennial-enriched",
+    "Shared or weak"
+  )
+)
+ego_support <- ego_support[
+  pmax(ego_support$support.Annual, ego_support$support.Perennial) >= 3 |
+    abs(ego_support$difference) >= 2,
+  ,
+  drop = FALSE
+]
+ego_support <- safe_rbind(lapply(
+  split(ego_support, ego_support$anchor_hog),
+  function(rows) {
+    rows <- rows[order(
+      -abs(rows$difference),
+      -pmax(rows$support.Annual, rows$support.Perennial),
+      rows$module_hog
+    ), ]
+    utils::head(rows, 12L)
+  }
+))
+
+make_ego_plot <- function(hogs) {
+  support <- ego_support[ego_support$anchor_hog %in% hogs, ]
+  plot_rows <- list()
+  edge_rows <- list()
+  for (hog in hogs) {
+    rows <- support[support$anchor_hog == hog, , drop = FALSE]
+    rows <- rows[order(rows$module_hog), ]
+    angle <- seq(0, 2 * pi, length.out = nrow(rows) + 1L)[
+      seq_len(nrow(rows))
+    ]
+    rows$x <- cos(angle)
+    rows$y <- sin(angle)
+    label <- profile_meta$display_label[
+      match(hog, profile_meta$anchor_hog)
+    ]
+    for (group in c("Annual", "Perennial")) {
+      support_column <- paste0("support.", group)
+      group_rows <- rows
+      group_rows$life_cycle <- group
+      group_rows$candidate <- label
+      plot_rows[[length(plot_rows) + 1L]] <- group_rows
+      present <- group_rows[[support_column]] > 0
+      if (any(present)) {
+        edge_rows[[length(edge_rows) + 1L]] <- data.frame(
+          candidate = label,
+          life_cycle = group,
+          x = 0,
+          y = 0,
+          xend = group_rows$x[present],
+          yend = group_rows$y[present],
+          support = group_rows[[support_column]][present]
+        )
+      }
+    }
+  }
+  nodes <- safe_rbind(plot_rows)
+  edges <- safe_rbind(edge_rows)
+  ggplot() +
+    geom_segment(
+      data = edges,
+      aes(x = x, y = y, xend = xend, yend = yend, linewidth = support),
+      colour = "#9aa5ab",
+      alpha = 0.65,
+      lineend = "round"
+    ) +
+    geom_point(
+      data = nodes,
+      aes(x = x, y = y, fill = bias),
+      shape = 21,
+      colour = "white",
+      stroke = 0.4,
+      size = 4
+    ) +
+    geom_point(
+      data = unique(nodes[c("candidate", "life_cycle")]),
+      aes(x = 0, y = 0),
+      shape = 21,
+      fill = "#243746",
+      colour = "white",
+      size = 6
+    ) +
+    geom_text(
+      data = nodes,
+      aes(x = 1.13 * x, y = 1.13 * y, label = sub("HOG:", "", module_hog)),
+      size = 2.1,
+      check_overlap = TRUE
+    ) +
+    facet_grid(life_cycle ~ candidate) +
+    scale_fill_manual(values = c(
+      "Annual-enriched" = annual_colour,
+      "Perennial-enriched" = perennial_colour,
+      "Shared or weak" = neutral_colour
+    )) +
+    scale_linewidth_continuous(range = c(0.4, 2.4), limits = c(1, 4)) +
+    coord_equal(xlim = c(-1.35, 1.35), ylim = c(-1.35, 1.35)) +
+    labs(fill = "Neighbour bias", linewidth = "Species support") +
+    theme_void(base_size = 9) +
+    theme(
+      legend.position = "top",
+      strip.text.x = element_text(size = 7.5)
+    )
+}
+
+ego_pages <- split(ego_hogs, ceiling(seq_along(ego_hogs) / 4L))
+for (page in ego_pages) {
+  print(make_ego_plot(page))
+}
+```
+
+### Sortable ego-network evidence
+
+```{r}
+
+ego_table <- ego_support
+ego_table$candidate <- ego_table$anchor_hog
+ego_table$neighbour <- ego_table$module_hog
+ego_table <- ego_table[c(
+  "candidate", "neighbour", "support.Annual",
+  "support.Perennial", "difference", "bias"
+)]
+
+gt::gt(ego_table) |>
+  gt::cols_label(
+    candidate = "Candidate",
+    neighbour = "Neighbour HOG",
+    support.Annual = "Annual support",
+    support.Perennial = "Perennial support",
+    difference = "\u0394 support",
+    bias = "Bias"
+  ) |>
+  gt::data_color(
+    columns = "difference",
+    palette = c(perennial_colour, "#f7f7f7", annual_colour),
+    domain = c(-4, 4)
+  ) |>
+  gt::opt_interactive(
+    use_sorting = TRUE,
+    use_search = TRUE,
+    use_filters = TRUE,
+    use_compact_mode = TRUE,
+    use_page_size_select = TRUE,
+    page_size_default = 20
+  )
+```
+
+## Annotation and external evidence
+
+Database links are provided only when the corresponding identifier is
+available. An OrthoDB search link is retained for every candidate HOG.
+
+```{r}
+
+annotation <- unique(candidates[c(
+  "anchor_hog", "hotspot_direction", "is_hotspot",
+  "is_recurrent_regulator", "annotation", "bdis_selected_gene"
+)])
+annotation <- merge(
+  annotation,
+  literature,
+  by.x = "anchor_hog",
+  by.y = "hog",
+  all.x = TRUE,
+  sort = FALSE
+)
+annotation$bdis_link <- ifelse(
+  !is.na(annotation$bdis_gene) & nzchar(annotation$bdis_gene),
+  paste0(
+    "[", annotation$bdis_gene, "](",
+    "https://phytozome-next.jgi.doe.gov/report/gene/",
+    "Bdistachyon_v3_2/",
+    sub("\\.v3\\.2$", "", annotation$bdis_gene),
+    ")"
+  ),
+  ifelse(
+    !is.na(annotation$bdis_selected_gene) &
+      nzchar(annotation$bdis_selected_gene),
+    paste0(
+      "[", annotation$bdis_selected_gene, "](",
+      "https://phytozome-next.jgi.doe.gov/report/gene/",
+      "Bdistachyon_v3_2/",
+      sub("\\.v3\\.2$", "", annotation$bdis_selected_gene),
+      ")"
+    ),
+    ""
+  )
+)
+annotation$uniprot_link <- ifelse(
+  !is.na(annotation$bdis_uniprot) & nzchar(annotation$bdis_uniprot),
+  paste0(
+    "[", annotation$bdis_uniprot, "](",
+    "https://www.uniprot.org/uniprotkb/",
+    annotation$bdis_uniprot,
+    "/entry)"
+  ),
+  ""
+)
+annotation$orthodb_link <- ifelse(
+  !is.na(annotation$orthodb_viridiplantae) &
+    nzchar(annotation$orthodb_viridiplantae),
+  paste0(
+    "[", annotation$orthodb_viridiplantae, "](",
+    "https://www.orthodb.org/?query=",
+    annotation$orthodb_viridiplantae,
+    ")"
+  ),
+  ""
+)
+annotation$doi_link <- ifelse(
+  !is.na(annotation$doi) & nzchar(annotation$doi),
+  paste0(
+    "[DOI](",
+    "https://doi.org/",
+    sub(";.*$", "", annotation$doi),
+    ")"
+  ),
+  ""
+)
+annotation$resolved <- first_nonempty(
+  annotation$resolved_family,
+  annotation$annotation
+)
+annotation_table <- annotation[c(
+  "anchor_hog", "bdis_link", "uniprot_link", "orthodb_link",
+  "hotspot_direction", "is_recurrent_regulator", "resolved",
+  "orthology_status", "doi_link", "interpretation"
+)]
+
+gt::gt(annotation_table) |>
+  gt::cols_label(
+    anchor_hog = "HOG",
+    bdis_link = "B. distachyon",
+    uniprot_link = "UniProt",
+    orthodb_link = "OrthoDB",
+    hotspot_direction = "Signal",
+    is_recurrent_regulator = "Regulator",
+    resolved = "Resolved annotation",
+    orthology_status = "Orthology",
+    doi_link = "Literature",
+    interpretation = "Interpretation"
+  ) |>
+  gt::fmt_markdown(columns = c(
+    "bdis_link", "uniprot_link", "orthodb_link", "doi_link"
+  )) |>
+  gt::fmt_tf(columns = "is_recurrent_regulator") |>
+  gt::opt_interactive(
+    use_sorting = TRUE,
+    use_search = TRUE,
+    use_filters = TRUE,
+    use_compact_mode = TRUE,
+    use_page_size_select = TRUE,
+    page_size_default = 15
+  )
+```
+
+## Complete candidate matrix
+
+This table preserves the principal phase, abundance, amplitude, shape, and
+anchor–module lag measurements. Use the column filters to isolate a tissue,
+evidence pattern, or direction.
+
+```{r}
+
+detail <- candidates[c(
+  "anchor_hog", "tissue", "pattern_label", "phase_label",
+  "anchor_phase_difference", "anchor_pair_agreement",
+  "anchor_bootstrap_support",
+  "anchor_adjusted_phase_median_annual_minus_perennial",
+  "module_phase_difference", "module_pair_agreement",
+  "anchor_mean_median_annual_minus_perennial",
+  "module_mean_median_annual_minus_perennial",
+  "anchor_amplitude_median_annual_minus_perennial",
+  "module_amplitude_median_annual_minus_perennial",
+  "anchor_shape_median_annual_minus_perennial",
+  "module_shape_median_annual_minus_perennial",
+  "phase_lag_median_annual_minus_perennial",
+  "hotspot_direction", "is_hotspot", "is_recurrent_regulator",
+  "annotation", "database_links"
+)]
+
+gt::gt(detail) |>
+  gt::cols_label(
+    anchor_hog = "HOG",
+    tissue = "Tissue",
+    pattern_label = "Pattern",
+    phase_label = "Direction",
+    anchor_phase_difference = "Anchor phase",
+    anchor_pair_agreement = "Anchor pairs",
+    anchor_bootstrap_support = "Bootstrap",
+    anchor_adjusted_phase_median_annual_minus_perennial =
+      "Adjusted anchor phase",
+    module_phase_difference = "Module phase",
+    module_pair_agreement = "Module pairs",
+    anchor_mean_median_annual_minus_perennial = "Anchor mean",
+    module_mean_median_annual_minus_perennial = "Module mean",
+    anchor_amplitude_median_annual_minus_perennial = "Anchor amplitude",
+    module_amplitude_median_annual_minus_perennial = "Module amplitude",
+    anchor_shape_median_annual_minus_perennial = "Anchor shape shift",
+    module_shape_median_annual_minus_perennial = "Module shape shift",
+    phase_lag_median_annual_minus_perennial = "Anchor\u2212module lag",
+    hotspot_direction = "Original signal",
+    is_hotspot = "Hotspot",
+    is_recurrent_regulator = "Regulator",
+    annotation = "Annotation",
+    database_links = "Databases"
+  ) |>
+  gt::fmt_markdown(columns = "database_links") |>
+  gt::fmt_number(
+    columns = where(is.numeric),
+    decimals = 2
+  ) |>
+  gt::fmt_percent(columns = "anchor_bootstrap_support", decimals = 0) |>
+  gt::fmt_tf(columns = c("is_hotspot", "is_recurrent_regulator")) |>
+  gt::opt_interactive(
+    use_sorting = TRUE,
+    use_search = TRUE,
+    use_filters = TRUE,
+    use_resizers = TRUE,
+    use_compact_mode = TRUE,
+    use_page_size_select = TRUE,
+    page_size_default = 15,
+    height = "700px"
+  )
+```
+
+## Reading the screen
+
+- **Coordinated shift** means candidate and recurrent module passed the same
+  recurrence, bootstrap, and empirical-effect criteria in the same direction.
+- **Anchor only** and **module only** distinguish gene timing from program
+  timing.
+- **Adjusted phase** subtracts the species-, tissue-, and layer-specific median
+  of all 336 eligible anchors. It controls broad transcriptome timing trends
+  but is not a substitute for an independently measured developmental stage.
+- **Ego-network support** is the number of species out of four in which a HOG
+  is a direct neighbour of the candidate. It does not imply activation,
+  repression, or physical binding.
+- The five-point shape alignment is deliberately bounded to one sampling
+  interval in either direction. Treat boundary estimates as coarse.

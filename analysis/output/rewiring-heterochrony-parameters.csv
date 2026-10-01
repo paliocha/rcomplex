@@ -1,0 +1,8 @@
+"parameter","value"
+"n_boot","499"
+"seed","20260914"
+"min_pair_agreement","3"
+"min_bootstrap_support","0.8"
+"min_effect_percentile","0.75"
+"phase_interpretation","positive annual-minus-perennial phase means later annual deployment on the matched five-point axis"
+"selection_caveat","exploratory conditional analysis; hotspot selection used deployment from the same expression data"
