@@ -264,10 +264,16 @@ test_that(".rank_power() branches: clamp, no room, weaker side, bad grid", {
   w2 <- rp(steep, 0.1, p0 = 1e-3)
   expect_false(isTRUE(all.equal(w1, w2)))
   expect_equal(rp(mixed, 0.1, p0 = 1e-3), pmin(w1, w2))
-  # a grid that lost its fraction names gives no power, not a wrong one
+  # a grid that lost its fraction names gives no power (and says so)
   lost <- d
   colnames(lost$Species1.auroc.grid) <- NULL
-  expect_true(all(is.na(rp(lost, 0.1))))
+  expect_warning(pw_lost <- rp(lost, 0.1), "fraction names")
+  expect_true(all(is.na(pw_lost)))
+  # so does a frame missing a supporting column
+  short <- d
+  short$Species2.n.cand <- NULL
+  expect_warning(pw_short <- rp(short, 0.1), "Species2.n.cand")
+  expect_true(all(is.na(pw_short)))
 })
 
 test_that("p0 reaches the rank power through find_coexpressologs()", {
@@ -309,4 +315,12 @@ test_that("a rank frame without its grid warns instead of going NA quietly", {
   flat <- res[, !grepl("auroc\\.grid", names(res))]
   expect_warning(comparison_to_edges(flat, "sp1", "sp2"), "saveRDS")
   expect_no_warning(comparison_to_edges(res, "sp1", "sp2"))
+})
+
+test_that("comparison_to_edges() refuses p0 on a hypergeometric frame", {
+  f <- make_spec_nets()
+  hy <- summarize_comparison(
+    compare_neighborhoods(f$networks$sp1, f$networks$sp2, f$ortho)
+  )$results
+  expect_error(comparison_to_edges(hy, "sp1", "sp2", p0 = 0.1), "rho0")
 })

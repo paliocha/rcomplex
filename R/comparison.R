@@ -504,6 +504,10 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 
   rank_frame <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
                       names(comparison))
+  if (!rank_frame && !is.null(p0)) {
+    stop("p0 applies to rank-test frames (with *.auroc.grid columns); ",
+         "rho0 sets the hypergeometric power", call. = FALSE)
+  }
   if (!rank_frame && any(c("Species1.n.cand", "Species2.n.cand") %in%
                            names(comparison))) {
     # a rank-test frame that lost its matrix columns (e.g. through

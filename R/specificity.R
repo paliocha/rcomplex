@@ -245,7 +245,11 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   need <- as.vector(outer(dirs, c(
     ".p.val", ".q.val.con", ".mapped", ".n.cand", ".auroc.grid"
   ), paste0))
-  if (nrow(res) == 0L || !all(need %in% names(res))) {
+  if (nrow(res) == 0L) {
+    return(na_out)
+  }
+  if (!all(need %in% names(res))) {
+    .warn_rank_power_na(paste(setdiff(need, names(res)), collapse = ", "))
     return(na_out)
   }
   combine <- if (pval_combine == "min") pmin else pmax
@@ -278,6 +282,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     # be read, so it gets no power rather than a wrong one
     if (length(lf) < 2L || length(lf) != ncol(grid) || anyNA(lf) ||
           any(diff(lf) <= 0)) {
+      .warn_rank_power_na(paste0(d, ".auroc.grid fraction names"))
       return(na_out)
     }
     at <- function(f) {
@@ -311,4 +316,16 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   ok <- is.null(p0) || (is.numeric(p0) && length(p0) == 1L &&
                           !is.na(p0) && p0 > 0 && p0 < 1)
   if (!ok) stop("p0 must be NULL or a single number in (0, 1)")
+}
+
+
+# Rank power that cannot be computed for a structural reason (a damaged
+# frame), as opposed to "no pair called": say so, because NA power makes
+# the clique classifiers read every miss as a rejection.
+.warn_rank_power_na <- function(what) {
+  warning(
+    "rank-test power is NA: the frame is missing or has unreadable ", what,
+    "; keep rank frames with saveRDS()",
+    call. = FALSE
+  )
 }
