@@ -564,8 +564,6 @@ test_that("p_copy is reproducible and pinned under a seed", {
 test_that("copy resolution and the copy null do not depend on collation", {
   old <- Sys.getlocale("LC_COLLATE")
   on.exit(Sys.setlocale("LC_COLLATE", old))
-  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
-  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
   fx <- pres_fixture()
   amb <- ambiguous_fixture(fx)
   # Species-1 IDs that C and en_US order differently: the paralog copies
@@ -611,9 +609,17 @@ test_that("copy resolution and the copy null do not depend on collation", {
       )
     )
   }
-  r_en <- run()
+  # C-locale (radix) outcome, checked without any other locale: exact
+  # rationals k / (copy_draws + 1), pinned so the per-gene draw order of
+  # the copy null cannot change silently
   Sys.setlocale("LC_COLLATE", "C")
-  expect_identical(run(), r_en)
+  r_c <- suppressWarnings(run())
+  expect_equal(r_c$pres$sensitivity$p_copy.avg.weight, c(33, 1, 51, 51) / 51)
+  expect_equal(r_c$pres$sensitivity$p_copy.cor.degree, c(10, 19, 51, 51) / 51)
+  # and the same under en_US, which collates these IDs differently
+  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  expect_identical(suppressWarnings(run()), r_c)
 })
 
 test_that("p_copy does not depend on what the naive run consumed", {
