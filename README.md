@@ -127,9 +127,15 @@ classify_preservation(pres)[, c("module", "size", "classification",
                                 "Zsummary_std", "q.value")]
 ```
 
-`detect_modules()` first tests whether the network has module structure
-at all, then groups genes into modules with the Leiden algorithm over
-several resolutions and keeps the consensus. `module_preservation()`
+`detect_modules()` groups genes into modules with the Leiden algorithm
+over several resolutions and keeps the consensus. It also tests for
+module structure at all, but with the modularity objective that test
+also says yes on pure noise: a correlation network from 20 samples has
+cluster structure even when the expression is shuffled. Treat modules as
+units only once they replicate on independent samples (see
+`?detect_modules`), and to test gene sets from elsewhere -- pathways,
+regulons, another tool's clusters -- build the module map with
+`as_modules()` instead. `module_preservation()`
 then asks whether each *Brachypodium distachyon* module keeps its wiring
 in the *B. sylvaticum* network: are its genes' orthologs still densely
 connected to each other, and are the same genes still the hubs? A module
@@ -315,6 +321,7 @@ pages](https://paliocha.github.io/rcomplex/reference/).
 **Modules and hubs**
 
 - [`detect_modules()`](https://paliocha.github.io/rcomplex/reference/detect_modules.html): Leiden, Infomap or SBM modules, with multi-resolution consensus.
+- [`as_modules()`](https://paliocha.github.io/rcomplex/reference/as_modules.html): module map from any gene partition (pathways, regulons, another tool's clusters) for the preservation tests.
 - [`resolve_ortholog_map()`](https://paliocha.github.io/rcomplex/reference/resolve_ortholog_map.html): pick one paralog copy per gene where evidence allows.
 - [`module_preservation()`](https://paliocha.github.io/rcomplex/reference/module_preservation.html): test whether modules keep their density and hubs in another species.
 - [`classify_preservation()`](https://paliocha.github.io/rcomplex/reference/classify_preservation.html): label modules conserved, moderate, diverged or untested.
