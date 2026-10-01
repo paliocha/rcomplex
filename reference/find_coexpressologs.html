@@ -88,6 +88,7 @@ the results into a single edge data frame ready for
 <span>  out_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  rho0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  null_networks <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  p0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -126,8 +127,9 @@ specifying which pairs to compare. Defaults to all
 <code>"rank"</code> scores each ortholog pair with
 <code><a href="compare_specificity.html">compare_specificity</a></code> and calibrates it against
 <code>null_networks</code> via <code><a href="summarize_specificity.html">summarize_specificity</a></code>;
-<code>filter_zero</code> and <code>rho0</code> do not apply and <code>power</code> is
-<code>NA</code>.</p></dd>
+<code>filter_zero</code> does not apply and <code>rho0</code> is refused (use
+<code>p0</code>); <code>power</code> is
+the rank-test power (see <code><a href="summarize_specificity.html">summarize_specificity</a></code>).</p></dd>
 
 
 <dt id="arg-alternative">alternative<a class="anchor" aria-label="anchor" href="#arg-alternative"></a></dt>
@@ -247,6 +249,15 @@ call threshold to measure power against.</p></dd>
 list with one <code><a href="null_network.html">null_network</a></code> object, or a list of them,
 per species.</p></dd>
 
+
+<dt id="arg-p-">p0<a class="anchor" aria-label="anchor" href="#arg-p-"></a></dt>
+<dd><p>Rank method only: reference raw p for the <code>power</code>
+column, passed to <code><a href="summarize_specificity.html">summarize_specificity</a></code>. <code>NULL</code>
+(default) takes, per species pair and direction, the median raw p of
+the pairs called and significant in that direction, so references
+differ between species pairs; a single number puts every pair on one
+reference, as <code>rho0</code> does for the hypergeometric power.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
@@ -285,7 +296,9 @@ B's species the same way, and reports B's rank in that contest,
 so a list that thousands of genes recognise as well as B is not
 evidence. The q-value is read against a partner whose expression
 was shuffled within each gene. <code>effect_size</code> is
-<code>sqrt(auroc12 * auroc21)</code> and <code>power</code> is <code>NA</code>.</p></dd>
+<code>sqrt(auroc12 * auroc21)</code>; <code>power</code> is the rank-test
+power of <code><a href="summarize_specificity.html">summarize_specificity</a></code> at its default
+reference rank.</p></dd>
 
 <dt>permutation</dt>
 <dd><p>Rigorous path: gene-identity permutation via

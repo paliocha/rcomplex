@@ -135,8 +135,21 @@ requested direction (<code>Species1.</code> for 1 to 2, <code>Species2.</code> f
 <dt>jaccard</dt>
 <dd><p>As in <code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code>.</p></dd>
 
+<dt>n.cand</dt>
+<dd><p>Number of candidate genes in the partner network.</p></dd>
+
 <dt>effect.size</dt>
 <dd><p>Equal to <code>auroc</code>.</p></dd>
+
+<dt>auroc.grid</dt>
+<dd><p>Matrix, one row per pair and one column per
+raw-p fraction f (1e-5 to 1, the column names): the
+<code>ceiling(f * n.cand)</code>-th largest candidate AUROC for the anchor,
+i.e. the AUROC the ortholog needs to reach raw p of about f.
+<code><a href="summarize_specificity.html">summarize_specificity()</a></code> reads it for the edge <code>power</code>. It is
+computed on every call; a comparison against a <code><a href="null_network.html">null_network()</a></code>
+partner, which only needs <code>p.val</code>, pays for it too (the package's
+own null runs skip it).</p></dd>
 
 
 </dl><p><code>auroc</code> and <code>p.val</code> are <code>NA</code> when \(T\) is empty or spans every

@@ -84,7 +84,8 @@ mapping; all indices 0-based.</p>
 <span>  <span class="va">ortho_sp2_idx</span>,</span>
 <span>  <span class="va">do_12</span>,</span>
 <span>  <span class="va">do_21</span>,</span>
-<span>  <span class="va">n_cores</span></span>
+<span>  <span class="va">n_cores</span>,</span>
+<span>  <span class="va">grid_frac</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -147,12 +148,20 @@ mapping; all indices 0-based.</p>
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
 <dd><p>Number of OpenMP threads (default: 1)</p></dd>
 
+
+<dt id="arg-grid-frac">grid_frac<a class="anchor" aria-label="anchor" href="#arg-grid-frac"></a></dt>
+<dd><p>Ascending fractions f in (0, 1]; for each, the AUROC
+grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
+Empty skips the grid.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
-    <p>DataFrame with, per requested direction, <code>Species1.neigh</code>,
+    <p>List with, per requested direction, <code>Species1.neigh</code>,
 <code>Species1.mapped</code>, <code>Species1.auroc</code>, <code>Species1.p.val</code>,
-<code>Species1.jaccard</code> (and the <code>Species2.*</code> set), one row per pair.</p>
+<code>Species1.jaccard</code>, <code>Species1.n.cand</code> (one element per pair) and the
+matrix <code>Species1.auroc.grid</code> (pairs x fractions), and the <code>Species2.*</code>
+set.</p>
     </div>
 
   </div>

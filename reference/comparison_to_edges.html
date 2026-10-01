@@ -76,7 +76,8 @@ identity, and computes per-pair effect sizes and classification.</p>
 <span>  alternative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"greater"</span>, <span class="st">"less"</span><span class="op">)</span>,</span>
 <span>  alpha <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  pval_combine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"max"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
-<span>  rho0 <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  rho0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  p0 <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -128,6 +129,15 @@ are shared. <code>NULL</code> (default) takes, per direction, the median
 <code>effect.size</code> of the called pairs (about 2.5 on the Pooideae
 data); a single positive number fixes it for both directions.</p></dd>
 
+
+<dt id="arg-p-">p0<a class="anchor" aria-label="anchor" href="#arg-p-"></a></dt>
+<dd><p>Rank-test frames only (from
+<code><a href="summarize_specificity.html">summarize_specificity</a></code>, carrying the AUROC grid):
+reference raw p for the <code>power</code> column, see
+<code><a href="summarize_specificity.html">summarize_specificity</a></code>. <code>NULL</code> (default) takes, per
+direction, the median raw p of the pairs called and significant in
+that direction.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
@@ -171,8 +181,13 @@ absent evidence, not evidence of divergence.
 <code><a href="classify_gene_cliques.html">classify_gene_cliques</a></code> and
 <code><a href="classify_cliques.html">classify_cliques</a></code> read it through
 <code>min_power</code>. <code>NA</code> for <code>alternative = "less"</code>,
-when no pair is called, or when the comparison lacks the
-neighbourhood-size columns.</p></dd>
+when no pair is called in a direction, or when the comparison
+lacks the neighbourhood-size columns. For a rank-test frame (one
+carrying <code>*.auroc.grid</code>) it is the rank-test power instead,
+at reference rank <code>p0</code> (see
+<code><a href="summarize_specificity.html">summarize_specificity</a></code>); there a direction with no call
+gives 0 rather than <code>NA</code>, so the classifiers read it as
+uninformative, not as a rejection.</p></dd>
 
 <dt>type</dt>
 <dd><p><code>"conserved"</code> or <code>"diverged"</code> if

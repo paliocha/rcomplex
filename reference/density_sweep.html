@@ -88,6 +88,7 @@ choice of density cutoff.</p>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  rho0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  null_networks <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  p0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -196,6 +197,11 @@ fold enrichment for the analytical <code>power</code> column.</p></dd>
 <dd><p>Passed to <code><a href="find_coexpressologs.html">find_coexpressologs</a></code>
 (rank method only); every null's threshold is scaled by the
 same multiplier as its species' network.</p></dd>
+
+
+<dt id="arg-p-">p0<a class="anchor" aria-label="anchor" href="#arg-p-"></a></dt>
+<dd><p>Passed to <code><a href="find_coexpressologs.html">find_coexpressologs</a></code>: reference raw p
+for the rank-test <code>power</code> column.</p></dd>
 
 </dl></div>
     <div id="value">
