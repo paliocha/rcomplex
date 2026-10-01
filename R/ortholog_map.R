@@ -119,7 +119,9 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
                       orthologs$Species2 %in% genes2, , drop = FALSE]
   cand <- unique(cand[, c("Species1", "Species2", "hog"), drop = FALSE])
   names(cand) <- c("gene1", "gene2", "hog")
-  cand$hog <- as.character(cand$hog)
+  # character, not factor: radix order of a factor follows its level codes,
+  # which carry the collation of whatever session built them
+  cand[] <- lapply(cand, as.character)
 
   if (nrow(cand) == 0L) {
     stop("No orthologs found in both gene universes")
@@ -254,6 +256,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   if (nrow(e) == 0L) {
     return(empty)
   }
+  e$gene1 <- as.character(e$gene1)
+  e$gene2 <- as.character(e$gene2)
 
   # Significance: prefer the explicit type label, fall back to q.value.
   if ("type" %in% names(e)) {

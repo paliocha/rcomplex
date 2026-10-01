@@ -420,6 +420,16 @@ test_that("tied copies resolve the same way under any collation", {
   r_c <- run()
   expect_identical(r_c$gene1[r_c$source == "clique"], "B2")
   expect_identical(r_c$gene1[r_c$source == "coexpressolog"], "C4")
+  # factor ID columns whose levels are in another collation's order
+  # (b1 before B2) resolve as the character columns do
+  ortho_f <- ortho
+  ortho_f$Species1 <- factor(ortho$Species1, levels = c("b1", "B2", "c3", "C4"))
+  edges_f <- edges
+  edges_f$gene1 <- factor(edges$gene1, levels = c("c3", "C4"))
+  r_f <- resolve_ortholog_map(ortho_f, c("b1", "B2", "c3", "C4"), c("t1", "t2"),
+    sp1 = "SP_A", sp2 = "SP_B", edges = edges_f, cliques = cliques
+  )
+  expect_identical(r_f, r_c)
   en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
   skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
   expect_identical(run(), r_c)
