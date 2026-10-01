@@ -80,8 +80,8 @@
 #' on the `p_copy` columns of `sensitivity`, not on the mappable-set
 #' invariant.
 #'
-#' @param modules_ref Module detection result for the reference species
-#'   (output of [detect_modules()]).
+#' @param modules_ref Module assignment for the reference species, from
+#'   [detect_modules()] or [as_modules()].
 #' @param net_ref,net_test Network objects from [compute_network()] for the
 #'   reference and test species.
 #' @param orthologs Data frame with columns `Species1`, `Species2`, `hog`.
@@ -1139,8 +1139,8 @@ classify_preservation <- function(pres, alpha = 0.1, z_conserved = 10,
 #' gene-overlap engine is gone here: a HOG with three paralogs no longer
 #' contributes three correlated draws to the same urn.
 #'
-#' @param modules_ref,modules_test Module detection results
-#'   (output of [detect_modules()]) for the two species.
+#' @param modules_ref,modules_test Module assignments for the two species,
+#'   from [detect_modules()] or [as_modules()].
 #' @param map Ortholog map from [resolve_ortholog_map()], with `gene1` in the
 #'   reference species and `gene2` in the test species.
 #' @param qvalue_method Passed to `compute_qvalues()`; `"randomized"`
@@ -1257,7 +1257,8 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' question from the reverse -- so both directions are run and reported
 #' separately.
 #'
-#' @param modules Named list of [detect_modules()] results, keyed by species.
+#' @param modules Named list of module assignments ([detect_modules()] or
+#'   [as_modules()]), keyed by species.
 #' @param networks Named list of [compute_network()] results, keyed by species.
 #' @param orthologs Data frame with columns `Species1`, `Species2`, `hog`.
 #' @param pairs Data frame with columns `sp1`, `sp2` and optionally

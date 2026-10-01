@@ -11,7 +11,8 @@ suppressPackageStartupMessages({
   pkgload::load_all(".", quiet = TRUE)
   library(SummarizedExperiment)
 })
-n_cores <- as.integer(commandArgs(TRUE)[1] %||% 4L)
+args <- commandArgs(TRUE)
+n_cores <- if (length(args)) as.integer(args[1]) else 4L
 RES <- c(0.5, 1, 2)
 ari <- function(a, b) {
   g <- intersect(names(a), names(b))

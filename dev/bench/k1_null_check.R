@@ -5,34 +5,43 @@
 # Null data: (a) seeded rnorm expression; (b) Pooideae leaf per species with
 # every gene's samples shuffled independently (skipped if prepare_data/data/
 # is absent). Reference: (c) the same Pooideae data unshuffled.
-# 2,000 top-variance genes, 20 samples, package defaults, the documented
-# multi-resolution call. Writes dev/bench/k1_null_check.tsv.
+# 2,000 top-variance genes, 20 samples, package defaults and the documented
+# multi-resolution call, under both Leiden objectives; the observed
+# statistic and the null range are kept so a tie shows apart from a margin. Writes dev/bench/k1_null_check.tsv.
 #
 # Run from the package root: Rscript dev/bench/k1_null_check.R [n_cores]
 # On macOS with R's Accelerate BLAS set VECLIB_MAXIMUM_THREADS=1: forked K = 1
 # workers otherwise segfault in arma::eigs_sym (Accelerate is not fork-safe).
 suppressPackageStartupMessages(pkgload::load_all(".", quiet = TRUE))
-n_cores <- as.integer(commandArgs(TRUE)[1] %||% 4L)
+args <- commandArgs(TRUE)
+n_cores <- if (length(args)) as.integer(args[1]) else 4L
 N_GENES <- 2000L
 top_var <- function(x) x[order(-apply(x, 1L, var))[seq_len(min(N_GENES, nrow(x)))], , drop = FALSE]
 shuffle_rows <- function(x) t(apply(x, 1L, sample))
+OBJ <- c("CPM", "modularity")
 run <- function(x, data, id, seed) {
   set.seed(seed)
   net <- compute_network(x, n_cores = n_cores)
-  t0 <- proc.time()[["elapsed"]]
-  m <- detect_modules(net,
-    resolution = c(0.5, 1, 2), seed = seed, n_cores = n_cores,
-    test_k1 = TRUE, n_perm_k1 = 100L
-  )
-  k1 <- m$k1_test
-  r <- data.frame(
-    data = data, id = id, seed = seed, n_genes = nrow(x),
-    n_modules = m$n_modules, has_structure = isTRUE(k1$has_structure),
-    p_value = k1$p_value %||% NA_real_, n_perm = k1$n_perm_completed %||% NA_integer_,
-    seconds = round(proc.time()[["elapsed"]] - t0, 1)
-  )
-  print(r, row.names = FALSE)
-  r
+  do.call(rbind, lapply(OBJ, function(obj) {
+    t0 <- proc.time()[["elapsed"]]
+    m <- detect_modules(net,
+      resolution = c(0.5, 1, 2), objective_function = obj, seed = seed,
+      n_cores = n_cores, test_k1 = TRUE, n_perm_k1 = 100L
+    )
+    k1 <- m$k1_test
+    r <- data.frame(
+      data = data, id = id, seed = seed, objective = obj, n_genes = nrow(x),
+      n_modules = m$n_modules, has_structure = isTRUE(k1$has_structure),
+      p_value = k1$p_value %||% NA_real_,
+      n_perm = k1$n_perm_completed %||% NA_integer_,
+      lambda_obs = signif(k1$lambda_obs %||% NA_real_, 4),
+      null_min = signif(min(k1$lambda_null), 4),
+      null_max = signif(max(k1$lambda_null), 4),
+      seconds = round(proc.time()[["elapsed"]] - t0, 1)
+    )
+    print(r, row.names = FALSE)
+    r
+  }))
 }
 rows <- list()
 for (s in 1:10) {
@@ -56,4 +65,4 @@ if (length(se_files)) {
 res <- do.call(rbind, rows)
 utils::write.table(res, "dev/bench/k1_null_check.tsv", sep = "\t", quote = FALSE, row.names = FALSE)
 cat("\nK = 1 rejection rate (has_structure) by data set:\n")
-print(stats::aggregate(cbind(rejected = has_structure, n_modules) ~ data, res, mean))
+print(stats::aggregate(cbind(rejected = has_structure, n_modules) ~ data + objective, res, mean))

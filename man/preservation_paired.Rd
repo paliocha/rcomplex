@@ -22,7 +22,8 @@ preservation_paired(modules, ...)
 )
 }
 \arguments{
-\item{modules}{Named list of \code{\link[=detect_modules]{detect_modules()}} results, keyed by species.}
+\item{modules}{Named list of module assignments (\code{\link[=detect_modules]{detect_modules()}} or
+\code{\link[=as_modules]{as_modules()}}), keyed by species.}
 
 \item{...}{Additional arguments passed to the default method.}
 

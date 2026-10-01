@@ -9,14 +9,17 @@
   objects through. Results through it are identical to a hand-built map.
 
 - **`detect_modules()` documents how far its modules replicate.** On
-  Pooideae leaf networks split into two halves of 10 samples, the default
-  CPM objective was unstable -- whether modules existed at all flipped
-  between halves in 5 of 8 species -- while `objective_function =
-  "modularity"` replicated partially (median split-half adjusted Rand
-  index 0.36, against about 0 on shuffled expression). The K = 1 test is
-  calibrated at the defaults (0 of 18 null data sets rejected, 6 of 8 real
-  species). The help page now says so and recommends modularity at small
-  sample sizes, checking replication on independent samples, and
+  Pooideae leaf networks split into two halves of 10 samples
+  (`test_k1 = FALSE`), the default CPM objective was unstable -- whether
+  modules existed at all flipped between halves in 4 of 8 species --
+  while `objective_function = "modularity"` replicated partially (median
+  split-half adjusted Rand index 0.36, about 0 on shuffled expression).
+  On noise (18 random or shuffled data sets) CPM gave one module and the
+  K = 1 test did not reject, degenerately (all statistics 0); modularity
+  gave 8-12 modules and the K = 1 test rejected every one, because its
+  rewiring null cannot see the clustering noise produces. The help page
+  now says to treat modules as units only after they replicate on
+  independent samples, not on the K = 1 test, and points to
   `as_modules()` for gene sets from elsewhere. Nothing is deprecated.
 
 - **`detect_modules(test_k1 = TRUE, n_cores > 1)` no longer segfaults

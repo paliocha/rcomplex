@@ -28,23 +28,33 @@
 #' ))
 #' mods$modules
 as_modules <- function(x, min_size = 1L) {
-  if (is.list(x) && !is.null(x$modules) && is.list(x$module_genes)) {
-    return(x)
-  }
   ok_size <- is.numeric(min_size) && length(min_size) == 1L &&
     !is.na(min_size) && min_size >= 1
   if (!ok_size) {
     stop("min_size must be a single number >= 1")
   }
+  if (is.list(x) && !is.null(x$modules) && is.list(x$module_genes)) {
+    if (min_size != 1) {
+      stop("min_size applies to a vector or list of gene sets, ",
+           "not to an existing module object")
+    }
+    return(x)
+  }
   if (is.list(x)) {
     if (is.null(names(x)) || any(!nzchar(names(x))) || anyNA(names(x))) {
       stop("a list of gene sets must be named by module label")
+    }
+    if (anyDuplicated(names(x))) {
+      stop("module label used twice: ", names(x)[anyDuplicated(names(x))])
     }
     if (!all(vapply(x, is.character, logical(1)))) {
       stop("every gene set must be a character vector of gene names")
     }
     x <- lapply(x, unique)
     genes <- unlist(x, use.names = FALSE)
+    if (anyNA(genes) || any(!nzchar(genes))) {
+      stop("gene names must not be NA or empty")
+    }
     if (anyDuplicated(genes)) {
       dup <- unique(genes[duplicated(genes)])
       where <- vapply(utils::head(dup, 5L), function(g) {
@@ -57,6 +67,7 @@ as_modules <- function(x, min_size = 1L) {
       )
     }
     modules <- stats::setNames(rep(names(x), lengths(x)), genes)
+    levels <- names(x)
   } else {
     if (is.null(names(x)) || any(!nzchar(names(x))) || anyNA(names(x))) {
       stop("a module vector must be named by gene")
@@ -64,15 +75,21 @@ as_modules <- function(x, min_size = 1L) {
     if (anyDuplicated(names(x))) {
       stop("gene assigned twice: ", names(x)[anyDuplicated(names(x))])
     }
+    # numeric labels sort numerically, as detect_modules() orders them;
+    # other labels keep their order of first appearance
+    lab <- x[!is.na(x)]
+    lab <- if (is.numeric(lab)) sort(unique(lab)) else unique(lab)
+    levels <- as.character(lab)
     modules <- stats::setNames(as.character(x), names(x))
     modules <- modules[!is.na(modules)]
     if (any(!nzchar(modules))) {
       stop("empty module label for gene ", names(modules)[!nzchar(modules)][1])
     }
   }
-  size <- table(modules)
-  modules <- modules[modules %in% names(size)[size >= min_size]]
-  module_genes <- split(names(modules), modules)
+  size <- table(factor(modules, levels = levels))
+  levels <- levels[size >= min_size]
+  modules <- modules[modules %in% levels]
+  module_genes <- split(names(modules), factor(modules, levels = levels))
   list(
     modules = modules,
     module_genes = module_genes,

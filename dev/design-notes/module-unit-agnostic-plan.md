@@ -183,31 +183,43 @@ R CMD build . && R CMD check --no-manual rcomplex_0.3.1.tar.gz
 **WP1 done** (04eb62e): `as_modules()`; preservation, correspondence and
 paired results identical through it (278 tests pass).
 
-**WP2: the K = 1 test is calibrated.** `dev/bench/k1_null_check.tsv`,
-2,000 top-variance genes, `resolution = c(0.5, 1, 2)`, package defaults
-(CPM): rejected on 0 of 10 rnorm and 0 of 8 shuffled Pooideae leaf data
-sets (each collapsed to 1 module); rejected on 6 of 8 real species (not
-BMED, not FPRA). The "rejects on noise" argument above came from
-modularity-objective Leiden and does not hold for the default call.
-Decision rule: keep `test_k1 = TRUE`.
+**WP2: the K = 1 test does not separate modules from noise.** First run
+(CPM only) and the corrected run after review (roborev job 415), both
+objectives, `dev/bench/k1_null_check.tsv`, 2,000 top-variance genes,
+`resolution = c(0.5, 1, 2)`, 100 permutations:
+
+| objective | null data rejected (10 random, 8 shuffled) | modules on null | real rejected |
+|---|---|---|---|
+| CPM (default) | 0 / 18, degenerate: one module, observed and every null statistic 0 | 1 | 6 / 8 (not BMED, FPRA) |
+| modularity | 18 / 18 (observed 14-16, null max ~8) | 8-12 | 8 / 8 (observed 63-89) |
+
+The first version of this note called the CPM result "calibrated"; all null
+p-values were 1 from exact ties, so it only shows the test does not reject
+there. Under modularity the "rejects on noise" worry holds: the
+degree-preserving rewiring null removes the geometric clustering of an
+n = 20 correlation graph. Real networks still sit far above shuffled
+expression (63-89 vs 14-16), so a shuffled-expression null would separate
+them; not built (option A documents, does not change the test).
 
 **Split-half replication at 10 vs 10 samples** (`dev/bench/modules_split_half.tsv`,
 same genes, `test_k1 = FALSE`; ARI between the two halves' partitions):
 
 | objective | split-half ARI (median, range) | seed ARI | shuffled ARI |
 |---|---|---|---|
-| CPM (default) | 0 (0-0.27); in 5 of 8 species one half gives 6-10 modules and the other 1; BMAX, BSYL 1 module in both | 0.54-0.97 | ~0; 3 shuffled halves gave 10 modules |
+| CPM (default) | 0 (0-0.27); in 4 of 8 species one half gives 6-10 modules and the other 1; BMAX, BSYL 1 module in both | 0.54-0.97 | ~0; 3 shuffled halves gave 10 modules |
 | modularity | 0.36 (0.05-0.44) | 0.59-0.93 | 0.00-0.01 |
 
-So the premise of WP3 is only half right: with the modularity objective,
+(`test_k1 = FALSE` in this benchmark.) So the premise of WP3 is only half right: with the modularity objective,
 modules replicate partially and well above noise (about half the seed
 ceiling); with the default CPM objective, whether modules exist at all
 flips between sample halves. WP3 was on hold for Martin's decision.
 
 **Decision (2026-10-01): option A.** Do not deprecate `detect_modules()`
 and do not change its defaults. Its help page gains a section on
-reproducibility at small sample sizes with the numbers above, recommends
-`objective_function = "modularity"` there, and points to `as_modules()`;
+reproducibility at small sample sizes with the numbers above and, after
+review (roborev job 415), says replication on independent samples -- not
+the K = 1 test -- is the evidence for a module (modularity replicates
+better but also finds modules in noise), and points to `as_modules()`;
 NEWS and CLAUDE.md say the same. No notice, no default change, so
 nf-rcomplex is unaffected. The macOS fork crash found in WP2 was fixed
 separately (PR #34).

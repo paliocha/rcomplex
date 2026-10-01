@@ -79,6 +79,19 @@ test_that("bad input fails with the offending value", {
   expect_error(as_modules(list(c("g1"))), "named by module label")
   expect_error(as_modules(c("a", "b")), "named by gene")
   expect_error(as_modules(c(g1 = "a"), min_size = 0), "min_size")
+  expect_error(as_modules(list(a = c("g1", NA))), "NA or empty")
+  expect_error(as_modules(list(a = c("g1", ""))), "NA or empty")
+  expect_error(as_modules(list(a = "g1", a = "g2")), "label used twice: a")
+  m <- as_modules(list(a = c("g1", "g2")))
+  expect_error(as_modules(m, min_size = 2), "not to an existing module")
+})
+
+test_that("module order follows the labels, numerically for numbers", {
+  v <- stats::setNames(c(1:12, 10L), sprintf("g%02d", 1:13))
+  expect_identical(names(as_modules(v)$module_genes), as.character(1:12))
+  expect_identical(
+    names(as_modules(list(b = "x", a = "y"))$module_genes), c("b", "a")
+  )
 })
 
 test_that("preservation results are the same through as_modules()", {
@@ -111,4 +124,17 @@ test_that("preservation results are the same through as_modules()", {
     n_perm = 50L, seed = 1
   )
   expect_identical(p2$classification, p1$classification)
+})
+
+test_that("twelve integer-labelled modules give the whole result unchanged", {
+  fx <- as_mod_fixture()
+  g <- rownames(fx$netA$network)[1:156]
+  lab <- stats::setNames(rep(1:12, each = 13), g)
+  hand <- list(modules = lab, module_genes = split(names(lab), lab),
+               n_modules = 12L)
+  a <- module_preservation(hand, fx$netA, fx$netB, fx$ortho,
+                           n_perm = 30L, seed = 3)
+  b <- module_preservation(as_modules(lab), fx$netA, fx$netB, fx$ortho,
+                           n_perm = 30L, seed = 3)
+  expect_identical(b, a)
 })
