@@ -57,8 +57,12 @@ if (length(se_files)) {
     se <- readRDS(f)
     x <- as.matrix(assay(se[, colData(se)$tissue == "leaf"]))
     x <- top_var(x[apply(x, 1L, var) > 0, , drop = FALSE])
+    # materialise the shuffle here: as a lazy argument it would be drawn
+    # inside run(), after run()'s own set.seed(), coupling the shuffle to
+    # the detection seed (same data as before, since both seeds are 1)
     set.seed(1L)
-    rows[[length(rows) + 1L]] <- run(shuffle_rows(x), "pooideae_shuffled", sp, 1L)
+    xs <- shuffle_rows(x)
+    rows[[length(rows) + 1L]] <- run(xs, "pooideae_shuffled", sp, 1L)
     rows[[length(rows) + 1L]] <- run(x, "pooideae_real", sp, 1L)
   }
 }
