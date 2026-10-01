@@ -80,7 +80,8 @@
 #'   Preservation only reports modules with at least
 #'   \code{min_module_size} mapped genes, so the HOG pool is smaller than
 #'   the retired gene-overlap engine's.
-#' @param modules Named list of \code{\link{detect_modules}} outputs.
+#' @param modules Named list of module assignments
+#'   (\code{\link{detect_modules}} or \code{\link{as_modules}} output).
 #'   Names must include all species referenced by \code{pairs}.
 #' @param orthologs Data frame with columns \code{Species1},
 #'   \code{Species2}, \code{hog}.

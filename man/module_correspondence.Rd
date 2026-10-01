@@ -15,8 +15,8 @@ module_correspondence(
 )
 }
 \arguments{
-\item{modules_ref, modules_test}{Module detection results
-(output of \code{\link[=detect_modules]{detect_modules()}}) for the two species.}
+\item{modules_ref, modules_test}{Module assignments for the two species,
+from \code{\link[=detect_modules]{detect_modules()}} or \code{\link[=as_modules]{as_modules()}}.}
 
 \item{map}{Ortholog map from \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}, with \code{gene1} in the
 reference species and \code{gene2} in the test species.}

@@ -1,80 +1,5 @@
-# Tests for module_preservation() and classify_preservation()
-
-# Fixture: two species sharing module structure. Gene loadings on each
-# module's latent factor are heavy-tailed and SHARED between species, so hub
-# identity is conserved and cor.degree has signal. A fixture where every gene
-# in a module is exchangeable (one factor, iid noise) correctly yields
-# cor.degree ~ 0 even for preserved modules, and would look like a bug.
-pres_expr <- function(seed, n, prefix, loadings, per, n_samp = 40) {
-  set.seed(seed)
-  n_mod <- length(loadings)
-  e <- matrix(stats::rnorm(n * n_samp), n, n_samp)
-  for (k in seq_len(n_mod)) {
-    f <- stats::rnorm(n_samp)
-    rows <- ((k - 1) * per + 1):(k * per)
-    for (j in seq_along(rows)) {
-      lam <- loadings[[k]][j]
-      e[rows[j], ] <- lam * f +
-        stats::rnorm(n_samp, sd = sqrt(max(1e-6, 1 - lam^2)))
-    }
-  }
-  rownames(e) <- paste0(prefix, sprintf("%04d", seq_len(n)))
-  e
-}
-
-pres_fixture <- function() {
-  n_mod <- 4L
-  per <- 40L
-  set.seed(77)
-  loadings <- lapply(seq_len(n_mod), function(k) {
-    l <- stats::rlnorm(per, 0, 0.9)
-    l / max(l)
-  })
-  eA <- pres_expr(31, 300, "A", loadings, per)  # nolint
-  eB <- pres_expr(32, 500, "B", loadings, per)  # nolint
-
-  # Map background genes too, not just module genes. The mappable universe is
-  # what the permutation draws from, so an ortholog table covering only module
-  # genes makes the null "genes from the other modules" -- and since every
-  # module is dense, avg.weight then has almost no contrast. Real ortholog
-  # tables include background, and so must the fixture.
-  n_map <- 300L
-
-  list(
-    n_mod = n_mod, per = per,
-    netA = compute_network(eA, density = 0.03, sparse = FALSE),
-    netB = compute_network(eB, density = 0.03, sparse = FALSE),
-    netB_sparse = compute_network(eB,
-      density = 0.03, sparse = TRUE,
-      store_density = 0.03
-    ),
-    ortho = data.frame(
-      Species1 = paste0("A", sprintf("%04d", seq_len(n_map))),
-      Species2 = paste0("B", sprintf("%04d", seq_len(n_map))),
-      hog = paste0("H", seq_len(n_map)),
-      stringsAsFactors = FALSE
-    ),
-    mods = lapply(
-      seq_len(n_mod),
-      function(k) ((k - 1) * per + 1):(k * per)
-    )
-  )
-}
-
-# Module labels matching the simulated block structure, in detect_modules()
-# shape, so the tests do not depend on Leiden's partition.
-true_modules <- function(net, mods) {
-  genes <- rownames(net$network)
-  membership <- stats::setNames(rep(NA_integer_, length(genes)), genes)
-  for (k in seq_along(mods)) membership[mods[[k]]] <- k
-  membership <- membership[!is.na(membership)]
-  list(
-    modules = membership,
-    module_genes = split(names(membership), membership),
-    n_modules = length(mods)
-  )
-}
-
+# Tests for module_preservation() and classify_preservation(). Fixture:
+# pres_fixture() / true_modules() in helper-preservation.R.
 
 # ---- C++ kernel against the pure-R reference ----
 
@@ -292,7 +217,7 @@ test_that("module_preservation validates its inputs", {
 
   expect_error(
     module_preservation(list(a = 1), fx$netA, fx$netB, fx$ortho),
-    "must be output from detect_modules"
+    "must be a module assignment"
   )
   expect_error(
     module_preservation(tm, fx$netA, fx$netB, fx$ortho, n_perm = 0L),
@@ -600,6 +525,7 @@ test_that("sensitivity warns and is skipped without orthologs", {
 # what the copy null produces with no naive run in the stream at all, and the
 # restoration that makes it so at any permutation count.
 
+# nolint start: object_usage_linter. (fixture functions from helper files)
 pcopy_fixture <- function() {
   fx <- pres_fixture()
   list(
@@ -607,6 +533,7 @@ pcopy_fixture <- function() {
     amb = ambiguous_fixture(fx)
   )
 }
+# nolint end
 
 test_that("p_copy is reproducible and pinned under a seed", {
   p <- pcopy_fixture()
@@ -632,6 +559,71 @@ test_that("p_copy is reproducible and pinned under a seed", {
   # draw reproduces their observed statistic and p_copy is exactly 1.
   expect_equal(aw, c(28, 1, 51, 51) / 51)
   expect_equal(cd, c(7, 21, 51, 51) / 51)
+})
+
+test_that("copy resolution and the copy null do not depend on collation", {
+  old <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", old))
+  fx <- pres_fixture()
+  amb <- ambiguous_fixture(fx)
+  # Species-1 IDs that C and en_US order differently: the paralog copies
+  # (A0041-A0050) become a####, every other gene Q#### -- C sorts "Q"
+  # before "a", en_US the reverse.
+  ren <- function(x) {
+    x <- as.character(x)
+    n <- suppressWarnings(as.integer(sub("^A", "", x)))
+    i <- grepl("^A", x)
+    x[i] <- paste0(
+      ifelse(n[i] > fx$per & n[i] <= fx$per + 10L, "a", "Q"),
+      substring(x[i], 2L)
+    )
+    x
+  }
+  rn <- ren(rownames(fx$netA$network))
+  dimnames(fx$netA$network) <- list(rn, rn)
+  amb$ortho$Species1 <- ren(amb$ortho$Species1)
+  amb$cliques$A <- ren(amb$cliques$A)
+  # and the multi-copy species-2 genes B0001-B0010, alternately with a
+  # lower-case b and an upper-case Z prefix (Z sorts first in C, last in
+  # en_US), so the copy null's per-gene draw order is exercised too
+  ren2 <- function(x) {
+    x <- as.character(x)
+    n <- suppressWarnings(as.integer(sub("^B", "", x)))
+    i <- grepl("^B", x) & !is.na(n) & n <= 10L
+    x[i] <- paste0(ifelse(n[i] %% 2L == 1L, "b", "Z"), substring(x[i], 2L))
+    x
+  }
+  rn2 <- ren2(rownames(fx$netB$network))
+  dimnames(fx$netB$network) <- list(rn2, rn2)
+  amb$ortho$Species2 <- ren2(amb$ortho$Species2)
+  amb$cliques$B <- ren2(amb$cliques$B)
+  tm <- true_modules(fx$netA, fx$mods)
+  run <- function() {
+    list(
+      map = resolve_ortholog_map(amb$ortho, rn, rn2,
+        sp1 = "A", sp2 = "B", cliques = amb$cliques
+      ),
+      pres = module_preservation(tm, fx$netA, fx$netB, amb$ortho,
+        cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+        n_perm = 50L, sensitivity = TRUE, copy_draws = 50L, seed = 1
+      )
+    )
+  }
+  # C-locale (radix) outcome, checked without any other locale: exact
+  # rationals k / (copy_draws + 1), pinned so the per-gene draw order of
+  # the copy null cannot change silently
+  Sys.setlocale("LC_COLLATE", "C")
+  r_c <- suppressWarnings(run())
+  expect_equal(r_c$pres$sensitivity$p_copy.avg.weight, c(33, 1, 51, 51) / 51)
+  expect_equal(r_c$pres$sensitivity$p_copy.cor.degree, c(10, 19, 51, 51) / 51)
+  # and the same under en_US, which collates these IDs differently
+  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  skip_if(
+    identical(sort(c("b1", "B2")), c("B2", "b1")),
+    "en_US collates like C here, so the comparison would prove nothing"
+  )
+  expect_identical(suppressWarnings(run()), r_c)
 })
 
 test_that("p_copy does not depend on what the naive run consumed", {
@@ -742,7 +734,7 @@ test_that("module_correspondence validates its inputs", {
 
   expect_error(
     module_correspondence(list(a = 1), tm, map),
-    "must be output from detect_modules"
+    "must be a module assignment"
   )
   expect_error(
     module_correspondence(tm, tm, data.frame(x = 1)),

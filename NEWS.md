@@ -1,5 +1,49 @@
 # rcomplex 0.3.1
 
+- **`as_modules()` feeds any gene partition to the module-preservation
+  tests.** `module_preservation()`, `module_correspondence()` and
+  `preservation_paired()` read only a gene-to-module map, but checked for
+  `detect_modules()` output; `as_modules()` builds that map from a named
+  vector or a named list of gene sets (pathways, regulons, clusters from
+  another tool), validates it as a partition, and passes existing module
+  objects through. Results through it are identical to a hand-built map
+  with the same labels; under a fixed seed the permutation p- and
+  q-values depend on the labels (the null is drawn per module in label
+  order), the observed statistics do not.
+
+- **`resolve_ortholog_map()`, `module_preservation()` and
+  `module_correspondence()` order module labels and gene and HOG IDs in
+  C-locale (radix) order**, so ties resolve to the same copy and a seeded
+  call draws the same way on every machine. Digit labels (as from `detect_modules()`)
+  and single-case ASCII gene IDs order as before. Mixed-case, non-ASCII or
+  punctuated labels and IDs may now give different seeded p- and q-values,
+  a different pick among tied reference genes, and a different row order
+  of `module_correspondence()$pairs` than 0.3.0 in a non-C session, and
+  `resolve_ortholog_map()` may pick another copy among tied candidates and
+  return its rows in another order.
+
+- **A caller-supplied `map` with factor gene columns is now read by gene
+  name.** `module_preservation()` and `module_correspondence()` indexed
+  module labels with `map$gene1`, which for a factor column used its
+  integer codes and silently gave genes the wrong labels. Both now coerce
+  the map's gene columns to character, as `resolve_ortholog_map()` does
+  for its input.
+
+- **`detect_modules()` documents how far its modules replicate.** On
+  Pooideae leaf networks split into two halves of 10 samples
+  (`test_k1 = FALSE`), the default CPM objective was unstable -- whether
+  modules existed at all flipped between halves in 4 of 8 species --
+  while `objective_function = "modularity"` replicated partially (median
+  split-half adjusted Rand index 0.36, about 0 on shuffled expression).
+  On noise (18 random or shuffled data sets) CPM gave one module and the
+  K = 1 test did not reject, degenerately (all statistics 0; on 10-sample
+  halves CPM did find modules in shuffled data for 3 of 8 species);
+  modularity gave 8-14 modules and the K = 1 test rejected every one, because its
+  rewiring null cannot see the clustering noise produces. The help page
+  now says to treat modules as units only after they replicate on
+  independent samples, not on the K = 1 test, and points to
+  `as_modules()` for gene sets from elsewhere. Nothing is deprecated.
+
 - **`detect_modules(test_k1 = TRUE, n_cores > 1)` no longer segfaults
   on macOS with R's Accelerate BLAS.** The K = 1 permutations fork
   workers that call the eigensolver (`arma::eigs_sym()`), and Accelerate

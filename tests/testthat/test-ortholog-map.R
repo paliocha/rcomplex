@@ -387,3 +387,54 @@ test_that("edges missing hog are reported by name", {
     "edges missing columns: hog"
   )
 })
+
+test_that("tied copies resolve the same way under any collation", {
+  old <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", old))
+  # Two species-1 copies per HOG whose names C and en_US order differently
+  # (B2 before b1 in C, after it in en_US), tied in the clique layer (H1)
+  # and in the coexpressolog layer (H2).
+  ortho <- data.frame(
+    Species1 = c("b1", "B2", "c3", "C4"),
+    Species2 = c("t1", "t1", "t2", "t2"),
+    hog = c("H1", "H1", "H2", "H2"),
+    stringsAsFactors = FALSE
+  )
+  cliques <- data.frame(
+    hog = c("H1", "H1"), SP_A = c("b1", "B2"), SP_B = c("t1", "t1"),
+    n_species = 2L, mean_q = 0.01, stringsAsFactors = FALSE
+  )
+  edges <- data.frame(
+    gene1 = c("c3", "C4"), gene2 = c("t2", "t2"),
+    species1 = "SP_A", species2 = "SP_B", hog = "H2",
+    q.value = 0.01, effect_size = 0.7, jaccard = 0.5, type = "conserved",
+    stringsAsFactors = FALSE
+  )
+  run <- function() {
+    resolve_ortholog_map(ortho, c("b1", "B2", "c3", "C4"), c("t1", "t2"),
+      sp1 = "SP_A", sp2 = "SP_B", edges = edges, cliques = cliques
+    )
+  }
+  # the C-locale (radix) order decides, uppercase first; needs no other locale
+  Sys.setlocale("LC_COLLATE", "C")
+  r_c <- run()
+  expect_identical(r_c$gene1[r_c$source == "clique"], "B2")
+  expect_identical(r_c$gene1[r_c$source == "coexpressolog"], "C4")
+  # factor ID columns whose levels are in another collation's order
+  # (b1 before B2) resolve as the character columns do
+  ortho_f <- ortho
+  ortho_f$Species1 <- factor(ortho$Species1, levels = c("b1", "B2", "c3", "C4"))
+  edges_f <- edges
+  edges_f$gene1 <- factor(edges$gene1, levels = c("c3", "C4"))
+  r_f <- resolve_ortholog_map(ortho_f, c("b1", "B2", "c3", "C4"), c("t1", "t2"),
+    sp1 = "SP_A", sp2 = "SP_B", edges = edges_f, cliques = cliques
+  )
+  expect_identical(r_f, r_c)
+  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
+  skip_if(
+    identical(sort(c("b1", "B2")), c("B2", "b1")),
+    "en_US collates like C here, so the comparison would prove nothing"
+  )
+  expect_identical(run(), r_c)
+})

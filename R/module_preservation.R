@@ -80,8 +80,8 @@
 #' on the `p_copy` columns of `sensitivity`, not on the mappable-set
 #' invariant.
 #'
-#' @param modules_ref Module detection result for the reference species
-#'   (output of [detect_modules()]).
+#' @param modules_ref Module assignment for the reference species, from
+#'   [detect_modules()] or [as_modules()].
 #' @param net_ref,net_test Network objects from [compute_network()] for the
 #'   reference and test species.
 #' @param orthologs Data frame with columns `Species1`, `Species2`, `hog`.
@@ -244,7 +244,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
                                 n_cores = 1L, seed = NULL) {
   if (!is.list(modules_ref) || is.null(modules_ref$module_genes) ||
         is.null(modules_ref$modules)) {
-    stop("modules_ref must be output from detect_modules()")
+    stop(
+      "modules_ref must be a module assignment from detect_modules() ",
+      "or as_modules()"
+    )
   }
   n_perm <- as.integer(n_perm)
   if (is.na(n_perm) || n_perm < 1L) stop("n_perm must be >= 1")
@@ -301,6 +304,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
         !all(c("gene1", "gene2", "source") %in% names(map))) {
     stop("map must be a data frame from resolve_ortholog_map()")
   }
+  # character, not factor: a factor would index modules by its integer
+  # codes, and radix-order by codes that carry another session's collation
+  map$gene1 <- as.character(map$gene1)
+  map$gene2 <- as.character(map$gene2)
 
   # ---- Project reference module labels onto test-species genes ----
   map <- map[map$gene1 %in% genes_ref & map$gene2 %in% genes_test, ,
@@ -325,7 +332,9 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     stop("no test-species gene received an unambiguous module label")
   }
 
-  rows_by_mod <- split(seq_len(nrow(proj)), proj$module)
+  # radix (C-locale) order, so a seeded null is drawn in the same module
+  # order on every machine whatever the labels' case or alphabet
+  rows_by_mod <- split(seq_len(nrow(proj)), .radix_factor(proj$module))
   sizes <- vapply(rows_by_mod, length, integer(1))
   tested <- names(sizes)[sizes >= min_module_size]
   if (length(tested) == 0L) {
@@ -597,7 +606,10 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     }
     # gene2, then module, then gene1: the first row of each (gene2, module)
     # run is that module's smallest gene1, which is the deterministic pick.
-    d <- df[order(df$gene2, df$module, df$gene1), , drop = FALSE]
+    # Radix (C-locale) order, so the pick is the same on every machine.
+    d <- df[order(df$gene2, df$module, df$gene1, method = "radix"), ,
+      drop = FALSE
+    ]
     runs <- rle(paste(d$gene2, d$module, sep = "\x01"))
     # Sorted by (gene2, module), so each run start is that module's smallest
     # gene1 and the run lengths are already the per-cell counts.
@@ -858,7 +870,8 @@ module_preservation <- function(modules_ref, net_ref, net_test,
   # difference with the copy-choice effect this null exists to isolate.
   cand <- cand[!is.na(modules_ref$modules[cand$gene1]), , drop = FALSE]
   cand <- cand[cand$gene2 %in% projected, , drop = FALSE]
-  by_g2 <- split(seq_len(nrow(cand)), cand$gene2)
+  # radix order fixes which gene consumes which draws on every machine
+  by_g2 <- split(seq_len(nrow(cand)), .radix_factor(cand$gene2))
   # With a caller-supplied map the candidates need not cover the projected
   # genes, and then every draw would score fewer genes -- reintroducing the
   # set-size artefact this null exists to remove.
@@ -1136,8 +1149,8 @@ classify_preservation <- function(pres, alpha = 0.1, z_conserved = 10,
 #' gene-overlap engine is gone here: a HOG with three paralogs no longer
 #' contributes three correlated draws to the same urn.
 #'
-#' @param modules_ref,modules_test Module detection results
-#'   (output of [detect_modules()]) for the two species.
+#' @param modules_ref,modules_test Module assignments for the two species,
+#'   from [detect_modules()] or [as_modules()].
 #' @param map Ortholog map from [resolve_ortholog_map()], with `gene1` in the
 #'   reference species and `gene2` in the test species.
 #' @param qvalue_method Passed to `compute_qvalues()`; `"randomized"`
@@ -1180,13 +1193,20 @@ module_correspondence <- function(modules_ref, modules_test, map,
   for (nm in c("modules_ref", "modules_test")) {
     m <- get(nm)
     if (!is.list(m) || is.null(m$modules) || is.null(m$module_genes)) {
-      stop(nm, " must be output from detect_modules()")
+      stop(
+        nm, " must be a module assignment from detect_modules() ",
+        "or as_modules()"
+      )
     }
   }
   if (!is.data.frame(map) ||
         !all(c("gene1", "gene2", "source") %in% names(map))) {
     stop("map must be a data frame from resolve_ortholog_map()")
   }
+  # character, not factor: a factor would index modules by its integer
+  # codes, and radix-order by codes that carry another session's collation
+  map$gene1 <- as.character(map$gene1)
+  map$gene2 <- as.character(map$gene2)
 
   map$module <- as.character(modules_ref$modules[map$gene1])
   map <- map[!is.na(map$module), , drop = FALSE]
@@ -1201,7 +1221,7 @@ module_correspondence <- function(modules_ref, modules_test, map,
     stop("no mapped gene falls in a module of the test species")
   }
 
-  tab <- table(proj$module, proj$module_test)
+  tab <- table(.radix_factor(proj$module), .radix_factor(proj$module_test))
   n_total <- nrow(proj)
   ref_n <- rowSums(tab)
   test_n <- colSums(tab)
@@ -1251,7 +1271,8 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' question from the reverse -- so both directions are run and reported
 #' separately.
 #'
-#' @param modules Named list of [detect_modules()] results, keyed by species.
+#' @param modules Named list of module assignments ([detect_modules()] or
+#'   [as_modules()]), keyed by species.
 #' @param networks Named list of [compute_network()] results, keyed by species.
 #' @param orthologs Data frame with columns `Species1`, `Species2`, `hog`.
 #' @param pairs Data frame with columns `sp1`, `sp2` and optionally
@@ -1461,4 +1482,13 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
       orthologs[c("Species2", "Species1")]
   }
   orthologs
+}
+
+
+# Factor with levels in radix (C-locale) order: split() and table() would
+# otherwise sort character labels and gene IDs by the session's collation,
+# which differs between machines for mixed-case or non-ASCII values
+# (as_modules() allows any label). Digit labels sort the same either way.
+.radix_factor <- function(x) {
+  factor(x, levels = sort(unique(x), method = "radix"))
 }

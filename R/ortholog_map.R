@@ -119,7 +119,9 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
                       orthologs$Species2 %in% genes2, , drop = FALSE]
   cand <- unique(cand[, c("Species1", "Species2", "hog"), drop = FALSE])
   names(cand) <- c("gene1", "gene2", "hog")
-  cand$hog <- as.character(cand$hog)
+  # character, not factor: radix order of a factor follows its level codes,
+  # which carry the collation of whatever session built them
+  cand[] <- lapply(cand, as.character)
 
   if (nrow(cand) == 0L) {
     stop("No orthologs found in both gene universes")
@@ -143,7 +145,11 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   }
 
   out <- rbind(resolved, uncovered)
-  out <- out[order(out$hog, out$gene1, out$gene2), , drop = FALSE]
+  # radix (C-locale) order throughout: the same copies win ties, and the
+  # copy null consumes its draws in the same order, on every machine
+  out <- out[order(out$hog, out$gene1, out$gene2, method = "radix"), ,
+    drop = FALSE
+  ]
   rownames(out) <- NULL
   out
 }
@@ -189,7 +195,11 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     rep_len(0L, nrow(cl))
   }
   mean_q <- if ("mean_q" %in% names(cl)) cl$mean_q else rep_len(0, nrow(cl))
-  cl <- cl[order(-n_species, mean_q, cl[[sp1]], cl[[sp2]]), , drop = FALSE]
+  g1 <- as.character(cl[[sp1]])
+  g2 <- as.character(cl[[sp2]])
+  cl <- cl[order(-n_species, mean_q, g1, g2, method = "radix"), ,
+    drop = FALSE
+  ]
   cl <- cl[!duplicated(as.character(cl$hog)), , drop = FALSE]
 
   hits <- data.frame(
@@ -246,6 +256,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   if (nrow(e) == 0L) {
     return(empty)
   }
+  e$gene1 <- as.character(e$gene1)
+  e$gene2 <- as.character(e$gene2)
 
   # Significance: prefer the explicit type label, fall back to q.value.
   if ("type" %in% names(e)) {
@@ -273,7 +285,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 
   # Higher is better for effect_size and jaccard, lower for q.value.
   score <- if (rank_by == "q.value") -e[[rank_by]] else e[[rank_by]]
-  e <- e[order(-score, e$gene1, e$gene2), , drop = FALSE]
+  e <- e[order(-score, e$gene1, e$gene2, method = "radix"), , drop = FALSE]
 
   edge_key <- paste(e$hog, e$gene1, e$gene2, sep = "\x01")
   best1 <- edge_key[!duplicated(e$gene1)]

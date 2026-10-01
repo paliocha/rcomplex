@@ -38,7 +38,10 @@ resolutions and produce a consensus partition via co-classification
 (Lancichinetti & Fortunato, 2012). Ignored for other methods.}
 
 \item{objective_function}{Leiden objective: \code{"CPM"} (default) or
-\code{"modularity"}. Ignored for other methods.}
+\code{"modularity"}. Ignored for other methods. At small sample sizes
+\code{"modularity"} replicated better across independent samples but also
+finds modules in noise, where the K = 1 test does not catch it; see
+the section on reproducibility.}
 
 \item{n_iterations}{Number of Leiden iterations (default 2). Ignored for
 other methods.}
@@ -170,6 +173,42 @@ naturally handles weighted networks.}
 automatically via the Integrated Classification Likelihood (ICL).
 Can detect both assortative and non-assortative structure.}
 }
+}
+
+\section{Reproducibility at small sample sizes}{
+
+Modules can be stable across seeds and still not replicate across
+independent samples, and a correlation network from few samples has
+cluster structure even on noise. Measured on Pooideae leaf networks
+(2,000 genes, 20 samples) with \code{resolution = c(0.5, 1, 2)}; the
+scripts and tables are in the package's source repository under
+\file{dev/bench/}:
+\itemize{
+\item \emph{Replication} (samples split into two halves of 10, two
+replicates per time point each, \code{test_k1 = FALSE}): with the
+default \code{objective_function = "CPM"}, whether modules exist at
+all flipped between the halves -- in 4 of 8 species one half gave
+6--10 modules and the other 1, and two species gave 1 in both
+(median split-half adjusted Rand index 0). With
+\code{"modularity"} the modules replicated partially (median ARI
+0.36, range 0.05--0.44; about 0 on shuffled expression).
+\item \emph{Noise}: on random and per-gene shuffled expression (18 data
+sets, all 20 samples), CPM returned one module and the K = 1 test did
+not reject -- degenerately, with the observed and every null
+statistic exactly 0 (on 10-sample halves, though, CPM gave 10 modules
+on shuffled expression in 3 of 8 species). Modularity returned 8--14
+modules and the K = 1 test rejected
+\emph{every} null data set: its degree-preserving rewiring null
+removes the geometric clustering that noise produces, so it cannot
+separate modules from noise under modularity. Real networks still
+scored far above shuffled expression (statistic 63--89 against
+14--22).
+}
+Treat modules as units only after they replicate on independent samples,
+well above the same split on shuffled expression, not on the strength of
+the K = 1 test; \code{"modularity"} replicated better here but needs
+that check most. To test gene sets from other sources (pathways,
+regulons, another tool) use \code{\link[=as_modules]{as_modules()}} with \code{\link[=module_preservation]{module_preservation()}}.
 }
 
 \examples{

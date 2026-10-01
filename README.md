@@ -363,6 +363,7 @@ multiplier) error with a message asking for a larger `store_density`.
 | `density_sweep()` | Re-run the co-expressolog pipeline across density multipliers |
 | `coexpressolog_null()` | Degree-preserving edge-swap null for co-expressolog statistics |
 | `detect_modules()` | Community detection (Leiden / Infomap / SBM); iterative multi-resolution consensus |
+| `as_modules()` | Module map from any gene partition (pathways, regulons, another tool) for the preservation tests |
 | `resolve_ortholog_map()` | Reduce multi-copy HOGs toward one counterpart per gene (cliques, then coexpressologs); the rest stay `unresolved` |
 | `module_preservation()` | Permutation test of module density and hub identity in the other species' network |
 | `classify_preservation()` | Four-tier preservation classification (conserved / moderate / diverged / untested) |

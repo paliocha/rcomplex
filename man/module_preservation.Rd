@@ -27,8 +27,8 @@ module_preservation(
 )
 }
 \arguments{
-\item{modules_ref}{Module detection result for the reference species
-(output of \code{\link[=detect_modules]{detect_modules()}}).}
+\item{modules_ref}{Module assignment for the reference species, from
+\code{\link[=detect_modules]{detect_modules()}} or \code{\link[=as_modules]{as_modules()}}.}
 
 \item{net_ref, net_test}{Network objects from \code{\link[=compute_network]{compute_network()}} for the
 reference and test species.}
