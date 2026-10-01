@@ -13,7 +13,8 @@
 // candidate when either gene is on the other's list; a second correlation
 // pass reads the other rank exactly.
 // If the store threshold is too low to prove every qualifying pair was a
-// candidate, f widens by 1.5x; at f = 1 every pair is a candidate.
+// candidate, f widens to the fraction that threshold implies (1.5x when
+// too few candidates gave none); at f = 1 every pair is a candidate.
 
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::plugins(openmp)]]
@@ -64,7 +65,8 @@ double find_rank(const List_t& l, int i) {
 //' @param n_cores Number of OpenMP threads.
 //' @return List with dgCMatrix slots `i`, `p`, `x`, the `threshold` and
 //'   `store_threshold`, the number of joined candidate pairs
-//'   `n_candidates`, and the rank `fraction` that sufficed.
+//'   `n_candidates`, the rank `fraction` that sufficed and the
+//'   `start_fraction` the build began with.
 //'
 //' @keywords internal
 // [[Rcpp::export]]
@@ -179,7 +181,9 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
     // Raw: at store_density 0.05 on BDIS leaf data the list fraction needed
     // was ~0.11, so the 3x start usually passes first time. Log: uniform
     // independent ranks predict ~0.1 at store 0.05, co-expression less.
-    double f = std::min(1.0, (log_transform ? 2.0 : 3.0) * store_density);
+    const double f0 =
+        std::min(1.0, (log_transform ? 2.0 : 3.0) * store_density);
+    double f = f0;
     std::size_t n_cand = 0;
     for (;;) {
         const double lim = log_transform ? dn * f : dn * (1.0 - f);
@@ -203,6 +207,7 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
         });
 
         bool valid = false;
+        bool selected = false;
         if (log_transform) {
             // Transpose the lists into the reverse index, freeing each list
             // as it is read (new[] leaves pages untouched until filled).
@@ -263,6 +268,7 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
                     if (!std::isnan(lv[k])) cand.push_back(lv[k]);
                 }
                 select(cand);
+                selected = true;
                 // Every pair with v >= T_s has min rank <= n^(1 - T_s).
                 // ponytail: 1e-12 slack guards the rounding of the pow.
                 valid = f >= 1.0 ||
@@ -299,6 +305,7 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
                     }
                 }
                 select(cand);
+                selected = true;
                 // ponytail: 1e-12 slack guards the rounding of T^2 / n;
                 // exact rational bounds if a boundary case ever bites.
                 valid = f >= 1.0 || t_s * t_s / dn * (1.0 - 1e-12) >= lim;
@@ -308,7 +315,17 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
         for (List_t& l : lists) List_t().swap(l);
         rev.reset();
         lv.reset();
-        f = std::min(1.0, f * 1.5);
+        // The provisional T_s is a lower bound on the true one (fewer
+        // candidates), so the fraction it implies is enough: jump there
+        // instead of widening step by step.
+        double f_next = f * 1.5;
+        if (selected) {
+            f_next = log_transform
+                ? std::pow(dn, -t_s) * (1.0 + 1e-9)
+                : 1.0 - t_s * t_s / (dn * dn) * (1.0 - 1e-9);
+            f_next = std::max(f_next, f * (1.0 + 1e-9));
+        }
+        f = std::min(1.0, f_next);
     }
 
     // Store: one upper-triangle sweep keeps the pairs at or above T_s, the
@@ -389,5 +406,5 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
         Named("i") = ri, Named("p") = p, Named("x") = rx,
         Named("threshold") = t_d, Named("store_threshold") = t_s,
         Named("n_candidates") = static_cast<double>(n_cand),
-        Named("fraction") = f);
+        Named("fraction") = f, Named("start_fraction") = f0);
 }

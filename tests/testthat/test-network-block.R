@@ -81,19 +81,19 @@ for (mode in names(block_modes)) {
 }
 
 # The rank fraction starts at 3 * store_density (raw) or 2 * store_density
-# (log) and widens by 1.5x, up to 1, when the store threshold is too low
-# to prove the candidates complete. On this fixture raw passes at 0.1 and
-# log at 0.05; raw at 0.02 and log at 0.02 need one widening, raw at 0.01
-# two.
+# (log); when the store threshold is too low to prove the candidates
+# complete it widens to the fraction that threshold implies. On this
+# fixture raw passes at 0.1 and log at 0.05; raw at 0.02 and 0.01 and log
+# at 0.02 widen.
 test_that("block network widens the candidate fraction when needed", {
   x <- block_fixture(60, 12, 1)
   zt <- block_zt(x, "pearson")
   cases <- list(
-    list(m = block_modes$pearson_raw, sd = 0.1, f = 3 * 0.1),
-    list(m = block_modes$pearson_raw, sd = 0.02, f = 1.5 * 3 * 0.02),
-    list(m = block_modes$pearson_raw, sd = 0.01, f = 1.5^2 * 3 * 0.01),
-    list(m = block_modes$pearson_log, sd = 0.05, f = 2 * 0.05),
-    list(m = block_modes$pearson_log, sd = 0.02, f = 1.5 * 2 * 0.02)
+    list(m = block_modes$pearson_raw, sd = 0.1, widen = FALSE),
+    list(m = block_modes$pearson_raw, sd = 0.02, widen = TRUE),
+    list(m = block_modes$pearson_raw, sd = 0.01, widen = TRUE),
+    list(m = block_modes$pearson_log, sd = 0.05, widen = FALSE),
+    list(m = block_modes$pearson_log, sd = 0.02, widen = TRUE)
   )
   for (cs in cases) {
     ref <- compute_network(
@@ -103,7 +103,20 @@ test_that("block network widens the candidate fraction when needed", {
     )
     blk <- run_block(zt, cs$m, density = 0.01, store_density = cs$sd)
     expect_identical(net_slots(blk), net_slots(ref))
-    expect_equal(blk$fraction, cs$f)
+    f0 <- (if (cs$m$log) 2 else 3) * cs$sd
+    expect_equal(blk$start_fraction, f0)
+    expect_identical(blk$fraction > f0, cs$widen)
+    expect_lt(blk$fraction, 1)
+    if (cs$widen) {
+      expect_message(
+        compute_network(
+          x,
+          density = 0.01, store_density = cs$sd,
+          mr_log_transform = cs$m$log, block_size = 7
+        ),
+        "widened"
+      )
+    }
   }
 })
 
@@ -209,7 +222,7 @@ test_that("mr_block() agrees on block and dense networks", {
 })
 
 # Only a fraction of 1 falls back to all pairs: store_density 0.5 starts
-# log MR there, the defaults stay below it for raw and log MR alike.
+# log MR there and 0.4 raw MR, the defaults stay below it for both.
 test_that("compute_network block_size reports the all-pairs fallback", {
   x <- block_fixture(60, 12, 1)
   expect_message(
@@ -221,6 +234,12 @@ test_that("compute_network block_size reports the all-pairs fallback", {
   )
   ref <- compute_network(x, store_density = 0.5, mr_log_transform = TRUE)
   expect_identical(blk, ref)
+  # raw MR starts at all pairs from store_density 1/3
+  expect_message(
+    blk <- compute_network(x, store_density = 0.4, block_size = 7),
+    "all pairs"
+  )
+  expect_identical(blk, compute_network(x, store_density = 0.4))
   expect_silent(compute_network(x, block_size = 7))
   expect_silent(compute_network(x, mr_log_transform = TRUE, block_size = 7))
 })

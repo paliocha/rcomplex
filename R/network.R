@@ -319,11 +319,23 @@ setMethod("compute_network", "matrix", function(
       .standardise_for_cor(x, cor_method), mr_log_transform, abs_cor,
       density, store_density, as.integer(min(block_size, n_genes)), n_cores
     )
+    # log MR holds a reverse index and its values, so a wide fraction can
+    # need more memory than the dense build
+    more <- if (mr_log_transform) {
+      "; peak memory may exceed the dense build"
+    } else {
+      ""
+    }
     if (slots$fraction >= 1) {
       message(
-        "Blockwise build fell back to all pairs and saved no memory ",
-        "(lower store_density to save memory)"
+        "Blockwise build fell back to all pairs and saved no memory",
+        more, " (lower store_density to save memory)"
       )
+    } else if (slots$fraction > slots$start_fraction) {
+      message(sprintf(
+        "Blockwise build widened its candidate fraction from %.3g to %.3g%s",
+        slots$start_fraction, slots$fraction, more
+      ))
     }
     return(list(
       network = methods::new(
