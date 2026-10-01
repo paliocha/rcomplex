@@ -73,7 +73,9 @@ run_child <- function(x_file, block) {
   # The trace records the rank fraction the blockwise kernel settled on
   code <- paste0(
     "suppressMessages(", loader, "); x <- readRDS('", x_file, "'); ",
-    "frac <- NA_real_; suppressMessages(trace('mr_block_network_cpp', ",
+    "frac <- NA_real_; ",
+    "if (exists('mr_block_network_cpp', asNamespace('rcomplex'))) ",
+    "suppressMessages(trace('mr_block_network_cpp', ",
     "where = asNamespace('rcomplex'), print = FALSE, exit = quote(",
     "frac <<- returnValue()$fraction))); ",
     "t0 <- proc.time()[['elapsed']]; ",

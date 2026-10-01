@@ -315,7 +315,7 @@ setMethod("compute_network", "matrix", function(
   if (!is.null(block_size)) {
     slots <- mr_block_network_cpp(
       .standardise_for_cor(x, cor_method), mr_log_transform, abs_cor,
-      density, store_density, as.integer(block_size), n_cores
+      density, store_density, as.integer(min(block_size, n_genes)), n_cores
     )
     if (slots$fraction >= 1) {
       message(

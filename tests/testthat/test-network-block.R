@@ -83,12 +83,15 @@ for (mode in names(block_modes)) {
 # The rank fraction starts at 3 * store_density (raw) or 2 * store_density
 # (log) and widens by 1.5x, up to 1, when the store threshold is too low
 # to prove the candidates complete. On this fixture raw passes at 0.1 and
-# log at 0.05; log at 0.02 needs one widening.
+# log at 0.05; raw at 0.02 and log at 0.02 need one widening, raw at 0.01
+# two.
 test_that("block network widens the candidate fraction when needed", {
   x <- block_fixture(60, 12, 1)
   zt <- block_zt(x, "pearson")
   cases <- list(
     list(m = block_modes$pearson_raw, sd = 0.1, f = 3 * 0.1),
+    list(m = block_modes$pearson_raw, sd = 0.02, f = 1.5 * 3 * 0.02),
+    list(m = block_modes$pearson_raw, sd = 0.01, f = 1.5^2 * 3 * 0.01),
     list(m = block_modes$pearson_log, sd = 0.05, f = 2 * 0.05),
     list(m = block_modes$pearson_log, sd = 0.02, f = 1.5 * 2 * 0.02)
   )
@@ -137,6 +140,11 @@ test_that("compute_network block_size validates its arguments", {
   expect_error(compute_network(x, block_size = 2.5), "positive whole")
   expect_error(compute_network(x, block_size = "a"), "positive whole")
   expect_error(compute_network(x, block_size = c(1, 2)), "positive whole")
+  # beyond the integer range is capped at the gene count, not NA
+  expect_identical(
+    compute_network(x, block_size = 1e12),
+    compute_network(x, block_size = 60L)
+  )
   expect_error(
     compute_network(x, sparse = FALSE, block_size = 7), "sparse = TRUE"
   )

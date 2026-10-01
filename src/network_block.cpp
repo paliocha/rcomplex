@@ -23,6 +23,7 @@
 #include <climits>
 #include <cmath>
 #include <memory>
+#include <new>
 #include <vector>
 
 #include "density_k.h"
@@ -90,6 +91,16 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
     std::vector<std::vector<R_xlen_t>> idxs(max_threads,
                                             std::vector<R_xlen_t>(n));
     std::vector<char> nan_seen(max_threads, 0);
+    // bad_alloc may not escape an OpenMP region (it would terminate R), so
+    // workers flag it and the error is raised after the region.
+    std::vector<char> oom(max_threads, 0);
+    auto check_oom = [&]() {
+        if (std::any_of(oom.begin(), oom.end(),
+                        [](char x) { return x != 0; })) {
+            stop("out of memory building the blockwise network "
+                 "(lower store_density or block_size)");
+        }
+    };
 
     const std::size_t tri = static_cast<std::size_t>(n) * (n - 1) / 2;
     const std::size_t k_s = density_k(store_density, tri);
@@ -135,8 +146,13 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
                     continue;
                 }
                 rank_column_inplace(col, n, !log_transform, idxs[tid]);
-                visit(c0 + b, col);
+                try {
+                    visit(c0 + b, col);
+                } catch (const std::bad_alloc&) {
+                    oom[tid] = 1;
+                }
             }
+            check_oom();
             if (std::any_of(nan_seen.begin(), nan_seen.end(),
                             [](char x) { return x != 0; })) {
                 stop("sim contains NaN");
@@ -204,6 +220,16 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
                 List_t().swap(lists[a]);
             }
 
+            // rev(b) is sorted by a: the fill walks a upward.
+            auto in_rev = [&](int b, int a) {
+                const Entry* lo = rev.get() + roff[b];
+                const Entry* hi = rev.get() + roff[b + 1];
+                const Entry* it = std::lower_bound(
+                    lo, hi, a,
+                    [](const Entry& e, int x) { return e.j < x; });
+                return it != hi && it->j == a;
+            };
+
             // Pass 2: column b gives R_b(a) exactly for every a in rev(b).
             // A pair on both sides is kept once, in rev(max(a, b)).
             sweep([&](R_xlen_t b, const double* col) {
@@ -211,7 +237,10 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
                     const int a = rev[k].j;
                     const double ra = rev[k].r;
                     const double rb = col[a];
-                    if (rb <= lim && a > b) {
+                    // Listed both ways is read from pass 1 (is b in
+                    // rev(a)?), not from rb: a last-bit difference between
+                    // the passes must not drop or duplicate the pair.
+                    if (a > b && in_rev(a, static_cast<int>(b))) {
                         lv[k] = NAN;
                         continue;
                     }
@@ -309,12 +338,21 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
         #pragma omp parallel for schedule(dynamic, 64) num_threads(n_cores) if(n_cores > 1)
 #endif
         for (int i = 0; i < ni; ++i) {
-            for (const Entry& e : lists[i]) {
-                if (e.j <= i) continue;
-                const double v = mr(i, e);
-                if (v >= t_s) kept[i].push_back({e.j, v});
+            int tid = 0;
+#ifdef _OPENMP
+            tid = omp_get_thread_num();
+#endif
+            try {
+                for (const Entry& e : lists[i]) {
+                    if (e.j <= i) continue;
+                    const double v = mr(i, e);
+                    if (v >= t_s) kept[i].push_back({e.j, v});
+                }
+            } catch (const std::bad_alloc&) {
+                oom[tid] = 1;
             }
         }
+        check_oom();
     }
     std::vector<List_t>().swap(lists);
 
