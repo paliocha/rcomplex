@@ -10,6 +10,12 @@
 #' not overlap. Split overlapping sets (for example regulons that share genes)
 #' into disjoint batches and test each batch separately.
 #'
+#' Module labels matter for reproducibility: [module_preservation()] draws
+#' its permutation null module by module in sorted-label order, so under a
+#' fixed seed the permutation p- and q-values are reproducible for a given
+#' labelling but change when the same partition is relabelled. The observed
+#' statistics do not depend on the labels.
+#'
 #' @param x One of: a named vector mapping gene to module label (`NA` for an
 #'   unassigned gene); a named list mapping module label to a character
 #'   vector of genes; or an existing module assignment (a [detect_modules()]

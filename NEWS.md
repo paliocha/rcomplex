@@ -6,7 +6,10 @@
   `detect_modules()` output; `as_modules()` builds that map from a named
   vector or a named list of gene sets (pathways, regulons, clusters from
   another tool), validates it as a partition, and passes existing module
-  objects through. Results through it are identical to a hand-built map.
+  objects through. Results through it are identical to a hand-built map
+  with the same labels; under a fixed seed the permutation p- and
+  q-values depend on the labels (the null is drawn per module in label
+  order), the observed statistics do not.
 
 - **`detect_modules()` documents how far its modules replicate.** On
   Pooideae leaf networks split into two halves of 10 samples
