@@ -15,8 +15,9 @@
   while `objective_function = "modularity"` replicated partially (median
   split-half adjusted Rand index 0.36, about 0 on shuffled expression).
   On noise (18 random or shuffled data sets) CPM gave one module and the
-  K = 1 test did not reject, degenerately (all statistics 0); modularity
-  gave 8-12 modules and the K = 1 test rejected every one, because its
+  K = 1 test did not reject, degenerately (all statistics 0; on 10-sample
+  halves CPM did find modules in shuffled data for 3 of 8 species);
+  modularity gave 8-14 modules and the K = 1 test rejected every one, because its
   rewiring null cannot see the clustering noise produces. The help page
   now says to treat modules as units only after they replicate on
   independent samples, not on the K = 1 test, and points to

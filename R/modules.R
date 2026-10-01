@@ -35,14 +35,16 @@
 #'     \code{"modularity"} the modules replicated partially (median ARI
 #'     0.36, range 0.05--0.44; about 0 on shuffled expression).
 #'   \item \emph{Noise}: on random and per-gene shuffled expression (18 data
-#'     sets), CPM returned one module and the K = 1 test did not reject --
-#'     degenerately, with the observed and every null statistic exactly 0.
-#'     Modularity returned 8--12 modules and the K = 1 test rejected
+#'     sets, all 20 samples), CPM returned one module and the K = 1 test did
+#'     not reject -- degenerately, with the observed and every null
+#'     statistic exactly 0 (on 10-sample halves, though, CPM gave 10 modules
+#'     on shuffled expression in 3 of 8 species). Modularity returned 8--14
+#'     modules and the K = 1 test rejected
 #'     \emph{every} null data set: its degree-preserving rewiring null
 #'     removes the geometric clustering that noise produces, so it cannot
 #'     separate modules from noise under modularity. Real networks still
 #'     scored far above shuffled expression (statistic 63--89 against
-#'     14--16).
+#'     14--22).
 #' }
 #' Treat modules as units only after they replicate on independent samples
 #' (or on shuffled-expression controls), not on the strength of the K = 1

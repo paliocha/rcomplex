@@ -191,14 +191,14 @@ objectives, `dev/bench/k1_null_check.tsv`, 2,000 top-variance genes,
 | objective | null data rejected (10 random, 8 shuffled) | modules on null | real rejected |
 |---|---|---|---|
 | CPM (default) | 0 / 18, degenerate: one module, observed and every null statistic 0 | 1 | 6 / 8 (not BMED, FPRA) |
-| modularity | 18 / 18 (observed 14-16, null max ~8) | 8-12 | 8 / 8 (observed 63-89) |
+| modularity | 18 / 18 (observed 14-22, null max ~8) | 8-14 | 8 / 8 (observed 63-89) |
 
 The first version of this note called the CPM result "calibrated"; all null
 p-values were 1 from exact ties, so it only shows the test does not reject
 there. Under modularity the "rejects on noise" worry holds: the
 degree-preserving rewiring null removes the geometric clustering of an
 n = 20 correlation graph. Real networks still sit far above shuffled
-expression (63-89 vs 14-16), so a shuffled-expression null would separate
+expression (63-89 vs 14-22), so a shuffled-expression null would separate
 them; not built (option A documents, does not change the test).
 
 **Split-half replication at 10 vs 10 samples** (`dev/bench/modules_split_half.tsv`,

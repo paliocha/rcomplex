@@ -1,49 +1,17 @@
 # Tests for as_modules(): any gene partition into the preservation tests.
-# pres_fixture() / true_modules() live in test-module-preservation.R; the
-# fixture is rebuilt here from the same generator so this file runs alone.
+# Fixture: pres_fixture() / true_modules() in helper-preservation.R.
 
+# nolint start: object_usage_linter. (fixture functions from helper files)
 as_mod_fixture <- function() {
-  set.seed(77)
-  per <- 40L
-  loadings <- lapply(1:4, function(k) {
-    l <- stats::rlnorm(per, 0, 0.9)
-    l / max(l)
-  })
-  expr <- function(seed, n, prefix) {
-    set.seed(seed)
-    e <- matrix(stats::rnorm(n * 40), n, 40)
-    for (k in 1:4) {
-      f <- stats::rnorm(40)
-      rows <- ((k - 1) * per + 1):(k * per)
-      for (j in seq_along(rows)) {
-        lam <- loadings[[k]][j]
-        sd_j <- sqrt(max(1e-6, 1 - lam^2))
-        e[rows[j], ] <- lam * f + stats::rnorm(40, sd = sd_j)
-      }
-    }
-    rownames(e) <- paste0(prefix, sprintf("%04d", seq_len(n)))
-    e
-  }
-  netA <- compute_network(expr(31, 300, "A"), density = 0.03, sparse = FALSE) # nolint
-  netB <- compute_network(expr(32, 500, "B"), density = 0.03, sparse = FALSE) # nolint
-  label <- function(net) {
-    g <- rownames(net$network)[1:160]
-    stats::setNames(rep(1:4, each = per), g)
-  }
-  hand <- function(net) {
-    m <- label(net)
-    list(modules = m, module_genes = split(names(m), m), n_modules = 4L)
-  }
-  list(
-    netA = netA, netB = netB, labA = label(netA), labB = label(netB),
-    handA = hand(netA), handB = hand(netB),
-    ortho = data.frame(
-      Species1 = paste0("A", sprintf("%04d", 1:300)),
-      Species2 = paste0("B", sprintf("%04d", 1:300)),
-      hog = paste0("H", 1:300), stringsAsFactors = FALSE
-    )
-  )
+  fx <- pres_fixture()
+  hand_a <- true_modules(fx$netA, fx$mods)
+  hand_b <- true_modules(fx$netB, fx$mods)
+  c(fx, list(
+    handA = hand_a, handB = hand_b,
+    labA = hand_a$modules, labB = hand_b$modules
+  ))
 }
+# nolint end
 
 test_that("vector and list inputs give the same assignment", {
   v <- c(g1 = "a", g2 = "a", g3 = "b", g4 = NA)
@@ -84,6 +52,10 @@ test_that("bad input fails with the offending value", {
   expect_error(as_modules(list(a = "g1", a = "g2")), "label used twice: a")
   m <- as_modules(list(a = c("g1", "g2")))
   expect_error(as_modules(m, min_size = 2), "not to an existing module")
+  expect_error(
+    as_modules(data.frame(gene = c("g1", "g2"), module = c("a", "b"))),
+    "not a data frame"
+  )
 })
 
 test_that("module order follows the labels, numerically for numbers", {

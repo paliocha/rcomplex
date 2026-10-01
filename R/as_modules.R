@@ -33,6 +33,12 @@ as_modules <- function(x, min_size = 1L) {
   if (!ok_size) {
     stop("min_size must be a single number >= 1")
   }
+  if (is.data.frame(x)) {
+    stop(
+      "pass a named vector, e.g. setNames(df$module, df$gene), ",
+      "not a data frame"
+    )
+  }
   if (is.list(x) && !is.null(x$modules) && is.list(x$module_genes)) {
     if (min_size != 1) {
       stop("min_size applies to a vector or list of gene sets, ",

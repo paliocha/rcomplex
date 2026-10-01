@@ -33,7 +33,7 @@ for (f in list.files("prepare_data/data", "_se\\.rds$", full.names = TRUE)) {
   se <- se[, colData(se)$tissue == "leaf"]
   x <- as.matrix(assay(se))
   x <- x[apply(x, 1L, var) > 0, , drop = FALSE]
-  x <- x[order(-apply(x, 1L, var))[1:2000], , drop = FALSE]
+  x <- x[order(-apply(x, 1L, var))[seq_len(min(2000L, nrow(x)))], , drop = FALSE]
   tp <- as.character(colData(se)$time_point)
   rk <- stats::ave(seq_along(tp), tp, FUN = seq_along)
   h1 <- which(rk %% 2L == 1L)
