@@ -419,7 +419,12 @@ It is calibrated empirically against the same test on a partner network
 built from expression shuffled within each gene (`null_network()`,
 required), pooled over pairs, then Storey q-values; both directions are
 combined as above. The edge `effect_size` is `sqrt(auroc12 * auroc21)`
-and `power` is `NA`. On the Pooideae and wood networks at density 0.03
+and `power` is the probability that the pair would have been called had
+the ortholog ranked at the reference raw p `p0` (default: per direction,
+the median raw p of the called pairs), from a per-anchor AUROC grid and
+the Hanley-McNeil standard error; a direction with no call gives 0. The
+rank power orders detectability but overstates the call rate, so
+`min_power = 0.9` is the safer gate for rank edges. On the Pooideae and wood networks at density 0.03
 both tests made no calls against shuffled partners, and the
 hypergeometric test called about twice as many pairs; the rank test adds
 calibration by construction and a separate test for every paralog copy.

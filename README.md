@@ -110,7 +110,8 @@ The test runs in both directions and both must pass.
   neighbours divided by the number expected by chance. An effect of 5
   means five times more shared partners than chance.
 - `power`: the chance that the test would have called this pair had it
-  been conserved at a typical effect size. Genes with few neighbours
+  been conserved at a typical effect size (for the rank test, had the
+  ortholog ranked like a typical called pair). Genes with few neighbours
   have low power, so a non-significant result for them is weak
   evidence of divergence.
 
