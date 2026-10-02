@@ -78,7 +78,9 @@ speedup instead. On CUDA, float64 is used with no precision tradeoff.}
 
 \item{block_size}{\code{NULL} (default) builds the dense n x n matrix first.
 A positive whole number builds the network a block of genes at a
-time and never forms the n x n matrix: each gene keeps only its
+time and never forms the n x n matrix (each block holds
+8 * n * \code{block_size} bytes, so a \code{block_size} near n saves nothing;
+values above n are capped at n with a message): each gene keeps only its
 partners in the top fraction of its correlation ranks, which at the
 default \code{store_density} is 15\% of all pairs held at 8 bytes each. On
 BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was

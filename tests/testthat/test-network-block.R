@@ -182,11 +182,13 @@ test_that("compute_network block_size validates its arguments", {
   expect_error(compute_network(x, block_size = 2.5), "positive whole")
   expect_error(compute_network(x, block_size = "a"), "positive whole")
   expect_error(compute_network(x, block_size = c(1, 2)), "positive whole")
-  # beyond the integer range is capped at the gene count, not NA
-  expect_identical(
-    compute_network(x, block_size = 1e12),
-    compute_network(x, block_size = 60L)
+  # beyond the integer range is capped at the gene count, not NA, and a
+  # block holding every gene says it saves nothing
+  expect_message(
+    big <- compute_network(x, block_size = 1e12), "saves no memory"
   )
+  expect_identical(big, suppressMessages(compute_network(x, block_size = 60L)))
+  expect_silent(compute_network(x, block_size = 59L))
   expect_error(
     compute_network(x, sparse = FALSE, block_size = 7), "sparse = TRUE"
   )

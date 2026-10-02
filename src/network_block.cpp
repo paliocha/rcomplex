@@ -250,10 +250,7 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
                         lv[k] = NAN;
                         continue;
                     }
-                    // sim(hi, lo) * sim(lo, hi), as the dense kernel
-                    const double lower = a < b ? ra : rb;
-                    const double upper = a < b ? rb : ra;
-                    const double v = std::sqrt(lower * upper);
+                    const double v = std::sqrt(ra * rb);
                     lv[k] = std::clamp(1.0 - std::log(v) / log_n, 0.0, 1.0);
                 }
             });

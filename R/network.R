@@ -152,7 +152,9 @@ cor_rfast <- function(x, method = "pearson") {
 #'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
 #' @param block_size `NULL` (default) builds the dense n x n matrix first.
 #'   A positive whole number builds the network a block of genes at a
-#'   time and never forms the n x n matrix: each gene keeps only its
+#'   time and never forms the n x n matrix (each block holds
+#'   8 * n * `block_size` bytes, so a `block_size` near n saves nothing;
+#'   values above n are capped at n with a message): each gene keeps only its
 #'   partners in the top fraction of its correlation ranks, which at the
 #'   default `store_density` is 15% of all pairs held at 8 bytes each. On
 #'   BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
@@ -316,6 +318,12 @@ setMethod("compute_network", "matrix", function(
   )
 
   if (!is.null(block_size)) {
+    if (block_size >= n_genes) {
+      message(
+        "block_size >= the ", n_genes, " genes: one block holds the whole ",
+        "correlation matrix, so the blockwise build saves no memory"
+      )
+    }
     slots <- mr_block_network_cpp(
       .standardise_for_cor(x, cor_method), mr_log_transform, abs_cor,
       density, store_density, as.integer(min(block_size, n_genes)), n_cores
