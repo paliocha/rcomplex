@@ -87,7 +87,10 @@ correlations into Mutual Rank (MR) scores. MR asks whether two genes
 rank each other among their best partners, so a gene correlated with
 everything does not dominate. The network keeps the top 3% of gene
 pairs (`density = 0.03`) as edges. Each gene's neighbourhood is the set
-of genes it shares an edge with.
+of genes it shares an edge with. The build needs memory for the full
+gene-by-gene matrix (about 5 GB at 20,000 genes); for larger genomes,
+`compute_network(x, block_size = 512)` builds the same network in a
+fraction of that.
 
 ### 3. Find co-expressologs
 
