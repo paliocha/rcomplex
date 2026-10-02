@@ -12,7 +12,9 @@ a short first analysis; the tutorial vignette runs the full pipeline on
 eight Pooideae grasses. The code below is annotated at the level of
 individual parameters and is not run when the site is built. It assumes
 objects (`expr1`, `net1`, the eight-species `networks`, `modules`,
-`edges`) built as in the tutorial.
+`edges`) built as in the tutorial. The tutorial pools leaf and root
+samples, so its networks are dominated by tissue (see the README's
+pitfalls): read its results as a demonstration, not trait evidence.
 
 ## Validation
 
@@ -157,7 +159,8 @@ hubs1[hubs1$is_hub, ]
 # or cliques runs no resolution layer at all.
 trait <- c(SP_A = "annual", SP_B = "perennial")
 corr <- module_correspondence(mod1, mod2, pres$map,
-                              sp_ref = "SP_A", sp_test = "SP_B")
+                              sp_ref = "SP_A", sp_test = "SP_B",
+                              seed = 1L)
 hub_class <- classify_hub_conservation(
   list(SP_A = hubs1, SP_B = hubs2), trait,
   # The list key must be the ALPHABETICALLY SORTED species pair.
@@ -575,7 +578,7 @@ cross-tabulates the two species' modules over the resolved map and tests
 each module pair with `phyper()`. Because the resolved map contributes
 one draw per test gene instead of one per paralog, this hypergeometric is
 no longer anti-conservative. Its q-values default to the randomized-p
-pi0 estimator, which draws from the global RNG: seed first, or the
+pi0 estimator, which draws uniforms: pass `seed`, or the
 `conserved_hub` / `rewired_hub` split downstream will move between runs.
 Jaccard is computed on the one-to-one projected map, so values run
 systematically higher than under the retired gene-overlap engine and the
@@ -716,7 +719,8 @@ null_mean`) across sizes.
 
 | File | Purpose |
 |------|---------|
-| `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()` |
+| `R/orthologs.R` | `parse_orthologs()`, `reduce_orthogroups()`, `prepare_orthologs()` |
+| `R/rcomplex-class.R` | `rcomplex()` -- analysis object bundling species, traits, networks and orthologs, with print / summary / `find_coexpressologs()` methods |
 | `R/network.R` | `compute_network()` -- S4 generic (matrix / SE), correlation, MR/CLR, density threshold |
 | `R/comparison.R` | `compare_neighborhoods()`, `comparison_to_edges()`, `find_coexpressologs()`, `density_sweep()`, `get_coexpressed_hogs()` -- pair-level hypergeometric, edge conversion, batch orchestration |
 | `R/network-sparse.R` | Sparse network dispatch: validation, store-threshold guard, `as_sparse_network()` |
@@ -730,6 +734,12 @@ null_mean`) across sizes.
 | `R/module_preservation.R` | `module_preservation()`, `classify_preservation()`, `module_correspondence()`, `preservation_paired()` |
 | `R/as_modules.R` | `as_modules()` -- module map from any gene partition for the preservation tests |
 | `R/cliques.R` | `find_cliques()`, `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()`, `clique_perturbation_test()`, `clique_intensity_test()`, `classify_cliques()` |
+| `R/clique_gene_graph.R` | `gene_clique_graph()`, `classify_gene_cliques()` -- per-HOG gene graph and the six-tier taxonomy |
+| `R/coexpressolog-strength.R` | `coexpressolog_strength()`, `suggest_reference_density()` -- density-profile strength of each co-expressolog |
+| `R/preservation_matrix.R` | `preservation_matrix_test()`, `all_species_pairs()` -- trait test over the all-pairs preservation matrix |
+| `R/tag_permutation.R` | `tag_permutation()` -- HOG recurrence in diverged modules across contrasts |
+| `R/tag_blocks.R` | Label space of `tag_permutation()` (connected components of the contrast graph) |
+| `R/pvalue_saturation.R` | `pvalue_resolution()` -- resolution left by a finite label space |
 | `R/se_methods.R` | `extract_orthologs()`, `build_se()` (internal) -- SummarizedExperiment helpers |
 
 ### C++ layer (RcppArmadillo + OpenMP)

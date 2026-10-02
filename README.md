@@ -189,9 +189,11 @@ sample. `classify_gene_cliques()` sorts cliques into tiers:
   lacks a species whose test was run and failed.
 
 Pass `edges` unfiltered. A tier that claims divergence needs to see
-the pairs that were tested and failed. The group-specific tiers need a
-clique of at least three species inside one group, so they stay empty
-in this four-species example; the tutorial runs eight species.
+the pairs that were tested and failed. `lineage_specific` and
+`trait_specific` need a clique of at least three species inside one
+group, so they stay empty in this four-species example; `differentiated`
+can still appear. The tutorial runs eight species, but pools leaf and
+root samples, so read it as a demonstration rather than trait evidence.
 
 ## Which test should I use?
 
