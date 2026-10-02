@@ -98,7 +98,7 @@ pres$preservation  # avg.weight, cor.degree, Zsummary, q.value per module
 # Classify: the call comes from the combined permutation q-value over
 # avg.weight (module density) and cor.degree (hub identity), combined
 # with pmax so both must be significant. Four classes: conserved
-# (q < alpha, Zsummary >= 10), moderate (q < alpha, Zsummary < 10),
+# (q < alpha, Zsummary_std >= 10), moderate (q < alpha, Zsummary_std < 10),
 # diverged (q >= alpha), untested (q is NA -- nothing was measured).
 classes <- classify_preservation(pres)
 
@@ -388,8 +388,10 @@ over one-sided associations with hubs.
   `MR(i,j)` directly. Values range from 1 to n. On the Pooideae and wood
   data the two modes changed co-expressolog call counts by 1-9 %.
 
-Both modes produce the same pair ordering for density thresholding --
-the top-k% edges are identical regardless of the transform.
+The two modes are not a monotonic reparameterisation of each other: on a
+simulated 80-gene matrix at density 0.05 they agreed on 98 % of retained
+edges, differing at the threshold boundary. Hold `mr_log_transform` fixed
+across every network being compared.
 
 ### Neighborhood comparison
 

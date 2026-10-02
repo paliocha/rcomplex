@@ -54,7 +54,7 @@ RNA-seq for 2,000 to 4,000 genes in each of four Pooideae grasses, two
 annual and two perennial. It keeps only the 20 leaf samples per species
 (see [pitfalls](#reading-the-results-and-common-pitfalls) on pooled
 tissues).
-It runs in under a minute.
+It runs in about a minute.
 
 ### 1. Load expression data and ortholog pairs
 
@@ -154,7 +154,7 @@ the reverse direction to ask about *B. sylvaticum* modules in
 
 With 1,000 permutations no p-value can go below 1/1001. In this example
 every module ties at the same smallest q-value, while `Zsummary_std`
-ranges from about 8 to 41. Rank modules on `Zsummary_std`, not on q.
+ranges from about 8 to 42. Rank modules on `Zsummary_std`, not on q.
 
 ### 5. Find conserved and lineage-specific cliques
 
