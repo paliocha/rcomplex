@@ -114,8 +114,8 @@ co-expression values. A \code{dgCMatrix} storing both triangles of the
 entries at or above \code{store_threshold} (diagonal absent) when
 \code{sparse = TRUE}; a dense matrix with zero diagonal when
 \code{sparse = FALSE}.}
-\item{threshold}{The co-expression threshold at the given density
-(computed from the full dense matrix in either mode).}
+\item{threshold}{The co-expression threshold at the given density,
+equal to that of the full dense matrix in every mode.}
 \item{n_genes}{Number of genes in the network.}
 \item{n_removed}{Number of genes removed by variance filter (0 if
 \code{min_var} is \code{NULL}).}

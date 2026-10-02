@@ -183,8 +183,8 @@ cor_rfast <- function(x, method = "pearson") {
 #'       entries at or above `store_threshold` (diagonal absent) when
 #'       `sparse = TRUE`; a dense matrix with zero diagonal when
 #'       `sparse = FALSE`.}
-#'     \item{threshold}{The co-expression threshold at the given density
-#'       (computed from the full dense matrix in either mode).}
+#'     \item{threshold}{The co-expression threshold at the given density,
+#'       equal to that of the full dense matrix in every mode.}
 #'     \item{n_genes}{Number of genes in the network.}
 #'     \item{n_removed}{Number of genes removed by variance filter (0 if
 #'       `min_var` is `NULL`).}

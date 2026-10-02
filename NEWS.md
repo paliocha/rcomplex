@@ -139,7 +139,9 @@
   With `cor_method = "spearman"` and few samples, tied correlations are
   common and may round apart, so the result can differ from the dense
   build in many entries and between block sizes.
-  `NULL` (default) keeps the dense build.
+  `NULL` (default) keeps the dense build. `null_network()` takes the
+  same `block_size`, so the null for `method = "rank"` can be built
+  blockwise too.
 
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
   complete clique over one lineage whose outside species were compared

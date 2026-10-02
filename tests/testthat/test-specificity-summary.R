@@ -164,6 +164,15 @@ test_that("null_network keeps the universe and the parameters", {
 })
 
 
+test_that("null_network passes block_size through", {
+  f <- null_fixture()
+  expect_identical(
+    null_network(f$x, f$net, seed = 1L, block_size = 7L),
+    null_network(f$x, f$net, seed = 1L)
+  )
+})
+
+
 test_that("null_network is reproducible under seed and moves across seeds", {
   f <- null_fixture()
   a <- null_network(f$x, f$net, seed = 1L)$network
