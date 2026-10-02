@@ -137,7 +137,7 @@ pres_all <- preservation_paired(modules, networks, orthologs, pairs,
 # over its own count -- 2/70 = 0.029 free, 2/16 = 0.125 blocked, and
 # higher when further labellings tie at the maximum. Read `p_blocked`
 # as a check on the direction and rank of the effect; nothing can reach
-# the default alpha = 0.1 against it.
+# 0.1 (the package's default alpha for calls elsewhere) against it.
 pmt <- preservation_matrix_test(pres_all$classification, trait,
                                 block = genus)
 c(pmt$observed, pmt$p_free, pmt$p_blocked)
@@ -429,8 +429,10 @@ the ortholog ranked at the reference raw p `p0` (default: per direction,
 the median raw p of the called pairs), from a per-anchor AUROC grid and
 the Hanley-McNeil standard error; a direction with no call gives 0. The
 rank power orders detectability but overstates the call rate, so
-`min_power = 0.9` is the safer gate for rank edges. On the Pooideae and wood networks at density 0.03
-both tests made no calls against shuffled partners, and the
+`min_power = 0.9` is the safer gate for rank edges. On the Pooideae and
+wood networks at density 0.03 both tests made essentially no calls
+against shuffled partners (the hypergeometric about 1 in 28,000 on the
+n = 20 leaf data), and the
 hypergeometric test called about twice as many pairs; the rank test adds
 calibration by construction and a separate test for every paralog copy.
 
@@ -844,4 +846,16 @@ column-major for cache-friendly reads on symmetric Armadillo matrices.
   drawn. *Statistical Applications in Genetics and Molecular Biology*,
   9(1), Article 39.
   [doi:10.2202/1544-6115.1585](https://doi.org/10.2202/1544-6115.1585)
+- Hanley, J. A. & McNeil, B. J. (1982). The meaning and use of the area
+  under a receiver operating characteristic (ROC) curve. *Radiology*,
+  143(1), 29--36.
+  [doi:10.1148/radiology.143.1.7063747](https://doi.org/10.1148/radiology.143.1.7063747)
+- Suresh, H. *et al.* (2023). Comparative single-cell transcriptomic
+  analysis of primate brains highlights human-specific regulatory
+  evolution. *Nature Ecology & Evolution*, 7(11), 1930--1943.
+  [doi:10.1038/s41559-023-02186-7](https://doi.org/10.1038/s41559-023-02186-7)
+- Rodriguez, E. *et al.* (2026). Comparative regulomics of wood
+  formation across dicot and conifer trees. *Nature Communications*,
+  17, 8916.
+  [doi:10.1038/s41467-026-75624-2](https://doi.org/10.1038/s41467-026-75624-2)
 

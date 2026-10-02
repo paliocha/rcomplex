@@ -50,7 +50,7 @@ but recommended for parallel permutation and stability tests.
 ## A first analysis in five steps
 
 This example uses data that ships with the package: VST-normalised
-RNA-seq for 2,000 to 4,000 genes in each of four Pooideae grasses, two
+RNA-seq for about 1,900 to 4,000 genes in each of four Pooideae grasses, two
 annual and two perennial. It keeps only the 20 leaf samples per species
 (see [pitfalls](#reading-the-results-and-common-pitfalls) on pooled
 tissues).
@@ -179,8 +179,8 @@ ortholog group whose co-expression is conserved across the whole
 sample. `classify_gene_cliques()` sorts cliques into tiers:
 
 - `complete_conserved`: every species present, every pair conserved.
-- `partial_significant`: every species present, a few pairs just miss
-  the strict cut-off.
+- `partial_significant`: every species present, a few pairs are not
+  significant at the strict cut-off but pass the loose one (q < 0.9).
 - `partial_present`: conserved in all but one species, and that species
   lacks the gene, was not tested, or had too little power.
 - `lineage_specific` or `trait_specific`: conserved within one group
@@ -193,9 +193,11 @@ sample. `classify_gene_cliques()` sorts cliques into tiers:
 
 Pass `edges` unfiltered. A tier that claims divergence needs to see
 the pairs that were tested and failed. `lineage_specific` and
-`trait_specific` need a clique of at least three species inside one
-group, so they stay empty in this four-species example; `differentiated`
-can still appear. The tutorial runs eight species, but pools leaf and
+`trait_specific` need a complete clique over one group, and
+`gene_clique_graph()` keeps only cliques of at least three genes by
+default (`min_size = 3`), so with two species per group they stay empty
+here; `min_size = 2` makes them reachable. `differentiated` can still
+appear. The tutorial runs eight species, but pools leaf and
 root samples, so read it as a demonstration rather than trait evidence.
 
 ## Which test should I use?
@@ -253,7 +255,8 @@ labels "annual" and "perennial" gives the same statistic, so at least
 two labellings tie at the top and the smallest p-value is 2/70 = 0.029.
 If you only allow swaps within each of four genera (to respect
 phylogeny), there are 2^4 = 16 labellings and the floor is 2/16 =
-0.125, which can never reach the default call level of 0.1. This is a property of the species
+0.125, which can never reach significance at 0.1 (the package's
+default `alpha` for calls elsewhere), let alone 0.05. This is a property of the species
 set, not of the number of permutations. `preservation_matrix_test()`
 reports the floor, and `pvalue_resolution()` reports how many p- or
 q-values are tied at it.
