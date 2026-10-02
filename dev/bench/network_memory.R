@@ -144,8 +144,8 @@ for (n in n_values) {
     if (!is.na(b)) {
       d <- rows[[paste(n, NA)]]
       same <- identical(
-        c(d$threshold, d$store_threshold, d$nnz, d$hash),
-        c(row$threshold, row$store_threshold, row$nnz, row$hash)
+        as.list(d[c("threshold", "store_threshold", "nnz", "hash")]),
+        as.list(row[c("threshold", "store_threshold", "nnz", "hash")])
       )
       msg <- paste0(
         msg, ", slots identical to dense: ",

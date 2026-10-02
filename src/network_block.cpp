@@ -371,7 +371,14 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
     }
     std::vector<List_t>().swap(lists);
 
-    IntegerVector p(n + 1);
+    // R allocations longjmp on failure; unwindProtect turns that into a
+    // C++ unwind so kept (C++ heap) is freed instead of leaked.
+    auto r_alloc = [](SEXPTYPE type, R_xlen_t len) {
+        return Rcpp::unwindProtect(
+            [&] { return Rf_allocVector(type, len); });
+    };
+    IntegerVector p(r_alloc(INTSXP, n + 1));
+    std::fill(p.begin(), p.end(), 0);
     std::size_t nnz = 0;
     for (int i = 0; i < ni; ++i) {
         for (const Kept& k : kept[i]) {
@@ -384,8 +391,8 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
         stop("stored network exceeds 2^31 - 1 entries");
     }
     for (R_xlen_t c = 0; c < n; ++c) p[c + 1] += p[c];
-    IntegerVector ri(nnz);
-    NumericVector rx(nnz);
+    IntegerVector ri(r_alloc(INTSXP, static_cast<R_xlen_t>(nnz)));
+    NumericVector rx(r_alloc(REALSXP, static_cast<R_xlen_t>(nnz)));
     std::vector<int> fill(p.begin(), p.end() - 1);
     for (int i = 0; i < ni; ++i) {
         for (const Kept& k : kept[i]) {
