@@ -170,6 +170,8 @@ test_that("null_network passes block_size through", {
     null_network(f$x, f$net, seed = 1L, block_size = 7L),
     null_network(f$x, f$net, seed = 1L)
   )
+  # only the blockwise path validates block_size
+  expect_error(null_network(f$x, f$net, block_size = 0), "positive whole")
 })
 
 

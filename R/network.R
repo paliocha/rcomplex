@@ -154,7 +154,9 @@ cor_rfast <- function(x, method = "pearson") {
 #'   A positive whole number builds the network a block of genes at a
 #'   time and never forms the n x n matrix (each block holds
 #'   8 * n * `block_size` bytes, so a `block_size` near n saves nothing;
-#'   values above n are capped at n with a message): each gene keeps only its
+#'   values above n are capped at n with a message; threads rank the
+#'   columns of one block, so keep it well above `n_cores`, as the
+#'   256-1024 benchmarked below): each gene keeps only its
 #'   partners in the top fraction of its correlation ranks, which at the
 #'   default `store_density` is 15% of all pairs held at 8 bytes each. On
 #'   BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
