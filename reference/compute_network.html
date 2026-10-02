@@ -83,7 +83,8 @@ a numeric matrix or a
 <span>  sparse <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  store_density <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  block_size <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S4 method for class 'SummarizedExperiment'</span></span>
@@ -168,6 +169,36 @@ MPS, keep <code>use_torch = FALSE</code> here and use
 speedup instead. On CUDA, float64 is used with no precision tradeoff.</p></dd>
 
 
+<dt id="arg-block-size">block_size<a class="anchor" aria-label="anchor" href="#arg-block-size"></a></dt>
+<dd><p><code>NULL</code> (default) builds the dense n x n matrix first.
+A positive whole number builds the network a block of genes at a
+time and never forms the n x n matrix (each block holds
+8 * n * <code>block_size</code> bytes, so a <code>block_size</code> near n saves nothing;
+values above n are capped at n with a message; threads rank the
+columns of one block, so keep it well above <code>n_cores</code>, as the
+256-1024 benchmarked below): each gene keeps only its
+partners in the top fraction of its correlation ranks, which at the
+default <code>store_density</code> is 15% of all pairs held at 8 bytes each. On
+BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
+1.2-1.4 GB against 5.1 GB for the dense build, in 7.6-7.9 s against
+8.5 s. The result equals the dense build up to floating-point
+near-ties between correlations: the two builds compute correlations
+with different BLAS calls, so two correlations of one gene that differ
+only in the last bits can be ranked in the other order, shifting an MR
+value. With <code>cor_method = "spearman"</code> and few samples, correlations
+that are equal as rationals are common and may round apart, so the
+result can then differ from the dense build in many entries and
+between block sizes. Requires <code>sparse = TRUE</code>, <code>norm_method = "MR"</code> and
+<code>use_torch = FALSE</code>. With <code>mr_log_transform = TRUE</code> a pair is kept
+when either gene ranks the other in its top 10% (twice
+<code>store_density</code>) and a second correlation pass reads the other rank;
+on the same data peak memory was 1.7 GB against 5.1 GB dense in
+9.2 s against 8.2 s. If the store threshold cannot prove the kept
+pairs complete the fraction widens and a message says so; peak memory
+grows with it (for log MR it can exceed the dense build), and at all
+pairs the build saves no memory.</p></dd>
+
+
 <dt id="arg-assay">assay<a class="anchor" aria-label="anchor" href="#arg-assay"></a></dt>
 <dd><p>Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
@@ -184,8 +215,8 @@ entries at or above <code>store_threshold</code> (diagonal absent) when
 <code>sparse = FALSE</code>.</p></dd>
 
 <dt>threshold</dt>
-<dd><p>The co-expression threshold at the given density
-(computed from the full dense matrix in either mode).</p></dd>
+<dd><p>The co-expression threshold at the given density,
+equal to that of the full dense matrix in every mode.</p></dd>
 
 <dt>n_genes</dt>
 <dd><p>Number of genes in the network.</p></dd>

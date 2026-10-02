@@ -877,46 +877,76 @@
 <td>Sparse (dgCMatrix-slot) extraction of the thresholded MR matrix</td>
 </tr>
 <tr class="even">
+<td><code>src/network_block.cpp</code></td>
+<td>Blockwise sparse MR network (<code>compute_network(block_size =)</code>): one correlation pass (two for log MR), per-gene top-ranked partner lists joined by binary search</td>
+</tr>
+<tr class="odd">
+<td><code>src/density_k.h</code></td>
+<td>Shared count of top pairs for a density, used by dense and blockwise thresholding</td>
+</tr>
+<tr class="even">
+<td><code>src/rank_column.h</code></td>
+<td>Shared average-rank kernel for one correlation column</td>
+</tr>
+<tr class="odd">
 <td><code>src/neighbor_lists.h</code></td>
 <td>Shared neighbour-list construction (dense matrix or validated dgCMatrix slots)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/neighborhood_comparison.cpp</code></td>
 <td>Pairwise neighborhood overlap</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/specificity.cpp</code></td>
 <td>Specificity kernel: per-anchor AUROC of the translated neighbourhood in every partner gene’s ranking (sparse)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/hog_permutation.cpp</code></td>
 <td>HOG permutation engine (bit-vector / flag-vector intersections)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/fe_permutation.cpp</code></td>
 <td>GPU-precomputed FE permutation engine</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/module_preservation.cpp</code></td>
 <td>Module preservation permutation kernel (dense and sparse entry points)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/find_cliques_common.h</code></td>
 <td>Shared clique primitives (Bron-Kerbosch / Tomita, backtracking, Jaccard, trait)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/find_cliques.cpp</code></td>
 <td>C++ clique detection wrapper</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>src/find_cliques_stability.cpp</code></td>
 <td>Leave-k-out stability engine with OpenMP</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>src/sample_k_distinct.h</code></td>
 <td>Shared rejection-sampling utility for subset generation</td>
 </tr>
 </tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="development-scripts">Development scripts<a class="anchor" aria-label="anchor" href="#development-scripts"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="40%">
+<col width="60%">
+</colgroup>
+<thead><tr class="header">
+<th>File</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody><tr class="odd">
+<td><code>dev/bench/network_memory.R</code></td>
+<td>Time and peak RSS of <code><a href="reference/compute_network.html">compute_network()</a></code>, dense against blockwise</td>
+</tr></tbody>
 </table>
 <p>All C++ functions use integer indices only (string mapping is done in R) due to Homebrew clang ABI constraints. Network matrices are accessed column-major for cache-friendly reads on symmetric Armadillo matrices.</p>
 </div>

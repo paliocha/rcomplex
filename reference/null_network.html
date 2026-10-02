@@ -75,7 +75,14 @@ comparison against it are the null draws that
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">null_network</span><span class="op">(</span><span class="va">x</span>, <span class="va">net</span>, seed <span class="op">=</span> <span class="cn">NULL</span>, n_cores <span class="op">=</span> <span class="fl">1L</span>, use_torch <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">null_network</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  <span class="va">net</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  block_size <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -103,8 +110,10 @@ caller by however many draws the permutation consumed; with
 it advanced. Same contract as <code><a href="summarize_comparison.html">summarize_comparison</a></code>.</p></dd>
 
 
-<dt id="arg-n-cores-use-torch">n_cores, use_torch<a class="anchor" aria-label="anchor" href="#arg-n-cores-use-torch"></a></dt>
-<dd><p>Passed to <code><a href="compute_network.html">compute_network()</a></code>.</p></dd>
+<dt id="arg-n-cores-use-torch-block-size">n_cores, use_torch, block_size<a class="anchor" aria-label="anchor" href="#arg-n-cores-use-torch-block-size"></a></dt>
+<dd><p>Passed to <code><a href="compute_network.html">compute_network()</a></code>;
+pass the <code>block_size</code> <code>net</code> was built with to keep the null build
+blockwise (it is not recorded in <code>params</code>).</p></dd>
 
 </dl></div>
     <div id="value">
