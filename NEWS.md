@@ -116,6 +116,32 @@
   hypergeometric power it orders detectability and overstates the rate,
   so `min_power = 0.9` is the more defensible gate for rank edges (design
   note 11.15).
+- **`compute_network()` gains an opt-in blockwise build (`block_size`).**
+  The sparse MR network is built from correlation blocks of
+  `block_size` genes in one pass that ranks every column exactly and
+  keeps each gene's top-ranked partners, and returns the same object as
+  the dense build, slot for slot, up to floating-point near-ties between
+  correlations. On BDIS leaf data (20 samples, n = 20,000, 8 threads)
+  the dense build peaked at 5.1 GB RSS in 8.5 s and the blockwise build
+  at 1.4 GB in 7.9 s (`block_size = 1024`; 1.2 GB and 7.6 s at 256).
+  On Orion (16 cores, `block_size = 512`) the 52,452-gene Hordeum
+  jubatum root network peaked at 5.9 GB in 31 s against 32.8 GB in
+  66 s dense, with identical thresholds and entry counts (4 columns,
+  near-tied correlations from 20 samples, differ); the 20,517-gene
+  spruce wood network was bit-identical (1.2 GB in 5 s against 3.8 GB
+  in 9 s).
+  With `mr_log_transform = TRUE` a pair is a candidate when either
+  gene ranks the other in its top fraction, since log MR at or above T
+  bounds the smaller rank by n^(1 - T), and a second correlation pass
+  reads the other rank exactly; BDIS leaf needed a fraction of 0.1 at
+  the default `store_density` (n = 20,000, `block_size = 512`: 1.7 GB in
+  9.2 s against 5.1 GB in 8.2 s dense, identical slots).
+  With `cor_method = "spearman"` and few samples, tied correlations are
+  common and may round apart, so the result can differ from the dense
+  build in many entries and between block sizes.
+  `NULL` (default) keeps the dense build. `null_network()` takes the
+  same `block_size`, so the null for `method = "rank"` can be built
+  blockwise too.
 
 - **`classify_gene_cliques()` gains a `trait_specific` tier.** A
   complete clique over one lineage whose outside species were compared

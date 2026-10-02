@@ -19,7 +19,8 @@ compute_network(x, ...)
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE
+  use_torch = FALSE,
+  block_size = NULL
 )
 
 \S4method{compute_network}{SummarizedExperiment}(x, assay = 1L, ...)
@@ -75,6 +76,34 @@ MPS, keep \code{use_torch = FALSE} here and use
 \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
 speedup instead. On CUDA, float64 is used with no precision tradeoff.}
 
+\item{block_size}{\code{NULL} (default) builds the dense n x n matrix first.
+A positive whole number builds the network a block of genes at a
+time and never forms the n x n matrix (each block holds
+8 * n * \code{block_size} bytes, so a \code{block_size} near n saves nothing;
+values above n are capped at n with a message; threads rank the
+columns of one block, so keep it well above \code{n_cores}, as the
+256-1024 benchmarked below): each gene keeps only its
+partners in the top fraction of its correlation ranks, which at the
+default \code{store_density} is 15\% of all pairs held at 8 bytes each. On
+BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
+1.2-1.4 GB against 5.1 GB for the dense build, in 7.6-7.9 s against
+8.5 s. The result equals the dense build up to floating-point
+near-ties between correlations: the two builds compute correlations
+with different BLAS calls, so two correlations of one gene that differ
+only in the last bits can be ranked in the other order, shifting an MR
+value. With \code{cor_method = "spearman"} and few samples, correlations
+that are equal as rationals are common and may round apart, so the
+result can then differ from the dense build in many entries and
+between block sizes. Requires \code{sparse = TRUE}, \code{norm_method = "MR"} and
+\code{use_torch = FALSE}. With \code{mr_log_transform = TRUE} a pair is kept
+when either gene ranks the other in its top 10\% (twice
+\code{store_density}) and a second correlation pass reads the other rank;
+on the same data peak memory was 1.7 GB against 5.1 GB dense in
+9.2 s against 8.2 s. If the store threshold cannot prove the kept
+pairs complete the fraction widens and a message says so; peak memory
+grows with it (for log MR it can exceed the dense build), and at all
+pairs the build saves no memory.}
+
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
 \pkg{SummarizedExperiment} package.}
@@ -87,8 +116,8 @@ co-expression values. A \code{dgCMatrix} storing both triangles of the
 entries at or above \code{store_threshold} (diagonal absent) when
 \code{sparse = TRUE}; a dense matrix with zero diagonal when
 \code{sparse = FALSE}.}
-\item{threshold}{The co-expression threshold at the given density
-(computed from the full dense matrix in either mode).}
+\item{threshold}{The co-expression threshold at the given density,
+equal to that of the full dense matrix in every mode.}
 \item{n_genes}{Number of genes in the network.}
 \item{n_removed}{Number of genes removed by variance filter (0 if
 \code{min_var} is \code{NULL}).}

@@ -20,12 +20,14 @@
 #'   caller by however many draws the permutation consumed; with
 #'   \code{seed = NULL} the draws come from the ambient stream and leave
 #'   it advanced. Same contract as \code{\link{summarize_comparison}}.
-#' @param n_cores,use_torch Passed to [compute_network()].
+#' @param n_cores,use_torch,block_size Passed to [compute_network()];
+#'   pass the `block_size` `net` was built with to keep the null build
+#'   blockwise (it is not recorded in `params`).
 #' @return A sparse network object, as [compute_network()] returns, on the
 #'   same genes as `net`.
 #' @export
 null_network <- function(x, net, seed = NULL, n_cores = 1L,
-                         use_torch = FALSE) {
+                         use_torch = FALSE, block_size = NULL) {
   .seed_scope(seed)
   if (methods::is(x, "SummarizedExperiment")) {
     x <- SummarizedExperiment::assay(x, 1L)
@@ -38,7 +40,7 @@ null_network <- function(x, net, seed = NULL, n_cores = 1L,
     density = p$density, abs_cor = p$abs_cor,
     mr_log_transform = p$mr_log_transform, min_var = p$min_var,
     sparse = TRUE, store_density = net$store_density,
-    n_cores = n_cores, use_torch = use_torch
+    n_cores = n_cores, use_torch = use_torch, block_size = block_size
   )
 }
 

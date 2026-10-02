@@ -4,7 +4,14 @@
 \alias{null_network}
 \title{Shuffled-partner null network}
 \usage{
-null_network(x, net, seed = NULL, n_cores = 1L, use_torch = FALSE)
+null_network(
+  x,
+  net,
+  seed = NULL,
+  n_cores = 1L,
+  use_torch = FALSE,
+  block_size = NULL
+)
 }
 \arguments{
 \item{x}{Expression matrix (genes x samples, row names are gene
@@ -22,7 +29,9 @@ caller by however many draws the permutation consumed; with
 \code{seed = NULL} the draws come from the ambient stream and leave
 it advanced. Same contract as \code{\link{summarize_comparison}}.}
 
-\item{n_cores, use_torch}{Passed to \code{\link[=compute_network]{compute_network()}}.}
+\item{n_cores, use_torch, block_size}{Passed to \code{\link[=compute_network]{compute_network()}};
+pass the \code{block_size} \code{net} was built with to keep the null build
+blockwise (it is not recorded in \code{params}).}
 }
 \value{
 A sparse network object, as \code{\link[=compute_network]{compute_network()}} returns, on the

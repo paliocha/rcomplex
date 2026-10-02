@@ -97,6 +97,14 @@ cor_rfast <- function(x, method = "pearson") {
   }
 }
 
+# Samples x genes matrix zt with crossprod(zt) equal to the correlation
+# matrix cor_rfast() builds (Spearman ranks each gene first).
+.standardise_for_cor <- function(x, cor_method) {
+  xs <- if (cor_method == "pearson") t(x) else apply(x, 1, rank)
+  mat <- t(xs) - Rfast::colmeans(xs)
+  t(mat / sqrt(Rfast::rowsums(mat^2)))
+}
+
 #' Compute co-expression network
 #'
 #' Calculates correlation, applies normalization (Mutual Rank or CLR),
@@ -142,6 +150,33 @@ cor_rfast <- function(x, method = "pearson") {
 #'   MPS, keep `use_torch = FALSE` here and use
 #'   \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
 #'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
+#' @param block_size `NULL` (default) builds the dense n x n matrix first.
+#'   A positive whole number builds the network a block of genes at a
+#'   time and never forms the n x n matrix (each block holds
+#'   8 * n * `block_size` bytes, so a `block_size` near n saves nothing;
+#'   values above n are capped at n with a message; threads rank the
+#'   columns of one block, so keep it well above `n_cores`, as the
+#'   256-1024 benchmarked below): each gene keeps only its
+#'   partners in the top fraction of its correlation ranks, which at the
+#'   default `store_density` is 15% of all pairs held at 8 bytes each. On
+#'   BDIS leaf data (20 samples, n = 20,000, 8 threads) peak memory was
+#'   1.2-1.4 GB against 5.1 GB for the dense build, in 7.6-7.9 s against
+#'   8.5 s. The result equals the dense build up to floating-point
+#'   near-ties between correlations: the two builds compute correlations
+#'   with different BLAS calls, so two correlations of one gene that differ
+#'   only in the last bits can be ranked in the other order, shifting an MR
+#'   value. With `cor_method = "spearman"` and few samples, correlations
+#'   that are equal as rationals are common and may round apart, so the
+#'   result can then differ from the dense build in many entries and
+#'   between block sizes. Requires `sparse = TRUE`, `norm_method = "MR"` and
+#'   `use_torch = FALSE`. With `mr_log_transform = TRUE` a pair is kept
+#'   when either gene ranks the other in its top 10% (twice
+#'   `store_density`) and a second correlation pass reads the other rank;
+#'   on the same data peak memory was 1.7 GB against 5.1 GB dense in
+#'   9.2 s against 8.2 s. If the store threshold cannot prove the kept
+#'   pairs complete the fraction widens and a message says so; peak memory
+#'   grows with it (for log MR it can exceed the dense build), and at all
+#'   pairs the build saves no memory.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -150,8 +185,8 @@ cor_rfast <- function(x, method = "pearson") {
 #'       entries at or above `store_threshold` (diagonal absent) when
 #'       `sparse = TRUE`; a dense matrix with zero diagonal when
 #'       `sparse = FALSE`.}
-#'     \item{threshold}{The co-expression threshold at the given density
-#'       (computed from the full dense matrix in either mode).}
+#'     \item{threshold}{The co-expression threshold at the given density,
+#'       equal to that of the full dense matrix in every mode.}
 #'     \item{n_genes}{Number of genes in the network.}
 #'     \item{n_removed}{Number of genes removed by variance filter (0 if
 #'       `min_var` is `NULL`).}
@@ -211,7 +246,8 @@ setMethod("compute_network", "matrix", function(
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE) {
+  use_torch = FALSE,
+  block_size = NULL) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
   if (is.null(rownames(x))) {
@@ -233,6 +269,16 @@ setMethod("compute_network", "matrix", function(
     }
   } else if (!is.null(store_density)) {
     stop("store_density requires sparse = TRUE")
+  }
+  if (!is.null(block_size)) {
+    if (!is.numeric(block_size) || length(block_size) != 1L ||
+          is.na(block_size) || block_size < 1 ||
+          block_size != round(block_size)) {
+      stop("block_size must be NULL or a positive whole number")
+    }
+    if (!sparse) stop("block_size requires sparse = TRUE")
+    if (norm_method != "MR") stop("block_size requires norm_method = \"MR\"")
+    if (use_torch) stop("block_size requires use_torch = FALSE")
   }
   if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
     stop(
@@ -263,6 +309,60 @@ setMethod("compute_network", "matrix", function(
 
   gene_names <- rownames(x)
   n_genes <- nrow(x)
+
+  params <- list(
+    cor_method = cor_method,
+    norm_method = norm_method,
+    density = density,
+    abs_cor = abs_cor,
+    mr_log_transform = mr_log_transform,
+    min_var = min_var
+  )
+
+  if (!is.null(block_size)) {
+    if (block_size >= n_genes) {
+      message(
+        "block_size >= the ", n_genes, " genes: one block holds the whole ",
+        "correlation matrix, so the blockwise build saves no memory"
+      )
+    }
+    slots <- mr_block_network_cpp(
+      .standardise_for_cor(x, cor_method), mr_log_transform, abs_cor,
+      density, store_density, as.integer(min(block_size, n_genes)), n_cores
+    )
+    # log MR holds a reverse index and its values, so a wide fraction can
+    # need more memory than the dense build
+    more <- if (mr_log_transform) {
+      "; peak memory may exceed the dense build"
+    } else {
+      ""
+    }
+    if (slots$fraction >= 1) {
+      message(
+        "Blockwise build fell back to all pairs and saved no memory",
+        more, " (lower store_density to save memory)"
+      )
+    } else if (slots$fraction > slots$start_fraction) {
+      message(sprintf(
+        "Blockwise build widened its candidate fraction from %.3g to %.3g%s",
+        slots$start_fraction, slots$fraction, more
+      ))
+    }
+    return(list(
+      network = methods::new(
+        "dgCMatrix",
+        i = slots$i, p = slots$p, x = slots$x,
+        Dim = c(n_genes, n_genes),
+        Dimnames = list(gene_names, gene_names)
+      ),
+      threshold = slots$threshold,
+      n_genes = n_genes,
+      n_removed = n_removed,
+      params = c(params, list(store_density = store_density)),
+      store_density = store_density,
+      store_threshold = slots$store_threshold
+    ))
+  }
 
   # Correlation
   cor_fn <- if (use_torch) cor_torch else cor_rfast
@@ -295,15 +395,6 @@ setMethod("compute_network", "matrix", function(
 
   # Compute density threshold (always from the full dense matrix)
   thr <- density_threshold_cpp(net, density)
-
-  params <- list(
-    cor_method = cor_method,
-    norm_method = norm_method,
-    density = density,
-    abs_cor = abs_cor,
-    mr_log_transform = mr_log_transform,
-    min_var = min_var
-  )
 
   if (!sparse) {
     return(list(
