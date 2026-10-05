@@ -1476,7 +1476,7 @@ test_that("BiCM matches degrees and z centres on its own model", {
 
   # The pairs table is a preservation_matrix_test() input once z is
   # named as its statistic.
-  pmt <- expect_warning(preservation_matrix_test(
+  expect_warning(pmt <- preservation_matrix_test(
     transform(bz$pairs, Zsummary_std = z),
     group = c(S1 = "a", S2 = "a", S3 = "a", S4 = "b", S5 = "b", S6 = "b")
   ), "smallest attainable")
