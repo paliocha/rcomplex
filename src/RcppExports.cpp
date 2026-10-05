@@ -441,6 +441,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// top_eigs_sym_cpp
+Rcpp::List top_eigs_sym_cpp(const arma::uvec& p, const arma::uvec& i, const arma::vec& x, int n, int k);
+RcppExport SEXP _rcomplex_top_eigs_sym_cpp(SEXP pSEXP, SEXP iSEXP, SEXP xSEXP, SEXP nSEXP, SEXP kSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::uvec& >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type i(iSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    rcpp_result_gen = Rcpp::wrap(top_eigs_sym_cpp(p, i, x, n, k));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_apply_clr_to_cor_cpp", (DL_FUNC) &_rcomplex_apply_clr_to_cor_cpp, 2},
@@ -467,6 +482,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_rewire_degseq_cpp", (DL_FUNC) &_rcomplex_rewire_degseq_cpp, 4},
     {"_rcomplex_extract_sparse_cpp", (DL_FUNC) &_rcomplex_extract_sparse_cpp, 3},
     {"_rcomplex_specificity_sparse_cpp", (DL_FUNC) &_rcomplex_specificity_sparse_cpp, 16},
+    {"_rcomplex_top_eigs_sym_cpp", (DL_FUNC) &_rcomplex_top_eigs_sym_cpp, 5},
     {NULL, NULL, 0}
 };
 
