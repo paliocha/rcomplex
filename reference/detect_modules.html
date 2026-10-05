@@ -74,8 +74,8 @@ the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).</p>
 <span><span class="fu">detect_modules</span><span class="op">(</span></span>
 <span>  <span class="va">net</span>,</span>
 <span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"leiden"</span>, <span class="st">"infomap"</span>, <span class="st">"sbm"</span><span class="op">)</span>,</span>
-<span>  resolution <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  objective_function <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CPM"</span>, <span class="st">"modularity"</span><span class="op">)</span>,</span>
+<span>  resolution <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  objective_function <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"modularity"</span>, <span class="st">"CPM"</span><span class="op">)</span>,</span>
 <span>  n_iterations <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>  nb_trials <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -107,15 +107,37 @@ or <code>"sbm"</code>.</p></dd>
 
 
 <dt id="arg-resolution">resolution<a class="anchor" aria-label="anchor" href="#arg-resolution"></a></dt>
-<dd><p>Resolution parameter for Leiden (default 1.0). Pass a
-numeric vector (e.g., <code>seq(0.5, 2.0, by = 0.5)</code>) to run at multiple
-resolutions and produce a consensus partition via co-classification
-(Lancichinetti &amp; Fortunato, 2012). Ignored for other methods.</p></dd>
+<dd><p>Resolution parameter for Leiden. <code>NULL</code>
+(default) runs a single resolution: for CPM the edge density of the
+thresholded graph, <code>ecount / choose(vcount, 2)</code>, so modules must
+be denser than the network average; for modularity 1. The resolved
+value is returned in <code>params$resolution</code>. Pass a numeric vector
+(e.g., <code>seq(0.5, 2.0, by = 0.5)</code> for modularity) to run at
+multiple resolutions and produce a consensus partition via
+co-classification (Lancichinetti &amp; Fortunato, 2012); consensus mode
+has no default. Ignored for other methods. Under CPM it is read on
+the 0–1 weight scale (edge weights divided by their maximum, since
+0.3.2): a density each module must exceed, so values below 1 are the
+useful range (at 1 no edge is attractive and genes stay singletons).
+Earlier versions read it on raw mutual-rank weights with a default of
+1, where a resolution of 1 or more returned one module containing
+every gene. On 20,000-gene Pooideae and wood networks the density
+default gave 13–63 modules per species: a few large ones (over 1,000
+genes) that replicated between sample halves and were conserved
+across species as well as modularity's, plus a tail of small
+communities (under 300 genes) that were not conserved. Drop the tail
+by size (<code>as_modules(min_size = )</code>) or by the
+<code><a href="module_auroc.html">module_auroc()</a></code> score before reading modules as units.</p></dd>
 
 
 <dt id="arg-objective-function">objective_function<a class="anchor" aria-label="anchor" href="#arg-objective-function"></a></dt>
-<dd><p>Leiden objective: <code>"CPM"</code> (default) or
-<code>"modularity"</code>. Ignored for other methods. At small sample sizes
+<dd><p>Leiden objective: <code>"modularity"</code> (default
+since 0.3.2; CPM before) or <code>"CPM"</code>. Ignored for other methods. The
+two replicated and conserved large modules equally on 20,000-gene
+data, and modularity has no tail of small non-conserved communities;
+see the section on reproducibility. CPM sees edge weights
+rescaled to 0–1; modularity is scale-invariant and sees them
+unchanged. At small sample sizes
 <code>"modularity"</code> replicated better across independent samples but also
 finds modules in noise, where the K = 1 test does not catch it; see
 the section on reproducibility.</p></dd>
@@ -297,8 +319,8 @@ cluster structure even on noise. Measured on Pooideae leaf networks
 (2,000 genes, 20 samples) with <code>resolution = c(0.5, 1, 2)</code>; the
 scripts and tables are in the package's source repository under
 <code class="file">dev/bench/</code>:</p><ul><li><p><em>Replication</em> (samples split into two halves of 10, two
-replicates per time point each, <code>test_k1 = FALSE</code>): with the
-default <code>objective_function = "CPM"</code>, whether modules exist at
+replicates per time point each, <code>test_k1 = FALSE</code>): with
+<code>objective_function = "CPM"</code>, whether modules exist at
 all flipped between the halves – in 4 of 8 species one half gave
 6–10 modules and the other 1, and two species gave 1 in both
 (median split-half adjusted Rand index 0). With
@@ -315,7 +337,20 @@ removes the geometric clustering that noise produces, so it cannot
 separate modules from noise under modularity. Real networks still
 scored far above shuffled expression (statistic 63–89 against
 14–22).</p></li>
-</ul><p>Treat modules as units only after they replicate on independent samples,
+</ul><p>These CPM measurements predate 0.3.2 and ran on raw mutual-rank edge
+weights, of the order of the gene count, so a resolution of 0.5–2 was
+effectively 0 and CPM collapsed to one module whenever the graph was
+connected. Since 0.3.2 CPM weights are divided by the maximum edge
+weight, so <code>resolution</code> is a density on the 0–1 weight scale,
+and the default resolution is the network's edge density; the CPM
+figures above describe the old scale, not the current one.</p>
+<p>The default objective is modularity since 0.3.2 (CPM before). On
+20,000-gene Pooideae leaf and wood networks, CPM at the density default
+and modularity replicated equally between sample halves and conserved
+their large modules equally across species; CPM only added a tail of
+small communities that were not conserved. The 2,000-gene
+<code class="file">dev/bench/</code> numbers above predate the CPM scale fix.</p>
+<p>Treat modules as units only after they replicate on independent samples,
 well above the same split on shuffled expression, not on the strength of
 the K = 1 test; <code>"modularity"</code> replicated better here but needs
 that check most. To test gene sets from other sources (pathways,
@@ -342,13 +377,13 @@ clustering in class discovery. <em>Scientific Reports</em>, 4, 6207.
     <div id="ref-examples">
     <h2>Examples</h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Single resolution</span></span></span>
-<span class="r-in"><span><span class="va">mods</span> <span class="op">&lt;-</span> <span class="fu">detect_modules</span><span class="op">(</span><span class="va">net</span>, method <span class="op">=</span> <span class="st">"leiden"</span>, resolution <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Single resolution (modularity at resolution 1)</span></span></span>
+<span class="r-in"><span><span class="va">mods</span> <span class="op">&lt;-</span> <span class="fu">detect_modules</span><span class="op">(</span><span class="va">net</span>, method <span class="op">=</span> <span class="st">"leiden"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">mods</span><span class="op">$</span><span class="va">modules</span><span class="op">)</span> <span class="co"># module sizes</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Multi-resolution consensus (Jeub et al. 2018)</span></span></span>
 <span class="r-in"><span><span class="va">mods_consensus</span> <span class="op">&lt;-</span> <span class="fu">detect_modules</span><span class="op">(</span><span class="va">net</span>,</span></span>
-<span class="r-in"><span>  resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span><span class="op">)</span>, objective_function <span class="op">=</span> <span class="st">"modularity"</span>,</span></span>
 <span class="r-in"><span>  n_cores <span class="op">=</span> <span class="fl">4L</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
