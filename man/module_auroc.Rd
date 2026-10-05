@@ -113,6 +113,28 @@ set that species 1 defines. Whether the module is a module in species
 with this same function on the other half's network), and a p-value
 for it would not change this one.
 }
+\section{Calibration}{
+
+Check the null on the data before reading \code{z} or comparing module
+engines. Shuffle species-1 expression per gene (\code{\link[=null_network]{null_network()}}),
+detect modules on that network (\code{\link[=detect_modules]{detect_modules()}}, or any partition
+through \code{\link[=as_modules]{as_modules()}}), and score them with \code{module_auroc()} against
+the real species-2 network. These modules carry no co-expression, so
+\code{z} should have mean about 0 and SD about 1, and about 5 \% of \code{p.val}
+should fall below 0.05:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{nn <- null_network(x1, net1, seed = 1)
+m0 <- detect_modules(nn, objective_function = "modularity", seed = 1)
+r0 <- module_auroc(m0, nn, net2, orthologs, seed = 1)
+c(mean(r0$z), sd(r0$z), mean(r0$p.val < 0.05))
+}\if{html}{\out{</div>}}
+
+A departure means the null misses a stratum the module engine selects
+on (the module benchmark saw mean 0.9 and SD 1.4 on one tissue). Then
+recalibrate the per-species \code{z} against these shuffled-module scores,
+\eqn{(z - \bar z_0) / s_0}, before comparing engines or species.
+}
+
 \references{
 Ballouz, S., Weber, M., Pavlidis, P. & Gillis, J. (2017). EGAD:
 ultra-fast functional analysis of gene networks. \emph{Bioinformatics},

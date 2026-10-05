@@ -24,6 +24,16 @@
   parametric minimum cut), and returns per species the gene sets that
   `module_auroc()` scores.
 
+- **`module_auroc_reciprocal()` tests a module pair in both directions.**
+  It runs `module_auroc()` species 1 -> 2 and 2 -> 1, pairs modules by
+  reciprocal best hit on the Jaccard index of their ortholog groups, and
+  combines the two p-values with `pmax` by default (both directions must
+  hold, as `comparison_to_edges()` requires of gene pairs) or `pmin`;
+  q-values use the randomized-p pi0 on the same combination. Unpaired
+  modules are listed in the `unmatched` attribute. `?module_auroc` gains
+  a Calibration section: modules detected on shuffled species-1
+  expression should score `z` with mean about 0 and SD about 1.
+
 # rcomplex 0.3.1
 
 - **`as_modules()` feeds any gene partition to the module-preservation
