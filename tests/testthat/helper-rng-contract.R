@@ -198,6 +198,27 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "null_network",
+      variant = "block",
+      call = function(seed) {
+        null_network(fx$null_x, fx$null_net,
+          seed = seed,
+          block = rep_len(1:3, ncol(fx$null_x))
+        )$network
+      }
+    ),
+    list(
+      name = "module_replication",
+      call = function(seed) {
+        mods <- as_modules(stats::setNames(
+          rep(c("a", "b", "c"), each = 9L), td$ortho$Species2[1:27]
+        ))
+        module_replication(mods, td$net2,
+          n_null = 5L, max_draws = 10L, batch = 5L, seed = seed
+        )
+      }
+    ),
+    list(
       name = "find_coexpressologs.default",
       call = function(seed) find_coexpressologs(nets, td$ortho, seed = seed)
     ),

@@ -10,7 +10,8 @@ null_network(
   seed = NULL,
   n_cores = 1L,
   use_torch = FALSE,
-  block_size = NULL
+  block_size = NULL,
+  block = NULL
 )
 }
 \arguments{
@@ -32,10 +33,17 @@ it advanced. Same contract as \code{\link{summarize_comparison}}.}
 \item{n_cores, use_torch, block_size}{Passed to \code{\link[=compute_network]{compute_network()}};
 pass the \code{block_size} \code{net} was built with to keep the null build
 blockwise (it is not recorded in \code{params}).}
+
+\item{block}{\code{NULL} (default) for the full per-gene shuffle, or a
+per-sample grouping (vector or factor of length \code{ncol(x)}, no \code{NA}),
+e.g. time point or tree, within which each gene is permuted.}
 }
 \value{
 A sparse network object, as \code{\link[=compute_network]{compute_network()}} returns, on the
-same genes as \code{net}.
+same genes as \code{net}. \code{params$log10_perms_per_gene} is the log10 size
+of one gene's permutation space (\code{lgamma(n + 1) / log(10)} for the
+full shuffle, the sum over blocks otherwise); with \code{block},
+\code{params$block} holds the block sizes, named by level.
 }
 \description{
 Rebuilds a network with the parameters recorded in \code{net} after
@@ -45,4 +53,24 @@ but destroys all co-expression. It is the partner network for the
 empirical calibration of \code{method = "rank"}: p-values from a
 comparison against it are the null draws that
 \code{\link[=summarize_specificity]{summarize_specificity()}} turns into empirical p-values.
+}
+\details{
+With \code{block}, each gene's samples are permuted independently \emph{within}
+each block (one permutation per gene per block). The permutations
+must differ between genes: one permutation applied to every gene only
+reorders the samples and leaves the correlation matrix unchanged.
+
+\strong{Which null.} The full shuffle (\code{block = NULL}) is the null of no
+co-expression at all. The within-block shuffle keeps each gene's block
+means, so the shared time course (or tree effect) survives, and is the
+null of no co-expression beyond the shared axis. That is the null a
+cross-species statistic on raw networks should be read against: on the
+Pooideae time series, cross-species neighbour AUROC is 0.54 for
+networks shuffled within time point against 0.50 for the full shuffle,
+and that 0.04 is the shared time axis, not conserved wiring. The block
+null leaves the random-geometric-graph geometry of the shared axis in
+place, so within-species module statistics stay uninterpretable under
+it. After regressing time out, one gene's residuals correlate -1/3
+within a time point of four samples, which is a second reason to
+permute within time point rather than across it.
 }
