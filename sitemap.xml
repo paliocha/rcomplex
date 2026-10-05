@@ -50,6 +50,7 @@
 <url><loc>/reference/identify_module_hubs.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
 <url><loc>/reference/module_auroc.html</loc></url>
+<url><loc>/reference/module_auroc_reciprocal.html</loc></url>
 <url><loc>/reference/module_correspondence.html</loc></url>
 <url><loc>/reference/module_gene_stats_dense_cpp.html</loc></url>
 <url><loc>/reference/module_gene_stats_sparse_cpp.html</loc></url>

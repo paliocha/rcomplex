@@ -202,6 +202,26 @@ set that species 1 defines. Whether the module is a module in species
 with this same function on the other half's network), and a p-value
 for it would not change this one.</p>
     </div>
+    <div id="calibration">
+    <h2>Calibration</h2>
+
+
+<p>Check the null on the data before reading <code>z</code> or comparing module
+engines. Shuffle species-1 expression per gene (<code><a href="null_network.html">null_network()</a></code>),
+detect modules on that network (<code><a href="detect_modules.html">detect_modules()</a></code>, or any partition
+through <code><a href="as_modules.html">as_modules()</a></code>), and score them with <code>module_auroc()</code> against
+the real species-2 network. These modules carry no co-expression, so
+<code>z</code> should have mean about 0 and SD about 1, and about 5 % of <code>p.val</code>
+should fall below 0.05:</p>
+<p></p><div class="sourceCode r"><pre><code><span><span class="va">nn</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/null_network.html">null_network</a></span><span class="op">(</span><span class="va">x1</span>, <span class="va">net1</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">m0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">nn</span>, objective_function <span class="op">=</span> <span class="st">"modularity"</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">r0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/module_auroc.html">module_auroc</a></span><span class="op">(</span><span class="va">m0</span>, <span class="va">nn</span>, <span class="va">net2</span>, <span class="va">orthologs</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">r0</span><span class="op">$</span><span class="va">z</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/sd.html" class="external-link">sd</a></span><span class="op">(</span><span class="va">r0</span><span class="op">$</span><span class="va">z</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">r0</span><span class="op">$</span><span class="va">p.val</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span></code></pre><p></p></div>
+<p>A departure means the null misses a stratum the module engine selects
+on (the module benchmark saw mean 0.9 and SD 1.4 on one tissue). Then
+recalibrate the per-species <code>z</code> against these shuffled-module scores,
+\((z - \bar z_0) / s_0\), before comparing engines or species.</p>
+    </div>
     <div id="references">
     <h2>References</h2>
     <p>Ballouz, S., Weber, M., Pavlidis, P. &amp; Gillis, J. (2017). EGAD:
