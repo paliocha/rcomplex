@@ -13,6 +13,7 @@
 <url><loc>/reference/apply_clr_to_cor_cpp.html</loc></url>
 <url><loc>/reference/as_modules.html</loc></url>
 <url><loc>/reference/as_sparse_network.html</loc></url>
+<url><loc>/reference/bicm_species_z.html</loc></url>
 <url><loc>/reference/build_coclassification_cpp.html</loc></url>
 <url><loc>/reference/build_sparse_coclassification_cpp.html</loc></url>
 <url><loc>/reference/characterize_hubs.html</loc></url>
@@ -33,6 +34,8 @@
 <url><loc>/reference/compare_specificity.html</loc></url>
 <url><loc>/reference/comparison_to_edges.html</loc></url>
 <url><loc>/reference/compute_network.html</loc></url>
+<url><loc>/reference/conservation_lattice.html</loc></url>
+<url><loc>/reference/conservation_pattern_table.html</loc></url>
 <url><loc>/reference/density_sweep.html</loc></url>
 <url><loc>/reference/density_threshold_cpp.html</loc></url>
 <url><loc>/reference/detect_modules.html</loc></url>
