@@ -286,6 +286,9 @@ green, and a fixture test that modules detected on shuffled-A expression
 give z with mean within ±0.1 and SD within 0.9-1.1 over B (the
 calibration gate), and that split-half within A is the same statistic
 with the other half as B. Depends on nothing; WP 2-4 are scored by it.
+*Implemented* (0.3.2, this commit): `module_auroc()` with the C++ kernel,
+the A-copy stratum and Besag-Clifford stopping; shuffled-A recalibration
+inside the call and the split-half gate test are not yet in the package.
 
 **WP 2 -- summary-count graph with Poisson-binomial null (probe, then
 package; 1 d + 1 d).** Probe `p18_recurrence_graph.R`: ortholog

@@ -30,7 +30,7 @@ Rscript -e 'devtools::document()'
 R CMD INSTALL .
 Rscript -e 'devtools::test()'
 Rscript -e 'lintr::lint_package()'
-R CMD build . && R CMD check --no-manual rcomplex_0.3.1.tar.gz   # expect "Status: OK"
+R CMD build . && R CMD check --no-manual rcomplex_0.3.2.tar.gz   # expect "Status: OK"
 ```
 
 Check the built tarball, not the source directory — `Authors@R` only expands at build time, so `R CMD check .` fails with "Author/Maintainer missing". `--no-manual` avoids needing pdflatex. The historical `R_ext/Boolean.h` warning no longer appears with clang 22. CI runs `lintr::lint_package()` with `LINTR_ERROR_ON_LINT` and there is no `.lintr` file, so any lint fails the build — keep lines at or under 80 characters.

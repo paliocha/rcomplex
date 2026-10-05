@@ -196,6 +196,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// module_auroc_cpp
+NumericVector module_auroc_cpp(IntegerVector p, IntegerVector i, IntegerVector set_ptr, IntegerVector set_gene, IntegerVector set_fold, int n_fold, int n_cores);
+RcppExport SEXP _rcomplex_module_auroc_cpp(SEXP pSEXP, SEXP iSEXP, SEXP set_ptrSEXP, SEXP set_geneSEXP, SEXP set_foldSEXP, SEXP n_foldSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type p(pSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type i(iSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type set_ptr(set_ptrSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type set_gene(set_geneSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type set_fold(set_foldSEXP);
+    Rcpp::traits::input_parameter< int >::type n_fold(n_foldSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(module_auroc_cpp(p, i, set_ptr, set_gene, set_fold, n_fold, n_cores));
+    return rcpp_result_gen;
+END_RCPP
+}
 // module_preservation_dense_cpp
 Rcpp::List module_preservation_dense_cpp(const arma::mat& net, double thr, const Rcpp::IntegerVector& keep, const Rcpp::List& module_members, const Rcpp::List& ref_kIM, const Rcpp::List& ref_CC, const Rcpp::List& ref_MAR, int n_perm, int n_cores, bool binary, bool store_perm);
 RcppExport SEXP _rcomplex_module_preservation_dense_cpp(SEXP netSEXP, SEXP thrSEXP, SEXP keepSEXP, SEXP module_membersSEXP, SEXP ref_kIMSEXP, SEXP ref_CCSEXP, SEXP ref_MARSEXP, SEXP n_permSEXP, SEXP n_coresSEXP, SEXP binarySEXP, SEXP store_permSEXP) {
@@ -436,6 +453,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_find_cliques_stability_cpp", (DL_FUNC) &_rcomplex_find_cliques_stability_cpp, 18},
     {"_rcomplex_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_cpp, 13},
     {"_rcomplex_hog_permutation_test_sparse_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_sparse_cpp, 17},
+    {"_rcomplex_module_auroc_cpp", (DL_FUNC) &_rcomplex_module_auroc_cpp, 7},
     {"_rcomplex_module_preservation_dense_cpp", (DL_FUNC) &_rcomplex_module_preservation_dense_cpp, 11},
     {"_rcomplex_module_preservation_sparse_cpp", (DL_FUNC) &_rcomplex_module_preservation_sparse_cpp, 13},
     {"_rcomplex_module_gene_stats_dense_cpp", (DL_FUNC) &_rcomplex_module_gene_stats_dense_cpp, 5},
