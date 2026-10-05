@@ -1,3 +1,17 @@
+# rcomplex 0.3.2
+
+- **`module_auroc()` tests cross-species module conservation.** A
+  species-1 module is translated to every species-2 copy of its ortholog
+  groups and scored by 3-fold neighbour voting in the species-2 network
+  (EGAD's cross-validated AUROC; folds by ortholog group, within-group
+  edges dropped). The null is random ortholog-group sets matched on size,
+  species-1 copy class, species-2 copy class and species-2 degree decile,
+  drawn with Besag-Clifford sequential stopping; per module it reports
+  the AUROC, a degree-only AUROC as a hub flag, z, p (with the
+  `p.val.gt` / `p.val.eq` split) and Storey q-values with randomized-p
+  pi0. C++ kernel (`src/module_auroc.cpp`), OpenMP over sets, identical
+  at any `n_cores`.
+
 # rcomplex 0.3.1
 
 - **`as_modules()` feeds any gene partition to the module-preservation

@@ -203,6 +203,10 @@ hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, 
     .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
 }
 
+module_auroc_cpp <- function(p, i, set_ptr, set_gene, set_fold, n_fold, n_cores) {
+    .Call(`_rcomplex_module_auroc_cpp`, p, i, set_ptr, set_gene, set_fold, n_fold, n_cores)
+}
+
 #' Module preservation permutation engine (dense)
 #'
 #' @param net Dense network matrix.

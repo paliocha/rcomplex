@@ -208,6 +208,17 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "module_auroc",
+      call = function(seed) {
+        mods <- as_modules(stats::setNames(
+          rep(c("a", "b", "c"), each = 9L), td$ortho$Species1[1:27]
+        ))
+        module_auroc(mods, td$net1, td$net2, td$ortho,
+          n_null = 5L, max_draws = 10L, batch = 5L, seed = seed
+        )
+      }
+    ),
+    list(
       name = "permutation_hog_test",
       call = function(seed) {
         permutation_hog_test(td$net1, td$net2, cmp,
