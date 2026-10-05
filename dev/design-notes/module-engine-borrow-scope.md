@@ -305,6 +305,16 @@ under WP 1 with median z > 3 in >= 4 species and the shuffled-A gate
 holds. If it passes, package as `recurrence_graph()` returning an igraph
 plus the edge table, feeding `as_modules()`. Depends on WP 1 (scoring)
 and WP 0 (which layer).
+*Implemented* (0.3.2, PR #39): `recurrence_graph()` (contraction by
+`t(M) A M`, Poisson-binomial by iterative convolution, BH) and
+`recurrence_modules()` (coarse Leiden, or Goldberg's densest subgraph
+around anchors by `igraph::max_flow()`), returning per-species
+`as_modules()` objects for `module_auroc()`. One difference from the
+probe in Section 10.3: the package corrects over every pair whose groups
+share at least `min_species` species, unlisted pairs at p = 1, because
+correcting over the listed pairs alone selects on the outcome (on three
+shuffled networks it called every listed pair); expect fewer significant
+pairs than the benchmark reported at six to eight species.
 
 **WP 3 -- design A with star expansion and the lambda_2 criterion (probe;
 2 d).** Extend `p1_probe_multilayer.R` (exact leidenalg engine): replace
