@@ -400,9 +400,7 @@ detect_modules.default <- function(net,
 #'
 #' @noRd
 .leiden_weights <- function(g, objective_function) {
-  if (objective_function != "CPM") {
-    return(NULL)
-  }
+  if (objective_function != "CPM") return(NULL)
   w <- igraph::E(g)$weight
   w / max(w)
 }
@@ -426,7 +424,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # Validate threshold
   if (!is.null(consensus_threshold)) {
     if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
-      consensus_threshold >= 1) {
+          consensus_threshold >= 1) {
       stop("consensus_threshold must be NULL (adaptive) or numeric in (0, 1)")
     }
   }
@@ -1074,7 +1072,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
   centrality <- match.arg(centrality)
 
   if (!is.list(modules) || is.null(modules$module_genes) ||
-    is.null(modules$graph) || is.null(modules$modules)) {
+        is.null(modules$graph) || is.null(modules$modules)) {
     stop("modules must be output from detect_modules()")
   }
   if (!is.list(net) || is.null(net$network)) {
@@ -1115,7 +1113,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 
     # Per-row geometric mean of effect sizes
     geo_eff <- sqrt(comparison$Species1.effect.size *
-      comparison$Species2.effect.size)
+                      comparison$Species2.effect.size)
 
     # Per-gene mean conservation effect (higher = more conserved)
     comp_genes <- comparison[[comp_col]]
@@ -1415,7 +1413,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   req_cols <- c("gene", "module", "is_hub", "hog", "degree")
   for (sp in names(hub_results)) {
     if (!is.data.frame(hub_results[[sp]]) ||
-      !all(req_cols %in% names(hub_results[[sp]]))) {
+          !all(req_cols %in% names(hub_results[[sp]]))) {
       stop(
         "hub_results[['", sp,
         "']] must be output from identify_module_hubs() with orthologs"
@@ -1683,7 +1681,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
         n_corresponding <- sum(corresp, na.rm = TRUE)
         n_available <- sum(!is.na(corresp))
         classification <- if (n_corresponding / n_available >=
-          correspondence_threshold) {
+                                correspondence_threshold) {
           "conserved_hub"
         } else {
           "rewired_hub"
