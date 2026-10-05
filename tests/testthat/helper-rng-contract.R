@@ -172,6 +172,19 @@ rng_contract_cases <- function(fx) {
   cf <- fx$cf
   mx <- fx$mx
   tf <- fx$tf
+  # Built here, outside the thunks: recurrence_graph() draws nothing, but
+  # its Rcpp call creates a .Random.seed when none exists. alpha = 1 keeps
+  # every listed pair (two species cannot reach q < 0.05 on 40 genes); the
+  # contract is about Leiden's draws.
+  rec <- local({
+    hm <- data.frame(
+      species = rep(c("A", "B"), each = 40L),
+      gene = c(mf$ortho$Species1, mf$ortho$Species2),
+      hog = rep(mf$ortho$hog, 2L)
+    )
+    rg <- recurrence_graph(list(A = mf$net_a, B = mf$net_b), hm, alpha = 1)
+    list(hm = hm, rg = rg)
+  })
 
   list(
     list(
@@ -216,6 +229,14 @@ rng_contract_cases <- function(fx) {
         module_auroc(mods, td$net1, td$net2, td$ortho,
           n_null = 5L, max_draws = 10L, batch = 5L, seed = seed
         )
+      }
+    ),
+    list(
+      name = "recurrence_modules",
+      call = function(seed) {
+        recurrence_modules(rec$rg, rec$hm,
+          min_size = 2L, seed = seed
+        )$hog_modules
       }
     ),
     list(

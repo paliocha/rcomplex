@@ -11,6 +11,18 @@
   `p.val.gt` / `p.val.eq` split) and Storey q-values with randomized-p
   pi0. C++ kernel (`src/module_auroc.cpp`), OpenMP over sets, identical
   at any `n_cores`.
+- **`recurrence_graph()` and `recurrence_modules()` find modules across
+  species without a coupling parameter.** Each species' network is
+  contracted to ortholog-group pairs (a pair is present when any copy
+  pair is an edge), and the number of species K in which a pair recurs
+  is tested against independent species, with presence probability
+  `1 - (1 - d_s)^(c1 c2)` carrying paralog copy number: an exact
+  Poisson-binomial p-value per pair, Benjamini-Hochberg over every
+  testable pair. `recurrence_modules()` takes the significant-pair graph
+  to modules by Leiden (modularity) or, around given anchor groups, by
+  the exact densest subgraph containing the anchor (Goldberg's
+  parametric minimum cut), and returns per species the gene sets that
+  `module_auroc()` scores.
 
 # rcomplex 0.3.1
 
