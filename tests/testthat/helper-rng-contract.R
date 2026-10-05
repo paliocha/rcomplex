@@ -219,6 +219,19 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "module_auroc_reciprocal",
+      call = function(seed) {
+        mods <- function(g) {
+          as_modules(stats::setNames(rep(c("a", "b", "c"), each = 9L), g))
+        }
+        module_auroc_reciprocal(
+          mods(td$ortho$Species1[1:27]), mods(td$ortho$Species2[1:27]),
+          td$net1, td$net2, td$ortho,
+          n_null = 5L, max_draws = 10L, batch = 5L, seed = seed
+        )
+      }
+    ),
+    list(
       name = "permutation_hog_test",
       call = function(seed) {
         permutation_hog_test(td$net1, td$net2, cmp,

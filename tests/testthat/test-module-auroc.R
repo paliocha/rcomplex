@@ -16,6 +16,7 @@ auroc_fixture <- function(plant = FALSE) {
   rownames(x1) <- paste0("A", seq_len(n))
   rownames(x2) <- paste0("B", seq_len(n))
   list(
+    x1 = x1,
     net1 = compute_network(x1, density = 0.05),
     net2 = compute_network(x2, density = 0.05),
     ortho = data.frame(
@@ -43,6 +44,22 @@ test_that("random modules are calibrated under H0", {
   expect_lte(mean(r$p.val < 0.05), 0.12)
   expect_lt(abs(mean(r$z)), 0.3)
   expect_true(all(abs(r$degree_auroc - 0.5) < 0.4))
+})
+
+
+test_that("modules on shuffled expression give z near N(0, 1)", {
+  # the Calibration recipe of ?module_auroc, three shuffles
+  z <- unlist(lapply(1:3, function(k) {
+    nn <- null_network(fx0$x1, fx0$net1, seed = k)
+    m <- detect_modules(nn, objective_function = "modularity", seed = k)
+    module_auroc(m, nn, fx0$net2, fx0$ortho,
+      n_null = 200L, max_draws = 200L, seed = k
+    )$z
+  }))
+  expect_gt(length(z), 10L)
+  expect_lt(abs(mean(z)), 0.5)
+  expect_gte(stats::sd(z), 0.6)
+  expect_lte(stats::sd(z), 1.4)
 })
 
 
