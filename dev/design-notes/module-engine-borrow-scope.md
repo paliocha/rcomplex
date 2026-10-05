@@ -737,4 +737,172 @@ and at n = 20 that includes noise -- so the help now says to drop them by
 size or by `module_auroc()` score. The recurrence-graph sets remain the
 only source whose small modules conserve (Section 10.7). On this evidence
 the default objective was changed to modularity in PR #38, with the root
-run still going at the time.
+run still going at the time. Root, when it finished, agreed: the density
+default gave 19 modules per species (11 of at least 20 genes, largest
+4.1k), split-half ARI 0.10 against modularity's 0.10, cross-species z
+7.6 against 8.1 for modules over 1,000 genes and 0.6 for those of
+100--300 genes.
+
+### 10.10 Design A with star expansion and the lambda_2 criterion (2026-10-05)
+
+WP 3, leaf and root (wood has no top-25 multiplex cache and was not run).
+Same inputs as Section 11 of the redesign note: the cached top-25 MR
+graphs (`out-2026-09-23/cache/intra_*_k25.rds`, full / A / B, real and
+shuffled), leidenalg 0.12 `optimise_partition_multiplex`, one
+RBConfiguration layer per species at gamma 1, a CPM(0) coupling layer at
+weight kappa, two iterations, seed 1, standalone Python on Orion (no
+reticulate). Two coupling layers: **w**, the September ortholog edges with
+weight `(1/c_A + 1/c_B)/2` (1.92 M leaf / 2.03 M root edges), and
+**star**, one auxiliary node per multi-species HOG (17,839 / 18,107) joined
+by a weight-1 edge to every copy in every species (158k / 160k edges); the
+auxiliary nodes are isolated in every species layer, so they carry no null
+mass. HOGs are the components of the ortholog graph. Kappa {1, 2, 4, 8} for
+w; star was extended to {16, 32, 64} because at 8 it had not coupled.
+lambda_2 of the supra-Laplacian `D - (sum_s A_s + kappa C)` on the largest
+component (all nodes, plus auxiliaries for star) by shift-invert Lanczos
+with a Jacobi-preconditioned CG inverse (sparse LU of a 160k-node kNN
+union graph fills in; checked against a dense solve). Scripts
+`prepare_data/probe-module-engine/p20_*`, outputs `out-2026-10-05-star/`.
+
+Ortholog-edge agreement (fraction of w-edges inside one module), real
+full / shuffled half A (*data*):
+
+| kappa | w leaf | w root | star leaf | star root |
+|---|---|---|---|---|
+| 1 | 0.13 / 0.07 | 0.14 / 0.06 | 0.09 / 0.06 | 0.10 / 0.06 |
+| 2 | 0.26 / 0.86 | 0.26 / 0.19 | 0.16 / 0.07 | 0.13 / 0.06 |
+| 4 | 0.95 / 0.99 | 0.90 / 0.99 | 0.18 / 0.17 | 0.20 / 0.15 |
+| 8 | 1.00 / 1.00 | 1.00 / 1.00 | 0.40 / 0.59 | 0.42 / 0.43 |
+| 16 | | | 0.83 / 0.98 | 0.78 / 0.99 |
+| 32 | | | 1.00 / 1.00 | 0.99 / 1.00 |
+
+The w runs reproduce Section 11.1-11.2 (transition kappa 2 -> 4 on real,
+1 -> 2 on shuffled). Star has the same shape, shifted about 8x: real
+couples between 8 and 32, shuffled between 4 and 16.
+
+lambda_2(kappa), real / shuffled, full data, with the log-log slope
+`d ln lambda_2 / d ln kappa` of the real curve in brackets (*data*):
+
+| kappa | w leaf | w root | star leaf | star root |
+|---|---|---|---|---|
+| 0.25 | 1.43 / 1.43 | 1.36 / 1.38 | 0.20 / 0.20 | 0.20 / 0.20 |
+| 0.5 | 2.78 / 2.82 (0.96) | 2.48 / 2.71 (0.87) | 0.41 / 0.41 (1.00) | 0.40 / 0.40 (0.99) |
+| 1 | 4.14 / 5.45 (0.58) | 3.76 / 5.21 (0.60) | 0.81 / 0.81 (0.99) | 0.79 / 0.80 (0.99) |
+| 2 | 5.92 / 9.99 (0.52) | 5.38 / 9.46 (0.52) | 1.61 / 1.61 (0.98) | 1.54 / 1.58 (0.96) |
+| 4 | 7.91 / 15.3 (0.42) | 7.23 / 14.8 (0.43) | 2.87 / 3.16 (0.84) | 2.62 / 3.10 (0.77) |
+| 8 | 9.67 / 18.3 (0.29) | 8.93 / 18.3 (0.31) | 4.17 / 6.00 (0.54) | 3.86 / 5.86 (0.56) |
+| 16 | 10.9 / 20.0 (0.17) | 10.2 / 20.0 (0.19) | 5.84 / 10.3 (0.49) | 5.43 / 10.0 (0.49) |
+| 32 | | | 7.59 / 13.6 (0.38) | 7.09 / 13.7 (0.39) |
+| 64 | | | 9.02 / 14.7 (0.25) | 8.47 / 14.9 (0.26) |
+| 128 | | | 9.96 / 15.1 (0.14) | 9.38 / 15.4 (0.15) |
+
+Below the kink lambda_2 is linear in kappa and identical on real and
+shuffled (it is set by the coupling graph alone); above it, it saturates
+towards the aggregate network's connectivity, about 10 on real and 15-20
+on the expander-like shuffled graphs. The real curve bends at kappa
+0.5 -> 1 (w) and 2 -> 4 (star); the shuffled curve at 2 -> 4 (w) and
+8 -> 16 (star). The slope falls gradually over two decades, not with the
+sharp Radicchi-Arenas break, which assumes one-to-one identity coupling
+of every node (here: many-to-many, eight layers, genes without
+orthologs).
+
+Modules (>= 20 genes, full data, per species), split-half ARI per species
+(real; shuffled in brackets), and paralog co-localisation (multi-copy
+(species, HOG) with every covered copy in one module; HJUB, 86 %
+multi-copy, after the slash) (*data*):
+
+| source | leaf: modules, median size | leaf ARI | leaf co-loc / HJUB | root: modules, median size | root ARI | root co-loc / HJUB |
+|---|---|---|---|---|---|---|
+| multiplex_k4 (Sept, w k4) | 7, 2,914 | 0.15-0.21 | 0.90 / 0.92 | 5-6, 3,916 | 0.19-0.22 | 0.87 / 0.87 |
+| w k2 | 7-8, 2,274 | 0.04-0.20 (0.03-0.05) | 0.27 / 0.46 | 6-9, 2,881 | 0.02-0.27 (<= 0.02) | 0.29 / 0.55 |
+| w k4 | 8, 2,501 | 0.12-0.16 (0.01) | 0.90 / 0.92 | 7-8, 3,122 | 0.23-0.26 (0.01) | 0.88 / 0.88 |
+| w k8 | 9, 2,617 | 0.16-0.20 (0.01) | 0.97 / 0.98 | 7, 3,057 | 0.22-0.25 (0.00) | 0.97 / 0.98 |
+| star k8 | 4-5, 4,766 | 0.04-0.19 (0.01) | 0.39 / 0.52 | 7-8, 2,547 | 0.02-0.15 (0.00) | 0.43 / 0.64 |
+| star k16 | 8, 2,627 | 0.16-0.19 (0.01) | 0.82 / 0.86 | 5, 3,501 | 0.24-0.31 (0.00) | 0.76 / 0.82 |
+| star k32 | 8, 2,700 | 0.13-0.16 (0.01) | 0.99 / 0.99 | 6, 4,044 | 0.24-0.31 (0.00) | 0.99 / 0.99 |
+| star k64 | 8, 2,393 | 0.16-0.19 (0.01-0.02) | 0.99 / 0.99 | 6, 4,008 | 0.25-0.30 (0.00) | 0.99 / 0.99 |
+| leiden_mod | 5-9, 2,879 | -- | 0.21 / 0.47 | 5-8, 3,074 | -- | 0.24 / 0.52 |
+| recur | 4, 2,295 | -- | 1.00 / 1.00 | 3, 5,147 | -- | 1.00 / 1.00 |
+
+Kappa 1-4 for star and 1 for w are the uncoupled regime (11-15 modules,
+ARI 0.08-0.12, co-localisation 0.16-0.23, as kappa 0). The Section 11
+multiplex_k4 ARI column is from that run's table.
+
+Phase-2 scores (`wp7_score_all.R`, 300 nulls, recalibrated z as in
+Section 10.7; module counts summed over species) (*data*):
+
+| dataset | source | modules | median size | z cross | z cross_half | z split | cross / split | sig in all B |
+|---|---|---|---|---|---|---|---|---|
+| leaf | recur | 32 | 2255 | 31.4 | 26.3 | 35.0 | 0.90 | 1.00 |
+| leaf | star k64 | 64 | 2395 | 23.0 | 17.8 | 23.1 | 1.00 | 1.00 |
+| leaf | star k32 | 64 | 2734 | 22.6 | 21.0 | 25.1 | 0.90 | 1.00 |
+| leaf | w k4 | 64 | 2532 | 22.4 | 18.2 | 23.8 | 0.94 | 0.98 |
+| leaf | multiplex_k4 | 56 | 2890 | 21.7 | 19.2 | 25.5 | 0.85 | 1.00 |
+| leaf | w k8 | 72 | 2550 | 21.4 | 17.9 | 22.9 | 0.93 | 1.00 |
+| leaf | star k16 | 64 | 2798 | 20.8 | 15.8 | 23.1 | 0.90 | 0.98 |
+| leaf | star k8 | 37 | 4679 | 17.4 | 12.6 | 36.8 | 0.47 | 0.81 |
+| leaf | w k2 | 58 | 2504 | 12.2 | 9.3 | 28.4 | 0.43 | 0.71 |
+| leaf | leiden_mod | 58 | 2774 | 10.4 | 9.1 | 25.0 | 0.42 | 0.86 |
+| leaf | w k1 / star k1-k4 | 70-101 | 1535-2154 | 7.3-9.0 | 5.2-6.3 | 19.3-24.9 | 0.33-0.40 | 0.74-0.87 |
+| root | recur | 24 | 5147 | 32.9 | 28.6 | 39.4 | 0.83 | 1.00 |
+| root | star k64 | 48 | 3886 | 21.8 | 19.0 | 24.4 | 0.89 | 1.00 |
+| root | star k32 | 48 | 3874 | 21.7 | 19.0 | 24.3 | 0.89 | 0.98 |
+| root | multiplex_k4 | 44 | 3972 | 21.3 | 20.4 | 30.0 | 0.71 | 0.91 |
+| root | w k8 | 56 | 3057 | 20.4 | 18.0 | 22.4 | 0.91 | 1.00 |
+| root | star k16 | 40 | 3500 | 19.9 | 16.4 | 25.4 | 0.78 | 1.00 |
+| root | w k4 | 57 | 3107 | 19.1 | 17.9 | 23.3 | 0.82 | 0.91 |
+| root | leiden_mod | 52 | 3005 | 7.7 | 6.2 | 15.8 | 0.49 | 0.77 |
+| root | star k8 / w k2 | 57-60 | 2582-3085 | 7.5-7.7 | 9.4-9.8 | 24.5-27.2 | 0.28-0.31 | 0.73-0.74 |
+| root | w k1 / star k1-k4 | 66-97 | 1684-2263 | 5.1-7.1 | 4.5-5.0 | 13.4-15.6 | 0.37-0.48 | 0.61-0.73 |
+
+Size-matched (cross, median z per bin): modules > 1,000 genes leaf star
+k32 27.3 (48), k64 26.7, w k4 24.0, multiplex_k4 23.3, w k8 23.5; root
+star k64 24.6 (38), k32 23.9, w k8 23.6, multiplex_k4 23.0, w k4 21.2.
+300-1,000 genes: star k32 / k64 11.7 / 12.1 (8 each) leaf and 7.8 / 12.6
+root against w k8 12.2 / 9.3; w k4 and multiplex_k4 have almost none.
+Seed noise is visible: w k4 seed 1 and the September seed of the same
+objective differ by 0.7 (leaf) and 2.2 (root) in z cross.
+
+**Star expansion: yes, it removes the copy-number weight.** In its
+coupled regime (kappa 32-64) star matches or beats the weighted layer
+on every number: z cross 22.6-23.0 leaf / 21.7-21.8 root against 21.4-22.4
+/ 19.1-21.3, cross / split 0.89-1.00, split-half ARI 0.13-0.19 leaf /
+0.24-0.31 root against 0.12-0.20 / 0.22-0.26, shuffled split-half 0.00-0.02
+at every star kappa (w kappa 2 has the 0.03-0.05 artefact of 11.1 on
+leaf; star has no such bump). It does so with a coupling layer 12x
+smaller and optimisation 33-85 s against 56-107 s. Paralog families no
+longer split: HJUB co-localisation 0.99 against 0.92 at w kappa 4 (8 % of
+HJUB multi-copy families spread over modules, 1 % under star). Two
+caveats. Kappa stays and its scale moves: star kappa 32 does what w
+kappa 4-8 does, because a copy's coupling is one edge to its HOG rather
+than one edge per other copy. And co-localisation 0.99 means the inner
+majority vote takes every copy along, diverged paralogs included, so a
+star module cannot show subfunctionalisation; the per-copy evidence has
+to come from the WP 1 test or the gene-level calls, not from module
+membership. Star at kappa 16 is the last point where copies can still
+leave (co-localisation 0.76-0.86) and it conserves at z 19.9-20.8.
+
+**lambda_2: no data-internal kappa.** The kink exists but does not mark
+the partition transition. On real data lambda_2 bends a factor of about
+4 *below* the agreement transition (w: 0.5 -> 1 against 2 -> 4; star:
+2 -> 4 against 8 -> 32); on shuffled data it bends *above* it (w: 2 -> 4
+against 1 -> 2; star: 8 -> 16 against 4 -> 16). The order flips between
+real and shuffled, so the kink is not a proxy for the transition in
+either. The star curve's real kink at 2 -> 4 matches the September
+"kappa 2 -> 4" only numerically: star has not coupled there (agreement
+0.18-0.20). What lambda_2 does carry: the gap between the real and
+shuffled curves opens where within-species structure starts to resist
+the coupling (w kappa 1, star kappa 4), and the kink moves 4x between w
+and star, close to the 4-8x shift in the partition transition, so it can
+put two coupling layers on one scale. Kappa selection stays where
+Section 7 of the redesign note put it: the smallest kappa at which real
+agreement is about 1 and shuffled split-half ARI stays at its floor
+(w 4-8, star 32), which these runs read directly off the agreement and
+ARI tables.
+
+Against WP 2: the recurrence sets still conserve best (31-33 against
+22-23) with 3-4 giant modules; at 300-1,000 genes star k32/64 (z 8-13)
+sit with fastoc (13.8 leaf) and below recur_anchor (15.0 leaf, 15.5
+root) from Section 10.7. If
+design A is kept as the comparison engine, run it with the star layer at
+kappa 32.
