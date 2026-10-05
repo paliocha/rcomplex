@@ -397,3 +397,302 @@ applications: doi:10.1093/nar/gkaa1041; doi:10.1186/s13059-020-02208-8.
 Melo et al. 2024, doi:10.1371/journal.pcbi.1012300. Pembroke et al. 2021,
 doi:10.1186/s13059-020-02257-z. Masuda et al. 2025, doi:10.1016/j.physrep.2025.06.002.
 Asta Scientific Corpus MCP: `asta-tools.allen.ai/mcp/v1`.
+
+## 10. Benchmark (2026-10-02 to 2026-10-05)
+
+Martin: "Please benchmark this on the Pooideae and wood data." Every
+module source below was run on the same inputs and judged by the same
+test. Inputs: Pooideae leaf and root (8 species, 20 samples each, 20,000
+genes by variance) and EVOTREE wood (6 species, 65-106 samples, 13,400 to
+20,000 genes); Pearson raw-MR networks at density 0.03 from
+`compute_network()`, one per species, plus sample halves balanced within
+time point (Pooideae) or by tree (wood). Shuffles are per gene, full or
+within block. Scripts, module sets and tables live in
+`prepare_data/bench-2026-10-02/` (gitignored; `bench_common.R` is the
+shared loader, `wp0_` to `wp7_` the work packages); the heavy runs were
+moved to Orion on 2026-10-05 (`$HPC_REMOTE_ROOT/bench-root/`). Numbers
+marked *data* were measured on these data sets; *sim* on simulation.
+
+### 10.1 The test (WP 1): `module_auroc()`
+
+A module is a gene set from species A. Its HOGs are translated to every
+copy in species B, edges inside a HOG are dropped, and the set is scored
+by 3-fold neighbour voting in B's real MR network (`W_B 1_train /
+degree`, analytic rank-sum AUROC of the held-out fold against all
+non-set genes). The null is 300 random HOG sets from A's HOG universe,
+matched on set size, **A copy class** (1, 2, 3, 4+), B copy class and B
+degree decile, pushed through the same pipeline; z and p per (A, module,
+B); a degree-only AUROC flags hub-driven sets. Implemented as a C++
+kernel (`wp1_auroc_lib.R`, about 25 s per species pair at 300 nulls; the
+`Matrix` product was 50 s per pair, about 13 h for the benchmark).
+
+The A copy-class stratum was missing in the first version and the gate
+failed (shuffled-expression modules scored z mean 0.74, SD 1.09, 18 % at
+p < 0.05 on leaf; HJUB 2.1): a module sampled by gene over-represents
+multi-copy HOGs in A, and the null did not. With the stratum (*data*):
+
+| dataset | shuffled-A modules: z mean / SD / frac p < 0.05 | real Leiden modules: median z, frac p < 0.05 in >= 1 / >= half / all B | split-half ceiling, median z |
+|---|---|---|---|
+| leaf | 0.24 / 0.97 / 0.075 | 11.1; 1.00 / 0.96 / 0.85 | 26 |
+| root | 0.92 / 1.40 / 0.256 (VBRO 2.15, BSYL 1.15, HJUB 1.01) | 12.0; 1.00 / 0.98 / 0.83 | 21 |
+| wood | 0.35 / 1.15 / 0.127 | 12.3; 1.00 / 0.98 / 0.95 | 34 |
+
+Leaf passes the gate, wood nearly, root does not. Every cross-species
+number in Section 10.7 is therefore recalibrated per (dataset, species
+A) against that species' shuffled-module scores (`z_cal = (z - mu_A) /
+sd_A`, `wp7_summary.R`); root's baselines are rough (BSYL SD 3.3, VBRO
+mean 2.2). `degree_auroc` is 0.50 in every condition: the modules are not
+hub sets. The within-species ceiling (half-A modules scored on the half-B
+network of the same species) uses the identical statistic.
+
+### 10.2 Two layers (WP 0, *data*)
+
+Per-gene OLS on `time_point` (wood: `tree`) splits expression into a
+deployment layer (the 5 time-point means; wood: 4 zone means) and a
+wiring layer (the residuals, 15 df). Cross-species neighbour AUROC
+(k = 50, 4,000 single-copy HOGs per pair, all 28 / 28 / 15 pairs):
+
+| layer | leaf | root | wood |
+|---|---|---|---|
+| raw | 0.608 | 0.616 | 0.597 |
+| wiring | 0.584 | 0.583 | 0.596 |
+| wiring + harvest day / zone | 0.555 | 0.571 | 0.592 |
+| deployment | 0.541 | 0.563 | 0.560 |
+| raw, shuffled within time point | 0.537 | 0.539 | 0.501 |
+| wiring or deployment, shuffled | 0.500 | 0.500 | 0.500 |
+
+Conservation surviving time removal, `(wiring - 0.5) / (raw - 0.5)`:
+leaf 0.78, root 0.71, wood 0.99 (tree explains R² 0.01-0.10 in wood; zone
+0.38-0.72). The within-time-point shuffle leaves 0.04 of apparent
+gene-level conservation on the raw networks: that is the shared time
+axis, and it is the null a raw-network cross-species statistic needs. No
+species fails the harvest-day falsifier (FPRA keeps 70 % of its gap);
+BMED and HJUB are weakest. R²(time) per species 0.25-0.64, PC1 ~ time up
+to 0.98 (HJUB leaf); residuals of one gene correlate -0.28 to -0.33
+within a time point (theory -1/3). Deployment clusters (16 Ward clusters
+per species) are a weak unit cross-species (Section 10.7).
+
+### 10.3 Recurrence graph (WP 2, *data*)
+
+Ortholog contraction of the eight (six) MR networks to HOG pairs, with
+`p_s = 1 - (1 - d_s)^(c_A c_B)` and a Poisson-binomial count over
+species. The null is exact: on shuffled expression 0 pairs at q < 0.05
+in all three data sets, p < 0.001 counts 46,205 / 46,075 (leaf), 47,133 /
+46,402 (root), 28,406 / 28,281 (wood) observed / expected, and the K
+distribution matches at every K within 3 %. The copy-number term agrees
+with the shuffled presence rate within 0.2 % in every class; the note's
+"1e4 noise edges at K >= 4" assumed single copies (it is 490k with
+paralogs, and the model absorbs it). Real: 802k / 1.21 M / 1.32 M
+significant pairs (2.6 % of pairs with K >= 2); a degree-corrected
+(Chung-Lu) null keeps 89 / 71 / 51 %, so half of wood's recurrence is
+conserved hub-ness. Modules: coarse Leiden (resolution 0.5) gives 3-4
+giant modules that replicate across halves (HOG-level ARI 0.44 / 0.50 /
+0.57); at resolutions 5-20 the 20-500-HOG modules cover 5-17k HOGs but at
+most 2 % of A-modules have a B-match with Jaccard > 0.5 on leaf and root.
+Wood CPM on the K >= 4 graph: 11 modules of about 50 HOGs, ARI 0.85-0.94,
+43 % matched, 600-800 HOGs covered. Species-presence profiles are led by
+same-genus pairs; trait-exclusive profiles show species effects (every
+set with BMED or HJUB is depleted), not trait. Query-anchored densest
+subgraphs around the §11.5 anchors: median density 225 / 128 / 159
+against 2.7 / 2.9 / 2.5 on shuffled, 30 of 30 anchors in every data set.
+
+### 10.4 Within-species clean-up (WP 4)
+
+*Sim* (20k genes, n = 20, ACG background from the real BDIS Tyler fit,
+1,500 outlier genes, Pearson raw-MR through `compute_network()`): the
+pure null gives 1.53 M z > 4 edges unwhitened, 69k after Tyler alone,
+**260 after Tyler plus a leverage filter** (a fresh iid draw gives 305);
+0 clusters. Planted recovery falls with within-module r (508 / 435 / 281
+of 1,400 genes at r 0.3 / 0.5 / 0.8) because HCS runs on the top 50,000
+z-edges and the cut rises to z > 25 at r 0.8, so only the largest module
+survives; modules of 20-80 genes are never recovered. *Data*: real
+networks keep 0.3-1.3 M z > 4 edges in one 11-18k-gene component against
+60-530 on shuffled (VBRO leaf 10k); HCS returns 0-3 clusters per species
+on leaf (sizes 11-134), 0-1 on root (19-89), 0-5 on wood, and 0 on
+shuffled leaf and wood (one 13-gene cluster on VBRO). Root's shuffled
+control is not clean: BSYL and VBRO keep 50-68k z > 4 edges after
+whitening and HVUL's shuffled network yields three 11-14-gene clusters,
+so on root the method's own null fails. Tyler's second-moment fix removes the global shape, not the
+uneven gene directions (the whitened Laplacian keeps 19 spread
+eigenvalues where the shuffled one has a flat 1 + 19). Verdict: a
+calibrated core finder, not an engine; its clusters conserve at z 3.8
+on leaf (50-100-gene bin 7.6, the highest in that bin) and 0.4 on wood.
+
+### 10.5 Subspace agreement (WP 5, *data*)
+
+`S_AB(K)` on binary adjacency (MR weights change nothing: they span
+19,310-20,000). Real above all three nulls on every pair: leaf K = 100
+median 0.0175 against about 0.003 (gap / spread 2.6), root 0.0194 (2.0),
+wood K = 10 0.0179 against 0.0003 (0.98; the Scots-Lodge pair at 0.16
+dominates the spread). Within-species ceiling (half A against half B,
+P = I): leaf 0.08-0.25, root 0.06-0.18, wood 0.18-0.53; real / ceiling
+about 0.2 on Pooideae and 0.04 on wood. BMED is a species effect (lowest
+ceiling, 0.04; dividing by it removes most of its gap). Trait readout:
+null on leaf and root at every K (p_free 0.34-0.60, p_blocked 0.38-0.50);
+wood sits at its free floor of 2/20 with a blocked space of size 1.
+
+### 10.6 Baselines (WP 6, *data*)
+
+- `detect_modules(objective_function = "CPM", resolution = 1)` returns
+  **one module containing every gene** in every species, on full data and
+  on halves, leaf, root and wood. Raw MR weights are 19,310-20,000, so a
+  CPM resolution of 1 is effectively 0 and every edge is attractive. The
+  "CPM returns one module on noise" finding in `dev/bench/` is partly this
+  scale problem. Modularity gives 5-9 modules per species (largest 3-5k).
+- fastOC as published (top-5 Pearson kNN, ortholog weight
+  `(1/c_A + 1/c_B)/2`, 100 Louvain runs, co-appearance, average-linkage
+  tree, `cutreeDynamic` at `minClusterSize` 30 and 100): leaf full 121-151
+  modules per species, median 59 genes, about 11k of 20k genes covered;
+  2,041 s per data set (35 s per Louvain run). Paralog co-localisation
+  (all copies of a multi-copy HOG in one module) 0.44-0.57 on Pooideae
+  full data, 0.15-0.28 on halves, 0.05-0.07 on wood, against 0.001-0.006
+  with HOG labels permuted: paralogs have no direct edge, so the ortholog
+  layer is what groups them.
+- The September exact-objective multiplex run (leidenalg, kappa 4 and 0)
+  and the §11.5 nuclei were converted to module sets for scoring.
+
+### 10.7 Phase 2: every source under the one test
+
+Per source and data set: modules scored (part = full), median module
+size, recalibrated cross-species median z (`cross`: full-data modules of
+A on the full networks of every other species), `cross_half` (half-A
+modules on the other species' half-B networks, so B's data never saw the
+module), `split` (half-A modules on A's own half-B network, the
+replication ceiling) and the fraction of modules with p < 0.05 in every
+other species. Median z scales with module size, so the size-matched
+view follows. The tables are copied to
+`dev/bench/module_engine_benchmark_2026-10-05.tsv`,
+`dev/bench/module_engine_benchmark_by_size_2026-10-05.tsv` and
+`dev/bench/module_auroc_calibration_2026-10-05.tsv`.
+
+| dataset | source | modules | median size | z cross | z cross_half | z split (ceiling) | cross / split | sig in all B |
+|---|---|---|---|---|---|---|---|---|
+| leaf | recur | 32 | 2255 | 31.4 | 26.3 | 35.0 | 0.90 | 1.00 |
+| leaf | multiplex_k4 | 56 | 2890 | 21.7 | 19.2 | 25.5 | 0.85 | 1.00 |
+| leaf | leiden_mod_wp1 | 55 | 2923 | 11.1 | 8.6 | 24.8 | 0.45 | 0.89 |
+| leaf | recur_anchor | 240 | 208 | 10.6 | -- | -- | -- | 1.00 |
+| leaf | leiden_mod | 58 | 2774 | 10.4 | 9.1 | 25.0 | 0.42 | 0.86 |
+| leaf | recur_degk4 | 32 | 416 | 9.5 | 11.5 | 13.1 | 0.73 | 0.78 |
+| leaf | recur_k4 | 32 | 306 | 9.4 | 11.7 | 13.3 | 0.71 | 0.78 |
+| leaf | fastoc100 | 265 | 265 | 7.9 | 5.8 | 7.4 | 1.07 | 0.79 |
+| leaf | multiplex_k0 | 90 | 1824 | 7.4 | 5.5 | 19.8 | 0.38 | 0.73 |
+| leaf | recur_deg | 320 | 198 | 5.9 | 1.7 | 2.1 | 2.73 | 0.65 |
+| leaf | deploy | 128 | 1100 | 4.9 | 4.4 | 13.6 | 0.36 | 0.65 |
+| leaf | hcs | 10 | 28 | 3.8 | 4.9 | 7.1 | 0.54 | 0.60 |
+| leaf | fastoc | 1064 | 59 | 3.4 | 2.1 | 3.3 | 1.01 | 0.46 |
+| leaf | nucleus | 141 | 22 | 3.2 | -- | -- | -- | 0.65 |
+| leaf | leiden_cpm | 8 | 20000 | 0.1 | -0.4 | 1.5 | 0.06 | 0.00 |
+| root | recur | 24 | 5147 | 32.9 | 28.6 | 39.4 | 0.83 | 1.00 |
+| root | multiplex_k4 | 44 | 3972 | 21.3 | 20.4 | 30.0 | 0.71 | 0.91 |
+| root | leiden_mod_wp1 | 54 | 2916 | 7.9 | 6.2 | 15.0 | 0.53 | 0.78 |
+| root | leiden_mod | 52 | 3005 | 7.7 | 6.2 | 15.8 | 0.49 | 0.77 |
+| root | recur_anchor | 240 | 72 | 5.9 | -- | -- | -- | 0.92 |
+| root | fastoc100 | 467 | 186 | 5.8 | 4.5 | 6.4 | 0.91 | 0.62 |
+| root | multiplex_k0 | 92 | 1888 | 5.4 | 4.8 | 13.9 | 0.39 | 0.61 |
+| root | deploy | 128 | 1060 | 3.8 | 3.5 | 9.3 | 0.41 | 0.47 |
+| root | recur_k4 | 1390 | 53 | 3.4 | 1.4 | 1.6 | 2.05 | 0.44 |
+| root | recur_degk4 | 1567 | 53 | 3.2 | 1.5 | 1.7 | 1.90 | 0.42 |
+| root | nucleus | 195 | 36 | 3.2 | -- | -- | -- | 0.62 |
+| root | recur_deg | 1440 | 65 | 3.0 | 1.3 | 1.5 | 1.96 | 0.38 |
+| root | fastoc | 1513 | 54 | 2.6 | 2.0 | 2.9 | 0.91 | 0.29 |
+| root | hcs | 6 | 44 | 1.9 | 0.4 | 5.3 | 0.36 | 0.00 |
+| root | leiden_cpm | 8 | 20000 | -0.7 | -0.5 | -0.2 | 4.31 | 0.00 |
+| wood | recur | 24 | 4822 | 27.7 | 26.5 | 39.8 | 0.69 | 1.00 |
+| wood | leiden_mod_wp1 | 42 | 2446 | 11.4 | 10.7 | 30.6 | 0.37 | 0.95 |
+| wood | leiden_mod | 42 | 2508 | 11.3 | 10.4 | 31.4 | 0.36 | 0.93 |
+| wood | deploy | 96 | 1020 | 6.8 | 6.2 | 18.5 | 0.37 | 0.84 |
+| wood | recur_anchor | 180 | 146 | 6.7 | -- | -- | -- | 0.87 |
+| wood | recur_k4 | 66 | 100 | 6.3 | 5.3 | 5.8 | 1.08 | 0.97 |
+| wood | recur_degk4 | 66 | 70 | 5.7 | 5.9 | 6.2 | 0.91 | 1.00 |
+| wood | recur_deg | 266 | 30 | 3.7 | 3.2 | 3.8 | 0.96 | 0.45 |
+| wood | fastoc100 | 372 | 214 | 3.0 | 3.0 | 8.8 | 0.34 | 0.44 |
+| wood | nucleus | 201 | 6 | 1.4 | -- | -- | -- | 0.20 |
+| wood | fastoc | 1218 | 60 | 1.3 | 1.2 | 4.5 | 0.29 | 0.13 |
+| wood | hcs | 11 | 23 | 0.4 | 1.1 | 2.7 | 0.16 | 0.27 |
+| wood | leiden_cpm | 6 | 19908 | -0.4 | -0.3 | -- | -- | 0.00 |
+
+Size-matched median z (cross), modules per size bin:
+
+| dataset | source | 20-50 | 50-100 | 100-300 | 300-1000 | >1000 |
+|---|---|---|---|---|---|---|
+| leaf | deploy | -- | -- | -- | 3.6 (55) | 7.0 (73) |
+| leaf | fastoc | 2.4 (420) | 3.0 (396) | 6.9 (217) | 13.8 (30) | -- |
+| leaf | fastoc100 | -- | -- | 4.9 (159) | 13.2 (100) | 23.5 (6) |
+| leaf | hcs | -- | -- | 6.0 (3) | -- | -- |
+| leaf | leiden_cpm | -- | -- | -- | -- | 0.1 (8) |
+| leaf | leiden_mod | -- | -- | -- | 5.5 (3) | 11.0 (55) |
+| leaf | leiden_mod_wp1 | -- | -- | -- | -- | 11.3 (53) |
+| leaf | multiplex_k0 | -- | -- | 1.6 (5) | 3.5 (13) | 9.0 (72) |
+| leaf | multiplex_k4 | -- | -- | 7.2 (6) | -- | 23.3 (48) |
+| leaf | nucleus | 3.5 (64) | 3.7 (19) | -- | -- | -- |
+| leaf | recur | -- | -- | -- | -- | 31.4 (32) |
+| leaf | recur_anchor | -- | 6.6 (29) | 9.8 (133) | 15.0 (78) | -- |
+| leaf | recur_deg | 2.7 (47) | 2.7 (54) | 6.2 (107) | 11.4 (108) | -- |
+| leaf | recur_degk4 | -- | 4.3 (7) | -- | 12.4 (24) | -- |
+| leaf | recur_k4 | 4.3 (7) | -- | 9.1 (5) | 11.6 (19) | -- |
+| root | deploy | -- | -- | 0.4 (3) | 3.2 (51) | 4.7 (74) |
+| root | fastoc | 1.8 (651) | 2.8 (618) | 5.3 (239) | 8.7 (5) | -- |
+| root | fastoc100 | -- | -- | 5.3 (387) | 10.0 (80) | -- |
+| root | hcs | 1.8 (3) | -- | -- | -- | -- |
+| root | leiden_cpm | -- | -- | -- | -- | -0.7 (8) |
+| root | leiden_mod | -- | -- | -- | -- | 8.1 (51) |
+| root | leiden_mod_wp1 | -- | -- | -- | -- | 8.4 (52) |
+| root | multiplex_k0 | -- | -- | -- | 2.4 (10) | 6.0 (80) |
+| root | multiplex_k4 | -0.0 (3) | -- | -- | -- | 23.0 (40) |
+| root | nucleus | 3.5 (110) | 2.9 (59) | -- | -- | -- |
+| root | recur | -- | -- | -- | -- | 32.9 (24) |
+| root | recur_anchor | 4.2 (29) | 5.6 (160) | 6.9 (44) | 15.5 (7) | -- |
+| root | recur_deg | 1.7 (474) | 2.7 (383) | 6.2 (452) | 8.5 (69) | -- |
+| root | recur_degk4 | 2.6 (693) | 3.5 (531) | 5.8 (294) | 6.1 (7) | -- |
+| root | recur_k4 | 2.8 (576) | 3.5 (496) | 5.9 (249) | 8.1 (18) | -- |
+| wood | deploy | -- | -- | 1.2 (3) | 4.9 (43) | 8.4 (50) |
+| wood | fastoc | 0.8 (443) | 1.3 (515) | 2.4 (251) | 3.4 (9) | -- |
+| wood | fastoc100 | -- | -- | 2.6 (284) | 4.5 (87) | -- |
+| wood | hcs | 0.4 (5) | -- | -- | -- | -- |
+| wood | leiden_cpm | -- | -- | -- | -- | -0.4 (6) |
+| wood | leiden_mod | -- | -- | -- | -- | 11.4 (41) |
+| wood | leiden_mod_wp1 | -- | -- | -- | -- | 11.8 (40) |
+| wood | nucleus | 1.4 (54) | 0.5 (5) | -- | -- | -- |
+| wood | recur | -- | -- | -- | 12.4 (3) | 29.4 (21) |
+| wood | recur_anchor | 4.5 (33) | 5.4 (19) | 7.8 (110) | 10.6 (6) | -- |
+| wood | recur_deg | 3.2 (126) | 5.1 (41) | 8.6 (29) | -- | -- |
+| wood | recur_degk4 | 4.3 (25) | 5.2 (19) | 8.7 (22) | -- | -- |
+| wood | recur_k4 | 4.1 (13) | 5.7 (20) | 8.5 (31) | -- | -- |
+
+### 10.8 Verdict
+
+1. **The test works and should be package code.** With the A-copy
+   stratum the null is calibrated on leaf and wood and recalibrated per
+   species on root; real modules of every engine score far above
+   shuffled-expression modules; `degree_auroc` 0.50 rules out hub
+   artefacts. Package it as `module_auroc()` with the shuffled-A
+   recalibration built in (score modules detected on shuffled expression
+   inside the same call) and the C++ kernel. Within-species module
+   p-values are not needed anywhere in this table.
+2. **The joint engines win, and not by circularity.** The recurrence
+   graph and the exact multiplex objective reach 70-90 % of their own
+   split-half ceiling cross-species, and `cross_half` equals `cross`
+   (leaf recur 26.3 / 31.4, recur_k4 11.7 / 9.4; wood recur 26.5 / 27.7),
+   so species B's data did not make the module. Per-species Leiden
+   conserves at 40-50 % of its ceiling in all three tissues; fastOC as
+   published is the weakest real engine on wood and middling on leaf,
+   and at matched size (100-300 genes) the recurrence and anchored sets
+   conserve about 3x better than fastOC on wood and 1.3x on leaf.
+3. **On n = 20 the replicable joint unit is coarse or anchored.** Fine
+   partitions of the recurrence graph do not replicate between halves
+   (<= 2 % matched); the 3-5 giant modules do (ARI 0.44-0.57), and the
+   anchored densest subgraphs (70-200 genes) conserve at z 6-11 with
+   `cross_half` >= `cross`. Wood, with 65-106 samples, replicates
+   50-HOG modules (ARI 0.85-0.94). The engine to implement is WP 2
+   (summary-count graph, Poisson-binomial null with copy number,
+   anchored densest subgraphs for the local unit, coarse Leiden for the
+   global one), with design A's exact multiplex kept as the comparison
+   and star expansion untested.
+4. **Deployment is a covariate, not a unit.** Deployment clusters
+   conserve at z 4-7 against 10-30 for wiring-based modules; keep
+   R²(time) per gene, cluster the wiring layer.
+5. **Not carried forward as engines:** Tyler + HCS (calibrated, finds
+   0-5 small cores), subspace agreement as a module method (keep it as
+   the partition-free species-pair statistic; it is cheap and its nulls
+   behave), the CPM default (fix the resolution scale or default to
+   modularity), fastOC's copy-number weights and per-species tree cut.
