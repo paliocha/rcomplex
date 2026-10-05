@@ -157,7 +157,10 @@ test_that("null_network keeps the universe and the parameters", {
   nn <- null_network(f$x, f$net, seed = 1L)
   expect_identical(rownames(nn$network), rownames(f$net$network))
   expect_equal(nn$n_genes, f$net$n_genes)
-  expect_identical(nn$params, f$net$params)
+  expect_identical(
+    nn$params[names(nn$params) != "log10_perms_per_gene"], f$net$params
+  )
+  expect_equal(nn$params$log10_perms_per_gene, lgamma(13) / log(10))
   expect_identical(nn$store_density, f$net$store_density)
   expect_s4_class(nn$network, "dgCMatrix")
   expect_false(identical(nn$network, f$net$network))
