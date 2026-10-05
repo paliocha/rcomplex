@@ -54,6 +54,16 @@
   modules are listed in the `unmatched` attribute. `?module_auroc` gains
   a Calibration section: modules detected on shuffled species-1
   expression should score `z` with mean about 0 and SD about 1.
+- **`subspace_preservation()` scores species pairs without modules.**
+  Per species it takes the K smallest non-trivial eigenvectors of the
+  normalised Laplacian of the binary network (largest component), and
+  per ordered pair reports `S = ||U_A' P U_B||_F^2 / K`, the mean squared
+  cosine of the principal angles between the two subspaces through the
+  row-normalised ortholog map. The null permutes ortholog-group labels
+  among A's genes and gives `z`. No partition is detected, so module
+  instability never enters. `as_preservation_matrix()` hands the
+  symmetrised `z` to `preservation_matrix_test()` (design note
+  `module-engine-borrow-scope.md`, Sections 5, 8 and 10.5).
 
 # rcomplex 0.3.1
 

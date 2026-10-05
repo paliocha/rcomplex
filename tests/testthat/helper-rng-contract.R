@@ -382,6 +382,19 @@ rng_contract_cases <- function(fx) {
           pi0_method = "none"
         )
       }
+    ),
+    list(
+      name = "subspace_preservation",
+      call = function(seed) {
+        o <- td$ortho
+        hog_map <- data.frame(
+          species = rep(c("SP_A", "SP_B"), each = nrow(o)),
+          gene = c(o$Species1, o$Species2), hog = c(o$hog, o$hog)
+        )
+        subspace_preservation(nets, hog_map,
+          K = 3L, n_null = 5L, seed = seed
+        )$pairs
+      }
     )
   )
 }

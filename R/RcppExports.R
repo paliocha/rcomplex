@@ -467,3 +467,7 @@ specificity_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_
     .Call(`_rcomplex_specificity_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac)
 }
 
+top_eigs_sym_cpp <- function(p, i, x, n, k) {
+    .Call(`_rcomplex_top_eigs_sym_cpp`, p, i, x, n, k)
+}
+
