@@ -23,6 +23,11 @@
   sweeps alike. Earlier CPM results at resolution >= 1 on raw MR weights
   were one module and should be rerun. Modularity is scale-invariant and
   its partitions are unchanged; the default objective is unchanged.
+  The default `resolution` is now `NULL`: the edge density of the
+  thresholded graph under CPM (modules denser than the network average)
+  and 1 under modularity, recorded in `params$resolution`. A fixed
+  default of 1 on the unit scale would make no edge attractive. Consensus
+  mode still takes an explicit vector.
 
 # rcomplex 0.3.1
 

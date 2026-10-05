@@ -213,7 +213,7 @@ test_that("label and gene-ID order do not depend on the collation locale", {
 
 test_that("a detect_modules() result and its membership give one result", {
   fx <- as_mod_fixture()
-  m <- detect_modules(fx$netA, resolution = 0.1, seed = 1L)
+  m <- detect_modules(fx$netA, seed = 1L)
   expect_s3_class(m$modules, "membership")
   expect_identical(as_modules(m), m)
   a <- module_preservation(m, fx$netA, fx$netB, fx$ortho,

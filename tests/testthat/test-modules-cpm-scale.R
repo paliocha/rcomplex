@@ -57,3 +57,17 @@ test_that("the K = 1 test runs under CPM", {
   expect_false(is.null(res$k1_test))
   expect_length(res$modules, 45L)
 })
+
+test_that("the default resolution is the edge density (CPM) or 1", {
+  fx <- cpm_scale_fixture()
+  res <- detect_modules(fx$net, seed = 1)
+  g <- res$graph
+  dens <- igraph::ecount(g) / choose(igraph::vcount(g), 2)
+  expect_gt(dens, 1 / 3)
+  expect_equal(res$params$resolution, dens)
+  expect_gt(res$n_modules, 1L)
+  expect_lt(res$n_modules, 45L)
+  expect_gt(ari(res$modules, fx$lab), 0.8)
+  mod <- detect_modules(fx$net, objective_function = "modularity", seed = 1)
+  expect_identical(mod$params$resolution, 1)
+})
