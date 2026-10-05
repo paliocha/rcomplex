@@ -35,10 +35,18 @@ or \code{"sbm"}.}
 \item{resolution}{Resolution parameter for Leiden (default 1.0). Pass a
 numeric vector (e.g., \code{seq(0.5, 2.0, by = 0.5)}) to run at multiple
 resolutions and produce a consensus partition via co-classification
-(Lancichinetti & Fortunato, 2012). Ignored for other methods.}
+(Lancichinetti & Fortunato, 2012). Ignored for other methods. Under
+CPM it is read on the 0--1 weight scale (edge weights divided by
+their maximum, since 0.3.2): a density each module must exceed, so
+values below 1 are the useful range (at 1 no edge is attractive and
+genes stay singletons). Earlier versions read it on raw mutual-rank
+weights, where a resolution of 1 or more returned one module
+containing every gene.}
 
 \item{objective_function}{Leiden objective: \code{"CPM"} (default) or
-\code{"modularity"}. Ignored for other methods. At small sample sizes
+\code{"modularity"}. Ignored for other methods. CPM sees edge weights
+rescaled to 0--1; modularity is scale-invariant and sees them
+unchanged. At small sample sizes
 \code{"modularity"} replicated better across independent samples but also
 finds modules in noise, where the K = 1 test does not catch it; see
 the section on reproducibility.}
@@ -204,6 +212,13 @@ separate modules from noise under modularity. Real networks still
 scored far above shuffled expression (statistic 63--89 against
 14--22).
 }
+These CPM measurements predate 0.3.2 and ran on raw mutual-rank edge
+weights, of the order of the gene count, so a resolution of 0.5--2 was
+effectively 0 and CPM collapsed to one module whenever the graph was
+connected. Since 0.3.2 CPM weights are divided by the maximum edge
+weight, so \code{resolution} is a density on the 0--1 weight scale;
+the CPM figures above describe the old scale, not the current one.
+
 Treat modules as units only after they replicate on independent samples,
 well above the same split on shuffled expression, not on the strength of
 the K = 1 test; \code{"modularity"} replicated better here but needs

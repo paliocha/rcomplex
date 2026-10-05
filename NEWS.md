@@ -12,6 +12,18 @@
   pi0. C++ kernel (`src/module_auroc.cpp`), OpenMP over sets, identical
   at any `n_cores`.
 
+- **`detect_modules()` reads the CPM `resolution` on the [0, 1] weight
+  scale.** CPM quality is sum_ij (A_ij - gamma) delta(c_i, c_j), and the
+  edge weights were raw mutual ranks of the order of the gene count
+  (19,000-20,000 on the benchmark data), so `resolution = 1` was
+  effectively 0, every edge was attractive, and CPM returned one module
+  containing every gene, on full data and sample halves alike. CPM now
+  divides the edge weights by their maximum before clustering, in the
+  single-resolution path, the initial consensus sweep and the K = 1 null
+  sweeps alike. Earlier CPM results at resolution >= 1 on raw MR weights
+  were one module and should be rerun. Modularity is scale-invariant and
+  its partitions are unchanged; the default objective is unchanged.
+
 # rcomplex 0.3.1
 
 - **`as_modules()` feeds any gene partition to the module-preservation
