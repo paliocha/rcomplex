@@ -64,6 +64,19 @@
   instability never enters. `as_preservation_matrix()` hands the
   symmetrised `z` to `preservation_matrix_test()` (design note
   `module-engine-borrow-scope.md`, Sections 5, 8 and 10.5).
+- **Clique conservation patterns.** `conservation_pattern_table()` turns
+  `classify_gene_cliques()` output into one row per gene clique with a
+  3-valued state per species (`+` member, `-` tested and rejected at
+  adequate power, `?` no evidence) and the member pairs split into
+  significant, non-significant and untested; paralog combinations stay
+  separate rows. `conservation_lattice()` lists the closed species sets
+  (iceberg concept lattice) with their support and containment, and with
+  a `trait` labels the all-species and per-level intents, where
+  `complete_conserved`, `lineage_specific` and `trait_specific` cliques
+  land. `bicm_species_z()` fits the bipartite configuration model
+  (Saracco et al. 2017) to the clique x species matrix and returns a
+  margin-corrected species-pair co-membership z, a standardiser that
+  `preservation_matrix_test()` takes as its statistic.
 
 # rcomplex 0.3.1
 

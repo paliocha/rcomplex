@@ -1376,3 +1376,109 @@ test_that("min_power is validated", {
   empty <- classify_gene_cliques(cl[0, ], e, gcg_six)
   expect_true("n_underpowered_cross" %in% names(empty))
 })
+
+
+# --- Conservation patterns, lattice and BiCM (WP 7) ---
+
+test_that("pattern table reproduces the species-level tiers", {
+  e <- make_gcg_fixture()
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  pt <- conservation_pattern_table(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  expect_equal(pt$classification, res$classification)
+  pat <- stats::setNames(pt$pattern, pt$hog)
+  expect_equal(pat[["HOG1"]], "++++++")
+  expect_equal(pat[["HOG6"]], "+++???")
+  expect_equal(pat[["HOG4"]], "+++++-")
+  expect_equal(pat[["HOG7"]], "+++++?")
+  expect_equal(
+    pt$pairs_sig + pt$pairs_ns + pt$pairs_untested, res$n_pairs
+  )
+  is_cc <- pt$classification == "complete_conserved"
+  expect_true(all(pt$pattern[is_cc] == "++++++"))
+
+  # trait_specific: the outside lineage is "-", not "?".
+  ts <- gcg_up_lineage(0.99)
+  clt <- gene_clique_graph(ts, alpha_graph = 0.9)
+  ptt <- conservation_pattern_table(clt, ts, gcg_six, lineage = gcg_lin)
+  expect_equal(ptt$classification, "trait_specific")
+  expect_equal(ptt$pattern, "+++---")
+
+  lat <- conservation_lattice(rbind(pt, ptt), trait = gcg_lin)$intents
+  lab <- stats::setNames(lat$label, lat$intent)
+  expect_equal(lab[["SP_A,SP_B,SP_C,SP_D,SP_E,SP_F"]], "complete")
+  l1 <- lat[lat$intent == "SP_A,SP_B,SP_C", ]
+  expect_equal(l1$label, "L1")
+  # HOG6 (lineage_specific, all "?") and the trait_specific clique.
+  expect_equal(l1$support_exact, 2L)
+  expect_equal(l1$n_minus_outside, 1L)
+})
+
+test_that("pattern table gates on min_power like classify_gene_cliques", {
+  e <- gcg_up_lineage(0.5)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  pt <- conservation_pattern_table(cl, e, gcg_six, lineage = gcg_lin)
+  expect_equal(pt$pattern, "+++???")
+  pt <- conservation_pattern_table(cl, e, gcg_six,
+    min_power = 0.4, lineage = gcg_lin
+  )
+  expect_equal(pt$pattern, "+++---")
+})
+
+test_that("lattice supports are monotone and closed", {
+  e <- make_gcg_fixture()
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  pt <- conservation_pattern_table(cl, e, gcg_six, lineage = gcg_lin)
+  lat <- conservation_lattice(pt)
+  s <- stats::setNames(lat$intents$support, lat$intents$intent)
+  cn <- lat$containment
+  expect_gt(nrow(cn), 0L)
+  # Closed: a strict superset has strictly smaller support.
+  expect_true(all(s[cn$superset] < s[cn$subset]))
+  expect_equal(sum(lat$intents$support_exact), nrow(pt))
+  hi <- conservation_lattice(pt, min_support = 3L)$intents
+  expect_true(all(hi$support >= 3L))
+})
+
+bicm_table <- function(m) {
+  st <- ifelse(m, "+", "?")
+  colnames(st) <- paste0("S", seq_len(ncol(m)))
+  cbind(
+    data.frame(
+      clique_id = paste0("c", seq_len(nrow(m))), hog = "H",
+      classification = "x", pattern = "", n_plus = rowSums(m),
+      n_minus = 0, pairs_sig = 0, pairs_ns = 0, pairs_untested = 0
+    ),
+    as.data.frame(st)
+  )
+}
+
+test_that("BiCM matches degrees and z centres on its own model", {
+  set.seed(1)
+  rate <- rep(seq(0.2, 0.8, length.out = 6), each = 200)
+  m <- matrix(stats::runif(200 * 6) < rate, 200, 6)
+  m[1:5, ] <- TRUE # complete cliques are forced cells
+  m[6:8, ] <- FALSE
+  bz <- bicm_species_z(bicm_table(m))
+  expect_equal(unname(rowSums(bz$p)), rowSums(m), tolerance = 1e-6)
+  expect_equal(unname(colSums(bz$p)), colSums(m), tolerance = 1e-6)
+  expect_true(all(bz$p[1:5, ] == 1))
+  expect_true(isSymmetric(unname(bz$z)))
+
+  # Matrices drawn from the fitted model: V averages to its BiCM mean.
+  a <- utils::combn(6L, 2L)
+  zs <- replicate(500, {
+    d <- matrix(stats::runif(length(bz$p)) < bz$p, nrow(bz$p))
+    v <- colSums(d[, a[1L, ]] & d[, a[2L, ]])
+    (v - bz$pairs$mean) / bz$pairs$sd
+  })
+  expect_lt(max(abs(rowMeans(zs))), 0.15)
+
+  # The pairs table is a preservation_matrix_test() input once z is
+  # named as its statistic.
+  expect_warning(pmt <- preservation_matrix_test(
+    transform(bz$pairs, Zsummary_std = z),
+    group = c(S1 = "a", S2 = "a", S3 = "a", S4 = "b", S5 = "b", S6 = "b")
+  ), "smallest attainable")
+  expect_true(is.finite(pmt$observed))
+})
