@@ -12,6 +12,7 @@
 <url><loc>/reference/all_species_pairs.html</loc></url>
 <url><loc>/reference/apply_clr_to_cor_cpp.html</loc></url>
 <url><loc>/reference/as_modules.html</loc></url>
+<url><loc>/reference/as_preservation_matrix.html</loc></url>
 <url><loc>/reference/as_sparse_network.html</loc></url>
 <url><loc>/reference/bicm_species_z.html</loc></url>
 <url><loc>/reference/build_coclassification_cpp.html</loc></url>
@@ -81,6 +82,7 @@
 <url><loc>/reference/resolve_ortholog_map.html</loc></url>
 <url><loc>/reference/sparse_excess_spectral_norm_cpp.html</loc></url>
 <url><loc>/reference/specificity_sparse_cpp.html</loc></url>
+<url><loc>/reference/subspace_preservation.html</loc></url>
 <url><loc>/reference/suggest_reference_density.html</loc></url>
 <url><loc>/reference/summarize_comparison.html</loc></url>
 <url><loc>/reference/summarize_specificity.html</loc></url>
