@@ -22,12 +22,17 @@
   single-resolution path, the initial consensus sweep and the K = 1 null
   sweeps alike. Earlier CPM results at resolution >= 1 on raw MR weights
   were one module and should be rerun. Modularity is scale-invariant and
-  its partitions are unchanged; the default objective is unchanged.
+  its partitions are unchanged.
   The default `resolution` is now `NULL`: the edge density of the
   thresholded graph under CPM (modules denser than the network average)
   and 1 under modularity, recorded in `params$resolution`. A fixed
   default of 1 on the unit scale would make no edge attractive. Consensus
-  mode still takes an explicit vector.
+  mode still takes an explicit vector. The default `objective_function`
+  is now `"modularity"`: on the 20,000-gene Pooideae leaf and wood
+  networks, fixed CPM at the density default replicated between sample
+  halves and conserved its large modules across species exactly as
+  modularity did, and only added a tail of small communities that were
+  not conserved. Pass `objective_function = "CPM"` for the old objective.
 - **`module_auroc_reciprocal()` tests a module pair in both directions.**
   It runs `module_auroc()` species 1 -> 2 and 2 -> 1, pairs modules by
   reciprocal best hit on the Jaccard index of their ortholog groups, and

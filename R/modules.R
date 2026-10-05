@@ -27,8 +27,8 @@
 #' \file{dev/bench/}:
 #' \itemize{
 #'   \item \emph{Replication} (samples split into two halves of 10, two
-#'     replicates per time point each, \code{test_k1 = FALSE}): with the
-#'     default \code{objective_function = "CPM"}, whether modules exist at
+#'     replicates per time point each, \code{test_k1 = FALSE}): with
+#'     \code{objective_function = "CPM"}, whether modules exist at
 #'     all flipped between the halves -- in 4 of 8 species one half gave
 #'     6--10 modules and the other 1, and two species gave 1 in both
 #'     (median split-half adjusted Rand index 0). With
@@ -53,6 +53,13 @@
 #' weight, so \code{resolution} is a density on the 0--1 weight scale,
 #' and the default resolution is the network's edge density; the CPM
 #' figures above describe the old scale, not the current one.
+#'
+#' The default objective is modularity since 0.3.2 (CPM before). On
+#' 20,000-gene Pooideae leaf and wood networks, CPM at the density default
+#' and modularity replicated equally between sample halves and conserved
+#' their large modules equally across species; CPM only added a tail of
+#' small communities that were not conserved. The 2,000-gene
+#' \file{dev/bench/} numbers above predate the CPM scale fix.
 #'
 #' Treat modules as units only after they replicate on independent samples,
 #' well above the same split on shuffled expression, not on the strength of
@@ -84,8 +91,11 @@
 #'   communities (under 300 genes) that were not conserved. Drop the tail
 #'   by size (\code{as_modules(min_size = )}) or by the
 #'   [module_auroc()] score before reading modules as units.
-#' @param objective_function Leiden objective: `"CPM"` (default) or
-#'   `"modularity"`. Ignored for other methods. CPM sees edge weights
+#' @param objective_function Leiden objective: `"modularity"` (default
+#'   since 0.3.2; CPM before) or `"CPM"`. Ignored for other methods. The
+#'   two replicated and conserved large modules equally on 20,000-gene
+#'   data, and modularity has no tail of small non-conserved communities;
+#'   see the section on reproducibility. CPM sees edge weights
 #'   rescaled to 0--1; modularity is scale-invariant and sees them
 #'   unchanged. At small sample sizes
 #'   `"modularity"` replicated better across independent samples but also
@@ -214,7 +224,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Single resolution (CPM at the network's edge density)
+#' # Single resolution (modularity at resolution 1)
 #' mods <- detect_modules(net, method = "leiden")
 #' table(mods$modules) # module sizes
 #'
@@ -234,7 +244,7 @@ detect_modules <- function(net, ...) UseMethod("detect_modules")
 detect_modules.default <- function(net,
                                    method = c("leiden", "infomap", "sbm"),
                                    resolution = NULL,
-                                   objective_function = c("CPM", "modularity"),
+                                   objective_function = c("modularity", "CPM"),
                                    n_iterations = 2L,
                                    nb_trials = 10L,
                                    seed = NULL,

@@ -735,5 +735,6 @@ over modularity is a tail of small communities that conserve at z about
 0 -- CPM's resolution admits any set denser than the network average,
 and at n = 20 that includes noise -- so the help now says to drop them by
 size or by `module_auroc()` score. The recurrence-graph sets remain the
-only source whose small modules conserve (Section 10.7). Root: see the
-line added when its run finishes.
+only source whose small modules conserve (Section 10.7). On this evidence
+the default objective was changed to modularity in PR #38, with the root
+run still going at the time.
