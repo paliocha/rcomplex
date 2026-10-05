@@ -56,6 +56,27 @@
 #' with this same function on the other half's network), and a p-value
 #' for it would not change this one.
 #'
+#' @section Calibration:
+#' Check the null on the data before reading `z` or comparing module
+#' engines. Shuffle species-1 expression per gene ([null_network()]),
+#' detect modules on that network ([detect_modules()], or any partition
+#' through [as_modules()]), and score them with `module_auroc()` against
+#' the real species-2 network. These modules carry no co-expression, so
+#' `z` should have mean about 0 and SD about 1, and about 5 % of `p.val`
+#' should fall below 0.05:
+#'
+#' ```r
+#' nn <- null_network(x1, net1, seed = 1)
+#' m0 <- detect_modules(nn, objective_function = "modularity", seed = 1)
+#' r0 <- module_auroc(m0, nn, net2, orthologs, seed = 1)
+#' c(mean(r0$z), sd(r0$z), mean(r0$p.val < 0.05))
+#' ```
+#'
+#' A departure means the null misses a stratum the module engine selects
+#' on (the module benchmark saw mean 0.9 and SD 1.4 on one tissue). Then
+#' recalibrate the per-species `z` against these shuffled-module scores,
+#' \eqn{(z - \bar z_0) / s_0}, before comparing engines or species.
+#'
 #' @param modules Module map over species-1 genes, from [as_modules()]
 #'   (or [detect_modules()]).
 #' @param net1,net2 Network objects from [compute_network()] for species 1
@@ -230,6 +251,127 @@ module_auroc <- function(modules, net1, net2, orthologs, n_null = 300L,
   attr(res, "params") <- list(
     n_null = n_null, max_draws = max_draws, h = h, batch = batch,
     n_fold = n_fold, drop_within_hog = drop_within_hog
+  )
+  res
+}
+
+
+#' Reciprocal cross-species module conservation
+#'
+#' @description
+#' Runs [module_auroc()] in both directions, species 1 modules in the
+#' species-2 network and species 2 modules in the species-1 network,
+#' pairs the modules of the two species by reciprocal best hit on shared
+#' ortholog groups, and combines the two directions' p-values per pair.
+#'
+#' @details
+#' **Matching.** Each module is reduced to the ortholog groups (`hog`)
+#' of its genes. Module \eqn{a} of species 1 and \eqn{b} of species 2
+#' pair when \eqn{b} has the highest Jaccard index over groups with
+#' \eqn{a} among species-2 modules and \eqn{a} the highest with \eqn{b}
+#' among species-1 modules (ties go to the first module), the Jaccard is
+#' above 0, and both were tested by [module_auroc()].
+#' [module_correspondence()] is not used: its Jaccard is over genes
+#' projected through a [resolve_ortholog_map()] map, one copy per
+#' group, while a module here is scored through every copy of its groups,
+#' so the overlap that matches the test is the overlap of groups.
+#'
+#' **Combination.** `pval_combine = "max"` (default) takes `pmax` of the
+#' two directions: a pair counts as conserved only if each species'
+#' module holds in the other's network, the reciprocal criterion
+#' [comparison_to_edges()] applies to gene pairs (Netotea et al. 2014).
+#' `pmax` is a valid p-value for that intersection-union null. `"min"`
+#' accepts either direction and is not corrected for taking the smaller
+#' of two. The Storey pi0 behind `q.val` is estimated on the same
+#' combination of each direction's randomized p-value `p.val.gt + U *
+#' p.val.eq`, as in [module_auroc()].
+#'
+#' @param modules1,modules2 Module maps over species-1 and species-2
+#'   genes ([as_modules()] or [detect_modules()]).
+#' @param net1,net2 Network objects from [compute_network()].
+#' @param orthologs Ortholog pair table with `Species1` (species-1 genes),
+#'   `Species2` and `hog`; swapped internally for the reverse direction.
+#' @param pval_combine `"max"` (both directions) or `"min"` (either).
+#' @param ... Further arguments to [module_auroc()], used in both
+#'   directions (`n_null`, `max_draws`, `n_cores`, ...).
+#' @param seed Seed for both directions and the pi0 draws, or `NULL` for
+#'   the ambient stream (package RNG contract).
+#'
+#' @return A data frame, one row per matched pair in species-1 module
+#'   order: `module1`, `module2`, `jaccard`, `p.val.1to2`, `p.val.2to1`,
+#'   `p.val`, `q.val`, `z.1to2`, `z.2to1`. Attributes `unmatched` (a list
+#'   with `species1` and `species2`: modules with no reciprocal partner,
+#'   untested modules included) and `resolution` ([pvalue_resolution()]
+#'   of `p.val`).
+#'
+#' @references
+#' Netotea, S., Sundell, D., Street, N. R. & Hvidsten, T. R. (2014).
+#' Evolution of the plant co-expression network. \emph{BMC Genomics},
+#' 15, 106. \doi{10.1186/1471-2164-15-106}
+#'
+#' @export
+module_auroc_reciprocal <- function(modules1, modules2, net1, net2,
+                                    orthologs,
+                                    pval_combine = c("max", "min"), ...,
+                                    seed = NULL) {
+  pval_combine <- match.arg(pval_combine)
+  comb <- if (pval_combine == "max") pmax else pmin
+  modules1 <- as_modules(modules1)
+  modules2 <- as_modules(modules2)
+  .seed_scope(seed)
+
+  rev_ort <- orthologs
+  rev_ort$Species1 <- orthologs$Species2
+  rev_ort$Species2 <- orthologs$Species1
+  r12 <- module_auroc(modules1, net1, net2, orthologs, ..., seed = NULL)
+  r21 <- module_auroc(modules2, net2, net1, rev_ort, ..., seed = NULL)
+
+  hog <- as.character(orthologs$hog)
+  hogs <- function(mods, genes) {
+    lapply(mods$module_genes, function(g) unique(hog[genes %in% g]))
+  }
+  h1 <- hogs(modules1, orthologs$Species1)[r12$module]
+  h2 <- hogs(modules2, orthologs$Species2)[r21$module]
+  inc <- function(h) {
+    Matrix::sparseMatrix(
+      i = match(unlist(h, use.names = FALSE), unique(hog)),
+      j = rep.int(seq_along(h), lengths(h)),
+      x = 1, dims = c(length(unique(hog)), length(h))
+    )
+  }
+  inter <- as.matrix(Matrix::crossprod(inc(h1), inc(h2)))
+  jac <- inter / (outer(lengths(h1), lengths(h2), "+") - inter)
+  best2 <- max.col(jac, ties.method = "first")
+  best1 <- max.col(t(jac), ties.method = "first")
+  i <- which(best1[best2] == seq_along(best2))
+  j <- best2[i]
+  i <- i[jac[cbind(i, j)] > 0]
+  j <- best2[i]
+  if (!length(i)) stop("no module pair is a reciprocal best hit")
+
+  a <- r12[i, ]
+  b <- r21[j, ]
+  p_val <- comb(a$p.val, b$p.val)
+  q_val <- compute_qvalues(p_val, function() {
+    comb(
+      a$p.val.gt + stats::runif(length(i)) * a$p.val.eq,
+      b$p.val.gt + stats::runif(length(i)) * b$p.val.eq
+    )
+  })$qvalues
+
+  res <- data.frame(
+    module1 = a$module, module2 = b$module, jaccard = jac[cbind(i, j)],
+    p.val.1to2 = a$p.val, p.val.2to1 = b$p.val, p.val = p_val,
+    q.val = q_val, z.1to2 = a$z, z.2to1 = b$z,
+    row.names = NULL, stringsAsFactors = FALSE
+  )
+  attr(res, "unmatched") <- list(
+    species1 = setdiff(names(modules1$module_genes), res$module1),
+    species2 = setdiff(names(modules2$module_genes), res$module2)
+  )
+  attr(res, "resolution") <- pvalue_resolution(
+    p_val,
+    n_perm = attr(r12, "params")$max_draws
   )
   res
 }
