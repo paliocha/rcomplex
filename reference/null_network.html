@@ -84,7 +84,8 @@ comparison against it are the null draws that
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  use_torch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  block_size <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  block_size <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  block <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -118,11 +119,40 @@ it advanced. Same contract as <code><a href="summarize_comparison.html">summariz
 pass the <code>block_size</code> <code>net</code> was built with to keep the null build
 blockwise (it is not recorded in <code>params</code>).</p></dd>
 
+
+<dt id="arg-block">block<a class="anchor" aria-label="anchor" href="#arg-block"></a></dt>
+<dd><p><code>NULL</code> (default) for the full per-gene shuffle, or a
+per-sample grouping (vector or factor of length <code>ncol(x)</code>, no <code>NA</code>),
+e.g. time point or tree, within which each gene is permuted.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     <p>A sparse network object, as <code><a href="compute_network.html">compute_network()</a></code> returns, on the
-same genes as <code>net</code>.</p>
+same genes as <code>net</code>. <code>params$log10_perms_per_gene</code> is the log10 size
+of one gene's permutation space (<code>lgamma(n + 1) / log(10)</code> for the
+full shuffle, the sum over blocks otherwise); with <code>block</code>,
+<code>params$block</code> holds the block sizes, named by level.</p>
+    </div>
+    <div id="details">
+    <h2>Details</h2>
+    <p>With <code>block</code>, each gene's samples are permuted independently <em>within</em>
+each block (one permutation per gene per block). The permutations
+must differ between genes: one permutation applied to every gene only
+reorders the samples and leaves the correlation matrix unchanged.</p>
+<p><strong>Which null.</strong> The full shuffle (<code>block = NULL</code>) is the null of no
+co-expression at all. The within-block shuffle keeps each gene's block
+means, so the shared time course (or tree effect) survives, and is the
+null of no co-expression beyond the shared axis. That is the null a
+cross-species statistic on raw networks should be read against: on the
+Pooideae time series, cross-species neighbour AUROC is 0.54 for
+networks shuffled within time point against 0.50 for the full shuffle,
+and that 0.04 is the shared time axis, not conserved wiring. The block
+null leaves the random-geometric-graph geometry of the shared axis in
+place, so within-species module statistics stay uninterpretable under
+it. After regressing time out, one gene's residuals correlate -1/3
+within a time point of four samples, which is a second reason to
+permute within time point rather than across it.</p>
     </div>
 
   </div>
