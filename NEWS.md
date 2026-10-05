@@ -24,6 +24,27 @@
   parametric minimum cut), and returns per species the gene sets that
   `module_auroc()` scores.
 
+- **`detect_modules()` reads the CPM `resolution` on the [0, 1] weight
+  scale.** CPM quality is sum_ij (A_ij - gamma) delta(c_i, c_j), and the
+  edge weights were raw mutual ranks of the order of the gene count
+  (19,000-20,000 on the benchmark data), so `resolution = 1` was
+  effectively 0, every edge was attractive, and CPM returned one module
+  containing every gene, on full data and sample halves alike. CPM now
+  divides the edge weights by their maximum before clustering, in the
+  single-resolution path, the initial consensus sweep and the K = 1 null
+  sweeps alike. Earlier CPM results at resolution >= 1 on raw MR weights
+  were one module and should be rerun. Modularity is scale-invariant and
+  its partitions are unchanged.
+  The default `resolution` is now `NULL`: the edge density of the
+  thresholded graph under CPM (modules denser than the network average)
+  and 1 under modularity, recorded in `params$resolution`. A fixed
+  default of 1 on the unit scale would make no edge attractive. Consensus
+  mode still takes an explicit vector. The default `objective_function`
+  is now `"modularity"`: on the 20,000-gene Pooideae leaf and wood
+  networks, fixed CPM at the density default replicated between sample
+  halves and conserved its large modules across species exactly as
+  modularity did, and only added a tail of small communities that were
+  not conserved. Pass `objective_function = "CPM"` for the old objective.
 - **`module_auroc_reciprocal()` tests a module pair in both directions.**
   It runs `module_auroc()` species 1 -> 2 and 2 -> 1, pairs modules by
   reciprocal best hit on the Jaccard index of their ortholog groups, and

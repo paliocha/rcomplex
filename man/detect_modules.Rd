@@ -10,8 +10,8 @@ detect_modules(net, ...)
 \method{detect_modules}{default}(
   net,
   method = c("leiden", "infomap", "sbm"),
-  resolution = 1,
-  objective_function = c("CPM", "modularity"),
+  resolution = NULL,
+  objective_function = c("modularity", "CPM"),
   n_iterations = 2L,
   nb_trials = 10L,
   seed = NULL,
@@ -32,13 +32,35 @@ detect_modules(net, ...)
 \item{method}{Community detection method: \code{"leiden"} (default), \code{"infomap"},
 or \code{"sbm"}.}
 
-\item{resolution}{Resolution parameter for Leiden (default 1.0). Pass a
-numeric vector (e.g., \code{seq(0.5, 2.0, by = 0.5)}) to run at multiple
-resolutions and produce a consensus partition via co-classification
-(Lancichinetti & Fortunato, 2012). Ignored for other methods.}
+\item{resolution}{Resolution parameter for Leiden. \code{NULL}
+(default) runs a single resolution: for CPM the edge density of the
+thresholded graph, \code{ecount / choose(vcount, 2)}, so modules must
+be denser than the network average; for modularity 1. The resolved
+value is returned in \code{params$resolution}. Pass a numeric vector
+(e.g., \code{seq(0.5, 2.0, by = 0.5)} for modularity) to run at
+multiple resolutions and produce a consensus partition via
+co-classification (Lancichinetti & Fortunato, 2012); consensus mode
+has no default. Ignored for other methods. Under CPM it is read on
+the 0--1 weight scale (edge weights divided by their maximum, since
+0.3.2): a density each module must exceed, so values below 1 are the
+useful range (at 1 no edge is attractive and genes stay singletons).
+Earlier versions read it on raw mutual-rank weights with a default of
+1, where a resolution of 1 or more returned one module containing
+every gene. On 20,000-gene Pooideae and wood networks the density
+default gave 13--63 modules per species: a few large ones (over 1,000
+genes) that replicated between sample halves and were conserved
+across species as well as modularity's, plus a tail of small
+communities (under 300 genes) that were not conserved. Drop the tail
+by size (\code{as_modules(min_size = )}) or by the
+\code{\link[=module_auroc]{module_auroc()}} score before reading modules as units.}
 
-\item{objective_function}{Leiden objective: \code{"CPM"} (default) or
-\code{"modularity"}. Ignored for other methods. At small sample sizes
+\item{objective_function}{Leiden objective: \code{"modularity"} (default
+since 0.3.2; CPM before) or \code{"CPM"}. Ignored for other methods. The
+two replicated and conserved large modules equally on 20,000-gene
+data, and modularity has no tail of small non-conserved communities;
+see the section on reproducibility. CPM sees edge weights
+rescaled to 0--1; modularity is scale-invariant and sees them
+unchanged. At small sample sizes
 \code{"modularity"} replicated better across independent samples but also
 finds modules in noise, where the K = 1 test does not catch it; see
 the section on reproducibility.}
@@ -185,8 +207,8 @@ scripts and tables are in the package's source repository under
 \file{dev/bench/}:
 \itemize{
 \item \emph{Replication} (samples split into two halves of 10, two
-replicates per time point each, \code{test_k1 = FALSE}): with the
-default \code{objective_function = "CPM"}, whether modules exist at
+replicates per time point each, \code{test_k1 = FALSE}): with
+\code{objective_function = "CPM"}, whether modules exist at
 all flipped between the halves -- in 4 of 8 species one half gave
 6--10 modules and the other 1, and two species gave 1 in both
 (median split-half adjusted Rand index 0). With
@@ -204,6 +226,21 @@ separate modules from noise under modularity. Real networks still
 scored far above shuffled expression (statistic 63--89 against
 14--22).
 }
+These CPM measurements predate 0.3.2 and ran on raw mutual-rank edge
+weights, of the order of the gene count, so a resolution of 0.5--2 was
+effectively 0 and CPM collapsed to one module whenever the graph was
+connected. Since 0.3.2 CPM weights are divided by the maximum edge
+weight, so \code{resolution} is a density on the 0--1 weight scale,
+and the default resolution is the network's edge density; the CPM
+figures above describe the old scale, not the current one.
+
+The default objective is modularity since 0.3.2 (CPM before). On
+20,000-gene Pooideae leaf and wood networks, CPM at the density default
+and modularity replicated equally between sample halves and conserved
+their large modules equally across species; CPM only added a tail of
+small communities that were not conserved. The 2,000-gene
+\file{dev/bench/} numbers above predate the CPM scale fix.
+
 Treat modules as units only after they replicate on independent samples,
 well above the same split on shuffled expression, not on the strength of
 the K = 1 test; \code{"modularity"} replicated better here but needs
@@ -213,13 +250,13 @@ regulons, another tool) use \code{\link[=as_modules]{as_modules()}} with \code{\
 
 \examples{
 \dontrun{
-# Single resolution
-mods <- detect_modules(net, method = "leiden", resolution = 1.0)
+# Single resolution (modularity at resolution 1)
+mods <- detect_modules(net, method = "leiden")
 table(mods$modules) # module sizes
 
 # Multi-resolution consensus (Jeub et al. 2018)
 mods_consensus <- detect_modules(net,
-  resolution = c(0.5, 1.0, 2.0),
+  resolution = c(0.5, 1.0, 2.0), objective_function = "modularity",
   n_cores = 4L
 )
 }
