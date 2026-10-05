@@ -709,3 +709,31 @@ Size-matched median z (cross), modules per size bin:
    the partition-free species-pair statistic; it is cheap and its nulls
    behave), the CPM default (fix the resolution scale or default to
    modularity), fastOC's copy-number weights and per-species tree cut.
+
+### 10.9 The CPM resolution fix on the data (2026-10-05, PR #38)
+
+`detect_modules(objective_function = "CPM")` at the old default returned
+one module per species (Section 10.6). PR #38 reads the CPM resolution on
+the [0, 1] weight scale and defaults it to the thresholded graph's edge
+density (Martin's choice over a modularity default). Run on every species'
+full and half networks (`wp8_cpm_default.R`, scored by the Section 10.7
+pipeline) against 0.5x and 2x the density and modularity (*data*):
+
+| | leaf: default / 0.5x / 2x / modularity | wood: default / 0.5x / 2x / modularity |
+|---|---|---|
+| modules per species (>= 20 genes), median | 13--23 (7--13) / 4--17 / 28--41 / 5--9 | 63 (21) / 43 (13) / 106 (37) / 7 |
+| largest module | 3.1--4.9k / 4.6--9.1k / 2.1--2.9k / 3.2--5.0k | 3.6k / 5.1k / 2.2k / 3.7k |
+| split-half ARI (A vs B), median | 0.12 / 0.12 / 0.12 / 0.12 | 0.40 / 0.36 / 0.39 / 0.37 |
+| cross-species z, modules > 1,000 genes | 9.8 / 14.6 / 8.7 / 11.0 | 12 / -- / 11 / 11 |
+| cross-species z, modules 100--300 genes | 0.6 / -- / 0.9 / -- | 0.4 / -- / 1.0 / -- |
+
+The default is a usable partition: its large modules replicate and
+conserve as modularity's do, and the halves agree as much as modularity's
+(the 2,000-gene `dev/bench` split-half numbers do not carry to 20,000
+genes, where every objective sits at ARI 0.05--0.31 on leaf). What it adds
+over modularity is a tail of small communities that conserve at z about
+0 -- CPM's resolution admits any set denser than the network average,
+and at n = 20 that includes noise -- so the help now says to drop them by
+size or by `module_auroc()` score. The recurrence-graph sets remain the
+only source whose small modules conserve (Section 10.7). Root: see the
+line added when its run finishes.

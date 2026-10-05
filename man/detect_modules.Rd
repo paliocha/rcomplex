@@ -46,7 +46,13 @@ the 0--1 weight scale (edge weights divided by their maximum, since
 useful range (at 1 no edge is attractive and genes stay singletons).
 Earlier versions read it on raw mutual-rank weights with a default of
 1, where a resolution of 1 or more returned one module containing
-every gene.}
+every gene. On 20,000-gene Pooideae and wood networks the density
+default gave 13--63 modules per species: a few large ones (over 1,000
+genes) that replicated between sample halves and were conserved
+across species as well as modularity's, plus a tail of small
+communities (under 300 genes) that were not conserved. Drop the tail
+by size (\code{as_modules(min_size = )}) or by the
+\code{\link[=module_auroc]{module_auroc()}} score before reading modules as units.}
 
 \item{objective_function}{Leiden objective: \code{"CPM"} (default) or
 \code{"modularity"}. Ignored for other methods. CPM sees edge weights
