@@ -54,6 +54,17 @@
   modules are listed in the `unmatched` attribute. `?module_auroc` gains
   a Calibration section: modules detected on shuffled species-1
   expression should score `z` with mean about 0 and SD about 1.
+- **`null_network(block =)` shuffles within blocks, and
+  `module_replication()` reports the within-species ceiling.** With a
+  per-sample grouping (time point, tree), each gene is permuted
+  independently within each block, which keeps the shared time course and
+  is the null of no co-expression beyond it: on the Pooideae data,
+  cross-species neighbour AUROC is 0.54 on raw networks shuffled within
+  time point against 0.50 for the full shuffle. `params` records the
+  block sizes and `log10_perms_per_gene`. `module_replication()` scores
+  modules detected on one sample half against the other half's network
+  of the same species with `module_auroc()` (identity ortholog table by
+  default), the ceiling a cross-species score is read against.
 - **Clique conservation patterns.** `conservation_pattern_table()` turns
   `classify_gene_cliques()` output into one row per gene clique with a
   3-valued state per species (`+` member, `-` tested and rejected at

@@ -377,6 +377,57 @@ module_auroc_reciprocal <- function(modules1, modules2, net1, net2,
 }
 
 
+#' Within-species replication ceiling of gene modules
+#'
+#' @description
+#' Scores modules detected on one sample half of a species on the
+#' network of the *other* half of the same species, with the identical
+#' [module_auroc()] statistic and null. The result is the replication
+#' ceiling: the score a module reaches when nothing but sampling differs.
+#'
+#' @details
+#' A cross-species `z` mixes conservation with how replicable the module
+#' is at all, and replicability differs between species and engines
+#' (sample size, edge FDR). Read every cross-species score against this
+#' ceiling. On the Pooideae benchmark, per-species Leiden modules
+#' conserved at 40-50 % of their own split-half ceiling across species in
+#' leaf, root and wood, while the joint engines (recurrence graph, exact
+#' multiplex objective) reached 70-90 %.
+#'
+#' The halves must be balanced within block (for a time series, two of the
+#' four replicates of every time point in each half), or the ceiling
+#' measures the time course the halves do not share. Use the grouping you
+#' pass as `block` to [null_network()].
+#'
+#' @param modules Module map over the genes of half A, from [as_modules()]
+#'   (or [detect_modules()] on half A's network).
+#' @param net Network object from [compute_network()] for half B.
+#' @param orthologs `NULL` (default) for the identity table over the
+#'   genes of `net` (`Species1 = Species2 = hog = gene`), or a
+#'   same-species table with columns `Species1`, `Species2` and `hog`
+#'   (paralogs then map to each other).
+#' @param ... Passed to [module_auroc()] (`n_null`, `max_draws`,
+#'   `n_cores`, ...).
+#' @param seed Seed for [module_auroc()], or `NULL` for the ambient stream
+#'   (package RNG contract).
+#' @return The [module_auroc()] data frame, with attribute
+#'   `kind = "replication"`.
+#' @export
+module_replication <- function(modules, net, orthologs = NULL, ...,
+                               seed = NULL) {
+  .seed_scope(seed)
+  if (is.null(orthologs)) {
+    g <- rownames(net$network)
+    orthologs <- data.frame(
+      Species1 = g, Species2 = g, hog = g, stringsAsFactors = FALSE
+    )
+  }
+  res <- module_auroc(modules, net, net, orthologs, ...)
+  attr(res, "kind") <- "replication"
+  res
+}
+
+
 #' Binary species-2 adjacency for module_auroc()
 #'
 #' Entries at or above `net$threshold` from the sparse store (dense
