@@ -28,7 +28,8 @@ detail](https://paliocha.github.io/rcomplex/articles/methods.html).
   treatments in every species). A co-expression network built from few
   samples is noisy: many of its edges are chance correlations, and
   conservation tests then have little to find. See
-  [pitfalls](#reading-the-results-and-common-pitfalls).
+  [Designing an rcomplex experiment](#designing-an-rcomplex-experiment)
+  and [pitfalls](#reading-the-results-and-common-pitfalls).
 - Ortholog groups: a table that places genes of all species into
   ortholog groups (HOGs), from OrthoFinder, FastOMA, PLAZA or similar.
   See [the file format](#ortholog-file-format).
@@ -37,6 +38,65 @@ detail](https://paliocha.github.io/rcomplex/articles/methods.html).
   everything else that differs between the two. Use several species per
   trait, ideally as phylogenetic pairs (one annual and one perennial in
   each genus).
+
+## Designing an rcomplex experiment
+
+rcomplex does not care which species, tissues or conditions you study:
+it takes one expression matrix per species, ortholog groups, and a
+table of species traits. What it can detect is set by the design. The
+numbers below come from two data sets, eight Pooideae grasses with 20
+samples per species and tissue, and six trees with 65 to 106 samples
+per species (design notes in the source repository, `dev/design-notes/`).
+
+- **Species: six to eight or more, chosen as phylogenetic pairs that
+  differ in the trait.** The trait tests relabel species, and their
+  smallest p-value is set by the number of independent contrasts, not
+  by sampling. Four genus pairs give a floor of 0.125 when swaps are
+  kept within genera; a binary trait needs at least five independent
+  pairs, or more species per genus, to reach 0.05. Two species gives
+  you the ComPlEx gene-pair test; the module and trait tests start
+  paying off at about six.
+- **Samples: 20 per species and tissue is the floor; 50 or more is
+  where modules become real.** With 20 samples a correlation network
+  has structure even on shuffled data, so gene-level conservation and
+  coarse or anchored modules replicate across sample halves, fine
+  modules do not. The tree data at 65 to 106 samples replicated modules
+  of about 50 ortholog groups; the grasses at 20 did not.
+- **Matched conditions in every species, at least four replicates per
+  condition.** The same tissues, time points or treatments make the
+  species comparable, and four replicates let the package split samples
+  into halves balanced within each condition, which is how it measures
+  whether a module replicates at all. Record harvest day or batch as a
+  factor: in one grass species it was a second axis of expression.
+- **One tissue per network.** Pooled tissues give networks that mostly
+  separate tissues (see pitfalls).
+- **Repeated measures over destructive sampling, if plant effects
+  matter.** When each plant is sampled once per tissue, the plant effect
+  cannot be told apart from residual noise within that tissue.
+- **All expressed genes, ortholog groups kept many-to-many.** Networks
+  are built from the whole transcriptome; restricting to orthologs
+  changes every gene's neighbourhood. Paralogs stay as separate copies
+  and enter the null distributions as copy counts.
+
+The analysis then runs in this order: `compute_network()` per species;
+`null_network(block = )` for the null that keeps each condition's mean
+(the shared time course or gradient) and removes everything else;
+`find_coexpressologs()` for gene pairs (`method = "hypergeometric"` for
+comparability with ComPlEx, `method = "rank"` for a calibrated score
+with a power column); `gene_clique_graph()` and `classify_gene_cliques()`
+for ortholog groups; `recurrence_graph()` and `recurrence_modules()` for
+modules shared across species; `module_auroc()`,
+`module_replication()` and `module_auroc_reciprocal()` to score any
+module set against random sets and against its own within-species
+replication; `subspace_preservation()` and `preservation_matrix_test()`
+for the trait question, with `pvalue_resolution()` read before any
+p-value is believed.
+
+Defaults such as the 3% network density, `min_power = 0.9` and the
+subspace rank `K` were measured on those two data sets. On new data,
+rerun the three cheap checks the package provides before trusting them:
+the shuffled-expression null, the split-half replication, and the
+`module_auroc()` calibration described in its help page.
 
 ## Installation
 
@@ -211,6 +271,12 @@ root samples, so read it as a demonstration rather than trait evidence.
 | Does a call depend on the chosen network density? | Gene pair | `density_sweep()`, `coexpressolog_strength()` |
 | Does this module keep its wiring in the other species? | Module | `module_preservation()`, `classify_preservation()` |
 | Which module in species B corresponds to this module in species A? | Module | `module_correspondence()` |
+| Does this module keep its co-expression in the other species, scored against random gene sets matched on size, copy number and degree? | Module | `module_auroc()`, `module_auroc_reciprocal()` |
+| Would this module replicate within its own species, on the other sample half? | Module | `module_replication()` |
+| Which ortholog-group pairs are co-expressed in more species than chance, and what modules do they form? | Many species | `recurrence_graph()`, `recurrence_modules()` |
+| Do two species share the same large-scale network structure, without choosing modules? | Species pair | `subspace_preservation()`, `as_preservation_matrix()` |
+| What would this statistic look like with no co-expression beyond the shared time course or gradient? | Any | `null_network(block = )` |
+| In which species sets are cliques conserved, and which species pairs share more cliques than their rates imply? | Ortholog group | `conservation_pattern_table()`, `conservation_lattice()`, `bicm_species_z()` |
 | Are the hub genes of a module the same across traits? | Gene within module | `identify_module_hubs()`, `classify_hub_conservation()` |
 | Do species pairs that differ in the trait preserve fewer modules? | Trait | `preservation_paired()`, `preservation_matrix_test()` |
 | Do the same ortholog groups sit in diverged modules in every trait contrast? | Trait | `tag_permutation()` |
@@ -319,7 +385,7 @@ pages](https://paliocha.github.io/rcomplex/reference/).
 - [`summarize_comparison()`](https://paliocha.github.io/rcomplex/reference/summarize_comparison.html): q-values and summaries for `compare_neighborhoods()` output.
 - [`compare_specificity()`](https://paliocha.github.io/rcomplex/reference/compare_specificity.html): rank test for one species pair: where the ortholog ranks among all partner-species genes at matching the translated neighbourhood.
 - [`summarize_specificity()`](https://paliocha.github.io/rcomplex/reference/summarize_specificity.html): q-values for `compare_specificity()` output, calibrated against a null network.
-- [`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.html): the same network built from expression shuffled within each gene, the null for `method = "rank"`.
+- [`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.html): the same network built from expression shuffled within each gene, the null for `method = "rank"`; `block =` shuffles within time points or trees and keeps the shared course.
 - [`comparison_to_edges()`](https://paliocha.github.io/rcomplex/reference/comparison_to_edges.html): convert comparison results to the edge table used downstream.
 - [`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.html): co-expressolog calls for all species pairs (alias `run_pairwise_comparisons()`).
 - [`permutation_hog_test()`](https://paliocha.github.io/rcomplex/reference/permutation_hog_test.html): permutation test of conservation for whole ortholog groups.
@@ -339,6 +405,11 @@ pages](https://paliocha.github.io/rcomplex/reference/).
 - [`characterize_hubs()`](https://paliocha.github.io/rcomplex/reference/characterize_hubs.html): bridge and betweenness metrics for hub genes.
 - [`classify_hub_conservation()`](https://paliocha.github.io/rcomplex/reference/classify_hub_conservation.html): hub conservation across trait groups.
 - [`get_coexpressed_hogs()`](https://paliocha.github.io/rcomplex/reference/get_coexpressed_hogs.html): co-expression partners of one ortholog group across species.
+- [`module_auroc()`](https://paliocha.github.io/rcomplex/reference/module_auroc.html): cross-species conservation of a module: neighbour-voting AUROC of its ortholog set in the other species against random sets matched on size, copy number and degree, with sequential Monte Carlo p-values.
+- [`module_auroc_reciprocal()`](https://paliocha.github.io/rcomplex/reference/module_auroc_reciprocal.html): the same in both directions, modules paired by reciprocal best overlap, p-values combined with `pmax`.
+- [`module_replication()`](https://paliocha.github.io/rcomplex/reference/module_replication.html): the same statistic within one species, modules from one sample half scored on the other: the replication ceiling.
+- [`recurrence_graph()`](https://paliocha.github.io/rcomplex/reference/recurrence_graph.html): ortholog-group pairs co-expressed in more species than independence predicts, with paralog copy number in the null.
+- [`recurrence_modules()`](https://paliocha.github.io/rcomplex/reference/recurrence_modules.html): modules from the recurrence graph, by coarse Leiden or as the densest subgraph around anchor groups, as per-species module maps.
 
 **Trait tests**
 
@@ -347,6 +418,8 @@ pages](https://paliocha.github.io/rcomplex/reference/).
 - [`preservation_matrix_test()`](https://paliocha.github.io/rcomplex/reference/preservation_matrix_test.html): do trait-discordant species pairs preserve less?
 - [`tag_permutation()`](https://paliocha.github.io/rcomplex/reference/tag_permutation.html): do the same ortholog groups recur in diverged modules across contrasts?
 - [`pvalue_resolution()`](https://paliocha.github.io/rcomplex/reference/pvalue_resolution.html): how many p- or q-values are tied at the permutation floor.
+- [`subspace_preservation()`](https://paliocha.github.io/rcomplex/reference/subspace_preservation.html): agreement between two species' leading network subspaces mapped through orthology, against a label-permutation null; no modules needed.
+- [`as_preservation_matrix()`](https://paliocha.github.io/rcomplex/reference/as_preservation_matrix.html): its symmetrised z in the shape `preservation_matrix_test()` reads.
 
 **Cliques**
 
@@ -359,6 +432,9 @@ pages](https://paliocha.github.io/rcomplex/reference/).
 - [`clique_threshold_sweep()`](https://paliocha.github.io/rcomplex/reference/clique_threshold_sweep.html): clique survival at stricter densities.
 - [`clique_perturbation_test()`](https://paliocha.github.io/rcomplex/reference/clique_perturbation_test.html): clique survival under added noise.
 - [`clique_intensity_test()`](https://paliocha.github.io/rcomplex/reference/clique_intensity_test.html): are a clique's edges stronger than matched random edges?
+- [`conservation_pattern_table()`](https://paliocha.github.io/rcomplex/reference/conservation_pattern_table.html): one row per gene clique with a member / rejected / no-evidence state per species.
+- [`conservation_lattice()`](https://paliocha.github.io/rcomplex/reference/conservation_lattice.html): the closed species sets of those patterns with their support, so conservation tiers read off as named sets.
+- [`bicm_species_z()`](https://paliocha.github.io/rcomplex/reference/bicm_species_z.html): species-pair co-membership z under the bipartite configuration model, a standardiser for the trait test.
 
 ## Citation
 
