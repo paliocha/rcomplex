@@ -4,7 +4,7 @@
 \alias{recurrence_graph}
 \title{Cross-species recurrence graph of ortholog-group pairs}
 \usage{
-recurrence_graph(nets, hog_map, alpha = 0.05, min_species = 2L)
+recurrence_graph(nets, hog_map, alpha = 0.1, min_species = 2L)
 }
 \arguments{
 \item{nets}{Named list of at least two network objects from
@@ -14,7 +14,8 @@ recurrence_graph(nets, hog_map, alpha = 0.05, min_species = 2L)
 row per gene copy (many-to-many). Genes outside a species' network
 are ignored.}
 
-\item{alpha}{FDR level for the edges of \code{graph}.}
+\item{alpha}{FDR level for the edges of \code{graph} (0.1, the package's
+call threshold; the benchmark in the design note used 0.05).}
 
 \item{min_species}{Smallest \eqn{K} for a pair to be tested.}
 }
