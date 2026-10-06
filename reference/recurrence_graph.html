@@ -20,7 +20,7 @@ weighted graph over ortholog groups for recurrence_modules()."><!-- mathjax --><
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2.9000</span>
       </span>
     </div>
 
@@ -72,7 +72,7 @@ weighted graph over ortholog groups for <code><a href="recurrence_modules.html">
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">recurrence_graph</span><span class="op">(</span><span class="va">nets</span>, <span class="va">hog_map</span>, alpha <span class="op">=</span> <span class="fl">0.05</span>, min_species <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">recurrence_graph</span><span class="op">(</span><span class="va">nets</span>, <span class="va">hog_map</span>, alpha <span class="op">=</span> <span class="fl">0.1</span>, min_species <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -91,7 +91,8 @@ are ignored.</p></dd>
 
 
 <dt id="arg-alpha">alpha<a class="anchor" aria-label="anchor" href="#arg-alpha"></a></dt>
-<dd><p>FDR level for the edges of <code>graph</code>.</p></dd>
+<dd><p>FDR level for the edges of <code>graph</code> (0.1, the package's
+call threshold; the benchmark in the design note used 0.05).</p></dd>
 
 
 <dt id="arg-min-species">min_species<a class="anchor" aria-label="anchor" href="#arg-min-species"></a></dt>

@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2.9000</span>
       </span>
     </div>
 
@@ -60,6 +60,11 @@
       <small>Source: <a href="https://github.com/paliocha/rcomplex/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="development version" id="rcomplex-development-version">rcomplex (development version)<a class="anchor" aria-label="anchor" href="#rcomplex-development-version"></a></h2>
+<ul><li>
+<code><a href="../reference/recurrence_graph.html">recurrence_graph()</a></code> now calls significant pairs at <code>alpha = 0.1</code>, the q-value threshold every other call in the package uses; it was 0.05, the level of the benchmark run.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="0.3.2" id="rcomplex-032">rcomplex 0.3.2<a class="anchor" aria-label="anchor" href="#rcomplex-032"></a></h2>
 <ul><li><p><strong><code><a href="../reference/module_auroc.html">module_auroc()</a></code> tests cross-species module conservation.</strong> A species-1 module is translated to every species-2 copy of its ortholog groups and scored by 3-fold neighbour voting in the species-2 network (EGAD’s cross-validated AUROC; folds by ortholog group, within-group edges dropped). The null is random ortholog-group sets matched on size, species-1 copy class, species-2 copy class and species-2 degree decile, drawn with Besag-Clifford sequential stopping; per module it reports the AUROC, a degree-only AUROC as a hub flag, z, p (with the <code>p.val.gt</code> / <code>p.val.eq</code> split) and Storey q-values with randomized-p pi0. C++ kernel (<code>src/module_auroc.cpp</code>), OpenMP over sets, identical at any <code>n_cores</code>.</p></li>
