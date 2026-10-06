@@ -178,6 +178,43 @@ The test runs in both directions and both must pass.
   have low power, so a non-significant result for them is weak
   evidence of divergence.
 
+#### Hypergeometric or rank?
+
+Both methods ask whether a gene's co-expression partners in species A are
+still its ortholog's partners in species B, but they measure it
+differently.
+
+- **Hypergeometric** (the default, and the original ComPlEx test): take
+  the gene's neighbours in A, translate them to B through orthologs, and
+  count how many are also neighbours of the ortholog in B. The p-value is
+  the chance of that overlap for two random neighbourhoods of those
+  sizes. It is fast, exact, and matches the published method call for
+  call. Its null is the network alone: it does not know how a partner
+  gene would score, only how the overlap of two sets behaves.
+- **Rank** (`method = "rank"`): take the same translated neighbour set
+  and rank *every* gene in B by how strongly it co-expresses with that
+  set (an AUROC). The ortholog's p-value is its place in that ranking
+  among all B genes. Three things follow. The test is calibrated by
+  construction: the ranking is also run on a network built from shuffled
+  expression (`null_network()`), and the empirical null from that is
+  what the q-values rest on. Each paralog copy gets its own test, so a
+  family with two B copies gets two answers instead of one pooled
+  overlap. And the test records the AUROC a pair would have needed to be
+  called, which is what the `power` column is: a non-call on a gene with
+  few neighbours is not read as divergence.
+
+On the Pooideae data the rank calls are almost a subset of the
+hypergeometric calls. The hypergeometric test calls more pairs,
+especially for high-degree genes; the rank test adds a few low-degree
+pairs and refuses many high-degree ones. Neither is a fix for chance
+edges at low sample sizes: both made about one false call in tens of
+thousands against shuffled expression. Use the hypergeometric test when
+you want comparability with ComPlEx or the most calls; use the rank
+test when you need calibration you can check, per-copy answers for
+paralogs, or the power column for the clique classifiers and
+`module_auroc()`. Running both and reading the pairs they agree on is
+the conservative choice.
+
 ### 4. Detect modules and test whether they are preserved
 
 ```r
