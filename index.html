@@ -92,10 +92,31 @@
 </h2>
 <ul>
 <li>One expression matrix per species: genes in rows, samples in columns, normalised and on a log-like scale (for example DESeq2 VST). A plain matrix or a <code>SummarizedExperiment</code> both work.</li>
-<li>Enough samples: aim for at least 15 to 20 samples per species, taken under matched conditions (same tissues, time points or treatments in every species). A co-expression network built from few samples is noisy: many of its edges are chance correlations, and conservation tests then have little to find. See <a href="#reading-the-results-and-common-pitfalls">pitfalls</a>.</li>
+<li>Enough samples: aim for at least 15 to 20 samples per species, taken under matched conditions (same tissues, time points or treatments in every species). A co-expression network built from few samples is noisy: many of its edges are chance correlations, and conservation tests then have little to find. See <a href="#designing-an-rcomplex-experiment">Designing an rcomplex experiment</a> and <a href="#reading-the-results-and-common-pitfalls">pitfalls</a>.</li>
 <li>Ortholog groups: a table that places genes of all species into ortholog groups (HOGs), from OrthoFinder, FastOMA, PLAZA or similar. See <a href="#ortholog-file-format">the file format</a>.</li>
 <li>For trait tests, several species per trait. A comparison of one annual with one perennial species cannot separate the trait from everything else that differs between the two. Use several species per trait, ideally as phylogenetic pairs (one annual and one perennial in each genus).</li>
 </ul>
+</div>
+<div class="section level2">
+<h2 id="designing-an-rcomplex-experiment">Designing an rcomplex experiment<a class="anchor" aria-label="anchor" href="#designing-an-rcomplex-experiment"></a>
+</h2>
+<p>rcomplex does not care which species, tissues or conditions you study: it takes one expression matrix per species, ortholog groups, and a table of species traits. What it can detect is set by the design. The numbers below come from two data sets, eight Pooideae grasses with 20 samples per species and tissue, and six trees with 65 to 106 samples per species (design notes in the source repository, <code>dev/design-notes/</code>).</p>
+<ul>
+<li>
+<strong>Species: six to eight or more, chosen as phylogenetic pairs that differ in the trait.</strong> The trait tests relabel species, and their smallest p-value is set by the number of independent contrasts, not by sampling. Four genus pairs give a floor of 0.125 when swaps are kept within genera; a binary trait needs at least five independent pairs, or more species per genus, to reach 0.05. Two species gives you the ComPlEx gene-pair test; the module and trait tests start paying off at about six.</li>
+<li>
+<strong>Samples: 20 per species and tissue is the floor; 50 or more is where modules become real.</strong> With 20 samples a correlation network has structure even on shuffled data, so gene-level conservation and coarse or anchored modules replicate across sample halves, fine modules do not. The tree data at 65 to 106 samples replicated modules of about 50 ortholog groups; the grasses at 20 did not.</li>
+<li>
+<strong>Matched conditions in every species, at least four replicates per condition.</strong> The same tissues, time points or treatments make the species comparable, and four replicates let the package split samples into halves balanced within each condition, which is how it measures whether a module replicates at all. Record harvest day or batch as a factor: in one grass species it was a second axis of expression.</li>
+<li>
+<strong>One tissue per network.</strong> Pooled tissues give networks that mostly separate tissues (see pitfalls).</li>
+<li>
+<strong>Repeated measures over destructive sampling, if plant effects matter.</strong> When each plant is sampled once per tissue, the plant effect cannot be told apart from residual noise within that tissue.</li>
+<li>
+<strong>All expressed genes, ortholog groups kept many-to-many.</strong> Networks are built from the whole transcriptome; restricting to orthologs changes every gene’s neighbourhood. Paralogs stay as separate copies and enter the null distributions as copy counts.</li>
+</ul>
+<p>The analysis then runs in this order: <code><a href="reference/compute_network.html">compute_network()</a></code> per species; <code>null_network(block = )</code> for the null that keeps each condition’s mean (the shared time course or gradient) and removes everything else; <code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code> for gene pairs (<code>method = "hypergeometric"</code> for comparability with ComPlEx, <code>method = "rank"</code> for a calibrated score with a power column); <code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> and <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> for ortholog groups; <code><a href="reference/recurrence_graph.html">recurrence_graph()</a></code> and <code><a href="reference/recurrence_modules.html">recurrence_modules()</a></code> for modules shared across species; <code><a href="reference/module_auroc.html">module_auroc()</a></code>, <code><a href="reference/module_replication.html">module_replication()</a></code> and <code><a href="reference/module_auroc_reciprocal.html">module_auroc_reciprocal()</a></code> to score any module set against random sets and against its own within-species replication; <code><a href="reference/subspace_preservation.html">subspace_preservation()</a></code> and <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> for the trait question, with <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> read before any p-value is believed.</p>
+<p>Defaults such as the 3% network density, <code>min_power = 0.9</code> and the subspace rank <code>K</code> were measured on those two data sets. On new data, rerun the three cheap checks the package provides before trusting them: the shuffled-expression null, the split-half replication, and the <code><a href="reference/module_auroc.html">module_auroc()</a></code> calibration described in its help page.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -258,6 +279,44 @@
 <td><code><a href="reference/module_correspondence.html">module_correspondence()</a></code></td>
 </tr>
 <tr class="even">
+<td>Does this module keep its co-expression in the other species, scored against random gene sets matched on size, copy number and degree?</td>
+<td>Module</td>
+<td>
+<code><a href="reference/module_auroc.html">module_auroc()</a></code>, <code><a href="reference/module_auroc_reciprocal.html">module_auroc_reciprocal()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td>Would this module replicate within its own species, on the other sample half?</td>
+<td>Module</td>
+<td><code><a href="reference/module_replication.html">module_replication()</a></code></td>
+</tr>
+<tr class="even">
+<td>Which ortholog-group pairs are co-expressed in more species than chance, and what modules do they form?</td>
+<td>Many species</td>
+<td>
+<code><a href="reference/recurrence_graph.html">recurrence_graph()</a></code>, <code><a href="reference/recurrence_modules.html">recurrence_modules()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td>Do two species share the same large-scale network structure, without choosing modules?</td>
+<td>Species pair</td>
+<td>
+<code><a href="reference/subspace_preservation.html">subspace_preservation()</a></code>, <code><a href="reference/as_preservation_matrix.html">as_preservation_matrix()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td>What would this statistic look like with no co-expression beyond the shared time course or gradient?</td>
+<td>Any</td>
+<td><code>null_network(block = )</code></td>
+</tr>
+<tr class="odd">
+<td>In which species sets are cliques conserved, and which species pairs share more cliques than their rates imply?</td>
+<td>Ortholog group</td>
+<td>
+<code><a href="reference/conservation_pattern_table.html">conservation_pattern_table()</a></code>, <code><a href="reference/conservation_lattice.html">conservation_lattice()</a></code>, <code><a href="reference/bicm_species_z.html">bicm_species_z()</a></code>
+</td>
+</tr>
+<tr class="even">
 <td>Are the hub genes of a module the same across traits?</td>
 <td>Gene within module</td>
 <td>
@@ -399,7 +458,7 @@
 <li>
 <a href="https://paliocha.github.io/rcomplex/reference/summarize_specificity.html" class="external-link"><code>summarize_specificity()</code></a>: q-values for <code><a href="reference/compare_specificity.html">compare_specificity()</a></code> output, calibrated against a null network.</li>
 <li>
-<a href="https://paliocha.github.io/rcomplex/reference/null_network.html" class="external-link"><code>null_network()</code></a>: the same network built from expression shuffled within each gene, the null for <code>method = "rank"</code>.</li>
+<a href="https://paliocha.github.io/rcomplex/reference/null_network.html" class="external-link"><code>null_network()</code></a>: the same network built from expression shuffled within each gene, the null for <code>method = "rank"</code>; <code>block =</code> shuffles within time points or trees and keeps the shared course.</li>
 <li>
 <a href="https://paliocha.github.io/rcomplex/reference/comparison_to_edges.html" class="external-link"><code>comparison_to_edges()</code></a>: convert comparison results to the edge table used downstream.</li>
 <li>
@@ -435,6 +494,16 @@
 <a href="https://paliocha.github.io/rcomplex/reference/classify_hub_conservation.html" class="external-link"><code>classify_hub_conservation()</code></a>: hub conservation across trait groups.</li>
 <li>
 <a href="https://paliocha.github.io/rcomplex/reference/get_coexpressed_hogs.html" class="external-link"><code>get_coexpressed_hogs()</code></a>: co-expression partners of one ortholog group across species.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/module_auroc.html" class="external-link"><code>module_auroc()</code></a>: cross-species conservation of a module: neighbour-voting AUROC of its ortholog set in the other species against random sets matched on size, copy number and degree, with sequential Monte Carlo p-values.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/module_auroc_reciprocal.html" class="external-link"><code>module_auroc_reciprocal()</code></a>: the same in both directions, modules paired by reciprocal best overlap, p-values combined with <code>pmax</code>.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/module_replication.html" class="external-link"><code>module_replication()</code></a>: the same statistic within one species, modules from one sample half scored on the other: the replication ceiling.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/recurrence_graph.html" class="external-link"><code>recurrence_graph()</code></a>: ortholog-group pairs co-expressed in more species than independence predicts, with paralog copy number in the null.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/recurrence_modules.html" class="external-link"><code>recurrence_modules()</code></a>: modules from the recurrence graph, by coarse Leiden or as the densest subgraph around anchor groups, as per-species module maps.</li>
 </ul>
 <p><strong>Trait tests</strong></p>
 <ul>
@@ -448,6 +517,10 @@
 <a href="https://paliocha.github.io/rcomplex/reference/tag_permutation.html" class="external-link"><code>tag_permutation()</code></a>: do the same ortholog groups recur in diverged modules across contrasts?</li>
 <li>
 <a href="https://paliocha.github.io/rcomplex/reference/pvalue_resolution.html" class="external-link"><code>pvalue_resolution()</code></a>: how many p- or q-values are tied at the permutation floor.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/subspace_preservation.html" class="external-link"><code>subspace_preservation()</code></a>: agreement between two species’ leading network subspaces mapped through orthology, against a label-permutation null; no modules needed.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/as_preservation_matrix.html" class="external-link"><code>as_preservation_matrix()</code></a>: its symmetrised z in the shape <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> reads.</li>
 </ul>
 <p><strong>Cliques</strong></p>
 <ul>
@@ -469,6 +542,12 @@
 <a href="https://paliocha.github.io/rcomplex/reference/clique_perturbation_test.html" class="external-link"><code>clique_perturbation_test()</code></a>: clique survival under added noise.</li>
 <li>
 <a href="https://paliocha.github.io/rcomplex/reference/clique_intensity_test.html" class="external-link"><code>clique_intensity_test()</code></a>: are a clique’s edges stronger than matched random edges?</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/conservation_pattern_table.html" class="external-link"><code>conservation_pattern_table()</code></a>: one row per gene clique with a member / rejected / no-evidence state per species.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/conservation_lattice.html" class="external-link"><code>conservation_lattice()</code></a>: the closed species sets of those patterns with their support, so conservation tiers read off as named sets.</li>
+<li>
+<a href="https://paliocha.github.io/rcomplex/reference/bicm_species_z.html" class="external-link"><code>bicm_species_z()</code></a>: species-pair co-membership z under the bipartite configuration model, a standardiser for the trait test.</li>
 </ul>
 </div>
 <div class="section level2">
