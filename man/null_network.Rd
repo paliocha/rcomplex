@@ -72,5 +72,6 @@ null leaves the random-geometric-graph geometry of the shared axis in
 place, so within-species module statistics stay uninterpretable under
 it. After regressing time out, one gene's residuals correlate -1/3
 within a time point of four samples, which is a second reason to
-permute within time point rather than across it.
+permute within time point rather than across it; the wiring layer from
+\code{\link[=split_layers]{split_layers()}} needs this null.
 }

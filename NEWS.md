@@ -1,3 +1,14 @@
+# rcomplex (development version)
+
+- **`split_layers()` splits expression into wiring and deployment
+  layers.** One OLS projection per gene on a per-sample block (time point,
+  tree): `wiring` holds the residuals, the input for `compute_network()`
+  that must be paired with `null_network(block = )`, since one gene's
+  residuals correlate -1/(n_b - 1) within a block; `deployment` holds the
+  block means and `r2` the share of variance the block explains. On the
+  Pooideae leaf and root data about 75 % of cross-species gene-level
+  conservation survived in the wiring layer.
+
 # rcomplex 0.3.2
 
 - **`module_auroc()` tests cross-species module conservation.** A
