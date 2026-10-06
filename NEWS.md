@@ -1,3 +1,9 @@
+# rcomplex (development version)
+
+- `recurrence_graph()` now calls significant pairs at `alpha = 0.1`, the
+  q-value threshold every other call in the package uses; it was 0.05,
+  the level of the benchmark run.
+
 # rcomplex 0.3.2
 
 - **`module_auroc()` tests cross-species module conservation.** A

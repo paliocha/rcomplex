@@ -44,7 +44,8 @@
 #' @param hog_map Data frame with columns `species`, `gene` and `hog`, one
 #'   row per gene copy (many-to-many). Genes outside a species' network
 #'   are ignored.
-#' @param alpha FDR level for the edges of `graph`.
+#' @param alpha FDR level for the edges of `graph` (0.1, the package's
+#'   call threshold; the benchmark in the design note used 0.05).
 #' @param min_species Smallest \eqn{K} for a pair to be tested.
 #'
 #' @return An object of class `recurrence_graph`: `edges` (data frame of
@@ -70,7 +71,7 @@
 #'
 #' @seealso [recurrence_modules()]
 #' @export
-recurrence_graph <- function(nets, hog_map, alpha = 0.05,
+recurrence_graph <- function(nets, hog_map, alpha = 0.1,
                              min_species = 2L) {
   sp <- names(nets)
   if (!is.list(nets) || length(nets) < 2L || is.null(sp) ||
