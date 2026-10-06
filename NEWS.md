@@ -8,6 +8,9 @@
   block means and `r2` the share of variance the block explains. On the
   Pooideae leaf and root data about 75 % of cross-species gene-level
   conservation survived in the wiring layer.
+- `recurrence_graph()` now calls significant pairs at `alpha = 0.1`, the
+  q-value threshold every other call in the package uses; it was 0.05,
+  the level of the benchmark run.
 
 # rcomplex 0.3.2
 

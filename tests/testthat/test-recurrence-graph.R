@@ -47,7 +47,7 @@ test_that("planted co-expressed groups recur in all species", {
 test_that("shuffled expression gives no calls and the predicted K counts", {
   sh <- recur_fixture(shuffle = TRUE)
   r <- recurrence_graph(sh$nets, sh$map)
-  expect_identical(sum(r$edges$q.val < 0.05), 0L)
+  expect_identical(sum(r$edges$q.val < 0.1), 0L)
   # Poisson-binomial expectation over every group pair
   cp <- r$copies
   pr <- utils::combn(nrow(cp), 2L)
