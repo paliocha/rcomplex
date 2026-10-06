@@ -63,6 +63,8 @@
     <div class="section level2">
 <h2 class="page-header" data-toc-text="development version" id="rcomplex-development-version">rcomplex (development version)<a class="anchor" aria-label="anchor" href="#rcomplex-development-version"></a></h2>
 <ul><li>
+<strong><code><a href="../reference/split_layers.html">split_layers()</a></code> splits expression into wiring and deployment layers.</strong> One OLS projection per gene on a per-sample block (time point, tree): <code>wiring</code> holds the residuals, the input for <code><a href="../reference/compute_network.html">compute_network()</a></code> that must be paired with <code>null_network(block = )</code>, since one gene’s residuals correlate -1/(n_b - 1) within a block; <code>deployment</code> holds the block means and <code>r2</code> the share of variance the block explains. On the Pooideae leaf and root data about 75 % of cross-species gene-level conservation survived in the wiring layer.</li>
+<li>
 <code><a href="../reference/recurrence_graph.html">recurrence_graph()</a></code> now calls significant pairs at <code>alpha = 0.1</code>, the q-value threshold every other call in the package uses; it was 0.05, the level of the benchmark run.</li>
 </ul></div>
     <div class="section level2">
