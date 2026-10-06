@@ -170,6 +170,18 @@
 <li>
 <code>power</code>: the chance that the test would have called this pair had it been conserved at a typical effect size (for the rank test, had the ortholog ranked like a typical called pair). Genes with few neighbours have low power, so a non-significant result for them is weak evidence of divergence.</li>
 </ul>
+<div class="section level4">
+<h4 id="hypergeometric-or-rank">Hypergeometric or rank?<a class="anchor" aria-label="anchor" href="#hypergeometric-or-rank"></a>
+</h4>
+<p>Both methods ask whether a gene’s co-expression partners in species A are still its ortholog’s partners in species B, but they measure it differently.</p>
+<ul>
+<li>
+<strong>Hypergeometric</strong> (the default, and the original ComPlEx test): take the gene’s neighbours in A, translate them to B through orthologs, and count how many are also neighbours of the ortholog in B. The p-value is the chance of that overlap for two random neighbourhoods of those sizes. It is fast, exact, and matches the published method call for call. Its null is the network alone: it does not know how a partner gene would score, only how the overlap of two sets behaves.</li>
+<li>
+<strong>Rank</strong> (<code>method = "rank"</code>): take the same translated neighbour set and rank <em>every</em> gene in B by how strongly it co-expresses with that set (an AUROC). The ortholog’s p-value is its place in that ranking among all B genes. Three things follow. The test is calibrated by construction: the ranking is also run on a network built from shuffled expression (<code><a href="reference/null_network.html">null_network()</a></code>), and the empirical null from that is what the q-values rest on. Each paralog copy gets its own test, so a family with two B copies gets two answers instead of one pooled overlap. And the test records the AUROC a pair would have needed to be called, which is what the <code>power</code> column is: a non-call on a gene with few neighbours is not read as divergence.</li>
+</ul>
+<p>On the Pooideae data the rank calls are almost a subset of the hypergeometric calls. The hypergeometric test calls more pairs, especially for high-degree genes; the rank test adds a few low-degree pairs and refuses many high-degree ones. Neither is a fix for chance edges at low sample sizes: both made about one false call in tens of thousands against shuffled expression. Use the hypergeometric test when you want comparability with ComPlEx or the most calls; use the rank test when you need calibration you can check, per-copy answers for paralogs, or the power column for the clique classifiers and <code><a href="reference/module_auroc.html">module_auroc()</a></code>. Running both and reading the pairs they agree on is the conservative choice.</p>
+</div>
 </div>
 <div class="section level3">
 <h3 id="id_4-detect-modules-and-test-whether-they-are-preserved">4. Detect modules and test whether they are preserved<a class="anchor" aria-label="anchor" href="#id_4-detect-modules-and-test-whether-they-are-preserved"></a>
