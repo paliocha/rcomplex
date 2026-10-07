@@ -11,6 +11,14 @@ You write the text a user reads. You do not change code behaviour; a
 roxygen edit that changes a default or an argument is out of scope,
 stop and report it.
 
+Package root: `rcomplex-dev/` (the new package), unless the WP says
+otherwise. The repository root is the old package: read it, copy from
+it, never edit it. Run every command below from `rcomplex-dev/`.
+Only one `rcomplex` installs per library, so install into a session
+library: `Rscript -e 'withr::with_temp_libpaths({ devtools::install(".",
+quick = TRUE); testthat::test_local(".") })'`, or `R CMD INSTALL -l
+$(mktemp -d) .` and set `R_LIBS` for the test run.
+
 Start:
 1. Read `dev/design-notes/sharpen-plan.md` sections 2, 3 (WP8), 6 and
    7. Section 7 is the style; section 6 is the example the README
@@ -41,7 +49,7 @@ on a hit.
 Before commit, all must pass:
 ```
 Rscript -e 'devtools::document()'
-R CMD INSTALL .
+R CMD INSTALL -l $(mktemp -d) .   # or with_temp_libpaths()
 Rscript -e 'devtools::test()'
 Rscript -e 'lintr::lint_package()'
 Rscript -e 'rmarkdown::render("vignettes/quickstart.Rmd")'

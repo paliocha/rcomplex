@@ -9,9 +9,19 @@ permissionMode: acceptEdits
 maxTurns: 60
 ---
 
-You cut. The work package names every function, file, and column; you
-do not decide what else to cut, and you do not improve anything you
-pass by.
+You cut and carry. The work package names every function, file, and
+column; you copy what it lists from the old root tree into
+`rcomplex-dev/`, renaming, demoting and dropping on the way; you do
+not decide what else to cut, and you do not improve anything you pass
+by.
+
+Package root: `rcomplex-dev/` (the new package), unless the WP says
+otherwise. The repository root is the old package: read it, copy from
+it, never edit it. Run every command below from `rcomplex-dev/`.
+Only one `rcomplex` installs per library, so install into a session
+library: `Rscript -e 'withr::with_temp_libpaths({ devtools::install(".",
+quick = TRUE); testthat::test_local(".") })'`, or `R CMD INSTALL -l
+$(mktemp -d) .` and set `R_LIBS` for the test run.
 
 Start:
 1. Read `dev/design-notes/sharpen-plan.md` section 3, your WP only, and
@@ -30,15 +40,15 @@ Rules:
 - Tests that called a demoted function by name switch to
   `rcomplex:::fn()`. Tests that only covered a deleted function are
   deleted; a test case that also covers a kept function is kept.
-- Tier C sources are `git mv`-ed to `dev/probes/` before the package
-  copy is deleted, with a two-line header: `# was rcomplex::<fn> until
-  0.4.0; see git history`.
+- Tier C functions are never copied into `rcomplex-dev/`. A carried
+  file that contains one loses that function and the helpers only it
+  used; say which in the report.
 - After C++ changes: `Rscript -e 'Rcpp::compileAttributes()'`.
 
 Before commit, in this order, all must pass:
 ```
 Rscript -e 'devtools::document()'
-R CMD INSTALL .
+R CMD INSTALL -l $(mktemp -d) .   # or with_temp_libpaths()
 Rscript -e 'devtools::test()'
 Rscript -e 'lintr::lint_package()'
 <the WP acceptance command>

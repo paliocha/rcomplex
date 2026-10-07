@@ -188,109 +188,169 @@ resolution (2^-4 floor vs 2/70) and the tutorial already labels it
 
 ## 3. Work packages
 
-Integration branch `refactor/sharpen` off `main`. Each WP is one PR into
-it. One PR `refactor/sharpen` -> `main` after WP9, version 0.4.0.
-Acceptance commands run from the package root after
-`Rscript -e 'devtools::document()' && R CMD INSTALL .`.
+Assembly, not in-place surgery (Martin, 2026-10-07: "write the new
+version in a rcomplex-dev subdirectory"). The new package is built
+fresh in `rcomplex-dev/` inside this repository, on branch
+`refactor/sharpen` off `main`. The root tree is the old package and
+stays untouched and installable until the swap (WP9): agents read it,
+copy what survives into `rcomplex-dev/`, and rename, demote and drop
+on the way. Nothing in Tier C is ever copied. `DESCRIPTION` in
+`rcomplex-dev/` says `Package: rcomplex`, `Version: 0.4.0.9000`; a
+directory name different from the package name is fine for `R CMD
+build`, `devtools::load_all()` and `testthat`. Only one `rcomplex` can
+be installed in a library at a time, so agents install the dev package
+into a session library: `Rscript -e 'withr::with_temp_libpaths({
+devtools::install("rcomplex-dev"); testthat::test_local("rcomplex-dev")
+})'` or `R CMD INSTALL -l <tmp>`.
 
-Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
--> {WP13 || WP14} -> WP6 -> WP12 -> WP8 -> WP9 = 0.4.0. Then, gated
-and not blocking the release: WP15 || WP16 || WP17.
+Each WP is one PR into `refactor/sharpen`. Acceptance commands run
+from `rcomplex-dev/` after `Rscript -e 'devtools::document()'`, unless
+a WP says otherwise. WP9 ends with the swap: the root tree is replaced
+by `rcomplex-dev/`, Tier C sources are extracted from history into
+`dev/probes/`, and one PR `refactor/sharpen` -> `main` ships 0.4.0.
 
-### WP0 Branch + surface snapshot (serial, first)
+Order: WP0 -> WP1 -> WP2 -> {WP3 || WP4} -> WP5 -> {WP7 || WP10 ||
+WP11} -> {WP13 || WP14} -> WP6 -> WP12 -> WP8 -> WP9 = 0.4.0. Then,
+gated and not blocking the release: WP15 || WP16 || WP17. WP1-WP4 are
+serial where they are because each carries files the next one's tests
+need; WP3 and WP4 are disjoint (cliques; modules and traits) and can
+run together.
 
-- Files: `tests/testthat/test-surface.R` (new), `dev/sharpen-census.R`.
-- Do: `git checkout -b refactor/sharpen main`. Test snapshots sorted
-  `getNamespaceExports("rcomplex")` and, per export, the count of named
-  formals (excluding `...`). `expect_snapshot()` so every later removal
-  shows in the diff.
-- Accept: `Rscript -e 'testthat::test_local(filter = "surface")'` passes;
-  `_snaps/surface.md` lists 57 exports.
+### WP0 Scaffold `rcomplex-dev/` (serial, first)
+
+- Files: `rcomplex-dev/DESCRIPTION`, `NAMESPACE` (roxygen-generated,
+  starts empty), `LICENSE`, `src/Makevars`, `src/Makevars.win`
+  (copied from root), `.Rbuildignore`, `tests/testthat.R`,
+  `tests/testthat/test-surface.R`; root `.Rbuildignore` gains
+  `^rcomplex-dev$`; root `.lintr` (new) excludes `rcomplex-dev/` so
+  the root workflows keep passing; `.github/workflows/dev-check.yml`
+  (copy of `R-CMD-check.yml` with `working-directory: rcomplex-dev`
+  and `lintr::lint_package("rcomplex-dev")`, on push to
+  `refactor/sharpen`).
+- Do: `git checkout -b refactor/sharpen main`. DESCRIPTION: same
+  Imports as root; Suggests without `sbm`; `Version: 0.4.0.9000`;
+  `Authors@R`, URLs and `SystemRequirements` as root. `test-surface.R`
+  snapshots sorted `getNamespaceExports("rcomplex")` and the count of
+  named formals per export (excluding `...`), so every later WP shows
+  its surface change in the snapshot diff.
+- Accept: `cd rcomplex-dev && R CMD build . && R CMD check --no-manual
+  rcomplex_0.4.0.9000.tar.gz` OK on the empty package; root `R CMD
+  check` and `lintr::lint_package()` still OK with the subdirectory
+  present; `_snaps/surface.md` lists zero exports.
 - Deps: none.
 
-### WP1 Demote Tier B (parallel with WP2, WP3)
+### WP1 Carry over networks and inputs (serial)
+
+- Files, from root into `rcomplex-dev/`: `R/network.R`,
+  `R/network-sparse.R`, `R/mr_block.R`, `R/null_network.R`,
+  `R/split_layers.R`, `R/orthologs.R`, `R/ortholog_map.R`,
+  `R/se_methods.R`, `R/rng.R`, `R/zzz.R`, `R/rcomplex-package.R`
+  (index block removed; WP8 writes the new one); `src/mutual_rank.cpp`,
+  `src/network_block.cpp`, `src/rank_column.h`, `src/density_k.h`,
+  `src/density_threshold.cpp`, `src/clr.cpp`, `src/sparse_extract.cpp`,
+  `src/reduce_orthogroups.cpp`, `src/sample_k_distinct.h`;
+  `inst/extdata/*`; tests `test-network.R`, `test-network-block.R`,
+  `test-network-sparse.R`, `test-mr-block.R`, `test-split-layers.R`,
+  `test-ortholog-map.R`, `test-reduce-orthogroups.R`, `test-se.R`,
+  `test-task-seed.R`, `test-fork-safety.R`, `test-rng-contract.R` and
+  `helper-rng-contract.R` with the table cut to the carried functions
+  (each later WP adds its rows back).
+- Do, on the way: columns to the WP4 style (`species1 species2 gene1
+  gene2 hog`), no shims; drop `@export` and add `@keywords internal`
+  on `mr_block`, `as_sparse_network`, `extract_orthologs`; `build_se()`
+  stays internal. `Rcpp::compileAttributes()` then `document()`.
+- Accept: `testthat::test_local("rcomplex-dev")` passes; exports are
+  exactly `compute_network split_layers null_network parse_orthologs
+  prepare_orthologs reduce_orthogroups resolve_ortholog_map`
+  (`parse_orthologs` goes in WP10); `grep -rE '"(Species[12]|sp[12])"'
+  rcomplex-dev/R rcomplex-dev/src rcomplex-dev/tests` empty; `R CMD
+  check --no-manual` OK.
+- Deps: WP0, gate G3.
+
+### WP2 Carry over co-expressologs (serial)
 
 - Files: `R/comparison.R`, `R/specificity.R`, `R/summary.R`,
-  `R/mr_block.R`, `R/network-sparse.R`, `R/se_methods.R`,
-  `R/preservation_matrix.R` (`all_species_pairs`),
-  `R/rcomplex-package.R` (index), `NAMESPACE`, `man/`, `README.md`
-  function index rows, tests that call Tier B by name.
-- Do: remove `@export`, add `@keywords internal`. Do not rename, do not
-  move. `rcomplex:::` in tests. Delete README index rows.
-- Accept: `R CMD build . && R CMD check --no-manual rcomplex_*.tar.gz`
-  OK; `lintr::lint_package()` clean; surface snapshot updated to 45.
-- Deps: WP0.
+  `R/coexpressolog_null.R`, `R/pvalue_saturation.R`;
+  `src/neighborhood_comparison.cpp`, `src/hog_permutation.cpp`,
+  `src/fe_permutation.cpp`, `src/specificity.cpp`,
+  `src/rewire_degseq.cpp`, `src/neighbor_lists.h`; tests
+  `test-comparison.R`, `test-permutation.R`, `test-pi0.R`,
+  `test-summary.R`, `test-specificity.R`,
+  `test-specificity-pipeline.R`, `test-specificity-summary.R`,
+  `test-coexpressolog-null.R`, `test-pvalue-saturation.R`,
+  `test-equivalence.R`, `helper-reference.R`; rng-contract rows.
+- Do, on the way: `q.value`, `p.val*`, `effect.size` to `q_value
+  p_value effect_size`; drop `@export` on `compare_neighborhoods`,
+  `summarize_comparison`, `comparison_to_edges`,
+  `permutation_hog_test`, `compare_specificity`,
+  `summarize_specificity`, `run_pairwise_comparisons`; tests call
+  them as `rcomplex:::`. `"analytical"` alias for `method` dropped.
+- Accept: tests pass; exports add `find_coexpressologs density_sweep
+  coexpressolog_null pvalue_resolution`; `grep -rE '"(q\.value|p\.val
+  [a-z.]*|effect\.size)"' rcomplex-dev/` empty; check OK.
+- Deps: WP1.
 
-### WP2 Remove Tier C, non-modules files (parallel with WP1, WP3)
+### WP3 Carry over cliques (parallel with WP4)
 
-- Files: delete `R/module_auroc.R`, `R/subspace.R`,
-  `R/recurrence_graph.R`, `R/clique_patterns.R`,
-  `R/coexpressolog-strength.R`, `R/tag_permutation.R`, `R/tag_blocks.R`,
-  `src/module_auroc.cpp`, `src/subspace.cpp`; cut `clique_persistence`,
-  `clique_perturbation_test`, `clique_intensity_test` and their helpers
-  from `R/cliques.R` (`clique_threshold_sweep` and `clique_stability`
-  stay; `find_cliques_stability.cpp` is `clique_stability`'s kernel,
-  keep it); cut the matching `.rcomplex` methods from
-  `R/rcomplex-class.R`; delete `tests/testthat/test-module-auroc*.R`,
-  `test-subspace.R`, `test-recurrence-graph.R`, `test-tag-permutation.R`,
-  `test-intensity-test.R`, `test-perturbation.R`, `test-restricted-nulls.R`
-  (check: keep any case that covers Tier A); strip Tier C rows from
-  `helper-rng-contract.R` table; README and tutorial sections
-  ("Secondary: do the same orthogroups recur", "Clique robustness
-  diagnostics"); methods.Rmd paragraphs; CLAUDE.md lines naming them.
-- Do: `git mv` R sources to `dev/probes/` first, then delete from
-  package. `Rcpp::compileAttributes()` after C++ removal.
-- Accept: check OK; `grep -rE 'module_auroc|subspace_preservation|
-  recurrence_graph|clique_intensity|clique_perturbation|clique_persistence|
-  tag_permutation|coexpressolog_strength' R/ src/ tests/ README.md
-  vignettes/` returns nothing; `wc -l R/*.R` total < 13,500; surface
-  snapshot updated.
-- Deps: WP0, gate G1. Do not touch `R/modules.R` (WP3 owns it).
+- Files: `R/cliques.R` without `clique_persistence()`,
+  `clique_perturbation_test()`, `clique_intensity_test()` and the
+  helpers only they use (`jaccard_clique_match()` stays if
+  `clique_stability()` uses it; check), `R/clique_gene_graph.R`;
+  `src/find_cliques.cpp`, `src/find_cliques_stability.cpp`,
+  `src/find_cliques_common.h`; tests `test-cliques.R`,
+  `test-classify-cliques.R`, `test-clique-gene-graph.R`,
+  `test-stability.R`, `test-threshold-sweep.R`,
+  `helper-clique-fixtures.R`; rng-contract rows.
+- Do, on the way: column style; `species_trait` stays until WP7.
+- Accept: tests pass; exports add `find_cliques clique_stability
+  clique_threshold_sweep classify_cliques gene_clique_graph
+  classify_gene_cliques`; `wc -l rcomplex-dev/R/cliques.R` < 1,400;
+  check OK.
+- Deps: WP2, gate G1.
 
-### WP3 detect_modules diet (parallel with WP1, WP2)
+### WP4 Carry over modules and traits (parallel with WP3)
 
-- Files: `R/modules.R`, `src/coclassification.cpp`
-  (`sparse_excess_spectral_norm_cpp` only), `R/rng.R`
-  (`.blas_fork_safe()` if the K = 1 fork was its only user), `DESCRIPTION`
-  (drop `sbm` from Suggests), `tests/testthat/test-modules.R`,
-  `test-module-determinism.R`, `test-fork-safety.R`, tutorial section
-  "Testing for community structure (K = 1 null)", CLAUDE.md gotcha
-  paragraphs that only describe the K = 1 fork site.
-- Do: keep `method = "leiden"` with the multi-resolution consensus; delete
-  `infomap`, `sbm`, `test_community_structure()` and its C++ kernel,
-  `characterize_hubs()` and its `.rcomplex` method. `detect_modules()`
-  loses the `method` argument.
-- Accept: check OK; `R/modules.R` < 900 lines; the `n_cores = 2`
-  determinism test still passes; surface snapshot updated.
-- Deps: WP0, gate G2.
+- Files: `R/modules.R` with `method = "leiden"` only, the consensus
+  sweep, `identify_module_hubs()`, `classify_hub_conservation()`;
+  without `infomap`, `sbm`, `test_community_structure()`,
+  `characterize_hubs()`; `R/as_modules.R`, `R/module_preservation.R`,
+  `R/preservation_matrix.R` (`all_species_pairs` internal);
+  `src/coclassification.cpp` without `sparse_excess_spectral_norm_cpp`,
+  `src/module_preservation.cpp`; tests `test-modules.R`,
+  `test-module-determinism.R`, `test-modules-cpm-scale.R`,
+  `test-as-modules.R`, `test-module-preservation.R`,
+  `test-module-hubs.R` (minus `characterize_hubs` cases),
+  `test-preservation-matrix.R`, `test-coexpressed-hogs.R`,
+  `helper-preservation.R`; rng-contract rows. `R/rcomplex-class.R`
+  and `test-rcomplex-class.R` are not carried: WP6 writes the driver
+  fresh.
+- Do, on the way: `detect_modules()` loses `method`; `.blas_fork_safe()`
+  stays in `rng.R` only if a carried fork site calls BLAS (grep; if
+  none, delete it and its `.onLoad()` snapshot); column style.
+- Accept: tests pass; exports add `detect_modules as_modules
+  module_preservation classify_preservation module_correspondence
+  preservation_paired preservation_matrix_test identify_module_hubs
+  classify_hub_conservation get_coexpressed_hogs`; `wc -l
+  rcomplex-dev/R/modules.R` < 900; the `n_cores = 2` determinism test
+  passes; `grep -rn 'sbm\|infomap' rcomplex-dev/` empty; check OK.
+- Deps: WP2, gate G2.
 
-### WP4 One name style (serial after WP1-3 merge)
+### WP5 Argument diet (serial after WP3, WP4)
 
-- Files: every `R/*.R`, `src/*.cpp` that builds a data.frame, tests,
-  README, vignettes, `inst/extdata/orthologs_small.txt` header.
-- Do: columns `species1 species2 gene1 gene2 hog p_value q_value
-  effect_size power`; keep `Zsummary_std` (WGCNA term). Arguments
-  already `n_cores seed alpha`; check `n_perm` vs `n_perm_pres` and keep
-  both only where two nulls really exist. No deprecation shims (pre-1.0,
-  0.4.0 is the break).
-- Accept: `grep -rE '"(Species[12]|sp[12]|q\.value|p\.val[a-z.]*)"' R/
-  src/ tests/` empty; check OK.
-- Deps: WP1-3 merged, gate G3.
-
-### WP5 Argument diet (serial after WP4)
-
-- Files: `R/module_preservation.R`, `R/cliques.R`
+- Files: `rcomplex-dev/R/module_preservation.R`, `R/cliques.R`
   (`clique_threshold_sweep` 14), `R/modules.R`, `R/comparison.R`,
   `R/preservation_matrix.R`, `R/coexpressolog_null.R`,
   `R/ortholog_map.R` (`resolve_ortholog_map` 9), tests.
-- Do: for each formal of a Tier A export that neither README, tutorial,
-  nor the gitignored root vignette (`prepare_data/vignettes/
-  root-workflow.Rmd`, Martin greps) ever sets, delete it and hardcode
-  the default. No `control = list()`. Keep formals CLAUDE.md names as
-  design decisions (`calibrate`, `pval_combine`, `rho0`, `min_power`,
-  `swap_factor`, `store_density`, `block_size`).
-- Accept: surface test: no export has > 8 named formals; check OK.
-- Deps: WP4.
+- Do: for each formal of a Tier A export that neither the root
+  README, the root tutorial, nor the gitignored root vignette
+  (`prepare_data/vignettes/root-workflow.Rmd`, Martin greps) ever
+  sets, delete it and hardcode the default. Keep formals CLAUDE.md
+  names as design decisions (`calibrate`, `pval_combine`, `rho0`,
+  `min_power`, `swap_factor`, `store_density`, `block_size`). No
+  `control = list()`.
+- Accept: surface snapshot shows no export with > 8 named formals;
+  tests pass; check OK.
+- Deps: WP3, WP4.
 
 ### WP13 Scores and E-values (parallel with WP14)
 
@@ -582,15 +642,28 @@ and not blocking the release: WP15 || WP16 || WP17.
   in `R/*.R`, `README.md`, `vignettes/quickstart.Rmd`) reports zero.
 - Deps: WP12.
 
-### WP9 Surface guard (last)
+### WP9 Surface guard and swap (last before 0.4.0)
 
-- Files: `tests/testthat/test-surface.R`.
-- Do: replace the snapshot with budgets: exports <= 30; named formals
-  <= 8 per export except `rcomplex()`; `R/*.R` <= 1,500 lines each;
-  `README.md` <= 150 lines. Snapshot of the export list stays so
+- Files: `rcomplex-dev/tests/testthat/test-surface.R`; then the
+  repository root.
+- Do, guard: replace the snapshot with budgets: exports <= 30; named
+  formals <= 8 per export except `rcomplex()`; `R/*.R` <= 1,500 lines
+  each; `README.md` <= 150 lines. Snapshot of the export list stays so
   additions are explicit.
-- Accept: test passes on `refactor/sharpen`; break any budget locally
-  and watch it fail.
+- Do, swap, one commit after the guard passes: extract Tier C sources
+  from history into `dev/probes/` (`git show main:R/<file> >
+  dev/probes/<file>`, two-line header `# was rcomplex::<fn> until
+  0.4.0; see git history`); `git rm -r R src tests man inst vignettes
+  NAMESPACE DESCRIPTION LICENSE README.md CLAUDE.md .Rbuildignore`
+  at the root; `git mv rcomplex-dev/* rcomplex-dev/.[!.]* .`; remove
+  `^rcomplex-dev$` from `.Rbuildignore`, delete root `.lintr` and
+  `.github/workflows/dev-check.yml` (the root workflows take over);
+  `Version: 0.4.0`; `dev/sharpen-census.R` re-run, numbers into this
+  note's section 6.
+- Accept: guard passes in `rcomplex-dev/` before the swap; after the
+  swap, from the root: `R CMD build . && R CMD check --no-manual
+  rcomplex_0.4.0.tar.gz` OK, `lintr::lint_package()` clean, all three
+  root workflows green on the PR; `ls rcomplex-dev` fails.
 - Deps: WP8.
 
 ### WP15 Joint modules across species (gated G9, after 0.4.0)
@@ -851,9 +924,10 @@ Launch prompt shape (caveman, under 15 lines):
 
 ```
 WP<n> of dev/design-notes/sharpen-plan.md section 3. Gate G<x>: <answer>.
-Branch: worktree off refactor/sharpen. Read the WP, then the files it
-lists, then start. Stop and report if a file outside the list must
-change.
+Branch: worktree off refactor/sharpen. Package root: rcomplex-dev/
+(the repository root is the old package, read it, do not edit it).
+Read the WP, then the files it lists, then start. Stop and report if
+a file outside the list must change.
 ```
 
 Writers run with `isolation: "worktree"` and must commit before

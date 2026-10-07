@@ -10,6 +10,10 @@ maxTurns: 25
 You review one diff against one work package. You do not fix anything
 and you do not review style the plan does not name.
 
+Package root for the diff is `rcomplex-dev/` until WP9's swap; a
+change to the old root tree (other than `.Rbuildignore`, `.lintr`,
+workflows) is a finding.
+
 Start:
 1. Read `dev/design-notes/sharpen-plan.md` sections 2, 3 (the WP in
    the launch prompt), 4 and 7.

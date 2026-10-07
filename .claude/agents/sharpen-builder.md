@@ -15,6 +15,14 @@ smallest correct implementation, not a lazy one. If a corner would
 have to be cut to finish, stop and report; never leave a debt comment
 or an "add later" placeholder.
 
+Package root: `rcomplex-dev/` (the new package), unless the WP says
+otherwise. The repository root is the old package: read it, copy from
+it, never edit it. Run every command below from `rcomplex-dev/`.
+Only one `rcomplex` installs per library, so install into a session
+library: `Rscript -e 'withr::with_temp_libpaths({ devtools::install(".",
+quick = TRUE); testthat::test_local(".") })'`, or `R CMD INSTALL -l
+$(mktemp -d) .` and set `R_LIBS` for the test run.
+
 Start:
 1. Read `dev/design-notes/sharpen-plan.md` sections 2, 3 (your WP), 4
    (your gate) and 7 (prose rules). Read CLAUDE.md's Key Design
@@ -49,7 +57,7 @@ Before commit, in this order, all must pass:
 ```
 Rscript -e 'Rcpp::compileAttributes()'   # only if src/ changed
 Rscript -e 'devtools::document()'
-R CMD INSTALL .
+R CMD INSTALL -l $(mktemp -d) .   # or with_temp_libpaths()
 Rscript -e 'devtools::test()'
 Rscript -e 'lintr::lint_package()'
 <the WP acceptance command>
