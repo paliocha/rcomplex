@@ -24,3 +24,5 @@
 ^\.hpc_audit\.log$
 ^\.hpc_root_verified$
 ^vignettes/articles$
+^rcomplex-dev$
+^\.lintr$

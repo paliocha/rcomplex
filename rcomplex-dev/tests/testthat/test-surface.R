@@ -1,0 +1,11 @@
+test_that("exported surface is stable", {
+  ns <- asNamespace("rcomplex")
+  exports <- sort(getNamespaceExports("rcomplex"))
+  n_formals <- vapply(exports, function(f) {
+    sum(setdiff(names(formals(get(f, envir = ns))), "...") != "")
+  }, integer(1))
+  expect_snapshot({
+    exports
+    n_formals
+  })
+})
