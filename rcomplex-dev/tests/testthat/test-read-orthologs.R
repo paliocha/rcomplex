@@ -65,6 +65,28 @@ test_that("PLAZA input gives anchor and member genes per group", {
   )
 })
 
+test_that("reciprocal PLAZA rows give one hog per gene", {
+  f <- withr::local_tempfile(fileext = ".tsv")
+  writeLines(c(
+    "species\tgene_id\tgene_content",
+    "A\ta1\tB:b1,b2",
+    "A\ta2\tB:b1,b2",
+    "B\tb1\tA:a1,a2",
+    "B\tb2\tA:a1,a2",
+    "A\ta3\tB:b3",
+    "B\tb3\tA:a3"
+  ), f)
+  long <- read_orthologs(f)
+  expect_false(anyDuplicated(long[c("species", "gene")]) > 0)
+  expect_identical(nrow(long), 6L)
+  expect_identical(
+    long$hog[order(long$gene)], c(1L, 1L, 2L, 1L, 1L, 2L)
+  )
+  pairs <- prepare_orthologs(long)
+  expect_identical(nrow(pairs), 5L)
+  expect_identical(sum(pairs$gene1 == "a1" & pairs$gene2 == "b1"), 1L)
+})
+
 test_that("read_orthologs refuses unknown species, formats and files", {
   expect_error(read_orthologs(ext("N0.tsv"), "SpX"), "SpX")
   expect_error(read_orthologs("no_such_file.tsv"), "not found")

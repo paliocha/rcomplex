@@ -18,11 +18,12 @@
 #'     `Orthogroups.tsv` (column `Orthogroup`). There is one column per
 #'     species, with genes separated by commas. The columns `OG` and
 #'     `Gene Tree Parent Clade` are skipped.}
-#'   \item{plaza}{PLAZA ortholog groups: columns `species`, `gene_id` and
-#'     `gene_content`, where `gene_content` lists the members as
-#'     `code:gene1,gene2;code:gene3`. Each row is the group of its anchor
-#'     gene. Rows with the same `gene_content` share one integer `hog`,
-#'     numbered by the sorted `gene_content` strings of the whole file.}
+#'   \item{plaza}{PLAZA orthologs: columns `species`, `gene_id` and
+#'     `gene_content`, where `gene_content` lists the orthologs of the
+#'     anchor gene as `code:gene1,gene2;code:gene3`. PLAZA lists pairwise
+#'     orthologs; a hog is a connected component of those lists over the
+#'     whole file, so every gene is in exactly one hog. Hogs are integers,
+#'     numbered by the smallest `species` and gene id they contain.}
 #'   \item{long}{The output shape itself: columns `species`, `gene` and
 #'     `hog`. Other columns are dropped.}
 #' }
@@ -124,21 +125,33 @@ read_orthologs <- function(file, species = NULL,
 
 #' PLAZA species / gene_id / gene_content to the long table
 #'
-#' The anchor gene and every member of its `gene_content` share the hog
-#' of that `gene_content` string (sorted-key numbering, as in the
-#' pre-0.4.0 `parse_orthologs()`).
+#' Each anchor gene is linked to every member of its `gene_content`; a
+#' hog is a connected component of that undirected graph. Components are
+#' numbered by their sorted smallest "species<TAB>gene" key.
 #' @noRd
 .plaza_long <- function(dt) {
-  content <- .cells(dt$gene_content)
-  hog <- match(content, sort(unique(content)))
-  chunks <- strsplit(content, ";", fixed = TRUE)
+  chunks <- strsplit(.cells(dt$gene_content), ";", fixed = TRUE)
   chunk <- unlist(chunks, use.names = FALSE)
   genes <- strsplit(sub("^[^:]*:", "", chunk), ",", fixed = TRUE)
   n <- lengths(genes)
+  anchor <- paste(dt$species, dt$gene_id, sep = "\t")
+  member <- paste(
+    rep(sub(":.*$", "", chunk), n), unlist(genes, use.names = FALSE),
+    sep = "\t"
+  )
+  key <- unique(c(anchor, member))
+  g <- igraph::graph_from_data_frame(
+    data.frame(from = rep(rep(anchor, lengths(chunks)), n), to = member),
+    directed = FALSE, vertices = data.frame(name = key)
+  )
+  comp <- igraph::components(g)$membership[key]
+  first <- vapply(split(key, comp), min, character(1))
+  hog <- match(as.character(comp), names(first)[order(first)])
+  parts <- strsplit(key, "\t", fixed = TRUE)
   data.frame(
-    species = c(as.character(dt$species), rep(sub(":.*$", "", chunk), n)),
-    gene = c(as.character(dt$gene_id), unlist(genes, use.names = FALSE)),
-    hog = c(hog, rep(rep(hog, lengths(chunks)), n))
+    species = vapply(parts, `[`, character(1), 1L),
+    gene = vapply(parts, `[`, character(1), 2L),
+    hog = hog
   )
 }
 

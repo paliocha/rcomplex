@@ -33,11 +33,12 @@ Three formats are read:
 \code{Orthogroups.tsv} (column \code{Orthogroup}). There is one column per
 species, with genes separated by commas. The columns \code{OG} and
 \verb{Gene Tree Parent Clade} are skipped.}
-\item{plaza}{PLAZA ortholog groups: columns \code{species}, \code{gene_id} and
-\code{gene_content}, where \code{gene_content} lists the members as
-\verb{code:gene1,gene2;code:gene3}. Each row is the group of its anchor
-gene. Rows with the same \code{gene_content} share one integer \code{hog},
-numbered by the sorted \code{gene_content} strings of the whole file.}
+\item{plaza}{PLAZA orthologs: columns \code{species}, \code{gene_id} and
+\code{gene_content}, where \code{gene_content} lists the orthologs of the
+anchor gene as \verb{code:gene1,gene2;code:gene3}. PLAZA lists pairwise
+orthologs; a hog is a connected component of those lists over the
+whole file, so every gene is in exactly one hog. Hogs are integers,
+numbered by the smallest \code{species} and gene id they contain.}
 \item{long}{The output shape itself: columns \code{species}, \code{gene} and
 \code{hog}. Other columns are dropped.}
 }
