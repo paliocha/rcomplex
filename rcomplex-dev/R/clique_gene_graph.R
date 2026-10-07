@@ -507,14 +507,17 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' the number of species actually supplied, so nothing is tied to the
 #' six species and fifteen species-pairs of the original workflow.
 #'
-#' A lineage is a top-level clade of `clades`; a species in no clade is
-#' a lineage of its own. The specificity tiers read the smallest clade
-#' that holds the clique's species, so a clique can be specific to a
-#' nested clade.
+#' The home clade of a clique is the smallest clade that holds all its
+#' species. With no such clade, the home is the whole species set. The
+#' child clades of the home are the largest clades inside it. A species
+#' of the home in no child clade forms its own child clade. The
+#' `lineage_specific`, `trait_specific` and `differentiated` tiers, and
+#' the within and cross counts, read the home and its child clades. So
+#' a clique can be specific to, or differentiated inside, a nested clade.
 #'
 #' With `S = length(species)` species, `P = choose(S, 2)` species-pairs,
-#' lineage sizes `n_l`, `W = sum(choose(n_l, 2))` within-lineage pairs
-#' and `X = P - W` cross-lineage pairs, the tiers are:
+#' top-level clade sizes `n_l`, `W = sum(choose(n_l, 2))` within-clade
+#' pairs and `X = P - W` cross-clade pairs, the tiers are:
 #' \describe{
 #'   \item{complete_conserved}{All `S` species present and all
 #'     `choose(S, 2)` pairs significant at `alpha_call`.}
@@ -523,7 +526,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     that *was* compared against every member and came back
 #'     non-significant is evidence of a boundary rather than a gap, so
 #'     it blocks this tier: that clique is `trait_specific`, or with both
-#'     lineages conserved within a candidate for `differentiated` on the
+#'     clades conserved within a candidate for `differentiated` on the
 #'     cliques of the unfiltered graph.}
 #'   \item{partial_significant}{All `S` species present, every clique
 #'     edge below `alpha_graph`, and at least `choose(S - 1, 2) + 1`
@@ -532,20 +535,23 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     `1 <= g <= max_gap`, all `choose(S - g, 2)` pairs significant,
 #'     and every absent species an annotation gap or `underpowered`
 #'     rather than a rejected test.}
-#'   \item{differentiated}{All `S` species present, every pair tested,
-#'     at least one lineage of two or more species, every such lineage
-#'     fully significant within itself, and at most `cross_max`
-#'     cross-lineage pairs significant.}
+#'   \item{differentiated}{Every species of the home present, every pair
+#'     tested, at least one child clade of two or more species, every
+#'     such child clade fully significant within itself, and at most
+#'     `choose(H - 1, 2) - W_H` cross-clade pairs significant. Here `H`
+#'     is the home size and `W_H` its within-child pairs. The child
+#'     clades are disjoint, so a nested pair is never `differentiated`.
+#'     With the whole species set as home, the bound is `cross_max`.}
 #'   \item{trait_specific}{A complete clique over one entire clade, at
 #'     least one outside species compared against every member and
 #'     rejected at adequate power (`tested_ns`), no outside species
 #'     `underpowered`, and no complete clique of a disjoint clade in the
-#'     same HOG. Where `lineage_specific` reads the other lineage's
+#'     same HOG. Where `lineage_specific` reads the other clade's
 #'     absence as a gap, this reads its presence and rejection as a
-#'     boundary: one trait group conserved, the other present but not
-#'     co-conserved. Two lineages each conserved within and rejected
+#'     boundary: one clade conserved, the other present but not
+#'     co-conserved. Two clades each conserved within and rejected
 #'     across is `differentiated`, scored on the unfiltered graph's
-#'     clique, and their one-lineage cliques stay `unclassified`. This
+#'     clique, and their one-clade cliques stay `unclassified`. This
 #'     tier is rcomplex's addition to the published five.}
 #'   \item{underpowered}{A clique that would be `lineage_specific`,
 #'     `trait_specific` or `differentiated` but for tests that could not
@@ -555,7 +561,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     `underpowered` -- reading that species as conserved would extend
 #'     the clique, so neither call survives -- and of
 #'     `differentiated` when `n_sig_cross + n_underpowered_cross`
-#'     exceeds `cross_max`: a specificity or divergence call must survive
+#'     exceeds its bound: a specificity or divergence call must survive
 #'     treating every underpowered pair as possibly significant. A
 #'     low-degree gene cannot reach the call whatever its conservation,
 #'     so without this its missing edges read as a lineage boundary.}
@@ -594,8 +600,9 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   would be counted into the clique's species total while also being
 #'   reported as missing.
 #' @param clades Optional named list of species vectors, one per clade.
-#'   Clades may nest but must not cross. A flat lineage vector is
-#'   `split(names(lineage), lineage)`. Required for `lineage_specific`,
+#'   Clades may nest but must not cross. A species in no clade forms its
+#'   own clade. A flat vector `x` of species to clade is
+#'   `split(names(x), x)`. Required for `lineage_specific`,
 #'   `trait_specific` and `differentiated`. When `NULL`, these tiers are
 #'   skipped.
 #' @param alpha_call Significance threshold for calling a species pair
@@ -621,9 +628,10 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     \item{n_members, n_species}{Clique size}
 #'     \item{n_pairs, n_present, n_sig}{Member pairs, pairs with a row
 #'       in `edges`, and pairs significant at `alpha_call`}
-#'     \item{n_sig_within, n_sig_cross}{Significant pairs within and
-#'       across lineages (`NA` without `clades`)}
-#'     \item{n_underpowered_cross}{Cross-lineage pairs present in
+#'     \item{n_sig_within, n_sig_cross}{Significant pairs within one
+#'       child clade of the clique's home, and across two (`NA` without
+#'       `clades`)}
+#'     \item{n_underpowered_cross}{Cross-clade pairs present in
 #'       `edges`, not significant, and with `power` below `min_power`
 #'       (`NA` without `clades`)}
 #'     \item{clade}{Name of the smallest clade that holds every species
@@ -735,9 +743,18 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   n_pair <- choose(n_sp, 2)
 
   lin <- NULL
+  parts <- NULL
   if (!is.null(clades)) {
     clades <- .check_clades(clades, species)
     lin <- .clade_groups(clades, species)
+    # Child clades of every clade, and of the whole species set first.
+    parts <- lapply(c(list(species), clades), function(h) {
+      inner <- vapply(clades, function(v) {
+        length(v) < length(h) && all(v %in% h)
+      }, logical(1))
+      .clade_groups(clades[inner], h)
+    })
+    names(parts) <- c("", names(clades))
   }
   lin_sizes <- if (is.null(lin)) integer(0) else table(lin)
   w_pairs <- if (is.null(lin)) NA_real_ else sum(choose(lin_sizes, 2))
@@ -826,10 +843,9 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     .gcg_classify_one(
       rr = cl_by_id[[i]], cmb = cmb_l[[i]], hit = hit,
       cl_hog = cl_hog, cl_sp = cl_sp, mk_all = mk_all, edges = edges,
-      species = species, lin = lin, lin_sizes = lin_sizes,
-      clades = clades,
+      species = species, parts = parts, clades = clades,
       alpha_call = alpha_call, alpha_graph = alpha_graph,
-      max_gap = max_gap, cross_max = cross_max, n_sp = n_sp,
+      max_gap = max_gap, n_sp = n_sp,
       lut_q = lut_q, lut_e = lut_e, ekey1 = ekey1, ekey2 = ekey2,
       rows_by_hog = rows_by_hog, lut_p = lut_p, power = pw_all,
       min_power = min_power
@@ -955,9 +971,9 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #' @return A named list of scalars, one per output column.
 #' @noRd
 .gcg_classify_one <- function(rr, cmb, hit, cl_hog, cl_sp, mk_all,
-                              edges, species, lin, lin_sizes, clades,
+                              edges, species, parts, clades,
                               alpha_call, alpha_graph, max_gap,
-                              cross_max, n_sp, lut_q, lut_e, ekey1,
+                              n_sp, lut_q, lut_e, ekey1,
                               ekey2, rows_by_hog, lut_p, power,
                               min_power) {
   hog <- cl_hog[rr[1L]]
@@ -969,12 +985,21 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   qp <- lut_q[hit]
   ep <- lut_e[hit]
   pp <- lut_p[hit]
+  home <- if (is.null(clades)) NA_character_ else .clade_home(clades, msp)
+  # The clique is scored against the child clades of its home clade, or
+  # against the top-level clades when no clade holds it.
+  lin <- if (is.null(parts)) NULL else parts[[if (is.na(home)) 1L else home]]
+  if (!is.null(lin)) {
+    lin_sizes <- table(lin)
+    cross_max <- max(0, choose(length(lin) - 1L, 2) -
+                       sum(choose(lin_sizes, 2)))
+  }
   if (m >= 2L && !is.null(lin)) {
     l1 <- lin[msp[cmb[1L, ]]]
     l2 <- lin[msp[cmb[2L, ]]]
     within <- unname(l1 == l2)
-    # A within-lineage pair is labelled by its (single) lineage;
-    # cross-lineage pairs carry no label.
+    # A within pair is labelled by its (single) child clade; cross
+    # pairs carry no label.
     pair_lin <- ifelse(within, unname(l1), NA_character_)
   } else {
     within <- rep(NA, length(qp))
@@ -1036,7 +1061,6 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 
   cls <- "unclassified"
   core_lin <- NA_character_
-  home <- if (is.null(clades)) NA_character_ else .clade_home(clades, msp)
   # One gene per species is the invariant the pair arithmetic rests on;
   # a within-species edge in the input breaks it, so refuse to score.
   # A one-member "clique" has choose(1, 2) == 0 pairs, which every tier
@@ -1046,7 +1070,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     diff_ok <- FALSE
     # n_present == n_pairs: an untested cross-lineage pair is absent
     # evidence, not evidence of divergence.
-    if (!is.null(lin) && m_sp == n_sp && n_present == n_pairs) {
+    if (!is.null(lin) && m_sp == length(lin) && n_present == n_pairs) {
       big <- names(lin_sizes)[lin_sizes >= 2L]
       full <- vapply(big, function(g) {
         sum(sig & !is.na(pair_lin) & pair_lin == g) ==

@@ -27,8 +27,8 @@ clique_stability(edges, ...)
 membership.}
 
 \item{clades}{Optional named list of species vectors, one per clade.
-Clades may nest but must not cross. The trait groups are the
-top-level clades; a species in no clade is a group of its own. If
+Clades may nest but must not cross. A species in no clade forms its
+own clade. Annotations use the top-level clades. If
 provided, the output gains trait annotations (\code{traits},
 \code{sole_rep}). If \code{NULL} (default), trait columns are
 \code{NA}.}

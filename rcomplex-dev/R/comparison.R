@@ -1044,8 +1044,8 @@ density_sweep.default <- function(
 #'   \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
 #'   \code{\link{extract_orthologs}}).
 #' @param clades Optional named list of species vectors, one per clade.
-#'   Clades may nest but must not cross. It enables the
-#'   \code{coexpressed_traits} output column.
+#'   Clades may nest but must not cross. A species in no clade forms its
+#'   own clade. It enables the \code{coexpressed_traits} output column.
 #' @param min_species Minimum number of species where co-expression must
 #'   occur for a partner to be reported (default 2).
 #' @param edges Optional stacked edge data frame from

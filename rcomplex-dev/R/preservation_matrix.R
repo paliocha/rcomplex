@@ -435,7 +435,7 @@ all_species_pairs <- function(species, sep = ".") {
 #'   so the permuted label multiset is the one the matrix actually holds.
 #' @param block Optional named list of species vectors, one per clade (a
 #'   genus, say), as `clades` elsewhere. Only the top-level clades are read.
-#'   A species in no clade is a block of its own. Supplying it enables the
+#'   A species in no clade forms its own clade. Supplying it enables the
 #'   restricted within-block null and the within-block exclusion. With
 #'   `block = NULL` only the free null is run.
 #' @param seed Integer seed for the sampled branch, or `NULL` (default) to

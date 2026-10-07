@@ -18,17 +18,28 @@ test_that(".check_clades refuses malformed and crossing clades", {
     "x and y overlap"
   )
   expect_error(
-    rcomplex:::.check_clades(list(D = c("A", "B")), sp),
+    suppressMessages(rcomplex:::.check_clades(list(D = c("A", "B")), sp)),
     "species outside every clade: D"
   )
 })
 
 
+test_that(".check_clades names the species in no clade", {
+  expect_message(
+    rcomplex:::.check_clades(list(x = c("A", "B")), c("A", "B", "C", "D")),
+    "Species C, D are in no clade; each forms its own clade."
+  )
+  expect_no_message(
+    rcomplex:::.check_clades(list(x = c("A", "B")), c("A", "B"))
+  )
+})
+
+
 test_that(".check_clades restricts clades to the species analysed", {
-  cl <- rcomplex:::.check_clades(
+  cl <- suppressMessages(rcomplex:::.check_clades(
     list(x = c("A", "B", "Z"), y = c("A", "B"), z = "Z"),
     c("A", "B", "C")
-  )
+  ))
   # z holds no analysed species; y duplicates x once Z is gone.
   expect_equal(cl, list(x = c("A", "B")))
 })

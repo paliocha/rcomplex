@@ -37,7 +37,8 @@ clades_from_tree <- function(phy, min_size = 2L) {
 #' Clades must be pairwise nested or disjoint. After restriction to
 #' `species`, empty clades and repeated species sets are dropped; the
 #' first name of a repeated set is kept. A species in no clade forms its
-#' own group, labelled by its name, so no clade may take that name.
+#' own clade, named by itself, so no clade may take that name. A message
+#' names those species.
 #' @noRd
 .check_clades <- function(clades, species) {
   nm <- names(clades)
@@ -61,10 +62,14 @@ clades_from_tree <- function(phy, min_size = 2L) {
       " overlap, but neither holds the other."
     )
   }
-  clades <- lapply(clades, intersect, species)
-  clades <- clades[lengths(clades) > 0L]
+  clades <- Filter(length, lapply(clades, intersect, species))
   clades <- clades[!duplicated(lapply(clades, sort))]
-  clash <- intersect(names(clades), setdiff(species, unlist(clades)))
+  alone <- setdiff(species, unlist(clades))
+  if (length(alone) > 0L) {
+    message("Species ", toString(alone), " are in no clade; ",
+            "each forms its own clade.")
+  }
+  clash <- intersect(names(clades), alone)
   if (length(clash) > 0L) {
     stop("clade names equal species outside every clade: ", clash[1L])
   }

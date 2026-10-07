@@ -18,8 +18,8 @@ provided so the \code{hog} column is populated).}
 
 \item{clades}{Named list of species vectors, one per clade, e.g.
 \code{list(annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D"))}.
-Clades may nest but must not cross. The trait groups are the
-top-level clades; a species in no clade is a group of its own.}
+Clades may nest but must not cross. A species in no clade forms its
+own clade. Hubs are counted per top-level clade.}
 
 \item{module_comparisons}{Optional named list of
 \code{\link[=module_correspondence]{module_correspondence()}} outputs keyed by alphabetically sorted species

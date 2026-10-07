@@ -1365,3 +1365,42 @@ test_that("a clique specific to an inner clade reports that clade", {
     c(HOG1 = "inner", HOG2 = "mid", HOG3 = "inner")
   )
 })
+
+
+test_that("gene-graph tiers read home clades, not top-level ones", {
+  sp <- gcg_six
+  clades <- list(
+    outer = sp[1:5], mid = sp[1:4], inner = sp[1:2], sib = sp[3:4],
+    other = sp[6]
+  )
+  mid <- function(hog, q) {
+    gcg_pairs(sp[1:4], paste0(c("a", "b", "c", "d"), hog), hog, q)
+  }
+  # Pair order in gcg_pairs: AB AC AD BC BD CD.
+  e <- rbind(
+    # HOG1: an A-B clique; C was tested against both and rejected.
+    gcg_pairs(sp[1:2], c("a1", "b1"), "HOG1", 0.01),
+    data.frame(
+      gene1 = c("a1", "b1"), gene2 = "c1", species1 = sp[1:2],
+      species2 = sp[3], hog = "HOG1", q_value = 0.95, effect_size = 1,
+      stringsAsFactors = FALSE
+    ),
+    # HOG2: inner and sib each fully significant, no cross pair.
+    mid("HOG2", c(0.01, 0.5, 0.5, 0.5, 0.5, 0.01)),
+    # HOG3: A-B and B-C significant; sib is not conserved within.
+    mid("HOG3", c(0.01, 0.5, 0.5, 0.01, 0.5, 0.5))
+  )
+  cl <- gene_clique_graph(e, min_size = 2L, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, sp, clades = clades)
+  got <- stats::setNames(res$classification, res$hog)
+  expect_equal(got[["HOG1"]], "trait_specific")
+  expect_equal(got[["HOG2"]], "differentiated")
+  expect_false(got[["HOG3"]] == "differentiated")
+  h <- stats::setNames(res$clade, res$hog)
+  expect_equal(
+    h[c("HOG1", "HOG2", "HOG3")],
+    c(HOG1 = "inner", HOG2 = "mid", HOG3 = "mid")
+  )
+  h2 <- res[res$hog == "HOG2", ]
+  expect_equal(c(h2$n_sig_within, h2$n_sig_cross), c(2L, 0L))
+})

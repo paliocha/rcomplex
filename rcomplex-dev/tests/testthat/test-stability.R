@@ -469,7 +469,10 @@ test_that("a species outside every clade forms its own group", {
   trait <- c(SP_A = "annual", SP_B = "annual", SP_C = "perennial")
   target <- c("SP_A", "SP_B", "SP_C", "SP_D")
 
-  res <- clique_stability(edges, target, as_clades(trait), max_k = 1L)
+  expect_message(
+    res <- clique_stability(edges, target, as_clades(trait), max_k = 1L),
+    "SP_D are in no clade"
+  )
   dis <- res$clique_disruption
   expect_equal(dis$trait_value[dis$species == "SP_D"], "SP_D")
 })

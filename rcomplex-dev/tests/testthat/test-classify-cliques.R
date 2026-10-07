@@ -544,3 +544,51 @@ test_that("a clique specific to an inner clade reports that clade", {
   expect_true(up[["HOG1"]])
   expect_false(up[["HOG2"]])
 })
+
+
+test_that("species-graph tiers read home clades, not top-level ones", {
+  sp <- paste0("SP_", LETTERS[1:6])
+  clades <- list(
+    outer = sp[1:5], mid = sp[1:4], inner = sp[1:2], sib = sp[3:4],
+    other = sp[6]
+  )
+  edge <- function(hog, s1, s2, q, power = 0.99) {
+    data.frame(
+      gene1 = paste0(s1, hog), gene2 = paste0(s2, hog),
+      species1 = s1, species2 = s2, hog = hog, q_value = q,
+      effect_size = 1, type = ifelse(q < 0.1, "conserved", "ns"),
+      power = power, stringsAsFactors = FALSE
+    )
+  }
+  e <- rbind(
+    # HOG1: inner conserved, C rejected.
+    edge("HOG1", "SP_A", "SP_B", 0.01), edge("HOG1", "SP_A", "SP_C", 0.7),
+    # HOG2: inner and its sibling conserved, rejected across.
+    edge("HOG2", c("SP_A", "SP_C"), c("SP_B", "SP_D"), 0.01),
+    edge("HOG2", "SP_A", "SP_C", 0.7),
+    # HOG3: A-B (home inner) and B-C (home mid) are nested homes.
+    edge("HOG3", c("SP_A", "SP_B"), c("SP_B", "SP_C"), 0.01),
+    edge("HOG3", "SP_A", "SP_C", 0.7)
+  )
+  res <- classify_cliques(e, sp, clades)
+  got <- stats::setNames(res$classification, res$hog)
+  expect_equal(
+    got[c("HOG1", "HOG2", "HOG3")],
+    c(
+      HOG1 = "trait_specific", HOG2 = "differentiated",
+      HOG3 = "trait_specific"
+    )
+  )
+  cl <- stats::setNames(res$clade, res$hog)
+  expect_equal(
+    cl[c("HOG1", "HOG2", "HOG3")],
+    c(HOG1 = "inner", HOG2 = "mid", HOG3 = "mid")
+  )
+  expect_equal(res$trait_groups, rep("outer", 3))
+  expect_false(any(res$underpowered))
+
+  # A-C crosses from inner to its sibling, inside one top-level clade.
+  e$power[e$hog == "HOG2" & e$type == "ns"] <- 0.1
+  res <- classify_cliques(e, sp, clades)
+  expect_true(res$underpowered[res$hog == "HOG2"])
+})

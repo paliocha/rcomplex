@@ -213,8 +213,8 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   provided so the `hog` column is populated).
 #' @param clades Named list of species vectors, one per clade, e.g.
 #'   `list(annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D"))`.
-#'   Clades may nest but must not cross. The trait groups are the
-#'   top-level clades; a species in no clade is a group of its own.
+#'   Clades may nest but must not cross. A species in no clade forms its
+#'   own clade. Hubs are counted per top-level clade.
 #' @param module_comparisons Optional named list of
 #'   [module_correspondence()] outputs keyed by alphabetically sorted species
 #'   pair (e.g. `"SP_A.SP_C"`). Required for the conserved_hub vs rewired_hub
