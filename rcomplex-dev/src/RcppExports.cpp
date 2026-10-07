@@ -79,6 +79,59 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// find_cliques_cpp
+Rcpp::List find_cliques_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_sp1, IntegerVector edge_sp2, NumericVector edge_qval, NumericVector edge_eff, int n_target_species, int min_species, int n_hogs, int n_genes, int max_genes_per_sp, int max_missing_edges, double w_q, double w_eff);
+RcppExport SEXP _rcomplex_find_cliques_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_sp1SEXP, SEXP edge_sp2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_target_speciesSEXP, SEXP min_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP max_genes_per_spSEXP, SEXP max_missing_edgesSEXP, SEXP w_qSEXP, SEXP w_effSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_hog(edge_hogSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_g1(edge_g1SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_g2(edge_g2SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp1(edge_sp1SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp2(edge_sp2SEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type edge_qval(edge_qvalSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type edge_eff(edge_effSEXP);
+    Rcpp::traits::input_parameter< int >::type n_target_species(n_target_speciesSEXP);
+    Rcpp::traits::input_parameter< int >::type min_species(min_speciesSEXP);
+    Rcpp::traits::input_parameter< int >::type n_hogs(n_hogsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_genes(n_genesSEXP);
+    Rcpp::traits::input_parameter< int >::type max_genes_per_sp(max_genes_per_spSEXP);
+    Rcpp::traits::input_parameter< int >::type max_missing_edges(max_missing_edgesSEXP);
+    Rcpp::traits::input_parameter< double >::type w_q(w_qSEXP);
+    Rcpp::traits::input_parameter< double >::type w_eff(w_effSEXP);
+    rcpp_result_gen = Rcpp::wrap(find_cliques_cpp(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges, w_q, w_eff));
+    return rcpp_result_gen;
+END_RCPP
+}
+// find_cliques_stability_cpp
+Rcpp::List find_cliques_stability_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_sp1, IntegerVector edge_sp2, NumericVector edge_qval, NumericVector edge_eff, int n_all_species, int n_hogs, int n_genes, IntegerVector is_target, Rcpp::List full_cliques, int max_k, int max_genes_per_sp, double jaccard_threshold, int n_cores, double w_q, double w_eff);
+RcppExport SEXP _rcomplex_find_cliques_stability_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_sp1SEXP, SEXP edge_sp2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_all_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP is_targetSEXP, SEXP full_cliquesSEXP, SEXP max_kSEXP, SEXP max_genes_per_spSEXP, SEXP jaccard_thresholdSEXP, SEXP n_coresSEXP, SEXP w_qSEXP, SEXP w_effSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_hog(edge_hogSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_g1(edge_g1SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_g2(edge_g2SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp1(edge_sp1SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp2(edge_sp2SEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type edge_qval(edge_qvalSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type edge_eff(edge_effSEXP);
+    Rcpp::traits::input_parameter< int >::type n_all_species(n_all_speciesSEXP);
+    Rcpp::traits::input_parameter< int >::type n_hogs(n_hogsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_genes(n_genesSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type is_target(is_targetSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type full_cliques(full_cliquesSEXP);
+    Rcpp::traits::input_parameter< int >::type max_k(max_kSEXP);
+    Rcpp::traits::input_parameter< int >::type max_genes_per_sp(max_genes_per_spSEXP);
+    Rcpp::traits::input_parameter< double >::type jaccard_threshold(jaccard_thresholdSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
+    Rcpp::traits::input_parameter< double >::type w_q(w_qSEXP);
+    Rcpp::traits::input_parameter< double >::type w_eff(w_effSEXP);
+    rcpp_result_gen = Rcpp::wrap(find_cliques_stability_cpp(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores, w_q, w_eff));
+    return rcpp_result_gen;
+END_RCPP
+}
 // hog_permutation_test_cpp
 Rcpp::DataFrame hog_permutation_test_cpp(const arma::mat& net1, const arma::mat& net2, double thr1, double thr2, const Rcpp::IntegerVector& ortho_sp1_idx, const Rcpp::IntegerVector& ortho_sp2_idx, const Rcpp::List& hog_sp1_list, const Rcpp::List& hog_sp2_list, bool test_greater, int min_exceedances, int max_permutations, int n_cores, bool force_flag_mode);
 RcppExport SEXP _rcomplex_hog_permutation_test_cpp(SEXP net1SEXP, SEXP net2SEXP, SEXP thr1SEXP, SEXP thr2SEXP, SEXP ortho_sp1_idxSEXP, SEXP ortho_sp2_idxSEXP, SEXP hog_sp1_listSEXP, SEXP hog_sp2_listSEXP, SEXP test_greaterSEXP, SEXP min_exceedancesSEXP, SEXP max_permutationsSEXP, SEXP n_coresSEXP, SEXP force_flag_modeSEXP) {
@@ -364,6 +417,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_build_sparse_coclassification_cpp", (DL_FUNC) &_rcomplex_build_sparse_coclassification_cpp, 4},
     {"_rcomplex_density_threshold_cpp", (DL_FUNC) &_rcomplex_density_threshold_cpp, 2},
     {"_rcomplex_fe_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_fe_hog_permutation_test_cpp, 7},
+    {"_rcomplex_find_cliques_cpp", (DL_FUNC) &_rcomplex_find_cliques_cpp, 15},
+    {"_rcomplex_find_cliques_stability_cpp", (DL_FUNC) &_rcomplex_find_cliques_stability_cpp, 18},
     {"_rcomplex_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_cpp, 13},
     {"_rcomplex_hog_permutation_test_sparse_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_sparse_cpp, 17},
     {"_rcomplex_module_preservation_dense_cpp", (DL_FUNC) &_rcomplex_module_preservation_dense_cpp, 11},

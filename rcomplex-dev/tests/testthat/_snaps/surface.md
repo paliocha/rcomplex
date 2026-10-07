@@ -3,25 +3,32 @@
     Code
       exports
     Output
-       [1] "as_modules"                "classify_hub_conservation"
-       [3] "classify_preservation"     "coexpressolog_null"       
-       [5] "compute_network"           "density_sweep"            
-       [7] "detect_modules"            "find_coexpressologs"      
-       [9] "get_coexpressed_hogs"      "identify_module_hubs"     
-      [11] "module_correspondence"     "module_preservation"      
-      [13] "null_network"              "parse_orthologs"          
-      [15] "prepare_orthologs"         "preservation_matrix_test" 
-      [17] "preservation_paired"       "pvalue_resolution"        
-      [19] "reduce_orthogroups"        "resolve_ortholog_map"     
-      [21] "split_layers"             
+       [1] "as_modules"                "classify_cliques"         
+       [3] "classify_gene_cliques"     "classify_hub_conservation"
+       [5] "classify_preservation"     "clique_stability"         
+       [7] "clique_threshold_sweep"    "coexpressolog_null"       
+       [9] "compute_network"           "density_sweep"            
+      [11] "detect_modules"            "find_cliques"             
+      [13] "find_coexpressologs"       "gene_clique_graph"        
+      [15] "get_coexpressed_hogs"      "identify_module_hubs"     
+      [17] "module_correspondence"     "module_preservation"      
+      [19] "null_network"              "parse_orthologs"          
+      [21] "prepare_orthologs"         "preservation_matrix_test" 
+      [23] "preservation_paired"       "pvalue_resolution"        
+      [25] "reduce_orthogroups"        "resolve_ortholog_map"     
+      [27] "split_layers"             
     Code
       n_formals
     Output
-                     as_modules classify_hub_conservation     classify_preservation 
-                              2                         1                         6 
-             coexpressolog_null           compute_network             density_sweep 
-                              8                         1                         1 
-                 detect_modules       find_coexpressologs      get_coexpressed_hogs 
+                     as_modules          classify_cliques     classify_gene_cliques 
+                              2                         1                         1 
+      classify_hub_conservation     classify_preservation          clique_stability 
+                              1                         6                         1 
+         clique_threshold_sweep        coexpressolog_null           compute_network 
+                             14                         8                         1 
+                  density_sweep            detect_modules              find_cliques 
+                              1                         1                         1 
+            find_coexpressologs         gene_clique_graph      get_coexpressed_hogs 
                               1                         1                         7 
            identify_module_hubs     module_correspondence       module_preservation 
                               1                         7                        19 
