@@ -189,7 +189,8 @@ Acceptance commands run from the package root after
 `Rscript -e 'devtools::document()' && R CMD INSTALL .`.
 
 Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
--> {WP13 || WP14} -> WP6 -> WP12 -> WP8 -> WP9.
+-> {WP13 || WP14} -> WP6 -> WP12 -> WP8 -> WP9 = 0.4.0. Then, gated
+and not blocking the release: WP15 || WP16.
 
 ### WP0 Branch + surface snapshot (serial, first)
 
@@ -315,10 +316,19 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
   tested. No new argument anywhere; `n_tests` is a column, not a
   parameter. `print.rcomplex()` (WP6) and the quickstart show
   `score` and `evalue` first, then `q_value`, `effect_size`, `power`.
+  Cliques: both clique tables (`gene_clique_graph()`, `find_cliques()`)
+  gain `score` = the sum of the member edges' `score`. Log-odds add,
+  so this is the NetworkBLAST log-likelihood-ratio of a conserved
+  subnetwork and the BLAST bit score of a longer alignment: it grows
+  with clique size on purpose. `mean_q` stays for the classifiers. No
+  clique `evalue`: the clique null is not analytic; `rcomplex(null =
+  TRUE)` (WP12) counts null-network cliques at or above each score
+  instead and `summary()` reports that count.
 - Accept: `evalue == n_tests * p_value` and `score == -log2(p_value)`
   on the fixture edges for all three methods; `sum(evalue < 1)` on a
   `null_network()` comparison is at most about 1 (one chance hit
-  expected); check OK.
+  expected); clique `score` equals the sum over its `n_edges` member
+  rows on the clique fixture; check OK.
 - Deps: WP5.
 
 ### WP14 Signed networks: anticorrelation (parallel with WP13)
@@ -578,6 +588,82 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
   and watch it fail.
 - Deps: WP8.
 
+### WP15 Joint modules across species (gated G9, after 0.4.0)
+
+- Files: new `R/joint_modules.R` (< 150 lines), tests, `man/`,
+  `dev/probes/joint_modules_pooideae.R` (the Orion probe script).
+- Why: rcomplex detects modules per species, then tests preservation.
+  Two frameworks find modules that span species in one step. The
+  multilayer view (Mucha et al. 2010): species are layers, orthology
+  couples layers, one modularity over the supra-graph. The hypergraph
+  view (Kaminski et al. 2019; Chodrow, Veldt & Benson 2021): each HOG
+  is one hyperedge over all its copies, and hypergraph modularity with
+  a partial affinity rule lets a HOG spread over modules, so the
+  partition itself says which copies carry the conserved role. The
+  two agree on one-copy HOGs and differ on multi-copy HOGs: pairwise
+  coupling pulls every copy pair with the same force and big HOGs
+  dominate; one hyperedge per HOG with a size-aware null does not.
+  Both are a Leiden run on one graph, so one function probes both.
+- Do: `joint_modules(nets, orthologs, coupling = c("star", "pairwise"),
+  weight = NULL, objective = c("modularity", "CPM"), resolution =
+  NULL, seed = NULL)`. Build one igraph: nodes `(species, gene)` for
+  every gene in every network; intra-species edges from each sparse
+  store, divided by their maximum as `detect_modules()` does for CPM;
+  inter-species links by `coupling`: `star` adds one node per HOG and
+  one edge of weight `weight` from it to each copy (hypergraph star
+  expansion, the 50-line approximation of hypergraph modularity);
+  `pairwise` adds an edge of weight `weight` between every ortholog
+  copy pair across species (multislice coupling). `weight = NULL` is
+  the median intra-species edge weight. One `igraph::cluster_leiden()`
+  on it, HOG nodes dropped from the result. Return: per-species
+  partitions in `as_modules()` shape plus a HOG table: `hog`,
+  `n_copies`, `n_modules` (how many modules the HOG spreads over),
+  `module_main`, `copies_main` (the copies in it), so a HOG split
+  across modules is readable as a subfunctionalisation candidate. No
+  consensus sweep inside; the caller sweeps `weight` and feeds
+  `detect_modules()`'s consensus if wanted.
+- Accept: on `pres_fixture()` (planted modules, two species) both
+  couplings recover the planted modules with ARI > 0.9 per species; a
+  HOG with one planted non-conserved copy puts that copy outside
+  `module_main`; `pairwise` on a 5 x 5 HOG fixture merges the copies
+  where `star` does not (the documented difference); rng-contract
+  table gains `joint_modules`; check OK. The Orion probe (not a test)
+  is split-half and cross-species replication on leaf and wood at
+  three weights, against the existing two-step path.
+- Deps: WP3, WP7, WP10 (long ortholog table). Blocks nothing.
+
+### WP16 Edge gain and loss on the species tree (gated G10, after 0.4.0)
+
+- Files: `R/clades.R` (WP7 owns it; this WP adds one function) or new
+  `R/edge_history.R` (< 120 lines), tests, `DESCRIPTION` (Suggests
+  `phangorn`), `man/`.
+- Why: `clades` (WP7) is flat. The proposal's "phylogeny-aware
+  inference" means states along a tree. A clique's membership over
+  species is a binary character; parsimony on the species tree
+  reconstructs where co-expression was gained and lost. This is the
+  formal version of `lineage_specific`: a clade-restricted clique is
+  one gain on that clade's stem, or one loss outside it, and the tree
+  says which is cheaper.
+- Do: `edge_history(cliques, tree, species)`: for each clique row of
+  `classify_gene_cliques()` or `classify_cliques()`, build the
+  character from `species_present` (member 1, tested-and-absent 0,
+  `untested` / `underpowered` as `?`), run Fitch parsimony with
+  ambiguity (`phangorn::ancestral.pars`, `type = "ACCTRAN"`), and
+  return per clique: `state_root`, `n_gain`, `n_loss`, `branches`
+  (node labels where the state changes), `n_mpr` (equally
+  parsimonious reconstructions; ties are reported, not hidden). A
+  second table per branch: `n_gain`, `n_loss`, so a branch with many
+  losses names a lineage where co-expression diverged. `tree` is an
+  `ape::phylo`, tips named by species, same object `clades_from_tree()`
+  reads. No ML, no Dollo: Fitch is the one rule, `n_mpr` is the honest
+  uncertainty.
+- Accept: 4-tip balanced tree, clique present in one clade of two
+  gives `n_gain = 1` on that stem and `n_loss = 0` under ACCTRAN;
+  present in three of four tips gives one loss on the missing tip's
+  branch; a `?` tip never counts as a change; check OK with and
+  without `phangorn`.
+- Deps: WP7. Blocks nothing.
+
 ## 4. Gates (Martin decides, before the WP starts)
 
 | Gate | WP | Question | Default if silent |
@@ -590,6 +676,8 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
 | G6 | WP10 | `parse_orthologs()` deleted in favour of `read_orthologs()`? Long table `species gene hog` as the one ortholog shape? | yes |
 | G7 | WP13 | `score = -log2(p)` bits and `evalue = n_tests * p` as the two headline columns, `effect_size` kept as magnitude? | yes |
 | G8 | WP14 | `abs_cor` replaced by `sign`; driver `sign = "both"` runs four comparisons and tags `+ - flip`? | yes |
+| G9 | WP15 | Build the joint-module probe (both couplings)? Adopt into the package only if the Orion probe beats `detect_modules()` + `module_preservation()` on replication | build the probe |
+| G10 | WP16 | Edge gain/loss on a species tree, `phangorn` in Suggests? | yes |
 
 Out of scope, on purpose: rank-vs-hypergeometric default (needs Orion
 validation, design note 11.15); Bioconductor conventions (MDO V);
@@ -619,7 +707,7 @@ prompt, the plan file is the source of truth.
 |---|---|---|---|
 | `sharpen-census.md` | haiku | Read, Grep, Glob, Bash | pre-WP2 and after every merge: `dev/sharpen-census.R`, grep `prepare_data/` for Tier C names |
 | `sharpen-cutter.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP0, WP1, WP2, WP3, WP4, WP5, WP9: work defined by a list, no design |
-| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10-WP14: new functions with a stated signature |
+| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10-WP16: new functions with a stated signature |
 | `sharpen-docs.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP8 |
 | `sharpen-reviewer.md` | sonnet | Read, Grep, Glob, Bash | every PR before merge, read-only |
 
