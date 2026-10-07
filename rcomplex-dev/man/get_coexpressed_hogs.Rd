@@ -21,7 +21,7 @@ get_coexpressed_hogs(
 keyed by species abbreviation.}
 
 \item{orthologs}{Data frame with columns \code{gene1},
-\code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
+\code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}} or
 \code{\link{extract_orthologs}}).}
 
 \item{species_trait}{Optional named character vector mapping species to

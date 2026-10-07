@@ -22,7 +22,7 @@ Data frame with columns \code{gene1} (gene IDs from
 Derives ortholog pairs by matching HOG identifiers in
 \code{rowData()} of two species' SummarizedExperiment objects.
 Returns a data frame in the same format as
-\code{\link{parse_orthologs}}.
+\code{\link{prepare_orthologs}}.
 }
 \examples{
 \dontrun{

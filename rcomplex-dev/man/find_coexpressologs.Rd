@@ -31,7 +31,7 @@ keyed by species abbreviation.}
 \item{...}{Additional arguments passed to the default method.}
 
 \item{orthologs}{Data frame with columns \code{gene1},
-\code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
+\code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}} or
 \code{\link{extract_orthologs}}).}
 
 \item{method}{Testing method: \code{"hypergeometric"} (default, fast),

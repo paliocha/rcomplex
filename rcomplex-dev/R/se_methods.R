@@ -106,7 +106,7 @@ build_se <- function(data, species,
 #' Derives ortholog pairs by matching HOG identifiers in
 #' \code{rowData()} of two species' SummarizedExperiment objects.
 #' Returns a data frame in the same format as
-#' \code{\link{parse_orthologs}}.
+#' \code{\link{prepare_orthologs}}.
 #'
 #' @param se1,se2 \code{\link[SummarizedExperiment]{SummarizedExperiment}}
 #'   objects with a \code{hog} column in \code{rowData}.
