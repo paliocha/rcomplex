@@ -590,58 +590,115 @@ and not blocking the release: WP15 || WP16 || WP17.
 
 ### WP15 Joint modules across species (gated G9, after 0.4.0)
 
-- Files: new `R/joint_modules.R` (< 150 lines), tests, `man/`,
-  `dev/probes/joint_modules_pooideae.R` (the Orion probe script).
+Two parts. WP15a is the 50-line baseline on igraph; WP15b is the
+hypergraph Leiden kernel. Source for both: Kaminski, Misiorek, Pralat,
+Theberge 2024, "Modularity based community detection in hypergraphs"
+(arXiv:2406.17556; reference code `pawelwm/h-louvain`, Python on
+hypernetx, Louvain only), Kaminski et al. 2019 (PLOS ONE, definitions
+and Chung-Lu hypergraph null), Chodrow, Veldt & Benson 2021 (AON =
+strict), Traag, Waltman & van Eck 2019 (Leiden). Checked and not used:
+CRAN `HyperG` (1.0.0, 2021, pure R: spectral embedding plus `mclust` on
+the clique expansion, the family `subspace_preservation()` already
+probed), Bioconductor `hypergraph` (1.84.0: S4 classes, incidence
+matrix, `toGraphNEL()` star expansion, k-cores, vertex cover). No CRAN
+or Bioconductor package implements hypergraph modularity as of
+2026-10; no C++ hypergraph Leiden exists anywhere we know of.
+
 - Why: rcomplex detects modules per species, then tests preservation.
-  Two frameworks find modules that span species in one step. The
-  multilayer view (Mucha et al. 2010): species are layers, orthology
-  couples layers, one modularity over the supra-graph. The hypergraph
-  view (Kaminski et al. 2019; Chodrow, Veldt & Benson 2021): each HOG
-  is one hyperedge over all its copies, and hypergraph modularity with
-  a partial affinity rule lets a HOG spread over modules, so the
-  partition itself says which copies carry the conserved role. The
-  two agree on one-copy HOGs and differ on multi-copy HOGs: pairwise
-  coupling pulls every copy pair with the same force and big HOGs
-  dominate; one hyperedge per HOG with a size-aware null does not.
-  Both are a Leiden run on one graph, so one function probes both.
-  Checked and not used: CRAN `HyperG` (1.0.0, 2021, pure R) has no
-  hypergraph modularity; its `cluster_spectral()` is spectral
-  embedding plus `mclust` on the clique expansion, the family
-  `subspace_preservation()` already probed; its conversions are one
-  igraph call each. Bioconductor `hypergraph` (1.84.0, Falcon &
-  Gentleman) is S4 classes, incidence matrix, `toGraphNEL()` star
-  expansion into `graph::graphNEL`, k-cores and vertex cover: no
-  clustering either; a `Hypergraph` coercion for HOGs is a 10-line
-  Suggests item if a Bioconductor reviewer asks (MDO V), not before.
-  No CRAN or Bioconductor package implements hypergraph modularity
-  as of 2026-10.
-- Do: `joint_modules(nets, orthologs, coupling = c("star", "pairwise"),
-  weight = NULL, objective = c("modularity", "CPM"), resolution =
-  NULL, seed = NULL)`. Build one igraph: nodes `(species, gene)` for
-  every gene in every network; intra-species edges from each sparse
-  store, divided by their maximum as `detect_modules()` does for CPM;
-  inter-species links by `coupling`: `star` adds one node per HOG and
-  one edge of weight `weight` from it to each copy (hypergraph star
-  expansion, the 50-line approximation of hypergraph modularity);
-  `pairwise` adds an edge of weight `weight` between every ortholog
-  copy pair across species (multislice coupling). `weight = NULL` is
-  the median intra-species edge weight. One `igraph::cluster_leiden()`
-  on it, HOG nodes dropped from the result. Return: per-species
-  partitions in `as_modules()` shape plus a HOG table: `hog`,
-  `n_copies`, `n_modules` (how many modules the HOG spreads over),
-  `module_main`, `copies_main` (the copies in it), so a HOG split
-  across modules is readable as a subfunctionalisation candidate. No
-  consensus sweep inside; the caller sweeps `weight` and feeds
-  `detect_modules()`'s consensus if wanted.
-- Accept: on `pres_fixture()` (planted modules, two species) both
-  couplings recover the planted modules with ARI > 0.9 per species; a
-  HOG with one planted non-conserved copy puts that copy outside
-  `module_main`; `pairwise` on a 5 x 5 HOG fixture merges the copies
-  where `star` does not (the documented difference); rng-contract
-  table gains `joint_modules`; check OK. The Orion probe (not a test)
-  is split-half and cross-species replication on leaf and wood at
-  three weights, against the existing two-step path.
-- Deps: WP3, WP7, WP10 (long ortholog table). Blocks nothing.
+  A joint detection finds modules that span species in one step. Each
+  HOG is one hyperedge over all its copies; co-expression edges are
+  2-edges inside one species. Hypergraph modularity with the
+  tau-family lets a HOG spread over modules and still score, so the
+  partition itself says which copies carry the conserved role and
+  which HOGs split (subfunctionalisation candidates). The pairwise
+  multilayer coupling (Mucha 2010) is the degree-preserving 2-section
+  of the same hyperedges, weight `w/(d-1)` per pair; it is the alpha =
+  0 end of the h-Louvain blend, hypergraph modularity is the alpha = 1
+  end. One kernel covers both.
+- Objective (per Kaminski 2024, with the per-species co-expression
+  term added):
+
+  ```
+  q(alpha) = alpha * q_H + (1 - alpha) * q_2
+  q_H   = (1/|E|) sum_d sum_{c > d/2} (c/d)^tau *
+          sum_A [ e_H^{c,d}(A) - gamma |E_d| Pr(Bin(d, vol(A)/vol(V)) = c) ]
+  q_2   = sum_species s modularity_s(co-expression layer s, gamma)
+          + modularity of the 2-section of the HOG hyperedges
+            (weight lambda/(d-1) per pair), gamma
+  ```
+
+  tau = 2 default (quadratic; strict = Inf, majority = 0, linear =
+  1); gamma = 1; lambda = HOG hyperedge weight relative to the
+  co-expression weights, `NULL` = median stored co-expression weight.
+  Hyperdegree is 1 for every gene in a HOG, so vol(A)/vol(V) is the
+  share of HOG-member genes in A. The co-expression null is per
+  species (a global one would expect cross-species co-expression
+  edges that never exist).
+- Lift-off: from singletons no single move completes a hyperedge of
+  size >= 4, so strict q_H gives no gain and co-expression 2-edges do
+  all early merging. The alpha schedule is the fix: `alpha_i = 1 - (1
+  - p_b)^(i-1)`, advancing to the next i when the community count
+  first falls to `n * p_c^(i-1)`; defaults `p_b = 0.5, p_c = 0.5`
+  (the paper's grid says not both near 0 or 1, `p_b + p_c` about 1);
+  no Bayesian optimisation, consensus sweeps.
+
+#### WP15a Star-expansion baseline
+
+- Files: new `R/joint_modules.R` (< 150 lines), tests, `man/`.
+- Do: `joint_modules(nets, orthologs, weight = NULL, objective =
+  c("modularity", "CPM"), resolution = NULL, seed = NULL, engine =
+  "star")`. One igraph: nodes `(species, gene)`; intra-species edges
+  from each sparse store divided by their maximum; one node per HOG
+  linked to each copy with `weight`. `igraph::cluster_leiden()`, HOG
+  nodes dropped. Return per-species partitions in `as_modules()`
+  shape plus the HOG table: `hog`, `n_copies`, `n_modules`,
+  `module_main`, `copies_main`. This is also the alpha = 0 reference
+  that WP15b must reproduce.
+- Accept: on `pres_fixture()` ARI > 0.9 per species against the
+  planted modules; a HOG with one planted non-conserved copy puts it
+  outside `module_main`; rng-contract table gains `joint_modules`;
+  check OK.
+- Deps: WP3, WP7, WP10.
+
+#### WP15b h-Leiden kernel (gated G9b: licence)
+
+- Files: new `src/hleiden.cpp` (< 750 lines), `R/joint_modules.R`
+  (`engine = "hleiden"`, arguments `tau = 2, gamma = 1, p_b = 0.5,
+  p_c = 0.5, theta = 0.01`), tests, `dev/probes/hleiden_check.R`
+  (reticulate against `h_louvain.py` on its bundled primary-school
+  and Cora data: same q to 1e-6, AMI within noise; dev only).
+- Do: Leiden phases (Traag 2019) under `q(alpha)`:
+  fast local move with a queue, requeueing 2-section neighbours
+  (co-expression partners and HOG co-members) in other communities;
+  refinement inside each community from singletons, eligibility by
+  well-connectedness on the 2-section weights, merge target drawn
+  with probability proportional to `exp(delta q / theta)` among
+  targets with `delta q >= 0`; aggregation on the refined partition
+  with the unrefined partition as the start, supernodes carrying
+  per-HOG multiplicities (the `h_louvain.py` bookkeeping: hyperedges
+  keep their original size d, counters count original members, gain
+  for moving supernode s into C is `sum_e w_e [wdc(d, c_C(e) +
+  in_s(e)) - wdc(d, c_C(e))] / |E|`, tax delta touches two volumes);
+  alpha advances by the schedule at aggregation; at alpha = 1 iterate
+  to Leiden stability, then one local-move pass on original nodes.
+  Integer indices, CSC layers, sorted vectors, no `unordered_map`,
+  node order under `.seed_scope()`, `n_cores = 1` (the queue is
+  serial; parallelism is restarts in R). Guarantee stated in the
+  docs: gamma-connectivity in the 2-section sense. Licence: own
+  code, MIT. `libleidenalg` would cut this to ~250 lines by adding a
+  quality class, but it is GPL-3 and copying it into `src/` makes the
+  package GPL-3; G9b records the choice.
+- Accept: brute-force `q` over all partitions of 6- and 8-node toy
+  hypergraphs equals the kernel's `q`; `engine = "hleiden"` with
+  `p_b = 0` (alpha fixed at 0) reproduces WP15a's partition on the
+  fixtures up to Leiden randomness (ARI > 0.95 over 10 seeds);
+  strict `tau = Inf` on a 5 x 5 HOG fixture with one subfunctionalised
+  copy keeps it out, `tau = 2` scores the 4-of-5 majority; the
+  primary-school q matches `h_louvain.py`; rng-contract; check OK.
+  Orion probe (not a test): split-half and cross-species replication
+  on leaf and wood, `tau` in {1, 2, Inf}, three `lambda`, against the
+  two-step path and WP15a.
+- Deps: WP15a.
 
 ### WP16 Edge gain and loss on the species tree (gated G10, after 0.4.0)
 
@@ -734,7 +791,8 @@ and not blocking the release: WP15 || WP16 || WP17.
 | G6 | WP10 | `parse_orthologs()` deleted in favour of `read_orthologs()`? Long table `species gene hog` as the one ortholog shape? | yes |
 | G7 | WP13 | `score = -log2(p)` bits and `evalue = n_tests * p` as the two headline columns, `effect_size` kept as magnitude? | yes |
 | G8 | WP14 | `abs_cor` replaced by `sign`; driver `sign = "both"` runs four comparisons and tags `+ - flip`? | yes |
-| G9 | WP15 | Build the joint-module probe (both couplings)? Adopt into the package only if the Orion probe beats `detect_modules()` + `module_preservation()` on replication | build the probe |
+| G9 | WP15a | Build the star-expansion baseline? Adopt any joint engine only if the Orion probe beats `detect_modules()` + `module_preservation()` on replication | build |
+| G9b | WP15b | Own MIT h-Leiden kernel (~750 lines) rather than a GPL-3 `libleidenalg` quality class (~250 lines, package becomes GPL-3)? | own kernel, MIT |
 | G10 | WP16 | Edge gain/loss on a species tree, `phangorn` in Suggests? | yes |
 | G11 | WP17 | Build `method = "munk"` as a third co-expressolog method? Adopt only if the Orion probe shows calls added among `underpowered` edges that survive the null | build |
 
@@ -790,11 +848,10 @@ are disjoint by file (`clique_*`/`cliques.R`/`preservation_matrix.R`;
 `null_network.R`). WP13 (`comparison.R`) and WP14 (`network.R`,
 kernels) are disjoint; WP14 waits for WP11's `network.R` merge.
 Hypergraph Leiden has no C++ implementation we know of
-(`HyperModularity.jl` is Julia, `hypernetx` Python; KaHyPar is
-balanced partitioning, a different objective), so WP15 uses star
-expansion on igraph's C Leiden; a strict-rule hypergraph Louvain in
-RcppArmadillo (~400 lines) is the fallback only if the probe shows
-star expansion failing on multi-copy HOGs.
+(`HyperModularity.jl` is Julia, `hypernetx` and `h-louvain` Python;
+KaHyPar is balanced partitioning, a different objective), so WP15a
+uses star expansion on igraph's C Leiden and WP15b writes the kernel.
+Leiden over Louvain always (Martin, 2026-10-07).
 
 Fable cost per WP: one launch, one report read, one reviewer report
 read, one merge. Reports are capped at 30 lines in the agent bodies so
