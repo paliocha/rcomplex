@@ -5,7 +5,6 @@ tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
 skills:
   - andrej-karpathy-skills:karpathy-guidelines
-  - ponytail:ponytail
 permissionMode: acceptEdits
 maxTurns: 60
 ---
@@ -24,7 +23,9 @@ Start:
 Rules:
 - Delete before edit, edit before add. No new function, argument,
   object slot, or abstraction. No reformatting of lines you did not
-  need to touch.
+  need to touch. What stays must still read clean: if a deletion
+  leaves a dangling branch or a half-used helper, remove that too and
+  say so.
 - Lines at or under 80 characters. Roxygen stays valid.
 - Tests that called a demoted function by name switch to
   `rcomplex:::fn()`. Tests that only covered a deleted function are

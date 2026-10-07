@@ -36,10 +36,15 @@ small-n case (Pooideae, 20 samples per species, five time points by
 four replicates), so small n is the default test regime, not an edge
 case.
 
-Rules for every work package: ponytail ladder (deletion over addition, no
-new abstraction, no new object slots), karpathy guidelines (surgical
-edits, state assumptions), lines <= 80, lint clean, no Claude attribution
-lines in commits or PRs. Worktree agents commit before finishing.
+Rules for every work package: Karpathy guidelines (as little code as
+possible, surgical edits, no speculative features, state assumptions,
+verifiable success criteria). Small code, not lazy code: a kernel that
+the WP specifies is written in full and clean; no deliberately cut
+corner, no `ponytail:` debt comment, no "add when" placeholder (Martin,
+2026-10-07: the ponytail skill was dropped for this plan because it
+discouraged clean re-implementation). Lines <= 80, lint clean, no Claude
+attribution lines in commits or PRs. Worktree agents commit before
+finishing.
 
 ## 1. Baseline (measured, `dev/sharpen-census.R`)
 

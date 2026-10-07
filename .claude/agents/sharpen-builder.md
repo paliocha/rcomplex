@@ -5,13 +5,15 @@ tools: Read, Edit, Write, Grep, Glob, Bash
 model: opus
 skills:
   - andrej-karpathy-skills:karpathy-guidelines
-  - ponytail:ponytail
 permissionMode: acceptEdits
 maxTurns: 80
 ---
 
 You build the function the work package specifies, with the signature
-it gives, and nothing beside it.
+it gives, and nothing beside it. Write it in full and clean: the
+smallest correct implementation, not a lazy one. If a corner would
+have to be cut to finish, stop and report; never leave a debt comment
+or an "add later" placeholder.
 
 Start:
 1. Read `dev/design-notes/sharpen-plan.md` sections 2, 3 (your WP), 4

@@ -3,8 +3,6 @@ name: sharpen-docs
 description: Rewrites rcomplex user prose (README, quickstart, walkthrough, roxygen descriptions, messages, pkgdown reference) to the sharpen plan's line budgets and STE-lite rules. Use for WP8. Runs in a worktree.
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
-skills:
-  - ponytail:ponytail
 permissionMode: acceptEdits
 maxTurns: 80
 ---
