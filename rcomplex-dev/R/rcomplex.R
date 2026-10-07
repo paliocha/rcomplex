@@ -34,7 +34,8 @@
 #' @return A list of class `rcomplex`:
 #'   \describe{
 #'     \item{networks}{The network objects, by species.}
-#'     \item{edges}{The edge table from [find_coexpressologs()].}
+#'     \item{edges}{The edge table from [find_coexpressologs()], plus a
+#'       `sign` column: the sign of every network.}
 #'     \item{cliques}{The cliques from [gene_clique_graph()].}
 #'     \item{classification}{One row per clique, from
 #'       [classify_gene_cliques()].}
@@ -45,22 +46,16 @@
 #'       shuffled networks.}
 #'     \item{call}{The call.}
 #'   }
-#'   `print()` shows the species, edges and tier counts. `summary()`
-#'   prints the tier table and the null table. `as.data.frame()` returns
-#'   the classification. [write_rcomplex()] writes the tables.
+#'   `as.data.frame()` returns the classification.
 #'
 #' @details
-#' The steps are [compute_network()] per species, [find_coexpressologs()]
-#' over all species pairs, [gene_clique_graph()] at `q_value < alpha`,
-#' and [classify_gene_cliques()] with `alpha_call = alpha`. Rank edges
-#' are classified at `min_power = 0.9`, hypergeometric edges at 0.8.
-#' With two species a clique is one edge, so cliques need at least
-#' `min(3, number of species)` genes.
+#' Cliques use the edges with `q_value < alpha` and have at least
+#' `min(3, number of species)` genes. Rank edges are classified at
+#' `min_power = 0.9`, hypergeometric edges at 0.8.
 #'
 #' `density` and `sign` apply only to networks built from `expr`.
-#' `method = "rank"`, `null = TRUE` and `block` need `expr`, because
-#' the shuffled networks are built from expression with
-#' [null_network()]. With `block`, the shuffle stays within each block.
+#' `method = "rank"`, `null = TRUE` and `block` need `expr`: the
+#' shuffled networks come from [null_network()], within each block.
 #'
 #' With `null = TRUE`, `summary()` reports `calls` and `calls_null` per
 #' species pair at `q_value < alpha`. Their ratio is the empirical
@@ -69,10 +64,8 @@
 #' @examples
 #' f <- function(x) system.file("extdata", x, package = "rcomplex")
 #' read <- function(x) as.matrix(read.delim(f(x), row.names = 1L))
-#' expr <- list(
-#'   SpA = read("expr_sp1_small.txt"),
-#'   SpB = read("expr_sp2_small.txt")
-#' )
+#' expr <- lapply(c(SpA = "expr_sp1_small.txt", SpB = "expr_sp2_small.txt"),
+#'   read)
 #' res <- rcomplex(expr, f("orthologs_small.txt"), density = 0.1, seed = 1)
 #' res
 #' summary(res)
@@ -84,7 +77,6 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
                      method = c("hypergeometric", "rank"), alpha = 0.1,
                      modules = FALSE, null = FALSE, n_cores = 1L,
                      seed = NULL) {
-  cl <- match.call()
   sign <- match.arg(sign)
   method <- match.arg(method)
   if (is.null(expr) == is.null(networks)) {
@@ -109,8 +101,14 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
       density = density, sign = sign, n_cores = n_cores
     )
     for (s in sp) networks[[s]]$params$n_samples <- ncol(expr[[s]])
+  } else {
+    signs <- vapply(networks, function(n) n$params$sign %||% "positive", "")
+    if (length(unique(signs)) > 1L) {
+      stop("networks differ in sign: ", paste(sp, signs, collapse = ", "))
+    }
+    sign <- signs[[1L]]
   }
-  edges <- .driver_edges(networks, xs, ortho, method, block, n_cores)
+  edges <- .driver_edges(networks, xs, ortho, method, block, n_cores, sign)
   cliques <- gene_clique_graph(edges,
     min_size = min(3L, length(sp)), alpha_graph = alpha
   )
@@ -130,10 +128,10 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     )
   }
   if (null) {
-    nulls <- .driver_nulls(xs, networks, block, n_cores)
-    res$edges_null <- .driver_edges(nulls, xs, ortho, method, block, n_cores)
+    nn <- .driver_nulls(xs, networks, block, n_cores)
+    res$edges_null <- .driver_edges(nn, xs, ortho, method, block, n_cores, sign)
   }
-  res$call <- cl
+  res$call <- match.call()
   structure(res, class = "rcomplex")
 }
 
@@ -188,13 +186,15 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
 }
 
 
-#' find_coexpressologs() with the rank test's null networks when needed
+#' find_coexpressologs() with the rank nulls when needed, plus `sign`
 #' @noRd
-.driver_edges <- function(networks, xs, ortho, method, block, n_cores) {
+.driver_edges <- function(networks, xs, ortho, method, block, n_cores, sign) {
   nulls <- if (method == "rank") .driver_nulls(xs, networks, block, n_cores)
-  find_coexpressologs(networks, ortho,
+  e <- find_coexpressologs(networks, ortho,
     method = method, n_cores = n_cores, null_networks = nulls
   )
+  e$sign <- rep(sign, nrow(e))
+  e
 }
 
 

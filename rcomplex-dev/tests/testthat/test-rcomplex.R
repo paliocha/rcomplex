@@ -61,6 +61,12 @@ test_that("expr and networks give identical edges", {
   nets <- lapply(expr, compute_network, density = 0.1)
   b <- rcomplex(networks = nets, orthologs = drv_ortho, seed = 1L)
   expect_identical(a$edges, b$edges)
+  expect_identical(unique(a$edges$sign), "positive")
+  neg <- compute_network(expr$SpB, density = 0.1, sign = "negative")
+  expect_error(
+    rcomplex(networks = list(SpA = nets$SpA, SpB = neg), orthologs = drv_ortho),
+    "networks differ in sign: SpA positive, SpB negative"
+  )
   expect_identical(a$classification, b$classification)
 })
 
@@ -76,6 +82,8 @@ test_that("null = TRUE reports calls beside null calls", {
   syn <- drv_syn()
   res <- rcomplex(syn$expr, syn$ortho, null = TRUE, seed = 1L)
   expect_true(is.data.frame(res$edges_null))
+  expect_identical(names(res$edges_null), names(res$edges))
+  expect_identical(tail(names(res$edges), 2L), c("type", "sign"))
   expect_output(s <- summary(res), "calls_null")
   expect_named(s$null, c(
     "species1", "species2", "calls", "calls_null", "false_call_rate"

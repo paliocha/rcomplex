@@ -63,7 +63,8 @@ A seed makes the run reproducible and leaves your stream unchanged.}
 A list of class \code{rcomplex}:
 \describe{
 \item{networks}{The network objects, by species.}
-\item{edges}{The edge table from \code{\link[=find_coexpressologs]{find_coexpressologs()}}.}
+\item{edges}{The edge table from \code{\link[=find_coexpressologs]{find_coexpressologs()}}, plus a
+\code{sign} column: the sign of every network.}
 \item{cliques}{The cliques from \code{\link[=gene_clique_graph]{gene_clique_graph()}}.}
 \item{classification}{One row per clique, from
 \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}.}
@@ -74,9 +75,7 @@ A list of class \code{rcomplex}:
 shuffled networks.}
 \item{call}{The call.}
 }
-\code{print()} shows the species, edges and tier counts. \code{summary()}
-prints the tier table and the null table. \code{as.data.frame()} returns
-the classification. \code{\link[=write_rcomplex]{write_rcomplex()}} writes the tables.
+\code{as.data.frame()} returns the classification.
 }
 \description{
 \code{rcomplex()} runs the whole analysis. It builds one network per
@@ -85,17 +84,13 @@ classifies the gene cliques. Give it expression or networks, and
 orthologs.
 }
 \details{
-The steps are \code{\link[=compute_network]{compute_network()}} per species, \code{\link[=find_coexpressologs]{find_coexpressologs()}}
-over all species pairs, \code{\link[=gene_clique_graph]{gene_clique_graph()}} at \code{q_value < alpha},
-and \code{\link[=classify_gene_cliques]{classify_gene_cliques()}} with \code{alpha_call = alpha}. Rank edges
-are classified at \code{min_power = 0.9}, hypergeometric edges at 0.8.
-With two species a clique is one edge, so cliques need at least
-\verb{min(3, number of species)} genes.
+Cliques use the edges with \code{q_value < alpha} and have at least
+\verb{min(3, number of species)} genes. Rank edges are classified at
+\code{min_power = 0.9}, hypergeometric edges at 0.8.
 
 \code{density} and \code{sign} apply only to networks built from \code{expr}.
-\code{method = "rank"}, \code{null = TRUE} and \code{block} need \code{expr}, because
-the shuffled networks are built from expression with
-\code{\link[=null_network]{null_network()}}. With \code{block}, the shuffle stays within each block.
+\code{method = "rank"}, \code{null = TRUE} and \code{block} need \code{expr}: the
+shuffled networks come from \code{\link[=null_network]{null_network()}}, within each block.
 
 With \code{null = TRUE}, \code{summary()} reports \code{calls} and \code{calls_null} per
 species pair at \code{q_value < alpha}. Their ratio is the empirical
@@ -104,10 +99,8 @@ false-call rate.
 \examples{
 f <- function(x) system.file("extdata", x, package = "rcomplex")
 read <- function(x) as.matrix(read.delim(f(x), row.names = 1L))
-expr <- list(
-  SpA = read("expr_sp1_small.txt"),
-  SpB = read("expr_sp2_small.txt")
-)
+expr <- lapply(c(SpA = "expr_sp1_small.txt", SpB = "expr_sp2_small.txt"),
+  read)
 res <- rcomplex(expr, f("orthologs_small.txt"), density = 0.1, seed = 1)
 res
 summary(res)
