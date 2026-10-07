@@ -190,7 +190,7 @@ Acceptance commands run from the package root after
 
 Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
 -> {WP13 || WP14} -> WP6 -> WP12 -> WP8 -> WP9 = 0.4.0. Then, gated
-and not blocking the release: WP15 || WP16.
+and not blocking the release: WP15 || WP16 || WP17.
 
 ### WP0 Branch + surface snapshot (serial, first)
 
@@ -664,6 +664,53 @@ and not blocking the release: WP15 || WP16.
   without `phangorn`.
 - Deps: WP7. Blocks nothing.
 
+### WP17 MUNK co-expressologs (gated G11, after 0.4.0)
+
+- Files: new `R/munk.R` (< 200 lines), new `src/munk.cpp` (< 150
+  lines: eigendecomposition of the source Laplacian via
+  `arma::eigs_sym`, landmark solves for the target, batched row
+  scores), `R/comparison.R` (`method = "munk"` dispatch, next to
+  `"rank"`), `R/specificity.R` (reuse `summarize_specificity()`
+  calibration), tests, `man/`.
+- Why: the hypergeometric and rank tests read one hop. A gene with
+  five neighbours cannot be called; a gene two hops from the
+  conserved partners counts for nothing. MUNK (Fan et al. 2019,
+  NAR 47:e51) embeds both species in one space with a diffusion
+  kernel, aligned on ortholog landmarks, so every gene's vector
+  reflects its whole neighbourhood and every paralog copy gets a
+  score. It is the closed-form member of the cross-species
+  embedding family (MUNDO 2021, NetQuilt 2021, ETNA 2022).
+- Do: `find_coexpressologs(method = "munk", lambda = 1, k = 200L,
+  n_landmarks = 400L)`. Per ordered species pair (source, target):
+  `L1` = Laplacian of the source sparse store (weights as stored);
+  `C1 = U diag((1 + lambda mu)^-1/2)` from the top `k` eigenpairs of
+  `L1`; landmarks = `n_landmarks` one-to-one HOGs drawn at random
+  under the RNG contract; `C2 = K2[, landmarks] (C1[landmarks, ])^+T`
+  with `K2[, landmarks]` from `n_landmarks` sparse solves of
+  `(I + lambda L2) x = e`; `S = C1 C2^T` computed in anchor batches,
+  never stored whole. For anchor `i` with ortholog `j`: `p_value =
+  rank of S[i, j] among S[i, ] / n2`, the rank-test construction;
+  `effect_size` = `S[i, j]` standardised within row `i`. Both
+  directions, `pval_combine` as elsewhere. Calibration: the same
+  `summarize_specificity()` path, with MUNK run on `null_network()`
+  partners. `power = NA`. `score`, `evalue` from WP13 apply. Landmark
+  sensitivity: `n_landmark_sets = 1L`; if > 1, repeat with fresh
+  landmark draws and report the per-pair SD of `p_value` as
+  `p_sd`. No new object slots; the network object is read as is.
+- Accept: on `pres_fixture()` the MUNK calls recover the planted
+  conserved pairs with AUROC > 0.9 against planted non-conserved
+  pairs; on a star fixture (hub with 50 leaves vs hub with 5
+  leaves, both conserved) MUNK calls the 5-leaf hub where the
+  hypergeometric reports `underpowered`; null-network calls at
+  `alpha = 0.1` are at most `alpha` of pairs at n = 6, 20, 200 (the
+  WP12 regime test, same generator); rng-contract table gains the
+  method; `grep "munk" R/ src/` finds no second eigen routine (reuse
+  the existing `eigs_sym` call site); check OK. Orion probe (not a
+  test): calls under `null_network()` at `alpha`; overlap with the
+  hypergeometric calls; calls added among `underpowered` edges and
+  their survival on the null.
+- Deps: WP13 (columns), WP12 (regime test). Blocks nothing.
+
 ## 4. Gates (Martin decides, before the WP starts)
 
 | Gate | WP | Question | Default if silent |
@@ -678,6 +725,7 @@ and not blocking the release: WP15 || WP16.
 | G8 | WP14 | `abs_cor` replaced by `sign`; driver `sign = "both"` runs four comparisons and tags `+ - flip`? | yes |
 | G9 | WP15 | Build the joint-module probe (both couplings)? Adopt into the package only if the Orion probe beats `detect_modules()` + `module_preservation()` on replication | build the probe |
 | G10 | WP16 | Edge gain/loss on a species tree, `phangorn` in Suggests? | yes |
+| G11 | WP17 | Build `method = "munk"` as a third co-expressolog method? Adopt only if the Orion probe shows calls added among `underpowered` edges that survive the null | build |
 
 Out of scope, on purpose: rank-vs-hypergeometric default (needs Orion
 validation, design note 11.15); Bioconductor conventions (MDO V);
@@ -707,7 +755,7 @@ prompt, the plan file is the source of truth.
 |---|---|---|---|
 | `sharpen-census.md` | haiku | Read, Grep, Glob, Bash | pre-WP2 and after every merge: `dev/sharpen-census.R`, grep `prepare_data/` for Tier C names |
 | `sharpen-cutter.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP0, WP1, WP2, WP3, WP4, WP5, WP9: work defined by a list, no design |
-| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10-WP16: new functions with a stated signature |
+| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10-WP17: new functions with a stated signature |
 | `sharpen-docs.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP8 |
 | `sharpen-reviewer.md` | sonnet | Read, Grep, Glob, Bash | every PR before merge, read-only |
 
@@ -730,6 +778,12 @@ are disjoint by file (`clique_*`/`cliques.R`/`preservation_matrix.R`;
 `orthologs.R`/`as_network.R`; `split_layers.R`/`network.R`/
 `null_network.R`). WP13 (`comparison.R`) and WP14 (`network.R`,
 kernels) are disjoint; WP14 waits for WP11's `network.R` merge.
+Hypergraph Leiden has no C++ implementation we know of
+(`HyperModularity.jl` is Julia, `hypernetx` Python; KaHyPar is
+balanced partitioning, a different objective), so WP15 uses star
+expansion on igraph's C Leiden; a strict-rule hypergraph Louvain in
+RcppArmadillo (~400 lines) is the fallback only if the probe shows
+star expansion failing on multi-copy HOGs.
 
 Fable cost per WP: one launch, one report read, one reviewer report
 read, one merge. Reports are capped at 30 lines in the agent bodies so
