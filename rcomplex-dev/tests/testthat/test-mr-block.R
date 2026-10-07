@@ -139,3 +139,10 @@ test_that("mr_block validates its inputs", {
   )
   expect_error(rcomplex:::mr_block(x, mr_block_genes, clr), "MR")
 })
+
+test_that("mr_block refuses a partitioned network", {
+  x <- withr::with_seed(1L, matrix(stats::rnorm(120L), 12L))
+  rownames(x) <- paste0("g", seq_len(12L))
+  net <- compute_network(x, density = 0.1, partition = rep(1:2, each = 5L))
+  expect_error(rcomplex:::mr_block(x, c("g1", "g2"), net), "partition")
+})
