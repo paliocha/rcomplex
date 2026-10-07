@@ -380,7 +380,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'
 #' Converts output from \code{\link{summarize_comparison}} into the edge
 #' format expected by \code{find_cliques} and
-#' \code{clique_persistence}. Renames columns, injects species
+#' \code{classify_cliques}. Renames columns, injects species
 #' identity, and computes per-pair effect sizes and classification.
 #'
 #' @param comparison Data frame from \code{\link{summarize_comparison}}
@@ -1025,7 +1025,7 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   density per species at each threshold level).
 #'
 #' @seealso \code{\link{find_coexpressologs}},
-#'   \code{clique_persistence}
+#'   \code{classify_cliques}
 #'
 #' @examples
 #' \dontrun{

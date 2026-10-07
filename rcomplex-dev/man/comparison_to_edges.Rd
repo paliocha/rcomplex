@@ -94,7 +94,7 @@ uninformative, not as a rejection.}
 \description{
 Converts output from \code{\link{summarize_comparison}} into the edge
 format expected by \code{find_cliques} and
-\code{clique_persistence}. Renames columns, injects species
+\code{classify_cliques}. Renames columns, injects species
 identity, and computes per-pair effect sizes and classification.
 }
 \examples{

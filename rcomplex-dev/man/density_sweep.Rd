@@ -126,5 +126,5 @@ sweep <- density_sweep(networks, orthologs,
 }
 \seealso{
 \code{\link{find_coexpressologs}},
-\code{clique_persistence}
+\code{classify_cliques}
 }
