@@ -16,7 +16,7 @@ identify_module_hubs(modules, ...)
 
 \item{net}{Output of \code{\link[=compute_network]{compute_network()}}.}
 
-\item{orthologs}{Optional data frame from \code{\link[=parse_orthologs]{parse_orthologs()}} with columns
+\item{orthologs}{Optional data frame from \code{\link[=prepare_orthologs]{prepare_orthologs()}} with columns
 \code{gene1}, \code{gene2}, \code{hog}.  The function auto-detects which column
 matches the gene names in \code{modules}.  If \code{NULL}, the \code{hog} column in the
 result is all \code{NA}.}

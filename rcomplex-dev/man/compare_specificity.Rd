@@ -18,7 +18,7 @@ compare_specificity(
 \item{net2}{Network object for species 2 (output of \code{\link[=compute_network]{compute_network()}}).}
 
 \item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, and
-\code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
+\code{hog} (output of \code{\link[=prepare_orthologs]{prepare_orthologs()}}).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
 
