@@ -17,7 +17,7 @@ as row names.}
 
 \item{orthologs}{Data frame with columns \code{gene1} (or the column
 matching gene row names), \code{gene2}, and \code{hog}, as
-returned by \code{\link{parse_orthologs}}.}
+returned by \code{\link{prepare_orthologs}}.}
 
 \item{gene_col}{Character: which column of \code{orthologs} contains gene
 IDs matching row names of \code{expr_matrix} (default \code{"gene1"}).}

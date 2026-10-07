@@ -3,41 +3,42 @@
     Code
       exports
     Output
-       [1] "as_modules"                "clades_from_tree"         
-       [3] "classify_cliques"          "classify_gene_cliques"    
-       [5] "classify_hub_conservation" "classify_preservation"    
-       [7] "clique_stability"          "clique_threshold_sweep"   
-       [9] "coexpressolog_null"        "compute_network"          
-      [11] "density_sweep"             "detect_modules"           
-      [13] "find_cliques"              "find_coexpressologs"      
-      [15] "gene_clique_graph"         "get_coexpressed_hogs"     
-      [17] "identify_module_hubs"      "module_correspondence"    
-      [19] "module_preservation"       "null_network"             
-      [21] "parse_orthologs"           "prepare_orthologs"        
+       [1] "as_modules"                "as_network"               
+       [3] "clades_from_tree"          "classify_cliques"         
+       [5] "classify_gene_cliques"     "classify_hub_conservation"
+       [7] "classify_preservation"     "clique_stability"         
+       [9] "clique_threshold_sweep"    "coexpressolog_null"       
+      [11] "compute_network"           "density_sweep"            
+      [13] "detect_modules"            "find_cliques"             
+      [15] "find_coexpressologs"       "gene_clique_graph"        
+      [17] "get_coexpressed_hogs"      "identify_module_hubs"     
+      [19] "module_correspondence"     "module_preservation"      
+      [21] "null_network"              "prepare_orthologs"        
       [23] "preservation_matrix_test"  "preservation_paired"      
-      [25] "pvalue_resolution"         "reduce_orthogroups"       
-      [27] "resolve_ortholog_map"      "split_layers"             
+      [25] "pvalue_resolution"         "read_orthologs"           
+      [27] "reduce_orthogroups"        "resolve_ortholog_map"     
+      [29] "split_layers"             
     Code
       n_formals
     Output
-                     as_modules          clades_from_tree          classify_cliques 
-                              1                         2                         6 
-          classify_gene_cliques classify_hub_conservation     classify_preservation 
-                              7                         3                         3 
-               clique_stability    clique_threshold_sweep        coexpressolog_null 
-                              7                         7                         5 
-                compute_network             density_sweep            detect_modules 
-                              1                        10                         6 
-                   find_cliques       find_coexpressologs         gene_clique_graph 
-                              4                        10                         4 
-           get_coexpressed_hogs      identify_module_hubs     module_correspondence 
-                              6                         3                         6 
-            module_preservation              null_network           parse_orthologs 
-                             11                         6                         3 
+                     as_modules                as_network          clades_from_tree 
+                              1                         3                         2 
+               classify_cliques     classify_gene_cliques classify_hub_conservation 
+                              6                         7                         3 
+          classify_preservation          clique_stability    clique_threshold_sweep 
+                              3                         7                         7 
+             coexpressolog_null           compute_network             density_sweep 
+                              5                         1                        10 
+                 detect_modules              find_cliques       find_coexpressologs 
+                              6                         4                        10 
+              gene_clique_graph      get_coexpressed_hogs      identify_module_hubs 
+                              4                         6                         3 
+          module_correspondence       module_preservation              null_network 
+                              6                        11                         6 
               prepare_orthologs  preservation_matrix_test       preservation_paired 
                               2                         4                         7 
-              pvalue_resolution        reduce_orthogroups      resolve_ortholog_map 
-                              2                         4                         6 
-                   split_layers 
-                              2 
+              pvalue_resolution            read_orthologs        reduce_orthogroups 
+                              2                         3                         4 
+           resolve_ortholog_map              split_layers 
+                              6                         2 
 

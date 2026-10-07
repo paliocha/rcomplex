@@ -40,7 +40,7 @@
 #' each gene changes.
 #'
 #' @param orthologs Data frame with columns `gene1`, `gene2`, `hog`
-#'   (output of [parse_orthologs()]).  `gene1` / `gene2` hold gene
+#'   (output of [prepare_orthologs()]).  `gene1` / `gene2` hold gene
 #'   identifiers; species membership is resolved against `genes1` / `genes2`.
 #' @param genes1,genes2 Character vectors giving the gene universes of the two
 #'   species, e.g. `rownames(net$network)`.

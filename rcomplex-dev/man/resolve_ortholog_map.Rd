@@ -15,7 +15,7 @@ resolve_ortholog_map(
 }
 \arguments{
 \item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, \code{hog}
-(output of \code{\link[=parse_orthologs]{parse_orthologs()}}).  \code{gene1} / \code{gene2} hold gene
+(output of \code{\link[=prepare_orthologs]{prepare_orthologs()}}).  \code{gene1} / \code{gene2} hold gene
 identifiers; species membership is resolved against \code{genes1} / \code{genes2}.}
 
 \item{genes1, genes2}{Character vectors giving the gene universes of the two

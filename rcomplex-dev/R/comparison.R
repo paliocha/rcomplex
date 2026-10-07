@@ -48,7 +48,7 @@
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
 #' @param orthologs Data frame with columns `gene1`, `gene2`, and
-#'   `hog` (output of [parse_orthologs()]).
+#'   `hog` (output of [prepare_orthologs()]).
 #' @param n_cores Number of threads for parallel computation (default 1).
 #'
 #' @return A data frame with columns:
@@ -593,8 +593,7 @@ comparison_to_edges <- function(comparison, species1, species2,
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
 #' @param orthologs Data frame with columns \code{gene1},
-#'   \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
-#'   \code{\link{extract_orthologs}}).
+#'   \code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}}).
 #' @param method Testing method: \code{"hypergeometric"} (default, fast),
 #'   \code{"rank"} or
 #'   \code{"permutation"} (rigorous).
@@ -1041,8 +1040,7 @@ density_sweep.default <- function(
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
 #' @param orthologs Data frame with columns \code{gene1},
-#'   \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
-#'   \code{\link{extract_orthologs}}).
+#'   \code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}}).
 #' @param clades Optional named list of species vectors, one per clade.
 #'   Clades may nest but must not cross. A species in no clade forms its
 #'   own clade. It enables the \code{coexpressed_traits} output column.

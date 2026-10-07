@@ -21,8 +21,7 @@ get_coexpressed_hogs(
 keyed by species abbreviation.}
 
 \item{orthologs}{Data frame with columns \code{gene1},
-\code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
-\code{\link{extract_orthologs}}).}
+\code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}}).}
 
 \item{clades}{Optional named list of species vectors, one per clade.
 Clades may nest but must not cross. A species in no clade forms its

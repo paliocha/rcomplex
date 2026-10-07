@@ -30,7 +30,7 @@
 #'
 #' @param modules Output of [detect_modules()].
 #' @param net Output of [compute_network()].
-#' @param orthologs Optional data frame from [parse_orthologs()] with columns
+#' @param orthologs Optional data frame from [prepare_orthologs()] with columns
 #'   `gene1`, `gene2`, `hog`.  The function auto-detects which column
 #'   matches the gene names in `modules`.  If `NULL`, the `hog` column in the
 #'   result is all `NA`.
