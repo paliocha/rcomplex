@@ -130,7 +130,7 @@ test_that(
     p_gt <- phyper(x, m, N - m, k, lower.tail = FALSE)
     p_eq <- dhyper(x, m, N - m, k)
     cmp <- data.frame(
-      Species1 = paste0("A", seq_len(n)), Species2 = paste0("B", seq_len(n)),
+      gene1 = paste0("A", seq_len(n)), gene2 = paste0("B", seq_len(n)),
       hog = paste0("HOG", seq_len(n)),
       species1.neigh.overlap = x, species1.p_value_con = p_con,
       species1.p_value_div = p_div, species1.p_value_gt = p_gt,

@@ -101,7 +101,7 @@ test_that("specificity p-values are uniform under independence", {
   n1 <- mk(1, "A")
   n2 <- mk(2, "B")
   ortho <- data.frame(
-    Species1 = paste0("A", 1:80), Species2 = paste0("B", 1:80),
+    gene1 = paste0("A", 1:80), gene2 = paste0("B", 1:80),
     hog = paste0("H", 1:80)
   )
   p <- rcomplex:::compare_specificity(n1, n2, ortho)$species1.p_value

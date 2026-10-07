@@ -81,8 +81,8 @@
 #'   (\code{compute_network(sparse = TRUE)} outputs), keyed by species
 #'   abbreviation. Dense networks are rejected; convert them with
 #'   \code{\link{as_sparse_network}}.
-#' @param orthologs Data frame with columns \code{Species1},
-#'   \code{Species2}, \code{hog}, as for
+#' @param orthologs Data frame with columns \code{gene1},
+#'   \code{gene2}, \code{hog}, as for
 #'   \code{\link{find_coexpressologs}}.
 #' @param statistic Function mapping the \code{find_coexpressologs()}
 #'   edge data frame to a named numeric vector, or \code{NULL} (default)

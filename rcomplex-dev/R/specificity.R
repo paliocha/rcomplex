@@ -45,7 +45,7 @@
 #' @param directions `"both"` (default), `"1to2"` (anchors in species 1)
 #'   or `"2to1"`.
 #'
-#' @return A data frame with `Species1`, `Species2`, `hog` and, per
+#' @return A data frame with `gene1`, `gene2`, `hog` and, per
 #'   requested direction (`species1.` for 1 to 2, `species2.` for 2 to
 #'   1):
 #'   \describe{

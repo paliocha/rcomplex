@@ -34,12 +34,12 @@ test_that("dense compare_specificity matches the oracle in both directions", {
   )
   expect_s3_class(res, "data.frame")
   expect_named(res, c(
-    "Species1", "Species2", "hog", spec_cols("species1"), "species1.n.cand",
+    "gene1", "gene2", "hog", spec_cols("species1"), "species1.n.cand",
     spec_cols("species2"), "species2.n.cand",
     "species1.effect_size", "species1.auroc.grid",
     "species2.effect_size", "species2.auroc.grid"
   ))
-  expect_equal(res$Species1, f$ortho$Species1)
+  expect_equal(res$gene1, f$ortho$gene1)
   expect_equal(res$hog, f$ortho$hog)
   expect_spec_equal(res, ref)
   expect_identical(res$species1.effect_size, res$species1.auroc)
@@ -95,12 +95,12 @@ test_that("own-HOG orthologs leave the mapped set (paralog row)", {
     store1 = f$net1$threshold, store2 = f$net2$threshold
   )
   # A_001 maps to B_001 and B_031: both must be absent from its mapped set
-  rows <- which(res$Species1 == "A_001")
+  rows <- which(res$gene1 == "A_001")
   expect_length(rows, 2L)
   thr <- f$net1$threshold
   n1 <- setdiff(names(which(f$net1$network[, "A_001"] >= thr)), "A_001")
   mapped <- setdiff(
-    unique(f$ortho$Species2[f$ortho$Species1 %in% n1]), c("B_001", "B_031")
+    unique(f$ortho$gene2[f$ortho$gene1 %in% n1]), c("B_001", "B_031")
   )
   expect_equal(res$species1.mapped[rows], rep(length(mapped), 2L))
 })
@@ -117,11 +117,11 @@ test_that("p lies on the 1/n grid, AUROC in [0, 1], isolated genes NA", {
     expect_true(all(p > 0 & p <= 1, na.rm = TRUE))
     expect_true(all(a >= 0 & a <= 1, na.rm = TRUE))
   }
-  iso <- res$Species1 %in% paste0("A", 28:30)
+  iso <- res$gene1 %in% paste0("A", 28:30)
   expect_true(all(is.na(res$species1.p_value[iso])))
   expect_true(all(is.na(res$species2.p_value[iso])))
   expect_equal(res$species1.mapped[iso], rep(0L, 3L))
-  expect_false(any(is.na(res$species1.p_value[res$Species1 %in% "A01"])))
+  expect_false(any(is.na(res$species1.p_value[res$gene1 %in% "A01"])))
 })
 
 test_that("directions restricts the columns and keeps the values", {
@@ -129,7 +129,7 @@ test_that("directions restricts the columns and keeps the values", {
   both <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho)
   d12 <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho, directions = "1to2")
   d21 <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho, directions = "2to1")
-  keys <- c("Species1", "Species2", "hog")
+  keys <- c("gene1", "gene2", "hog")
   expect_named(d12, c(
     keys, spec_cols("species1"), "species1.n.cand",
     "species1.effect_size", "species1.auroc.grid"
@@ -155,7 +155,7 @@ test_that("a non-symmetric sparse pattern is an error", {
     i = 1L, j = 2L, x = 1, dims = c(3L, 3L), dimnames = list(g, g)
   )
   net <- list(network = m, threshold = 1, store_threshold = 1)
-  ortho <- data.frame(Species1 = g, Species2 = g, hog = 1:3)
+  ortho <- data.frame(gene1 = g, gene2 = g, hog = 1:3)
   expect_error(rcomplex:::compare_specificity(net, net, ortho), "symmetric")
 })
 

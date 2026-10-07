@@ -17,7 +17,7 @@ compare_specificity(
 
 \item{net2}{Network object for species 2 (output of \code{\link[=compute_network]{compute_network()}}).}
 
-\item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, and
+\item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, and
 \code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
@@ -26,7 +26,7 @@ compare_specificity(
 or \code{"2to1"}.}
 }
 \value{
-A data frame with \code{Species1}, \code{Species2}, \code{hog} and, per
+A data frame with \code{gene1}, \code{gene2}, \code{hog} and, per
 requested direction (\code{species1.} for 1 to 2, \code{species2.} for 2 to
 1):
 \describe{

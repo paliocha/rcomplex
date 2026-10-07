@@ -32,10 +32,13 @@ load_complex_py <- function() {
   skip_if_no_fixture()
   ortho <- read.delim(fx("ortho_pairs.tsv"), stringsAsFactors = FALSE)
   expected <- read.delim(fx("expected_calls.tsv"), stringsAsFactors = FALSE)
+  # fixture columns predate gene1/gene2
+  names(ortho)[1:2] <- c("gene1", "gene2")
+  names(expected)[2:3] <- c("gene1", "gene2")
   x1 <- read_expr(fx("sp1_expr.tsv"))
   x2 <- read_expr(fx("sp2_expr.tsv"))
-  x1 <- x1[rownames(x1) %in% ortho$Species1, ]
-  x2 <- x2[rownames(x2) %in% ortho$Species2, ]
+  x1 <- x1[rownames(x1) %in% ortho$gene1, ]
+  x2 <- x2[rownames(x2) %in% ortho$gene2, ]
   list(
     ortho = ortho, expected = expected,
     n1 = compute_network(x1, density = 0.03, sparse = FALSE),
@@ -68,8 +71,8 @@ test_that("co-expressolog calls match canonical ComPlEx", {
   maxbh <- pmax(bh1, bh2)
 
   expected <- d$expected
-  key <- paste(cmp$Species1, cmp$Species2)
-  key_expected <- paste(expected$Species1, expected$Species2)
+  key <- paste(cmp$gene1, cmp$gene2)
+  key_expected <- paste(expected$gene1, expected$gene2)
   expect_equal(nrow(expected), 149L)
 
   idx <- match(key_expected, key)
@@ -142,7 +145,7 @@ test_that(
       pval_combine = "min", pi0_method = "none", filter_zero = TRUE
     )
 
-    key_expected <- paste(d$expected$Species1, d$expected$Species2)
+    key_expected <- paste(d$expected$gene1, d$expected$gene2)
     key_max <- paste(e_max$gene1, e_max$gene2)
     called <- key_max[e_max$type == "conserved"]
 
@@ -188,7 +191,7 @@ test_that(
     expect_identical(e_def, e_max)
 
     # default = BH + pmax: the fixture's Max.p.val criterion holds by default
-    key_expected <- paste(d$expected$Species1, d$expected$Species2)
+    key_expected <- paste(d$expected$gene1, d$expected$gene2)
     key_def <- paste(e_def$gene1, e_def$gene2)
     called <- key_def[e_def$type == "conserved"]
     flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))

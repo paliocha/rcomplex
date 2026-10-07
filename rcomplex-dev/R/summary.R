@@ -20,8 +20,8 @@
 #' its own: seeding is the caller's, one level up, which is what
 #' `summarize_comparison(seed = )` and `module_preservation(seed = )` do.
 #' A seed here instead of there would have to be reused across the two
-#' directional calls `summarize_comparison()` makes, giving Species1 and
-#' Species2 the same `U` draw, or be perturbed per call by some ad hoc
+#' directional calls `summarize_comparison()` makes, giving gene1 and
+#' gene2 the same `U` draw, or be perturbed per call by some ad hoc
 #' offset. Seeding the caller keeps one seed covering every draw in the
 #' call while leaving the draws independent.
 #'
@@ -221,7 +221,7 @@ summarize_comparison <- function(comparison,
   .check_rho0(rho0)
 
   # One seed covers both directional compute_qvalues() calls below, so
-  # Species1 and Species2 keep independent U draws. See .seed_scope() in
+  # gene1 and gene2 keep independent U draws. See .seed_scope() in
   # R/rng.R for the package-wide contract.
   .seed_scope(seed)
 
@@ -230,7 +230,7 @@ summarize_comparison <- function(comparison,
   }
 
   if (!all(c(
-    "Species1", "Species2", "hog",
+    "gene1", "gene2", "hog",
     "species1.p_value_con", "species2.p_value_con",
     "species1.p_value_div", "species2.p_value_div",
     "species1.neigh.overlap",
@@ -246,7 +246,7 @@ summarize_comparison <- function(comparison,
     ) %in%
       names(comparison))) {
     stop(
-      "pi0_method = 'randomized' needs the Species1/species2.p_value_gt ",
+      "pi0_method = 'randomized' needs the gene1/species2.p_value_gt ",
       "and .p_value_eq columns written by compare_neighborhoods() in ",
       "rcomplex >= 0.2.0; rerun compare_neighborhoods() or use ",
       "pi0_method = 'storey' or 'none'"
@@ -326,7 +326,7 @@ summarize_comparison <- function(comparison,
 #' directions.
 #'
 #' @param res Results frame carrying the two q-value columns.
-#' @param q1_col,q2_col Names of the Species1 / Species2 q-value columns.
+#' @param q1_col,q2_col Names of the gene1 / gene2 q-value columns.
 #' @param alpha Significance threshold on q-values.
 #' @return `list(gene_pairs = , genes = , orthogroups = )`.
 #' @noRd
@@ -345,10 +345,10 @@ summarize_comparison <- function(comparison,
       total = nrow(res)
     ),
     genes = list(
-      sp1 = count_sig(q1, res$Species1),
-      sp2 = count_sig(q2, res$Species2),
-      reciprocal_sp1 = count_sig(max_q, res$Species1),
-      reciprocal_sp2 = count_sig(max_q, res$Species2)
+      sp1 = count_sig(q1, res$gene1),
+      sp2 = count_sig(q2, res$gene2),
+      reciprocal_sp1 = count_sig(max_q, res$gene1),
+      reciprocal_sp2 = count_sig(max_q, res$gene2)
     ),
     orthogroups = list(
       sp1 = count_sig(q1, res$hog),
@@ -506,7 +506,7 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
     stop("Both sp1 and sp2 must be provided, or neither.")
   }
   p_cols <- c("species1.p_value", "species2.p_value")
-  if (!all(c("Species1", "Species2", "hog", p_cols) %in% names(comparison))) {
+  if (!all(c("gene1", "gene2", "hog", p_cols) %in% names(comparison))) {
     stop("comparison must be output from compare_specificity()")
   }
   if (!is.null(null_p)) {
@@ -897,7 +897,7 @@ permutation_hog_test <- function(net1, net2, comparison,
     stop("net2 must be a network object from compute_network()")
   }
   required <- c(
-    "Species1", "Species2", "hog",
+    "gene1", "gene2", "hog",
     "species1.effect_size", "species2.effect_size"
   )
   missing_cols <- setdiff(required, names(comparison))
@@ -960,8 +960,8 @@ permutation_hog_test <- function(net1, net2, comparison,
   # not match after upstream merging/reduction of multi-copy orthologs.
   # NA indices from missing genes would cause index_put_ failures in torch
   # and undefined behavior in C++.
-  in_net <- comparison$Species1 %in% net1_genes &
-    comparison$Species2 %in% net2_genes
+  in_net <- comparison$gene1 %in% net1_genes &
+    comparison$gene2 %in% net2_genes
   if (!all(in_net)) {
     n_dropped <- sum(!in_net)
     message("Dropped ", n_dropped, " ortholog pairs with genes not in networks")
@@ -969,19 +969,19 @@ permutation_hog_test <- function(net1, net2, comparison,
   }
 
   # Deduplicated ortholog mapping for reachable-set construction
-  ortho_pairs <- unique(comparison[, c("Species1", "Species2")])
-  ortho_sp1_idx <- as.integer(idx1[ortho_pairs$Species1])
-  ortho_sp2_idx <- as.integer(idx2[ortho_pairs$Species2])
+  ortho_pairs <- unique(comparison[, c("gene1", "gene2")])
+  ortho_sp1_idx <- as.integer(idx1[ortho_pairs$gene1])
+  ortho_sp2_idx <- as.integer(idx2[ortho_pairs$gene2])
 
   # Per-HOG unique gene indices
   hog_groups <- split(seq_len(nrow(comparison)), comparison$hog)
   hog_names <- names(hog_groups)
 
   hog_sp1_list <- lapply(hog_groups, function(rows) {
-    as.integer(unique(idx1[comparison$Species1[rows]]))
+    as.integer(unique(idx1[comparison$gene1[rows]]))
   })
   hog_sp2_list <- lapply(hog_groups, function(rows) {
-    as.integer(unique(idx2[comparison$Species2[rows]]))
+    as.integer(unique(idx2[comparison$gene2[rows]]))
   })
 
   # Internal testing hook: force the flag-vector intersection mode of the

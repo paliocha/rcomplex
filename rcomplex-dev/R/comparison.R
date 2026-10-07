@@ -47,18 +47,18 @@
 #'
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
-#' @param orthologs Data frame with columns `Species1`, `Species2`, and
+#' @param orthologs Data frame with columns `gene1`, `gene2`, and
 #'   `hog` (output of [parse_orthologs()]).
 #' @param n_cores Number of threads for parallel computation (default 1).
 #'
 #' @return A data frame with columns:
 #'   \describe{
-#'     \item{Species1}{Gene identifier for species 1}
-#'     \item{Species2}{Gene identifier for species 2}
+#'     \item{gene1}{Gene identifier for species 1}
+#'     \item{gene2}{Gene identifier for species 2}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{species1.neigh}{Number of neighbors of Species1 gene in net1}
+#'     \item{species1.neigh}{Number of neighbors of gene1 gene in net1}
 #'     \item{species1.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net2, excluding the Species1 gene itself}
+#'       from net2, excluding the gene1 gene itself}
 #'     \item{species1.neigh.overlap}{Intersection size}
 #'     \item{species1.p_value_con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 1); 1 when the overlap is 0 or 1}
@@ -68,9 +68,9 @@
 #'     \item{species1.p_value_eq}{\eqn{P(X = x)} (direction 1)}
 #'     \item{species1.effect_size}{Fold enrichment (direction 1). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
-#'     \item{species2.neigh}{Number of neighbors of Species2 gene in net2}
+#'     \item{species2.neigh}{Number of neighbors of gene2 gene in net2}
 #'     \item{species2.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net1, excluding the Species2 gene itself}
+#'       from net1, excluding the gene2 gene itself}
 #'     \item{species2.neigh.overlap}{Intersection size}
 #'     \item{species2.p_value_con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 2); 1 when the overlap is 0 or 1}
@@ -98,7 +98,7 @@
 #' \dontrun{
 #' comparison <- compare_neighborhoods(net_A, net_B, orthologs)
 #' head(comparison[, c(
-#'   "Species1", "Species2", "hog",
+#'   "gene1", "gene2", "hog",
 #'   "species1.effect_size"
 #' )])
 #' }
@@ -147,7 +147,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   # otherwise reconstructs it from the effect sizes and returns NA for a
   # whole direction when those estimates disagree.
   cbind(
-    orthologs[, c("Species1", "Species2", "hog"), drop = FALSE],
+    orthologs[, c("gene1", "gene2", "hog"), drop = FALSE],
     result,
     species1.urn = nrow(net1$network) - 1L,
     species2.urn = nrow(net2$network) - 1L
@@ -171,8 +171,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   if (!is.list(net2) || is.null(net2$network)) {
     stop("net2 must be a network object from compute_network()")
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+  if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: gene1, gene2, hog")
   }
 
   net1_genes <- rownames(net1$network)
@@ -180,11 +180,11 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
   # Filter orthologs to genes present in both networks and deduplicate
   orthologs <- orthologs[
-    orthologs$Species1 %in% net1_genes &
-      orthologs$Species2 %in% net2_genes, ,
+    orthologs$gene1 %in% net1_genes &
+      orthologs$gene2 %in% net2_genes, ,
     drop = FALSE
   ]
-  orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
+  orthologs <- unique(orthologs[, c("gene1", "gene2", "hog"),
                         drop = FALSE
                       ])
 
@@ -198,8 +198,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
   list(
     orthologs = orthologs,
-    sp1_idx = as.integer(idx1[orthologs$Species1]),
-    sp2_idx = as.integer(idx2[orthologs$Species2])
+    sp1_idx = as.integer(idx1[orthologs$gene1]),
+    sp2_idx = as.integer(idx2[orthologs$gene2])
   )
 }
 
@@ -384,12 +384,12 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' identity, and computes per-pair effect sizes and classification.
 #'
 #' @param comparison Data frame from \code{\link{summarize_comparison}}
-#'   (the \code{$results} element). Must contain columns \code{Species1},
-#'   \code{Species2}, \code{hog}, plus q-value and effect-size columns
+#'   (the \code{$results} element). Must contain columns \code{gene1},
+#'   \code{gene2}, \code{hog}, plus q-value and effect-size columns
 #'   from both directions.
-#' @param sp1 Species abbreviation for \code{Species1} genes (e.g.,
+#' @param sp1 Species abbreviation for \code{gene1} genes (e.g.,
 #'   \code{"BDIS"}).
-#' @param sp2 Species abbreviation for \code{Species2} genes.
+#' @param sp2 Species abbreviation for \code{gene2} genes.
 #' @param alternative Which test direction to use for q-values and
 #'   classification: \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
@@ -416,8 +416,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'
 #' @return Data frame with columns:
 #'   \describe{
-#'     \item{gene1}{Gene identifier (Species1)}
-#'     \item{gene2}{Gene identifier (Species2)}
+#'     \item{gene1}{Gene identifier (gene1)}
+#'     \item{gene2}{Gene identifier (gene2)}
 #'     \item{species1}{Species abbreviation for gene1 (\code{sp1})}
 #'     \item{species2}{Species abbreviation for gene2 (\code{sp2})}
 #'     \item{hog}{Ortholog group identifier}
@@ -475,7 +475,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   q2_col <- paste0("species2.q_value_", suffix)
 
   required <- c(
-    "Species1", "Species2", "hog",
+    "gene1", "gene2", "hog",
     "species1.effect_size", "species2.effect_size",
     q1_col, q2_col
   )
@@ -528,8 +528,8 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     )
   }
   data.frame(
-    gene1 = comparison$Species1,
-    gene2 = comparison$Species2,
+    gene1 = comparison$gene1,
+    gene2 = comparison$gene2,
     species1 = sp1,
     species2 = sp2,
     hog = comparison$hog,
@@ -592,8 +592,8 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
-#' @param orthologs Data frame with columns \code{Species1},
-#'   \code{Species2}, \code{hog} (from \code{\link{parse_orthologs}} or
+#' @param orthologs Data frame with columns \code{gene1},
+#'   \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
 #'   \code{\link{extract_orthologs}}).
 #' @param species_pairs Optional list of length-2 character vectors
 #'   specifying which pairs to compare. Defaults to all
@@ -771,8 +771,8 @@ find_coexpressologs.default <- function(
   if (length(networks) < 2) {
     stop("networks must contain at least 2 species")
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+  if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: gene1, gene2, hog")
   }
 
   if (is.null(species_pairs)) {
@@ -904,8 +904,8 @@ find_coexpressologs.default <- function(
                      comparison$species2.jaccard)
 
       edges_df <- data.frame(
-        gene1 = comparison$Species1,
-        gene2 = comparison$Species2,
+        gene1 = comparison$gene1,
+        gene2 = comparison$gene2,
         species1 = sp_a,
         species2 = sp_b,
         hog = comparison$hog,
@@ -969,8 +969,8 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #' \code{\link{find_coexpressologs}} is called on the modified networks.
 #'
 #' @param networks Named list of \code{\link{compute_network}} outputs.
-#' @param orthologs Data frame with columns \code{Species1},
-#'   \code{Species2}, \code{hog}.
+#' @param orthologs Data frame with columns \code{gene1},
+#'   \code{gene2}, \code{hog}.
 #' @param multipliers Numeric vector of threshold multipliers
 #'   (default \code{seq(0.95, 1.05, by = 0.01)}).
 #' @param method Comparison method passed to
@@ -1091,8 +1091,8 @@ density_sweep.default <- function(
   if (any(multipliers <= 0)) {
     stop("all multipliers must be positive")
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+  if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: gene1, gene2, hog")
   }
   sweep_species <- if (is.null(species_pairs)) {
     names(networks)

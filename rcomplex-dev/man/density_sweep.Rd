@@ -34,8 +34,8 @@ density_sweep(networks, ...)
 
 \item{...}{Additional arguments passed to the default method.}
 
-\item{orthologs}{Data frame with columns \code{Species1},
-\code{Species2}, \code{hog}.}
+\item{orthologs}{Data frame with columns \code{gene1},
+\code{gene2}, \code{hog}.}
 
 \item{multipliers}{Numeric vector of threshold multipliers
 (default \code{seq(0.95, 1.05, by = 0.01)}).}

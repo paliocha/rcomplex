@@ -9,8 +9,8 @@ spec_frame <- function(n = 60L, n2 = 200L, seed = 1L) {
     p1[c(3L, 17L)] <- NA
     p2[c(17L, 40L)] <- NA
     data.frame(
-      Species1 = paste0("A_", seq_len(n)),
-      Species2 = paste0("B_", seq_len(n)),
+      gene1 = paste0("A_", seq_len(n)),
+      gene2 = paste0("B_", seq_len(n)),
       hog = paste0("HOG", rep(seq_len(n / 2L), each = 2L)),
       species1.neigh = 10L, species1.mapped = 5L,
       species1.auroc = stats::runif(n), species1.p_value = p1,

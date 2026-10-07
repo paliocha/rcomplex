@@ -36,8 +36,8 @@ make_test_nets <- function() {
 
   # Orthologs: 1:1 for genes 1-8 and 14-15
   orthologs <- data.frame(
-    Species1 = paste0("A", c(1:8, 14, 15)),
-    Species2 = paste0("B", c(1:8, 14, 15)),
+    gene1 = paste0("A", c(1:8, 14, 15)),
+    gene2 = paste0("B", c(1:8, 14, 15)),
     hog = c(rep("HOG1", 3), paste0("HOG", 2:6), "HOG_NC", "HOG_NC"),
     stringsAsFactors = FALSE
   )

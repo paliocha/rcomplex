@@ -22,8 +22,8 @@ coexpressolog_null(
 abbreviation. Dense networks are rejected; convert them with
 \code{\link{as_sparse_network}}.}
 
-\item{orthologs}{Data frame with columns \code{Species1},
-\code{Species2}, \code{hog}, as for
+\item{orthologs}{Data frame with columns \code{gene1},
+\code{gene2}, \code{hog}, as for
 \code{\link{find_coexpressologs}}.}
 
 \item{statistic}{Function mapping the \code{find_coexpressologs()}

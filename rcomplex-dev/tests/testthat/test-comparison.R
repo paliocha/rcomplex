@@ -13,8 +13,8 @@ test_that("compare_neighborhoods returns correct structure", {
   )
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:30)),
-    Species2 = paste0("B_", sprintf("%03d", 1:30)),
+    gene1 = paste0("A_", sprintf("%03d", 1:30)),
+    gene2 = paste0("B_", sprintf("%03d", 1:30)),
     hog = 1:30
   )
 
@@ -23,7 +23,7 @@ test_that("compare_neighborhoods returns correct structure", {
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), 30)
   expected_cols <- c(
-    "Species1", "Species2", "hog",
+    "gene1", "gene2", "hog",
     "species1.neigh", "species1.ortho.neigh",
     "species1.neigh.overlap", "species1.p_value_con",
     "species1.p_value_div", "species1.effect_size",
@@ -51,8 +51,8 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
   )
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:30)),
-    Species2 = paste0("B_", sprintf("%03d", 1:30)),
+    gene1 = paste0("A_", sprintf("%03d", 1:30)),
+    gene2 = paste0("B_", sprintf("%03d", 1:30)),
     hog = 1:30
   )
 
@@ -93,8 +93,8 @@ test_that("C++ comparison matches R reference", {
   )
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:30)),
-    Species2 = paste0("B_", sprintf("%03d", 1:30)),
+    gene1 = paste0("A_", sprintf("%03d", 1:30)),
+    gene2 = paste0("B_", sprintf("%03d", 1:30)),
     hog = 1:30
   )
 
@@ -106,7 +106,7 @@ test_that("C++ comparison matches R reference", {
       net1$network, net2$network,
       net1$threshold, net2$threshold,
       ortho,
-      cpp_result$Species1[i], cpp_result$Species2[i]
+      cpp_result$gene1[i], cpp_result$gene2[i]
     )
     expect_equal(cpp_result$species1.neigh[i], ref$species1.neigh)
     expect_equal(cpp_result$species1.ortho.neigh[i], ref$species1.ortho.neigh)
@@ -213,14 +213,14 @@ test_that(
     net1 <- list(network = a, threshold = 0.5)
     net2 <- list(network = b, threshold = 0.5)
     ortho <- data.frame(
-      Species1 = c("A1", "A1", "A2", "A3", "A4", "A5"),
-      Species2 = c("B1", "B2", "B3", "B4", "B5", "B6"),
+      gene1 = c("A1", "A1", "A2", "A3", "A4", "A5"),
+      gene2 = c("B1", "B2", "B3", "B4", "B5", "B6"),
       hog = c("H1", "H1", "H2", "H3", "H4", "H5"),
       stringsAsFactors = FALSE
     )
 
     res <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
-    r <- res[res$Species1 == "A1" & res$Species2 == "B1", ]
+    r <- res[res$gene1 == "A1" & res$gene2 == "B1", ]
 
     # direction 1: m = 3; mapped {A1 (anchor, dropped), A2, A3} -> k = 2;
     # x = 2; population 9
@@ -247,7 +247,7 @@ test_that(
 
     # (A1, B2): B2's only neighbour maps back to the anchor -> empty mapped
     # set; p_value_gt / p_value_eq still form a proper randomized p-value
-    r2 <- res[res$Species1 == "A1" & res$Species2 == "B2", ]
+    r2 <- res[res$gene1 == "A1" & res$gene2 == "B2", ]
     expect_equal(r2$species1.ortho.neigh, 0L)
     expect_equal(r2$species1.neigh.overlap, 0L)
     expect_equal(r2$species1.p_value_con, 1)
@@ -302,8 +302,8 @@ test_that("multicopy orthologs handled correctly", {
 
   # 1:N mapping: A_001 maps to B_001 and B_031
   ortho <- data.frame(
-    Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
-    Species2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
+    gene1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
+    gene2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
     hog = c(1:30, 1)
   )
 
@@ -331,8 +331,8 @@ test_that("orthologs not in network are filtered", {
 
   # Include orthologs that aren't in the networks
   ortho <- data.frame(
-    Species1 = c("A_001", "A_002", "A_999"),
-    Species2 = c("B_001", "B_002", "B_999"),
+    gene1 = c("A_001", "A_002", "A_999"),
+    gene2 = c("B_001", "B_002", "B_999"),
     hog = 1:3
   )
 
@@ -383,20 +383,20 @@ test_that("divergence p-values detect disjoint neighborhoods", {
   net2 <- list(network = net2_mat, threshold = 5)
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:n)),
-    Species2 = paste0("B_", sprintf("%03d", 1:n)),
+    gene1 = paste0("A_", sprintf("%03d", 1:n)),
+    gene2 = paste0("B_", sprintf("%03d", 1:n)),
     hog = 1:n
   )
 
   result <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
 
   # Conserved pair (A_001, B_001): identical neighborhoods -> low con p-val
-  row1 <- result[result$Species1 == "A_001" & result$Species2 == "B_001", ]
+  row1 <- result[result$gene1 == "A_001" & result$gene2 == "B_001", ]
   expect_true(row1$species1.p_value_con < 0.05)
   expect_true(row1$species1.effect_size > 1)
 
   # Diverged pair (A_051, B_051): disjoint neighborhoods -> low div p-val
-  row51 <- result[result$Species1 == "A_051" & result$Species2 == "B_051", ]
+  row51 <- result[result$gene1 == "A_051" & result$gene2 == "B_051", ]
   expect_true(row51$species1.p_value_div < 0.05)
   expect_true(row51$species1.effect_size < 1)
 })
@@ -418,13 +418,13 @@ test_that("identical neighborhoods give high divergence p-value", {
   net2 <- list(network = net2_mat, threshold = 5)
 
   ortho <- data.frame(
-    Species1 = paste0("G_", sprintf("%03d", 1:n)),
-    Species2 = paste0("H_", sprintf("%03d", 1:n)),
+    gene1 = paste0("G_", sprintf("%03d", 1:n)),
+    gene2 = paste0("H_", sprintf("%03d", 1:n)),
     hog = 1:n
   )
 
   result <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
-  row1 <- result[result$Species1 == "G_001" & result$Species2 == "H_001", ]
+  row1 <- result[result$gene1 == "G_001" & result$gene2 == "H_001", ]
 
   # Conserved: low p-value
   expect_true(row1$species1.p_value_con < 0.05)
@@ -454,13 +454,13 @@ test_that("effect size < 1 when overlap is less than expected", {
   net2 <- list(network = net2_mat, threshold = 5)
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:n)),
-    Species2 = paste0("B_", sprintf("%03d", 1:n)),
+    gene1 = paste0("A_", sprintf("%03d", 1:n)),
+    gene2 = paste0("B_", sprintf("%03d", 1:n)),
     hog = 1:n
   )
 
   result <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
-  row1 <- result[result$Species1 == "A_001" & result$Species2 == "B_001", ]
+  row1 <- result[result$gene1 == "A_001" & result$gene2 == "B_001", ]
 
   # 0 overlap, so effect size = 0
   expect_equal(row1$species1.neigh.overlap, 0)
@@ -486,13 +486,13 @@ test_that("Jaccard = 1 for identical neighborhoods", {
   net2 <- list(network = net2_mat, threshold = 5)
 
   ortho <- data.frame(
-    Species1 = paste0("G_", sprintf("%03d", 1:n)),
-    Species2 = paste0("H_", sprintf("%03d", 1:n)),
+    gene1 = paste0("G_", sprintf("%03d", 1:n)),
+    gene2 = paste0("H_", sprintf("%03d", 1:n)),
     hog = 1:n
   )
 
   result <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
-  row1 <- result[result$Species1 == "G_001" & result$Species2 == "H_001", ]
+  row1 <- result[result$gene1 == "G_001" & result$gene2 == "H_001", ]
 
   # Identical neighborhoods -> Jaccard = 1
   expect_equal(row1$species1.jaccard, 1.0)
@@ -519,13 +519,13 @@ test_that("Jaccard = 0 for disjoint neighborhoods", {
   net2 <- list(network = net2_mat, threshold = 5)
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:n)),
-    Species2 = paste0("B_", sprintf("%03d", 1:n)),
+    gene1 = paste0("A_", sprintf("%03d", 1:n)),
+    gene2 = paste0("B_", sprintf("%03d", 1:n)),
     hog = 1:n
   )
 
   result <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
-  row1 <- result[result$Species1 == "A_001" & result$Species2 == "B_001", ]
+  row1 <- result[result$gene1 == "A_001" & result$gene2 == "B_001", ]
 
   # Disjoint neighborhoods -> Jaccard = 0
   expect_equal(row1$species1.jaccard, 0.0)
@@ -543,8 +543,8 @@ test_that("Jaccard = 0 (not NaN) when both neighborhoods are empty", {
   net2 <- list(network = net2_mat, threshold = 5)
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:n)),
-    Species2 = paste0("B_", sprintf("%03d", 1:n)),
+    gene1 = paste0("A_", sprintf("%03d", 1:n)),
+    gene2 = paste0("B_", sprintf("%03d", 1:n)),
     hog = 1:n
   )
 
@@ -564,8 +564,8 @@ test_that("Jaccard = 0 (not NaN) when both neighborhoods are empty", {
 
 test_that("comparison_to_edges produces correct edge format", {
   comp <- data.frame(
-    Species1 = c("A1", "A2"),
-    Species2 = c("B1", "B2"),
+    gene1 = c("A1", "A2"),
+    gene2 = c("B1", "B2"),
     hog = c(1L, 2L),
     species1.effect_size = c(4.0, 1.0),
     species2.effect_size = c(9.0, 1.0),
@@ -600,7 +600,7 @@ test_that("comparison_to_edges produces correct edge format", {
 
 test_that("comparison_to_edges handles alternative='less'", {
   comp <- data.frame(
-    Species1 = "A1", Species2 = "B1", hog = 1L,
+    gene1 = "A1", gene2 = "B1", hog = 1L,
     species1.effect_size = 0.2, species2.effect_size = 0.3,
     species1.jaccard = 0.1, species2.jaccard = 0.2,
     species1.q_value_div = 0.01, species2.q_value_div = 0.02
@@ -638,8 +638,8 @@ test_that("run_pairwise_comparisons returns combined edges for 2 species", {
   )
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:30)),
-    Species2 = paste0("B_", sprintf("%03d", 1:30)),
+    gene1 = paste0("A_", sprintf("%03d", 1:30)),
+    gene2 = paste0("B_", sprintf("%03d", 1:30)),
     hog = paste0("HOG", 1:30)
   )
 
@@ -671,12 +671,12 @@ test_that("run_pairwise_comparisons handles 3 species (all pairs)", {
   nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
 
   ortho <- data.frame(
-    Species1 = c(
+    gene1 = c(
       paste0("A_", sprintf("%03d", 1:20)),
       paste0("A_", sprintf("%03d", 1:20)),
       paste0("B_", sprintf("%03d", 1:20))
     ),
-    Species2 = c(
+    gene2 = c(
       paste0("B_", sprintf("%03d", 1:20)),
       paste0("C_", sprintf("%03d", 1:20)),
       paste0("C_", sprintf("%03d", 1:20))
@@ -698,8 +698,8 @@ test_that("run_pairwise_comparisons validates inputs", {
     rcomplex:::run_pairwise_comparisons(
       list(A = list(network = matrix(0))),
       data.frame(
-        Species1 = "a",
-        Species2 = "b", hog = 1
+        gene1 = "a",
+        gene2 = "b", hog = 1
       )
     ),
     "at least 2 species"
@@ -728,8 +728,8 @@ test_that("run_pairwise_comparisons with custom species_pairs", {
   nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:20)),
-    Species2 = paste0("B_", sprintf("%03d", 1:20)),
+    gene1 = paste0("A_", sprintf("%03d", 1:20)),
+    gene2 = paste0("B_", sprintf("%03d", 1:20)),
     hog = paste0("HOG", 1:20)
   )
 
@@ -762,8 +762,8 @@ make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
   )
 
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
-    Species2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+    gene1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+    gene2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
     hog = paste0("HOG", seq_len(n_ortho))
   )
 
@@ -973,18 +973,18 @@ test_that("find_coexpressologs out_file: one header across pairs", {
   n_ortho <- 20
   ortho <- rbind(
     data.frame(
-      Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
-      Species2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+      gene1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+      gene2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
       hog = paste0("HOG_AB", seq_len(n_ortho))
     ),
     data.frame(
-      Species1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
-      Species2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
+      gene1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
+      gene2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
       hog = paste0("HOG_AC", seq_len(n_ortho))
     ),
     data.frame(
-      Species1 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
-      Species2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
+      gene1 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
+      gene2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
       hog = paste0("HOG_BC", seq_len(n_ortho))
     )
   )
@@ -1078,7 +1078,7 @@ test_that("density_sweep at multiplier=1 matches find_coexpressologs", {
 
 
 test_that("density_sweep validates inputs", {
-  dummy_ortho <- data.frame(Species1 = "A", Species2 = "B", hog = "H1")
+  dummy_ortho <- data.frame(gene1 = "A", gene2 = "B", hog = "H1")
 
   expect_error(
     density_sweep(c(a = 1, b = 2), dummy_ortho),
@@ -1189,8 +1189,8 @@ test_that("sparse compare_neighborhoods equals dense (hand-built nets)", {
   net1 <- list(network = net1_mat, threshold = 5)
   net2 <- list(network = net2_mat, threshold = 5)
   ortho <- data.frame(
-    Species1 = paste0("A_", sprintf("%03d", 1:n)),
-    Species2 = paste0("B_", sprintf("%03d", 1:n)),
+    gene1 = paste0("A_", sprintf("%03d", 1:n)),
+    gene2 = paste0("B_", sprintf("%03d", 1:n)),
     hog = 1:n
   )
 
@@ -1254,8 +1254,8 @@ test_that("compare_neighborhoods rejects non-dgCMatrix Matrix classes", {
   expect_s4_class(net_dgt$network, "dgTMatrix")
 
   net2_s <- sparse_net(td$net2)
-  ortho <- data.frame(Species1 = "A_001", Species2 = "B_001", hog = 1)
-  ortho_rev <- data.frame(Species1 = "B_001", Species2 = "A_001", hog = 1)
+  ortho <- data.frame(gene1 = "A_001", gene2 = "B_001", hog = 1)
+  ortho_rev <- data.frame(gene1 = "B_001", gene2 = "A_001", hog = 1)
 
   expect_error(
     rcomplex:::compare_neighborhoods(net_dsc, net2_s, ortho),
@@ -1426,7 +1426,7 @@ test_that("sparse compare_neighborhoods edge cases equal dense", {
   net1 <- list(network = build("A"), threshold = thr)
   net2 <- list(network = build("B", extra = c(2, 4, 0.5)), threshold = thr)
   ortho <- data.frame(
-    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n), hog = 1:n
+    gene1 = paste0("A", 1:n), gene2 = paste0("B", 1:n), hog = 1:n
   )
 
   net1_s <- sparse_net(net1, thr_store)
@@ -1519,7 +1519,7 @@ test_that(
 
     edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
     idx <- match(
-      paste(cmp$Species1, cmp$Species2),
+      paste(cmp$gene1, cmp$gene2),
       paste(edges$gene1, edges$gene2)
     )
     expect_false(anyNA(idx))
@@ -1537,7 +1537,7 @@ test_that(
 
 test_that("comparison_to_edges combines directional q-values by min or max", {
   comp <- data.frame(
-    Species1 = c("A1", "A2", "A3"), Species2 = c("B1", "B2", "B3"),
+    gene1 = c("A1", "A2", "A3"), gene2 = c("B1", "B2", "B3"),
     hog = 1:3,
     species1.effect_size = c(4, 1, 2), species2.effect_size = c(9, 1, 2),
     species1.jaccard = c(0.8, 0, 0.5), species2.jaccard = c(0.5, 0, 0.5),
@@ -1625,8 +1625,8 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
     SP_B = list(network = mat_b, threshold = 5)
   )
   ortho <- data.frame(
-    Species1 = paste0("A", 1:25),
-    Species2 = paste0("B", 1:25),
+    gene1 = paste0("A", 1:25),
+    gene2 = paste0("B", 1:25),
     hog = paste0("HOG", 1:25),
     stringsAsFactors = FALSE
   )
@@ -1680,7 +1680,7 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
 
 test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
   comp <- data.frame(
-    Species1 = c("A1", "A2"), Species2 = c("B1", "B2"), hog = 1:2,
+    gene1 = c("A1", "A2"), gene2 = c("B1", "B2"), hog = 1:2,
     species1.effect_size = c(4, 2), species2.effect_size = c(9, 2),
     species1.jaccard = c(0.8, 0.5), species2.jaccard = c(0.5, 0.5),
     species1.q_value_con = c(0.01, 0.03),
@@ -1707,8 +1707,8 @@ test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
     SP_B = list(network = mat_b, threshold = 5)
   )
   ortho <- data.frame(
-    Species1 = paste0("A", 1:25),
-    Species2 = paste0("B", 1:25),
+    gene1 = paste0("A", 1:25),
+    gene2 = paste0("B", 1:25),
     hog = paste0("HOG", 1:25),
     stringsAsFactors = FALSE
   )
@@ -1850,7 +1850,7 @@ make_power_comparison <- function() {
   n1 <- compute_network(sim("A"), density = 0.08, sparse = FALSE)
   n2 <- compute_network(sim("B"), density = 0.08, sparse = FALSE)
   ortho <- data.frame(
-    Species1 = paste0("A", seq_len(n)), Species2 = paste0("B", seq_len(n)),
+    gene1 = paste0("A", seq_len(n)), gene2 = paste0("B", seq_len(n)),
     hog = paste0("H", seq_len(n))
   )
   cmp <- rcomplex:::compare_neighborhoods(n1, n2, ortho)
@@ -2112,7 +2112,7 @@ test_that("compare_neighborhoods carries an exact per-direction urn", {
   net1 <- list(network = mk(g1), threshold = 2)
   net2 <- list(network = mk(g2), threshold = 2)
   ortho <- data.frame(
-    Species1 = g1[seq_len(9)], Species2 = g2,
+    gene1 = g1[seq_len(9)], gene2 = g2,
     hog = paste0("HOG", seq_len(9)), stringsAsFactors = FALSE
   )
   cmp <- rcomplex:::compare_neighborhoods(net1, net2, ortho)

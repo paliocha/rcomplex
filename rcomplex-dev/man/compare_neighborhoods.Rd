@@ -11,7 +11,7 @@ compare_neighborhoods(net1, net2, orthologs, n_cores = 1L)
 
 \item{net2}{Network object for species 2 (output of \code{\link[=compute_network]{compute_network()}}).}
 
-\item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, and
+\item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, and
 \code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
@@ -19,12 +19,12 @@ compare_neighborhoods(net1, net2, orthologs, n_cores = 1L)
 \value{
 A data frame with columns:
 \describe{
-\item{Species1}{Gene identifier for species 1}
-\item{Species2}{Gene identifier for species 2}
+\item{gene1}{Gene identifier for species 1}
+\item{gene2}{Gene identifier for species 2}
 \item{hog}{Ortholog group identifier}
-\item{species1.neigh}{Number of neighbors of Species1 gene in net1}
+\item{species1.neigh}{Number of neighbors of gene1 gene in net1}
 \item{species1.ortho.neigh}{Number of ortholog-mapped neighbors
-from net2, excluding the Species1 gene itself}
+from net2, excluding the gene1 gene itself}
 \item{species1.neigh.overlap}{Intersection size}
 \item{species1.p_value_con}{Upper-tail hypergeometric p-value for
 conservation (direction 1); 1 when the overlap is 0 or 1}
@@ -34,9 +34,9 @@ divergence (direction 1)}
 \item{species1.p_value_eq}{\eqn{P(X = x)} (direction 1)}
 \item{species1.effect_size}{Fold enrichment (direction 1). Values > 1
 indicate conservation, < 1 indicate divergence.}
-\item{species2.neigh}{Number of neighbors of Species2 gene in net2}
+\item{species2.neigh}{Number of neighbors of gene2 gene in net2}
 \item{species2.ortho.neigh}{Number of ortholog-mapped neighbors
-from net1, excluding the Species2 gene itself}
+from net1, excluding the gene2 gene itself}
 \item{species2.neigh.overlap}{Intersection size}
 \item{species2.p_value_con}{Upper-tail hypergeometric p-value for
 conservation (direction 2); 1 when the overlap is 0 or 1}
@@ -116,7 +116,7 @@ expression matrices are restricted the same way before
 \dontrun{
 comparison <- compare_neighborhoods(net_A, net_B, orthologs)
 head(comparison[, c(
-  "Species1", "Species2", "hog",
+  "gene1", "gene2", "hog",
   "species1.effect_size"
 )])
 }

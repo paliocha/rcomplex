@@ -24,10 +24,11 @@ load_null_fixture <- local({
       x
     }
     ortho <- read.delim(null_fx("ortho_pairs.tsv"), stringsAsFactors = FALSE)
+    names(ortho)[1:2] <- c("gene1", "gene2")  # fixture predates gene1/gene2
     x1 <- read_expr(null_fx("sp1_expr.tsv"))
     x2 <- read_expr(null_fx("sp2_expr.tsv"))
-    x1 <- x1[rownames(x1) %in% ortho$Species1, ]
-    x2 <- x2[rownames(x2) %in% ortho$Species2, ]
+    x1 <- x1[rownames(x1) %in% ortho$gene1, ]
+    x2 <- x2[rownames(x2) %in% ortho$gene2, ]
     networks <- list(
       sp1 = compute_network(x1, density = 0.03, sparse = TRUE),
       sp2 = compute_network(x2, density = 0.03, sparse = TRUE)
@@ -161,7 +162,7 @@ test_that("shuffled orthologs give a non-significant null", {
   d <- load_null_fixture()
   ortho_shuf <- d$ortho
   set.seed(99)
-  ortho_shuf$Species2 <- sample(ortho_shuf$Species2)
+  ortho_shuf$gene2 <- sample(ortho_shuf$gene2)
   # n_perm = 19 is the fixture's standard permutation count; the floor
   # warning it triggers is covered by its own test, not this one
   res <- suppressWarnings(coexpressolog_null(
@@ -329,8 +330,8 @@ make_match_nets <- function() {
   list(
     networks = list(A = sparse_net(mk("A")), B = sparse_net(mk("B"))), # nolint
     ortho = data.frame(
-      Species1 = paste0("A", 1:8),
-      Species2 = paste0("B", 1:8),
+      gene1 = paste0("A", 1:8),
+      gene2 = paste0("B", 1:8),
       hog = paste0("H", 1:8),
       stringsAsFactors = FALSE
     )

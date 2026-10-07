@@ -1,7 +1,7 @@
 test_that("summarize_comparison returns correct structure", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:10),
-    Species2 = paste0("B_", 1:10),
+    gene1 = paste0("A_", 1:10),
+    gene2 = paste0("B_", 1:10),
     hog = rep(1:5, each = 2),
     species1.neigh = rep(10, 10),
     species1.ortho.neigh = rep(5, 10),
@@ -35,8 +35,8 @@ test_that("summarize_comparison returns correct structure", {
 
 test_that("zero-overlap rows are filtered by default", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:5),
-    Species2 = paste0("B_", 1:5),
+    gene1 = paste0("A_", 1:5),
+    gene2 = paste0("B_", 1:5),
     hog = 1:5,
     species1.neigh = rep(10, 5),
     species1.ortho.neigh = rep(5, 5),
@@ -65,8 +65,8 @@ test_that("zero-overlap rows are filtered by default", {
 
 test_that("q-values are computed", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:5),
-    Species2 = paste0("B_", 1:5),
+    gene1 = paste0("A_", 1:5),
+    gene2 = paste0("B_", 1:5),
     hog = 1:5,
     species1.neigh = rep(10, 5),
     species1.ortho.neigh = rep(5, 5),
@@ -108,8 +108,8 @@ test_that("q-values are computed", {
 
 test_that("summary counts are correct", {
   comparison <- data.frame(
-    Species1 = c("A_1", "A_1", "A_2"),
-    Species2 = c("B_1", "B_2", "B_2"),
+    gene1 = c("A_1", "A_1", "A_2"),
+    gene2 = c("B_1", "B_2", "B_2"),
     hog = c(1, 1, 2),
     species1.neigh = rep(10, 3),
     species1.ortho.neigh = rep(5, 3),
@@ -136,8 +136,8 @@ test_that("summary counts are correct", {
 
 test_that("empty comparison handled gracefully", {
   comparison <- data.frame(
-    Species1 = character(0),
-    Species2 = character(0),
+    gene1 = character(0),
+    gene2 = character(0),
     hog = integer(0),
     species1.neigh = integer(0),
     species1.ortho.neigh = integer(0),
@@ -161,8 +161,8 @@ test_that("empty comparison handled gracefully", {
 
 test_that("alternative='less' uses divergence p-values", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:5),
-    Species2 = paste0("B_", 1:5),
+    gene1 = paste0("A_", 1:5),
+    gene2 = paste0("B_", 1:5),
     hog = 1:5,
     species1.neigh = rep(10, 5),
     species1.ortho.neigh = rep(5, 5),
@@ -201,8 +201,8 @@ test_that("alternative='less' uses divergence p-values", {
 
 test_that("alternative='less' disables zero-overlap filtering by default", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:3),
-    Species2 = paste0("B_", 1:3),
+    gene1 = paste0("A_", 1:3),
+    gene2 = paste0("B_", 1:3),
     hog = 1:3,
     species1.neigh = rep(10, 3),
     species1.ortho.neigh = rep(5, 3),
@@ -237,8 +237,8 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
 
 test_that("summarize_comparison with sp1/sp2 returns $edges", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:10),
-    Species2 = paste0("B_", 1:10),
+    gene1 = paste0("A_", 1:10),
+    gene2 = paste0("B_", 1:10),
     hog = rep(1:5, each = 2),
     species1.neigh.overlap = c(5, 3, 0, 4, 2, 1, 6, 0, 3, 4),
     species2.neigh.overlap = c(4, 2, 0, 3, 1, 2, 5, 0, 4, 3),
@@ -281,7 +281,7 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
 
 test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
   comparison <- data.frame(
-    Species1 = "A_1", Species2 = "B_1", hog = 1,
+    gene1 = "A_1", gene2 = "B_1", hog = 1,
     species1.neigh.overlap = 5, species2.neigh.overlap = 4,
     species1.p_value_con = 0.01, species2.p_value_con = 0.02,
     species1.p_value_div = 0.99, species2.p_value_div = 0.99,
@@ -304,7 +304,7 @@ test_that(
   {
     # All zero overlap -> filtered out with default filter_zero=TRUE
     comparison <- data.frame(
-      Species1 = c("A_1", "A_2"), Species2 = c("B_1", "B_2"),
+      gene1 = c("A_1", "A_2"), gene2 = c("B_1", "B_2"),
       hog = c(1, 2),
       species1.neigh.overlap = c(0, 0), species2.neigh.overlap = c(0, 0),
       species1.p_value_con = c(1, 1), species2.p_value_con = c(1, 1),
