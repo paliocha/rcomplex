@@ -3,6 +3,73 @@
 # Every case is a self-contained thunk of the form function(seed), so the
 # contract assertions can be written once and looped over the table.
 
+#' Two 40-gene block networks plus a 1:1 ortholog table
+#'
+#' Four disjoint blocks of ten genes, edge weights drawn once from a fixed
+#' seed so the fixture itself is deterministic. Ten genes per block is
+#' exactly `module_preservation()`'s default `min_module_size`, so every
+#' module is tested and no coverage message is emitted.
+rng_module_fixture <- function() {
+  n <- 40L
+  blk <- rep(seq_len(4L), each = 10L)
+  same <- outer(blk, blk, "==")
+  build <- function(prefix, seed) {
+    w <- withr::with_seed(seed, {
+      m <- matrix(stats::runif(n * n, 0.4, 1), n, n)
+      (m + t(m)) / 2
+    })
+    w[!same] <- 0
+    diag(w) <- 0
+    g <- paste0(prefix, seq_len(n))
+    dimnames(w) <- list(g, g)
+    list(network = w, threshold = 0.2)
+  }
+  net_a <- build("A", 11L)
+  net_b <- build("B", 12L)
+  ortho <- data.frame(
+    gene1 = rownames(net_a$network),
+    gene2 = rownames(net_b$network),
+    hog = paste0("HOG", seq_len(n)),
+    stringsAsFactors = FALSE
+  )
+  mods <- function(net) {
+    detect_modules(net,
+      resolution = 1.0, objective_function = "modularity",
+      seed = 1L
+    )
+  }
+  list(
+    net_a = net_a, net_b = net_b, ortho = ortho,
+    mods_a = mods(net_a), mods_b = mods(net_b),
+    map = resolve_ortholog_map(
+      ortho, rownames(net_a$network), rownames(net_b$network)
+    )
+  )
+}
+
+
+#' Synthetic all-pairs preservation classification over four species
+#'
+#' `preservation_matrix_test()` reads only `reference`, `test` and the
+#' effect column, so the table is written directly rather than run through
+#' a preservation pipeline that would add minutes for no extra coverage.
+rng_matrix_classification <- function() {
+  sp <- c("A1", "A2", "P1", "P2")
+  grid <- expand.grid(
+    reference = sp, test = sp, module = c("1", "2"),
+    stringsAsFactors = FALSE
+  )
+  grid <- grid[grid$reference != grid$test, , drop = FALSE]
+  trait <- c(A1 = "annual", A2 = "annual", P1 = "peren", P2 = "peren")
+  concordant <- trait[grid$reference] == trait[grid$test]
+  grid$Zsummary_std <- ifelse(concordant, 8, 2)
+  grid$Zsummary <- grid$Zsummary_std
+  grid$classification <- "conserved"
+  rownames(grid) <- NULL
+  list(classification = grid, group = trait)
+}
+
+
 #' Every exported entry point that takes a `seed`
 #'
 #' Generics forward through `...`, so the `seed` formal lives on the
@@ -42,6 +109,8 @@ rng_contract_cases <- function(fx) {
   nets <- fx$nets
   cmp <- fx$cmp
   sparse_nets <- fx$sparse_nets
+  mf <- fx$mf
+  mx <- fx$mx
   list(
     list(
       name = "summarize_comparison",
@@ -115,6 +184,68 @@ rng_contract_cases <- function(fx) {
           seed = seed,
           block = rep_len(1:3, ncol(fx$null_x))
         )$network
+      }
+    ),
+    list(
+      name = "detect_modules.default",
+      variant = "single resolution",
+      call = function(seed) {
+        detect_modules(mf$net_a,
+          resolution = 1.0, objective_function = "modularity", seed = seed
+        )$modules
+      }
+    ),
+    list(
+      name = "detect_modules.default",
+      variant = "consensus",
+      # The consensus branch returns before the .seed_scope() in
+      # detect_modules.default() and carries its own inside
+      # detect_modules_consensus(), so the source grep cannot see it and
+      # the single-resolution case never reaches it.
+      call = function(seed) {
+        detect_modules(mf$net_a,
+          resolution = c(0.8, 1.0), objective_function = "modularity",
+          n_iterations = 1L, max_consensus_iter = 1L, seed = seed
+        )$modules
+      }
+    ),
+    list(
+      name = "module_preservation",
+      call = function(seed) {
+        module_preservation(mf$mods_a, mf$net_a, mf$net_b,
+          map = mf$map, n_perm = 20L, seed = seed
+        )$preservation
+      }
+    ),
+    list(
+      name = "module_correspondence",
+      call = function(seed) {
+        module_correspondence(mf$mods_a, mf$mods_b, mf$map,
+          seed = seed
+        )$pairs
+      }
+    ),
+    list(
+      name = "preservation_paired.default",
+      call = function(seed) {
+        preservation_paired(
+          list(A = mf$mods_a, B = mf$mods_b),
+          list(A = mf$net_a, B = mf$net_b),
+          mf$ortho,
+          data.frame(species1 = "A", species2 = "B", stringsAsFactors = FALSE),
+          n_perm = 20L, seed = seed
+        )$classification
+      }
+    ),
+    list(
+      name = "preservation_matrix_test",
+      call = function(seed) {
+        # 30 draws is far too few for a usable p-value and the function
+        # says so; the contract is about the stream, not the inference.
+        suppressWarnings(preservation_matrix_test(
+          mx$classification, mx$group,
+          n_perm = 30L, enum_max = 1L, seed = seed
+        ))$free$null_distribution
       }
     )
   )

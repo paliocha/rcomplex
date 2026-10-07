@@ -446,11 +446,13 @@ test_that("permutation_hog_test rejects non-dgCMatrix Matrix classes", {
   ))
   expect_s4_class(net1_bad$network, "dsCMatrix")
   expect_error(
-    rcomplex:::permutation_hog_test(net1_bad, sparse_net(td$net2), td$comparison),
+    rcomplex:::permutation_hog_test(net1_bad, sparse_net(td$net2),
+                                    td$comparison),
     "network must be a dgCMatrix"
   )
   expect_error(
-    rcomplex:::permutation_hog_test(sparse_net(td$net1), net1_bad, td$comparison),
+    rcomplex:::permutation_hog_test(sparse_net(td$net1), net1_bad,
+                                    td$comparison),
     "network must be a dgCMatrix"
   )
 })
@@ -523,11 +525,13 @@ test_that(".adj_edges gives identical edges for dense and sparse input", {
 test_that("permutation_hog_test rejects mixed dense/sparse inputs", {
   td <- make_test_nets()
   expect_error(
-    rcomplex:::permutation_hog_test(sparse_net(td$net1), td$net2, td$comparison),
+    rcomplex:::permutation_hog_test(sparse_net(td$net1), td$net2,
+                                    td$comparison),
     "both dense or both sparse"
   )
   expect_error(
-    rcomplex:::permutation_hog_test(td$net1, sparse_net(td$net2), td$comparison),
+    rcomplex:::permutation_hog_test(td$net1, sparse_net(td$net2),
+                                    td$comparison),
     "both dense or both sparse"
   )
 })
@@ -610,8 +614,8 @@ test_that("T_obs uses the self-excluded urn and matches the R oracle", {
 
   # sparse path identical
   set.seed(3)
-  res_s <- rcomplex:::permutation_hog_test(sparse_net(td$net1), sparse_net(td$net2),
-    td$comparison,
+  res_s <- rcomplex:::permutation_hog_test(
+    sparse_net(td$net1), sparse_net(td$net2), td$comparison,
     max_permutations = 50L, min_exceedances = 5L
   )
   expect_equal(res_s, res)

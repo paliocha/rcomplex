@@ -313,7 +313,8 @@ test_that("comparison_to_edges() refuses p0 on a hypergeometric frame", {
   hy <- rcomplex:::summarize_comparison(
     rcomplex:::compare_neighborhoods(f$networks$sp1, f$networks$sp2, f$ortho)
   )$results
-  expect_error(rcomplex:::comparison_to_edges(hy, "sp1", "sp2", p0 = 0.1), "rho0")
+  expect_error(rcomplex:::comparison_to_edges(hy, "sp1", "sp2", p0 = 0.1),
+               "rho0")
 })
 
 test_that("rho0 is refused on the rank path", {
@@ -322,5 +323,6 @@ test_that("rho0 is refused on the rank path", {
   nets <- f$networks
   cmp <- rcomplex:::compare_specificity(nets$sp1, nets$sp2, f$ortho)
   res <- rcomplex:::summarize_specificity(cmp)$results
-  expect_error(rcomplex:::comparison_to_edges(res, "sp1", "sp2", rho0 = 2), "p0 sets")
+  expect_error(rcomplex:::comparison_to_edges(res, "sp1", "sp2", rho0 = 2),
+               "p0 sets")
 })

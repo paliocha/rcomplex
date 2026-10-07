@@ -377,7 +377,8 @@ reference_preservation_stats <- function(adj_ref, idx_ref, adj_test,
 }
 
 
-# ---- neighbourhood specificity reference (rcomplex:::compare_specificity()) ----
+# ---- neighbourhood specificity reference (rcomplex:::compare_specificity())
+# ----
 
 #' Reference neighbourhood specificity on dense matrices
 #'

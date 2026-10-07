@@ -127,8 +127,10 @@ test_that("p lies on the 1/n grid, AUROC in [0, 1], isolated genes NA", {
 test_that("directions restricts the columns and keeps the values", {
   f <- make_graded_nets()
   both <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho)
-  d12 <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho, directions = "1to2")
-  d21 <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho, directions = "2to1")
+  d12 <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho,
+                                        directions = "1to2")
+  d21 <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho,
+                                        directions = "2to1")
   keys <- c("gene1", "gene2", "hog")
   expect_named(d12, c(
     keys, spec_cols("species1"), "species1.n.cand",

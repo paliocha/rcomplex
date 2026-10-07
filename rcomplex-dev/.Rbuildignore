@@ -3,3 +3,4 @@
 ^rcomplex\.Rcheck$
 ^rcomplex.*\.tar\.gz$
 ^src/.*\.tmp[^/]*$
+^\.lintr$

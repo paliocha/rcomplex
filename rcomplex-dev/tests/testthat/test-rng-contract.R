@@ -39,6 +39,8 @@ rng_fx <- local({
     nets = nets,
     cmp = rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho),
     sparse_nets = lapply(nets, sparse_net),
+    mf = rng_module_fixture(),
+    mx = rng_matrix_classification(),
     null_x = null_x,
     null_net = compute_network(null_x, density = 0.1)
   )

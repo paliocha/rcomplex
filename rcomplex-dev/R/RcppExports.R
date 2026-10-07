@@ -28,6 +28,36 @@ apply_clr_to_cor_cpp <- function(cor_matrix, n_cores = 1L) {
     .Call(`_rcomplex_apply_clr_to_cor_cpp`, cor_matrix, n_cores)
 }
 
+#' Build co-classification matrix with per-pair excess
+#'
+#' @param memberships List of K IntegerVectors (1-based module IDs)
+#' @param n_genes Number of genes (N)
+#' @param return_excess If TRUE, return excess (adaptive path).
+#'   If FALSE, return raw co-classification (fixed threshold path).
+#'   Only one N x N matrix is returned, saving ~4.6 GB for N = 24k.
+#' @return List with one of coclassification or excess_coclassification,
+#'   plus expected (length-K per-resolution expected scalars)
+#' @keywords internal
+build_coclassification_cpp <- function(memberships, n_genes, return_excess = TRUE) {
+    .Call(`_rcomplex_build_coclassification_cpp`, memberships, n_genes, return_excess)
+}
+
+#' Sparse co-classification restricted to original network edges
+#'
+#' Computes co-classification and per-pair excess only for gene pairs
+#' connected in the thresholded co-expression network, reducing memory
+#' from O(N^2) to O(|E|).
+#'
+#' @param memberships List of K IntegerVectors (1-based module IDs)
+#' @param n_genes Number of genes (N)
+#' @param edges |E| x 2 IntegerMatrix of 0-based vertex indices
+#' @return List with from, to (0-based), coclassification, excess,
+#'   and expected (length-K per-resolution expected scalars)
+#' @keywords internal
+build_sparse_coclassification_cpp <- function(memberships, n_genes, edges, n_cores = 1L) {
+    .Call(`_rcomplex_build_sparse_coclassification_cpp`, memberships, n_genes, edges, n_cores)
+}
+
 #' Compute density threshold from a symmetric matrix
 #'
 #' Extracts the upper triangle (excluding diagonal) and finds the value at
@@ -156,6 +186,78 @@ hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, orth
 #' @keywords internal
 hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
     .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
+}
+
+#' Module preservation permutation engine (dense)
+#'
+#' @param net Dense network matrix.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the ortholog-mappable genes.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module, ordered to match the reference vectors.
+#' @param ref_kIM,ref_CC,ref_MAR Lists of numeric vectors: the reference
+#'   network's per-gene statistics, one vector per module.
+#' @param n_perm Number of permutations.
+#' @param n_cores Number of OpenMP threads.
+#' @param binary Treat every surviving edge as weight 1.
+#' @param store_perm Return the raw per-permutation statistic pairs.
+#' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
+#'   p_value, p_npc, p_joint, n_joint, scale.
+#'
+#' @keywords internal
+module_preservation_dense_cpp <- function(net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm) {
+    .Call(`_rcomplex_module_preservation_dense_cpp`, net, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm)
+}
+
+#' Module preservation permutation engine (sparse)
+#'
+#' @param p,i,x dgCMatrix slots.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the ortholog-mappable genes.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module, ordered to match the reference vectors.
+#' @param ref_kIM,ref_CC,ref_MAR Lists of numeric vectors: the reference
+#'   network's per-gene statistics, one vector per module.
+#' @param n_perm Number of permutations.
+#' @param n_cores Number of OpenMP threads.
+#' @param binary Treat every surviving edge as weight 1.
+#' @param store_perm Return the raw per-permutation statistic pairs.
+#' @return List with observed, perm_mean, perm_sd, n_perm_used, n_exceed,
+#'   p_value, p_npc, p_joint, n_joint, scale.
+#'
+#' @keywords internal
+module_preservation_sparse_cpp <- function(p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm) {
+    .Call(`_rcomplex_module_preservation_sparse_cpp`, p, i, x, thr, keep, module_members, ref_kIM, ref_CC, ref_MAR, n_perm, n_cores, binary, store_perm)
+}
+
+#' Per-gene intramodular statistics (dense)
+#'
+#' @param net Dense network matrix.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the genes to induce on.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module.
+#' @param binary Treat every surviving edge as weight 1.
+#' @return List with kIM, CC, MAR (one value per induced gene) and scale.
+#'
+#' @keywords internal
+module_gene_stats_dense_cpp <- function(net, thr, keep, module_members, binary) {
+    .Call(`_rcomplex_module_gene_stats_dense_cpp`, net, thr, keep, module_members, binary)
+}
+
+#' Per-gene intramodular statistics (sparse)
+#'
+#' @param p,i,x dgCMatrix slots.
+#' @param thr Analysis threshold.
+#' @param keep Ascending 0-based indices of the genes to induce on.
+#' @param module_members List of integer vectors: local gene indices per
+#'   module.
+#' @param binary Treat every surviving edge as weight 1.
+#' @return List with kIM, CC, MAR (one value per induced gene) and scale.
+#'
+#' @keywords internal
+module_gene_stats_sparse_cpp <- function(p, i, x, thr, keep, module_members, binary) {
+    .Call(`_rcomplex_module_gene_stats_sparse_cpp`, p, i, x, thr, keep, module_members, binary)
 }
 
 #' Cached mutual rank transformation

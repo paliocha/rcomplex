@@ -101,40 +101,6 @@
 }
 
 
-#' Can forked workers call into BLAS safely?
-#'
-#' Apple's Accelerate (vecLib) BLAS is not fork-safe once the parent process
-#' has run a threaded BLAS call: a forked worker that calls into BLAS again
-#' can segfault. The K = 1 test of [detect_modules()] is the one fork site
-#' whose workers do (`arma::eigs_sym()`, and `arma::eig_sym()` when it does
-#' not converge, in `sparse_excess_spectral_norm_cpp()`), and it crashed on
-#' real Pooideae leaf networks under R's Accelerate BLAS. The other fork
-#' sites (Leiden sweeps, edge rewiring) never call BLAS in the worker.
-#' `VECLIB_MAXIMUM_THREADS=1` keeps Accelerate single-threaded and makes
-#' forking safe again (verified: identical to the serial result), but only
-#' when it is in the environment before R starts (shell or `.Renviron`):
-#' Accelerate reads it once, at initialisation, so a `Sys.setenv()` inside
-#' the session passes this check without taking effect.
-#'
-#' The default reads the variable as it was when the package loaded, not
-#' at call time, so the common "set it in the console after the crash" path
-#' does not unlock forking; a value set before loading but after R started
-#' still cannot be told apart.
-#'
-#' Only Accelerate is known to crash here; `TRUE` means "not known to be
-#' unsafe", not a guarantee (MKL or an OpenBLAS without fork handlers could
-#' have the same hazard and would pass).
-#'
-#' @param blas Path of the BLAS R is linked against.
-#' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
-#' @return `FALSE` only for Accelerate not pinned to one thread.
-#' @noRd
-.blas_fork_safe <- function(blas = extSoftVersion()[["BLAS"]],
-                            veclib_threads = .load_env$veclib_threads) {
-  !grepl("Accelerate|vecLib", blas) || identical(veclib_threads, "1")
-}
-
-
 #' Check the results of an `mclapply()` call
 #'
 #' `mclapply()` returns a `try-error` for a task that failed and `NULL` for
