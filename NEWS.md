@@ -1,5 +1,14 @@
 # rcomplex (development version)
 
+- **`gene_clique_graph()` caps paralog copies per species with
+  `max_genes_per_sp` (default 10), as `find_cliques()` does.** Every
+  paralog combination is a clique of its own, so a group with `c` copies
+  in each of `S` species has up to `c^S` maximal cliques: one 219-gene
+  group ran for hours at 22 GB. A species above the cap keeps its
+  most-connected genes in the group's graph (ties to the gene that
+  entered first); only groups above the cap change, and one message per
+  call reports how many groups and genes were truncated. `Inf` disables
+  the cap.
 - **`split_layers()` splits expression into wiring and deployment
   layers.** One OLS projection per gene on a per-sample block (time point,
   tree): `wiring` holds the residuals, the input for `compute_network()`
