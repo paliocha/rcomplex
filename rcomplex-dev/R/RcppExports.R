@@ -43,6 +43,80 @@ density_threshold_cpp <- function(mat, density) {
     .Call(`_rcomplex_density_threshold_cpp`, mat, density)
 }
 
+#' Permutation test using precomputed fold-enrichment matrix
+#'
+#' @param combined Precomputed combined FE matrix (n1 x n2), where
+#'   combined\[a, b\] = FE1(b->a) + FE2(a->b).
+#' @param hog_sp1_list List of 0-based sp1 gene indices per HOG
+#' @param hog_sp2_list List of 0-based sp2 gene indices per HOG
+#' @param test_greater If TRUE, test conservation (T >= T_obs)
+#' @param min_exceedances Besag-Clifford stopping parameter
+#' @param max_permutations Maximum permutations per HOG
+#' @param n_cores Number of OpenMP threads
+#' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+#'
+#' @keywords internal
+fe_hog_permutation_test_cpp <- function(combined, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores) {
+    .Call(`_rcomplex_fe_hog_permutation_test_cpp`, combined, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores)
+}
+
+#' Permutation-based HOG-level conservation test
+#'
+#' Tests each HOG for co-expression conservation using a gene-identity
+#' permutation null with adaptive stopping (Besag & Clifford, 1991).
+#'
+#' @param net1 Co-expression network matrix for species 1 (n1 x n1)
+#' @param net2 Co-expression network matrix for species 2 (n2 x n2)
+#' @param thr1 Co-expression threshold for species 1
+#' @param thr2 Co-expression threshold for species 2
+#' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+#' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+#' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
+#' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
+#' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
+#' @param min_exceedances Besag-Clifford stopping parameter (default 50)
+#' @param max_permutations Maximum permutations per HOG (default 10000)
+#' @param n_cores Number of OpenMP threads (default 1)
+#' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+#'   regardless of network size (internal testing hook; default FALSE)
+#' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+#'
+#' @keywords internal
+hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
+    .Call(`_rcomplex_hog_permutation_test_cpp`, net1, net2, thr1, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
+}
+
+#' Permutation-based HOG-level conservation test (sparse networks)
+#'
+#' Same as [hog_permutation_test_cpp()] but takes the slots of a
+#' `dgCMatrix` (column-compressed, both triangles stored) for each network
+#' instead of a dense matrix. Column j lists the neighbours of gene j.
+#'
+#' @param p1 `@p` slot of net1 (column pointers, length n1 + 1)
+#' @param i1 `@i` slot of net1 (0-based row indices)
+#' @param x1 `@x` slot of net1 (stored values)
+#' @param thr1 Co-expression threshold for species 1
+#' @param p2 `@p` slot of net2
+#' @param i2 `@i` slot of net2
+#' @param x2 `@x` slot of net2
+#' @param thr2 Co-expression threshold for species 2
+#' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+#' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+#' @param hog_sp1_list List of integer vectors: unique 0-based sp1 indices per HOG
+#' @param hog_sp2_list List of integer vectors: unique 0-based sp2 indices per HOG
+#' @param test_greater If TRUE, test conservation (T >= T_obs); if FALSE, divergence
+#' @param min_exceedances Besag-Clifford stopping parameter (default 50)
+#' @param max_permutations Maximum permutations per HOG (default 10000)
+#' @param n_cores Number of OpenMP threads (default 1)
+#' @param force_flag_mode If TRUE, force the flag-vector intersection mode
+#'   regardless of network size (internal testing hook; default FALSE)
+#' @return DataFrame with T_obs, n_perm, n_exceed, p_value per HOG
+#'
+#' @keywords internal
+hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
+    .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
+}
+
 #' Cached mutual rank transformation
 #'
 #' Transforms a correlation matrix using mutual rank normalization.
@@ -97,6 +171,57 @@ mutual_rank_inplace_cpp <- function(sim, log_transform, abs_cor, n_cores) {
     invisible(.Call(`_rcomplex_mutual_rank_inplace_cpp`, sim, log_transform, abs_cor, n_cores))
 }
 
+#' Compare co-expression neighborhoods across species (integer-indexed)
+#'
+#' For each ortholog pair, tests the overlap of co-expression neighborhoods
+#' in both directions (sp1->sp2 and sp2->sp1) using hypergeometric tests.
+#' All gene identifiers are 0-based integer indices (string mapping done in R).
+#'
+#' @param net1 Co-expression network for species 1 (n1 x n1 matrix)
+#' @param net2 Co-expression network for species 2 (n2 x n2 matrix)
+#' @param thr1 Co-expression threshold for species 1
+#' @param thr2 Co-expression threshold for species 2
+#' @param pair_sp1_idx 0-based index into net1 for each ortholog pair
+#' @param pair_sp2_idx 0-based index into net2 for each ortholog pair
+#' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+#' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+#' @param n_cores Number of OpenMP threads (default: 1)
+#' @return DataFrame with comparison results for each ortholog pair. The
+#'   hypergeometric urn excludes the anchor gene (population n - 1, anchor
+#'   dropped from the ortholog-mapped set); `*.p_value_gt` / `*.p_value_eq`
+#'   are the ungated upper tail P(X > x) and point mass P(X = x).
+#'
+#' @keywords internal
+compare_neighborhoods_cpp <- function(net1, net2, thr1, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores = 1L) {
+    .Call(`_rcomplex_compare_neighborhoods_cpp`, net1, net2, thr1, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores)
+}
+
+#' Compare co-expression neighborhoods across species (sparse networks)
+#'
+#' Same as [compare_neighborhoods_cpp()] but takes the slots of a
+#' `dgCMatrix` (column-compressed, both triangles stored) for each network
+#' instead of a dense matrix. Column j lists the neighbours of gene j.
+#'
+#' @param p1 `@p` slot of net1 (column pointers, length n1 + 1)
+#' @param i1 `@i` slot of net1 (0-based row indices)
+#' @param x1 `@x` slot of net1 (stored values)
+#' @param thr1 Co-expression threshold for species 1
+#' @param p2 `@p` slot of net2
+#' @param i2 `@i` slot of net2
+#' @param x2 `@x` slot of net2
+#' @param thr2 Co-expression threshold for species 2
+#' @param pair_sp1_idx 0-based index into net1 for each ortholog pair
+#' @param pair_sp2_idx 0-based index into net2 for each ortholog pair
+#' @param ortho_sp1_idx 0-based net1 indices for full ortholog table
+#' @param ortho_sp2_idx 0-based net2 indices for full ortholog table
+#' @param n_cores Number of OpenMP threads (default: 1)
+#' @return DataFrame with comparison results for each ortholog pair
+#'
+#' @keywords internal
+compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores = 1L) {
+    .Call(`_rcomplex_compare_neighborhoods_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, n_cores)
+}
+
 #' Blockwise sparse mutual-rank network
 #'
 #' @param zt Standardised expression (samples x genes) such that
@@ -136,6 +261,10 @@ reduce_orthogroups_cpp <- function(expr, hog_members, non_hog_idx, cor_threshold
     .Call(`_rcomplex_reduce_orthogroups_cpp`, expr, hog_members, non_hog_idx, cor_threshold)
 }
 
+rewire_degseq_cpp <- function(p, i, x, swap_factor) {
+    .Call(`_rcomplex_rewire_degseq_cpp`, p, i, x, swap_factor)
+}
+
 #' Extract dgCMatrix slots from a dense matrix at a store threshold
 #'
 #' Keeps the off-diagonal entries `>= thr` of both triangles and returns
@@ -151,5 +280,28 @@ reduce_orthogroups_cpp <- function(expr, hog_members, non_hog_idx, cor_threshold
 #' @keywords internal
 extract_sparse_cpp <- function(m, thr, n_cores = 1L) {
     .Call(`_rcomplex_extract_sparse_cpp`, m, thr, n_cores)
+}
+
+#' Neighbourhood specificity of ortholog pairs (sparse networks)
+#'
+#' Takes the `dgCMatrix` slots of both networks (both triangles stored, no
+#' diagonal, symmetric pattern) as [compare_neighborhoods_sparse_cpp()]
+#' does. `pair_*` are the tested pairs, `ortho_*` the full ortholog
+#' mapping; all indices 0-based.
+#'
+#' @inheritParams compare_neighborhoods_sparse_cpp
+#' @param do_12,do_21 Compute direction 1 -> 2 / 2 -> 1.
+#' @param grid_frac Ascending fractions f in (0, 1]; for each, the AUROC
+#'   grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
+#'   Empty skips the grid.
+#' @return List with, per requested direction, `species1.neigh`,
+#'   `species1.mapped`, `species1.auroc`, `species1.p_value`,
+#'   `species1.jaccard`, `species1.n.cand` (one element per pair) and the
+#'   matrix `species1.auroc.grid` (pairs x fractions), and the `species2.*`
+#'   set.
+#'
+#' @keywords internal
+specificity_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac) {
+    .Call(`_rcomplex_specificity_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac)
 }
 

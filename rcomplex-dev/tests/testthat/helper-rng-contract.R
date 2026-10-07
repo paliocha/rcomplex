@@ -38,7 +38,69 @@ rng_seeded_exports <- function() {
 #'
 #' @param fx The fixture bundle built at the top of test-rng-contract.R.
 rng_contract_cases <- function(fx) {
+  td <- fx$td
+  nets <- fx$nets
+  cmp <- fx$cmp
+  sparse_nets <- fx$sparse_nets
   list(
+    list(
+      name = "summarize_comparison",
+      internal = TRUE,
+      call = function(seed) {
+        rcomplex:::summarize_comparison(cmp, seed = seed)$results
+      }
+    ),
+    list(
+      name = "find_coexpressologs.default",
+      call = function(seed) find_coexpressologs(nets, td$ortho, seed = seed)
+    ),
+    list(
+      name = "density_sweep.default",
+      call = function(seed) {
+        suppressMessages(density_sweep(nets, td$ortho,
+          multipliers = 1, method = "hypergeometric", seed = seed
+        ))$edges
+      }
+    ),
+    list(
+      name = "permutation_hog_test",
+      internal = TRUE,
+      call = function(seed) {
+        rcomplex:::permutation_hog_test(td$net1, td$net2, cmp,
+          min_exceedances = 3L, max_permutations = 40L, seed = seed
+        )
+      }
+    ),
+    list(
+      name = "coexpressolog_null",
+      variant = "pi0 none",
+      # n_perm = 2 is far below the 19 permutations p < 0.05 needs, and an
+      # unseeded call announces the seed it drew; neither is what the
+      # contract is about, and the assertions are unaffected by both.
+      call = function(seed) {
+        suppressMessages(suppressWarnings(
+          coexpressolog_null(sparse_nets, td$ortho,
+            n_perm = 2L, swap_factor = 1L, seed = seed,
+            pi0_method = "none", pval_combine = "max"
+          )
+        ))
+      }
+    ),
+    list(
+      name = "coexpressolog_null",
+      variant = "pi0 randomized",
+      # The scope covers the observed run, not just the permutation loop.
+      # Under pi0_method = "none" the observed run draws nothing, so that
+      # is the only case that would notice the scope sliding back below it.
+      call = function(seed) {
+        suppressMessages(suppressWarnings(
+          coexpressolog_null(sparse_nets, td$ortho,
+            n_perm = 2L, swap_factor = 1L, seed = seed,
+            pi0_method = "randomized", pval_combine = "max"
+          )
+        ))
+      }
+    ),
     list(
       name = "null_network",
       call = function(seed) {
