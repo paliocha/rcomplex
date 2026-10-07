@@ -123,3 +123,23 @@ test_that("a clique score is the sum of its member edges' scores", {
     expect_equal(unique(m$score), got[1])
   }
 })
+
+test_that("the permutation path joins HOG results by id, not position", {
+  f <- make_spec_nets()
+  # integer ids in reverse order: positional indexing would pick the
+  # wrong HOG's row of the p-sorted permutation table
+  f$ortho$hog <- rev(seq_len(nrow(f$ortho)))
+  pm <- find_coexpressologs(f$networks, f$ortho,
+    method = "permutation", seed = 1L
+  )
+  cmp <- rcomplex:::compare_neighborhoods(
+    f$networks$species1, f$networks$species2, f$ortho
+  )
+  hog <- withr::with_seed(1L, rcomplex:::permutation_hog_test(
+    f$networks$species1, f$networks$species2, cmp
+  ))
+  at <- match(as.character(pm$hog), hog$hog)
+  expect_false(anyNA(at))
+  expect_equal(pm$p_value, hog$p_value[at])
+  expect_equal(pm$q_value, hog$q_value[at])
+})
