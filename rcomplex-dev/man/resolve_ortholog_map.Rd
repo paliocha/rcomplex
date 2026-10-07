@@ -12,7 +12,7 @@ resolve_ortholog_map(
   sp2 = NULL,
   edges = NULL,
   cliques = NULL,
-  rank_by = c("effect_size", "jaccard", "q.value"),
+  rank_by = c("effect_size", "jaccard", "q_value"),
   alpha = 0.1
 )
 }
@@ -35,9 +35,9 @@ supplied, to select clique columns and filter edges.}
 column per species holding a gene identifier or \code{NA}, and \code{n_species}.}
 
 \item{rank_by}{Column ranking coexpressolog partners: \code{"effect_size"}
-(default), \code{"jaccard"}, or \code{"q.value"} (lower is better).}
+(default), \code{"jaccard"}, or \code{"q_value"} (lower is better).}
 
-\item{alpha}{Significance threshold applied to \code{edges$q.value} when the
+\item{alpha}{Significance threshold applied to \code{edges$q_value} when the
 table has no \code{type} column (default 0.1).}
 }
 \value{
@@ -84,10 +84,10 @@ each gene changes.
 \section{Ranking column}{
 
 \code{find_coexpressologs(method = "permutation")} computes q-values at the HOG
-level and broadcasts them to every gene pair of the HOG, so \code{q.value} is
+level and broadcasts them to every gene pair of the HOG, so \code{q_value} is
 constant within a HOG and cannot discriminate paralogs.  \code{effect_size} and
 \code{jaccard} stay pair-level under both methods and are the usable ranks;
-\code{rank_by = "q.value"} errors when the supplied table has no within-HOG
+\code{rank_by = "q_value"} errors when the supplied table has no within-HOG
 q-value variation.
 }
 

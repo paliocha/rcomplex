@@ -47,10 +47,10 @@
 #'
 #' @section Ranking column:
 #' `find_coexpressologs(method = "permutation")` computes q-values at the HOG
-#' level and broadcasts them to every gene pair of the HOG, so `q.value` is
+#' level and broadcasts them to every gene pair of the HOG, so `q_value` is
 #' constant within a HOG and cannot discriminate paralogs.  `effect_size` and
 #' `jaccard` stay pair-level under both methods and are the usable ranks;
-#' `rank_by = "q.value"` errors when the supplied table has no within-HOG
+#' `rank_by = "q_value"` errors when the supplied table has no within-HOG
 #' q-value variation.
 #'
 #' @param orthologs Data frame with columns `gene1`, `gene2`, `hog`
@@ -66,8 +66,8 @@
 #' @param cliques Optional clique table from `find_cliques()`: `hog`, one
 #'   column per species holding a gene identifier or `NA`, and `n_species`.
 #' @param rank_by Column ranking coexpressolog partners: `"effect_size"`
-#'   (default), `"jaccard"`, or `"q.value"` (lower is better).
-#' @param alpha Significance threshold applied to `edges$q.value` when the
+#'   (default), `"jaccard"`, or `"q_value"` (lower is better).
+#' @param alpha Significance threshold applied to `edges$q_value` when the
 #'   table has no `type` column (default 0.1).
 #'
 #' @return A data frame with columns:
@@ -93,7 +93,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
                                  edges = NULL, cliques = NULL,
                                  rank_by = c(
                                    "effect_size", "jaccard",
-                                   "q.value"
+                                   "q_value"
                                  ),
                                  alpha = 0.1) {
   rank_by <- match.arg(rank_by)
@@ -258,11 +258,11 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   e$gene1 <- as.character(e$gene1)
   e$gene2 <- as.character(e$gene2)
 
-  # Significance: prefer the explicit type label, fall back to q.value.
+  # Significance: prefer the explicit type label, fall back to q_value.
   if ("type" %in% names(e)) {
     e <- e[e$type == "conserved", , drop = FALSE]
-  } else if ("q.value" %in% names(e)) {
-    e <- e[!is.na(e$q.value) & e$q.value < alpha, , drop = FALSE]
+  } else if ("q_value" %in% names(e)) {
+    e <- e[!is.na(e$q_value) & e$q_value < alpha, , drop = FALSE]
   }
 
   # Only candidate pairs, and only genes the clique layer left open.
@@ -280,10 +280,10 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     return(empty)
   }
 
-  if (rank_by == "q.value") .check_pairwise_qvalues(e)
+  if (rank_by == "q_value") .check_pairwise_qvalues(e)
 
-  # Higher is better for effect_size and jaccard, lower for q.value.
-  score <- if (rank_by == "q.value") -e[[rank_by]] else e[[rank_by]]
+  # Higher is better for effect_size and jaccard, lower for q_value.
+  score <- if (rank_by == "q_value") -e[[rank_by]] else e[[rank_by]]
   e <- e[order(-score, e$gene1, e$gene2, method = "radix"), , drop = FALSE]
 
   edge_key <- paste(e$hog, e$gene1, e$gene2, sep = "\x01")
@@ -327,7 +327,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 #'
 #' @noRd
 .check_pairwise_qvalues <- function(e) {
-  multi <- split(e$q.value, e$hog)
+  multi <- split(e$q_value, e$hog)
   multi <- multi[vapply(multi, length, integer(1)) > 1L]
   if (length(multi) == 0L) {
     return(invisible(NULL))
@@ -340,7 +340,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 
   if (!any(varies)) {
     stop(
-      "rank_by = \"q.value\" cannot resolve paralogs: q-values are ",
+      "rank_by = \"q_value\" cannot resolve paralogs: q-values are ",
       "constant within every multi-copy HOG. This is expected from ",
       "find_coexpressologs(method = \"permutation\"), which computes ",
       "q-values at the HOG level. Use rank_by = \"effect_size\" or ",

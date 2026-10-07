@@ -1,0 +1,1069 @@
+#' Compute q-values from a vector of p-values
+#'
+#' Wrapper around [qvalue::qvalue()] with a choice of pi0 estimator.
+#'
+#' `"randomized"`: Storey's [qvalue::pi0est()] is run on `B` draws of
+#' randomized p-values from `p_rand_fn()` and averaged, then
+#' `qvalue(pvals, pi0 = pi0)` applies that pi0 to the exact p-values.
+#' Discrete hypergeometric p-values pile up at 1 (small expected overlaps,
+#' the `x > 1` gate), which drives Storey's estimator on them to 1; the
+#' randomized p-value `P(X > x) + U * P(X = x)` is exactly U(0, 1) under
+#' H0 (Dickhaus et al. 2012), so pi0 estimated on it is unbiased.
+#' `"storey"`: `qvalue(pvals)` (pre-0.2.0 behaviour). `"none"`: pi0 = 1,
+#' i.e. Benjamini-Hochberg.
+#'
+#' A failing `pi0est()` (e.g. every randomized p-value below the lambda
+#' range) counts as pi0 = 1 for that draw; a failing `qvalue()` fit falls
+#' back to pi0 = 1.
+#'
+#' The draws come from the global RNG and this helper takes no seed of
+#' its own: seeding is the caller's, one level up, which is what
+#' `summarize_comparison(seed = )` and `module_preservation(seed = )` do.
+#' A seed here instead of there would have to be reused across the two
+#' directional calls `summarize_comparison()` makes, giving Species1 and
+#' Species2 the same `U` draw, or be perturbed per call by some ad hoc
+#' offset. Seeding the caller keeps one seed covering every draw in the
+#' call while leaving the draws independent.
+#'
+#' @param pvals Numeric vector of p-values.
+#' @param p_rand_fn Function of no arguments returning one draw of
+#'   randomized p-values. Need not match the length of `pvals`: pi0 is
+#'   estimated on the draws and applied to `pvals` (e.g. draws over an
+#'   unfiltered superset of the tested rows). Required for
+#'   `pi0_method = "randomized"`, ignored otherwise.
+#' @param pi0_method `"randomized"` (default), `"storey"` or `"none"`.
+#' @param B Number of randomized draws averaged for pi0 (default 20).
+#' @return `list(qvalues = , pi0 = )`. With fewer than 2 p-values the
+#'   p-values are returned unchanged and `pi0` is `NA`.
+#' @noRd
+compute_qvalues <- function(pvals, p_rand_fn = NULL,
+                            pi0_method = c("randomized", "storey", "none"),
+                            B = 20L) {  # nolint
+  pi0_method <- match.arg(pi0_method)
+  if (length(pvals) < 2L) {
+    return(list(qvalues = pvals, pi0 = NA_real_))
+  }
+
+  fit_bh <- function() qvalue::qvalue(pvals, pi0 = 1)
+
+  fit <- if (pi0_method == "randomized") {
+    if (!is.function(p_rand_fn)) {
+      stop(
+        "p_rand_fn must be a function returning randomized p-values ",
+        "when pi0_method = 'randomized'"
+      )
+    }
+    B <- as.integer(B)  # nolint
+    if (length(B) != 1L || is.na(B) || B < 1L) {
+      stop("B must be a positive integer")
+    }
+    pi0_draws <- vapply(seq_len(B), function(b) {
+      p_rand <- pmin(1, pmax(0, p_rand_fn()))
+      tryCatch(qvalue::pi0est(p_rand)$pi0, error = function(e) 1)
+    }, numeric(1))
+    pi0 <- mean(pi0_draws)
+    tryCatch(qvalue::qvalue(pvals, pi0 = pi0), error = function(e) fit_bh())
+  } else if (pi0_method == "storey") {
+    tryCatch(qvalue::qvalue(pvals), error = function(e) fit_bh())
+  } else {
+    fit_bh()
+  }
+  list(qvalues = fit$qvalues, pi0 = fit$pi0)
+}
+
+
+#' Compute Besag-Clifford p-value support for discrete q-values
+#'
+#' Constructs the discrete support set for p-values produced by Besag-Clifford
+#' adaptive stopping, used by [DiscreteQvalue::DQ()].
+#'
+#' @param min_exceedances BC stopping parameter.
+#' @param max_permutations Maximum permutations.
+#' @return Sorted numeric vector of possible p-values (capped at 0.5).
+#' @noRd
+bc_pvalue_support <- function(min_exceedances, max_permutations) {
+  early <- (min_exceedances + 1) /
+    (seq.int(min_exceedances, max_permutations) + 1)
+  maxp <- seq_len(min_exceedances) / (max_permutations + 1)
+  support <- sort(unique(c(early, maxp)))
+  support[support <= 0.5]
+}
+
+
+#' Summarize neighborhood comparison results
+#'
+#' Computes q-values (Storey & Tibshirani, 2003), filters results, and
+#' computes summary
+#' statistics at gene-pair, gene, and ortholog-group levels.
+#'
+#' @section Multiple testing correction:
+#' Q-values are Storey q-values, i.e. Benjamini-Hochberg values scaled by
+#' the estimated proportion of true null hypotheses pi0. The exact
+#' hypergeometric p-values are discrete and pile up at 1 (pairs with a
+#' small expected overlap, and the canonical `x > 1` gate that reports
+#' p = 1 for overlaps of 0 or 1), which drives Storey's estimator on them
+#' to pi0 = 1 -- no gain over BH. With `pi0_method = "randomized"`
+#' (default) pi0 is instead estimated on randomized p-values
+#' `P(X > x) + U * P(X = x)` (`U ~ Uniform(0, 1)`; lower tail
+#' `P(X < x) + U * P(X = x)` for `alternative = "less"`), which are exactly
+#' uniform under the null for any \eqn{(m, k, N)} (Dickhaus et al. 2012),
+#' averaged over `B` draws of `U`, and applied to the exact p-values via
+#' `qvalue::qvalue(p, pi0 = pi0)`. The randomized draws run over ALL rows
+#' of `comparison`, before the `filter_zero` filter: uniformity holds only
+#' unconditionally, so pi0 refers to the full ortholog-pair set
+#' (conditioning the draw on overlap > 0 truncates the null distribution
+#' and deflates pi0), while the q-values themselves are computed on the
+#' filtered rows. The columns `Species*.p_value_gt` /
+#' `.p_value_eq` from [compare_neighborhoods()] supply the two terms.
+#' `"storey"` estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
+#' `"none"` fixes pi0 = 1 (BH). The randomized estimate is the only one
+#' that draws: pass `seed` to make the q-values a property of the call.
+#' With `seed = NULL` (the default) the draws come from the global RNG,
+#' so the q-values -- and every downstream call thresholded on them --
+#' move from run to run unless the caller seeded the session first.
+#'
+#' @param comparison Data frame from [compare_neighborhoods()].
+#' @param alternative Which tail to test: `"greater"` (default) for
+#'   conservation (upper-tail, uses `.p_value_con` columns) or `"less"` for
+#'   divergence (lower-tail, uses `.p_value_div` columns).
+#' @param alpha Significance threshold applied to q-values (default 0.1).
+#' @param filter_zero If `TRUE` (default for `"greater"`), remove rows where
+#'   both overlap values are zero. Defaults to `FALSE` for `"less"`.
+#' @param sp1,sp2 Optional species abbreviations. When both are provided,
+#'   \code{\link{comparison_to_edges}} is called internally and the result
+#'   is returned as a third list element \code{$edges}. This avoids a
+#'   separate \code{comparison_to_edges()} call when preparing input for
+#'   \code{find_cliques}.
+#' @param pi0_method How pi0 is estimated for the Storey q-values:
+#'   `"randomized"` (default; from randomized p-values, see the section
+#'   above), `"storey"` (from the exact p-values) or `"none"` (pi0 = 1,
+#'   Benjamini-Hochberg).
+#' @param B Number of randomized-p draws averaged for pi0 (default 20).
+#' @param seed Integer seed for the randomized-p draws, or \code{NULL}
+#'   (default) to draw from the global RNG. With a seed the q-values are
+#'   reproducible without the caller having to seed the session, which is
+#'   what makes every downstream count -- significant pairs, edges,
+#'   clique tiers -- reproducible too. \code{"storey"} and \code{"none"}
+#'   draw nothing, so a seed only pins the stream for them.
+#'
+#'   A seeded call draws from a private stream and restores the caller's
+#'   on exit, so it does not displace the caller by however many draws
+#'   \code{B} consumed and anything drawn afterwards continues from the
+#'   caller's own seed. Same contract as \code{detect_modules}.
+#' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
+#'   \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+#'   directions significant -- the reciprocal criterion of Netotea et
+#'   al. (2014)) or \code{"min"} (either direction).
+#'
+#' @param rho0 Reference fold enrichment for the \code{power} column of
+#'   \code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
+#'   when \code{sp1} and \code{sp2} are provided. \code{NULL} (default)
+#'   takes the median effect size of the called pairs.
+#' @return A list with components:
+#'   \describe{
+#'     \item{results}{Data frame with the original p-values preserved and new
+#'       q-value columns (`.q_value_con` or `.q_value_div`) added.
+#'       Rows are filtered according to `filter_zero`.}
+#'     \item{summary}{List of summary statistics at gene-pair, gene, and
+#'       ortholog-group levels, thresholded on q-values, plus `pi0`, the
+#'       estimated null proportion per direction (`c(sp1 = , sp2 = )`;
+#'       for `pi0_method = "randomized"` it is estimated from the
+#'       unfiltered comparison rows, i.e. the full ortholog-pair set;
+#'       `NA` when fewer than 2 rows remain).}
+#'     \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
+#'       Edge-format data frame from \code{comparison_to_edges()}.}
+#'   }
+#'
+#' @references
+#' Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
+#' genomewide studies. \emph{Proceedings of the National Academy of Sciences},
+#' 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
+#'
+#' Dickhaus, T., Strassburger, K., Schunk, D., Morcillo-Suarez, C., Illig,
+#' T. & Navarro, A. (2012). How to analyze many contingency tables
+#' simultaneously in genetic association studies. \emph{Statistical
+#' Applications in Genetics and Molecular Biology}, 11(4), Article 12.
+#' \doi{10.1515/1544-6115.1776}
+#'
+#' @examples
+#' \dontrun{
+#' # seed pins the randomized pi0 draws, and so the q-values
+#' summary <- summarize_comparison(comparison,
+#'   alternative = "greater",
+#'   seed = 1
+#' )
+#' sig <- summary$results[summary$results$Species1.q_value_con < 0.05, ]
+#' summary$summary$gene_pairs$reciprocal
+#' summary$summary$pi0
+#' }
+#'
+#' @keywords internal
+summarize_comparison <- function(comparison,
+                                 alternative = c("greater", "less"),
+                                 alpha = 0.1,
+                                 filter_zero = NULL,
+                                 sp1 = NULL, sp2 = NULL,
+                                 pi0_method = c(
+                                   "randomized", "storey",
+                                   "none"
+                                 ),
+                                 B = 20L,  # nolint
+                                 pval_combine = c("max", "min"),
+                                 seed = NULL,
+                                 rho0 = NULL) {
+  alternative <- match.arg(alternative)
+  pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
+
+  if (xor(is.null(sp1), is.null(sp2))) {
+    stop("Both sp1 and sp2 must be provided, or neither.")
+  }
+  .check_rho0(rho0)
+
+  # One seed covers both directional compute_qvalues() calls below, so
+  # Species1 and Species2 keep independent U draws. See .seed_scope() in
+  # R/rng.R for the package-wide contract.
+  .seed_scope(seed)
+
+  if (is.null(filter_zero)) {
+    filter_zero <- alternative == "greater"
+  }
+
+  if (!all(c(
+    "Species1", "Species2", "hog",
+    "Species1.p_value_con", "Species2.p_value_con",
+    "Species1.p_value_div", "Species2.p_value_div",
+    "Species1.neigh.overlap",
+    "Species2.neigh.overlap"
+  ) %in%
+    names(comparison))) {
+    stop("comparison must be output from compare_neighborhoods()")
+  }
+  if (pi0_method == "randomized" &&
+    !all(c(
+      "Species1.p_value_gt", "Species1.p_value_eq",
+      "Species2.p_value_gt", "Species2.p_value_eq"
+    ) %in%
+      names(comparison))) {
+    stop(
+      "pi0_method = 'randomized' needs the Species1/Species2.p_value_gt ",
+      "and .p_value_eq columns written by compare_neighborhoods() in ",
+      "rcomplex >= 0.2.0; rerun compare_neighborhoods() or use ",
+      "pi0_method = 'storey' or 'none'"
+    )
+  }
+
+  # Select p-value columns based on alternative
+  suffix <- if (alternative == "greater") "con" else "div"
+  sp1_col <- paste0("Species1.p_value_", suffix)
+  sp2_col <- paste0("Species2.p_value_", suffix)
+
+  res <- comparison
+
+  # Filter zero-overlap rows
+  if (filter_zero) {
+    res <- res[
+      res$Species1.neigh.overlap > 0 &
+        res$Species2.neigh.overlap > 0, ,
+      drop = FALSE
+    ]
+  }
+
+  if (nrow(res) == 0) {
+    return(.summary_empty(res, sp1, sp2))
+  }
+
+  # Compute q-values on selected p-value columns. Randomized p-value for
+  # pi0: upper tail P(X > x) + U * P(X = x), or lower tail
+  # P(X < x) + U * P(X = x) = (p_value_div - p_value_eq) + U * p_value_eq.  # nolint
+  # The draw runs over the UNFILTERED comparison rows: uniformity under
+  # H0 holds only unconditionally, and conditioning on overlap > 0
+  # (filter_zero) truncates the null to [0, P(X > 0)) and deflates pi0
+  # (anti-conservative q-values). pi0 therefore refers to the full
+  # ortholog-pair set; the q-values are computed on the filtered rows.
+  q1_col <- sub("p_value", "q_value", sp1_col)
+  q2_col <- sub("p_value", "q_value", sp2_col)
+  rand_fn <- function(sp) {
+    if (pi0_method != "randomized") {
+      return(NULL)
+    }
+    eq <- comparison[[paste0(sp, ".p_value_eq")]]
+    base <- if (alternative == "greater") {
+      comparison[[paste0(sp, ".p_value_gt")]]
+    } else {
+      comparison[[paste0(sp, ".p_value_div")]] - eq
+    }
+    function() base + stats::runif(length(base)) * eq
+  }
+  qv1 <- compute_qvalues(res[[sp1_col]], rand_fn("Species1"), pi0_method, B)
+  qv2 <- compute_qvalues(res[[sp2_col]], rand_fn("Species2"), pi0_method, B)
+  res[[q1_col]] <- qv1$qvalues
+  res[[q2_col]] <- qv2$qvalues
+
+  out <- list(
+    results = res,
+    summary = c(
+      .summary_counts(res, q1_col, q2_col, alpha),
+      list(pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0))
+    )
+  )
+
+  if (!is.null(sp1) && !is.null(sp2)) {
+    out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha,
+      pval_combine = pval_combine, rho0 = rho0
+    )
+  }
+
+  out
+}
+
+
+#' Significant-call counts at gene-pair, gene and orthogroup level
+#'
+#' The count block shared by [summarize_comparison()] and
+#' [summarize_specificity()]: a gene or orthogroup counts as called when
+#' its best (minimum) q-value is below `alpha`; `reciprocal` requires both
+#' directions.
+#'
+#' @param res Results frame carrying the two q-value columns.
+#' @param q1_col,q2_col Names of the Species1 / Species2 q-value columns.
+#' @param alpha Significance threshold on q-values.
+#' @return `list(gene_pairs = , genes = , orthogroups = )`.
+#' @noRd
+.summary_counts <- function(res, q1_col, q2_col, alpha) {
+  count_sig <- function(qvals, groups) {
+    sum(tapply(qvals, groups, min) < alpha)
+  }
+  q1 <- res[[q1_col]]
+  q2 <- res[[q2_col]]
+  max_q <- pmax(q1, q2)
+  list(
+    gene_pairs = list(
+      sp1 = sum(q1 < alpha),
+      sp2 = sum(q2 < alpha),
+      reciprocal = sum(q1 < alpha & q2 < alpha),
+      total = nrow(res)
+    ),
+    genes = list(
+      sp1 = count_sig(q1, res$Species1),
+      sp2 = count_sig(q2, res$Species2),
+      reciprocal_sp1 = count_sig(max_q, res$Species1),
+      reciprocal_sp2 = count_sig(max_q, res$Species2)
+    ),
+    orthogroups = list(
+      sp1 = count_sig(q1, res$hog),
+      sp2 = count_sig(q2, res$hog),
+      reciprocal = count_sig(max_q, res$hog),
+      total = length(unique(res$hog))
+    )
+  )
+}
+
+
+#' The summary of a comparison with no testable rows
+#'
+#' Zero counts, undefined pi0, and an empty edge frame when `sp1` and
+#' `sp2` are given.
+#'
+#' @param res The (empty) results frame.
+#' @param sp1,sp2 Species abbreviations or `NULL`.
+#' @return `list(results = , summary = )`, plus `edges` when named.
+#' @noRd
+.summary_empty <- function(res, sp1, sp2) {
+  out <- list(
+    results = res,
+    summary = list(
+      gene_pairs = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
+      genes = list(
+        sp1 = 0L, sp2 = 0L,
+        reciprocal_sp1 = 0L, reciprocal_sp2 = 0L
+      ),
+      orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
+      pi0 = c(sp1 = NA_real_, sp2 = NA_real_)
+    )
+  )
+  if (!is.null(sp1) && !is.null(sp2)) {
+    out$edges <- data.frame(
+      gene1 = character(0), gene2 = character(0),
+      species1 = character(0), species2 = character(0),
+      hog = character(0), q_value = numeric(0),
+      effect_size = numeric(0), jaccard = numeric(0),
+      power = numeric(0), type = character(0)
+    )
+  }
+  out
+}
+
+
+#' Empirical p-values against a null draw
+#'
+#' `(1 + #{p0 <= p}) / (1 + n0)`, the permutation-style estimate that
+#' never returns 0. `NA` null draws (anchors the null network could not
+#' test) are not draws and are dropped.
+#'
+#' @param p Observed p-values.
+#' @param p0 Null p-values.
+#' @return Numeric vector the length of `p`.
+#' @noRd
+.p_empirical <- function(p, p0) {
+  p0 <- sort(p0)
+  (1 + findInterval(p, p0)) / (1 + length(p0))
+}
+
+
+#' Summarize a specificity comparison
+#'
+#' Computes q-values for the per-direction specificity p-values from
+#' [compare_specificity()], optionally calibrated against a shuffled
+#' partner null, and the same gene-pair, gene and orthogroup counts as
+#' [summarize_comparison()]. Rows where either direction is `NA` (an
+#' anchor gene with no mapped neighbours) are dropped before testing.
+#'
+#' @section Multiple testing correction:
+#' With `null_p`, each direction's p-values are first made empirical
+#' against the p-values of the same comparison run against a shuffled
+#' partner network ([null_network()]), pooled over pairs:
+#' `p.emp = (1 + #{null p <= p}) / (1 + n_null)`. Q-values are then
+#' Storey q-values on the empirical (or, without `null_p`, the raw)
+#' p-values, with Benjamini-Hochberg as the fallback when the pi0 fit
+#' fails.
+#'
+#' No discrete FDR correction is applied. All tests of one direction
+#' share one support, the `1/n2` grid of the rank p-value, so the
+#' Liang discrete q-values of `DiscreteQvalue` gain nothing over Storey,
+#' and the Doehler-Durand-Roquain procedures, which exploit supports that
+#' differ between tests (as the hypergeometric p-values of
+#' [summarize_comparison()] do), have nothing to exploit. The raw rank
+#' p-values are not uniform under the null; the empirical step against
+#' the shuffled partner calibrates them before Storey is applied.
+#'
+#' @param comparison Data frame from [compare_specificity()].
+#' @param null_p `NULL`, or `list(sp1 = , sp2 = )` of null p-values for
+#'   the 1 -> 2 and 2 -> 1 directions from the shuffled partner. `NA`
+#'   entries are dropped.
+#' @param alpha Significance threshold applied to q-values (default 0.1).
+#' @param pi0_method `"storey"` (default) estimates pi0 from the p-values;
+#'   `"none"` fixes pi0 = 1 (Benjamini-Hochberg).
+#' @param p0 Reference raw p for the `power` column of `$edges`: the
+#'   rank among its candidates at which a conserved ortholog is assumed to
+#'   sit, as a fraction in (0, 1); values below 1e-5 are read as 1e-5, the
+#'   edge of the AUROC grid. `NULL` (default) uses, per direction, the
+#'   median raw p of the pairs called and significant in that direction --
+#'   the rank-test counterpart of `rho0`.
+#' @inheritParams summarize_comparison
+#' @return A list with components:
+#'   \describe{
+#'     \item{results}{The complete rows of `comparison` with
+#'       `Species1.p.emp` / `Species2.p.emp` (when `null_p` is given) and
+#'       `Species1.q_value_con` / `Species2.q_value_con` added.}
+#'     \item{summary}{The counts of [summarize_comparison()], `pi0` per
+#'       direction, `n_null` (null draws used per direction, 0 without
+#'       `null_p`) and `n_dropped` (rows with an `NA` p-value).}
+#'     \item{edges}{(Only when `sp1` and `sp2` are provided.) Edge frame
+#'       from [comparison_to_edges()]. `power` is the probability that
+#'       the pair would have been called had the ortholog ranked at raw p
+#'       `p0` among its candidates: per direction, the anchor's
+#'       `auroc.grid` (log-linear interpolation) gives the AUROC at `p0`
+#'       and at the largest called raw p, and the ortholog's AUROC over
+#'       its `mapped` genes is taken as normal around the former with the
+#'       Hanley-McNeil (1982) standard error. It is at least 0.5 when
+#'       `p0` lies below the call threshold (always so for the default),
+#'       and like the hypergeometric
+#'       power it orders pairs by how detectable conservation is rather
+#'       than giving calibrated rates. Directions combine like
+#'       `pval_combine`. A direction with no call gives power 0 for that
+#'       direction (nothing was detectable there, so a miss is not
+#'       evidence): the edge power under `"max"`, while `"min"` takes the
+#'       other direction. The clique
+#'       classifiers read it through `min_power`.}
+#'   }
+#'
+#' @references
+#' Hanley, J. A. & McNeil, B. J. (1982). The meaning and use of the area
+#' under a receiver operating characteristic (ROC) curve. \emph{Radiology},
+#' 143(1), 29--36. \doi{10.1148/radiology.143.1.7063747}
+#'
+#' Suresh, H., Crow, M., Jorstad, N., Hodge, R., Lein, E., Dobin, A.,
+#' Bakken, T. & Gillis, J. (2023). Comparative single-cell transcriptomic
+#' analysis of primate brains highlights human-specific regulatory
+#' evolution. \emph{Nature Ecology & Evolution}, 7(11), 1930--1943.
+#' \doi{10.1038/s41559-023-02186-7}
+#'
+#' Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
+#' genomewide studies. \emph{Proceedings of the National Academy of
+#' Sciences}, 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
+#'
+#' @keywords internal
+summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
+                                  pi0_method = c("storey", "none"),
+                                  sp1 = NULL, sp2 = NULL,
+                                  pval_combine = c("max", "min"),
+                                  p0 = NULL) {
+  pi0_method <- match.arg(pi0_method)
+  pval_combine <- match.arg(pval_combine)
+  .check_p0(p0)
+  if (xor(is.null(sp1), is.null(sp2))) {
+    stop("Both sp1 and sp2 must be provided, or neither.")
+  }
+  p_cols <- c("Species1.p_value", "Species2.p_value")
+  if (!all(c("Species1", "Species2", "hog", p_cols) %in% names(comparison))) {
+    stop("comparison must be output from compare_specificity()")
+  }
+  if (!is.null(null_p)) {
+    if (!is.list(null_p) || !all(c("sp1", "sp2") %in% names(null_p))) {
+      stop("null_p must be NULL or list(sp1 = , sp2 = )")
+    }
+    null_p <- lapply(null_p[c("sp1", "sp2")], function(p) p[!is.na(p)])
+  }
+
+  keep <- stats::complete.cases(comparison[p_cols])
+  res <- comparison[keep, , drop = FALSE]
+  n_dropped <- sum(!keep)
+  n_null <- c(sp1 = length(null_p$sp1), sp2 = length(null_p$sp2))
+
+  if (nrow(res) == 0L) {
+    out <- .summary_empty(res, sp1, sp2)
+    out$summary$n_null <- n_null
+    out$summary$n_dropped <- n_dropped
+    return(out)
+  }
+
+  p1 <- res$Species1.p_value
+  p2 <- res$Species2.p_value
+  if (!is.null(null_p)) {
+    p1 <- res$Species1.p.emp <- .p_empirical(p1, null_p$sp1)
+    p2 <- res$Species2.p.emp <- .p_empirical(p2, null_p$sp2)
+  }
+  qv1 <- compute_qvalues(p1, pi0_method = pi0_method)
+  qv2 <- compute_qvalues(p2, pi0_method = pi0_method)
+  res$Species1.q_value_con <- qv1$qvalues
+  res$Species2.q_value_con <- qv2$qvalues
+
+  out <- list(
+    results = res,
+    summary = c(
+      .summary_counts(
+        res, "Species1.q_value_con", "Species2.q_value_con",
+        alpha
+      ),
+      list(
+        pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0),
+        n_null = n_null,
+        n_dropped = n_dropped
+      )
+    )
+  )
+  if (!is.null(sp1) && !is.null(sp2)) {
+    has_grid <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+                      names(res))
+    out$edges <- comparison_to_edges(res, sp1, sp2,
+      alternative = "greater", alpha = alpha, pval_combine = pval_combine,
+      p0 = if (has_grid) p0 else NULL
+    )
+  }
+  out
+}
+
+
+# ---- GPU-accelerated fold-enrichment precomputation -------------------------
+
+#' Edge indices of a thresholded network
+#'
+#' Torch-free part of `adj_to_gpu()`: 1-based row/column indices of the
+#' entries `>= thr`, self-edges excluded, for a dense matrix or a
+#' `dgCMatrix` (stored entries only: rows from `@i`, columns expanded from
+#' `@p`). Self-edges are dropped by index (O(nnz)) rather than via
+#' `row()`/`col()` (two n x n integer allocations); hand-built networks may
+#' store diag = 1.
+#'
+#' @param net_mat Co-expression matrix (n x n), dense or `dgCMatrix`.
+#' @param thr Co-expression threshold.
+#' @return `list(rows = , cols = )`, integer vectors (1-based).
+#' @noRd
+.adj_edges <- function(net_mat, thr) {
+  if (inherits(net_mat, "dgCMatrix")) {
+    rows <- net_mat@i + 1L
+    cols <- rep.int(seq_len(ncol(net_mat)), diff(net_mat@p))
+    keep <- net_mat@x >= thr & rows != cols
+  } else {
+    edges <- which(net_mat >= thr, arr.ind = TRUE, useNames = FALSE)
+    rows <- edges[, 1L]
+    cols <- edges[, 2L]
+    keep <- rows != cols
+  }
+  list(rows = rows[keep], cols = cols[keep])
+}
+
+#' Build binary adjacency matrix on GPU from sparse edge list
+#'
+#' Thresholds a co-expression matrix in R and transfers only the edge indices
+#' to GPU, avoiding a full dense n x n copy. At 3 percent density this is
+#' ~125 MB of int64 indices vs ~4 GB dense float32.
+#'
+#' @param net_mat Co-expression matrix (n x n), dense or `dgCMatrix`.
+#' @param thr Co-expression threshold.
+#' @param dtype Torch dtype for the result.
+#' @param device Torch device string.
+#' @return Binary adjacency tensor (n x n) on `device`, diagonal = 0.
+#' @noRd
+adj_to_gpu <- function(net_mat, thr, dtype, device) {
+  n <- nrow(net_mat)
+  e <- .adj_edges(net_mat, thr)
+  adj <- torch::torch_zeros(n, n, dtype = dtype, device = device)
+  if (length(e$rows) > 0L) {
+    rows_t <- torch::torch_tensor(e$rows,
+      dtype = torch::torch_long(),
+      device = device
+    )
+    cols_t <- torch::torch_tensor(e$cols,
+      dtype = torch::torch_long(),
+      device = device
+    )
+    adj$index_put_(
+      list(rows_t, cols_t),
+      torch::torch_ones(length(e$rows),
+        dtype = dtype,
+        device = device
+      )
+    )
+    rm(rows_t, cols_t)
+  }
+  adj
+}
+
+#' Build combined fold-enrichment matrix on GPU via torch
+#'
+#' Precomputes `combined[a, b] = FE1(b->a) + FE2(a->b)` using tiled GEMM
+#' to bound GPU memory. Each direction is processed in row-strips of
+#' `tile_size`, keeping at most one tile of intermediates in VRAM at a time.
+#'
+#' @param net1_mat,net2_mat Co-expression matrices (n1 x n1, n2 x n2).
+#' @param thr1,thr2 Co-expression thresholds.
+#' @param ortho_sp1_idx,ortho_sp2_idx 0-based ortholog gene indices.
+#' @param tile_size Number of rows per tile (default 4096). Smaller values
+#'   reduce peak VRAM at the cost of more kernel launches.
+#' @return Numeric matrix (n1 x n2) — the combined fold-enrichment matrix.
+#' @noRd
+build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
+                                    ortho_sp1_idx, ortho_sp2_idx,
+                                    tile_size = 4096L) {
+  n1 <- nrow(net1_mat)
+  n2 <- nrow(net2_mat)
+  dd <- torch_device_dtype()
+  device <- dd$device
+  dtype <- dd$dtype
+
+  adj1 <- adj_to_gpu(net1_mat, thr1, dtype, device)
+  rm(net1_mat)
+  adj2 <- adj_to_gpu(net2_mat, thr2, dtype, device)
+  rm(net2_mat)
+  .gpu_gc()
+
+  # Ortholog indicator (n2 x n1)
+  ortho <- torch::torch_zeros(n2, n1, dtype = dtype, device = device)
+  rows_t <- torch::torch_tensor(ortho_sp2_idx + 1L,
+    dtype = torch::torch_long(),
+    device = device
+  )
+  cols_t <- torch::torch_tensor(ortho_sp1_idx + 1L,
+    dtype = torch::torch_long(),
+    device = device
+  )
+  ortho$index_put_(
+    list(rows_t, cols_t),
+    torch::torch_ones(length(ortho_sp1_idx),
+      dtype = dtype,
+      device = device
+    )
+  )
+  rm(rows_t, cols_t)
+
+  # Precompute neighborhood sizes (1-D vectors, negligible memory)
+  neigh1_sz <- adj1$sum(dim = 2L)
+  neigh2_sz <- adj2$sum(dim = 2L)
+
+  result <- matrix(0, nrow = n1, ncol = n2)
+
+  torch::with_no_grad({
+    # --- Direction 1: FE1[b, a] tiled over rows of adj2 ---
+    # reach1[b, :] = (adj2[b, :] @ ortho > 0),
+    # overlap1[b, :] = reach1[b, :] @ adj1
+    for (b_start in seq(1L, n2, by = tile_size)) {
+      b_end <- min(b_start + tile_size - 1L, n2)
+      adj2_tile <- adj2[b_start:b_end, ]
+      reach <- (adj2_tile$mm(ortho) > 0)$to(dtype = dtype)
+      rm(adj2_tile)
+      overlap <- reach$mm(adj1)
+      reach_sz <- reach$sum(dim = 2L)
+
+      # Self-excluded urn: gene a leaves the reachable set of b (k drops by
+      # one where reach[b, a] = 1) and the population (n1 - 1). When a is
+      # the only reachable gene E = 0 -> clamp; overlap is 0 there anyway.
+      E <- (reach_sz$unsqueeze(2L) - reach) * neigh1_sz$unsqueeze(1L) /  # nolint
+        (n1 - 1)
+      rm(reach)
+      FE_tile <- overlap / E$clamp(min = 1e-30)  # nolint
+      rm(overlap, E, reach_sz)
+
+      # FE1 is (n2 x n1); combined needs FE1^T, i.e. columns b_start:b_end
+      result[, b_start:b_end] <- as.matrix(
+        FE_tile$t()$cpu()$to(dtype = torch::torch_float64())
+      )
+      rm(FE_tile)
+    }
+
+    # Free ortho, compute transpose for direction 2
+    ortho_t <- ortho$t()$contiguous()
+    rm(ortho)
+    .gpu_gc()
+
+    # --- Direction 2: FE2[a, b] tiled over rows of adj1 ---
+    # reach2[a, :] = (adj1[a, :] @ ortho^T > 0),
+    # overlap2[a, :] = reach2[a, :] @ adj2
+    for (a_start in seq(1L, n1, by = tile_size)) {
+      a_end <- min(a_start + tile_size - 1L, n1)
+      adj1_tile <- adj1[a_start:a_end, ]
+      reach <- (adj1_tile$mm(ortho_t) > 0)$to(dtype = dtype)
+      rm(adj1_tile)
+      overlap <- reach$mm(adj2)
+      reach_sz <- reach$sum(dim = 2L)
+
+      E <- (reach_sz$unsqueeze(2L) - reach) * neigh2_sz$unsqueeze(1L) /  # nolint
+        (n2 - 1)
+      rm(reach)
+      FE_tile <- overlap / E$clamp(min = 1e-30)  # nolint
+      rm(overlap, E, reach_sz)
+
+      # FE2 is (n1 x n2); accumulate directly
+      result[a_start:a_end, ] <- result[a_start:a_end, ] + as.matrix(
+        FE_tile$cpu()$to(dtype = torch::torch_float64())
+      )
+      rm(FE_tile)
+    }
+  })
+
+  rm(adj1, adj2, ortho_t, neigh1_sz, neigh2_sz)
+  .gpu_gc()
+  result
+}
+
+
+#' Permutation-based HOG-level conservation/divergence test
+#'
+#' Tests each Hierarchical Ortholog Group (HOG) for co-expression conservation
+#' (or divergence) using a gene-identity permutation null with adaptive stopping
+#' (Besag & Clifford, 1991).
+#'
+#' @section Statistical method:
+#' The null hypothesis is that the specific gene identities in a HOG carry no
+#' information about co-expression conservation: replacing the HOG's genes with
+#' randomly chosen genes from the same networks would yield equally large
+#' neighborhood overlap.
+#'
+#' For each permutation, M random species-1 genes and N random species-2 genes
+#' are drawn (matching the HOG's gene counts), and the sum-of-fold-enrichments
+#' statistic T is computed over all M x N pair x direction combinations. Each
+#' fold enrichment is \eqn{x / E} with \eqn{E = m k / (n - 1)}: the anchor
+#' gene leaves the ortholog-reachable set (\eqn{k}) and the population
+#' (\eqn{n - 1}), as in [compare_neighborhoods()]. The permutation p-value is
+#' the fraction of permuted T values that exceed (or fall below, for
+#' divergence) the observed T.
+#'
+#' The Besag & Clifford (1991) sequential stopping rule terminates permutations
+#' early once `min_exceedances` permutation statistics exceed T_obs,
+#' providing efficient computation without sacrificing accuracy for clearly
+#' significant or non-significant HOGs.
+#'
+#' The internal option `options(rcomplex.force_flag_vector = TRUE)` forces
+#' the C++ backends into the flag-vector intersection mode normally reserved
+#' for networks with more than 100,000 genes (testing hook; results are
+#' identical to the default bit-vector mode). It has no effect when
+#' `use_torch = TRUE`.
+#'
+#' @section Why not Fisher's method:
+#' Fisher's method for combining p-values assumes independent tests. Within a
+#' HOG, pair-level hypergeometric tests share network neighborhoods (genes
+#' co-expressed with one HOG member are often co-expressed with another) and
+#' share the ortholog mapping. This non-independence inflates Fisher's statistic
+#' and produces anti-conservative p-values. The permutation approach is exact
+#' regardless of the dependency structure.
+#'
+#' @section GPU acceleration:
+#' When `use_torch = TRUE`, the fold-enrichment matrix is precomputed on GPU
+#' via GEMM (CUDA, MPS, or CPU fallback). This converts each permutation from
+#' O(M*N*n_words) bit-vector intersections to O(M*N) table lookups — typically
+#' a 100-300x overall speedup. Requires the
+#' \href{https://torch.mlverse.org/}{torch} package.
+#'
+#' On Apple Silicon (MPS), torch uses float32 because Metal does not support
+#' float64. The fold-enrichment matrix is numerically exact in float32 (all
+#' intermediate values are small integers), so `permutation_hog_test(use_torch
+#' = TRUE)` is safe on MPS. However, [compute_network()] correlation in
+#' float32 can cause rank-swap artifacts in Spearman + MR normalization. If
+#' you need exact Spearman + MR correlation on Apple Silicon, use
+#' `compute_network(use_torch = FALSE)` with `permutation_hog_test(use_torch =
+#' TRUE)` — the 100-300x permutation speedup comes from the FE precomputation
+#' and table-lookup architecture, not from GPU-accelerated correlation. On
+#' CUDA, both functions use float64 with no precision tradeoff.
+#'
+#' @section Multiple testing correction:
+#' Q-values are computed using the Liang (2016) discrete q-value method via
+#' [DiscreteQvalue::DQ()], which accounts for the discrete support of
+#' Besag & Clifford p-values. The standard Storey & Tibshirani (2003)
+#' pi0-adaptive method cannot be used here because the adaptive stopping
+#' rule produces p-values that are valid (super-uniform under the null) but
+#' **not** uniformly distributed: the negative binomial stopping concentrates
+#' null p-values in the 0.1--0.5 range and depletes the right tail
+#' (p > 0.9), causing Storey's pi0 estimator to severely underestimate pi0.
+#' The Liang method estimates pi0 using the discrete support structure and
+#' is correctly calibrated (pi0 = 1 on null simulations).
+#'
+#' @param net1 Network object for species 1 (output of [compute_network()]).
+#' @param net2 Network object for species 2 (output of [compute_network()]).
+#' @param comparison Data frame from [compare_neighborhoods()] --- raw p-values,
+#'   **not** FDR-corrected. Used to define HOG structure and extract
+#'   effect sizes.
+#' @param alternative Which tail to test: `"greater"` (default) for conservation
+#'   or `"less"` for divergence.
+#' @param min_exceedances Besag & Clifford stopping parameter: stop permuting
+#'   once this many permutation statistics exceed (or fall below) T_obs.
+#'   Higher values give more precise p-values but take longer (default 50).
+#' @param max_permutations Maximum permutations per HOG (default 10000).
+#' @param n_cores Number of threads for parallel computation (default 1).
+#' @param use_torch If `TRUE`, precompute the fold-enrichment matrix on GPU
+#'   via torch, then run permutations as fast table lookups. Requires the
+#'   \href{https://torch.mlverse.org/}{torch} package. Default `FALSE`.
+#' @param seed Integer seed for the permutation draws, or `NULL` (default)
+#'   to draw from the ambient RNG stream and leave it advanced. The C++
+#'   engine seeds one RNG per thread from R's stream before the parallel
+#'   region, so a seed reproduces the run at `n_cores = 1` only: above that
+#'   the OpenMP guided schedule decides which thread takes which HOG, and
+#'   the pairing of thread streams to HOGs still moves between runs. A
+#'   seeded call restores the caller's stream on exit --- the package-wide
+#'   contract, see `detect_modules()`.
+#'
+#' @return A data frame with one row per HOG, ordered by p-value, with columns:
+#'   \describe{
+#'     \item{hog}{HOG identifier}
+#'     \item{n_pairs}{Number of ortholog pairs (M x N) in this HOG}
+#'     \item{n_sp1}{Number of unique species-1 genes (M)}
+#'     \item{n_sp2}{Number of unique species-2 genes (N)}
+#'     \item{T_obs}{Observed sum-of-fold-enrichments statistic}
+#'     \item{n_perm}{Number of permutations performed (may be < max_permutations
+#'       due to adaptive stopping)}
+#'     \item{n_exceed}{Number of permutation statistics exceeding T_obs}
+#'     \item{mean_eff}{Mean geometric-mean effect size across pairs}
+#'     \item{p_value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
+#'     \item{q_value}{Discrete q-value (Liang, 2016) accounting for
+#'       Besag-Clifford support}
+#'   }
+#'
+#' @references
+#' Besag, J. & Clifford, P. (1991). Sequential Monte Carlo p-values.
+#' \emph{Biometrika}, 78(2), 301--304. \doi{10.1093/biomet/78.2.301}
+#'
+#' Liang, K. (2016). False discovery rate estimation for large-scale
+#' homogeneous discrete p-values. \emph{Biometrics}, 72(2), 639--648.
+#' \doi{10.1111/biom.12429}
+#'
+#' @examples
+#' \dontrun{
+#' hog_results <- permutation_hog_test(net1, net2, comparison,
+#'   n_cores = 8L, use_torch = TRUE
+#' )
+#' significant <- hog_results[hog_results$q_value < 0.1, ]
+#' }
+#'
+#' @keywords internal
+permutation_hog_test <- function(net1, net2, comparison,
+                                 alternative = c("greater", "less"),
+                                 min_exceedances = 50L,
+                                 max_permutations = 10000L,
+                                 n_cores = 1L,
+                                 use_torch = FALSE,
+                                 seed = NULL) {
+  alternative <- match.arg(alternative)
+  min_exceedances <- as.integer(min_exceedances)
+  max_permutations <- as.integer(max_permutations)
+
+  # The C++ engines seed their per-thread RNGs from R::runif, so the ambient
+  # stream is what they consume. See .seed_scope() in R/rng.R.
+  .seed_scope(seed)
+
+  if (!is.list(net1) || is.null(net1$network)) {
+    stop("net1 must be a network object from compute_network()")
+  }
+  if (!is.list(net2) || is.null(net2$network)) {
+    stop("net2 must be a network object from compute_network()")
+  }
+  required <- c(
+    "Species1", "Species2", "hog",
+    "Species1.effect_size", "Species2.effect_size"
+  )
+  missing_cols <- setdiff(required, names(comparison))
+  if (length(missing_cols) > 0) {
+    stop(
+      "comparison missing required columns: ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
+  if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
+    stop(
+      "use_torch = TRUE requires the torch package ",
+      "(install.packages('torch'); torch::install_torch())"
+    )
+  }
+  if (use_torch && requireNamespace("torch", quietly = TRUE) &&
+        torch::backends_mps_is_available()) {
+    mps_lossy <- vapply(list(net1, net2), function(net) {
+      cm <- net$params$cor_method %||% ""
+      nm <- net$params$norm_method %||% ""
+      cm == "spearman" && nm == "mr"
+    }, logical(1))
+    if (any(mps_lossy)) {
+      warning("Input networks use Spearman + MR which can produce ",
+        "rank-swap artifacts in MPS float32. Consider recomputing ",
+        "networks with use_torch = FALSE or cor_method = 'pearson'. ",
+        "(This warning is heuristic: it checks network params, not ",
+        "whether MPS was actually used during compute_network().)",
+        call. = FALSE
+      )
+    }
+  }
+  if (nrow(comparison) == 0) {
+    return(data.frame(
+      hog = character(0), n_pairs = integer(0),
+      n_sp1 = integer(0), n_sp2 = integer(0),
+      T_obs = numeric(0), n_perm = integer(0),
+      n_exceed = integer(0), mean_eff = numeric(0),
+      p_value = numeric(0), q_value = numeric(0)
+    ))
+  }
+
+  net1_mat <- net1$network
+  net2_mat <- net2$network
+  thr1 <- net1$threshold
+  thr2 <- net2$threshold
+  net1_genes <- rownames(net1_mat)
+  net2_genes <- rownames(net2_mat)
+
+  # Storage class validation + store guard for both backends; C++ argument
+  # lists for the non-torch backends
+  a1 <- .net_cpp_args(net1, thr1)
+  a2 <- .net_cpp_args(net2, thr2)
+  sparse <- .net_pair_sparse(net1, net2)
+
+  idx1 <- stats::setNames(seq_along(net1_genes) - 1L, net1_genes)
+  idx2 <- stats::setNames(seq_along(net2_genes) - 1L, net2_genes)
+
+  # Filter comparison to genes present in both networks — gene names may
+  # not match after upstream merging/reduction of multi-copy orthologs.
+  # NA indices from missing genes would cause index_put_ failures in torch
+  # and undefined behavior in C++.
+  in_net <- comparison$Species1 %in% net1_genes &
+    comparison$Species2 %in% net2_genes
+  if (!all(in_net)) {
+    n_dropped <- sum(!in_net)
+    message("Dropped ", n_dropped, " ortholog pairs with genes not in networks")
+    comparison <- comparison[in_net, , drop = FALSE]
+  }
+
+  # Deduplicated ortholog mapping for reachable-set construction
+  ortho_pairs <- unique(comparison[, c("Species1", "Species2")])
+  ortho_sp1_idx <- as.integer(idx1[ortho_pairs$Species1])
+  ortho_sp2_idx <- as.integer(idx2[ortho_pairs$Species2])
+
+  # Per-HOG unique gene indices
+  hog_groups <- split(seq_len(nrow(comparison)), comparison$hog)
+  hog_names <- names(hog_groups)
+
+  hog_sp1_list <- lapply(hog_groups, function(rows) {
+    as.integer(unique(idx1[comparison$Species1[rows]]))
+  })
+  hog_sp2_list <- lapply(hog_groups, function(rows) {
+    as.integer(unique(idx2[comparison$Species2[rows]]))
+  })
+
+  # Internal testing hook: force the flag-vector intersection mode of the
+  # C++ engines (the max(n1, n2) > 100000 path) on small networks
+  force_flag <- isTRUE(getOption("rcomplex.force_flag_vector"))
+
+  if (use_torch) {
+    .gpu_gc()
+    combined <- build_combined_fe_torch(
+      net1_mat, net2_mat, thr1, thr2,
+      ortho_sp1_idx, ortho_sp2_idx
+    )
+    rm(net1_mat, net2_mat)
+    .gpu_gc()
+    on.exit(
+      {
+        if (exists("combined", inherits = FALSE)) rm(combined)
+        gc()
+      },
+      add = TRUE
+    )
+    perm_result <- fe_hog_permutation_test_cpp(
+      combined = combined,
+      hog_sp1_list = hog_sp1_list,
+      hog_sp2_list = hog_sp2_list,
+      test_greater = (alternative == "greater"),
+      min_exceedances = min_exceedances,
+      max_permutations = max_permutations,
+      n_cores = n_cores
+    )
+  } else if (sparse) {
+    perm_result <- hog_permutation_test_sparse_cpp(
+      p1 = a1$p, i1 = a1$i, x1 = a1$x, thr1 = a1$thr,
+      p2 = a2$p, i2 = a2$i, x2 = a2$x, thr2 = a2$thr,
+      ortho_sp1_idx = ortho_sp1_idx,
+      ortho_sp2_idx = ortho_sp2_idx,
+      hog_sp1_list = hog_sp1_list,
+      hog_sp2_list = hog_sp2_list,
+      test_greater = (alternative == "greater"),
+      min_exceedances = min_exceedances,
+      max_permutations = max_permutations,
+      n_cores = n_cores,
+      force_flag_mode = force_flag
+    )
+  } else {
+    perm_result <- hog_permutation_test_cpp(
+      net1 = a1$net, net2 = a2$net,
+      thr1 = a1$thr, thr2 = a2$thr,
+      ortho_sp1_idx = ortho_sp1_idx,
+      ortho_sp2_idx = ortho_sp2_idx,
+      hog_sp1_list = hog_sp1_list,
+      hog_sp2_list = hog_sp2_list,
+      test_greater = (alternative == "greater"),
+      min_exceedances = min_exceedances,
+      max_permutations = max_permutations,
+      n_cores = n_cores,
+      force_flag_mode = force_flag
+    )
+  }
+
+  eff <- sqrt(comparison$Species1.effect_size * comparison$Species2.effect_size)
+
+  result <- data.frame(
+    hog = hog_names,
+    n_pairs = vapply(hog_groups, length, integer(1)),
+    n_sp1 = vapply(hog_sp1_list, length, integer(1)),
+    n_sp2 = vapply(hog_sp2_list, length, integer(1)),
+    T_obs = perm_result$T_obs,
+    n_perm = perm_result$n_perm,
+    n_exceed = perm_result$n_exceed,
+    mean_eff = vapply(hog_groups, function(i) mean(eff[i]), double(1)),
+    p_value = perm_result$p_value
+  )
+  bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
+
+  result$q_value <- if (nrow(result) < 2L) {
+    result$p_value
+  } else {
+    DiscreteQvalue::DQ(
+      result$p_value,
+      ss = bc_support, method = "Liang"
+    )$q.values
+  }
+  result[order(result$p_value), ]
+}

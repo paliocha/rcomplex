@@ -23,7 +23,7 @@ map_fixture <- function() {
       gene2 = c("A1", "A1", "A2"),
       species1 = "SP_A", species2 = "SP_B",
       hog = "H1",
-      q.value = c(0.001, 0.01, 0.02),
+      q_value = c(0.001, 0.01, 0.02),
       effect_size = c(0.9, 0.5, 0.2),
       jaccard = c(0.8, 0.4, 0.1),
       type = "conserved",
@@ -160,7 +160,7 @@ test_that("cliques take precedence over coexpressologs", {
   # Give a1 a strong coexpressolog to A1; the clique already put a1 on A2.
   edges <- rbind(fx$edges, data.frame(
     gene1 = "a1", gene2 = "A1", species1 = "SP_A", species2 = "SP_B",
-    hog = "H1", q.value = 1e-6, effect_size = 0.99, jaccard = 0.99,
+    hog = "H1", q_value = 1e-6, effect_size = 0.99, jaccard = 0.99,
     type = "conserved", stringsAsFactors = FALSE
   ))
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
@@ -219,27 +219,27 @@ test_that("alpha filters edges when the table has no type column", {
 })
 
 
-# ---- q.value guard ----
+# ---- q_value guard ----
 
-test_that("rank_by = q.value errors on HOG-level (constant) q-values", {
+test_that("rank_by = q_value errors on HOG-level (constant) q-values", {
   fx <- map_fixture()
   edges <- fx$edges
-  edges$q.value <- 0.001 # what method = "permutation" produces
+  edges$q_value <- 0.001 # what method = "permutation" produces
 
   expect_error(
     resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
       sp1 = "SP_A", sp2 = "SP_B",
-      edges = edges, rank_by = "q.value"
+      edges = edges, rank_by = "q_value"
     ),
     "constant within every multi-copy HOG"
   )
 })
 
-test_that("rank_by = q.value works when q-values vary within a HOG", {
+test_that("rank_by = q_value works when q-values vary within a HOG", {
   fx <- map_fixture()
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
     sp1 = "SP_A", sp2 = "SP_B",
-    edges = fx$edges, rank_by = "q.value"
+    edges = fx$edges, rank_by = "q_value"
   )
 
   co <- res[res$source == "coexpressolog", ]
@@ -340,7 +340,7 @@ test_that("a coexpressolog cannot re-claim a gene the clique layer resolved", {
     gene1 = c("a3", "a3", "a2"),
     gene2 = c("A2", "A1", "A2"),
     species1 = "SP_A", species2 = "SP_B", hog = "H1",
-    q.value = 0.001,
+    q_value = 0.001,
     effect_size = c(0.99, 0.10, 0.50),
     jaccard = c(0.9, 0.1, 0.5),
     type = "conserved",
@@ -382,7 +382,7 @@ test_that("edges missing hog are reported by name", {
 
   expect_error(
     resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-      sp1 = "SP_A", sp2 = "SP_B", edges = edges, rank_by = "q.value"
+      sp1 = "SP_A", sp2 = "SP_B", edges = edges, rank_by = "q_value"
     ),
     "edges missing columns: hog"
   )
@@ -407,7 +407,7 @@ test_that("tied copies resolve the same way under any collation", {
   edges <- data.frame(
     gene1 = c("c3", "C4"), gene2 = c("t2", "t2"),
     species1 = "SP_A", species2 = "SP_B", hog = "H2",
-    q.value = 0.01, effect_size = 0.7, jaccard = 0.5, type = "conserved",
+    q_value = 0.01, effect_size = 0.7, jaccard = 0.5, type = "conserved",
     stringsAsFactors = FALSE
   )
   run <- function() {
