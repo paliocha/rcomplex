@@ -36,8 +36,14 @@ jobs:
         with:
           working-directory: rcomplex-dev
 
+      # object_usage_linter resolves calls against the installed namespace;
+      # without the dev package installed it reports false positives.
+      - name: Install dev package
+        run: R CMD INSTALL rcomplex-dev
+
       - name: Lint
-        run: lintr::lint_package("rcomplex-dev")
+        run: lintr::lint_package()
         shell: Rscript {0}
+        working-directory: rcomplex-dev
         env:
           LINTR_ERROR_ON_LINT: true
