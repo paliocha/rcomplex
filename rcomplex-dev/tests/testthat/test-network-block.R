@@ -195,23 +195,17 @@ test_that("compute_network block_size validates its arguments", {
   expect_error(
     compute_network(x, norm_method = "CLR", block_size = 7), "MR"
   )
-  expect_error(
-    compute_network(x, use_torch = TRUE, block_size = 7),
-    "block_size requires use_torch"
-  )
 })
 
 test_that("compute_network block_size keeps the variance filter", {
   x <- block_fixture(60, 12, 1)
   x[3, ] <- 5
   x[10, ] <- x[10, ] * 1e-3
-  for (mv in list(0, 1e-3)) {
-    ref <- compute_network(x, min_var = mv)
-    blk <- compute_network(x, min_var = mv, block_size = 7)
-    expect_identical(blk$n_removed, ref$n_removed)
-    expect_identical(rownames(blk$network), rownames(ref$network))
-    expect_identical(blk, ref)
-  }
+  ref <- compute_network(x)
+  blk <- compute_network(x, block_size = 7)
+  expect_identical(blk$n_removed, ref$n_removed)
+  expect_identical(rownames(blk$network), rownames(ref$network))
+  expect_identical(blk, ref)
   expect_identical(compute_network(x, block_size = 7)$n_removed, 1L)
 })
 

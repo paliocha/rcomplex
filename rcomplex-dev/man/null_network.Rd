@@ -9,7 +9,6 @@ null_network(
   net,
   seed = NULL,
   n_cores = 1L,
-  use_torch = FALSE,
   block_size = NULL,
   block = NULL
 )
@@ -30,7 +29,7 @@ caller by however many draws the permutation consumed; with
 \code{seed = NULL} the draws come from the ambient stream and leave
 it advanced. Same contract as \code{summarize_comparison}.}
 
-\item{n_cores, use_torch, block_size}{Passed to \code{\link[=compute_network]{compute_network()}};
+\item{n_cores, block_size}{Passed to \code{\link[=compute_network]{compute_network()}};
 pass the \code{block_size} \code{net} was built with to keep the null build
 blockwise (it is not recorded in \code{params}).}
 

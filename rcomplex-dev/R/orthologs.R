@@ -210,8 +210,6 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
 #'   (the default) to skip paralog reduction and keep original gene
 #'   identities. When supplied, each element must contain a \code{$gene_map}
 #'   data frame with columns \code{original} and \code{representative}.
-#' @param hog_col Column name in \code{rowData} containing HOG identifiers
-#'   (default \code{"hog"}).
 #'
 #' @return A data frame with columns \code{gene1}, \code{gene2}, and
 #'   \code{hog}. When \code{reductions} is supplied, gene names have been
@@ -231,7 +229,7 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
 #' }
 #'
 #' @export
-prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
+prepare_orthologs <- function(se_list, reductions = NULL) {
   # --- validation ---
   if (!is.list(se_list) || is.null(names(se_list))) {
     stop("se_list must be a named list")
@@ -262,24 +260,22 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
   pairs <- utils::combn(sp_names, 2, simplify = FALSE)
 
   result_list <- lapply(pairs, function(pair) {
-    sp1 <- pair[1]
-    sp2 <- pair[2]
+    species1 <- pair[1]
+    species2 <- pair[2]
 
-    ortho <- extract_orthologs(se_list[[sp1]], se_list[[sp2]],
-      hog_col = hog_col
-    )
+    ortho <- extract_orthologs(se_list[[species1]], se_list[[species2]])
     if (nrow(ortho) == 0 || is.null(reductions)) {
       return(ortho)
     }
 
-    # Map gene1 through sp1 gene_map
-    gm1 <- reductions[[sp1]]$gene_map
+    # Map gene1 through species1 gene_map
+    gm1 <- reductions[[species1]]$gene_map
     idx1 <- match(ortho$gene1, gm1$original)
     mapped1 <- gm1$representative[idx1]
     ortho$gene1 <- ifelse(is.na(mapped1), ortho$gene1, mapped1)
 
-    # Map gene2 through sp2 gene_map
-    gm2 <- reductions[[sp2]]$gene_map
+    # Map gene2 through species2 gene_map
+    gm2 <- reductions[[species2]]$gene_map
     idx2 <- match(ortho$gene2, gm2$original)
     mapped2 <- gm2$representative[idx2]
     ortho$gene2 <- ifelse(is.na(mapped2), ortho$gene2, mapped2)

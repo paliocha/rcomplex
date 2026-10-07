@@ -4,16 +4,13 @@
 \alias{as_modules}
 \title{Build a module assignment from any gene partition}
 \usage{
-as_modules(x, min_size = 1L)
+as_modules(x)
 }
 \arguments{
 \item{x}{One of: a named vector mapping gene to module label (\code{NA} for an
 unassigned gene); a named list mapping module label to a character
 vector of genes; or an existing module assignment (a \code{\link[=detect_modules]{detect_modules()}}
 or \code{as_modules()} result), which is returned unchanged.}
-
-\item{min_size}{Modules with fewer genes than this become unassigned and
-are dropped from \code{module_genes}.}
 }
 \value{
 A list with \code{modules} (named character vector, gene -> module

@@ -176,8 +176,6 @@ test_that("gene_clique_graph validates its inputs", {
   bad <- e
   bad$gene1 <- "a\x01b"
   expect_error(gene_clique_graph(bad), "must not contain")
-  expect_error(gene_clique_graph(e, max_genes_per_sp = 0), "max_genes")
-  expect_error(gene_clique_graph(e, max_genes_per_sp = NA), "max_genes")
 })
 
 
@@ -202,42 +200,8 @@ gcg_twelve <- function() {
 }
 
 
-test_that("max_genes_per_sp keeps the most-connected paralog copies", {
-  e <- gcg_twelve()
-  expect_message(
-    cl <- gene_clique_graph(e, max_genes_per_sp = 3L),
-    "1 ortholog groups exceeded max_genes_per_sp = 3.*9 genes dropped"
-  )
-  expect_equal(length(unique(cl$clique_id)), 3L)
-  expect_setequal(cl$gene[cl$species == "SP_A"], c("a1", "a2", "a3"))
-  expect_true(all(cl$n_members == 4L))
-  # a1..a3 tie on degree: the cap keeps the ones that entered first.
-  cl2 <- suppressMessages(gene_clique_graph(e, max_genes_per_sp = 2L))
-  expect_setequal(cl2$gene[cl2$species == "SP_A"], c("a1", "a2"))
-  # Only the capped species loses genes.
-  expect_setequal(cl$gene[cl$species != "SP_A"], c("b1", "c1", "d1"))
-})
-
-
-test_that("max_genes_per_sp = Inf reproduces the uncapped result", {
-  e <- gcg_twelve()
-  cl_inf <- gene_clique_graph(e, max_genes_per_sp = Inf)
-  expect_equal(length(unique(cl_inf$clique_id)), 12L)
-  expect_equal(gene_clique_graph(e, max_genes_per_sp = NULL), cl_inf)
-  expect_equal(gene_clique_graph(e, max_genes_per_sp = 100L), cl_inf)
-  # One copy per species on the fixture: the default cap changes nothing.
-  f <- make_gcg_fixture()
-  expect_equal(
-    gene_clique_graph(f, alpha_graph = 0.9),
-    gene_clique_graph(f, alpha_graph = 0.9, max_genes_per_sp = Inf)
-  )
-})
-
-
 test_that("the copy-cap message fires only when a group is truncated", {
   expect_silent(gene_clique_graph(make_gcg_fixture(), alpha_graph = 0.9))
-  expect_silent(gene_clique_graph(gcg_twelve(), max_genes_per_sp = 12L))
-  expect_message(gene_clique_graph(gcg_twelve(), max_genes_per_sp = 11L))
   # Twelve copies exceed the default of 10.
   expect_message(gene_clique_graph(gcg_twelve()), "2 genes dropped")
 })
@@ -342,28 +306,6 @@ test_that("a joinable species is flagged extendable, not a gap", {
 })
 
 
-test_that("lineage_specific outranks partial_present", {
-  e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  # With max_gap 3 the HOG6 clique satisfies partial_present as well;
-  # the waterfall must still call it lineage_specific.
-  res <- classify_gene_cliques(cl, e, gcg_six,
-    lineage = gcg_lin,
-    max_gap = 3L
-  )
-  expect_equal(
-    res$classification[res$hog == "HOG6"],
-    "lineage_specific"
-  )
-  # Without lineages the same clique falls through to the gap tier.
-  res0 <- classify_gene_cliques(cl, e, gcg_six, max_gap = 3L)
-  expect_equal(
-    res0$classification[res0$hog == "HOG6"],
-    "partial_present"
-  )
-})
-
-
 test_that("a tested, rejected outside lineage is trait_specific", {
   # HOG6 (L2 absent from the orthogroup) is lineage_specific; the same
   # L1 triangle with L2 compared against every member and rejected is
@@ -429,35 +371,6 @@ test_that("lineage tiers are skipped when no lineage is supplied", {
   expect_true(all(is.na(res$n_sig_cross)))
   expect_false("differentiated" %in% res$classification)
   expect_equal(res$classification[res$hog == "HOG5"], "unclassified")
-})
-
-
-test_that("cross_max bounds the differentiated tier", {
-  e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six,
-    lineage = gcg_lin,
-    cross_max = 0
-  )
-  expect_equal(res$classification[res$hog == "HOG5"], "differentiated")
-  expect_equal(attr(res, "cross_max"), 0)
-
-  # One significant cross-lineage pair now exceeds cross_max = 0.
-  e2 <- e
-  hit <- e2$hog == "HOG5" & e2$species1 == "SP_A" &
-    e2$species2 == "SP_D"
-  expect_equal(sum(hit), 1L)
-  e2$q_value[hit] <- 0.01
-  cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
-  res2 <- classify_gene_cliques(cl2, e2, gcg_six,
-    lineage = gcg_lin,
-    cross_max = 0
-  )
-  expect_equal(
-    res2$classification[res2$hog == "HOG5"],
-    "unclassified"
-  )
-  expect_equal(res2$n_sig_cross[res2$hog == "HOG5"], 1L)
 })
 
 
@@ -555,17 +468,6 @@ test_that("classify_gene_cliques validates its inputs", {
   expect_error(
     classify_gene_cliques(cl, e, c("SP_A", "SP_A")),
     "at least 2"
-  )
-  expect_error(
-    classify_gene_cliques(cl, e, gcg_six, max_gap = -1L),
-    "max_gap"
-  )
-  expect_error(
-    classify_gene_cliques(cl, e, gcg_six,
-      lineage = gcg_lin,
-      cross_max = -1
-    ),
-    "cross_max"
   )
   expect_error(
     classify_gene_cliques(cl, e, gcg_six,
@@ -938,18 +840,6 @@ test_that("partial_significant needs every edge under alpha_graph", {
   expect_equal(res$n_sig, choose(3, 2) + 1)
   expect_equal(res$max_q, 0.95)
   expect_equal(res$classification, "unclassified")
-})
-
-
-test_that("max_gap bounds how many species may be absent", {
-  sp <- paste0("SP_", LETTERS[1:5])
-  e <- gcg_pairs(sp[1:3], c("a1", "b1", "c1"), "HOG1", 0.01)
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res1 <- classify_gene_cliques(cl, e, sp, max_gap = 1L)
-  expect_equal(res1$n_missing, 2L)
-  expect_equal(res1$classification, "unclassified")
-  res2 <- classify_gene_cliques(cl, e, sp, max_gap = 2L)
-  expect_equal(res2$classification, "partial_present")
 })
 
 

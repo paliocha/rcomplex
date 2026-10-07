@@ -23,20 +23,9 @@
 #'   robust to changes in the broader phylogenetic context.
 #' @param full_cliques Output of \code{\link{find_cliques}}, or \code{NULL} to
 #'   compute internally (default).
-#' @param min_species Minimum species per clique in the full dataset
-#'   (default: \code{length(target_species)}). During leave-k-out, reduced
-#'   cliques require only 2 species (the minimum meaningful clique size);
-#'   a clique is testable if at least 2 of its species remain active.
 #' @param max_k Maximum number of species to leave out
 #'   (default: \code{length(all_species) - 2}, leaving at least 2 species).
-#' @param max_genes_per_sp Maximum genes per species per HOG (default 10).
-#' @param jaccard_threshold Minimum Jaccard similarity for matching
-#'   reduced-dataset cliques to full-dataset cliques (default 0.8).
-#' @param edge_type Edge type filter (default \code{"conserved"}).
 #' @param n_cores Number of OpenMP threads (default 1).
-#' @param cost_weights Cost weights for gene-assignment ranking
-#'   (same as in \code{\link{find_cliques}}).
-#'   Default \code{c(q = 1, effect = 0)}.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -124,12 +113,8 @@ clique_stability.default <- function(
   species_trait = NULL,
   all_species = target_species,
   full_cliques = NULL,
-  min_species = length(target_species),
   max_k = length(all_species) - 2L,
-  max_genes_per_sp = 10L,
-  jaccard_threshold = 0.8,
-  edge_type = "conserved", n_cores = 1L,
-  cost_weights = c(q = 1.0, effect = 0.0), ...
+  n_cores = 1L, ...
 ) {
   # Validate inputs
   required_cols <- c(
@@ -196,7 +181,7 @@ clique_stability.default <- function(
   # filtered copy as a caller's pre-filtered table and warn.
   edges_all <- edges
   if ("type" %in% names(edges)) {
-    edges <- edges[edges$type %in% edge_type, , drop = FALSE]
+    edges <- edges[edges$type %in% "conserved", , drop = FALSE]
   }
   if (nrow(edges) == 0) {
     return(empty_result)
@@ -210,12 +195,7 @@ clique_stability.default <- function(
 
   # Compute full cliques if not provided
   if (is.null(full_cliques)) {
-    full_cliques <- find_cliques(edges_all, target_species,
-      min_species = min_species,
-      max_genes_per_sp = max_genes_per_sp,
-      edge_type = edge_type,
-      cost_weights = cost_weights
-    )
+    full_cliques <- find_cliques(edges_all, target_species)
   }
   if (nrow(full_cliques) == 0) {
     return(empty_result)
@@ -252,14 +232,15 @@ clique_stability.default <- function(
 
   # Call C++ stability function (trait-agnostic)
   cpp_result <- find_cliques_stability_cpp(
-    enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
+    enc$edge_hog, enc$edge_g1, enc$edge_g2,
+    enc$edge_species1, enc$edge_species2,
     enc$edge_qval, enc$edge_effect,
     length(all_species),
     length(enc$unique_hogs), length(enc$all_genes),
     is_target, raw_cliques,
-    as.integer(max_k), as.integer(max_genes_per_sp),
-    jaccard_threshold, n_cores,
-    as.double(cost_weights[["q"]]), as.double(cost_weights[["effect"]])
+    as.integer(max_k), 10L,
+    0.8, n_cores,
+    1, 0
   )
 
   # Post-process: stability data frame
@@ -357,24 +338,10 @@ clique_stability.default <- function(
 #'   (named numeric matrix) and \code{$threshold} (scalar).
 #' @param orthologs Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{hog}.
-#' @param species_pairs Optional list of length-2 character vectors
-#'   specifying which species pairs to compare. Defaults to all
-#'   \code{combn(target_species, 2)}.
 #' @param multipliers Numeric vector of threshold multipliers (each > 1).
 #'   Default \code{c(1.5, 2, 3, 5, 10)}.
-#' @param alternative Passed to \code{\link{summarize_comparison}} and
-#'   \code{\link{comparison_to_edges}}: \code{"greater"} (default) or
-#'   \code{"less"}.
-#' @param alpha Significance threshold for edge classification
-#'   (default 0.1).
 #' @param min_species Minimum species per clique
 #'   (default \code{length(target_species)}).
-#' @param max_genes_per_sp Maximum genes per species per HOG (default 10).
-#' @param max_missing_edges Passed to \code{\link{find_cliques}}
-#'   (default 0).
-#' @param edge_type Edge type filter (default \code{"conserved"}).
-#' @param jaccard_threshold Minimum per-species-slot Jaccard similarity
-#'   for a clique to count as "survived" (default 0.5).
 #' @param n_cores Cores for \code{\link{compare_neighborhoods}}
 #'   (default 1).
 #'
@@ -414,19 +381,10 @@ clique_stability.default <- function(
 #' @export
 clique_threshold_sweep <- function(
   cliques, target_species, networks, orthologs,
-  species_pairs = NULL,
   multipliers = c(1.5, 2, 3, 5, 10),
-  alternative = c("greater", "less"),
-  alpha = 0.1,
   min_species = length(target_species),
-  max_genes_per_sp = 10L,
-  max_missing_edges = 0L,
-  edge_type = "conserved",
-  jaccard_threshold = 0.5,
   n_cores = 1L
 ) {
-  alternative <- match.arg(alternative)
-
   # --- Validation ---
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data frame from find_cliques()")
@@ -468,9 +426,7 @@ clique_threshold_sweep <- function(
     ))
   }
 
-  if (is.null(species_pairs)) {
-    species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
-  }
+  species_pairs <- utils::combn(target_species, 2, simplify = FALSE)
 
   sweep_cliques <- list()
   sweep_edges <- list()
@@ -513,7 +469,7 @@ clique_threshold_sweep <- function(
         # pi0_method pinned to "storey": deterministic pre-0.2.0 q-values
         # pinned for determinism across multipliers; pass-through is a
         # P2 hand-off
-        summarize_comparison(comparison, alternative, alpha,
+        summarize_comparison(comparison, "greater", 0.1,
           pi0_method = "storey"
         ),
         error = function(e) {
@@ -528,7 +484,7 @@ clique_threshold_sweep <- function(
 
       edges_df <- comparison_to_edges(
         summary_res$results, sp_a, sp_b,
-        alternative, alpha
+        "greater", 0.1
       )
       pair_edges[[length(pair_edges) + 1L]] <- edges_df
     }
@@ -549,10 +505,7 @@ clique_threshold_sweep <- function(
 
     # Find cliques at this threshold
     new_cliques <- find_cliques(all_edges, target_species,
-      min_species = min_species,
-      max_genes_per_sp = max_genes_per_sp,
-      max_missing_edges = max_missing_edges,
-      edge_type = edge_type
+      min_species = min_species
     )
     sweep_cliques[[m_key]] <- new_cliques
 
@@ -577,7 +530,7 @@ clique_threshold_sweep <- function(
         }
       }
 
-      survived <- !is.na(best_jaccard) && best_jaccard >= jaccard_threshold
+      survived <- !is.na(best_jaccard) && best_jaccard >= 0.5
       survival_rows[[row_idx]] <- data.frame(
         clique_idx = i,
         hog = baseline_hog,

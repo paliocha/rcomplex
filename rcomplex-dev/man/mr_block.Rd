@@ -9,7 +9,7 @@ mr_block(x, genes, net)
 \arguments{
 \item{x}{Expression matrix (genes x samples) the network was built
 from. Must contain every network gene as a row; extra rows (e.g.
-genes removed by the \code{min_var} filter) are ignored.}
+genes removed as constant) are ignored.}
 
 \item{genes}{Character vector of gene identifiers (no duplicates), all
 present in \code{rownames(net$network)}.}
@@ -36,7 +36,7 @@ k x n correlation slice suffices.
 }
 \details{
 The gene universe is \code{rownames(net$network)}: \code{x} is subset to those
-rows first (the \code{min_var} filter was already applied when the network
+rows first (the constant-gene filter was already applied when the network
 was built), and ranks span exactly the network genes. Pass the same
 expression matrix that built the network; the reconstructed block then
 matches the dense \code{compute_network(sparse = FALSE)} matrix.

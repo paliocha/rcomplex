@@ -30,12 +30,6 @@ test_that("as_modules() is idempotent and passes module objects through", {
   expect_identical(as_modules(fake), fake)
 })
 
-test_that("min_size unassigns small modules", {
-  m <- as_modules(list(a = c("g1", "g2"), b = "g3"), min_size = 2)
-  expect_identical(names(m$module_genes), "a")
-  expect_false("g3" %in% names(m$modules))
-})
-
 test_that("bad input fails with the offending value", {
   expect_error(
     as_modules(list(a = c("g1", "g2"), b = c("g2", "g3"))),
@@ -46,12 +40,9 @@ test_that("bad input fails with the offending value", {
   expect_error(as_modules(list(a = 1:3)), "character vector")
   expect_error(as_modules(list(c("g1"))), "named by module label")
   expect_error(as_modules(c("a", "b")), "named by gene")
-  expect_error(as_modules(c(g1 = "a"), min_size = 0), "min_size")
   expect_error(as_modules(list(a = c("g1", NA))), "NA or empty")
   expect_error(as_modules(list(a = c("g1", ""))), "NA or empty")
   expect_error(as_modules(list(a = "g1", a = "g2")), "label used twice: a")
-  m <- as_modules(list(a = c("g1", "g2")))
-  expect_error(as_modules(m, min_size = 2), "not to an existing module")
   expect_error(
     as_modules(data.frame(gene = c("g1", "g2"), module = c("a", "b"))),
     "not a data frame"
@@ -197,7 +188,7 @@ test_that("label and gene-ID order do not depend on the collation locale", {
   c_c <- corr()
   c_order <- c("Beta", "Zinc", "auxin", "calvin")
   expect_identical(r_c$preservation$module, c_order)
-  expect_identical(unique(c_c$module_sp1), c_order)
+  expect_identical(unique(c_c$module1), c_order)
   expect_identical(rcomplex:::.pres_project(tie)$gene1, "B2")
   # and the same under en_US, which collates these differently
   en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
@@ -223,7 +214,7 @@ test_that("a detect_modules() result and its membership give one result", {
   expect_identical(b, a)
 })
 
-test_that("a map with factor gene columns gives the character result", {
+test_that("factor gene columns give the character result", {
   fx <- as_mod_fixture()
   map <- resolve_ortholog_map(
     fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
@@ -231,11 +222,14 @@ test_that("a map with factor gene columns gives the character result", {
   map_f <- map
   map_f$gene1 <- factor(map$gene1, levels = rev(unique(map$gene1)))
   map_f$gene2 <- factor(map$gene2, levels = rev(unique(map$gene2)))
-  pres <- function(m) {
-    module_preservation(fx$handA, fx$netA, fx$netB, map = m,
+  ortho_f <- fx$ortho
+  ortho_f$gene1 <- factor(ortho_f$gene1, levels = rev(unique(ortho_f$gene1)))
+  ortho_f$gene2 <- factor(ortho_f$gene2, levels = rev(unique(ortho_f$gene2)))
+  pres <- function(o) {
+    module_preservation(fx$handA, fx$netA, fx$netB, o,
                         n_perm = 30L, seed = 4)
   }
-  expect_identical(pres(map_f), pres(map))
+  expect_identical(pres(ortho_f), pres(fx$ortho))
   expect_identical(
     module_correspondence(fx$handA, fx$handB, map_f, seed = 1),
     module_correspondence(fx$handA, fx$handB, map, seed = 1)

@@ -12,13 +12,7 @@ classify_cliques(edges, ...)
   target_species,
   species_trait,
   min_species = 2L,
-  max_genes_per_sp = 10L,
-  max_missing_edges = 0L,
-  edge_type = "conserved",
   stability = NULL,
-  sweep = NULL,
-  min_stability_class = 0L,
-  min_persistence = 1,
   min_power = 0.8,
   ...
 )
@@ -45,24 +39,7 @@ SP_B = "perennial")}).}
 \item{min_species}{Minimum species for a partial or within-group
 clique (default 2).}
 
-\item{max_genes_per_sp}{Passed to \code{\link{find_cliques}}
-(default 10).}
-
-\item{max_missing_edges}{Passed to \code{\link{find_cliques}} for
-partial detection (default 0).}
-
-\item{edge_type}{Edge types considered conserved (default
-\code{"conserved"}).}
-
 \item{stability}{Optional output of \code{\link{clique_stability}}.}
-
-\item{sweep}{Optional output of \code{\link{clique_threshold_sweep}}.}
-
-\item{min_stability_class}{Minimum stability class for the
-\code{robust} flag (default 0).}
-
-\item{min_persistence}{Minimum persistence for the \code{robust}
-flag (default 1.0).}
 
 \item{min_power}{Detection power below which a non-conserved edge is
 read as uninformative rather than as evidence against conservation
@@ -93,13 +70,8 @@ unclassified)}
 cliques (NA for complete/partial/unclassified)}
 \item{stability_class}{From stability results (NA if not
 provided)}
-\item{persistence}{Birth/death persistence of the HOG's
-best clique (\code{death - birth}) from
-\code{\link{clique_threshold_sweep}}; falls back to highest
-survived multiplier for legacy sweep output (NA if not
-provided)}
-\item{robust}{Logical: passes both stability and persistence
-thresholds (NA if neither provided)}
+\item{robust}{Logical: stability class is at least 0 (NA if no
+stability results provided)}
 }
 }
 \description{
@@ -117,8 +89,7 @@ The pipeline:
 \item \strong{complete}: all target species form a clique (all
 \code{C(N,2)} edges conserved).
 \item \strong{partial}: a clique exists with \code{min_species}
-to \code{N-1} species (or with missing edges when
-\code{max_missing_edges > 0}).
+to \code{N-1} species.
 \item \strong{differentiated}: at least 2 trait groups each have
 a within-group clique, but no cross-group conserved edge exists.
 \item \strong{trait_specific}: exactly 1 trait group has a
@@ -159,8 +130,8 @@ row per HOG. \code{\link{find_cliques}} commits to one best gene
 assignment per species clique, so a multi-copy HOG still gets a
 single answer, and that answer is what \code{\link{clique_stability}}
 and \code{\link{clique_threshold_sweep}} consume -- the
-\code{stability_class} / \code{persistence} / \code{robust} columns
-exist only on this side.
+\code{stability_class} / \code{robust} columns exist only on this
+side.
 
 \code{\link{classify_gene_cliques}} works on the \emph{gene} graph
 built by \code{\link{gene_clique_graph}}. It asks which individual
@@ -176,8 +147,7 @@ it can be run against a clade partition the trait does not follow.
 Reach for \code{classify_gene_cliques()} when which copy sits in the
 conserved core matters, or when the published taxonomy is what has to
 be reported. Reach for \code{classify_cliques()} for a
-one-row-per-HOG trait summary wired into the stability and sweep
-machinery.
+one-row-per-HOG trait summary wired into the stability machinery.
 }
 
 \examples{

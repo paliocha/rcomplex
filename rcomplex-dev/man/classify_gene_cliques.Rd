@@ -14,8 +14,6 @@ classify_gene_cliques(cliques, ...)
   lineage = NULL,
   alpha_call = 0.1,
   alpha_graph = 0.9,
-  max_gap = 1L,
-  cross_max = NULL,
   min_power = 0.8,
   ...
 )
@@ -54,14 +52,6 @@ conserved (default 0.1).}
 
 \item{alpha_graph}{Loose threshold defining the \code{partial_significant}
 graph (default 0.9).}
-
-\item{max_gap}{Largest number of absent species tolerated by
-\code{partial_present} (default 1).}
-
-\item{cross_max}{Maximum number of significant cross-lineage pairs
-allowed by \code{differentiated}. Defaults to \code{choose(S - 1, 2) - W},
-the generalisation of the published cut; the original six-species
-script used a looser hard-coded 6.}
 
 \item{min_power}{Detection power below which a non-significant pair
 is read as uninformative rather than as evidence against

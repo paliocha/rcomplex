@@ -149,21 +149,6 @@ test_that("HOG5 never appears (not co-expressed)", {
 })
 
 
-test_that("species parameter filters correctly", {
-  d <- make_coexpr_test_data()
-  # Only look at SP_A and SP_B
-  result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-    species = c("SP_A", "SP_B"),
-    min_species = 1L
-  )
-  # HOG2: 2 species, HOG3: 2, HOG4: 1
-  hog2 <- result[result$partner_hog == "HOG2", ]
-  expect_equal(hog2$n_species, 2L)
-  # No SP_C in coexpressed_species
-  expect_false(grepl("SP_C", hog2$coexpressed_species))
-})
-
-
 test_that("coexpressed_traits reflects trait groups correctly", {
   d <- make_coexpr_test_data()
   result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
@@ -287,12 +272,6 @@ test_that("input validation errors", {
   expect_error(
     get_coexpressed_hogs("HOG1", list(d$networks$SP_A), d$orthologs),
     "named list"
-  )
-  expect_error(
-    get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-      species = "NOPE"
-    ),
-    "not found in networks"
   )
   expect_error(
     get_coexpressed_hogs("HOG1", d$networks, d$orthologs,

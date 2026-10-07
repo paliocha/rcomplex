@@ -8,20 +8,12 @@ module_preservation(
   modules_ref,
   net_ref,
   net_test,
-  orthologs = NULL,
-  map = NULL,
+  orthologs,
   edges = NULL,
-  cliques = NULL,
-  sp_ref = NULL,
-  sp_test = NULL,
+  species_ref = NULL,
+  species_test = NULL,
   n_perm = 10000L,
-  min_module_size = 10L,
-  binary = FALSE,
-  alpha = 0.1,
   calibrate = c("mixture", "none"),
-  qvalue_method = NULL,
-  sensitivity = FALSE,
-  copy_draws = 200L,
   n_cores = 1L,
   seed = NULL
 )
@@ -33,16 +25,13 @@ module_preservation(
 \item{net_ref, net_test}{Network objects from \code{\link[=compute_network]{compute_network()}} for the
 reference and test species.}
 
-\item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, \code{hog}.
-Ignored when \code{map} is supplied.}
+\item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, \code{hog}.}
 
-\item{map}{Optional pre-built ortholog map from \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}.}
+\item{edges}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} result, passed to
+\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} for paralog resolution.}
 
-\item{edges, cliques}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} and \code{find_cliques()}
-results, passed to \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} for paralog resolution.}
-
-\item{sp_ref, sp_test}{Species labels, required only when \code{edges} or
-\code{cliques} is supplied.}
+\item{species_ref, species_test}{Species labels, required only when \code{edges}
+is supplied.}
 
 \item{n_perm}{Number of permutations (default 10000). The smallest
 attainable p-value is \code{1 / (n_perm + 1)}, so this sets the floor on how
@@ -52,15 +41,6 @@ The permutation loop costs O(edges) per iteration -- roughly 0.7 s per
 1000 permutations on a 6000-gene network at density 0.03 -- so the
 default buys a floor of 1e-4 cheaply. Raise it further when many modules
 sit at the floor.}
-
-\item{min_module_size}{Minimum number of mapped test-species genes for a
-module to be tested (default 10).}
-
-\item{binary}{Treat every surviving edge as weight 1 (default \code{FALSE}).
-On a hard-thresholded network this changes little and makes \code{avg.weight}
-exactly the module edge density.}
-
-\item{alpha}{Significance threshold (default 0.1).}
 
 \item{calibrate}{How the combined p-value is calibrated before FDR
 correction. \code{"mixture"} (default) recalibrates \code{pmax} toward the
@@ -83,35 +63,6 @@ signal anywhere the estimated both-null fraction approaches 1 and the
 procedure calibrates against the intersection null for that contrast.
 Realised FDR there was 0.031 against a nominal 0.05.}
 
-\item{qvalue_method}{Deprecated and ignored; the Liang discrete path was
-measured bit-identical to Benjamini-Hochberg on this engine. Use
-\code{calibrate = "none"} for the uncalibrated result.}
-
-\item{sensitivity}{Re-run under a naive ortholog map -- one built from
-\code{orthologs} alone, with no clique or coexpressolog resolution -- and
-report both results side by side (default \code{FALSE}). Costs the naive run
-plus \code{copy_draws} nested analyses; see \code{copy_draws}.
-Resolution may only choose which paralog copy carries a label, never
-which genes are \emph{mappable} -- but it can still change which genes are
-\emph{tested}, because a gene whose candidate labels tie in the majority
-vote is dropped under one map and rescued under the other. The
-returned table reports that as \code{same_projected_set} / \code{n_rescued} /
-\code{n_lost}; a mismatch is expected on multi-copy data, not a bug, and it
-means \code{Zsummary_delta} is not measured on a fixed gene set. The
-circularity check is the \code{p_copy} columns, which hold the projected set
-fixed and vary only the copy choice; read those rather than the delta
-when the sets differ.}
-
-\item{copy_draws}{Number of random copy choices drawn for the
-\code{sensitivity} comparison (default 200). Each draw resolves the same
-candidate map by picking one species-1 partner per species-2 gene
-uniformly at random, so only the copy choice varies.
-
-Each draw is a nested analysis of the reference network, so
-\code{sensitivity = TRUE} costs roughly \code{copy_draws} extra projections on top
-of the naive-map run. Set \code{copy_draws = 0L} to skip the copy null and
-keep only the naive-map comparison.}
-
 \item{n_cores}{Number of OpenMP threads (default 1).}
 
 \item{seed}{Optional RNG seed. Results are independent of \code{n_cores}.
@@ -124,9 +75,9 @@ A list with components:
 \describe{
 \item{preservation}{One row per tested module: \code{module}, \code{size},
 \code{size_mapped}, the two headline statistics, their permutation
-p-values, the combined \code{p_value} (raw \code{pmax}), \code{p.calibrated} (the
+p-values, the combined \code{p_value} (raw \code{pmax}), \code{p_calibrated} (the
 mixture recalibration described under \code{calibrate}), \code{q_value}
-(Benjamini-Hochberg on \code{p.calibrated}, NOT on \code{p_value}),
+(Benjamini-Hochberg on \code{p_calibrated}, NOT on \code{p_value}),
 \code{Z.avg.weight}, \code{Z.cor.degree}, \code{Zsummary}, \code{Zsummary_null_sd},
 \code{Zsummary_std}, and \code{medianRank} -- the mean of the \code{avg.weight}
 and \code{cor.degree} ranks across the tested modules, 1 = strongest.
@@ -143,35 +94,13 @@ the number scorable for both headline statistics at once.}
 \item{coverage}{One row per reference module -- \code{size},
 \code{size_mapped}, \code{tested}, and the \code{reason} it was not -- so the tested
 set reconciles against the partition. Modules below
-\code{min_module_size}, and modules whose genes never reach the test
+10 mapped genes, and modules whose genes never reach the test
 species, leave the analysis entirely; without this the preservation
 table looks like a complete accounting when it is not.}
 \item{projection}{One row per test-species gene that received a module
 label: the reference gene it came from, the module, and which
 resolution layer chose the pair.}
 \item{map}{The ortholog map used.}
-\item{sensitivity}{Only when \code{sensitivity = TRUE}: per-module
-\code{size_mapped}, \code{Zsummary} and \code{q_value} under the resolved and naive
-maps, plus \code{p_copy.avg.weight} and \code{p_copy.cor.degree} -- where each
-statistic sits in a null over \code{copy_draws} random copy choices of the
-same candidate map. Attributes: \code{same_candidate_set} (\code{TRUE} by
-construction when the map was resolved from \code{orthologs}, since
-the mappable set is then invariant; \code{FALSE} means a supplied
-\code{map} does not cover the same genes as the naive one, which is a
-property of that map rather than of resolution),
-\code{same_projected_set} (whether the two runs
-tested the same genes, which resolution CAN change by rescuing genes
-from a tied majority vote), \code{n_rescued} and \code{n_lost} counting that
-difference, and \code{n_multi_copy} / \code{n_copy_draws} for the copy null
-(when the null did not run, \code{copy_null_skipped} says why:
-\code{"off"} for \code{copy_draws = 0} and \code{"coverage"} when the ortholog
-table could not hold the gene set fixed, both with \code{n_multi_copy}
-\code{NA}; \code{"no_multi_copy"} with \code{n_multi_copy} \code{0} when there was
-genuinely nothing to vary; and \code{"all_draws_failed"} with the real
-multi-copy count when every draw errored).
-\code{size_mapped} is the deterministic consequence of the copy choice;
-\code{Zsummary_delta} also absorbs permutation-stream drift when the two
-runs have different block sizes.}
 \item{params}{Call parameters, including \code{calibrate}, the estimated
 both-null fraction \code{w00}, and \code{n_joint} per module.}
 }
@@ -216,21 +145,19 @@ significant -- the same reciprocal criterion as
 \section{Paralog resolution}{
 
 Multi-copy HOGs are reduced toward one counterpart per gene by
-\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} when \code{map} is not supplied. Resolution never
+\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}. Resolution never
 changes which genes are \emph{mappable} -- that is the invariant
 \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} enforces. It can still change which genes end up
 \emph{tested}: an unresolved gene whose candidate module labels tie is dropped
 by the majority vote, and resolving its copy rescues it. The tested set
-therefore does depend on the resolution, so the circularity defence rests
-on the \code{p_copy} columns of \code{sensitivity}, not on the mappable-set
-invariant.
+therefore does depend on the resolution.
 }
 
 \examples{
 \dontrun{
 pres <- module_preservation(mods_A, net_A, net_B, ortho,
-  edges = rcx$edges, cliques = rcx$cliques,
-  sp_ref = "SP_A", sp_test = "SP_B"
+  edges = rcx$edges,
+  species_ref = "SP_A", species_test = "SP_B"
 )
 classify_preservation(pres)
 }

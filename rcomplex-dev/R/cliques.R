@@ -8,7 +8,7 @@
 #'   hog, q_value, effect_size (already type-filtered).
 #' @param target_species Character vector of species abbreviations.
 #' @return A list with components: sp_map, gene_map, hog_map, all_genes,
-#'   unique_hogs, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2,
+#'   unique_hogs, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2,
 #'   edge_qval, edge_effect, and a logical `any_valid` flag.
 #' @noRd
 encode_clique_edges <- function(edges, target_species) {
@@ -38,18 +38,18 @@ encode_clique_edges <- function(edges, target_species) {
   edge_hog <- as.integer(hog_map[as.character(edges$hog)])
   edge_g1 <- as.integer(gene_key_map[gene_key1])
   edge_g2 <- as.integer(gene_key_map[gene_key2])
-  edge_sp1 <- as.integer(sp_map[edges$species1])
-  edge_sp2 <- as.integer(sp_map[edges$species2])
+  edge_species1 <- as.integer(sp_map[edges$species1])
+  edge_species2 <- as.integer(sp_map[edges$species2])
 
   # Filter out edges where either species is not in target_species
-  valid <- !is.na(edge_sp1) & !is.na(edge_sp2)
+  valid <- !is.na(edge_species1) & !is.na(edge_species2)
   any_valid <- any(valid)
 
   edge_hog <- edge_hog[valid]
   edge_g1 <- edge_g1[valid]
   edge_g2 <- edge_g2[valid]
-  edge_sp1 <- edge_sp1[valid]
-  edge_sp2 <- edge_sp2[valid]
+  edge_species1 <- edge_species1[valid]
+  edge_species2 <- edge_species2[valid]
   edge_qval <- as.numeric(edges$q_value[valid])
   edge_effect <- as.numeric(edges$effect_size[valid])
 
@@ -57,7 +57,7 @@ encode_clique_edges <- function(edges, target_species) {
     sp_map = sp_map, gene_map = gene_key_map, hog_map = hog_map,
     all_genes = all_genes, unique_hogs = unique_hogs,
     edge_hog = edge_hog, edge_g1 = edge_g1, edge_g2 = edge_g2,
-    edge_sp1 = edge_sp1, edge_sp2 = edge_sp2,
+    edge_species1 = edge_species1, edge_species2 = edge_species2,
     edge_qval = edge_qval, edge_effect = edge_effect,
     any_valid = any_valid
   )
@@ -171,10 +171,10 @@ encode_clique_edges <- function(edges, target_species) {
 }
 
 
-#' Warn when an edge table looks already cut to `edge_type`
+#' Warn when an edge table looks already cut to `conserved`
 #'
 #' Clique intensity fits each edge's weight scale on every tested pair of
-#' its species pair. A table holding only `edge_type` rows fits that scale
+#' its species pair. A table holding only `conserved` rows fits that scale
 #' on significant edges alone instead, which is a different quantity that
 #' nothing downstream can tell apart. Tables without a
 #' `type` column cannot be judged and pass silently. Warns once per
@@ -183,17 +183,16 @@ encode_clique_edges <- function(edges, target_species) {
 #' many times on one table.
 #'
 #' @param edges Edge data frame.
-#' @param edge_type Edge types find_cliques() keeps.
 #' @noRd
-.warn_if_prefiltered <- function(edges, edge_type) {
+.warn_if_prefiltered <- function(edges) {
   if (!"type" %in% names(edges) || nrow(edges) == 0L ||
-        !all(edges$type %in% edge_type)) {
+        !all(edges$type %in% "conserved")) {
     return(invisible(FALSE))
   }
   rlang::warn(
     c(
       paste0(
-        "`edges` holds only `edge_type` rows (",
+        "`edges` holds only `conserved` rows (",
         paste(unique(edges$type), collapse = ", "),
         "), so it looks pre-filtered."
       ),
@@ -298,12 +297,6 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #' cliques, then backtracking to assign the best gene per species
 #' (minimising mean q-value across all present edges).
 #'
-#' When \code{max_missing_edges > 0}, tolerates up to that many missing
-#' species-pair edges per clique. Instead of Bron-Kerbosch (which only
-#' finds fully connected subgraphs), all species subsets with at most
-#' \code{max_missing_edges} missing edges are enumerated. Assignments
-#' prefer fewer missing edges, then lower mean q-value.
-#'
 #' @param edges Data frame with columns:
 #'   \describe{
 #'     \item{gene1}{Gene identifier (first gene in pair)}
@@ -317,23 +310,15 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'   Optionally includes a \code{type} column for filtering. Pass the
 #'   unfiltered table (every tested pair, e.g. the output of
 #'   \code{\link{find_coexpressologs}}): cliques are built from
-#'   \code{edge_type} rows only, but \code{intensity} fits each edge's
+#'   \code{"conserved"} rows only, but \code{intensity} fits each edge's
 #'   weight scale on every row of its species pair, so a pre-filtered
 #'   table changes what it measures.
-#'   A table whose \code{type} column holds only \code{edge_type} rows
+#'   A table whose \code{type} column holds only \code{"conserved"} rows
 #'   triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
 #'   once per session).
 #' @param target_species Character vector of species abbreviations.
 #' @param min_species Minimum number of species per clique
 #'   (default: \code{length(target_species)}).
-#' @param max_genes_per_sp Maximum genes considered per species per HOG
-#'   (default 10). Keeps the most-connected genes.
-#' @param max_missing_edges Maximum number of missing species-pair edges
-#'   tolerated per clique (default 0 = all edges required). When > 0,
-#'   uses subset enumeration instead of Bron-Kerbosch. Practical limit:
-#'   ~25 species; falls back to exact BK for larger species counts.
-#' @param edge_type If \code{edges} has a \code{type} column, keep only
-#'   edges with \code{type \%in\% edge_type} (default \code{"conserved"}).
 #' @param cost_weights Named numeric vector with elements \code{"q"} and
 #'   \code{"effect"} controlling the composite cost used for gene-assignment
 #'   ranking. The cost is \code{q * mean_q - effect * mean_effect}
@@ -349,8 +334,7 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'     \item{max_q}{Maximum q-value across present clique edges}
 #'     \item{mean_effect_size}{Mean effect size across present edges}
 #'     \item{n_edges}{Number of present edges}
-#'     \item{n_missing}{Number of missing edges (0 when
-#'       \code{max_missing_edges = 0})}
+#'     \item{n_missing}{Number of missing edges (always 0)}
 #'     \item{intensity}{Onnela intensity: geometric mean, across present
 #'       edges, of each edge's ensemble connection probability (in
 #'       (0, 1); higher = stronger conservation). Each edge's
@@ -375,9 +359,6 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'
 #' # Allow partial species cliques (2 of 3 species)
 #' partial <- find_cliques(edges, target_species, min_species = 2L)
-#'
-#' # Tolerate 1 missing edge (e.g., 5 of 6 edges in a 4-species clique)
-#' tolerant <- find_cliques(edges, target_species, max_missing_edges = 1L)
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -388,9 +369,6 @@ find_cliques <- function(edges, ...) UseMethod("find_cliques")
 #' @export
 find_cliques.default <- function(edges, target_species,
                                  min_species = length(target_species),
-                                 max_genes_per_sp = 10L,
-                                 max_missing_edges = 0L,
-                                 edge_type = "conserved",
                                  cost_weights = c(q = 1.0, effect = 0.0), ...) {
   # Validate inputs
   required_cols <- c(
@@ -438,13 +416,13 @@ find_cliques.default <- function(edges, target_species,
   empty_result <- as.data.frame(empty_cols)
 
   # Onnela weights fit their scale on every tested pair of its species
-  # pair, so they are taken before the edge_type filter; fitted among
+  # pair, so they are taken before the type filter; fitted among
   # conserved edges alone they would only describe edges that already
   # passed alpha.
-  .warn_if_prefiltered(edges, edge_type)
+  .warn_if_prefiltered(edges)
   weights <- .onnela_weight(edges)
   if ("type" %in% names(edges)) {
-    keep <- edges$type %in% edge_type
+    keep <- edges$type %in% "conserved"
     edges <- edges[keep, , drop = FALSE]
     weights <- weights[keep]
   }
@@ -460,11 +438,12 @@ find_cliques.default <- function(edges, target_species,
 
   # Call C++
   result <- find_cliques_cpp(
-    enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
+    enc$edge_hog, enc$edge_g1, enc$edge_g2,
+    enc$edge_species1, enc$edge_species2,
     enc$edge_qval, enc$edge_effect,
     length(target_species), min_species,
     length(enc$unique_hogs), length(enc$all_genes),
-    as.integer(max_genes_per_sp), as.integer(max_missing_edges),
+    10L, 0L,
     w_q, w_eff
   )
 
@@ -524,8 +503,7 @@ find_cliques.default <- function(edges, target_species,
 #'   \item \strong{complete}: all target species form a clique (all
 #'     \code{C(N,2)} edges conserved).
 #'   \item \strong{partial}: a clique exists with \code{min_species}
-#'     to \code{N-1} species (or with missing edges when
-#'     \code{max_missing_edges > 0}).
+#'     to \code{N-1} species.
 #'   \item \strong{differentiated}: at least 2 trait groups each have
 #'     a within-group clique, but no cross-group conserved edge exists.
 #'   \item \strong{trait_specific}: exactly 1 trait group has a
@@ -563,8 +541,8 @@ find_cliques.default <- function(edges, target_species,
 #' assignment per species clique, so a multi-copy HOG still gets a
 #' single answer, and that answer is what \code{\link{clique_stability}}
 #' and \code{\link{clique_threshold_sweep}} consume -- the
-#' \code{stability_class} / \code{persistence} / \code{robust} columns
-#' exist only on this side.
+#' \code{stability_class} / \code{robust} columns exist only on this
+#' side.
 #'
 #' \code{\link{classify_gene_cliques}} works on the \emph{gene} graph
 #' built by \code{\link{gene_clique_graph}}. It asks which individual
@@ -580,8 +558,7 @@ find_cliques.default <- function(edges, target_species,
 #' Reach for \code{classify_gene_cliques()} when which copy sits in the
 #' conserved core matters, or when the published taxonomy is what has to
 #' be reported. Reach for \code{classify_cliques()} for a
-#' one-row-per-HOG trait summary wired into the stability and sweep
-#' machinery.
+#' one-row-per-HOG trait summary wired into the stability machinery.
 #'
 #' @param edges Data frame with columns \code{gene1}, \code{gene2},
 #'   \code{species1}, \code{species2}, \code{hog}, \code{q_value},
@@ -598,18 +575,7 @@ find_cliques.default <- function(edges, target_species,
 #'   SP_B = "perennial")}).
 #' @param min_species Minimum species for a partial or within-group
 #'   clique (default 2).
-#' @param max_genes_per_sp Passed to \code{\link{find_cliques}}
-#'   (default 10).
-#' @param max_missing_edges Passed to \code{\link{find_cliques}} for
-#'   partial detection (default 0).
-#' @param edge_type Edge types considered conserved (default
-#'   \code{"conserved"}).
 #' @param stability Optional output of \code{\link{clique_stability}}.
-#' @param sweep Optional output of \code{\link{clique_threshold_sweep}}.
-#' @param min_stability_class Minimum stability class for the
-#'   \code{robust} flag (default 0).
-#' @param min_persistence Minimum persistence for the \code{robust}
-#'   flag (default 1.0).
 #' @param min_power Detection power below which a non-conserved edge is
 #'   read as uninformative rather than as evidence against conservation
 #'   (default 0.8). Only used when \code{edges} has \code{power}. For
@@ -638,13 +604,8 @@ find_cliques.default <- function(edges, target_species,
 #'       cliques (NA for complete/partial/unclassified)}
 #'     \item{stability_class}{From stability results (NA if not
 #'       provided)}
-#'     \item{persistence}{Birth/death persistence of the HOG's
-#'       best clique (\code{death - birth}) from
-#'       \code{\link{clique_threshold_sweep}}; falls back to highest
-#'       survived multiplier for legacy sweep output (NA if not
-#'       provided)}
-#'     \item{robust}{Logical: passes both stability and persistence
-#'       thresholds (NA if neither provided)}
+#'     \item{robust}{Logical: stability class is at least 0 (NA if no
+#'       stability results provided)}
 #'   }
 #'
 #' @examples
@@ -672,13 +633,7 @@ classify_cliques <- function(edges, ...) UseMethod("classify_cliques")
 classify_cliques.default <- function(
   edges, target_species, species_trait,
   min_species = 2L,
-  max_genes_per_sp = 10L,
-  max_missing_edges = 0L,
-  edge_type = "conserved",
   stability = NULL,
-  sweep = NULL,
-  min_stability_class = 0L,
-  min_persistence = 1.0,
   min_power = 0.8, ...
 ) {
   # --- Validation ---
@@ -735,7 +690,7 @@ classify_cliques.default <- function(
     n_species = integer(0), best_mean_q = numeric(0),
     trait_groups = character(0), underpowered = logical(0),
     stability_class = integer(0),
-    persistence = numeric(0), robust = logical(0),
+    robust = logical(0),
     stringsAsFactors = FALSE
   )
   if (length(all_hogs) == 0) {
@@ -744,10 +699,7 @@ classify_cliques.default <- function(
 
   # --- Steps 1+2: Find all cliques (complete + partial in one pass) ---
   all_cliques <- find_cliques(edges, target_species,
-    min_species = min_species,
-    max_genes_per_sp = max_genes_per_sp,
-    max_missing_edges = max_missing_edges,
-    edge_type = edge_type
+    min_species = min_species
   )
 
   # Complete = all N species, no missing edges
@@ -784,10 +736,7 @@ classify_cliques.default <- function(
       next
     }
     wg <- find_cliques(edges, group_sp,
-      min_species = min_species,
-      max_genes_per_sp = max_genes_per_sp,
-      max_missing_edges = max_missing_edges,
-      edge_type = edge_type
+      min_species = min_species
     )
     within_group_cliques[[group]] <- wg
     within_group_hogs[[group]] <- unique(wg$hog)
@@ -797,7 +746,7 @@ classify_cliques.default <- function(
   remaining <- setdiff(all_hogs, c(complete_hogs, partial_hogs))
 
   # Identify cross-group conserved edges
-  conserved <- edges[edges$type %in% edge_type, , drop = FALSE]
+  conserved <- edges[edges$type %in% "conserved", , drop = FALSE]
   if (nrow(conserved) > 0) {
     t1 <- trait_char[conserved$species1]
     t2 <- trait_char[conserved$species2]
@@ -843,7 +792,7 @@ classify_cliques.default <- function(
   if ("power" %in% names(edges)) {
     up_hogs <- .cc_underpowered_hogs(
       edges, c(diff_hogs, ts_hogs), within_group_cliques, trait_char,
-      edge_type, min_power
+      min_power
     )
   }
 
@@ -981,49 +930,10 @@ classify_cliques.default <- function(
     }
   }
 
-  # --- Sweep annotation ---
-  out$persistence <- NA_real_
-  if (!is.null(sweep) && "persistence" %in% names(sweep) &&
-        nrow(sweep$persistence) > 0) {
-    # Use formal birth/death persistence if available
-    persist_df <- sweep$persistence
-    # Best (max) persistence per HOG across clique indices
-    best_persist <- tapply(persist_df$persistence, persist_df$hog, max,
-      na.rm = FALSE
-    )
-    # NA-aware: if all values for a HOG are NA, tapply returns NA
-    idx <- match(out$hog, names(best_persist))
-    out$persistence[!is.na(idx)] <- best_persist[idx[!is.na(idx)]]
-  } else if (!is.null(sweep) && "survival" %in% names(sweep)) {
-    # Fallback: compute max survived multiplier from survival dataframe
-    surv <- sweep$survival
-    if (nrow(surv) > 0) {
-      surv_ok <- surv[surv$survived, , drop = FALSE]
-      if (nrow(surv_ok) > 0) {
-        best_mult <- tapply(surv_ok$multiplier, surv_ok$hog, max)
-        idx <- match(out$hog, names(best_mult))
-        out$persistence[!is.na(idx)] <- best_mult[idx[!is.na(idx)]]
-      }
-    }
-  }
-
   # --- Robust flag ---
   has_stab <- !is.null(stability$stability) && nrow(stability$stability) > 0
-  has_sweep <- !is.null(sweep) &&
-    (("persistence" %in% names(sweep) && nrow(sweep$persistence) > 0) ||
-       ("survival" %in% names(sweep) && nrow(sweep$survival) > 0))
-  if (has_stab || has_sweep) {
-    stab_ok <- if (has_stab) {
-      !is.na(out$stability_class) & out$stability_class >= min_stability_class
-    } else {
-      TRUE
-    }
-    sweep_ok <- if (has_sweep) {
-      !is.na(out$persistence) & out$persistence >= min_persistence
-    } else {
-      TRUE
-    }
-    out$robust <- stab_ok & sweep_ok
+  if (has_stab) {
+    out$robust <- !is.na(out$stability_class) & out$stability_class >= 0L
   } else {
     out$robust <- NA
   }
@@ -1043,17 +953,17 @@ classify_cliques.default <- function(
 #' @param hogs Candidate HOGs (differentiated and trait-specific).
 #' @param wg_cliques Named list of within-group [find_cliques()] tables.
 #' @param trait_char Named trait of every target species.
-#' @param edge_type,min_power As in [classify_cliques()].
+#' @param min_power As in [classify_cliques()].
 #' @return Character vector of the HOGs to reclassify.
 #' @noRd
 .cc_underpowered_hogs <- function(edges, hogs, wg_cliques, trait_char,
-                                  edge_type, min_power) {
+                                  min_power) {
   hogs <- as.character(hogs)
   e_hog <- as.character(edges$hog)
   pw <- as.numeric(edges$power)
   t1 <- unname(trait_char[as.character(edges$species1)])
   t2 <- unname(trait_char[as.character(edges$species2)])
-  cand <- e_hog %in% hogs & !(edges$type %in% edge_type) &
+  cand <- e_hog %in% hogs & !(edges$type %in% "conserved") &
     !is.na(pw) & pw < min_power & !is.na(t1) & !is.na(t2) & t1 != t2
   if (!any(cand)) {
     return(character(0))

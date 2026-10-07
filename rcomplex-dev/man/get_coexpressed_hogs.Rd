@@ -8,7 +8,6 @@ get_coexpressed_hogs(
   candidate_hog,
   networks,
   orthologs,
-  species = names(networks),
   species_trait = NULL,
   min_species = 2L,
   edges = NULL
@@ -24,9 +23,6 @@ keyed by species abbreviation.}
 \item{orthologs}{Data frame with columns \code{gene1},
 \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
 \code{\link{extract_orthologs}}).}
-
-\item{species}{Character vector of species to query (default: all in
-\code{networks}).}
 
 \item{species_trait}{Optional named character vector mapping species to
 trait labels (e.g., \code{c(SP_A = "annual", SP_B = "perennial")}).

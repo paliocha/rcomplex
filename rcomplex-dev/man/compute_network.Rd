@@ -15,11 +15,9 @@ compute_network(x, ...)
   density = 0.03,
   abs_cor = FALSE,
   mr_log_transform = FALSE,
-  min_var = 0,
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE,
   block_size = NULL
 )
 
@@ -46,12 +44,6 @@ normalization (default \code{FALSE}).}
 matching the original RComPlEx R Markdown. If \code{TRUE}, use Obayashi &
 Kinoshita (2009) log-normalized formula (values in [0,1]).}
 
-\item{min_var}{Minimum row variance threshold. Genes with variance below
-this value are removed before computing correlations. Default \code{0} removes
-only constant genes (zero variance). Set to a positive value (e.g. \code{1e-3})
-to also remove near-invariant genes that produce noisy correlations.
-Set to \code{NULL} to disable filtering entirely.}
-
 \item{sparse}{If \code{TRUE} (default), return the network as a sparse
 \code{Matrix::dgCMatrix} holding both triangles of the thresholded
 co-expression matrix (entries below \code{store_threshold} are discarded;
@@ -65,16 +57,6 @@ downstream sweeps loosen the threshold (e.g. \code{density_sweep()})
 without recomputing the network. Only valid with \code{sparse = TRUE}.}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
-
-\item{use_torch}{If \code{TRUE}, use torch for GPU-accelerated correlation
-(CUDA, MPS, or CPU fallback). Requires the
-\href{https://torch.mlverse.org/}{torch} package. Default \code{FALSE}.
-On Apple Silicon (MPS), torch uses float32 because Metal does not support
-float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
-normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
-MPS, keep \code{use_torch = FALSE} here and use
-\code{permutation_hog_test(use_torch = TRUE)} for the permutation
-speedup instead. On CUDA, float64 is used with no precision tradeoff.}
 
 \item{block_size}{\code{NULL} (default) builds the dense n x n matrix first.
 A positive whole number builds the network a block of genes at a
@@ -94,8 +76,8 @@ only in the last bits can be ranked in the other order, shifting an MR
 value. With \code{cor_method = "spearman"} and few samples, correlations
 that are equal as rationals are common and may round apart, so the
 result can then differ from the dense build in many entries and
-between block sizes. Requires \code{sparse = TRUE}, \code{norm_method = "MR"} and
-\code{use_torch = FALSE}. With \code{mr_log_transform = TRUE} a pair is kept
+between block sizes. Requires \code{sparse = TRUE} and \code{norm_method = "MR"}.
+With \code{mr_log_transform = TRUE} a pair is kept
 when either gene ranks the other in its top 10\% (twice
 \code{store_density}) and a second correlation pass reads the other rank;
 on the same data peak memory was 1.7 GB against 5.1 GB dense in
@@ -119,8 +101,8 @@ entries at or above \code{store_threshold} (diagonal absent) when
 \item{threshold}{The co-expression threshold at the given density,
 equal to that of the full dense matrix in every mode.}
 \item{n_genes}{Number of genes in the network.}
-\item{n_removed}{Number of genes removed by variance filter (0 if
-\code{min_var} is \code{NULL}).}
+\item{n_removed}{Number of constant genes removed before computing
+correlations.}
 \item{params}{List of parameters used.}
 \item{store_density, store_threshold}{Sparse networks only: the
 stored edge fraction and the value cutoff of the store. Analyses

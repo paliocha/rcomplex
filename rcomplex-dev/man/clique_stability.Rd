@@ -13,13 +13,8 @@ clique_stability(edges, ...)
   species_trait = NULL,
   all_species = target_species,
   full_cliques = NULL,
-  min_species = length(target_species),
   max_k = length(all_species) - 2L,
-  max_genes_per_sp = 10L,
-  jaccard_threshold = 0.8,
-  edge_type = "conserved",
   n_cores = 1L,
-  cost_weights = c(q = 1, effect = 0),
   ...
 )
 }
@@ -47,26 +42,10 @@ robust to changes in the broader phylogenetic context.}
 \item{full_cliques}{Output of \code{\link{find_cliques}}, or \code{NULL} to
 compute internally (default).}
 
-\item{min_species}{Minimum species per clique in the full dataset
-(default: \code{length(target_species)}). During leave-k-out, reduced
-cliques require only 2 species (the minimum meaningful clique size);
-a clique is testable if at least 2 of its species remain active.}
-
 \item{max_k}{Maximum number of species to leave out
 (default: \code{length(all_species) - 2}, leaving at least 2 species).}
 
-\item{max_genes_per_sp}{Maximum genes per species per HOG (default 10).}
-
-\item{jaccard_threshold}{Minimum Jaccard similarity for matching
-reduced-dataset cliques to full-dataset cliques (default 0.8).}
-
-\item{edge_type}{Edge type filter (default \code{"conserved"}).}
-
 \item{n_cores}{Number of OpenMP threads (default 1).}
-
-\item{cost_weights}{Cost weights for gene-assignment ranking
-(same as in \code{\link{find_cliques}}).
-Default \code{c(q = 1, effect = 0)}.}
 }
 \value{
 A list with components:

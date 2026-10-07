@@ -19,7 +19,7 @@
 #' k x n correlation slice suffices.
 #'
 #' The gene universe is `rownames(net$network)`: `x` is subset to those
-#' rows first (the `min_var` filter was already applied when the network
+#' rows first (the constant-gene filter was already applied when the network
 #' was built), and ranks span exactly the network genes. Pass the same
 #' expression matrix that built the network; the reconstructed block then
 #' matches the dense `compute_network(sparse = FALSE)` matrix.
@@ -33,7 +33,7 @@
 #'
 #' @param x Expression matrix (genes x samples) the network was built
 #'   from. Must contain every network gene as a row; extra rows (e.g.
-#'   genes removed by the `min_var` filter) are ignored.
+#'   genes removed as constant) are ignored.
 #' @param genes Character vector of gene identifiers (no duplicates), all
 #'   present in `rownames(net$network)`.
 #' @param net Network object from [compute_network()] (sparse or dense)
@@ -87,7 +87,7 @@ mr_block <- function(x, genes, net) {
     stop("x must contain every network gene as a row")
   }
 
-  # Same gene universe as the network (min_var filter already applied
+  # Same gene universe as the network (constant-gene filter already applied
   # there); ranks below must span exactly the n network genes.
   x <- x[universe, , drop = FALSE]
   n <- length(universe)

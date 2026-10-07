@@ -344,3 +344,28 @@ test_that("prepare_orthologs(reductions = NULL) needs no gene_map", {
     prepare_orthologs(list(SP_A = se_a, SP_B = se_b), reductions = NULL)
   )
 })
+
+
+test_that("prepare_orthologs output feeds find_coexpressologs", {
+  set.seed(7)
+  hogs <- paste0("HOG", 1:30)
+  samples <- paste0("S", 1:10)
+  se_a <- build_se(
+    make_long_data("SP_A", paste0("A", 1:30), samples, hogs), "SP_A"
+  )
+  se_b <- build_se(
+    make_long_data("SP_B", paste0("B", 1:30), samples, hogs), "SP_B"
+  )
+  ortho <- prepare_orthologs(list(SP_A = se_a, SP_B = se_b))
+  nets <- list(
+    SP_A = compute_network(se_a, density = 0.1),
+    SP_B = compute_network(se_b, density = 0.1)
+  )
+
+  edges <- find_coexpressologs(nets, ortho)
+
+  expect_s3_class(edges, "data.frame")
+  expect_true(all(
+    c("gene1", "gene2", "hog", "q_value", "effect_size") %in% names(edges)
+  ))
+})

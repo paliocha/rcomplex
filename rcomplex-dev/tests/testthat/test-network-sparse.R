@@ -57,10 +57,10 @@ test_that("store_density defaults to max(density, 0.05) and is validated", {
   expect_equal(sp$store_density, 0.1)
   expect_equal(sp$store_threshold, sp$threshold)
 
-  sp2 <- compute_network(expr, density = 0.1, store_density = 0.2)
-  expect_equal(sp2$store_density, 0.2)
-  expect_true(sp2$store_threshold < sp2$threshold)
-  expect_true(length(sp2$network@x) > length(sp$network@x))
+  species2 <- compute_network(expr, density = 0.1, store_density = 0.2)
+  expect_equal(species2$store_density, 0.2)
+  expect_true(species2$store_threshold < species2$threshold)
+  expect_true(length(species2$network@x) > length(sp$network@x))
 
   expect_error(
     compute_network(expr, density = 0.1, store_density = 0.05),

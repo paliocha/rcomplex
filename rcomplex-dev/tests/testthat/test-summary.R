@@ -235,7 +235,7 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
 })
 
 
-test_that("summarize_comparison with sp1/sp2 returns $edges", {
+test_that("summarize_comparison with species1/species2 returns $edges", {
   comparison <- data.frame(
     gene1 = paste0("A_", 1:10),
     gene2 = paste0("B_", 1:10),
@@ -254,14 +254,14 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
     species2.effect_size = c(2.5, 1.3, 1.0, 2.0, 1.1, 1.2, 3.0, 1.0, 2.5, 2.0)
   )
 
-  # Without sp1/sp2: no $edges
+  # Without species1/species2: no $edges
   result1 <- rcomplex:::summarize_comparison(comparison, pi0_method = "storey")
   expect_null(result1$edges)
 
-  # With sp1/sp2: has $edges
+  # With species1/species2: has $edges
   result2 <- rcomplex:::summarize_comparison(comparison,
     pi0_method = "storey",
-    sp1 = "SP_A", sp2 = "SP_B"
+    species1 = "SP_A", species2 = "SP_B"
   )
   expect_true(!is.null(result2$edges))
   expect_true(is.data.frame(result2$edges))
@@ -279,7 +279,7 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
 })
 
 
-test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
+test_that("summarize_comparison errors when only one species is provided", {
   comparison <- data.frame(
     gene1 = "A_1", gene2 = "B_1", hog = 1,
     species1.neigh.overlap = 5, species2.neigh.overlap = 4,
@@ -289,18 +289,18 @@ test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
   )
 
   expect_error(
-    rcomplex:::summarize_comparison(comparison, sp1 = "SP_A"),
-    "Both sp1 and sp2"
+    rcomplex:::summarize_comparison(comparison, species1 = "SP_A"),
+    "Both species1 and species2"
   )
   expect_error(
-    rcomplex:::summarize_comparison(comparison, sp2 = "SP_B"),
-    "Both sp1 and sp2"
+    rcomplex:::summarize_comparison(comparison, species2 = "SP_B"),
+    "Both species1 and species2"
   )
 })
 
 
 test_that(
-  "summarize_comparison with sp1/sp2 returns empty $edges on zero rows",
+  "summarize_comparison with both species returns empty $edges on zero rows",
   {
     # All zero overlap -> filtered out with default filter_zero=TRUE
     comparison <- data.frame(
@@ -314,7 +314,7 @@ test_that(
 
     result <- rcomplex:::summarize_comparison(comparison,
       pi0_method = "storey",
-      sp1 = "SP_A", sp2 = "SP_B"
+      species1 = "SP_A", species2 = "SP_B"
     )
     expect_equal(nrow(result$results), 0)
     expect_true(!is.null(result$edges))
@@ -338,18 +338,18 @@ test_that(
 
     set.seed(5)
     s <- rcomplex:::summarize_comparison(cmp)
-    expect_named(s$summary$pi0, c("sp1", "sp2"))
+    expect_named(s$summary$pi0, c("species1", "species2"))
     expect_true(all(s$summary$pi0 > 0 & s$summary$pi0 <= 1))
 
     # q-values are the exact p-values' BH values scaled by the recorded pi0
     r <- s$results
     expect_equal(
       r$species1.q_value_con,
-      s$summary$pi0[["sp1"]] * p.adjust(r$species1.p_value_con, "BH")
+      s$summary$pi0[["species1"]] * p.adjust(r$species1.p_value_con, "BH")
     )
     expect_equal(
       r$species2.q_value_con,
-      s$summary$pi0[["sp2"]] * p.adjust(r$species2.p_value_con, "BH")
+      s$summary$pi0[["species2"]] * p.adjust(r$species2.p_value_con, "BH")
     )
 
     # reproducible under set.seed()
@@ -359,10 +359,10 @@ test_that(
     # divergence direction uses the lower tail: (div - eq) + U * eq
     set.seed(6)
     d <- rcomplex:::summarize_comparison(cmp, alternative = "less")
-    expect_named(d$summary$pi0, c("sp1", "sp2"))
+    expect_named(d$summary$pi0, c("species1", "species2"))
     expect_equal(
       d$results$species1.q_value_div,
-      d$summary$pi0[["sp1"]] *
+      d$summary$pi0[["species1"]] *
         p.adjust(d$results$species1.p_value_div, "BH")
     )
   }
@@ -387,7 +387,7 @@ test_that("pi0_method = 'none' and 'storey' behave as documented", {
   st <- rcomplex:::summarize_comparison(cmp, pi0_method = "storey")
   ref <- compute_qvalues(st$results$species1.p_value_con, pi0_method = "storey")
   expect_equal(st$results$species1.q_value_con, ref$qvalues)
-  expect_equal(st$summary$pi0[["sp1"]], ref$pi0)
+  expect_equal(st$summary$pi0[["species1"]], ref$pi0)
   # storey / none do not touch the RNG
   set.seed(8)
   u1 <- runif(1)
@@ -412,7 +412,7 @@ test_that("empty result records undefined pi0", {
   cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
   s <- rcomplex:::summarize_comparison(cmp[0, ])
   expect_equal(nrow(s$results), 0L)
-  expect_named(s$summary$pi0, c("sp1", "sp2"))
+  expect_named(s$summary$pi0, c("species1", "species2"))
   expect_true(all(is.na(s$summary$pi0)))
 })
 
@@ -431,7 +431,7 @@ test_that("summarize_comparison(seed = ) pins the randomized-p q-values", {
   # this fixture, or "different seeds differ" would prove nothing. It
   # does -- pi0 spans about 0.73 to 0.89 over seeds 1:6.
   pi0s <- vapply(1:6, function(s) {
-    rcomplex:::summarize_comparison(cmp, seed = s)$summary$pi0[["sp1"]]
+    rcomplex:::summarize_comparison(cmp, seed = s)$summary$pi0[["species1"]]
   }, numeric(1))
   expect_gt(diff(range(pi0s)), 0.05)
 

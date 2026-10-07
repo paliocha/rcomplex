@@ -9,15 +9,8 @@ clique_threshold_sweep(
   target_species,
   networks,
   orthologs,
-  species_pairs = NULL,
   multipliers = c(1.5, 2, 3, 5, 10),
-  alternative = c("greater", "less"),
-  alpha = 0.1,
   min_species = length(target_species),
-  max_genes_per_sp = 10L,
-  max_missing_edges = 0L,
-  edge_type = "conserved",
-  jaccard_threshold = 0.5,
   n_cores = 1L
 )
 }
@@ -33,32 +26,11 @@ keyed by species abbreviation. Each element must have \code{$network}
 \item{orthologs}{Data frame with columns \code{gene1}, \code{gene2},
 \code{hog}.}
 
-\item{species_pairs}{Optional list of length-2 character vectors
-specifying which species pairs to compare. Defaults to all
-\code{combn(target_species, 2)}.}
-
 \item{multipliers}{Numeric vector of threshold multipliers (each > 1).
 Default \code{c(1.5, 2, 3, 5, 10)}.}
 
-\item{alternative}{Passed to \code{\link{summarize_comparison}} and
-\code{\link{comparison_to_edges}}: \code{"greater"} (default) or
-\code{"less"}.}
-
-\item{alpha}{Significance threshold for edge classification
-(default 0.1).}
-
 \item{min_species}{Minimum species per clique
 (default \code{length(target_species)}).}
-
-\item{max_genes_per_sp}{Maximum genes per species per HOG (default 10).}
-
-\item{max_missing_edges}{Passed to \code{\link{find_cliques}}
-(default 0).}
-
-\item{edge_type}{Edge type filter (default \code{"conserved"}).}
-
-\item{jaccard_threshold}{Minimum per-species-slot Jaccard similarity
-for a clique to count as "survived" (default 0.5).}
 
 \item{n_cores}{Cores for \code{\link{compare_neighborhoods}}
 (default 1).}

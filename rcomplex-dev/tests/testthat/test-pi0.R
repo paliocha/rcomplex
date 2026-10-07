@@ -157,14 +157,15 @@ test_that(
     # both directional calls.
     # Here the two directions carry identical p-value columns, so a seed
     # inside compute_qvalues() -- necessarily the same value for both
-    # calls -- would hand them the same U and force pi0[sp1] == pi0[sp2].
+    # calls -- would hand them the same U and force
+    # pi0[species1] == pi0[species2].
     # One seed one level up keeps the draws independent.
     seeded <- rcomplex:::summarize_comparison(cmp, seed = 32)
     expect_identical(seeded, s)
     expect_identical(cmp$species1.p_value_gt, cmp$species2.p_value_gt)
     expect_identical(cmp$species1.p_value_eq, cmp$species2.p_value_eq)
     expect_false(identical(
-      seeded$summary$pi0[["sp1"]], seeded$summary$pi0[["sp2"]]
+      seeded$summary$pi0[["species1"]], seeded$summary$pi0[["species2"]]
     ))
   }
 )

@@ -28,7 +28,7 @@ spec_frame <- function(n = 60L, n2 = 200L, seed = 1L) {
 spec_null <- function(n0 = 500L, n2 = 200L, seed = 2L) {
   withr::with_seed(seed, {
     grid <- function() sample(seq_len(n2), n0, replace = TRUE) / n2
-    list(sp1 = grid(), sp2 = grid())
+    list(species1 = grid(), species2 = grid())
   })
 }
 
@@ -46,12 +46,12 @@ test_that("empirical p is (1 + #null <= p) / (1 + n_null)", {
   brute <- function(p, p0) {
     vapply(p, function(x) (1 + sum(p0 <= x)) / (1 + length(p0)), 1)
   }
-  expect_equal(r$species1.p.emp, brute(r$species1.p_value, p0$sp1))
-  expect_equal(r$species2.p.emp, brute(r$species2.p_value, p0$sp2))
-  expect_equal(s$summary$n_null, c(sp1 = 500L, sp2 = 500L))
+  expect_equal(r$species1.p.emp, brute(r$species1.p_value, p0$species1))
+  expect_equal(r$species2.p.emp, brute(r$species2.p_value, p0$species2))
+  expect_equal(s$summary$n_null, c(species1 = 500L, species2 = 500L))
 
   # NA null draws are not draws
-  p0_na <- list(sp1 = c(p0$sp1, NA, NA), sp2 = p0$sp2)
+  p0_na <- list(species1 = c(p0$species1, NA, NA), species2 = p0$species2)
   expect_equal(rcomplex:::summarize_specificity(cmp, null_p = p0_na)$results, r)
 })
 
@@ -75,7 +75,7 @@ test_that("NA rows are dropped and counted", {
   s <- rcomplex:::summarize_specificity(cmp)
   expect_equal(nrow(s$results), 57L)
   expect_equal(s$summary$n_dropped, 3L)
-  expect_equal(s$summary$n_null, c(sp1 = 0L, sp2 = 0L))
+  expect_equal(s$summary$n_null, c(species1 = 0L, species2 = 0L))
   expect_equal(s$summary$gene_pairs$total, 57L)
   expect_false(any(is.na(s$results$species1.q_value_con)))
   expect_named(
@@ -96,13 +96,13 @@ test_that("pi0_method = 'none' is Benjamini-Hochberg on the empirical p", {
 })
 
 
-test_that("sp1/sp2 give an edge frame with NA power", {
+test_that("species1/species2 give an edge frame with NA power", {
   cmp <- spec_frame()
   expect_null(rcomplex:::summarize_specificity(cmp)$edges)
   # spec_frame() carries no AUROC grid, so power is NA -- and said so
   expect_warning(
     s <- rcomplex:::summarize_specificity(cmp,
-      null_p = spec_null(), sp1 = "SP_A", sp2 = "SP_B"
+      null_p = spec_null(), species1 = "SP_A", species2 = "SP_B"
     ),
     "no \\*\\.auroc\\.grid"
   )
@@ -115,20 +115,21 @@ test_that("sp1/sp2 give an edge frame with NA power", {
     "no \\*\\.auroc\\.grid"
   )
   expect_equal(s$edges, two_step)
-  expect_error(rcomplex:::summarize_specificity(cmp, sp1 = "SP_A"),
-               "Both sp1 and sp2")
+  expect_error(rcomplex:::summarize_specificity(cmp, species1 = "SP_A"),
+               "Both species1 and species2")
 })
 
 
 test_that("an all-NA comparison returns the empty structure", {
   cmp <- spec_frame()
   cmp$species1.p_value <- NA_real_
-  s <- rcomplex:::summarize_specificity(cmp, null_p = spec_null(), sp1 = "A",
-                                        sp2 = "B")
+  s <- rcomplex:::summarize_specificity(
+    cmp, null_p = spec_null(), species1 = "A", species2 = "B"
+  )
   expect_equal(nrow(s$results), 0L)
   expect_equal(s$summary$gene_pairs$total, 0L)
   expect_equal(s$summary$n_dropped, nrow(cmp))
-  expect_equal(s$summary$n_null, c(sp1 = 500L, sp2 = 500L))
+  expect_equal(s$summary$n_null, c(species1 = 500L, species2 = 500L))
   expect_true(all(is.na(s$summary$pi0)))
   expect_named(s$edges, edge_names)
   expect_equal(nrow(s$edges), 0L)

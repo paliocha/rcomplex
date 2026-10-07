@@ -126,8 +126,7 @@ test_that("a seeded call restores the caller's stream", {
   expect_true(restored(function() {
     detect_modules(net,
       resolution = c(0.8, 1.0), seed = 42,
-      objective_function = "modularity",
-      n_iterations = 1L, max_consensus_iter = 1L
+      objective_function = "modularity", max_consensus_iter = 1L
     )
   }))
 

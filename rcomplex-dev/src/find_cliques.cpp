@@ -23,8 +23,8 @@ using namespace Rcpp;
 //' @param edge_hog 0-based HOG index per edge
 //' @param edge_g1  0-based gene index for gene 1
 //' @param edge_g2  0-based gene index for gene 2
-//' @param edge_sp1 0-based species index for gene 1
-//' @param edge_sp2 0-based species index for gene 2
+//' @param edge_species1 0-based species index for gene 1
+//' @param edge_species2 0-based species index for gene 2
 //' @param edge_qval q-value per edge
 //' @param edge_eff Effect size per edge
 //' @param n_target_species Number of target species
@@ -43,8 +43,8 @@ Rcpp::List find_cliques_cpp(
     IntegerVector edge_hog,
     IntegerVector edge_g1,
     IntegerVector edge_g2,
-    IntegerVector edge_sp1,
-    IntegerVector edge_sp2,
+    IntegerVector edge_species1,
+    IntegerVector edge_species2,
     NumericVector edge_qval,
     NumericVector edge_eff,
     int n_target_species,
@@ -65,8 +65,8 @@ Rcpp::List find_cliques_cpp(
     const int* hog_ptr = edge_hog.begin();
     const int* g1_ptr  = edge_g1.begin();
     const int* g2_ptr  = edge_g2.begin();
-    const int* sp1_ptr = edge_sp1.begin();
-    const int* sp2_ptr = edge_sp2.begin();
+    const int* sp1_ptr = edge_species1.begin();
+    const int* sp2_ptr = edge_species2.begin();
     const double* qval_ptr = edge_qval.begin();
     const double* eff_ptr = edge_eff.begin();
 

@@ -89,7 +89,7 @@ test_that("mr_block reconstructs sub-threshold values from a sparse network", {
 
 test_that("mr_block uses the network's gene universe, not x's rows", {
   x <- make_mr_block_expr()
-  # a constant gene is removed by the min_var filter -> the network's
+  # a constant gene is removed by the variance filter -> the network's
   # universe is smaller than x's rows; ranks must span network genes only
   x2 <- rbind(x, gz = rep(1, ncol(x)))
   net <- compute_network(x2, density = 0.05, sparse = FALSE)

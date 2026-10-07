@@ -4,23 +4,13 @@
 \alias{preservation_matrix_test}
 \title{Trait relabelling test on the all-pairs preservation matrix}
 \usage{
-preservation_matrix_test(
-  classification,
-  group,
-  block = NULL,
-  statistic = c("zsummary", "zsummary_raw"),
-  exclude_within_block = TRUE,
-  n_perm = NULL,
-  enum_max = 50000L,
-  n_perm_pres = NULL,
-  seed = NULL
-)
+preservation_matrix_test(classification, group, block = NULL, seed = NULL)
 }
 \arguments{
 \item{classification}{The \code{classification} data frame from
 \code{\link[=preservation_paired]{preservation_paired()}}, ideally over an all-pairs \code{pairs} table (see
 \code{\link[=all_species_pairs]{all_species_pairs()}}). Must carry \code{reference}, \code{test} and the effect
-column named by \code{statistic}; \code{q_value} is used only for the
+column \code{Zsummary_std}; \code{q_value} is used only for the
 \verb{$saturation} diagnostic. Rows whose effect is \code{NA} --- \code{"untested"}
 modules, and any module whose null correlation was unavailable --- are
 dropped, since nothing was measured for them.}
@@ -32,39 +22,7 @@ so the permuted label multiset is the one the matrix actually holds.}
 \item{block}{Optional named vector mapping species to a phylogenetic group
 (a genus, say). Supplying it enables the restricted within-block null and
 the within-block exclusion. With \code{block = NULL} only the free null is
-run and \code{exclude_within_block} has nothing to act on.}
-
-\item{statistic}{Which effect column to average. \code{"zsummary"} (default)
-uses \code{Zsummary_std}, which has unit variance under the permutation null
-and is therefore comparable across modules and contrasts; \code{"zsummary_raw"}
-uses \code{Zsummary}, whose null spread depends on the correlation between the
-two preservation statistics and so differs from module to module. There
-is deliberately no q-value option.}
-
-\item{exclude_within_block}{Drop rows whose two species share a block
-(default \code{TRUE}). Ignored when \code{block} is \code{NULL}.}
-
-\item{n_perm}{Number of labellings to draw when a space is too large to
-enumerate. \code{NULL} (default) means 10000 if it comes to that. Ignored, with
-a message when it was supplied explicitly, for a space that is enumerated.
-The sampled branch draws from the RNG, so pass \code{seed} (or call
-\code{set.seed()} beforehand) for a reproducible p-value. Which
-branch runs is decided by \code{enum_max} rather than by the
-caller, so a design can cross into the sampled regime
-without the call site changing.}
-
-\item{enum_max}{Enumerate a null while its space holds at most this many
-labellings (default 50000). Lower it to cap runtime on wide designs; the
-free space grows as the multinomial coefficient, so 20 species split
-10/10 is already 184756. A sampled null reports its floor over draws,
-not over the labelling space --- see the last paragraph of \emph{The two
-nulls}.}
-
-\item{n_perm_pres}{The \code{n_perm} used in the \code{\link[=module_preservation]{module_preservation()}} runs
-behind \code{classification}, if known. Nothing in the test reads it; it lets
-\verb{$saturation} report \code{q_floor_global}, the smallest q-value a \emph{global}
-Benjamini-Hochberg correction over the whole matrix could reach,
-\code{n_tests / (n_perm_pres + 1)}. \code{NULL} (default) leaves that field \code{NA}.}
+run.}
 
 \item{seed}{Integer seed for the sampled branch, or \code{NULL} (default) to
 draw from the ambient stream and leave it advanced. A seed draws from a
@@ -76,7 +34,6 @@ nothing, so a seed changes nothing there.}
 A list with components:
 \describe{
 \item{observed}{The statistic under the true labelling.}
-\item{statistic}{Echo of the input.}
 \item{form}{\code{"difference"} for two trait levels, \code{"dispersion"}
 otherwise.}
 \item{class_means}{Data frame with \code{class}, \code{n} and \code{mean_z}: the
@@ -97,9 +54,8 @@ both are counted over the \code{n_scored} draws rather than over the
 \item{p_free,p_blocked}{The two p-values, lifted out for convenience.
 \code{p_blocked} is \code{NA} without a \code{block}.}
 \item{saturation}{List describing the resolution of the supplied
-q-values: \code{n_tests}, \code{n_distinct}, \code{q_floor}, \code{n_at_floor},
-\code{n_at_one}, plus \code{p_min_pres} and \code{q_floor_global} (both \code{NA}
-without \code{n_perm_pres}). \code{n_distinct}, \code{n_at_floor} and \code{n_at_one}
+q-values: \code{n_tests}, \code{n_distinct}, \code{q_floor}, \code{n_at_floor} and
+\code{n_at_one}. \code{n_distinct}, \code{n_at_floor} and \code{n_at_one}
 are counted with the tolerance \code{\link[=pvalue_resolution]{pvalue_resolution()}} uses, so
 the two agree on one q-vector --- relative for \code{n_distinct} and
 \code{n_at_floor}, and a one-sided window below 1 for \code{n_at_one},
@@ -129,7 +85,7 @@ the label counts and the whole preservation matrix fixed.
 
 The statistic ranks contrasts by \code{Zsummary_std}, never by \code{p_value} or
 \code{q_value}. A permutation p-value saturates: on the eight-species Pooideae
-set with \code{n_perm = 2000} and 511 module-directions, \code{q_value} takes 172
+set with 2000 permutations and 511 module-directions, \code{q_value} takes 172
 distinct values, 35 modules sit tied at the floor of 0.00071 and 20 at
 exactly 1. Among those 35 floored modules \code{Zsummary_std} spans 6.4 to
 66.7 --- a tenfold range of effect that the p-value cannot see at all.
@@ -199,8 +155,8 @@ when that floor exceeds 0.05, since no signal can then reach significance.
 
 Both floors describe an \emph{enumerated} null. When a space is too large to
 enumerate, \code{p_min}, \code{p_attainable} and \code{n_tied_max} are counted over the
-\code{n_perm} draws instead: \code{p_min} is then the sampling floor
-\code{1 / (n_perm + 1)}, which can sit far below the labelling-space floor the
+10000 draws instead: \code{p_min} is then the sampling floor
+\code{1 / 10001}, which can sit far below the labelling-space floor the
 design really imposes, and \code{n_tied_max} counts drawn labellings with
 repeats rather than distinct ones. \code{exact} says which regime a null is in,
 and only an exact one bounds the design.
@@ -212,16 +168,9 @@ and only an exact one bounds the design.
 Benjamini-Hochberg over that contrast's own modules, a dozen or two tests.
 An all-pairs matrix reframes those contrasts as one analysis --- every
 module-direction tests the same hypothesis --- so the per-contrast
-correction under-corrects, by roughly the number of contrasts. Whether a
-global correction is available instead is a question about the
-permutation floor, not about the data: with \code{n_tests} module-directions
-and a smallest attainable p-value of \code{1 / (n_perm + 1)}, BH cannot put any
-module below \code{n_tests / (n_perm + 1)}. For 511 tests that is 0.26 at
-\code{n_perm = 2000}, which nothing can pass, and 0.026 at \code{n_perm = 20000},
-which is usable. Pass \code{n_perm_pres} and \verb{$saturation$q_floor_global}
-reports that number, with a warning when it exceeds 0.05. The relabelling
-test itself is untouched --- it never reads a q-value --- but any
-per-module significance call taken off the same matrix is.
+correction under-corrects, by roughly the number of contrasts. The
+relabelling test itself is untouched --- it never reads a q-value --- but
+any per-module significance call taken off the same matrix is.
 }
 
 \section{Why within-block pairs are excluded}{
@@ -232,10 +181,9 @@ while every trait-concordant pair is between-genus. Trait status and
 phylogenetic distance are then perfectly confounded within that subset,
 and the confound runs \emph{against} the hypothesis: close relatives are better
 preserved, so the within-genus discordant pairs are pulled upward and mask
-a real effect. \code{exclude_within_block = TRUE} (the default) drops those
-rows. The exclusion is by block membership, which no relabelling changes,
-so the same rows are excluded under every labelling and the null stays
-valid.
+a real effect. Those rows are dropped. The exclusion is by block
+membership, which no relabelling changes, so the same rows are excluded
+under every labelling and the null stays valid.
 }
 
 \examples{

@@ -4,38 +4,10 @@
 \alias{classify_preservation}
 \title{Classify modules as conserved, moderately preserved, or diverged}
 \usage{
-classify_preservation(
-  pres,
-  alpha = 0.1,
-  z_conserved = 10,
-  z_scale = c("standardized", "raw"),
-  species = NA_character_,
-  pair_name = NA_character_
-)
+classify_preservation(pres, species = NA_character_, pair_name = NA_character_)
 }
 \arguments{
 \item{pres}{Output of \code{\link[=module_preservation]{module_preservation()}}.}
-
-\item{alpha}{Significance threshold for the combined q-value (default 0.1).}
-
-\item{z_conserved}{Cut point at or above which a significant module is
-called conserved rather than moderately preserved (default 10).}
-
-\item{z_scale}{Which \code{Zsummary} the cut point is read against.
-\code{"standardized"} (default) uses \code{Zsummary_std}, which has unit variance
-under the permutation null; \code{"raw"} uses \code{Zsummary} itself.
-
-This matters because the familiar 10 / 2 cut points are not
-scale-free. Langfelder et al. (2011) set them for a \code{Zsummary} built as
-the mean of two medians over several density and connectivity statistics.
-Here only two statistics are available from an adjacency matrix, so
-\code{Zsummary} is the mean of two standardized values and its null spread is
-\code{sqrt(2 + 2 * rho) / 2}, where \code{rho} is the null correlation between
-\code{avg.weight} and \code{cor.degree} -- between 0.71 and 1 rather than the
-smaller spread a median-of-several carries. Reading 10 against the raw
-mean therefore imports a number calibrated on a different quantity.
-Dividing by the null sd restores its intended meaning, "this many null
-standard deviations". Use \code{"raw"} only to reproduce older output.}
 
 \item{species}{Optional species label recorded in the \code{species} column.}
 
@@ -45,7 +17,7 @@ standard deviations". Use \code{"raw"} only to reproduce older output.}
 A data frame with \code{module}, \code{species}, \code{pair_name},
 \code{classification}, \code{Zsummary}, \code{Zsummary_std}, \code{medianRank}, \code{q_value},
 \code{size} and \code{size_mapped}. \code{Zsummary_std} is the column the default
-\code{z_scale = "standardized"} criterion is read against, so reproducing
+criterion is read against, so reproducing
 the call from \code{Zsummary} alone will not match. \code{medianRank} is carried
 through from \code{\link[=module_preservation]{module_preservation()}} and takes no part in the call; see
 \emph{Ordering modules} for when to read it instead.
@@ -59,10 +31,9 @@ significant modules, so the familiar 2 / 10 cut points still appear.
 \section{Criteria}{
 
 \describe{
-\item{conserved}{\code{q_value < alpha} and the \code{Zsummary} scale chosen by
-\code{z_scale} is at or above \code{z_conserved}}
-\item{moderate}{\code{q_value < alpha} and it is below \code{z_conserved}}
-\item{diverged}{\code{q_value >= alpha}}
+\item{conserved}{\code{q_value < 0.1} and \code{Zsummary_std} is at or above 10}
+\item{moderate}{\code{q_value < 0.1} and it is below 10}
+\item{diverged}{\code{q_value >= 0.1}}
 \item{untested}{\code{q_value} is \code{NA} -- a statistic could not be computed,
 so neither preservation nor divergence was measured}
 }
