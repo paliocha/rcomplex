@@ -155,7 +155,7 @@ test_that("input validation works", {
   expect_error(compute_network(mat, density = 1), "between 0 and 1")
 })
 
-test_that("min_var removes constant genes", {
+test_that("constant genes are removed", {
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
@@ -173,7 +173,7 @@ test_that("min_var removes constant genes", {
   expect_false("gene3" %in% rownames(result$network))
 })
 
-test_that("min_var drops constant genes with float-noise variance", {
+test_that("constant genes with float-noise variance are removed", {
   set.seed(1)
   expr <- matrix(rnorm(200), nrow = 20,
                  dimnames = list(paste0("g", 1:20), NULL))
@@ -187,157 +187,6 @@ test_that("min_var drops constant genes with float-noise variance", {
     expect_false("g20" %in% rownames(net$network))
     expect_equal(net$n_removed, 1L)
   }
-})
-
-test_that("min_var threshold filters near-invariant genes", {
-  set.seed(42)
-  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
-  rownames(expr) <- paste0("gene", 1:20)
-  # Make gene1 nearly constant (tiny variance)
-  expr[1, ] <- 5.0 + rnorm(10, sd = 1e-6)
-
-  result_strict <- compute_network(expr, density = 0.1, min_var = 1e-8)
-  expect_equal(result_strict$n_removed, 1L)
-  expect_false("gene1" %in% rownames(result_strict$network))
-
-  # Default min_var=0 keeps near-invariant genes (variance > 0)
-  result_default <- compute_network(expr, density = 0.1)
-  expect_equal(result_default$n_removed, 0L)
-  expect_true("gene1" %in% rownames(result_default$network))
-})
-
-test_that("min_var=NULL disables filtering", {
-  set.seed(42)
-  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
-  rownames(expr) <- paste0("gene", 1:20)
-
-  result <- compute_network(expr, density = 0.1, min_var = NULL)
-  expect_equal(result$n_removed, 0L)
-  expect_equal(result$n_genes, 20)
-
-  # A constant gene is removed under the default min_var = 0 but kept with
-  # min_var = NULL; its NaN correlations then hit the in-place MR guard
-  # (previously ranked silently via undefined behaviour).
-  expr[1, ] <- 5.0
-  expect_equal(compute_network(expr, density = 0.1)$n_removed, 1L)
-  expect_error(compute_network(expr, density = 0.1, min_var = NULL), "NaN")
-})
-
-test_that("min_var errors when too few genes remain", {
-  set.seed(42)
-  expr <- matrix(rnorm(50), nrow = 5, ncol = 10)
-  rownames(expr) <- paste0("gene", 1:5)
-  # Huge threshold removes all genes
-  expect_error(
-    compute_network(expr, density = 0.1, min_var = 1e6),
-    "Fewer than 3 genes"
-  )
-})
-
-test_that("min_var is stored in params", {
-  set.seed(42)
-  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
-  rownames(expr) <- paste0("gene", 1:20)
-
-  result <- compute_network(expr, density = 0.1, min_var = 0.5)
-  expect_equal(result$params$min_var, 0.5)
-})
-
-test_that("use_torch errors when torch not installed", {
-  skip_if(
-    requireNamespace("torch", quietly = TRUE),
-    "torch is installed — cannot test missing-package error"
-  )
-  expr <- matrix(rnorm(100), nrow = 10, ncol = 10)
-  rownames(expr) <- paste0("gene", 1:10)
-  expect_error(
-    compute_network(expr, density = 0.1, use_torch = TRUE),
-    "requires the torch package"
-  )
-})
-
-test_that("torch backend matches Rfast (Pearson)", {
-  skip_if_not_installed("torch")
-  skip_if_not(
-    tryCatch(
-      {
-        torch::torch_tensor(1)
-        TRUE
-      },
-      error = function(e) FALSE
-    ),
-    "torch backend (Lantern) not available"
-  )
-  set.seed(42)
-  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
-  rownames(expr) <- paste0("gene", 1:20)
-
-  rfast_result <- compute_network(expr,
-    cor_method = "pearson",
-    density = 0.05, use_torch = FALSE, sparse = FALSE
-  )
-  torch_result <- compute_network(expr,
-    cor_method = "pearson",
-    density = 0.05, use_torch = TRUE, sparse = FALSE
-  )
-
-  expect_equal(torch_result$network, rfast_result$network, tolerance = 1e-10)
-  expect_equal(
-    torch_result$threshold, rfast_result$threshold, tolerance = 1e-10
-  )
-})
-
-test_that("torch backend matches Rfast (Spearman)", {
-  skip_if_not_installed("torch")
-  skip_if_not(
-    tryCatch(
-      {
-        torch::torch_tensor(1)
-        TRUE
-      },
-      error = function(e) FALSE
-    ),
-    "torch backend (Lantern) not available"
-  )
-  set.seed(42)
-  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
-  rownames(expr) <- paste0("gene", 1:20)
-
-  # The correlation itself is stable across backends: rank-swap artifacts
-  # only appear AFTER MR ranks the correlations. Strict up to the working
-  # precision of the backend -- MPS is float32 (measured max |diff| ~1.2e-7
-  # on this fixture), so 1e-5 leaves two orders of magnitude of headroom
-  # while still failing for any structural difference (e.g. a halved
-  # matrix).
-  expect_equal(unname(rcomplex:::cor_torch(expr, "spearman")),
-    unname(rcomplex:::cor_rfast(expr, "spearman")),
-    tolerance = 1e-5
-  )
-
-  rfast_result <- compute_network(expr,
-    cor_method = "spearman",
-    density = 0.05, use_torch = FALSE, sparse = FALSE
-  )
-  torch_result <- compute_network(expr,
-    cor_method = "spearman",
-    density = 0.05, use_torch = TRUE, sparse = FALSE
-  )
-
-  # MR normalization is rank-based: swapping two near-tie correlations
-  # changes their mutual ranks by ~1, producing MR differences of O(1) in a
-  # minority of cells. Near-tie swaps happen under ANY non-reference float
-  # path -- MPS float32 and float64 with a different BLAS (Orion
-  # CPU-Lantern vs Rfast) alike -- so bound the damage per cell and in
-  # extent instead of using a vacuous global tolerance (the old
-  # tolerance = 1.0 passed for a halved network): every cell within 2 of
-  # the reference (a near-tie swap moves each mutual rank by ~1), few
-  # cells touched at all (measured 0.14 on MPS float32 here; a halved
-  # network scores ~1.0 with max diff ~15), and the density threshold
-  # agrees.
-  d <- abs(torch_result$network - rfast_result$network)
-  expect_lt(max(d), 2)
-  expect_lt(mean(d > 1e-8), 0.25)
-  expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = 0.1)
 })
 
 test_that(

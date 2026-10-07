@@ -67,8 +67,7 @@
 #'   genes) that replicated between sample halves and were conserved
 #'   across species as well as modularity's, plus a tail of small
 #'   communities (under 300 genes) that were not conserved. Drop the tail
-#'   by size (\code{as_modules(min_size = )}) before reading modules as
-#'   units.
+#'   by size before reading modules as units.
 #' @param objective_function Leiden objective: `"modularity"` (default
 #'   since 0.3.2; CPM before) or `"CPM"`. The
 #'   two replicated and conserved large modules equally on 20,000-gene

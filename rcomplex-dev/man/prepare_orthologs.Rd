@@ -4,7 +4,7 @@
 \alias{prepare_orthologs}
 \title{Extract pairwise orthologs, optionally with paralog-reduced gene names}
 \usage{
-prepare_orthologs(se_list, reductions = NULL, hog_col = "hog")
+prepare_orthologs(se_list, reductions = NULL)
 }
 \arguments{
 \item{se_list}{Named list of
@@ -16,9 +16,6 @@ keyed by the same species codes as \code{se_list}, or \code{NULL}
 (the default) to skip paralog reduction and keep original gene
 identities. When supplied, each element must contain a \code{$gene_map}
 data frame with columns \code{original} and \code{representative}.}
-
-\item{hog_col}{Column name in \code{rowData} containing HOG identifiers
-(default \code{"hog"}).}
 }
 \value{
 A data frame with columns \code{gene1}, \code{gene2}, and

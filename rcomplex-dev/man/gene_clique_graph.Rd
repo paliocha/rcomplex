@@ -7,14 +7,7 @@
 \usage{
 gene_clique_graph(edges, ...)
 
-\method{gene_clique_graph}{default}(
-  edges,
-  min_size = 3L,
-  alpha_graph = 0.1,
-  id_prefix = "",
-  max_genes_per_sp = 10L,
-  ...
-)
+\method{gene_clique_graph}{default}(edges, min_size = 3L, alpha_graph = 0.1, id_prefix = "", ...)
 }
 \arguments{
 \item{edges}{Data frame of co-expressolog calls, as returned by
@@ -42,19 +35,6 @@ at one threshold need not be maximal at another.}
 \item{id_prefix}{String prepended to every \code{clique_id}. Clique ids
 are \verb{<prefix><hog>_<k>}, so runs at different \code{alpha_graph} values
 need distinct prefixes before they can be row-bound.}
-
-\item{max_genes_per_sp}{Maximum genes per species per ortholog group
-(default 10), the same cap as \code{\link{find_cliques}}. Every
-paralog combination is a clique of its own, so a group with \code{c}
-copies in each of \code{S} species has up to \code{c^S} maximal cliques in a
-near-complete graph: one 219-gene group ran for hours at 22 GB
-uncapped. Within each group, a species with more genes than the cap
-keeps the ones with the most edges in the group's graph (after the
-\code{alpha_graph} filter and the duplicate-row collapse), ties going to
-the gene that entered the graph first, and the rest are dropped
-with every edge they carry. Results change only for groups above
-the cap; one message per call reports how many groups and genes
-were affected. \code{Inf} or \code{NULL} disables the cap.}
 }
 \value{
 A data frame with one row per clique member:

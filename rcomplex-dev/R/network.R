@@ -57,32 +57,6 @@ torch_device_dtype <- function() {
 
 # ---- Correlation backends ------------------------------------------------
 
-#' Compute gene-gene correlation matrix via torch
-#'
-#' Uses GPU (CUDA/MPS) when available, otherwise torch on CPU.
-#' Pearson: center rows, L2-normalize, GEMM.
-#' Spearman: rank rows first, then Pearson on ranks.
-#'
-#' @param x Numeric matrix (genes x samples).
-#' @param method `"pearson"` or `"spearman"`.
-#' @return Correlation matrix (genes x genes) as a base R matrix.
-#' @noRd
-cor_torch <- function(x, method = "pearson") {
-  dd <- torch_device_dtype()
-
-  if (method == "spearman") {
-    x <- t(apply(x, 1, rank))
-  }
-
-  x <- torch::torch_tensor(x, dtype = dd$dtype, device = dd$device)
-  x <- x - x$mean(dim = 2L, keepdim = TRUE)
-  norms <- x$norm(dim = 2L, keepdim = TRUE)$clamp(min = 1e-30)
-  x <- x / norms
-  cor_mat <- x$mm(x$t())
-
-  as.matrix(cor_mat$cpu()$to(dtype = torch::torch_float64()))
-}
-
 #' Compute gene-gene correlation matrix via Rfast
 #'
 #' @param x Numeric matrix (genes x samples).
@@ -125,11 +99,6 @@ cor_rfast <- function(x, method = "pearson") {
 #' @param mr_log_transform If `FALSE` (default), use the raw MR formula
 #'   matching the original RComPlEx R Markdown. If `TRUE`, use Obayashi &
 #'   Kinoshita (2009) log-normalized formula (values in \[0,1\]).
-#' @param min_var Minimum row variance threshold. Genes with variance below
-#'   this value are removed before computing correlations. Default `0` removes
-#'   only constant genes (zero variance). Set to a positive value (e.g. `1e-3`)
-#'   to also remove near-invariant genes that produce noisy correlations.
-#'   Set to `NULL` to disable filtering entirely.
 #' @param sparse If `TRUE` (default), return the network as a sparse
 #'   `Matrix::dgCMatrix` holding both triangles of the thresholded
 #'   co-expression matrix (entries below `store_threshold` are discarded;
@@ -141,15 +110,6 @@ cor_rfast <- function(x, method = "pearson") {
 #'   downstream sweeps loosen the threshold (e.g. `density_sweep()`)
 #'   without recomputing the network. Only valid with `sparse = TRUE`.
 #' @param n_cores Number of threads for parallel computation (default 1).
-#' @param use_torch If `TRUE`, use torch for GPU-accelerated correlation
-#'   (CUDA, MPS, or CPU fallback). Requires the
-#'   \href{https://torch.mlverse.org/}{torch} package. Default `FALSE`.
-#'   On Apple Silicon (MPS), torch uses float32 because Metal does not support
-#'   float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
-#'   normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
-#'   MPS, keep `use_torch = FALSE` here and use
-#'   \code{permutation_hog_test(use_torch = TRUE)} for the permutation
-#'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
 #' @param block_size `NULL` (default) builds the dense n x n matrix first.
 #'   A positive whole number builds the network a block of genes at a
 #'   time and never forms the n x n matrix (each block holds
@@ -168,8 +128,8 @@ cor_rfast <- function(x, method = "pearson") {
 #'   value. With `cor_method = "spearman"` and few samples, correlations
 #'   that are equal as rationals are common and may round apart, so the
 #'   result can then differ from the dense build in many entries and
-#'   between block sizes. Requires `sparse = TRUE`, `norm_method = "MR"` and
-#'   `use_torch = FALSE`. With `mr_log_transform = TRUE` a pair is kept
+#'   between block sizes. Requires `sparse = TRUE` and `norm_method = "MR"`.
+#'   With `mr_log_transform = TRUE` a pair is kept
 #'   when either gene ranks the other in its top 10% (twice
 #'   `store_density`) and a second correlation pass reads the other rank;
 #'   on the same data peak memory was 1.7 GB against 5.1 GB dense in
@@ -188,8 +148,8 @@ cor_rfast <- function(x, method = "pearson") {
 #'     \item{threshold}{The co-expression threshold at the given density,
 #'       equal to that of the full dense matrix in every mode.}
 #'     \item{n_genes}{Number of genes in the network.}
-#'     \item{n_removed}{Number of genes removed by variance filter (0 if
-#'       `min_var` is `NULL`).}
+#'     \item{n_removed}{Number of constant genes removed before computing
+#'       correlations.}
 #'     \item{params}{List of parameters used.}
 #'     \item{store_density, store_threshold}{Sparse networks only: the
 #'       stored edge fraction and the value cutoff of the store. Analyses
@@ -242,11 +202,9 @@ setMethod("compute_network", "matrix", function(
   density = 0.03,
   abs_cor = FALSE,
   mr_log_transform = FALSE,
-  min_var = 0,
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE,
   block_size = NULL) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
@@ -278,33 +236,20 @@ setMethod("compute_network", "matrix", function(
     }
     if (!sparse) stop("block_size requires sparse = TRUE")
     if (norm_method != "MR") stop("block_size requires norm_method = \"MR\"")
-    if (use_torch) stop("block_size requires use_torch = FALSE")
-  }
-  if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
-    stop(
-      "use_torch = TRUE requires the torch package ",
-      "(install.packages('torch'); torch::install_torch())"
-    )
   }
 
-  # Filter low-variance genes
-  n_removed <- 0L
-  if (!is.null(min_var)) {
-    row_var <- rowSums((x - rowMeans(x))^2) /
-      (ncol(x) - 1L)
-    # A constant row can come out at ~1e-30 instead of 0 in floating point
-    # and pass `> 0`; its correlations are then NaN. Test constancy exactly.
-    keep <- row_var > min_var & rowSums(x != x[, 1L]) > 0L
-    n_removed <- sum(!keep)
-    if (n_removed > 0L) {
-      x <- x[keep, , drop = FALSE]
-    }
-    if (nrow(x) < 3L) {
-      stop(
-        "Fewer than 3 genes remain after variance filtering (min_var = ",
-        min_var, ")"
-      )
-    }
+  # Filter constant genes
+  row_var <- rowSums((x - rowMeans(x))^2) /
+    (ncol(x) - 1L)
+  # A constant row can come out at ~1e-30 instead of 0 in floating point
+  # and pass `> 0`; its correlations are then NaN. Test constancy exactly.
+  keep <- row_var > 0 & rowSums(x != x[, 1L]) > 0L
+  n_removed <- sum(!keep)
+  if (n_removed > 0L) {
+    x <- x[keep, , drop = FALSE]
+  }
+  if (nrow(x) < 3L) {
+    stop("Fewer than 3 genes remain after variance filtering")
   }
 
   gene_names <- rownames(x)
@@ -315,8 +260,7 @@ setMethod("compute_network", "matrix", function(
     norm_method = norm_method,
     density = density,
     abs_cor = abs_cor,
-    mr_log_transform = mr_log_transform,
-    min_var = min_var
+    mr_log_transform = mr_log_transform
   )
 
   if (!is.null(block_size)) {
@@ -365,9 +309,7 @@ setMethod("compute_network", "matrix", function(
   }
 
   # Correlation
-  cor_fn <- if (use_torch) cor_torch else cor_rfast
-  net <- cor_fn(x, method = cor_method)
-  if (use_torch) .gpu_gc()
+  net <- cor_rfast(x, method = cor_method)
 
   # Normalization
   if (norm_method == "MR") {

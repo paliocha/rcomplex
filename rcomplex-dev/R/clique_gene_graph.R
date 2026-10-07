@@ -176,18 +176,6 @@
 #' @param id_prefix String prepended to every `clique_id`. Clique ids
 #'   are `<prefix><hog>_<k>`, so runs at different `alpha_graph` values
 #'   need distinct prefixes before they can be row-bound.
-#' @param max_genes_per_sp Maximum genes per species per ortholog group
-#'   (default 10), the same cap as \code{\link{find_cliques}}. Every
-#'   paralog combination is a clique of its own, so a group with `c`
-#'   copies in each of `S` species has up to `c^S` maximal cliques in a
-#'   near-complete graph: one 219-gene group ran for hours at 22 GB
-#'   uncapped. Within each group, a species with more genes than the cap
-#'   keeps the ones with the most edges in the group's graph (after the
-#'   `alpha_graph` filter and the duplicate-row collapse), ties going to
-#'   the gene that entered the graph first, and the rest are dropped
-#'   with every edge they carry. Results change only for groups above
-#'   the cap; one message per call reports how many groups and genes
-#'   were affected. `Inf` or `NULL` disables the cap.
 #'
 #' @return A data frame with one row per clique member:
 #'   \describe{
@@ -236,8 +224,7 @@ gene_clique_graph <- function(edges, ...) UseMethod("gene_clique_graph")
 #' @export
 gene_clique_graph.default <- function(edges, min_size = 3L,
                                       alpha_graph = 0.1,
-                                      id_prefix = "",
-                                      max_genes_per_sp = 10L, ...) {
+                                      id_prefix = "", ...) {
   rlang::check_dots_empty()
   required <- c(
     "gene1", "gene2", "species1", "species2", "hog",
@@ -261,13 +248,6 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   }
   if (!is.character(id_prefix) || length(id_prefix) != 1L) {
     stop("id_prefix must be a single string")
-  }
-  if (is.null(max_genes_per_sp)) max_genes_per_sp <- Inf
-  ok_cap <- is.numeric(max_genes_per_sp) &&
-    length(max_genes_per_sp) == 1L && !is.na(max_genes_per_sp) &&
-    max_genes_per_sp >= 1
-  if (!ok_cap) {
-    stop("max_genes_per_sp must be a single number >= 1, or Inf")
   }
   .gcg_check_ids(edges)
 
@@ -350,24 +330,22 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     # edges that enter the graph; order() is stable, so ties keep the
     # gene that entered the graph first. Dropped genes stay as isolated
     # vertices, which max_cliques(min >= 2) never reports.
-    if (is.finite(max_genes_per_sp)) {
-      deg <- tabulate(c(i1, i2), nbins = length(nodes))
-      keep_node <- rep(TRUE, length(nodes))
-      sp_n <- table(node_sp)
-      for (s in names(sp_n)[sp_n > max_genes_per_sp]) {
-        v <- which(node_sp == s)
-        top <- v[order(-deg[v])[seq_len(max_genes_per_sp)]]
-        keep_node[setdiff(v, top)] <- FALSE
-      }
-      if (!all(keep_node)) {
-        n_capped <- n_capped + 1L
-        n_dropped <- n_dropped + sum(!keep_node)
-        ke <- keep_node[i1] & keep_node[i2]
-        i1 <- i1[ke]
-        i2 <- i2[ke]
-        eq <- eq[ke]
-        ee <- ee[ke]
-      }
+    deg <- tabulate(c(i1, i2), nbins = length(nodes))
+    keep_node <- rep(TRUE, length(nodes))
+    sp_n <- table(node_sp)
+    for (s in names(sp_n)[sp_n > 10L]) {
+      v <- which(node_sp == s)
+      top <- v[order(-deg[v])[seq_len(10L)]]
+      keep_node[setdiff(v, top)] <- FALSE
+    }
+    if (!all(keep_node)) {
+      n_capped <- n_capped + 1L
+      n_dropped <- n_dropped + sum(!keep_node)
+      ke <- keep_node[i1] & keep_node[i2]
+      i1 <- i1[ke]
+      i2 <- i2[ke]
+      eq <- eq[ke]
+      ee <- ee[ke]
     }
 
     g <- igraph::make_graph(as.vector(rbind(i1, i2)),
@@ -398,7 +376,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (n_capped > 0L) {
     message(
       "gene_clique_graph: ", n_capped, " ortholog groups exceeded ",
-      "max_genes_per_sp = ", max_genes_per_sp, " in some species; ",
+      "10 genes in some species; ",
       n_dropped, " genes dropped"
     )
   }
@@ -617,12 +595,6 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   conserved (default 0.1).
 #' @param alpha_graph Loose threshold defining the `partial_significant`
 #'   graph (default 0.9).
-#' @param max_gap Largest number of absent species tolerated by
-#'   `partial_present` (default 1).
-#' @param cross_max Maximum number of significant cross-lineage pairs
-#'   allowed by `differentiated`. Defaults to `choose(S - 1, 2) - W`,
-#'   the generalisation of the published cut; the original six-species
-#'   script used a looser hard-coded 6.
 #' @param min_power Detection power below which a non-significant pair
 #'   is read as uninformative rather than as evidence against
 #'   conservation (default 0.8). Only used when `edges` has `power`. For
@@ -694,8 +666,7 @@ classify_gene_cliques <- function(cliques, ...) {
 #' @export
 classify_gene_cliques.default <- function(cliques, edges, species,
                                           lineage = NULL, alpha_call = 0.1,
-                                          alpha_graph = 0.9, max_gap = 1L,
-                                          cross_max = NULL,
+                                          alpha_graph = 0.9,
                                           min_power = 0.8, ...) {
   rlang::check_dots_empty()
   need_cl <- c("clique_id", "hog", "species", "gene")
@@ -747,10 +718,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       paste(stray, collapse = ", ")
     )
   }
-  max_gap <- as.integer(max_gap)
-  if (length(max_gap) != 1L || is.na(max_gap) || max_gap < 0L) {
-    stop("max_gap must be a single non-negative integer")
-  }
+  max_gap <- 1L
   .gcg_check_ids(edges)
 
   n_sp <- length(species)
@@ -784,18 +752,12 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   lin_sizes <- if (is.null(lin)) integer(0) else table(lin)
   w_pairs <- if (is.null(lin)) NA_real_ else sum(choose(lin_sizes, 2))
   x_pairs <- if (is.null(lin)) NA_real_ else n_pair - w_pairs
-  if (is.null(cross_max)) {
-    cross_max <- if (is.null(lin)) {
-      NA_real_
-    } else {
-      max(0, choose(n_sp - 1L, 2) - w_pairs)
-    }
+  # choose(S - 1, 2) - W, the generalisation of the published cut; the
+  # original six-species script used a looser hard-coded 6
+  cross_max <- if (is.null(lin)) {
+    NA_real_
   } else {
-    ok_cross <- is.numeric(cross_max) && length(cross_max) == 1L &&
-      !is.na(cross_max) && cross_max >= 0
-    if (!ok_cross) {
-      stop("cross_max must be a single non-negative number")
-    }
+    max(0, choose(n_sp - 1L, 2) - w_pairs)
   }
 
   has_effect <- "effect_size" %in% names(edges)

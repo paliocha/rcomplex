@@ -30,12 +30,6 @@ test_that("as_modules() is idempotent and passes module objects through", {
   expect_identical(as_modules(fake), fake)
 })
 
-test_that("min_size unassigns small modules", {
-  m <- as_modules(list(a = c("g1", "g2"), b = "g3"), min_size = 2)
-  expect_identical(names(m$module_genes), "a")
-  expect_false("g3" %in% names(m$modules))
-})
-
 test_that("bad input fails with the offending value", {
   expect_error(
     as_modules(list(a = c("g1", "g2"), b = c("g2", "g3"))),
@@ -46,12 +40,9 @@ test_that("bad input fails with the offending value", {
   expect_error(as_modules(list(a = 1:3)), "character vector")
   expect_error(as_modules(list(c("g1"))), "named by module label")
   expect_error(as_modules(c("a", "b")), "named by gene")
-  expect_error(as_modules(c(g1 = "a"), min_size = 0), "min_size")
   expect_error(as_modules(list(a = c("g1", NA))), "NA or empty")
   expect_error(as_modules(list(a = c("g1", ""))), "NA or empty")
   expect_error(as_modules(list(a = "g1", a = "g2")), "label used twice: a")
-  m <- as_modules(list(a = c("g1", "g2")))
-  expect_error(as_modules(m, min_size = 2), "not to an existing module")
   expect_error(
     as_modules(data.frame(gene = c("g1", "g2"), module = c("a", "b"))),
     "not a data frame"

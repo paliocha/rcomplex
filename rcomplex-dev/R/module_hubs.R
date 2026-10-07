@@ -1,7 +1,8 @@
 #' Identify hub genes within co-expression modules
 #'
 #' Computes within-module centrality for each gene and flags the top-ranked
-#' genes as hubs.  Optionally maps genes to ortholog groups (HOGs) for
+#' genes as hubs (the top 10% by weighted degree, at least one per module of
+#' three or more genes).  Optionally maps genes to ortholog groups (HOGs) for
 #' downstream conservation analysis with [classify_hub_conservation()].
 #'
 #' @section Centrality measures:
@@ -19,15 +20,12 @@
 #'
 #' @section Tie-breaking cascade:
 #' When genes share the same primary centrality score, hub selection uses a
-#' biologically informed cascade (all available tiers evaluated):
+#' cascade:
 #' \enumerate{
-#'   \item Primary centrality (user-selected measure)
+#'   \item Within-module weighted degree
 #'   \item Global weighted degree across the full network
-#'   \item Alternative within-module centrality (betweenness if primary is
-#'     degree; degree otherwise)
+#'   \item Within-module betweenness
 #'   \item Mean within-module edge weight (strength / degree)
-#'   \item Per-gene conservation effect size (requires `comparison`)
-#'   \item Per-HOG minimum q-value (requires `comparison`; lower = better)
 #' }
 #'
 #' @param modules Output of [detect_modules()].
@@ -36,20 +34,6 @@
 #'   `gene1`, `gene2`, `hog`.  The function auto-detects which column
 #'   matches the gene names in `modules`.  If `NULL`, the `hog` column in the
 #'   result is all `NA`.
-#' @param comparison Optional data frame: the `$results` element from
-#'   [summarize_comparison()].  When provided, enables conservation-informed
-#'   tie-breaking (tiers 5--6).  Must contain columns `gene1`, `gene2`,
-#'   `hog`, `species1.effect_size`, `species2.effect_size`, plus at least one
-#'   pair of q-value columns (`species1.q_value_con`/`species2.q_value_con` or
-#'   the `.div` variants).
-#' @param centrality Centrality measure: `"degree"` (default), `"betweenness"`,
-#'   or `"eigenvector"`.
-#' @param top_n Integer: flag the top N genes per module as hubs.  If `NULL`
-#'   (default), uses `top_fraction` instead.
-#' @param top_fraction Numeric in (0, 1): fraction of genes per module to flag
-#'   as hubs (default 0.1).  Ignored when `top_n` is non-NULL.
-#' @param min_module_size Integer: modules with fewer genes get
-#'   `is_hub = FALSE` for all genes (default 3).
 #'
 #' @return A data frame with one row per gene, ordered by module then rank:
 #'   \describe{
@@ -63,16 +47,14 @@
 #'     \item{rank}{Rank within module by primary centrality
 #'       (1 = highest; ties use `"min"`)}
 #'     \item{is_hub}{`TRUE` if the gene is in the top slice after the
-#'       6-tier tie-breaking cascade}
+#'       tie-breaking cascade}
 #'     \item{hog}{HOG identifier (`NA` if `orthologs` not provided or gene
 #'       not in the ortholog table)}
 #'   }
 #'
 #' @examples
 #' \dontrun{
-#' hubs <- identify_module_hubs(modules, net, orthologs,
-#'   comparison = summary$results
-#' )
+#' hubs <- identify_module_hubs(modules, net, orthologs)
 #' hubs[hubs$is_hub, ]
 #' }
 #'
@@ -85,16 +67,7 @@ identify_module_hubs <- function(modules, ...) {
 #' @rdname identify_module_hubs
 #' @export
 identify_module_hubs.default <- function(modules, net, orthologs = NULL,
-                                         comparison = NULL,
-                                         centrality = c(
-                                           "degree", "betweenness",
-                                           "eigenvector"
-                                         ),
-                                         top_n = NULL,
-                                         top_fraction = 0.1,
-                                         min_module_size = 3L, ...) {
-  centrality <- match.arg(centrality)
-
+                                         ...) {
   if (!is.list(modules) || is.null(modules$module_genes) ||
         is.null(modules$graph) || is.null(modules$modules)) {
     stop("modules must be output from detect_modules()")
@@ -103,74 +76,12 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     stop("net must be output from compute_network()")
   }
   .net_check(net, net$threshold)
-  if (!is.null(top_n)) {
-    top_n <- as.integer(top_n)
-    if (top_n < 1L) stop("top_n must be >= 1")
-  } else {
-    if (top_fraction <= 0 || top_fraction >= 1) {
-      stop("top_fraction must be in (0, 1)")
-    }
-  }
-  min_module_size <- as.integer(min_module_size)
-
   g <- modules$graph
 
   # Pre-compute global weighted degree (tie-breaker tier 2)
   global_str <- igraph::strength(g)
 
-  # Pre-compute conservation lookups if comparison provided (tiers 5-6)
-  gene_conserv <- NULL
-  hog_min_q <- NULL
-  if (!is.null(comparison)) {
-    if (!all(c(
-      "gene1", "gene2", "hog",
-      "species1.effect_size", "species2.effect_size"
-    ) %in%
-      names(comparison))) {
-      stop("comparison must be $results from summarize_comparison()")
-    }
-    # Auto-detect which column has our genes
-    all_genes <- names(modules$modules)
-    in_sp1 <- sum(all_genes %in% comparison$gene1)
-    in_sp2 <- sum(all_genes %in% comparison$gene2)
-    comp_col <- if (in_sp1 >= in_sp2) "gene1" else "gene2"
-
-    # Per-row geometric mean of effect sizes
-    geo_eff <- sqrt(comparison$species1.effect_size *
-                      comparison$species2.effect_size)
-
-    # Per-gene mean conservation effect (higher = more conserved)
-    comp_genes <- comparison[[comp_col]]
-    gene_conserv <- vapply(
-      split(geo_eff, comp_genes), mean, numeric(1),
-      na.rm = TRUE
-    )
-
-    # Per-HOG minimum q-value (lower = more conserved)
-    q1_col <- if ("species1.q_value_con" %in% names(comparison)) {
-      "species1.q_value_con"
-    } else if ("species1.q_value_div" %in% names(comparison)) {
-      "species1.q_value_div"
-    } else {
-      NULL
-    }
-    q2_col <- if ("species2.q_value_con" %in% names(comparison)) {
-      "species2.q_value_con"
-    } else if ("species2.q_value_div" %in% names(comparison)) {
-      "species2.q_value_div"
-    } else {
-      NULL
-    }
-    if (!is.null(q1_col) && !is.null(q2_col)) {
-      pair_q <- pmin(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
-      hog_min_q <- vapply(
-        split(pair_q, comparison$hog), min, numeric(1),
-        na.rm = TRUE
-      )
-    }
-  }
-
-  # HOG mapping (needed for tier-6 tie-breaking and output)
+  # HOG mapping
   hog_lookup <- NULL
   if (!is.null(orthologs)) {
     if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
@@ -195,7 +106,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     genes <- modules$module_genes[[i]]
     n_genes <- length(genes)
 
-    if (n_genes < min_module_size) {
+    if (n_genes < 3L) {
       rows[[i]] <- data.frame(
         gene = genes, module = as.integer(mod_id),
         degree = NA_real_, betweenness = NA_real_, eigenvector = NA_real_,
@@ -226,11 +137,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     )
 
     # Primary centrality for ranking/tie-breaking (tier 1)
-    cent_vals <- switch(centrality,
-      degree = sub_str,
-      betweenness = sub_btw,
-      eigenvector = sub_eig
-    )
+    cent_vals <- sub_str
     # Mean within-module edge weight (tier 4): strength / degree
     sub_deg <- igraph::degree(sub)
     mean_ew <- ifelse(sub_deg > 0, sub_str / sub_deg, 0)
@@ -260,47 +167,19 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
     result$hog[!is.na(matched)] <- hog_lookup[matched[!is.na(matched)]]
   }
 
-  # Conservation lookups (vectorized, once for all genes — tiers 5-6)
-  result$conserv_eff <- 0
-  result$hog_q <- 1
-  if (!is.null(gene_conserv)) {
-    matched <- match(result$gene, names(gene_conserv))
-    result$conserv_eff[!is.na(matched)] <-
-      gene_conserv[matched[!is.na(matched)]]
-  }
-  if (!is.null(hog_min_q) && !is.null(hog_lookup)) {
-    matched <- match(result$hog, names(hog_min_q))
-    result$hog_q[!is.na(matched)] <- hog_min_q[matched[!is.na(matched)]]
-  }
-
-  # Primary and alternative centrality column names for tie-breaking
-  primary_col <- centrality # "degree", "betweenness", or "eigenvector"
-  alt_col <- if (centrality == "degree") "betweenness" else "degree"
-
-  # Hub selection per module: tie-breaking cascade across all 6 tiers
-  # Tiers 1-5 descending (higher = better), tier 6 ascending (lower = better)
+  # Hub selection per module: tie-breaking cascade, higher = better
   mod_ids <- unique(result$module[!is.na(result$degree)])
   for (m in mod_ids) {
     idx <- which(result$module == m & !is.na(result$degree))
     n_mod <- length(idx)
-    hub_cutoff <- if (!is.null(top_n)) {
-      min(top_n, n_mod)
-    } else {
-      max(1L, ceiling(top_fraction * n_mod))
-    }
+    hub_cutoff <- max(1L, ceiling(0.1 * n_mod))
     ord <- order(
-      -result[[primary_col]][idx], -result$global_degree[idx],
-      -result[[alt_col]][idx], -result$mean_edge_weight[idx],
-      -result$conserv_eff[idx], result$hog_q[idx]
+      -result$degree[idx], -result$global_degree[idx],
+      -result$betweenness[idx], -result$mean_edge_weight[idx]
     )
     result$is_hub[idx[ord[seq_len(hub_cutoff)]]] <- TRUE
   }
 
-  # Drop internal tie-breaking columns (conservation lookups)
-  result$conserv_eff <- NULL
-  result$hog_q <- NULL
-
-  attr(result, "primary_centrality") <- centrality
   result
 }
 
@@ -325,7 +204,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   \item{\emph{trait}_specific_hub}{Hub in exactly one trait group (e.g.
 #'     `"annual_specific_hub"`).}
 #'   \item{sporadic_hub}{Hub in some species but does not reach
-#'     `min_trait_fraction` in any trait group.}
+#'     half of a trait group.}
 #'   \item{non_hub}{Present in modules but not a hub in any species.}
 #' }
 #'
@@ -345,23 +224,9 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   universes. Pass `species_ref` / `species_test` to
 #'   [module_correspondence()] and that orientation is checked here instead
 #'   of taken on trust. A module pair absent from the table counts as not
-#'   corresponding.
-#' @param alpha Significance threshold for module correspondence (default 0.1).
-#' @param jaccard_threshold Jaccard threshold for module correspondence
-#'   (default 0.1). [module_correspondence()] computes this over the
-#'   one-to-one paralog-resolved projection, whereas the retired gene-overlap
-#'   engine used the paralog-expanded mappable set, so values now run
-#'   systematically higher and the unchanged default is slightly more
-#'   permissive.
-#' @param min_trait_fraction Minimum fraction of species (within a trait group)
-#'   where the HOG must be a hub for the group to count (default 0.5). The
-#'   denominator is the size of the trait group -- every species of that
-#'   group in `hub_results` -- not just the ones carrying the HOG, so a HOG
-#'   confined to one of four annuals cannot reach 0.5 there. Lower the
-#'   threshold to admit accessory HOGs.
-#' @param correspondence_threshold Fraction of cross-trait hub pairs that must
-#'   have corresponding modules for the HOG to be classified as
-#'   `conserved_hub` rather than `rewired_hub` (default 0.5).
+#'   corresponding. Modules correspond when `q_value < 0.1` and
+#'   `jaccard >= 0.1`, and a HOG is `conserved_hub` when at least half of
+#'   its cross-trait hub pairs correspond.
 #'
 #' @return A data frame with one row per HOG:
 #'   \describe{
@@ -370,8 +235,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'       waterfall)}
 #'     \item{n_species_hub}{Number of species where the HOG is a hub}
 #'     \item{n_species_present}{Number of species where the HOG has genes.
-#'       Reported for context; it is not the `min_trait_fraction`
-#'       denominator.}
+#'       Reported for context; it is not the trait-group denominator.}
 #'     \item{hub_trait_groups}{Comma-separated trait groups where it qualifies
 #'       as hub (`NA` for non_hub)}
 #'     \item{n_corresponding}{Cross-trait hub pairs with corresponding modules
@@ -413,10 +277,6 @@ classify_hub_conservation <- function(hub_results, ...) {
 #' @export
 classify_hub_conservation.default <- function(hub_results, species_trait,
                                               module_comparisons = NULL,
-                                              alpha = 0.1,
-                                              jaccard_threshold = 0.1,
-                                              min_trait_fraction = 0.5,
-                                              correspondence_threshold = 0.5,
                                               ...) {
   # --- Validation ---
   if (!is.list(hub_results) || is.null(names(hub_results))) {
@@ -450,13 +310,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   names(trait_char) <- names(hub_results)
   species_by_trait <- split(names(trait_char), trait_char)
 
-  # Determine which centrality column to use for max_centrality / hub_module.
-  # Reads the attribute set by identify_module_hubs(); falls back to "degree".
-  primary_col <- unique(vapply(hub_results, function(hr) {
-    pc <- attr(hr, "primary_centrality")
-    if (is.null(pc)) "degree" else pc
-  }, character(1)))
-  if (length(primary_col) != 1L) primary_col <- "degree"
+  primary_col <- "degree"
 
   # --- Build HOG-level summary: stack all results, aggregate per (hog, sp) ---
   tagged <- lapply(names(hub_results), function(sp) {
@@ -483,7 +337,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     return(empty)
   }
 
-  # A species with no HOG-mapped gene still sits in the min_trait_fraction
+  # A species with no HOG-mapped gene still sits in the trait-group
   # denominator, where it counts as non-hub for every HOG and depresses the
   # whole trait group -- silently, if the caller forgot its ortholog table.
   no_hog <- setdiff(names(hub_results), unique(stacked$species))
@@ -528,7 +382,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   hub_n[is.na(hub_n)] <- 0
   group_n <- lengths(species_by_trait)[colnames(hub_n)]
   hub_frac <- sweep(hub_n, 2L, group_n, "/")
-  is_hub_group <- hub_frac >= min_trait_fraction # logical matrix
+  is_hub_group <- hub_frac >= 0.5 # logical matrix
 
   # --- Pre-compute per-HOG aggregates ---
   hog_n_present <- tapply(hog_df$species, hog_df$hog, length)
@@ -623,7 +477,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
   if (!is.null(module_comparisons)) {
     for (pair_key in names(module_comparisons)) {
       pairs <- module_comparisons[[pair_key]]$pairs
-      is_match <- pairs$q_value < alpha & pairs$jaccard >= jaccard_threshold
+      is_match <- pairs$q_value < 0.1 & pairs$jaccard >= 0.1
       keys <- paste(pairs$module1, pairs$module2, sep = "\x01")
       corresp_lookup[[pair_key]] <- stats::setNames(is_match, keys)
     }
@@ -706,8 +560,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
       } else {
         n_corresponding <- sum(corresp, na.rm = TRUE)
         n_available <- sum(!is.na(corresp))
-        classification <- if (n_corresponding / n_available >=
-                                correspondence_threshold) {
+        classification <- if (n_corresponding / n_available >= 0.5) {
           "conserved_hub"
         } else {
           "rewired_hub"

@@ -210,8 +210,6 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
 #'   (the default) to skip paralog reduction and keep original gene
 #'   identities. When supplied, each element must contain a \code{$gene_map}
 #'   data frame with columns \code{original} and \code{representative}.
-#' @param hog_col Column name in \code{rowData} containing HOG identifiers
-#'   (default \code{"hog"}).
 #'
 #' @return A data frame with columns \code{gene1}, \code{gene2}, and
 #'   \code{hog}. When \code{reductions} is supplied, gene names have been
@@ -231,7 +229,7 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
 #' }
 #'
 #' @export
-prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
+prepare_orthologs <- function(se_list, reductions = NULL) {
   # --- validation ---
   if (!is.list(se_list) || is.null(names(se_list))) {
     stop("se_list must be a named list")
@@ -265,9 +263,7 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
     species1 <- pair[1]
     species2 <- pair[2]
 
-    ortho <- extract_orthologs(se_list[[species1]], se_list[[species2]],
-      hog_col = hog_col
-    )
+    ortho <- extract_orthologs(se_list[[species1]], se_list[[species2]])
     if (nrow(ortho) == 0 || is.null(reductions)) {
       return(ortho)
     }
