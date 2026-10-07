@@ -176,6 +176,70 @@ test_that("gene_clique_graph validates its inputs", {
   bad <- e
   bad$gene1 <- "a\x01b"
   expect_error(gene_clique_graph(bad), "must not contain")
+  expect_error(gene_clique_graph(e, max_genes_per_sp = 0), "max_genes")
+  expect_error(gene_clique_graph(e, max_genes_per_sp = NA), "max_genes")
+})
+
+
+# Twelve SP_A copies, every one adjacent to b1 and c1; a1..a3 also reach
+# d1. Uncapped that is 3 four-cliques plus 9 three-cliques.
+gcg_twelve <- function() {
+  a <- paste0("a", 1:12)
+  rbind(
+    data.frame(
+      gene1 = rep(a, 2L), gene2 = rep(c("b1", "c1"), each = 12L),
+      species1 = "SP_A", species2 = rep(c("SP_B", "SP_C"), each = 12L),
+      stringsAsFactors = FALSE
+    ),
+    data.frame(
+      gene1 = c(a[1:3], "b1", "b1", "c1"),
+      gene2 = c("d1", "d1", "d1", "c1", "d1", "d1"),
+      species1 = c("SP_A", "SP_A", "SP_A", "SP_B", "SP_B", "SP_C"),
+      species2 = c("SP_D", "SP_D", "SP_D", "SP_C", "SP_D", "SP_D"),
+      stringsAsFactors = FALSE
+    )
+  ) |> transform(hog = "HOG1", q.value = 0.01)
+}
+
+
+test_that("max_genes_per_sp keeps the most-connected paralog copies", {
+  e <- gcg_twelve()
+  expect_message(
+    cl <- gene_clique_graph(e, max_genes_per_sp = 3L),
+    "1 ortholog groups exceeded max_genes_per_sp = 3.*9 genes dropped"
+  )
+  expect_equal(length(unique(cl$clique_id)), 3L)
+  expect_setequal(cl$gene[cl$species == "SP_A"], c("a1", "a2", "a3"))
+  expect_true(all(cl$n_members == 4L))
+  # a1..a3 tie on degree: the cap keeps the ones that entered first.
+  cl2 <- suppressMessages(gene_clique_graph(e, max_genes_per_sp = 2L))
+  expect_setequal(cl2$gene[cl2$species == "SP_A"], c("a1", "a2"))
+  # Only the capped species loses genes.
+  expect_setequal(cl$gene[cl$species != "SP_A"], c("b1", "c1", "d1"))
+})
+
+
+test_that("max_genes_per_sp = Inf reproduces the uncapped result", {
+  e <- gcg_twelve()
+  cl_inf <- gene_clique_graph(e, max_genes_per_sp = Inf)
+  expect_equal(length(unique(cl_inf$clique_id)), 12L)
+  expect_equal(gene_clique_graph(e, max_genes_per_sp = NULL), cl_inf)
+  expect_equal(gene_clique_graph(e, max_genes_per_sp = 100L), cl_inf)
+  # One copy per species on the fixture: the default cap changes nothing.
+  f <- make_gcg_fixture()
+  expect_equal(
+    gene_clique_graph(f, alpha_graph = 0.9),
+    gene_clique_graph(f, alpha_graph = 0.9, max_genes_per_sp = Inf)
+  )
+})
+
+
+test_that("the copy-cap message fires only when a group is truncated", {
+  expect_silent(gene_clique_graph(make_gcg_fixture(), alpha_graph = 0.9))
+  expect_silent(gene_clique_graph(gcg_twelve(), max_genes_per_sp = 12L))
+  expect_message(gene_clique_graph(gcg_twelve(), max_genes_per_sp = 11L))
+  # Twelve copies exceed the default of 10.
+  expect_message(gene_clique_graph(gcg_twelve()), "2 genes dropped")
 })
 
 

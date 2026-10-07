@@ -176,6 +176,18 @@
 #' @param id_prefix String prepended to every `clique_id`. Clique ids
 #'   are `<prefix><hog>_<k>`, so runs at different `alpha_graph` values
 #'   need distinct prefixes before they can be row-bound.
+#' @param max_genes_per_sp Maximum genes per species per ortholog group
+#'   (default 10), the same cap as \code{\link{find_cliques}}. Every
+#'   paralog combination is a clique of its own, so a group with `c`
+#'   copies in each of `S` species has up to `c^S` maximal cliques in a
+#'   near-complete graph: one 219-gene group ran for hours at 22 GB
+#'   uncapped. Within each group, a species with more genes than the cap
+#'   keeps the ones with the most edges in the group's graph (after the
+#'   `alpha_graph` filter and the duplicate-row collapse), ties going to
+#'   the gene that entered the graph first, and the rest are dropped
+#'   with every edge they carry. Results change only for groups above
+#'   the cap; one message per call reports how many groups and genes
+#'   were affected. `Inf` or `NULL` disables the cap.
 #'
 #' @section rcomplex container:
 #' The `.rcomplex` method builds the graph from `x$edges`, which in the
@@ -234,7 +246,8 @@ gene_clique_graph <- function(edges, ...) UseMethod("gene_clique_graph")
 #' @export
 gene_clique_graph.default <- function(edges, min_size = 3L,
                                       alpha_graph = 0.1,
-                                      id_prefix = "", ...) {
+                                      id_prefix = "",
+                                      max_genes_per_sp = 10L, ...) {
   rlang::check_dots_empty()
   required <- c(
     "gene1", "gene2", "species1", "species2", "hog",
@@ -258,6 +271,13 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   }
   if (!is.character(id_prefix) || length(id_prefix) != 1L) {
     stop("id_prefix must be a single string")
+  }
+  if (is.null(max_genes_per_sp)) max_genes_per_sp <- Inf
+  ok_cap <- is.numeric(max_genes_per_sp) &&
+    length(max_genes_per_sp) == 1L && !is.na(max_genes_per_sp) &&
+    max_genes_per_sp >= 1
+  if (!ok_cap) {
+    stop("max_genes_per_sp must be a single number >= 1, or Inf")
   }
   .gcg_check_ids(edges)
 
@@ -293,6 +313,8 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   xq_v <- numeric(0)
   me_v <- numeric(0)
   j <- 0L
+  n_capped <- 0L
+  n_dropped <- 0L
 
   for (h in names(by_hog)) {
     idx <- by_hog[[h]]
@@ -331,6 +353,33 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     eq <- qv[idx][sel]
     ee <- ev[idx][sel]
 
+    # Paralog copy cap, as in find_cliques(): every paralog combination
+    # is its own clique, so c copies per species in a near-complete
+    # S-partite graph give up to c^S maximal cliques. A species above
+    # the cap keeps its most-connected genes, counted over the collapsed
+    # edges that enter the graph; order() is stable, so ties keep the
+    # gene that entered the graph first. Dropped genes stay as isolated
+    # vertices, which max_cliques(min >= 2) never reports.
+    if (is.finite(max_genes_per_sp)) {
+      deg <- tabulate(c(i1, i2), nbins = length(nodes))
+      keep_node <- rep(TRUE, length(nodes))
+      sp_n <- table(node_sp)
+      for (s in names(sp_n)[sp_n > max_genes_per_sp]) {
+        v <- which(node_sp == s)
+        top <- v[order(-deg[v])[seq_len(max_genes_per_sp)]]
+        keep_node[setdiff(v, top)] <- FALSE
+      }
+      if (!all(keep_node)) {
+        n_capped <- n_capped + 1L
+        n_dropped <- n_dropped + sum(!keep_node)
+        ke <- keep_node[i1] & keep_node[i2]
+        i1 <- i1[ke]
+        i2 <- i2[ke]
+        eq <- eq[ke]
+        ee <- ee[ke]
+      }
+    }
+
     g <- igraph::make_graph(as.vector(rbind(i1, i2)),
       n = length(nodes), directed = FALSE
     )
@@ -354,6 +403,14 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       xq_v[j] <- max(eq[hit])
       me_v[j] <- if (has_effect) mean(ee[hit]) else NA_real_
     }
+  }
+
+  if (n_capped > 0L) {
+    message(
+      "gene_clique_graph: ", n_capped, " ortholog groups exceeded ",
+      "max_genes_per_sp = ", max_genes_per_sp, " in some species; ",
+      n_dropped, " genes dropped"
+    )
   }
 
   if (j == 0L) {
