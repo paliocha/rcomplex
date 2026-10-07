@@ -11,7 +11,7 @@ classify_gene_cliques(cliques, ...)
   cliques,
   edges,
   species,
-  lineage = NULL,
+  clades = NULL,
   alpha_call = 0.1,
   alpha_graph = 0.9,
   min_power = 0.8,
@@ -43,9 +43,12 @@ Every species appearing in \code{cliques} must be listed; a stranger
 would be counted into the clique's species total while also being
 reported as missing.}
 
-\item{lineage}{Optional named vector mapping each species to a
-lineage. Required for \code{lineage_specific} and \code{differentiated};
-when \code{NULL} those two tiers are skipped.}
+\item{clades}{Optional named list of species vectors, one per clade.
+Clades may nest but must not cross. A species in no clade forms its
+own clade. A flat vector \code{x} of species to clade is
+\code{split(names(x), x)}. Required for \code{lineage_specific},
+\code{trait_specific} and \code{differentiated}. When \code{NULL}, these tiers are
+skipped.}
 
 \item{alpha_call}{Significance threshold for calling a species pair
 conserved (default 0.1).}
@@ -73,11 +76,15 @@ without discarding the per-clique detail}
 \item{n_members, n_species}{Clique size}
 \item{n_pairs, n_present, n_sig}{Member pairs, pairs with a row
 in \code{edges}, and pairs significant at \code{alpha_call}}
-\item{n_sig_within, n_sig_cross}{Significant pairs within and
-across lineages (\code{NA} without \code{lineage})}
-\item{n_underpowered_cross}{Cross-lineage pairs present in
+\item{n_sig_within, n_sig_cross}{Significant pairs within one
+child clade of the clique's home, and across two (\code{NA} without
+\code{clades})}
+\item{n_underpowered_cross}{Cross-clade pairs present in
 \code{edges}, not significant, and with \code{power} below \code{min_power}
-(\code{NA} without \code{lineage})}
+(\code{NA} without \code{clades})}
+\item{clade}{Name of the smallest clade that holds every species
+of the clique. \code{NA} when no clade holds them all, or without
+\code{clades}.}
 \item{n_missing, missing_species, missing_reason}{Species not in
 the clique, and why: \code{absent} (no row in the HOG),
 \code{untested} (in the HOG but never compared to a member),
@@ -107,18 +114,26 @@ the number of species actually supplied, so nothing is tied to the
 six species and fifteen species-pairs of the original workflow.
 }
 \details{
+The home clade of a clique is the smallest clade that holds all its
+species. With no such clade, the home is the whole species set. The
+child clades of the home are the largest clades inside it. A species
+of the home in no child clade forms its own child clade. The
+\code{lineage_specific}, \code{trait_specific} and \code{differentiated} tiers, and
+the within and cross counts, read the home and its child clades. So
+a clique can be specific to, or differentiated inside, a nested clade.
+
 With \code{S = length(species)} species, \code{P = choose(S, 2)} species-pairs,
-lineage sizes \code{n_l}, \code{W = sum(choose(n_l, 2))} within-lineage pairs
-and \code{X = P - W} cross-lineage pairs, the tiers are:
+top-level clade sizes \code{n_l}, \code{W = sum(choose(n_l, 2))} within-clade
+pairs and \code{X = P - W} cross-clade pairs, the tiers are:
 \describe{
 \item{complete_conserved}{All \code{S} species present and all
 \code{choose(S, 2)} pairs significant at \code{alpha_call}.}
-\item{lineage_specific}{A complete clique over one entire lineage,
+\item{lineage_specific}{A complete clique over one entire clade,
 with no species outside it testable against the clique. A species
 that \emph{was} compared against every member and came back
 non-significant is evidence of a boundary rather than a gap, so
 it blocks this tier: that clique is \code{trait_specific}, or with both
-lineages conserved within a candidate for \code{differentiated} on the
+clades conserved within a candidate for \code{differentiated} on the
 cliques of the unfiltered graph.}
 \item{partial_significant}{All \code{S} species present, every clique
 edge below \code{alpha_graph}, and at least \code{choose(S - 1, 2) + 1}
@@ -127,20 +142,23 @@ pairs significant at \code{alpha_call}.}
 \verb{1 <= g <= max_gap}, all \code{choose(S - g, 2)} pairs significant,
 and every absent species an annotation gap or \code{underpowered}
 rather than a rejected test.}
-\item{differentiated}{All \code{S} species present, every pair tested,
-at least one lineage of two or more species, every such lineage
-fully significant within itself, and at most \code{cross_max}
-cross-lineage pairs significant.}
-\item{trait_specific}{A complete clique over one entire lineage, at
+\item{differentiated}{Every species of the home present, every pair
+tested, at least one child clade of two or more species, every
+such child clade fully significant within itself, and at most
+\code{choose(H - 1, 2) - W_H} cross-clade pairs significant. Here \code{H}
+is the home size and \code{W_H} its within-child pairs. The child
+clades are disjoint, so a nested pair is never \code{differentiated}.
+With the whole species set as home, the bound is \code{cross_max}.}
+\item{trait_specific}{A complete clique over one entire clade, at
 least one outside species compared against every member and
 rejected at adequate power (\code{tested_ns}), no outside species
-\code{underpowered}, and no complete clique of another lineage in the
-same HOG. Where \code{lineage_specific} reads the other lineage's
+\code{underpowered}, and no complete clique of a disjoint clade in the
+same HOG. Where \code{lineage_specific} reads the other clade's
 absence as a gap, this reads its presence and rejection as a
-boundary: one trait group conserved, the other present but not
-co-conserved. Two lineages each conserved within and rejected
+boundary: one clade conserved, the other present but not
+co-conserved. Two clades each conserved within and rejected
 across is \code{differentiated}, scored on the unfiltered graph's
-clique, and their one-lineage cliques stay \code{unclassified}. This
+clique, and their one-clade cliques stay \code{unclassified}. This
 tier is rcomplex's addition to the published five.}
 \item{underpowered}{A clique that would be \code{lineage_specific},
 \code{trait_specific} or \code{differentiated} but for tests that could not
@@ -150,7 +168,7 @@ two specificity tiers when at least one outside species is
 \code{underpowered} -- reading that species as conserved would extend
 the clique, so neither call survives -- and of
 \code{differentiated} when \code{n_sig_cross + n_underpowered_cross}
-exceeds \code{cross_max}: a specificity or divergence call must survive
+exceeds its bound: a specificity or divergence call must survive
 treating every underpowered pair as possibly significant. A
 low-degree gene cannot reach the call whatever its conservation,
 so without this its missing edges read as a lineage boundary.}

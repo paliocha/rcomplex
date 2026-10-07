@@ -491,7 +491,7 @@ find_cliques.default <- function(edges, target_species,
 #' Classify HOGs by clique conservation pattern
 #'
 #' Convenience wrapper that runs \code{\link{find_cliques}} internally
-#' (once for all species, once per trait group) and applies a sequential
+#' (once for all species, once per top-level clade) and applies a sequential
 #' waterfall classification. For fine-grained control over the clique
 #' detection parameters per step, call \code{find_cliques()} directly.
 #'
@@ -502,14 +502,18 @@ find_cliques.default <- function(edges, target_species,
 #' \enumerate{
 #'   \item \strong{complete}: all target species form a clique (all
 #'     \code{C(N,2)} edges conserved).
-#'   \item \strong{partial}: a clique exists with \code{min_species}
-#'     to \code{N-1} species.
-#'   \item \strong{differentiated}: at least 2 trait groups each have
-#'     a within-group clique, but no cross-group conserved edge exists.
-#'   \item \strong{trait_specific}: exactly 1 trait group has a
-#'     within-group clique.
+#'   \item \strong{partial}: a clique with \code{min_species}
+#'     to \code{N-1} species lies in no clade.
+#'   \item \strong{differentiated}: cliques sit in two or more disjoint
+#'     clades, and no conserved edge joins two top-level clades.
+#'   \item \strong{trait_specific}: all cliques sit in one clade.
 #'   \item \strong{unclassified}: none of the above.
 #' }
+#' The home clade of a clique is the smallest clade that holds all its
+#' species. A HOG keeps the home clades that no other of its home clades
+#' holds. Clades are laminar, so these are disjoint. Nested homes count as
+#' one clade, so they are not \code{differentiated}. Cliques are searched
+#' within each top-level clade. A species in no clade forms its own clade.
 #'
 #' @section Underpowered calls:
 #' \code{differentiated} and \code{trait_specific} both rest on edges
@@ -551,9 +555,7 @@ find_cliques.default <- function(edges, target_species,
 #' species. It applies the taxonomy of Rodriguez et al. (2026), plus
 #' \code{trait_specific}, with two explicit tolerance tiers
 #' (\code{partial_significant}
-#' for weak wiring, \code{partial_present} for a missing gene), and its
-#' \code{lineage} split is an argument rather than the trait vector, so
-#' it can be run against a clade partition the trait does not follow.
+#' for weak wiring, \code{partial_present} for a missing gene).
 #'
 #' Reach for \code{classify_gene_cliques()} when which copy sits in the
 #' conserved core matters, or when the published taxonomy is what has to
@@ -570,9 +572,10 @@ find_cliques.default <- function(edges, target_species,
 #'   \code{"underpowered"} class; without it, or where it is \code{NA},
 #'   the classification is unchanged.
 #' @param target_species Character vector of all species.
-#' @param species_trait Named character or factor vector mapping each
-#'   species to a trait value (e.g., \code{c(SP_A = "annual",
-#'   SP_B = "perennial")}).
+#' @param clades Named list of species vectors, one per clade. Clades
+#'   may nest but must not cross. A species in no clade forms its own
+#'   clade. A flat trait is \code{split(names(trait), trait)}. A tree
+#'   gives \code{\link{clades_from_tree}(phy)}.
 #' @param min_species Minimum species for a partial or within-group
 #'   clique (default 2).
 #' @param stability Optional output of \code{\link{clique_stability}}.
@@ -600,8 +603,13 @@ find_cliques.default <- function(edges, target_species,
 #'       unclassified)}
 #'     \item{best_mean_q}{Mean q-value of the best clique (NA for
 #'       unclassified)}
-#'     \item{trait_groups}{Comma-separated trait groups with internal
-#'       cliques (NA for complete/partial/unclassified)}
+#'     \item{trait_groups}{Comma-separated top-level clades that hold
+#'       the cliques (NA for complete/partial/unclassified)}
+#'     \item{clade}{For \code{trait_specific}, the home clade of the
+#'       cliques. For \code{differentiated}, the smallest clade that holds
+#'       all home clades. Otherwise, the smallest clade that holds the
+#'       reported clique. \code{NA} when no clade holds them, and for
+#'       unclassified HOGs.}
 #'     \item{stability_class}{From stability results (NA if not
 #'       provided)}
 #'     \item{robust}{Logical: stability class is at least 0 (NA if no
@@ -610,7 +618,8 @@ find_cliques.default <- function(edges, target_species,
 #'
 #' @examples
 #' \dontrun{
-#' result <- classify_cliques(edges, target_species, species_trait)
+#' clades <- list(annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D"))
+#' result <- classify_cliques(edges, target_species, clades)
 #' table(result$classification)
 #' }
 #'
@@ -631,7 +640,7 @@ classify_cliques <- function(edges, ...) UseMethod("classify_cliques")
 #' @rdname classify_cliques
 #' @export
 classify_cliques.default <- function(
-  edges, target_species, species_trait,
+  edges, target_species, clades,
   min_species = 2L,
   stability = NULL,
   min_power = 0.8, ...
@@ -651,19 +660,7 @@ classify_cliques.default <- function(
   if (length(target_species) < 2) {
     stop("target_species must have at least 2 species")
   }
-  if (!is.character(species_trait) && !is.factor(species_trait)) {
-    stop("species_trait must be a named character or factor vector")
-  }
-  if (is.null(names(species_trait))) {
-    stop("species_trait must be a named vector")
-  }
-  missing_sp <- setdiff(target_species, names(species_trait))
-  if (length(missing_sp) > 0) {
-    stop(
-      "species_trait missing entries for: ",
-      paste(missing_sp, collapse = ", ")
-    )
-  }
+  clades <- .check_clades(clades, target_species)
   min_species <- as.integer(min_species)
   if (min_species < 2L) stop("min_species must be >= 2")
   ok_power <- is.numeric(min_power) && length(min_power) == 1L &&
@@ -678,8 +675,7 @@ classify_cliques.default <- function(
     }
   }
 
-  trait_char <- as.character(species_trait[target_species])
-  names(trait_char) <- target_species
+  trait_char <- .clade_groups(clades, target_species)
   trait_levels <- unique(trait_char)
   n_sp <- length(target_species)
   all_hogs <- unique(edges$hog)
@@ -688,7 +684,8 @@ classify_cliques.default <- function(
   empty <- data.frame(
     hog = character(0), classification = character(0),
     n_species = integer(0), best_mean_q = numeric(0),
-    trait_groups = character(0), underpowered = logical(0),
+    trait_groups = character(0), clade = character(0),
+    underpowered = logical(0),
     stability_class = integer(0),
     robust = logical(0),
     stringsAsFactors = FALSE
@@ -698,8 +695,9 @@ classify_cliques.default <- function(
   }
 
   # --- Steps 1+2: Find all cliques (complete + partial in one pass) ---
-  all_cliques <- find_cliques(edges, target_species,
-    min_species = min_species
+  all_cliques <- .cc_with_clade(
+    find_cliques(edges, target_species, min_species = min_species),
+    clades, target_species
   )
 
   # Complete = all N species, no missing edges
@@ -726,20 +724,18 @@ classify_cliques.default <- function(
 
   # --- Step 3: Within-group cliques per trait group ---
   within_group_cliques <- list()
-  within_group_hogs <- list()
 
   for (group in trait_levels) {
     group_sp <- names(trait_char[trait_char == group])
     if (length(group_sp) < 2L) {
       within_group_cliques[[group]] <- NULL
-      within_group_hogs[[group]] <- character(0)
       next
     }
-    wg <- find_cliques(edges, group_sp,
-      min_species = min_species
+    wg <- .cc_with_clade(
+      find_cliques(edges, group_sp, min_species = min_species),
+      clades, group_sp
     )
     within_group_cliques[[group]] <- wg
-    within_group_hogs[[group]] <- unique(wg$hog)
   }
 
   # --- Step 4: Differentiated (2+ groups w/ cliques, no cross-group) ---
@@ -758,43 +754,50 @@ classify_cliques.default <- function(
     hogs_with_cross <- character(0)
   }
 
-  diff_hogs <- character(0)
-  diff_groups <- character(0)
-  for (h in remaining) {
-    groups_present <- trait_levels[vapply(trait_levels, function(g) {
-      h %in% within_group_hogs[[g]]
-    }, logical(1))]
-    if (length(groups_present) >= 2L && !h %in% hogs_with_cross) {
-      diff_hogs <- c(diff_hogs, h)
-      diff_groups <- c(diff_groups, paste(groups_present, collapse = ","))
-    }
+  # Home clades of each HOG's within-group cliques, kept when no other
+  # home holds them. Clades are laminar, so the kept homes are disjoint.
+  wg_all <- do.call(rbind, lapply(within_group_cliques, function(df) {
+    df[, c("hog", "clade"), drop = FALSE]
+  }))
+  homes_by_hog <- list()
+  if (!is.null(wg_all)) homes_by_hog <- split(wg_all$clade, wg_all$hog)
+  first_sp <- vapply(clades, function(v) min(match(v, target_species)), 1)
+  top_homes <- function(h) {
+    hm <- unique(homes_by_hog[[h]])
+    held <- vapply(hm, function(a) {
+      any(vapply(setdiff(hm, a), function(b) {
+        all(clades[[a]] %in% clades[[b]])
+      }, logical(1)))
+    }, logical(1))
+    hm <- hm[!held]
+    hm[order(first_sp[hm])]
   }
-
-  # --- Step 5: Trait-specific (exactly 1 group has a clique) ---
-  remaining2 <- setdiff(remaining, diff_hogs)
-  ts_hogs <- character(0)
-  ts_groups <- character(0)
-  for (h in remaining2) {
-    groups_present <- trait_levels[vapply(trait_levels, function(g) {
-      h %in% within_group_hogs[[g]]
-    }, logical(1))]
-    if (length(groups_present) == 1L) {
-      ts_hogs <- c(ts_hogs, h)
-      ts_groups <- c(ts_groups, groups_present)
-    }
-  }
-
-  # --- Step 5b: Underpowered specificity / divergence ---
-  # Both calls rest on edges that were not conserved. One that could not
-  # have been called is no evidence, so the call has to survive reading
-  # it as conserved.
-  up_hogs <- character(0)
-  if ("power" %in% names(edges)) {
-    up_hogs <- .cc_underpowered_hogs(
-      edges, c(diff_hogs, ts_hogs), within_group_cliques, trait_char,
-      min_power
+  groups_of <- function(hm) {
+    paste(unique(trait_char[vapply(clades[hm], `[`, "", 1L)]),
+      collapse = ","
     )
   }
+
+  # Differentiated: two or more disjoint homes, no cross-group edge.
+  # Trait-specific: one home. Nested homes count as one.
+  diff_hogs <- character(0)
+  ts_hogs <- character(0)
+  hog_homes <- list()
+  for (h in remaining) {
+    hm <- top_homes(h)
+    if (length(hm) >= 2L && !h %in% hogs_with_cross) {
+      diff_hogs <- c(diff_hogs, h)
+    } else if (length(hm) == 1L) {
+      ts_hogs <- c(ts_hogs, h)
+    } else {
+      next
+    }
+    hog_homes[[h]] <- hm
+  }
+  hog_groups <- vapply(hog_homes, groups_of, "")
+  hog_clade <- vapply(hog_homes, function(hm) {
+    if (length(hm) == 1L) hm else .clade_home(clades, unlist(clades[hm]))
+  }, "")
 
   # --- Step 6: Unclassified ---
   classified <- c(complete_hogs, partial_hogs, diff_hogs, ts_hogs)
@@ -807,14 +810,15 @@ classify_cliques.default <- function(
     if (nrow(sub) == 0) {
       return(data.frame(
         hog = character(0), n_species = integer(0),
-        best_mean_q = numeric(0)
+        best_mean_q = numeric(0), clade = character(0)
       ))
     }
     sub <- sub[order(sub$mean_q), , drop = FALSE]
     sub <- sub[!duplicated(sub$hog), , drop = FALSE]
     data.frame(
       hog = sub$hog, n_species = sub$n_species,
-      best_mean_q = sub$mean_q, stringsAsFactors = FALSE
+      best_mean_q = sub$mean_q, clade = sub$clade,
+      stringsAsFactors = FALSE
     )
   }
 
@@ -828,7 +832,8 @@ classify_cliques.default <- function(
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "complete",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = NA_character_, stringsAsFactors = FALSE
+      trait_groups = NA_character_, clade = info$clade,
+      stringsAsFactors = FALSE
     )
   }
 
@@ -838,7 +843,8 @@ classify_cliques.default <- function(
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog, classification = "partial",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = NA_character_, stringsAsFactors = FALSE
+      trait_groups = NA_character_, clade = info$clade,
+      stringsAsFactors = FALSE
     )
   }
 
@@ -849,19 +855,19 @@ classify_cliques.default <- function(
       within_group_cliques[trait_levels],
       function(df) {
         if (!is.null(df) && nrow(df) > 0) {
-          df[, c("hog", "n_species", "mean_q"), drop = FALSE]
+          df[, c("hog", "n_species", "mean_q", "clade"), drop = FALSE]
         } else {
           NULL
         }
       }
     ))
     info <- best_per_hog(wg_summary, diff_hogs)
-    tg <- diff_groups[match(info$hog, diff_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog,
       classification = "differentiated",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = tg, stringsAsFactors = FALSE
+      trait_groups = unname(hog_groups[info$hog]),
+      clade = unname(hog_clade[info$hog]), stringsAsFactors = FALSE
     )
   }
 
@@ -871,19 +877,19 @@ classify_cliques.default <- function(
       within_group_cliques[trait_levels],
       function(df) {
         if (!is.null(df) && nrow(df) > 0) {
-          df[, c("hog", "n_species", "mean_q"), drop = FALSE]
+          df[, c("hog", "n_species", "mean_q", "clade"), drop = FALSE]
         } else {
           NULL
         }
       }
     ))
     info <- best_per_hog(wg_summary2, ts_hogs)
-    tg <- ts_groups[match(info$hog, ts_hogs)]
     rows[[length(rows) + 1L]] <- data.frame(
       hog = info$hog,
       classification = "trait_specific",
       n_species = info$n_species, best_mean_q = info$best_mean_q,
-      trait_groups = tg, stringsAsFactors = FALSE
+      trait_groups = unname(hog_groups[info$hog]),
+      clade = unname(hog_clade[info$hog]), stringsAsFactors = FALSE
     )
   }
 
@@ -892,7 +898,8 @@ classify_cliques.default <- function(
     rows[[length(rows) + 1L]] <- data.frame(
       hog = unclass_hogs, classification = "unclassified",
       n_species = NA_integer_, best_mean_q = NA_real_,
-      trait_groups = NA_character_, stringsAsFactors = FALSE
+      trait_groups = NA_character_, clade = NA_character_,
+      stringsAsFactors = FALSE
     )
   }
 
@@ -907,7 +914,15 @@ classify_cliques.default <- function(
   # have been called is not evidence, but it is also not a different
   # kind of clique: overwriting the classification threw the call away
   # and left no way to recover it. Carry it as a flag instead, so the
-  # call survives and a caller can filter on it.
+  # call survives and a caller can filter on it. Each call is read
+  # against the home clades of its cliques.
+  up_hogs <- character(0)
+  if ("power" %in% names(edges)) {
+    up_hogs <- .cc_underpowered_hogs(
+      edges, c(diff_hogs, ts_hogs), within_group_cliques, trait_char,
+      min_power, hog_homes, clades
+    )
+  }
   out$underpowered <- out$hog %in% up_hogs
 
   # --- Stability annotation ---
@@ -946,29 +961,45 @@ classify_cliques.default <- function(
 #'
 #' A deciding edge is a non-conserved row of the HOG with `power` below
 #' `min_power`, one endpoint a member of one of the HOG's within-group
-#' cliques and the other in a different trait group. Such an edge could
-#' not have been called, so the call cannot rule it out as conserved.
+#' cliques and the other across a boundary. The boundaries are the home
+#' clades of the HOG's cliques, then the top-level clades. Such an edge
+#' could not have been called, so the call cannot rule it out as
+#' conserved.
 #'
 #' @param edges Full edge table carrying `power`.
 #' @param hogs Candidate HOGs (differentiated and trait-specific).
 #' @param wg_cliques Named list of within-group [find_cliques()] tables.
-#' @param trait_char Named trait of every target species.
+#' @param trait_char Named trait group of every target species.
 #' @param min_power As in [classify_cliques()].
+#' @param hog_homes Home clades of each candidate HOG, named by HOG.
+#' @param clades Checked clade list.
 #' @return Character vector of the HOGs to reclassify.
 #' @noRd
 .cc_underpowered_hogs <- function(edges, hogs, wg_cliques, trait_char,
-                                  min_power) {
+                                  min_power, hog_homes, clades) {
   hogs <- as.character(hogs)
   e_hog <- as.character(edges$hog)
   pw <- as.numeric(edges$power)
-  t1 <- unname(trait_char[as.character(edges$species1)])
-  t2 <- unname(trait_char[as.character(edges$species2)])
+  # Inside one of its HOG's home clades, a species takes that name.
+  sep <- "\x01"
+  home <- unlist(hog_homes, use.names = FALSE)
+  n_in <- lengths(clades[home])
+  key <- paste(rep(rep(names(hog_homes), lengths(hog_homes)), n_in),
+    unlist(clades[home], use.names = FALSE),
+    sep = sep
+  )
+  val <- rep(home, n_in)
+  side <- function(sp) {
+    v <- val[match(paste(e_hog, sp, sep = sep), key)]
+    ifelse(is.na(v), unname(trait_char[sp]), v)
+  }
+  t1 <- side(as.character(edges$species1))
+  t2 <- side(as.character(edges$species2))
   cand <- e_hog %in% hogs & !(edges$type %in% "conserved") &
     !is.na(pw) & pw < min_power & !is.na(t1) & !is.na(t2) & t1 != t2
   if (!any(cand)) {
     return(character(0))
   }
-  sep <- "\x01"
   members <- unlist(lapply(wg_cliques, function(df) {
     if (is.null(df) || nrow(df) == 0L) {
       return(NULL)
@@ -984,4 +1015,18 @@ classify_cliques.default <- function(
   k1 <- paste(e_hog, edges$species1, edges$gene1, sep = sep)[cand]
   k2 <- paste(e_hog, edges$species2, edges$gene2, sep = sep)[cand]
   unique(e_hog[cand][k1 %in% members | k2 %in% members])
+}
+
+
+#' Add a `clade` column to a [find_cliques()] table
+#'
+#' The clade is the smallest one that holds every species of the row.
+#' @noRd
+.cc_with_clade <- function(cliques, clades, species) {
+  sp <- intersect(species, names(cliques))
+  present <- !is.na(as.matrix(cliques[, sp, drop = FALSE]))
+  cliques$clade <- vapply(seq_len(nrow(cliques)), function(i) {
+    .clade_home(clades, sp[present[i, ]])
+  }, character(1))
+  cliques
 }

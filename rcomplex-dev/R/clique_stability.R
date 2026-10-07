@@ -5,15 +5,16 @@
 #' re-runs full clique detection on each reduced species set, and checks
 #' whether matching gene assignments are preserved (Jaccard similarity).
 #' ALL cliques are tested, regardless of trait composition. Trait
-#' annotations are added post-hoc if \code{species_trait} is provided.
+#' annotations are added post-hoc if \code{clades} is provided.
 #'
 #' @param edges Data frame (same format as \code{\link{find_cliques}}).
 #' @param target_species Character vector of species that define clique
 #'   membership.
-#' @param species_trait Optional named character or factor vector mapping
-#'   species to trait groups. Names must include all \code{all_species}.
-#'   If provided, trait annotations (\code{traits}, \code{sole_rep}) are
-#'   added to the output. If \code{NULL} (default), trait columns are
+#' @param clades Optional named list of species vectors, one per clade.
+#'   Clades may nest but must not cross. A species in no clade forms its
+#'   own clade. Annotations use the top-level clades. If
+#'   provided, the output gains trait annotations (\code{traits},
+#'   \code{sole_rep}). If \code{NULL} (default), trait columns are
 #'   \code{NA}.
 #' @param all_species Character vector of ALL species in the analysis
 #'   universe (default: \code{target_species}). Leave-k-out subsets are
@@ -35,7 +36,7 @@
 #'       \code{sole_rep}. One row per (clique, k) pair.}
 #'     \item{clique_disruption}{Data frame with columns: \code{species},
 #'       \code{n_cliques_disrupted} (k=1 only), and optionally
-#'       \code{trait_value} if \code{species_trait} is provided.
+#'       \code{trait_value} if \code{clades} is provided.
 #'       One row per species in \code{all_species}.}
 #'     \item{stability_class}{Integer vector (length = number of cliques):
 #'       highest k at which each clique is structurally stable across ALL
@@ -61,13 +62,13 @@
 #' are preserved across ALL C(N, k) subsets where it is testable.
 #'
 #' Stability is purely structural — trait annotations are orthogonal and
-#' added post-hoc from \code{species_trait} if provided.
+#' added post-hoc from \code{clades} if provided.
 #'
 #' ## sole_rep column
 #'
 #' The \code{sole_rep} column is \code{TRUE} if this clique has a single
 #' trait value and that trait value has only one target species
-#' representative. Only populated when \code{species_trait} is provided.
+#' representative. Only populated when \code{clades} is provided.
 #'
 #' ## full_cliques parameter
 #'
@@ -90,7 +91,7 @@
 #' # With trait annotation
 #' trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
 #' stab <- clique_stability(edges, all_sp,
-#'   species_trait = trait,
+#'   clades = split(names(trait), trait),
 #'   full_cliques = cliques
 #' )
 #'
@@ -110,7 +111,7 @@ clique_stability <- function(edges, ...) UseMethod("clique_stability")
 #' @export
 clique_stability.default <- function(
   edges, target_species,
-  species_trait = NULL,
+  clades = NULL,
   all_species = target_species,
   full_cliques = NULL,
   max_k = length(all_species) - 2L,
@@ -131,20 +132,9 @@ clique_stability.default <- function(
   if (!all(target_species %in% all_species)) {
     stop("target_species must be a subset of all_species")
   }
-  if (!is.null(species_trait)) {
-    if (!is.character(species_trait) && !is.factor(species_trait)) {
-      stop("species_trait must be a named character or factor vector")
-    }
-    if (is.null(names(species_trait))) {
-      stop("species_trait must be a named vector with species as names")
-    }
-    missing_sp <- setdiff(all_species, names(species_trait))
-    if (length(missing_sp) > 0) {
-      stop(
-        "species_trait missing entries for: ",
-        paste(missing_sp, collapse = ", ")
-      )
-    }
+  trait_of <- NULL
+  if (!is.null(clades)) {
+    trait_of <- .clade_groups(.check_clades(clades, all_species), all_species)
   }
   max_k <- as.integer(max_k)
   if (max_k < 1L) {
@@ -260,9 +250,9 @@ clique_stability.default <- function(
     paste(sp_cols[row], collapse = ",")
   })
 
-  if (!is.null(species_trait)) {
-    trait_char <- as.character(species_trait[sp_cols])
-    trait_counts <- table(as.character(species_trait[target_species]))
+  if (!is.null(trait_of)) {
+    trait_char <- unname(trait_of[sp_cols])
+    trait_counts <- table(trait_of[target_species])
 
     trait_annot <- vapply(seq_len(n_fc), \(i) {
       tv <- trait_char[present_mat[i, ]]
@@ -298,8 +288,8 @@ clique_stability.default <- function(
   if (nrow(disrupt) > 0) {
     disrupt$species <- all_species[disrupt$species_idx + 1L]
     cols <- c("species", "n_cliques_disrupted")
-    if (!is.null(species_trait)) {
-      disrupt$trait_value <- as.character(species_trait[disrupt$species])
+    if (!is.null(trait_of)) {
+      disrupt$trait_value <- unname(trait_of[disrupt$species])
       cols <- c("species", "trait_value", "n_cliques_disrupted")
     }
     disrupt <- disrupt[, cols, drop = FALSE]

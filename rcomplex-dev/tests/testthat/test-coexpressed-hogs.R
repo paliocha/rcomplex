@@ -92,7 +92,7 @@ test_that(
   {
     d <- make_coexpr_test_data()
     result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-      species_trait = d$trait
+      clades = as_clades(d$trait)
     )
     expect_true(is.data.frame(result))
     expected_cols <- c(
@@ -152,7 +152,7 @@ test_that("HOG5 never appears (not co-expressed)", {
 test_that("coexpressed_traits reflects trait groups correctly", {
   d <- make_coexpr_test_data()
   result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-    species_trait = d$trait,
+    clades = as_clades(d$trait),
     min_species = 1L
   )
 
@@ -170,7 +170,7 @@ test_that("coexpressed_traits reflects trait groups correctly", {
 })
 
 
-test_that("species_trait = NULL produces NA coexpressed_traits", {
+test_that("clades = NULL produces NA coexpressed_traits", {
   d <- make_coexpr_test_data()
   result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
     min_species = 1L
@@ -275,9 +275,9 @@ test_that("input validation errors", {
   )
   expect_error(
     get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-      species_trait = c(SP_A = "annual")
+      clades = c(SP_A = "annual")
     ),
-    "missing entries"
+    "clades must be a named list"
   )
 })
 

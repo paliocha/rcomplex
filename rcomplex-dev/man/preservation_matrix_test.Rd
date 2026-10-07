@@ -19,10 +19,11 @@ dropped, since nothing was measured for them.}
 levels is allowed. Species not appearing in \code{classification} are ignored,
 so the permuted label multiset is the one the matrix actually holds.}
 
-\item{block}{Optional named vector mapping species to a phylogenetic group
-(a genus, say). Supplying it enables the restricted within-block null and
-the within-block exclusion. With \code{block = NULL} only the free null is
-run.}
+\item{block}{Optional named list of species vectors, one per clade (a
+genus, say), as \code{clades} elsewhere. Only the top-level clades are read.
+A species in no clade forms its own clade. Supplying it enables the
+restricted within-block null and the within-block exclusion. With
+\code{block = NULL} only the free null is run.}
 
 \item{seed}{Integer seed for the sampled branch, or \code{NULL} (default) to
 draw from the ambient stream and leave it advanced. A seed draws from a
@@ -72,7 +73,8 @@ the p-values so the reader can see how much of the input's
 significance scale is collapsed.}
 \item{n_rows,n_pairs,n_excluded}{Rows used, distinct species pairs
 behind them, and rows dropped for sharing a block.}
-\item{species,group,block}{The design actually tested.}
+\item{species,group,block}{The design actually tested. \code{block} is
+the top-level clade of each species.}
 }
 }
 \description{
@@ -191,7 +193,7 @@ under every labelling and the null stays valid.
 pairs <- rcomplex:::all_species_pairs(names(group))
 res <- preservation_paired(mods, nets, ortho, pairs, group = group)
 pmt <- preservation_matrix_test(res$classification, group,
-  block = genus
+  block = split(names(genus), genus)
 )
 c(pmt$observed, pmt$p_free, pmt$p_blocked)
 }

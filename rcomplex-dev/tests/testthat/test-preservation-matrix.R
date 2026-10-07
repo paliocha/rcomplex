@@ -218,7 +218,7 @@ test_that("preservation_matrix_test returns the documented structure", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_type(res, "list")
@@ -247,7 +247,7 @@ test_that("the binary statistic is exactly the difference of means", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_equal(
@@ -270,7 +270,7 @@ test_that("the free and within-block label spaces are the right size", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   # choose(8, 4) = 70 free labellings against 2^4 = 16 within-genus ones:
@@ -295,7 +295,7 @@ test_that("the observed labelling is a point of both enumerated nulls", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   # Exactness rests on this: the enumeration contains the truth, so the
@@ -316,7 +316,7 @@ test_that("a planted signal ranks near the top of both nulls", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   # Only the global flip should tie the truth, so the observed labelling is
@@ -336,7 +336,7 @@ test_that("the statistic reads Zsummary_std and never the q-values", {
 
   base <- suppressWarnings(preservation_matrix_test(
     cls, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
   # q_value is anti-aligned with the effect in the fixture, so a q-driven
   # statistic would flip the sign. Scrambling it, then dropping it, must
@@ -346,12 +346,12 @@ test_that("the statistic reads Zsummary_std and never the q-values", {
   scrambled$q_value <- sample(scrambled$q_value)
   res_scr <- suppressWarnings(preservation_matrix_test(
     scrambled, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
   no_q <- cls[, setdiff(names(cls), "q_value"), drop = FALSE]
   res_noq <- suppressWarnings(preservation_matrix_test(
     no_q, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_equal(res_scr$observed, base$observed)
@@ -367,7 +367,7 @@ test_that("saturation reports the resolution of the supplied q-values", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   q <- fix$classification$q_value
@@ -388,7 +388,7 @@ test_that("within-block rows are excluded", {
 
   dropped <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_equal(dropped$n_excluded, 4L * 2L * 4L)
@@ -464,11 +464,11 @@ test_that("rows with no measured effect are dropped", {
 
   base <- suppressWarnings(preservation_matrix_test(
     cls, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
   with_na <- suppressWarnings(preservation_matrix_test(
     rbind(cls, extra), fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_equal(with_na$n_rows, base$n_rows)
@@ -498,7 +498,7 @@ test_that("an unreachable p-value floor is warned about", {
   # so the blocked floor is 2/16 = 0.125 and alpha = 0.05 is unreachable.
   expect_warning(
     preservation_matrix_test(fix$classification, fix$group,
-      block = fix$block
+      block = as_clades(fix$block)
     ),
     "smallest attainable p-value"
   )
@@ -527,14 +527,10 @@ test_that("preservation_matrix_test validates its inputs", {
     "named vector"
   )
   expect_error(
-    preservation_matrix_test(cls, fix$group, block = unname(fix$block)),
-    "named vector"
-  )
-  expect_error(
     preservation_matrix_test(cls, fix$group,
-      block = fix$block[1:3]
+      block = unname(as_clades(fix$block))
     ),
-    "block missing entries"
+    "named list"
   )
   # A trait taking one value over the tested species has no contrast at all.
   flat <- stats::setNames(
@@ -571,7 +567,9 @@ test_that("uneven blocks give the product of per-block label spaces", {
     }))
   }))
 
-  res <- suppressWarnings(preservation_matrix_test(cls, grp, block = blk))
+  res <- suppressWarnings(
+    preservation_matrix_test(cls, grp, block = as_clades(blk))
+  )
 
   expect_equal(res$free$n_labellings, choose(8, 4))
   expect_equal(res$blocked$n_labellings, 1 * 3 * 6)
@@ -640,7 +638,7 @@ test_that("rows_per_pair accounts for every tested row exactly once", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
   ragged <- preservation_matrix_test(rag$classification, rag$group)
 
@@ -687,11 +685,12 @@ test_that("a species named twice in group or block is refused", {
     preservation_matrix_test(cls, dup_group),
     "group names a species more than once"
   )
+  # In a clade list, a species named twice must sit in nested clades.
   expect_error(
     preservation_matrix_test(cls, fix$group,
-      block = c(fix$block, Aa = "Z")
+      block = c(as_clades(fix$block), list(Z = c("Aa", "Ba")))
     ),
-    "block names a species more than once"
+    "overlap, but neither holds the other"
   )
 })
 
@@ -742,7 +741,7 @@ test_that("preservation_matrix_test consumes a real preservation_paired run", {
   ))
   res <- suppressWarnings(preservation_matrix_test(
     paired$classification, fx$group,
-    block = fx$block
+    block = as_clades(fx$block)
   ))
 
   # The column names are the contract: reference, test, Zsummary_std and
@@ -769,24 +768,6 @@ test_that("preservation_matrix_test consumes a real preservation_paired run", {
 })
 
 
-test_that("a present-but-NA block value is refused", {
-  # It passes the missing-names check, then poisons the within-block
-  # comparison: n_excluded becomes NA and NA species enter ref/tst, so
-  # the run died later complaining about the trait design instead.
-  cls <- data.frame(
-    reference = c("A", "A", "B"), test = c("B", "C", "C"),
-    Zsummary_std = c(1, 2, 3), q_value = c(0.01, 0.02, 0.03),
-    module = "1", stringsAsFactors = FALSE
-  )
-  grp <- c(A = "x", B = "y", C = "x")
-  bl <- c(A = "g1", B = NA_character_, C = "g2")
-  expect_error(
-    preservation_matrix_test(cls, group = grp, block = bl),
-    "block has NA values for: B"
-  )
-})
-
-
 test_that("a designated within-genus table cannot be tested at all", {
   fx <- make_pmt_fixture()
   cls <- fx$classification
@@ -798,7 +779,7 @@ test_that("a designated within-genus table cannot be tested at all", {
   # the statistic is undefined.
   expect_true(all(fx$group[cls$reference] != fx$group[cls$test]))
   expect_error(
-    preservation_matrix_test(cls, fx$group, block = fx$block),
+    preservation_matrix_test(cls, fx$group, block = as_clades(fx$block)),
     "leaves nothing to test"
   )
 })
@@ -808,7 +789,7 @@ test_that("the label spaces belong to the species, not the pairs table", {
   fx <- make_pmt_fixture()
   cls <- fx$classification
   full <- suppressWarnings(
-    preservation_matrix_test(cls, fx$group, block = fx$block)
+    preservation_matrix_test(cls, fx$group, block = as_clades(fx$block))
   )
   expect_equal(full$free$n_labellings, choose(8, 4))
   expect_equal(full$blocked$n_labellings, 2^4)
@@ -822,7 +803,7 @@ test_that("the label spaces belong to the species, not the pairs table", {
   sub <- cls[keep, , drop = FALSE]
   expect_setequal(unique(c(sub$reference, sub$test)), fx$species)
   part <- suppressWarnings(
-    preservation_matrix_test(sub, fx$group, block = fx$block)
+    preservation_matrix_test(sub, fx$group, block = as_clades(fx$block))
   )
   expect_equal(part$free$n_labellings, full$free$n_labellings)
   expect_equal(part$blocked$n_labellings, full$blocked$n_labellings)
@@ -834,7 +815,7 @@ test_that("the two 16-point floors are 2/16 and 1/16 respectively", {
   fx <- make_pmt_fixture()
   res <- suppressWarnings(preservation_matrix_test(
     fx$classification, fx$group,
-    block = fx$block
+    block = as_clades(fx$block)
   ))
   # Swapping the two trait names everywhere reproduces the statistic, so
   # the blocked maximum is always shared: 2/16, never 1/16, which the docs

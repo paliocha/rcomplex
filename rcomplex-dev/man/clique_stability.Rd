@@ -10,7 +10,7 @@ clique_stability(edges, ...)
 \method{clique_stability}{default}(
   edges,
   target_species,
-  species_trait = NULL,
+  clades = NULL,
   all_species = target_species,
   full_cliques = NULL,
   max_k = length(all_species) - 2L,
@@ -26,10 +26,11 @@ clique_stability(edges, ...)
 \item{target_species}{Character vector of species that define clique
 membership.}
 
-\item{species_trait}{Optional named character or factor vector mapping
-species to trait groups. Names must include all \code{all_species}.
-If provided, trait annotations (\code{traits}, \code{sole_rep}) are
-added to the output. If \code{NULL} (default), trait columns are
+\item{clades}{Optional named list of species vectors, one per clade.
+Clades may nest but must not cross. A species in no clade forms its
+own clade. Annotations use the top-level clades. If
+provided, the output gains trait annotations (\code{traits},
+\code{sole_rep}). If \code{NULL} (default), trait columns are
 \code{NA}.}
 
 \item{all_species}{Character vector of ALL species in the analysis
@@ -56,7 +57,7 @@ A list with components:
 \code{sole_rep}. One row per (clique, k) pair.}
 \item{clique_disruption}{Data frame with columns: \code{species},
 \code{n_cliques_disrupted} (k=1 only), and optionally
-\code{trait_value} if \code{species_trait} is provided.
+\code{trait_value} if \code{clades} is provided.
 One row per species in \code{all_species}.}
 \item{stability_class}{Integer vector (length = number of cliques):
 highest k at which each clique is structurally stable across ALL
@@ -71,7 +72,7 @@ The analysis removes k = 1, 2, \ldots, \code{max_k} species at a time,
 re-runs full clique detection on each reduced species set, and checks
 whether matching gene assignments are preserved (Jaccard similarity).
 ALL cliques are tested, regardless of trait composition. Trait
-annotations are added post-hoc if \code{species_trait} is provided.
+annotations are added post-hoc if \code{clades} is provided.
 }
 \details{
 \subsection{How it works}{
@@ -90,14 +91,14 @@ remain active. It is \emph{stable at level k} if its gene assignments
 are preserved across ALL C(N, k) subsets where it is testable.
 
 Stability is purely structural — trait annotations are orthogonal and
-added post-hoc from \code{species_trait} if provided.
+added post-hoc from \code{clades} if provided.
 }
 
 \subsection{sole_rep column}{
 
 The \code{sole_rep} column is \code{TRUE} if this clique has a single
 trait value and that trait value has only one target species
-representative. Only populated when \code{species_trait} is provided.
+representative. Only populated when \code{clades} is provided.
 }
 
 \subsection{full_cliques parameter}{
@@ -122,7 +123,7 @@ stab <- clique_stability(edges, all_sp,
 # With trait annotation
 trait <- setNames(rep(c("annual", "perennial"), each = 4), all_sp)
 stab <- clique_stability(edges, all_sp,
-  species_trait = trait,
+  clades = split(names(trait), trait),
   full_cliques = cliques
 )
 

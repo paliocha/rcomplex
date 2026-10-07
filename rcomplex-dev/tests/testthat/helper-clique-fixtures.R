@@ -152,3 +152,7 @@ make_clique_fixture_3sp <- function(n_genes = 15L) {
     cliques = cliques, target_species = target
   )
 }
+
+
+# A flat species -> trait vector as a clade list.
+as_clades <- function(trait) split(names(trait), trait)

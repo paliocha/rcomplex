@@ -10,7 +10,7 @@ classify_cliques(edges, ...)
 \method{classify_cliques}{default}(
   edges,
   target_species,
-  species_trait,
+  clades,
   min_species = 2L,
   stability = NULL,
   min_power = 0.8,
@@ -32,9 +32,10 @@ the classification is unchanged.}
 
 \item{target_species}{Character vector of all species.}
 
-\item{species_trait}{Named character or factor vector mapping each
-species to a trait value (e.g., \code{c(SP_A = "annual",
-SP_B = "perennial")}).}
+\item{clades}{Named list of species vectors, one per clade. Clades
+may nest but must not cross. A species in no clade forms its own
+clade. A flat trait is \code{split(names(trait), trait)}. A tree
+gives \code{\link{clades_from_tree}(phy)}.}
 
 \item{min_species}{Minimum species for a partial or within-group
 clique (default 2).}
@@ -66,8 +67,13 @@ whenever \code{edges} carries no \code{power} column.}
 unclassified)}
 \item{best_mean_q}{Mean q-value of the best clique (NA for
 unclassified)}
-\item{trait_groups}{Comma-separated trait groups with internal
-cliques (NA for complete/partial/unclassified)}
+\item{trait_groups}{Comma-separated top-level clades that hold
+the cliques (NA for complete/partial/unclassified)}
+\item{clade}{For \code{trait_specific}, the home clade of the
+cliques. For \code{differentiated}, the smallest clade that holds
+all home clades. Otherwise, the smallest clade that holds the
+reported clique. \code{NA} when no clade holds them, and for
+unclassified HOGs.}
 \item{stability_class}{From stability results (NA if not
 provided)}
 \item{robust}{Logical: stability class is at least 0 (NA if no
@@ -76,7 +82,7 @@ stability results provided)}
 }
 \description{
 Convenience wrapper that runs \code{\link{find_cliques}} internally
-(once for all species, once per trait group) and applies a sequential
+(once for all species, once per top-level clade) and applies a sequential
 waterfall classification. For fine-grained control over the clique
 detection parameters per step, call \code{find_cliques()} directly.
 }
@@ -88,14 +94,18 @@ The pipeline:
 \enumerate{
 \item \strong{complete}: all target species form a clique (all
 \code{C(N,2)} edges conserved).
-\item \strong{partial}: a clique exists with \code{min_species}
-to \code{N-1} species.
-\item \strong{differentiated}: at least 2 trait groups each have
-a within-group clique, but no cross-group conserved edge exists.
-\item \strong{trait_specific}: exactly 1 trait group has a
-within-group clique.
+\item \strong{partial}: a clique with \code{min_species}
+to \code{N-1} species lies in no clade.
+\item \strong{differentiated}: cliques sit in two or more disjoint
+clades, and no conserved edge joins two top-level clades.
+\item \strong{trait_specific}: all cliques sit in one clade.
 \item \strong{unclassified}: none of the above.
 }
+The home clade of a clique is the smallest clade that holds all its
+species. A HOG keeps the home clades that no other of its home clades
+holds. Clades are laminar, so these are disjoint. Nested homes count as
+one clade, so they are not \code{differentiated}. Cliques are searched
+within each top-level clade. A species in no clade forms its own clade.
 }
 \section{Underpowered calls}{
 
@@ -140,9 +150,7 @@ overlapping cliques and the answer names paralogs rather than
 species. It applies the taxonomy of Rodriguez et al. (2026), plus
 \code{trait_specific}, with two explicit tolerance tiers
 (\code{partial_significant}
-for weak wiring, \code{partial_present} for a missing gene), and its
-\code{lineage} split is an argument rather than the trait vector, so
-it can be run against a clade partition the trait does not follow.
+for weak wiring, \code{partial_present} for a missing gene).
 
 Reach for \code{classify_gene_cliques()} when which copy sits in the
 conserved core matters, or when the published taxonomy is what has to
@@ -152,7 +160,8 @@ one-row-per-HOG trait summary wired into the stability machinery.
 
 \examples{
 \dontrun{
-result <- classify_cliques(edges, target_species, species_trait)
+clades <- list(annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D"))
+result <- classify_cliques(edges, target_species, clades)
 table(result$classification)
 }
 
