@@ -7,12 +7,9 @@
 coexpressolog_null(
   networks,
   orthologs,
-  statistic = NULL,
-  n_perm = 100L,
   swap_factor = 10L,
   n_cores = 1L,
   seed = NULL,
-  filter_zero = TRUE,
   ...
 )
 }
@@ -25,17 +22,6 @@ abbreviation. Dense networks are rejected; convert them with
 \item{orthologs}{Data frame with columns \code{gene1},
 \code{gene2}, \code{hog}, as for
 \code{\link{find_coexpressologs}}.}
-
-\item{statistic}{Function mapping the \code{find_coexpressologs()}
-edge data frame to a named numeric vector, or \code{NULL} (default)
-for the count of rows with \code{type == "conserved"} per species
-pair (named \code{paste(species1, species2, sep = "~")}) plus
-\code{"total"}. For the built-in statistic, a null run whose
-rewiring leaves a species pair with no overlap > 0 rows records 0
-conserved calls for that pair; a user-supplied statistic missing a
-name from the observed run errors.}
-
-\item{n_perm}{Number of rewired permutations (default 100).}
 
 \item{swap_factor}{Swap trials per permutation, rejected ones
 included, as a multiple of the edge count of each thresholded network
@@ -72,19 +58,12 @@ permutation the same seed, so the null is identical for the two runs
 even though the observed statistic is not: see the aliasing note under
 \code{.task_seed()}.}
 
-\item{filter_zero}{Passed to \code{\link{find_coexpressologs}} for
-both the observed and every null run. \code{TRUE} (default) drops
-ortholog pairs with zero neighbourhood overlap before the q-values,
-which is what this test wants: the statistic reads called edges
-only, so retaining the zero-overlap rows adds tens of thousands of
-never-called rows per pair to every permutation for nothing. It also
-differs from the \code{find_coexpressologs()} default, which keeps
-them so that low-degree failures carry a \code{power} value.}
-
 \item{...}{Passed unchanged to \code{\link{find_coexpressologs}} for
-both the observed and every null run (\code{species_pairs},
-\code{method}, \code{alternative}, \code{alpha},
-\code{pval_combine}, \code{pi0_method}, ...).}
+both the observed and every null run (\code{pval_combine}, ...).
+Zero-overlap ortholog pairs are dropped before the q-values
+(\code{filter_zero = TRUE}): the statistic reads called edges only, so
+retaining them adds tens of thousands of never-called rows per pair to
+every permutation for nothing.}
 }
 \value{
 Data frame with one row per statistic and columns
@@ -136,23 +115,23 @@ seed and its own index (the package-wide per-task seed derivation), so
 results are reproducible, independent of \code{n_cores}, and two
 neighbouring base seeds share no rewiring. On Unix the permutations run
 under \code{parallel::mclapply()}; on Windows they run serially. The seed
-covers the observed run as well as the null runs, so \code{...}
-settings that draw --- the default \code{pi0_method = "randomized"},
-for one --- are pinned too. \code{method = "permutation"} in
+covers the observed run as well as the null runs, so settings that
+draw --- the default randomized pi0, for one --- are pinned too.
+The statistic is the count of rows with \code{type == "conserved"} per
+species pair (named \code{paste(species1, species2, sep = "~")}) plus
+\code{"total"}, over 100 rewired permutations. A null run whose
+rewiring leaves a species pair with no overlap > 0 rows records 0
+conserved calls for that pair. \code{method = "permutation"} in
 \code{...} is allowed but slow (a full permutation test per rewired
 network).
 }
 \examples{
 \dontrun{
-res <- coexpressolog_null(networks, orthologs,
-  n_perm = 100L,
-  n_cores = 4L
-)
+res <- coexpressolog_null(networks, orthologs, n_cores = 4L)
 res[res$statistic == "total", ]
 
 # replay that exact run, whether or not it was seeded
 same <- coexpressolog_null(networks, orthologs,
-  n_perm = 100L,
   n_cores = 4L, seed = attr(res, "seed")
 )
 }

@@ -14,9 +14,6 @@ preservation_paired(modules, ...)
   pairs,
   group = NULL,
   edges = NULL,
-  cliques = NULL,
-  alpha = 0.1,
-  z_conserved = 10,
   seed = NULL,
   ...
 )
@@ -41,10 +38,8 @@ the owning species' group for diverged ones. Modules reported
 nothing was measured, so attributing them to one would overstate the
 evidence.}
 
-\item{edges, cliques}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} and \code{find_cliques()}
-results, used for paralog resolution.}
-
-\item{alpha, z_conserved}{Passed to \code{\link[=classify_preservation]{classify_preservation()}}.}
+\item{edges}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} results, used for paralog
+resolution.}
 
 \item{seed}{Integer seed for the whole run, or \code{NULL} (default) to draw
 from the ambient stream and leave it advanced. The seed is applied once

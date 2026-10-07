@@ -1,3 +1,23 @@
+# The hypergeometric find_coexpressologs() loop with a fixed pi0 method, so
+# the fixtures below do not depend on randomized pi0 draws.
+fixture_edges <- function(networks, orthologs, pi0_method,
+                          pval_combine = "max") {
+  pairs <- utils::combn(names(networks), 2, simplify = FALSE)
+  do.call(rbind, lapply(pairs, function(p) {
+    cmp <- rcomplex:::compare_neighborhoods(
+      networks[[p[1]]], networks[[p[2]]], orthologs
+    )
+    res <- rcomplex:::summarize_comparison(
+      cmp,
+      filter_zero = FALSE, pi0_method = pi0_method
+    )$results
+    rcomplex:::comparison_to_edges(
+      res, p[1], p[2],
+      pval_combine = pval_combine
+    )
+  }))
+}
+
 # Most clique fixtures below hold conserved edges only, which
 # find_cliques() reads as a pre-filtered table and warns about once per
 # session (rcomplex_prefiltered_edges). Silence those frequency-limited
@@ -37,9 +57,7 @@ make_clique_fixture <- function(n_genes = 20L) {
   )
 
   target <- c("SP_A", "SP_B")
-  edges <- find_coexpressologs(
-    networks, orthologs, method = "hypergeometric", pi0_method = "storey"
-  )
+  edges <- fixture_edges(networks, orthologs, "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(
@@ -77,11 +95,7 @@ make_asym_clique_fixture <- function() {
   )
   target <- c("SP_A", "SP_B")
 
-  edges_min <- find_coexpressologs(networks, orthologs,
-    method = "hypergeometric",
-    pi0_method = "none",
-    pval_combine = "min"
-  )
+  edges_min <- fixture_edges(networks, orthologs, "none", "min")
   cliques <- find_cliques(edges_min, target, min_species = 2L)
 
   list(
@@ -130,9 +144,7 @@ make_clique_fixture_3sp <- function(n_genes = 15L) {
   )
 
   target <- c("SP_A", "SP_B", "SP_C")
-  edges <- find_coexpressologs(
-    networks, orthologs, method = "hypergeometric", pi0_method = "storey"
-  )
+  edges <- fixture_edges(networks, orthologs, "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(

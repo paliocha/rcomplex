@@ -59,21 +59,12 @@ test_that("specificity arguments are validated", {
     find_coexpressologs(f$networks, f$ortho, method = "rank"),
     "null_network\\(\\)"
   )
-  expect_error(spec_edges(f, alternative = "less"), "greater")
   f_part <- f
   f_part$nulls$species2 <- NULL
   expect_error(spec_edges(f_part), "missing: species2")
   f_bad <- f
   rownames(f_bad$nulls$species1$network)[1] <- "X"
   expect_error(spec_edges(f_bad), "not on the genes")
-})
-
-test_that("density_sweep at multiplier 1 equals find_coexpressologs", {
-  f <- make_spec_nets()
-  sw <- suppressMessages(density_sweep(f$networks, f$ortho,
-    multipliers = 1, method = "rank", null_networks = f$nulls
-  ))
-  expect_equal(sw$edges[[1]], spec_edges(f))
 })
 
 test_that("dense and sparse input give the same specificity edges", {
@@ -276,29 +267,6 @@ test_that(".rank_power() branches: clamp, no room, weaker side, bad grid", {
   short$species2.n.cand <- NULL
   expect_warning(pw_short <- rp(short, 0.1), "species2.n.cand")
   expect_true(all(is.na(pw_short)))
-})
-
-test_that("p0 reaches the rank power through find_coexpressologs()", {
-  f <- make_spec_nets()
-  lo <- spec_edges(f, p0 = 0.5)
-  hi <- spec_edges(f, p0 = 1e-5)
-  expect_false(isTRUE(all.equal(lo$power, hi$power)))
-  expect_error(spec_edges(f, p0 = 2), "p0")
-})
-
-test_that("p0 reaches density_sweep() and is refused for other methods", {
-  f <- make_spec_nets()
-  sweep <- function(p0) {
-    suppressMessages(density_sweep(f$networks, f$ortho,
-      multipliers = 1, method = "rank", null_networks = f$nulls, p0 = p0
-    ))$edges[[1]]$power
-  }
-  expect_false(isTRUE(all.equal(sweep(0.5), sweep(1e-5))))
-  expect_error(sweep(2), "p0")
-  expect_error(
-    find_coexpressologs(f$networks, f$ortho, p0 = 0.1),
-    "p0 is only used with method = \"rank\""
-  )
 })
 
 test_that("a rank frame without its grid warns instead of going NA quietly", {

@@ -283,35 +283,6 @@ test_that("single-element vector resolution behaves like scalar", {
 })
 
 
-test_that("consensus_threshold validation rejects 0 and 1", {
-  td <- make_module_test_data()
-  expect_error(
-    detect_modules(td$net1,
-      resolution = c(0.5, 1.0),
-      consensus_threshold = 0
-    ),
-    "(0, 1)",
-    fixed = TRUE
-  )
-  expect_error(
-    detect_modules(td$net1,
-      resolution = c(0.5, 1.0),
-      consensus_threshold = 1
-    ),
-    "(0, 1)",
-    fixed = TRUE
-  )
-  # NULL (adaptive) should NOT error
-  expect_no_error(
-    detect_modules(td$net1,
-      resolution = c(0.5, 1.0),
-      consensus_threshold = NULL,
-      objective_function = "modularity", seed = 42
-    )
-  )
-})
-
-
 test_that("consensus graph is original network not co-classification graph", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
@@ -367,52 +338,6 @@ test_that("adaptive threshold avoids single-module collapse", {
 
   # Adaptive threshold should preserve module structure
   expect_true(result$n_modules >= 2)
-})
-
-
-test_that("fixed consensus_threshold still works", {
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1,
-    resolution = seq(0.5, 2.0, by = 0.5),
-    consensus_threshold = 0.3,
-    objective_function = "modularity", seed = 42
-  )
-
-  # Returns a valid partition
-  expect_true(result$n_modules >= 1)
-  expect_equal(length(result$modules), nrow(td$net1$network))
-  expect_equal(result$method, "leiden_consensus")
-
-  # Fixed threshold: n_consensus_iterations should be 0
-  expect_equal(result$params$n_consensus_iterations, 0L)
-})
-
-
-test_that("adaptive and fixed threshold can produce different results", {
-  td <- make_module_test_data()
-  resolutions <- seq(0.1, 5, by = 0.5)
-
-  # Adaptive (default NULL)
-  adaptive <- detect_modules(td$net1,
-    resolution = resolutions,
-    objective_function = "modularity", seed = 42
-  )
-
-  # Fixed 0.5
-  fixed <- detect_modules(td$net1,
-    resolution = resolutions,
-    consensus_threshold = 0.5,
-    objective_function = "modularity", seed = 42
-  )
-
-  # Both return valid structures
-  expect_equal(length(adaptive$modules), nrow(td$net1$network))
-  expect_equal(length(fixed$modules), nrow(td$net1$network))
-  expect_true(adaptive$n_modules >= 1)
-  expect_true(fixed$n_modules >= 1)
-
-  # Adaptive should generally find more modules than fixed 0.5 on broad range
-  expect_true(adaptive$n_modules >= fixed$n_modules)
 })
 
 

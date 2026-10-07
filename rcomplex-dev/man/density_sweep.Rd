@@ -11,21 +11,12 @@ density_sweep(networks, ...)
   networks,
   orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
-  method = c("permutation", "hypergeometric", "rank"),
-  alternative = c("greater", "less"),
-  alpha = 0.1,
+  method = c("permutation", "hypergeometric"),
   n_cores = 1L,
   use_torch = FALSE,
-  min_exceedances = 50L,
-  max_permutations = 10000L,
-  species_pairs = NULL,
-  pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
-  filter_zero = FALSE,
   seed = NULL,
   rho0 = NULL,
-  null_networks = NULL,
-  p0 = NULL,
   ...
 )
 }
@@ -42,41 +33,17 @@ density_sweep(networks, ...)
 
 \item{method}{Comparison method passed to
 \code{\link{find_coexpressologs}}: \code{"permutation"} (default),
-\code{"hypergeometric"} or
-\code{"rank"}.}
-
-\item{alternative}{\code{"greater"} (conservation, default) or
-\code{"less"} (divergence).}
-
-\item{alpha}{Significance threshold (default 0.1).}
+\code{"hypergeometric"}.}
 
 \item{n_cores}{Number of threads (default 1).}
 
 \item{use_torch}{Logical; GPU acceleration for permutation method
 (default \code{FALSE}).}
 
-\item{min_exceedances}{Besag-Clifford parameter for permutation
-method (default 50).}
-
-\item{max_permutations}{Maximum permutations (default 10000).}
-
-\item{species_pairs}{Optional list of length-2 character vectors
-passed to \code{\link{find_coexpressologs}} at each threshold
-level. Defaults to all pairwise combinations.}
-
-\item{pi0_method}{Passed to \code{\link{find_coexpressologs}} (used
-by the hypergeometric and rank methods): \code{"randomized"}
-(default), \code{"storey"} or \code{"none"}. The default draws; pass
-\code{seed} to pin those draws.}
-
 \item{pval_combine}{Passed to \code{\link{find_coexpressologs}}:
 \code{"max"} (default) requires both directions to be significant
 (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
 calls a pair when either direction is significant.}
-
-\item{filter_zero}{Passed to \code{\link{find_coexpressologs}}:
-whether zero-overlap ortholog pairs are dropped before the
-analytical q-values are computed (default \code{FALSE}, keep them).}
 
 \item{seed}{Integer seed for the sweep's random draws, or \code{NULL}
 (default) to draw from the global RNG. Applied once here, so the
@@ -91,13 +58,6 @@ seed does and does not pin under each \code{method}.}
 
 \item{rho0}{Passed to \code{\link{find_coexpressologs}}: reference
 fold enrichment for the analytical \code{power} column.}
-
-\item{null_networks}{Passed to \code{\link{find_coexpressologs}}
-(rank method only); every null's threshold is scaled by the
-same multiplier as its species' network.}
-
-\item{p0}{Passed to \code{\link{find_coexpressologs}}: reference raw p
-for the rank-test \code{power} column.}
 }
 \value{
 A data frame with columns \code{multiplier},

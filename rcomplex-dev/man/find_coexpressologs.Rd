@@ -11,22 +11,14 @@ find_coexpressologs(networks, ...)
 \method{find_coexpressologs}{default}(
   networks,
   orthologs,
-  species_pairs = NULL,
   method = c("hypergeometric", "rank", "permutation"),
-  alternative = c("greater", "less"),
-  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
-  min_exceedances = 50L,
-  max_permutations = 10000L,
-  pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  out_file = NULL,
   rho0 = NULL,
   null_networks = NULL,
-  p0 = NULL,
   ...
 )
 
@@ -42,43 +34,19 @@ keyed by species abbreviation.}
 \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
 \code{\link{extract_orthologs}}).}
 
-\item{species_pairs}{Optional list of length-2 character vectors
-specifying which pairs to compare. Defaults to all
-\code{combn(names(networks), 2)}.}
-
 \item{method}{Testing method: \code{"hypergeometric"} (default, fast),
 \code{"rank"} or
 \code{"permutation"} (rigorous).
 \code{"rank"} scores each ortholog pair with
 \code{\link{compare_specificity}} and calibrates it against
 \code{null_networks} via \code{\link{summarize_specificity}};
-\code{filter_zero} does not apply and \code{rho0} is refused (use
-\code{p0}); \code{power} is
+\code{rho0} is refused; \code{power} is
 the rank-test power (see \code{\link{summarize_specificity}}).}
-
-\item{alternative}{\code{"greater"} (conservation, default) or
-\code{"less"} (divergence).}
-
-\item{alpha}{Significance threshold (default 0.1).}
 
 \item{n_cores}{Number of threads (default 1).}
 
 \item{use_torch}{Logical. Use GPU-accelerated fold-enrichment
 precomputation for permutation method (default \code{FALSE}).}
-
-\item{min_exceedances}{Besag-Clifford stopping parameter for
-permutation method (default 50).}
-
-\item{max_permutations}{Maximum permutations for permutation method
-(default 10000).}
-
-\item{pi0_method}{Hypergeometric and rank methods: how pi0 is
-estimated for the pair-level Storey q-values, passed to
-\code{\link{summarize_comparison}}: \code{"randomized"} (default),
-\code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
-draws; pass \code{seed} to pin those draws. Under
-\code{"rank"}, \code{"randomized"} is read as
-\code{"storey"}.}
 
 \item{pval_combine}{Hypergeometric and rank methods: how the two
 directional q-values are combined, passed to
@@ -93,12 +61,9 @@ denser edge supply for \code{find_cliques}).}
 every tested ortholog pair, including those whose neighbourhood
 overlap is zero in either direction, so a pair that could not have
 been called still reaches the edge table carrying its \code{power}.
-Those are exactly the low-degree failures the \code{power} column
-exists to mark; dropping them hands the clique classifiers an
-untested-looking gap instead of an underpowered one. \code{TRUE}
-removes them before the q-values are computed, which is what
-canonical ComPlEx does -- it shrinks the multiple-testing set, so
-every q-value moves.}
+\code{TRUE} removes them before the q-values are computed, which is
+what canonical ComPlEx does -- it shrinks the multiple-testing set, so
+every q-value moves. Set by \code{\link{coexpressolog_null}}.}
 
 \item{seed}{Integer seed for the call's random draws, or \code{NULL}
 (default) to draw from the global RNG. Seeding here makes the call
@@ -122,23 +87,6 @@ on exit; with \code{seed = NULL} the draws come from the ambient
 stream and leave it advanced. Same contract as
 \code{detect_modules} and \code{\link{summarize_comparison}}.}
 
-\item{out_file}{Optional path to a CSV file. When supplied, each
-species pair's edge table is appended to \code{out_file} via
-\code{\link[data.table]{fwrite}} as soon as it is computed, instead
-of being accumulated in memory and combined with \code{rbind()} at
-the end. This keeps peak memory bounded by one pair's edge table
-rather than the whole run, which matters for many species / dense
-networks. Any existing file at \code{out_file} is overwritten (not
-appended to) at the start of the call. When \code{out_file} is
-used, this function always creates \code{out_file} -- including a
-header-only file when no species pair produces any edges -- and
-returns \code{out_file} (invisibly) instead of a data frame; read
-the result back with e.g. \code{data.table::fread(out_file)}.
-Not supported on the \code{rcomplex} S3 method (see
-\code{find_coexpressologs.rcomplex}), which stores the in-memory
-edge table on \code{$edges}. Default \code{NULL} keeps the original
-in-memory behaviour.}
-
 \item{rho0}{Analytical method only: reference fold enrichment for
 the \code{power} column, passed to
 \code{\link{comparison_to_edges}} (default \code{NULL}, the median
@@ -149,13 +97,6 @@ call threshold to measure power against.}
 \item{null_networks}{Specificity method only (required there): named
 list with one \code{\link{null_network}} object, or a list of them,
 per species.}
-
-\item{p0}{Rank method only: reference raw p for the \code{power}
-column, passed to \code{\link{summarize_specificity}}. \code{NULL}
-(default) takes, per species pair and direction, the median raw p of
-the pairs called and significant in that direction, so references
-differ between species pairs; a single number puts every pair on one
-reference, as \code{rho0} does for the hypergeometric power.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
@@ -163,10 +104,7 @@ Data frame with columns \code{gene1}, \code{gene2},
 \code{effect_size}, \code{jaccard}, \code{power}, \code{type}
 (\code{power} is \code{NA} under \code{method = "permutation"}).
 Ready for
-\code{find_cliques} or \code{classify_cliques}. When
-\code{out_file} is supplied, the edge table is streamed to that
-file instead (always created, even when empty), and \code{out_file}
-is returned (invisibly).
+\code{find_cliques} or \code{classify_cliques}.
 }
 \description{
 Runs the full comparison pipeline for each species pair and combines
@@ -220,9 +158,6 @@ when the expression matrices are restricted the same way beforehand
 # Fast analytical path; seed pins the randomized pi0 draws
 edges <- find_coexpressologs(networks, orthologs, seed = 1)
 
-# Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
-edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
-
 # Permissive either-direction calls (denser clique input)
 edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 
@@ -230,10 +165,6 @@ edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
 edges <- find_coexpressologs(networks, orthologs,
   method = "permutation", use_torch = TRUE, n_cores = 4L
 )
-
-# Stream edges to disk instead of holding every pair in memory
-find_coexpressologs(networks, orthologs, out_file = "edges.csv")
-edges <- data.table::fread("edges.csv")
 }
 
 }

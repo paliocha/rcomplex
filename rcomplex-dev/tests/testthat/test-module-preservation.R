@@ -181,36 +181,6 @@ test_that("module_preservation returns the documented structure", {
   expect_true(all(c("meanMAR", "meanClusterCoeff") %in% names(pres$observed)))
 })
 
-test_that("binary mode makes avg.weight the module edge density", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-
-  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 50L, binary = TRUE, seed = 1
-  )
-
-  expect_true(all(pres$preservation$avg.weight >= 0))
-  expect_true(all(pres$preservation$avg.weight <= 1))
-  expect_equal(pres$params$scale, 1)
-})
-
-test_that("min_module_size excludes small modules", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-
-  big <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 50L, min_module_size = 10L, seed = 1
-  )
-  expect_equal(nrow(big$preservation), fx$n_mod)
-
-  expect_error(
-    module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-      n_perm = 50L, min_module_size = 500L, seed = 1
-    ),
-    "no module has at least min_module_size"
-  )
-})
-
 test_that("module_preservation validates its inputs", {
   fx <- pres_fixture()
   tm <- true_modules(fx$netA, fx$mods)
@@ -224,12 +194,8 @@ test_that("module_preservation validates its inputs", {
     "n_perm must be >= 1"
   )
   expect_error(
-    module_preservation(tm, fx$netA, fx$netB, fx$ortho, min_module_size = 2L),
-    "min_module_size must be >= 3"
-  )
-  expect_error(
     module_preservation(tm, fx$netA, fx$netB, orthologs = NULL),
-    "supply either 'orthologs' or a pre-built 'map'"
+    "must be a data.frame"
   )
 })
 
@@ -284,7 +250,7 @@ test_that("classify_preservation applies the documented criteria", {
     stringsAsFactors = FALSE
   ))
 
-  cls <- classify_preservation(pres, alpha = 0.05, z_conserved = 10)
+  cls <- classify_preservation(pres)
   expect_equal(cls$classification, c("conserved", "moderate", "diverged"))
 })
 
@@ -393,306 +359,15 @@ test_that("a preservation table without medianRank still classifies", {
 })
 
 
-# ---- sensitivity: the circularity guard ----
-
-# A HOG that is multi-copy on the reference side, spanning two modules: each
-# listed species-2 gene has one partner in module 1 and one in module 2, so the
-# naive map ties and .pres_project() drops it, while a clique resolves it to
-# module 1. Both maps offer the same CANDIDATE species-2 genes, but the
-# PROJECTED sets differ by exactly those tie-rescued genes -- the resolved run
-# tests them and the naive run does not, which is why same_projected_set is
-# FALSE here and why the circularity check is p_copy rather than the delta.
-ambiguous_fixture <- function(fx, n_amb = 10L) {
-  amb <- seq_len(n_amb)
-  list(
-    ortho = rbind(fx$ortho, data.frame(
-      gene1 = paste0("A", sprintf("%04d", fx$per + amb)),
-      gene2 = paste0("B", sprintf("%04d", amb)),
-      hog = paste0("H", amb),
-      stringsAsFactors = FALSE
-    )),
-    cliques = data.frame(
-      hog = paste0("H", amb),
-      A = paste0("A", sprintf("%04d", amb)),
-      B = paste0("B", sprintf("%04d", amb)),
-      n_species = 2L, mean_q = 0.01,
-      stringsAsFactors = FALSE
-    )
-  )
-}
-
-test_that("sensitivity detects a copy choice that changes the result", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  amb <- ambiguous_fixture(fx)
-
-  pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques, species_ref = "A", species_test = "B",
-    n_perm = 100L, sensitivity = TRUE, seed = 1
-  )
-
-  expect_true("sensitivity" %in% names(pres))
-  expect_named(pres$sensitivity, c(
-    "module", "size_mapped", "size_mapped_naive", "Zsummary",
-    "Zsummary_naive", "q_value", "q_value_naive", "Zsummary_delta",
-    "p_copy.avg.weight", "p_copy.cor.degree"
-  ))
-
-  # Resolution may only change which copy carries a label, never which genes
-  # are mappable.
-  # The candidate sets are equal by construction; what matters is whether
-  # projection kept the same genes.
-  expect_true(attr(pres$sensitivity, "same_candidate_set"))
-
-  # The clique rescues the 10 genes the naive majority vote drops on a tie, so
-  # module 1 gains exactly those. This is the deterministic consequence of the
-  # copy choice; Zsummary_delta is not assertable on its own because differing
-  # block sizes also make the two runs consume the RNG differently, which
-  # shifts every module's delta.
-  m1 <- pres$sensitivity[pres$sensitivity$module == "1", ]
-  expect_equal(m1$size_mapped - m1$size_mapped_naive, 10L)
-  # Modules the ambiguity does not touch are unchanged in size.
-  rest <- pres$sensitivity[pres$sensitivity$module != "1", ]
-  expect_true(all(rest$size_mapped == rest$size_mapped_naive))
-})
-
-test_that("sensitivity warns when the two maps cover different genes", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-
-  naive <- resolve_ortholog_map(
-    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
-  )
-  # Drop a mappable gene: a resolution layer that filtered like this would be
-  # selecting the tested genes on the statistic being tested.
-  trimmed <- naive[naive$gene2 != naive$gene2[1], , drop = FALSE]
-
-  expect_warning(
-    pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-      map = trimmed, n_perm = 100L, sensitivity = TRUE, seed = 1
-    ),
-    "changed which test-species genes"
-  )
-  expect_false(attr(pres$sensitivity, "same_projected_set"))
-})
-
-test_that("sensitivity is skipped when there is nothing to resolve", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-
-  expect_warning(
-    pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-      n_perm = 50L, sensitivity = TRUE, seed = 1
-    ),
-    "nothing to compare"
-  )
-  expect_false("sensitivity" %in% names(pres))
-})
-
-test_that("sensitivity is absent unless requested", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 50L, seed = 1
-  )
-  expect_false("sensitivity" %in% names(pres))
-})
-
-test_that("sensitivity warns and is skipped without orthologs", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  map <- resolve_ortholog_map(
-    fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
-  )
-
-  expect_warning(
-    pres <- module_preservation(tm, fx$netA, fx$netB,
-      orthologs = NULL, map = map, n_perm = 50L, sensitivity = TRUE, seed = 1
-    ),
-    "needs 'orthologs'"
-  )
-  expect_false("sensitivity" %in% names(pres))
-})
-
-
-# ---- p_copy: seeded, and independent of the nested naive-map run ----
-
-# The copy-choice draws sit downstream of the nested naive-map run, so
-# whatever that run takes from the stream moves them. A seeded
-# module_preservation() restores the caller's stream on exit (R/rng.R), which
-# is what keeps p_copy a function of the seed and of the run under test alone.
-# These three tests pin that: the values themselves, the fact that they are
-# what the copy null produces with no naive run in the stream at all, and the
-# restoration that makes it so at any permutation count.
-
-# nolint start: object_usage_linter. (fixture functions from helper files)
-pcopy_fixture <- function() {
-  fx <- pres_fixture()
-  list(
-    fx = fx, tm = true_modules(fx$netA, fx$mods),
-    amb = ambiguous_fixture(fx)
-  )
-}
-# nolint end
-
-test_that("p_copy is reproducible and pinned under a seed", {
-  p <- pcopy_fixture()
-  run <- function() {
-    module_preservation(p$tm, p$fx$netA, p$fx$netB, p$amb$ortho,
-      cliques = p$amb$cliques, species_ref = "A", species_test = "B",
-      n_perm = 100L, copy_draws = 50L, sensitivity = TRUE, seed = 1
-    )
-  }
-  a <- run()
-  b <- run()
-
-  aw <- a$sensitivity$p_copy.avg.weight
-  cd <- a$sensitivity$p_copy.cor.degree
-  expect_identical(b$sensitivity$p_copy.avg.weight, aw)
-  expect_identical(b$sensitivity$p_copy.cor.degree, cd)
-
-  expect_identical(attr(a$sensitivity, "n_copy_draws"), 50L)
-  expect_identical(a$sensitivity$module, c("1", "2", "3", "4"))
-
-  # Exact rationals k / (n_draws + 1); pinned so a change of seeding point
-  # cannot pass silently. Modules 3 and 4 hold no multi-copy gene, so every
-  # draw reproduces their observed statistic and p_copy is exactly 1.
-  expect_equal(aw, c(28, 1, 51, 51) / 51)
-  expect_equal(cd, c(7, 21, 51, 51) / 51)
-})
-
-test_that("copy resolution and the copy null do not depend on collation", {
-  old <- Sys.getlocale("LC_COLLATE")
-  on.exit(Sys.setlocale("LC_COLLATE", old))
-  fx <- pres_fixture()
-  amb <- ambiguous_fixture(fx)
-  # Species-1 IDs that C and en_US order differently: the paralog copies
-  # (A0041-A0050) become a####, every other gene Q#### -- C sorts "Q"
-  # before "a", en_US the reverse.
-  ren <- function(x) {
-    x <- as.character(x)
-    n <- suppressWarnings(as.integer(sub("^A", "", x)))
-    i <- grepl("^A", x)
-    x[i] <- paste0(
-      ifelse(n[i] > fx$per & n[i] <= fx$per + 10L, "a", "Q"),
-      substring(x[i], 2L)
-    )
-    x
-  }
-  rn <- ren(rownames(fx$netA$network))
-  dimnames(fx$netA$network) <- list(rn, rn)
-  amb$ortho$gene1 <- ren(amb$ortho$gene1)
-  amb$cliques$A <- ren(amb$cliques$A)
-  # and the multi-copy species-2 genes B0001-B0010, alternately with a
-  # lower-case b and an upper-case Z prefix (Z sorts first in C, last in
-  # en_US), so the copy null's per-gene draw order is exercised too
-  ren2 <- function(x) {
-    x <- as.character(x)
-    n <- suppressWarnings(as.integer(sub("^B", "", x)))
-    i <- grepl("^B", x) & !is.na(n) & n <= 10L
-    x[i] <- paste0(ifelse(n[i] %% 2L == 1L, "b", "Z"), substring(x[i], 2L))
-    x
-  }
-  rn2 <- ren2(rownames(fx$netB$network))
-  dimnames(fx$netB$network) <- list(rn2, rn2)
-  amb$ortho$gene2 <- ren2(amb$ortho$gene2)
-  amb$cliques$B <- ren2(amb$cliques$B)
-  tm <- true_modules(fx$netA, fx$mods)
-  run <- function() {
-    list(
-      map = resolve_ortholog_map(amb$ortho, rn, rn2,
-        species1 = "A", species2 = "B", cliques = amb$cliques
-      ),
-      pres = module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-        cliques = amb$cliques, species_ref = "A", species_test = "B",
-        n_perm = 50L, sensitivity = TRUE, copy_draws = 50L, seed = 1
-      )
-    )
-  }
-  # C-locale (radix) outcome, checked without any other locale: exact
-  # rationals k / (copy_draws + 1), pinned so the per-gene draw order of
-  # the copy null cannot change silently
-  Sys.setlocale("LC_COLLATE", "C")
-  r_c <- suppressWarnings(run())
-  expect_equal(r_c$pres$sensitivity$p_copy.avg.weight, c(33, 1, 51, 51) / 51)
-  expect_equal(r_c$pres$sensitivity$p_copy.cor.degree, c(10, 19, 51, 51) / 51)
-  # and the same under en_US, which collates these IDs differently
-  en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
-  skip_if(!nzchar(en), "en_US.UTF-8 collation not available")
-  skip_if(
-    identical(sort(c("b1", "B2")), c("B2", "b1")),
-    "en_US collates like C here, so the comparison would prove nothing"
-  )
-  expect_identical(suppressWarnings(run()), r_c)
-})
-
-test_that("p_copy does not depend on what the naive run consumed", {
-  p <- pcopy_fixture()
-  genes_a <- rownames(p$fx$netA$network)
-  genes_b <- rownames(p$fx$netB$network)
-  resolved <- resolve_ortholog_map(p$amb$ortho, genes_a, genes_b,
-    species1 = "A", species2 = "B", cliques = p$amb$cliques
-  )
-  naive_map <- resolve_ortholog_map(p$amb$ortho, genes_a, genes_b)
-
-  # module_preservation()'s sensitivity path, reassembled so the nested
-  # naive-map run's permutation count can be varied: seed, the resolved-map
-  # permutations, the naive run, then the copy draws. The kernel takes one
-  # uniform per permutation, so a naive run that does not restore the stream
-  # leaves the copy draws starting somewhere else. On the eight-species
-  # vignette data that moved p_copy by up to 0.0398 and flipped one module
-  # across alpha = 0.05; naive_perm = NULL is the same sequence with no naive
-  # run in it at all.
-  copy_p <- function(naive_perm) {
-    set.seed(1)
-    main <- module_preservation(p$tm, p$fx$netA, p$fx$netB,
-      map = resolved, n_perm = 100L
-    )
-    if (!is.null(naive_perm)) {
-      invisible(module_preservation(p$tm, p$fx$netA, p$fx$netB,
-        map = naive_map, n_perm = naive_perm, seed = 1
-      ))
-    }
-    cn <- rcomplex:::.pres_copy_null(
-      main$preservation, p$tm, p$fx$netA, p$fx$netB, naive_map,
-      unique(main$projection$gene2), 50L, 10L, FALSE
-    )
-    c(cn$p_copy.avg.weight, cn$p_copy.cor.degree)
-  }
-
-  ref <- copy_p(NULL)
-  expect_equal(copy_p(100L), ref)
-  expect_equal(copy_p(500L), ref)
-
-  # And the reassembly is the real thing: the shipped call, whose naive run
-  # takes n_perm from the outer call, lands on the same p_copy.
-  pres <- module_preservation(p$tm, p$fx$netA, p$fx$netB, p$amb$ortho,
-    cliques = p$amb$cliques, species_ref = "A", species_test = "B",
-    n_perm = 100L, copy_draws = 50L, sensitivity = TRUE, seed = 1
-  )
-  expect_equal(
-    c(
-      pres$sensitivity$p_copy.avg.weight,
-      pres$sensitivity$p_copy.cor.degree
-    ),
-    ref
-  )
-})
-
 test_that("a seeded run restores the stream whatever its n_perm", {
-  p <- pcopy_fixture()
-  naive_map <- resolve_ortholog_map(
-    p$amb$ortho, rownames(p$fx$netA$network), rownames(p$fx$netB$network)
-  )
+  fx <- pres_fixture()
+  tm <- true_modules(fx$netA, fx$mods)
 
-  # The nested naive-map run is exactly this call, and it consumes one
-  # uniform per permutation. That its cost is invisible to the caller is what
-  # the test above rests on, so assert it across permutation counts.
   set.seed(1)
   before <- .Random.seed
   for (np in c(20L, 100L, 500L)) {
-    invisible(module_preservation(p$tm, p$fx$netA, p$fx$netB,
-      map = naive_map, n_perm = np, seed = 3
+    invisible(module_preservation(tm, fx$netA, fx$netB, fx$ortho,
+      n_perm = np, seed = 3
     ))
     expect_identical(.Random.seed, before)
   }
@@ -1061,55 +736,6 @@ test_that("an empty null keeps the counts but not the p-value", {
 })
 
 
-test_that("sensitivity reports the naive run's own statistics", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  amb <- ambiguous_fixture(fx)
-
-  pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques, species_ref = "A", species_test = "B",
-    n_perm = 100L, sensitivity = TRUE, seed = 1
-  )
-
-  # The internal naive run is seeded with the same seed, so an external run on
-  # the naive map reproduces it exactly. Without this, a wrong-index or
-  # copy-paste regression in .pres_sensitivity() -- naive columns silently
-  # echoing the resolved ones -- would pass every other assertion.
-  naive_map <- resolve_ortholog_map(
-    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
-  )
-  ext <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-    map = naive_map, n_perm = 100L, seed = 1
-  )
-
-  idx <- match(pres$sensitivity$module, ext$preservation$module)
-  expect_equal(pres$sensitivity$Zsummary_naive, ext$preservation$Zsummary[idx])
-  expect_equal(pres$sensitivity$q_value_naive, ext$preservation$q_value[idx])
-})
-
-
-test_that("sensitivity warns when resolution loses a testable module", {
-  resolved <- list(preservation = data.frame(
-    module = c("1", "2"), size_mapped = c(20L, 20L),
-    Zsummary = c(1, 2), q_value = c(0.1, 0.2), stringsAsFactors = FALSE
-  ))
-  # The naive run tested a module the resolved run dropped, e.g. because
-  # resolution concentrated its genes below min_module_size. This direction
-  # produces no NA and would otherwise pass silently.
-  naive <- list(preservation = data.frame(
-    module = c("1", "2", "3"), size_mapped = c(20L, 20L, 15L),
-    Zsummary = c(1, 2, 3), q_value = c(0.1, 0.2, 0.3), stringsAsFactors = FALSE
-  ))
-  map <- data.frame(gene2 = c("X", "Y"), stringsAsFactors = FALSE)
-
-  expect_warning(
-    out <- rcomplex:::.pres_sensitivity(resolved, naive, map, map),
-    "not tested under the resolved map"
-  )
-  expect_false("3" %in% out$module)
-})
-
-
 # ---- carried over from the retired gene-overlap tests ----
 
 test_that("correspondence p-values, q-values, jaccard and overlap are sane", {
@@ -1151,43 +777,12 @@ test_that("classification covers every module in both directions", {
 
   res <- suppressWarnings(preservation_paired(
     mods, nets, fx$ortho, pairs,
-    n_perm = 50L, min_module_size = 3L, seed = 1
+    n_perm = 50L, seed = 1
   ))
 
   expect_equal(
     nrow(res$classification),
     mods$A$n_modules + mods$B$n_modules
-  )
-})
-
-test_that("alpha monotonically controls the diverged call", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 100L, seed = 1
-  )
-
-  strict <- classify_preservation(pres, alpha = 1e-10)$classification
-  loose <- classify_preservation(pres, alpha = 0.5)$classification
-  expect_gte(sum(strict == "diverged"), sum(loose == "diverged"))
-})
-
-test_that("z_conserved splits conserved from moderate, rest unmoved", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 100L, seed = 1
-  )
-
-  low <- classify_preservation(pres, z_conserved = 0)$classification
-  high <- classify_preservation(pres, z_conserved = 1e6)$classification
-
-  expect_gte(sum(low == "conserved"), sum(high == "conserved"))
-  expect_lte(sum(low == "moderate"), sum(high == "moderate"))
-  # Raising the secondary cut may not change significance.
-  expect_equal(
-    sum(low %in% c("diverged", "untested")),
-    sum(high %in% c("diverged", "untested"))
   )
 })
 
@@ -1286,41 +881,6 @@ test_that("module_correspondence records its orientation", {
 })
 
 
-test_that("the copy-choice null runs and is skipped when there is no choice", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  amb <- ambiguous_fixture(fx)
-
-  # The ambiguous fixture has multi-copy HOGs, so there is a copy choice to
-  # vary and the null has something to say.
-  pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques, species_ref = "A", species_test = "B",
-    n_perm = 100L, sensitivity = TRUE, copy_draws = 20L, seed = 1
-  )
-  expect_true(all(c("p_copy.avg.weight", "p_copy.cor.degree") %in%
-                    names(pres$sensitivity)))
-  pc <- c(
-    pres$sensitivity$p_copy.avg.weight,
-    pres$sensitivity$p_copy.cor.degree
-  )
-  pc <- pc[!is.na(pc)]
-  expect_true(all(pc > 0 & pc <= 1))
-  expect_gt(attr(pres$sensitivity, "n_multi_copy"), 0L)
-
-  # The 1:1 fixture offers no copy to choose, so the null is skipped rather
-  # than reporting a degenerate p of 1 for every module.
-  strict <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    map = resolve_ortholog_map(
-      fx$ortho, rownames(fx$netA$network),
-      rownames(fx$netB$network)
-    ),
-    n_perm = 50L, sensitivity = TRUE, copy_draws = 5L, seed = 1
-  )
-  expect_equal(attr(strict$sensitivity, "n_multi_copy"), 0L)
-  expect_false("p_copy.avg.weight" %in% names(strict$sensitivity))
-})
-
-
 test_that("Zsummary is standardized to unit null variance", {
   fx <- pres_fixture()
   tm <- true_modules(fx$netA, fx$mods)
@@ -1338,33 +898,22 @@ test_that("Zsummary is standardized to unit null variance", {
   expect_true(all(d$Zsummary_null_sd >= 1 / sqrt(2) - 1e-8))
   expect_true(all(d$Zsummary_null_sd <= 1 + 1e-8))
   expect_equal(d$Zsummary_std, d$Zsummary / d$Zsummary_null_sd)
-
-  # The scale switch must actually change which cut point is applied.
-  raw <- classify_preservation(pres, z_conserved = 10, z_scale = "raw")
-  std <- classify_preservation(pres,
-    z_conserved = 10,
-    z_scale = "standardized"
-  )
-  expect_gte(
-    sum(std$classification == "conserved"),
-    sum(raw$classification == "conserved")
-  )
 })
 
 test_that("coverage reconciles the tested modules against the partition", {
   fx <- pres_fixture()
   # Carve a five-gene module out of module 4 so something is genuinely below
-  # min_module_size; every module in the base fixture has 40 genes.
+  # 10 mapped genes; every module in the base fixture has 40 genes.
   mods <- fx$mods
   mods[[4]] <- setdiff(mods[[4]], tail(fx$mods[[4]], 5L))
   mods[[5]] <- tail(fx$mods[[4]], 5L)
   tm <- true_modules(fx$netA, mods)
 
-  # min_module_size drops modules from the analysis entirely; without a
+  # Small modules drop out of the analysis entirely; without a
   # coverage table the preservation output looks like a complete accounting.
   expect_message(
     pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-      n_perm = 50L, min_module_size = 10L, seed = 1
+      n_perm = 50L, seed = 1
     ),
     "were not tested"
   )
@@ -1373,7 +922,7 @@ test_that("coverage reconciles the tested modules against the partition", {
   expect_false(pres$coverage$tested[pres$coverage$module == "5"])
   expect_match(
     pres$coverage$reason[pres$coverage$module == "5"],
-    "min_module_size"
+    "fewer than 10 mapped genes"
   )
 
   # The other arm: a module whose genes have no ortholog at all never enters
@@ -1388,7 +937,7 @@ test_that("coverage reconciles the tested modules against the partition", {
                               rownames(fx$netA$network)[unlist(mods)], ]
   expect_message(
     pres2 <- module_preservation(tm2, fx$netA, fx$netB, ortho_partial,
-      n_perm = 50L, min_module_size = 10L, seed = 1
+      n_perm = 50L, seed = 1
     ),
     "no mapped gene"
   )
@@ -1402,75 +951,6 @@ test_that("coverage reconciles the tested modules against the partition", {
   # Every untested module carries a reason; every tested one does not.
   expect_true(all(!is.na(pres$coverage$reason[!pres$coverage$tested])))
   expect_true(all(is.na(pres$coverage$reason[pres$coverage$tested])))
-})
-
-
-test_that("the resolution guard compares the set that can actually differ", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  amb <- ambiguous_fixture(fx)
-
-  # resolve_ortholog_map() guarantees both maps carry every candidate gene2,
-  # so comparing candidate sets is a tautology. The projected sets differ
-  # because resolving a copy rescues genes whose labels would otherwise tie.
-  expect_warning(
-    pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-      cliques = amb$cliques, species_ref = "A", species_test = "B",
-      n_perm = 100L, sensitivity = TRUE, copy_draws = 10L, seed = 1
-    ),
-    "changed which test-species genes"
-  )
-  expect_true(attr(pres$sensitivity, "same_candidate_set"))
-  expect_false(attr(pres$sensitivity, "same_projected_set"))
-  expect_gt(attr(pres$sensitivity, "n_rescued"), 0L)
-})
-
-test_that("the copy null holds the projected gene set fixed", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  amb <- ambiguous_fixture(fx)
-
-  pres <- suppressWarnings(module_preservation(
-    tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques,
-    species_ref = "A", species_test = "B", n_perm = 100L, sensitivity = TRUE,
-    copy_draws = 20L, seed = 1
-  ))
-
-  # p_copy lies in (0, 1] by construction, so asserting that proves
-  # nothing. The invariant the restriction establishes is that the draws'
-  # candidate pool is exactly the observed run's projected gene set.
-  # Re-applying the same `%in% projected` filter before comparing would
-  # make that a tautology, so compare the UNFILTERED pool: on the clique
-  # map the two coincide, which is what makes the restriction a no-op
-  # here and the naive case below the one that exercises it.
-  cand <- resolve_ortholog_map(
-    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
-  )
-  cand <- cand[!is.na(tm$modules[cand$gene1]), , drop = FALSE]
-  expect_setequal(unique(cand$gene2), unique(pres$projection$gene2))
-
-  # Under the naive map the ambiguous genes tie in the majority vote and
-  # drop out of projection while remaining candidates, so the pool is a
-  # strict superset and the restriction is load-bearing. Without it those
-  # 10 genes would enter the draws and the copy null would score a larger
-  # gene set than the observed run -- exactly the set-size confound it
-  # exists to remove.
-  naive <- suppressWarnings(module_preservation(
-    tm, fx$netA, fx$netB, amb$ortho,
-    n_perm = 20L, min_module_size = 3L, sensitivity = FALSE, seed = 1
-  ))
-  naive_proj <- unique(naive$projection$gene2)
-  expect_gt(length(setdiff(unique(cand$gene2), naive_proj)), 0L)
-  expect_true(all(naive_proj %in% unique(cand$gene2)))
-
-  # And every draw must have survived, or p_copy rests on fewer than claimed.
-  expect_equal(attr(pres$sensitivity, "n_copy_draws"), 20L)
-  pc <- c(
-    pres$sensitivity$p_copy.avg.weight,
-    pres$sensitivity$p_copy.cor.degree
-  )
-  expect_gt(sum(!is.na(pc)), 0L)
 })
 
 
@@ -1504,7 +984,7 @@ test_that("calibration lies between the joint null and raw pmax", {
   fx <- calib_fixture()
   tm <- true_modules(fx$netA, fx$mods)
   pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 999L, min_module_size = 10L, n_cores = 2L, seed = 1
+    n_perm = 999L, n_cores = 2L, seed = 1
   )
   d <- pres$preservation
 
@@ -1523,7 +1003,7 @@ test_that("calibrate = none reproduces the uncalibrated pmax result", {
   fx <- calib_fixture()
   tm <- true_modules(fx$netA, fx$mods)
   pres <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 999L, min_module_size = 10L, n_cores = 2L, seed = 1,
+    n_perm = 999L, n_cores = 2L, seed = 1,
     calibrate = "none"
   )
   d <- pres$preservation
@@ -1591,26 +1071,14 @@ test_that("calibrated p-values do not depend on n_cores", {
   fx <- calib_fixture()
   tm <- true_modules(fx$netA, fx$mods)
   a <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 200L, min_module_size = 10L, n_cores = 1L, seed = 5
+    n_perm = 200L, n_cores = 1L, seed = 5
   )
   b <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 200L, min_module_size = 10L, n_cores = 4L, seed = 5
+    n_perm = 200L, n_cores = 4L, seed = 5
   )
   expect_equal(a$preservation$p_calibrated, b$preservation$p_calibrated)
   expect_equal(a$params$w00, b$params$w00)
 })
-
-test_that("qvalue_method is deprecated", {
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  expect_warning(
-    module_preservation(tm, fx$netA, fx$netB, fx$ortho,
-      n_perm = 50L, seed = 1, qvalue_method = "liang"
-    ),
-    "deprecated and ignored"
-  )
-})
-
 
 test_that("an unestimable Zsummary_std falls back to the raw scale", {
   # rho is NA when fewer than four permutations are usable or one
@@ -1622,7 +1090,7 @@ test_that("an unestimable Zsummary_std falls back to the raw scale", {
   tm <- true_modules(fx$netA, fx$mods)
   pr <- suppressWarnings(module_preservation(
     tm, fx$netA, fx$netB, fx$ortho,
-    n_perm = 50L, min_module_size = 3L, seed = 1
+    n_perm = 50L, seed = 1
   ))
   expect_true(any(classify_preservation(pr)$classification == "conserved"))
 
@@ -1660,164 +1128,4 @@ test_that("an unestimable Zsummary_std falls back to the raw scale", {
   expect_true(any(grepl("could not be tested", warns)))
   expect_false(any(grepl("no null correlation", warns)))
   expect_true(all(cls2$classification == "untested"))
-})
-
-
-test_that("copy_null_skipped distinguishes why the copy null did not run", {
-  # n_multi_copy = 0 used to mean three different things: the caller
-  # switched the null off, the ortholog table could not hold the gene set
-  # fixed, or there was genuinely nothing multi-copy. Only the middle one
-  # warned, so a reader of n_multi_copy == 0 could conclude the map had no
-  # paralogs when the check had simply never run.
-  fx <- pres_fixture()
-  amb <- ambiguous_fixture(fx)
-  tm <- true_modules(fx$netA, fx$mods)
-
-  off <- suppressWarnings(module_preservation(
-    tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques,
-    species_ref = "A", species_test = "B",
-    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
-    copy_draws = 0L, seed = 1
-  ))
-  expect_equal(attr(off$sensitivity, "copy_null_skipped"), "off")
-  expect_true(is.na(attr(off$sensitivity, "n_multi_copy")))
-  expect_false("p_copy.avg.weight" %in% names(off$sensitivity))
-
-  # The ordinary multi-copy path runs the null and records no reason.
-  ran <- suppressWarnings(module_preservation(
-    tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques,
-    species_ref = "A", species_test = "B",
-    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
-    copy_draws = 5L, seed = 1
-  ))
-  expect_null(attr(ran$sensitivity, "copy_null_skipped"))
-  expect_gt(attr(ran$sensitivity, "n_multi_copy"), 0L)
-  expect_true("p_copy.avg.weight" %in% names(ran$sensitivity))
-  expect_equal(attr(ran$sensitivity, "n_copy_draws"), 5L)
-})
-
-
-test_that("same_candidate_set is FALSE for a map that does not cover", {
-  # Documented as "always TRUE". It is TRUE by construction only when the
-  # map was resolved from `orthologs`; a supplied map that covers fewer
-  # genes makes it FALSE, so a reader taking the doc at face value would
-  # treat a real mismatch as impossible.
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  full <- resolve_ortholog_map(
-    fx$ortho, rownames(fx$netA$network),
-    rownames(fx$netB$network)
-  )
-  trimmed <- full[-seq_len(20L), , drop = FALSE]
-
-  res <- suppressWarnings(module_preservation(
-    tm, fx$netA, fx$netB, fx$ortho,
-    map = trimmed,
-    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
-    copy_draws = 0L, seed = 1
-  ))
-  expect_false(attr(res$sensitivity, "same_candidate_set"))
-})
-
-
-test_that("copy_null_skipped reports no_multi_copy on a 1:1 map", {
-  # Only "off" and the success path were covered, so the reason that
-  # distinguishes "nothing to vary" from "never ran" was untested -- and
-  # it is the one a reader of n_multi_copy == 0 relies on.
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  res <- suppressWarnings(module_preservation(
-    tm, fx$netA, fx$netB, fx$ortho,
-    cliques = NULL, edges = NULL,
-    map = resolve_ortholog_map(
-      fx$ortho, rownames(fx$netA$network),
-      rownames(fx$netB$network)
-    ),
-    n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
-    copy_draws = 5L, seed = 1
-  ))
-  # fx$ortho is strictly 1:1, so no gene2 has a choice of partner. Both
-  # 'orthologs' and 'map' are supplied, so this is not the "nothing to
-  # compare" skip covered above -- sensitivity must always run here, and
-  # branching on `!is.null(res$sensitivity)` would let a regression that
-  # made it NULL pass silently with zero expectations.
-  expect_false(is.null(res$sensitivity))
-  expect_equal(attr(res$sensitivity, "n_multi_copy"), 0L)
-  expect_equal(
-    attr(res$sensitivity, "copy_null_skipped"),
-    "no_multi_copy"
-  )
-  expect_false("p_copy.avg.weight" %in% names(res$sensitivity))
-})
-
-
-test_that("a partial copy-draw failure is reported, not absorbed", {
-  # p_copy was ranked against however many draws survived, with only the
-  # n_copy_draws attribute recording it. Mocking the nested
-  # module_preservation() call lets exactly some draws fail
-  # deterministically, so the reported count is pinned to neither
-  # extreme (all succeed / all fail) -- the shape a regression that
-  # absorbed failures into "all succeeded" or "none succeeded" would
-  # still pass under.
-  fx <- pres_fixture()
-  tm <- true_modules(fx$netA, fx$mods)
-  amb <- ambiguous_fixture(fx)
-  naive_map <- resolve_ortholog_map(
-    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
-  )
-  map <- resolve_ortholog_map(
-    amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network),
-    cliques = amb$cliques, species1 = "A", species2 = "B"
-  )
-  out <- module_preservation(
-    tm, fx$netA, fx$netB, amb$ortho,
-    map = map,
-    n_perm = 20L, min_module_size = 3L, sensitivity = FALSE, seed = 1
-  )
-  projected <- unique(out$projection$gene2)
-
-  call_n <- 0L
-  fake_pres <- function(...) {
-    call_n <<- call_n + 1L
-    # 2 of 5 draws fail: neither "all succeed" nor "all fail" could
-    # produce n_draws == 3 out of a requested 5.
-    if (call_n %in% c(2L, 4L)) stop("forced draw failure")
-    list(preservation = data.frame(
-      module = as.character(seq_len(fx$n_mod)),
-      avg.weight = stats::runif(fx$n_mod),
-      cor.degree = stats::runif(fx$n_mod)
-    ))
-  }
-
-  # expect_warning() would return the caught condition, not
-  # .pres_copy_null()'s result, so capture the warning text separately
-  # and keep cn as the actual return value.
-  seen_warnings <- character(0)
-  cn <- withCallingHandlers(
-    testthat::with_mocked_bindings(
-      rcomplex:::.pres_copy_null(
-        out$preservation, tm, fx$netA, fx$netB, naive_map, projected,
-        n_draws = 5L, min_module_size = 3L, binary = FALSE
-      ),
-      module_preservation = fake_pres, .package = "rcomplex"
-    ),
-    warning = function(w) {
-      seen_warnings <<- c(seen_warnings, conditionMessage(w))
-      invokeRestart("muffleWarning")
-    }
-  )
-  expect_true(any(grepl(
-    "2 of 5 copy-choice draws failed", seen_warnings,
-    fixed = TRUE
-  )))
-
-  expect_equal(cn$n_multi, 10L)
-  expect_equal(cn$n_draws, 3L)
-  expect_true(is.numeric(cn$n_draws))
-  expect_lt(cn$n_draws, 5L)
-  expect_gt(cn$n_draws, 0L)
-  expect_true(is.numeric(cn$p_copy.avg.weight))
-  expect_true(is.numeric(cn$p_copy.cor.degree))
 })

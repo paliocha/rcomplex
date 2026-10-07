@@ -11,9 +11,7 @@ detect_modules(net, ...)
   net,
   resolution = NULL,
   objective_function = c("modularity", "CPM"),
-  n_iterations = 2L,
   seed = NULL,
-  consensus_threshold = NULL,
   n_cores = 1L,
   max_consensus_iter = 10L,
   ...
@@ -56,8 +54,6 @@ unchanged. At small sample sizes
 \code{"modularity"} replicated better across independent samples but also
 finds modules in noise; see the section on reproducibility.}
 
-\item{n_iterations}{Number of Leiden iterations (default 2).}
-
 \item{seed}{Random seed for reproducibility (default \code{NULL}).
 
 With a seed, the result is reproducible and identical at any \code{n_cores}:
@@ -77,19 +73,13 @@ stream advances by exactly what was taken from it -- the one draw used
 to pick a root in consensus mode, whatever the backend consumed in
 single-resolution mode -- so consecutive unseeded calls still differ.}
 
-\item{consensus_threshold}{Threshold for consensus mode. \code{NULL}
-(default) uses iterative adaptive thresholding per Jeub et al. (2018):
-subtracts the per-pair expected co-classification under random assignment
-and iterates until the partition converges. A numeric value in (0, 1)
-applies a fixed threshold without iteration (single pass).}
-
 \item{n_cores}{Number of parallel cores (default 1). Used for
 \code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
 Uses fork-based parallelism; avoid combining with active CUDA
 contexts in the same session.}
 
 \item{max_consensus_iter}{Maximum number of consensus iterations for
-adaptive mode (\code{consensus_threshold = NULL}). Default 10.
+consensus mode. Default 10.
 Iteration stops when the sweep reproduces its own input (a fixed
 point) or when all resolutions agree. On the eight Pooideae networks
 that stopping rule was measured on it fired at 5--12 iterations, so
@@ -98,8 +88,7 @@ at the default the loop may return a partition it had not finished
 settling. Raise it (20 is above every measured stop) when the
 returned \code{params$n_consensus_iterations} equals
 \code{max_consensus_iter} -- a truncated run always does, though a
-run that settles on the last allowed iteration does too.
-Ignored when \code{consensus_threshold} is numeric.}
+run that settles on the last allowed iteration does too.}
 }
 \value{
 A list with components:
@@ -120,7 +109,7 @@ When \code{resolution} is a vector, the output also includes
 Rand Index with the next resolution; NA for the last), and
 \code{expected_coclassification} (per-resolution expected scalar).
 The \code{params} list includes \code{n_consensus_iterations}
-(number of iterations until convergence; 0 for fixed threshold).
+(number of iterations until convergence).
 }
 \description{
 Applies the Leiden algorithm (Traag \emph{et al.}, 2019) to a thresholded

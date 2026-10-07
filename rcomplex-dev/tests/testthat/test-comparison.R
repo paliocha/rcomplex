@@ -718,35 +718,6 @@ test_that("run_pairwise_comparisons validates inputs", {
 })
 
 
-test_that("run_pairwise_comparisons with custom species_pairs", {
-  set.seed(42)
-  make_net <- function(prefix, n = 30) {
-    expr <- matrix(rnorm(n * 10), nrow = n)
-    rownames(expr) <- paste0(prefix, "_", sprintf("%03d", seq_len(n)))
-    compute_network(expr,
-      density = 0.1, mr_log_transform = FALSE, sparse = FALSE
-    )
-  }
-
-  nets <- list(SP_A = make_net("A"), SP_B = make_net("B"), SP_C = make_net("C"))
-
-  ortho <- data.frame(
-    gene1 = paste0("A_", sprintf("%03d", 1:20)),
-    gene2 = paste0("B_", sprintf("%03d", 1:20)),
-    hog = paste0("HOG", 1:20)
-  )
-
-  # Only compare A vs B, skip A-C and B-C
-  result <- rcomplex:::run_pairwise_comparisons(nets, ortho,
-    species_pairs = list(c("SP_A", "SP_B"))
-  )
-
-  if (nrow(result) > 0) {
-    expect_true(all(result$species1 == "SP_A" & result$species2 == "SP_B"))
-  }
-})
-
-
 # --- Shared fixtures for find_coexpressologs / density_sweep ---
 
 make_coexpr_fixtures <- function(n1 = 50, n2 = 40, n_ortho = 30,
@@ -791,11 +762,8 @@ test_that("find_coexpressologs default method is hypergeometric", {
 test_that("find_coexpressologs keeps zero-overlap pairs by default", {
   skip_on_cran()
   fix <- make_coexpr_fixtures()
-  # pi0_method = "none" so the two calls differ in filter_zero alone.
-  kept <- find_coexpressologs(fix$nets, fix$ortho, pi0_method = "none")
-  dropped <- find_coexpressologs(fix$nets, fix$ortho,
-    pi0_method = "none", filter_zero = TRUE
-  )
+  kept <- find_coexpressologs(fix$nets, fix$ortho)
+  dropped <- find_coexpressologs(fix$nets, fix$ortho, filter_zero = TRUE)
 
   # The dropped rows are exactly the tested pairs with no overlap in one
   # or both directions -- the low-degree failures `power` exists for.
@@ -809,11 +777,6 @@ test_that("find_coexpressologs keeps zero-overlap pairs by default", {
   key <- function(e) paste(e$gene1, e$gene2)
   expect_true(all(key(dropped) %in% key(kept)))
   expect_true("power" %in% names(kept))
-
-  # Correcting over the larger set cannot lower a q-value.
-  idx <- match(key(dropped), key(kept))
-  expect_false(anyNA(idx))
-  expect_true(all(kept$q_value[idx] >= dropped$q_value - 1e-12))
 })
 
 
@@ -833,227 +796,6 @@ test_that(
     expect_true(all(result$type %in% c("conserved", "ns")))
   }
 )
-
-
-test_that("find_coexpressologs alternative='less' produces 'diverged' labels", {
-  skip_on_cran()
-  fix <- make_coexpr_fixtures()
-
-  result_perm <- find_coexpressologs(fix$nets, fix$ortho,
-    method = "permutation",
-    alternative = "less"
-  )
-  expect_true(all(result_perm$type %in% c("diverged", "ns")))
-
-  result_anal <- find_coexpressologs(fix$nets, fix$ortho,
-    method = "hypergeometric",
-    alternative = "less"
-  )
-  expect_true(all(result_anal$type %in% c("diverged", "ns")))
-})
-
-
-test_that(
-  "find_coexpressologs(out_file = ) streams edges identical to in-memory",
-  {
-    skip_on_cran()
-    fix <- make_coexpr_fixtures()
-    out <- withr::local_tempfile(fileext = ".csv")
-
-    set.seed(1)
-    in_memory <- find_coexpressologs(fix$nets, fix$ortho,
-                                     method = "hypergeometric")
-
-    set.seed(1)
-    ret <- find_coexpressologs(fix$nets, fix$ortho,
-      method = "hypergeometric", out_file = out
-    )
-
-    expect_identical(ret, out)
-    expect_true(file.exists(out))
-    from_file <- as.data.frame(data.table::fread(out))
-    # No pair is called on these random networks, so `power` is all NA
-    # and fread() reads the empty column back as logical.
-    from_file$power <- as.numeric(from_file$power)
-    # fread() infers types from text; compare on values, not attributes
-    expect_equal(from_file, in_memory, ignore_attr = TRUE)
-  }
-)
-
-
-test_that("find_coexpressologs(out_file = ) overwrites a stale file", {
-  skip_on_cran()
-  fix <- make_coexpr_fixtures()
-  out <- withr::local_tempfile(fileext = ".csv")
-  writeLines("stale,content", out)
-
-  find_coexpressologs(fix$nets, fix$ortho,
-    method = "hypergeometric", out_file = out
-  )
-  from_file <- data.table::fread(out)
-  expect_false("stale" %in% names(from_file))
-  expect_true(all(c("gene1", "gene2", "q_value") %in% names(from_file)))
-})
-
-
-test_that("find_coexpressologs(out_file = ) validates its argument", {
-  fix <- make_coexpr_fixtures()
-  expect_error(
-    find_coexpressologs(fix$nets, fix$ortho, out_file = character(0)),
-    "out_file must be"
-  )
-  expect_error(
-    find_coexpressologs(fix$nets, fix$ortho, out_file = c("a", "b")),
-    "out_file must be"
-  )
-  expect_error(
-    find_coexpressologs(fix$nets, fix$ortho, out_file = NA_character_),
-    "out_file must be"
-  )
-})
-
-
-test_that("find_coexpressologs out_file: empty file if no pair succeeds", {
-  fix <- make_coexpr_fixtures()
-  out <- withr::local_tempfile(fileext = ".csv")
-  # An ortholog table with no rows means no pair produces edges
-  empty_ortho <- fix$ortho[0, ]
-
-  result <- suppressWarnings(
-    find_coexpressologs(fix$nets, empty_ortho, out_file = out)
-  )
-  # Documented contract: out_file is always created and always what is
-  # returned, even when no pair produces edges.
-  expect_identical(result, out)
-  expect_true(file.exists(out))
-  from_file <- data.table::fread(out)
-  expect_equal(nrow(from_file), 0)
-  expect_true(all(c("gene1", "gene2", "q_value") %in% names(from_file)))
-})
-
-
-test_that("find_coexpressologs out_file: errors if stale file removal fails", {
-  fix <- make_coexpr_fixtures()
-  out <- withr::local_tempfile()
-  # A non-empty directory at out_file cannot be removed by file.remove(),
-  # so this must abort rather than silently proceed to append onto it.
-  dir.create(out)
-  file.create(file.path(out, "child"))
-
-  expect_error(
-    find_coexpressologs(fix$nets, fix$ortho,
-      method = "hypergeometric", out_file = out
-    ),
-    "could not remove existing out_file"
-  )
-})
-
-
-test_that("find_coexpressologs out_file: one header across pairs", {
-  skip_on_cran()
-  set.seed(42)
-  n <- 30
-  expr1 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
-  rownames(expr1) <- paste0("A_", sprintf("%03d", seq_len(n)))
-  expr2 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
-  rownames(expr2) <- paste0("B_", sprintf("%03d", seq_len(n)))
-  expr3 <- matrix(rnorm(n * 10), nrow = n, ncol = 10)
-  rownames(expr3) <- paste0("C_", sprintf("%03d", seq_len(n)))
-
-  net1 <- compute_network(expr1,
-    density = 0.1, mr_log_transform = FALSE,
-    sparse = FALSE
-  )
-  net2 <- compute_network(expr2,
-    density = 0.1, mr_log_transform = FALSE,
-    sparse = FALSE
-  )
-  net3 <- compute_network(expr3,
-    density = 0.1, mr_log_transform = FALSE,
-    sparse = FALSE
-  )
-  nets <- list(SP_A = net1, SP_B = net2, SP_C = net3)
-
-  n_ortho <- 20
-  ortho <- rbind(
-    data.frame(
-      gene1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
-      gene2 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
-      hog = paste0("HOG_AB", seq_len(n_ortho))
-    ),
-    data.frame(
-      gene1 = paste0("A_", sprintf("%03d", seq_len(n_ortho))),
-      gene2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
-      hog = paste0("HOG_AC", seq_len(n_ortho))
-    ),
-    data.frame(
-      gene1 = paste0("B_", sprintf("%03d", seq_len(n_ortho))),
-      gene2 = paste0("C_", sprintf("%03d", seq_len(n_ortho))),
-      hog = paste0("HOG_BC", seq_len(n_ortho))
-    )
-  )
-  out <- withr::local_tempfile(fileext = ".csv")
-
-  set.seed(1)
-  in_memory <- find_coexpressologs(nets, ortho, method = "hypergeometric")
-  set.seed(1)
-  ret <- find_coexpressologs(nets, ortho,
-    method = "hypergeometric", out_file = out
-  )
-
-  expect_identical(ret, out)
-  lines <- readLines(out)
-  header_lines <- grep(
-    "^gene1,gene2,species1,species2,hog,q_value",
-    lines
-  )
-  # Exactly one header row, no matter how many pairs were written
-  expect_equal(length(header_lines), 1)
-  expect_equal(header_lines, 1)
-
-  from_file <- as.data.frame(data.table::fread(out))
-  # No pair is called on these random networks, so `power` is all NA and
-  # fread() reads the empty column back as logical.
-  from_file$power <- as.numeric(from_file$power)
-  # Row order can differ from the in-memory rbind() order across pairs;
-  # compare as sets keyed on the edge identity columns.
-  key_cols <- c("gene1", "gene2", "species1", "species2", "hog")
-  from_file <- from_file[do.call(order, from_file[key_cols]), ]
-  in_memory <- in_memory[do.call(order, in_memory[key_cols]), ]
-  rownames(from_file) <- NULL
-  rownames(in_memory) <- NULL
-  expect_equal(from_file, in_memory, ignore_attr = TRUE)
-})
-
-
-# --- Tests for density_sweep() ---
-
-test_that("density_sweep returns correct structure", {
-  fix <- make_coexpr_fixtures()
-  mults <- c(0.98, 1.0, 1.02)
-
-  result <- suppressMessages(density_sweep(
-    networks = fix$nets, orthologs = fix$ortho, multipliers = mults
-  ))
-
-  expect_s3_class(result, "data.frame")
-  expect_equal(nrow(result), 3)
-  expect_true(all(c(
-    "multiplier", "eff_density", "n_significant", "edges",
-    "species_densities"
-  ) %in% names(result)))
-  expect_equal(result$multiplier, mults)
-  expect_true(is.numeric(result$eff_density))
-  expect_true(is.integer(result$n_significant))
-  expect_true(is.list(result$edges))
-  for (j in seq_len(nrow(result))) {
-    expect_s3_class(result$edges[[j]], "data.frame")
-  }
-  # Per-species densities
-  expect_true(is.list(result$species_densities))
-  expect_true(is.numeric(result$species_densities[[1]]))
-  expect_equal(length(result$species_densities[[1]]), length(fix$nets))
-})
 
 
 test_that("density_sweep at multiplier=1 matches find_coexpressologs", {
@@ -1507,73 +1249,6 @@ test_that(
 # ---- pi0_method / pval_combine pass-through (D4, D2) ----
 
 test_that(
-  "find_coexpressologs passes pi0_method through to summarize_comparison",
-  {
-    td <- make_graded_nets()
-    nets <- list(A = td$net1, B = td$net2)
-    cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
-    # Every tested pair is corrected over, zero-overlap ones included:
-    # find_coexpressologs() defaults to filter_zero = FALSE, so the
-    # reference BH here has to use the same multiple-testing set.
-    # default combine is "max" (D2, reciprocal criterion)
-    bh <- pmax(
-      p.adjust(cmp$species1.p_value_con, "BH"),
-      p.adjust(cmp$species2.p_value_con, "BH")
-    )
-
-    edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
-    idx <- match(
-      paste(cmp$gene1, cmp$gene2),
-      paste(edges$gene1, edges$gene2)
-    )
-    expect_false(anyNA(idx))
-    expect_equal(edges$q_value[idx], bh)
-
-    # pi0_method = "none" leaves the RNG untouched
-    set.seed(9)
-    u <- runif(1)
-    set.seed(9)
-    invisible(find_coexpressologs(nets, td$ortho, pi0_method = "none"))
-    expect_identical(runif(1), u)
-  }
-)
-
-
-test_that("comparison_to_edges combines directional q-values by min or max", {
-  comp <- data.frame(
-    gene1 = c("A1", "A2", "A3"), gene2 = c("B1", "B2", "B3"),
-    hog = 1:3,
-    species1.effect_size = c(4, 1, 2), species2.effect_size = c(9, 1, 2),
-    species1.jaccard = c(0.8, 0, 0.5), species2.jaccard = c(0.5, 0, 0.5),
-    species1.q_value_con = c(0.01, 0.80, 0.03),
-    species2.q_value_con = c(0.03, 0.90, 0.20)
-  )
-  e_min <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
-                                          pval_combine = "min")
-  e_def <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B")
-  e_max <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
-                                          pval_combine = "max")
-  expect_identical(e_max, e_def)
-  expect_equal(e_min$q_value, c(0.01, 0.80, 0.03))
-  expect_equal(e_max$q_value, c(0.03, 0.90, 0.20))
-  expect_equal(e_min$type, c("conserved", "ns", "conserved"))
-  expect_equal(e_max$type, c("conserved", "ns", "ns"))
-  expect_error(rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
-    pval_combine = "mean"
-  ))
-
-  # NA in one direction: the other direction's value is used either way
-  comp$species2.q_value_con[1] <- NA
-  expect_equal(rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
-                 pval_combine = "max"
-               )$q_value[1], 0.01)
-  expect_equal(rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
-                 pval_combine = "min"
-               )$q_value[1], 0.01)
-})
-
-
-test_that(
   "summarize_comparison and find_coexpressologs pass pval_combine through",
   {
     td <- make_graded_nets()
@@ -1582,7 +1257,7 @@ test_that(
     # q-values are compared across the two paths at line ~1609, so they
     # must correct over the same set of tested pairs.
     s <- rcomplex:::summarize_comparison(cmp,
-      species1 = "A", species2 = "B", pi0_method = "none",
+      species1 = "A", species2 = "B", seed = 1L,
       pval_combine = "max", filter_zero = FALSE
     )
     expect_equal(
@@ -1596,11 +1271,11 @@ test_that(
 
     nets <- list(A = td$net1, B = td$net2)
     e_min <- find_coexpressologs(nets, td$ortho,
-      pi0_method = "none",
+      seed = 1L,
       pval_combine = "min"
     )
     e_max <- find_coexpressologs(nets, td$ortho,
-      pi0_method = "none",
+      seed = 1L,
       pval_combine = "max"
     )
     expect_equal(e_max$q_value, s$edges$q_value)
@@ -1613,7 +1288,7 @@ test_that(
 )
 
 
-test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
+test_that("density_sweep forwards pval_combine (D2)", {
   # Asymmetric network sizes: N differs per direction, so the two
   # directional q-values (and hence min vs max combine) differ.
   n_a <- 40
@@ -1640,29 +1315,25 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
   # unknown values must error, not vanish into `...`
   expect_error(suppressMessages(density_sweep(
     nets, ortho,
-    multipliers = 1.0, pi0_method = "bogus"
-  )))
-  expect_error(suppressMessages(density_sweep(
-    nets, ortho,
     multipliers = 1.0, pval_combine = "mean"
   )))
 
   sw_min <- suppressMessages(density_sweep(
     nets, ortho,
     multipliers = 1.0, method = "hypergeometric",
-    pi0_method = "none", pval_combine = "min"
+    seed = 1L, pval_combine = "min"
   ))
   sw_max <- suppressMessages(density_sweep(
     nets, ortho,
     multipliers = 1.0, method = "hypergeometric",
-    pi0_method = "none", pval_combine = "max"
+    seed = 1L, pval_combine = "max"
   ))
   e_min <- find_coexpressologs(nets, ortho,
-    pi0_method = "none",
+    seed = 1L,
     pval_combine = "min"
   )
   e_max <- find_coexpressologs(nets, ortho,
-    pi0_method = "none",
+    seed = 1L,
     pval_combine = "max"
   )
   expect_equal(sw_min$edges[[1]], e_min)
@@ -1670,17 +1341,6 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
   expect_true(any(sw_max$edges[[1]]$q_value != sw_min$edges[[1]]$q_value))
   expect_equal(sw_min$n_significant, sum(e_min$type == "conserved"))
   expect_equal(sw_max$n_significant, sum(e_max$type == "conserved"))
-
-  # pi0_method = "none" must leave the global RNG untouched
-  set.seed(9)
-  u <- runif(1)
-  set.seed(9)
-  invisible(suppressMessages(density_sweep(
-    nets, ortho,
-    multipliers = 1.0, method = "hypergeometric",
-    pi0_method = "none"
-  )))
-  expect_identical(runif(1), u)
 })
 
 
@@ -1721,31 +1381,22 @@ test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
 
   cmp <- rcomplex:::compare_neighborhoods(nets$SP_A, nets$SP_B, ortho)
   s_def <- rcomplex:::summarize_comparison(cmp,
-    species1 = "SP_A", species2 = "SP_B",
-    pi0_method = "none"
+    species1 = "SP_A", species2 = "SP_B", seed = 1L
   )
   s_max <- rcomplex:::summarize_comparison(cmp,
-    species1 = "SP_A", species2 = "SP_B",
-    pi0_method = "none", pval_combine = "max"
+    species1 = "SP_A", species2 = "SP_B", seed = 1L, pval_combine = "max"
   )
   expect_identical(s_def$edges, s_max$edges)
 
-  e_def <- find_coexpressologs(nets, ortho, pi0_method = "none")
-  e_max <- find_coexpressologs(nets, ortho,
-    pi0_method = "none",
-    pval_combine = "max"
-  )
-  e_min <- find_coexpressologs(nets, ortho,
-    pi0_method = "none",
-    pval_combine = "min"
-  )
+  e_def <- find_coexpressologs(nets, ortho, seed = 1L)
+  e_max <- find_coexpressologs(nets, ortho, seed = 1L, pval_combine = "max")
+  e_min <- find_coexpressologs(nets, ortho, seed = 1L, pval_combine = "min")
   expect_identical(e_def, e_max)
   expect_true(any(e_def$q_value != e_min$q_value))
 
   sw_def <- suppressMessages(density_sweep(
     nets, ortho,
-    multipliers = 1.0, method = "hypergeometric",
-    pi0_method = "none"
+    multipliers = 1.0, method = "hypergeometric", seed = 1L
   ))
   expect_equal(sw_def$edges[[1]], e_max)
 })
@@ -2065,22 +1716,19 @@ test_that("find_coexpressologs carries power on both paths", {
   # make_clique_fixture() arrives with helper-clique-fixtures.R (WP3).
   skip_if_not(exists("make_clique_fixture"))
   fx <- make_clique_fixture()
-  an <- find_coexpressologs(fx$networks, fx$orthologs,
-    pi0_method = "none", rho0 = 2
-  )
+  an <- find_coexpressologs(fx$networks, fx$orthologs, rho0 = 2, seed = 1L)
   expect_equal(
     names(an)[7:10], c("effect_size", "jaccard", "power", "type")
   )
   expect_true(any(!is.na(an$power)))
 
   sweep <- suppressMessages(density_sweep(fx$networks, fx$orthologs,
-    multipliers = 1, method = "hypergeometric", pi0_method = "none", rho0 = 2
+    multipliers = 1, method = "hypergeometric", rho0 = 2, seed = 1L
   ))
   expect_equal(sweep$edges[[1]]$power, an$power)
 
   perm <- find_coexpressologs(fx$networks, fx$orthologs,
-    method = "permutation", min_exceedances = 5L,
-    max_permutations = 200L, seed = 1L
+    method = "permutation", seed = 1L
   )
   expect_equal(names(perm), names(an))
   expect_true(all(is.na(perm$power)))

@@ -223,7 +223,7 @@ test_that("a detect_modules() result and its membership give one result", {
   expect_identical(b, a)
 })
 
-test_that("a map with factor gene columns gives the character result", {
+test_that("factor gene columns give the character result", {
   fx <- as_mod_fixture()
   map <- resolve_ortholog_map(
     fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
@@ -231,11 +231,14 @@ test_that("a map with factor gene columns gives the character result", {
   map_f <- map
   map_f$gene1 <- factor(map$gene1, levels = rev(unique(map$gene1)))
   map_f$gene2 <- factor(map$gene2, levels = rev(unique(map$gene2)))
-  pres <- function(m) {
-    module_preservation(fx$handA, fx$netA, fx$netB, map = m,
+  ortho_f <- fx$ortho
+  ortho_f$gene1 <- factor(ortho_f$gene1, levels = rev(unique(ortho_f$gene1)))
+  ortho_f$gene2 <- factor(ortho_f$gene2, levels = rev(unique(ortho_f$gene2)))
+  pres <- function(o) {
+    module_preservation(fx$handA, fx$netA, fx$netB, o,
                         n_perm = 30L, seed = 4)
   }
-  expect_identical(pres(map_f), pres(map))
+  expect_identical(pres(ortho_f), pres(fx$ortho))
   expect_identical(
     module_correspondence(fx$handA, fx$handB, map_f, seed = 1),
     module_correspondence(fx$handA, fx$handB, map, seed = 1)

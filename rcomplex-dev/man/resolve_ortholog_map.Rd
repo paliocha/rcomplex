@@ -10,10 +10,7 @@ resolve_ortholog_map(
   genes2,
   species1 = NULL,
   species2 = NULL,
-  edges = NULL,
-  cliques = NULL,
-  rank_by = c("effect_size", "jaccard", "q_value"),
-  alpha = 0.1
+  edges = NULL
 )
 }
 \arguments{
@@ -24,21 +21,12 @@ identifiers; species membership is resolved against \code{genes1} / \code{genes2
 \item{genes1, genes2}{Character vectors giving the gene universes of the two
 species, e.g. \code{rownames(net$network)}.}
 
-\item{species1, species2}{Species labels.  Required only when \code{edges} or
-\code{cliques} is supplied, to select clique columns and filter edges.}
+\item{species1, species2}{Species labels.  Required only when \code{edges} is
+supplied, to filter edges.}
 
 \item{edges}{Optional coexpressolog edge table from
 \code{find_coexpressologs()}, with columns \code{gene1}, \code{gene2}, \code{species1},
-\code{species2}, \code{hog} and the column named by \code{rank_by}.}
-
-\item{cliques}{Optional clique table from \code{find_cliques()}: \code{hog}, one
-column per species holding a gene identifier or \code{NA}, and \code{n_species}.}
-
-\item{rank_by}{Column ranking coexpressolog partners: \code{"effect_size"}
-(default), \code{"jaccard"}, or \code{"q_value"} (lower is better).}
-
-\item{alpha}{Significance threshold applied to \code{edges$q_value} when the
-table has no \code{type} column (default 0.1).}
+\code{species2}, \code{hog} and \code{effect_size}.}
 }
 \value{
 A data frame with columns:
@@ -46,7 +34,7 @@ A data frame with columns:
 \item{gene1}{Species-1 gene identifier}
 \item{gene2}{Species-2 gene identifier}
 \item{hog}{Ortholog group identifier}
-\item{source}{\code{"clique"}, \code{"coexpressolog"}, or \code{"unresolved"}}
+\item{source}{\code{"coexpressolog"} or \code{"unresolved"}}
 }
 }
 \description{
@@ -59,14 +47,9 @@ expansion that a raw ortholog table implies.
 \section{Resolution waterfall}{
 
 \describe{
-\item{cliques}{A clique fixes one gene per species simultaneously, so the
-copy choices it implies cannot contradict each other across a
-multi-species run the way independent pairwise matchings can.  A HOG
-appearing in several cliques resolves by \code{n_species} descending, then
-\code{mean_q} ascending.}
-\item{coexpressologs}{For genes no clique reached, the mutual-best
-significant pair: \code{gene1}'s highest-ranked partner must also rank
-\code{gene1} highest.}
+\item{coexpressologs}{The mutual-best significant pair: \code{gene1}'s
+highest-ranked partner by \code{effect_size} must also rank \code{gene1}
+highest.}
 \item{unresolved}{Everything else keeps all its candidate pairs, left for
 the consumer to resolve (see the \code{source} column).}
 }
@@ -81,22 +64,11 @@ the set implied by \code{orthologs} alone.  Only which species-1 copy points at
 each gene changes.
 }
 
-\section{Ranking column}{
-
-\code{find_coexpressologs(method = "permutation")} computes q-values at the HOG
-level and broadcasts them to every gene pair of the HOG, so \code{q_value} is
-constant within a HOG and cannot discriminate paralogs.  \code{effect_size} and
-\code{jaccard} stay pair-level under both methods and are the usable ranks;
-\code{rank_by = "q_value"} errors when the supplied table has no within-HOG
-q-value variation.
-}
-
 \examples{
 \dontrun{
 map <- resolve_ortholog_map(
   ortho, rownames(net_a$network), rownames(net_b$network),
-  species1 = "SP_A", species2 = "SP_B",
-  edges = rcx$edges, cliques = rcx$cliques
+  species1 = "SP_A", species2 = "SP_B", edges = rcx$edges
 )
 table(map$source)
 }

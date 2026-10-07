@@ -120,7 +120,7 @@ test_that("find_cliques validates required columns", {
 })
 
 
-test_that("find_cliques edge_type filtering works", {
+test_that("find_cliques keeps conserved edges only", {
   edges <- data.frame(
     gene1 = c("A1", "A1", "B1"),
     gene2 = c("B1", "C1", "C1"),
@@ -136,12 +136,6 @@ test_that("find_cliques edge_type filtering works", {
   # conserved only: missing B1-C1 edge -> no clique
   result_con <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
   expect_equal(nrow(result_con), 0)
-
-  # Both types: complete clique
-  result_both <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-    edge_type = c("conserved", "diverged")
-  )
-  expect_equal(nrow(result_both), 1)
 })
 
 
@@ -174,7 +168,7 @@ test_that("find_cliques min_species allows partial cliques", {
 })
 
 
-test_that("find_cliques max_genes_per_sp limits combinatorial explosion", {
+test_that("find_cliques caps genes per species at 10", {
   # Many paralogs in SP_A, should be capped
   genes_a <- paste0("A", 1:15)
   edges_list <- lapply(genes_a, function(a) {
@@ -188,8 +182,7 @@ test_that("find_cliques max_genes_per_sp limits combinatorial explosion", {
   })
   edges <- do.call(rbind, edges_list)
 
-  # With default max_genes_per_sp = 10, should cap at 10 cliques
-  result <- find_cliques(edges, c("SP_A", "SP_B"), max_genes_per_sp = 10L)
+  result <- find_cliques(edges, c("SP_A", "SP_B"))
   expect_true(nrow(result) <= 10)
 })
 
@@ -254,37 +247,9 @@ test_that("find_cliques handles many paralogs without error", {
 })
 
 
-test_that("max_missing_edges with paralogs picks best assignment", {
-  # 3 species, 2 paralogs in SP_A, missing A-C edges
-  # A1 connects to B1, A2 connects to B1
-  # B1 connects to C1
-  # No A-C edges -> need max_missing = 1 for 3-species clique
-  edges <- data.frame(
-    gene1 = c("A1", "A2", "B1"),
-    gene2 = c("B1", "B1", "C1"),
-    species1 = c("SP_A", "SP_A", "SP_B"),
-    species2 = c("SP_B", "SP_B", "SP_C"),
-    hog = rep("HOG1", 3),
-    type = rep("conserved", 3),
-    q_value = c(0.01, 0.05, 0.02),
-    effect_size = c(3.0, 1.5, 2.5),
-    stringsAsFactors = FALSE
-  )
-
-  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-    min_species = 3L, max_missing_edges = 1L
-  )
-
-  expect_equal(nrow(result), 1)
-  # Should pick A1 (lower q with B1) over A2
-  expect_equal(result$SP_A, "A1")
-  expect_equal(result$n_missing, 1L)
-})
-
-
 # --- Tests for max_missing_edges ---
 
-test_that("max_missing_edges=0 requires all edges (default)", {
+test_that("find_cliques requires all edges", {
   # 3-species HOG, missing SP_A-SP_C edge
   edges <- data.frame(
     gene1 = c("A1", "B1"),
@@ -298,7 +263,7 @@ test_that("max_missing_edges=0 requires all edges (default)", {
     stringsAsFactors = FALSE
   )
 
-  # With default max_missing_edges=0, no 3-species clique (A-C missing)
+  # All edges are required, so no 3-species clique (A-C missing)
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
     min_species = 3L
   )
@@ -306,65 +271,7 @@ test_that("max_missing_edges=0 requires all edges (default)", {
 })
 
 
-test_that("max_missing_edges=1 finds clique with one missing edge", {
-  # 3-species HOG, missing SP_A-SP_C edge
-  edges <- data.frame(
-    gene1 = c("A1", "B1"),
-    gene2 = c("B1", "C1"),
-    species1 = c("SP_A", "SP_B"),
-    species2 = c("SP_B", "SP_C"),
-    hog = rep("HOG1", 2),
-    type = rep("conserved", 2),
-    q_value = c(0.01, 0.02),
-    effect_size = c(2.0, 3.0),
-    stringsAsFactors = FALSE
-  )
-
-  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-    min_species = 3L, max_missing_edges = 1L
-  )
-
-  expect_equal(nrow(result), 1)
-  expect_equal(result$n_species, 3L)
-  expect_equal(result$n_edges, 2L) # 2 of 3 present
-  expect_equal(result$n_missing, 1L) # 1 missing
-  expect_equal(result$SP_A, "A1")
-  expect_equal(result$SP_B, "B1")
-  expect_equal(result$SP_C, "C1")
-})
-
-
-test_that("max_missing_edges prefers fewer missing edges", {
-  # 4-species HOG: complete 3-species clique (A,B,C) + partial 4-species
-  # with D connected to A only (missing B-D and C-D)
-  edges <- data.frame(
-    gene1 = c("A1", "A1", "B1", "A1"),
-    gene2 = c("B1", "C1", "C1", "D1"),
-    species1 = c("SP_A", "SP_A", "SP_B", "SP_A"),
-    species2 = c("SP_B", "SP_C", "SP_C", "SP_D"),
-    hog = rep("HOG1", 4),
-    type = rep("conserved", 4),
-    q_value = c(0.01, 0.01, 0.01, 0.01),
-    effect_size = rep(2.0, 4),
-    stringsAsFactors = FALSE
-  )
-
-  # With max_missing=1, should find 4-species subset only if it has <= 1 missing
-  # {A,B,C,D} has 6 possible edges, 4 present, 2 missing -> over budget
-  # So only 3-species complete cliques survive
-  result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C", "SP_D"),
-    min_species = 3L, max_missing_edges = 1L
-  )
-
-  # Should find the complete {A,B,C} clique with 0 missing
-  complete <- result[result$n_missing == 0, ]
-  expect_true(nrow(complete) >= 1)
-  expect_equal(complete$n_species[1], 3L)
-  expect_equal(complete$n_edges[1], 3L)
-})
-
-
-test_that("max_missing_edges n_missing output is 0 when all edges present", {
+test_that("n_missing output is 0 when all edges present", {
   edges <- data.frame(
     gene1 = c("A1", "A1", "B1"),
     gene2 = c("B1", "C1", "C1"),
@@ -377,17 +284,9 @@ test_that("max_missing_edges n_missing output is 0 when all edges present", {
     stringsAsFactors = FALSE
   )
 
-  # Default mode: n_missing should always be 0
+  # n_missing is always 0
   result <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"))
   expect_equal(result$n_missing, 0L)
-
-  # With max_missing_edges=1, complete clique still has 0 missing
-  result2 <- find_cliques(edges, c("SP_A", "SP_B", "SP_C"),
-    max_missing_edges = 1L
-  )
-  # The complete {A,B,C} subset should be found with 0 missing
-  full <- result2[result2$n_species == 3L & result2$n_missing == 0L, ]
-  expect_true(nrow(full) >= 1)
 })
 
 
@@ -583,14 +482,16 @@ test_that("a pre-filtered edge table warns", {
 
 
 test_that("clique_stability on an unfiltered table does not warn", {
-  # clique_stability() filters to edge_type for its own engine; handing
+  # clique_stability() filters to conserved edges for its own engine; handing
   # that filtered copy to find_cliques() used to trip the pre-filter
   # warning on a caller who passed the recommended unfiltered table.
   rlang::local_options(rlib_warning_verbosity = "verbose")
   fx <- make_clique_fixture_3sp()
   expect_true(any(fx$edges$type != "conserved"))
   expect_no_warning(
-    clique_stability(fx$edges, fx$target_species, min_species = 2L),
+    clique_stability(fx$edges, fx$target_species,
+      full_cliques = find_cliques(fx$edges, fx$target_species, min_species = 2L)
+    ),
     class = "rcomplex_prefiltered_edges"
   )
 })

@@ -3,9 +3,8 @@
 # A multi-copy HOG offers several candidate gene pairs between two species.
 # Projecting module labels through all of them lets co-expressed paralogs
 # inflate within-module connectivity, so the copies are resolved to a single
-# counterpart wherever the pipeline already carries evidence for one:
-# clique membership first (globally consistent across every species at once),
-# then a mutual-best coexpressolog pair, then nothing.
+# counterpart wherever the pipeline already carries evidence for one: a
+# mutual-best coexpressolog pair, then nothing.
 #
 # The resolution layers may only choose WHICH copy carries a label; they must
 # never change which genes are mappable at all.  Coexpressologs are defined by
@@ -26,14 +25,9 @@
 #'
 #' @section Resolution waterfall:
 #' \describe{
-#'   \item{cliques}{A clique fixes one gene per species simultaneously, so the
-#'     copy choices it implies cannot contradict each other across a
-#'     multi-species run the way independent pairwise matchings can.  A HOG
-#'     appearing in several cliques resolves by `n_species` descending, then
-#'     `mean_q` ascending.}
-#'   \item{coexpressologs}{For genes no clique reached, the mutual-best
-#'     significant pair: `gene1`'s highest-ranked partner must also rank
-#'     `gene1` highest.}
+#'   \item{coexpressologs}{The mutual-best significant pair: `gene1`'s
+#'     highest-ranked partner by `effect_size` must also rank `gene1`
+#'     highest.}
 #'   \item{unresolved}{Everything else keeps all its candidate pairs, left for
 #'     the consumer to resolve (see the `source` column).}
 #' }
@@ -45,45 +39,30 @@
 #' the set implied by `orthologs` alone.  Only which species-1 copy points at
 #' each gene changes.
 #'
-#' @section Ranking column:
-#' `find_coexpressologs(method = "permutation")` computes q-values at the HOG
-#' level and broadcasts them to every gene pair of the HOG, so `q_value` is
-#' constant within a HOG and cannot discriminate paralogs.  `effect_size` and
-#' `jaccard` stay pair-level under both methods and are the usable ranks;
-#' `rank_by = "q_value"` errors when the supplied table has no within-HOG
-#' q-value variation.
-#'
 #' @param orthologs Data frame with columns `gene1`, `gene2`, `hog`
 #'   (output of [parse_orthologs()]).  `gene1` / `gene2` hold gene
 #'   identifiers; species membership is resolved against `genes1` / `genes2`.
 #' @param genes1,genes2 Character vectors giving the gene universes of the two
 #'   species, e.g. `rownames(net$network)`.
-#' @param species1,species2 Species labels.  Required only when `edges` or
-#'   `cliques` is supplied, to select clique columns and filter edges.
+#' @param species1,species2 Species labels.  Required only when `edges` is
+#'   supplied, to filter edges.
 #' @param edges Optional coexpressolog edge table from
 #'   `find_coexpressologs()`, with columns `gene1`, `gene2`, `species1`,
-#'   `species2`, `hog` and the column named by `rank_by`.
-#' @param cliques Optional clique table from `find_cliques()`: `hog`, one
-#'   column per species holding a gene identifier or `NA`, and `n_species`.
-#' @param rank_by Column ranking coexpressolog partners: `"effect_size"`
-#'   (default), `"jaccard"`, or `"q_value"` (lower is better).
-#' @param alpha Significance threshold applied to `edges$q_value` when the
-#'   table has no `type` column (default 0.1).
+#'   `species2`, `hog` and `effect_size`.
 #'
 #' @return A data frame with columns:
 #'   \describe{
 #'     \item{gene1}{Species-1 gene identifier}
 #'     \item{gene2}{Species-2 gene identifier}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{source}{`"clique"`, `"coexpressolog"`, or `"unresolved"`}
+#'     \item{source}{`"coexpressolog"` or `"unresolved"`}
 #'   }
 #'
 #' @examples
 #' \dontrun{
 #' map <- resolve_ortholog_map(
 #'   ortho, rownames(net_a$network), rownames(net_b$network),
-#'   species1 = "SP_A", species2 = "SP_B",
-#'   edges = rcx$edges, cliques = rcx$cliques
+#'   species1 = "SP_A", species2 = "SP_B", edges = rcx$edges
 #' )
 #' table(map$source)
 #' }
@@ -91,14 +70,7 @@
 #' @export
 resolve_ortholog_map <- function(orthologs, genes1, genes2,
                                  species1 = NULL, species2 = NULL,
-                                 edges = NULL, cliques = NULL,
-                                 rank_by = c(
-                                   "effect_size", "jaccard",
-                                   "q_value"
-                                 ),
-                                 alpha = 0.1) {
-  rank_by <- match.arg(rank_by)
-
+                                 edges = NULL) {
   if (!is.data.frame(orthologs)) {
     stop("orthologs must be a data.frame")
   }
@@ -108,9 +80,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   if (!is.character(genes1) || !is.character(genes2)) {
     stop("genes1 and genes2 must be character vectors")
   }
-  if ((!is.null(edges) || !is.null(cliques)) &&
-        (is.null(species1) || is.null(species2))) {
-    stop("species1 and species2 are required when edges or cliques is supplied")
+  if (!is.null(edges) && (is.null(species1) || is.null(species2))) {
+    stop("species1 and species2 are required when edges is supplied")
   }
 
   # Candidate pairs: the same orientation rule the rest of the package uses
@@ -129,13 +100,9 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 
   cand_key <- paste(cand$hog, cand$gene1, cand$gene2, sep = "\x01")
 
-  resolved <- .map_clique_layer(cliques, species1, species2, cand, cand_key)
-
-  coexpr <- .map_coexpressolog_layer(
-    edges, species1, species2, cand, cand_key, resolved$gene1, resolved$gene2,
-    rank_by, alpha
+  resolved <- .map_coexpressolog_layer(
+    edges, species1, species2, cand, cand_key
   )
-  resolved <- rbind(resolved, coexpr)
 
   # Preserved-gene-set invariant: keep every candidate pair whose species-2
   # gene no resolved pair claims, so resolution only redirects copies.
@@ -155,82 +122,15 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 }
 
 
-#' Clique layer of the resolution waterfall (internal)
-#'
-#' One gene per species per clique, so the copy choice is consistent across
-#' every species at once.  Only pairs that are genuine ortholog candidates are
-#' kept: a clique edge whose gene pair is absent from `cand` (different HOG
-#' assignment, or a gene outside the network) is dropped.
-#'
-#' @noRd
-.map_clique_layer <- function(cliques, species1, species2, cand, cand_key) {
-  empty <- cand[0, , drop = FALSE]
-  empty$source <- character(0)
-  if (is.null(cliques)) {
-    return(empty)
-  }
-
-  if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
-    stop("cliques must be a data.frame with a 'hog' column")
-  }
-  missing_cols <- setdiff(c(species1, species2), names(cliques))
-  if (length(missing_cols) > 0L) {
-    stop(
-      "cliques has no column for species: ",
-      paste(missing_cols, collapse = ", ")
-    )
-  }
-
-  cl <- cliques[!is.na(cliques[[species1]]) & !is.na(cliques[[species2]]), ,
-    drop = FALSE
-  ]
-  if (nrow(cl) == 0L) {
-    return(empty)
-  }
-
-  # Best clique per HOG: most species, then lowest mean q-value.
-  n_species <- if ("n_species" %in% names(cl)) {
-    cl$n_species
-  } else {
-    rep_len(0L, nrow(cl))
-  }
-  mean_q <- if ("mean_q" %in% names(cl)) cl$mean_q else rep_len(0, nrow(cl))
-  g1 <- as.character(cl[[species1]])
-  g2 <- as.character(cl[[species2]])
-  cl <- cl[order(-n_species, mean_q, g1, g2, method = "radix"), ,
-    drop = FALSE
-  ]
-  cl <- cl[!duplicated(as.character(cl$hog)), , drop = FALSE]
-
-  hits <- data.frame(
-    gene1 = as.character(cl[[species1]]),
-    gene2 = as.character(cl[[species2]]),
-    hog = as.character(cl$hog),
-    stringsAsFactors = FALSE
-  )
-  hits <- hits[
-    paste(hits$hog, hits$gene1, hits$gene2, sep = "\x01") %in% cand_key, ,
-    drop = FALSE
-  ]
-  if (nrow(hits) == 0L) {
-    return(empty)
-  }
-
-  hits$source <- "clique"
-  hits
-}
-
-
 #' Coexpressolog layer of the resolution waterfall (internal)
 #'
-#' Mutual-best significant pairs among the genes no clique reached.  Mutual
+#' Mutual-best significant pairs.  Mutual
 #' rather than one-sided best so the choice does not depend on which species is
 #' treated as the reference.
 #'
 #' @noRd
-.map_coexpressolog_layer <- function(edges, species1, species2, cand, cand_key,
-                                     done_genes, done_gene2,
-                                     rank_by, alpha) {
+.map_coexpressolog_layer <- function(edges, species1, species2, cand,
+                                     cand_key) {
   empty <- cand[0, , drop = FALSE]
   empty$source <- character(0)
   if (is.null(edges)) {
@@ -240,7 +140,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   if (!is.data.frame(edges)) {
     stop("edges must be a data.frame")
   }
-  req <- c("gene1", "gene2", "species1", "species2", "hog", rank_by)
+  req <- c("gene1", "gene2", "species1", "species2", "hog", "effect_size")
   missing_cols <- setdiff(req, names(edges))
   if (length(missing_cols) > 0L) {
     stop("edges missing columns: ", paste(missing_cols, collapse = ", "))
@@ -263,29 +163,21 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   if ("type" %in% names(e)) {
     e <- e[e$type == "conserved", , drop = FALSE]
   } else if ("q_value" %in% names(e)) {
-    e <- e[!is.na(e$q_value) & e$q_value < alpha, , drop = FALSE]
+    e <- e[!is.na(e$q_value) & e$q_value < 0.1, , drop = FALSE]
   }
 
-  # Only candidate pairs, and only genes the clique layer left open.
-  # Both sides must be free: a species-2 gene a clique already resolved would
-  # otherwise gain a second partner, and .pres_project() drops a gene whose
-  # two resolved labels tie -- removing it from the mappable set, which
-  # resolution must never do.
-  e <- e[!e$gene1 %in% done_genes & !e$gene2 %in% done_gene2, , drop = FALSE]
   e <- e[
     paste(e$hog, e$gene1, e$gene2, sep = "\x01") %in% cand_key, ,
     drop = FALSE
   ]
-  e <- e[!is.na(e[[rank_by]]), , drop = FALSE]
+  e <- e[!is.na(e$effect_size), , drop = FALSE]
   if (nrow(e) == 0L) {
     return(empty)
   }
 
-  if (rank_by == "q_value") .check_pairwise_qvalues(e)
-
-  # Higher is better for effect_size and jaccard, lower for q_value.
-  score <- if (rank_by == "q_value") -e[[rank_by]] else e[[rank_by]]
-  e <- e[order(-score, e$gene1, e$gene2, method = "radix"), , drop = FALSE]
+  e <- e[order(-e$effect_size, e$gene1, e$gene2, method = "radix"), ,
+    drop = FALSE
+  ]
 
   edge_key <- paste(e$hog, e$gene1, e$gene2, sep = "\x01")
   best1 <- edge_key[!duplicated(e$gene1)]
@@ -317,36 +209,4 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   e$gene2 <- g1
   e$species2 <- s1
   e
-}
-
-
-#' Refuse q-value ranking when q-values cannot discriminate paralogs (internal)
-#'
-#' `find_coexpressologs(method = "permutation")` assigns one q-value per HOG
-#' and broadcasts it to every gene pair in that HOG, so ranking copies by
-#' q-value would pick an arbitrary one.
-#'
-#' @noRd
-.check_pairwise_qvalues <- function(e) {
-  multi <- split(e$q_value, e$hog)
-  multi <- multi[vapply(multi, length, integer(1)) > 1L]
-  if (length(multi) == 0L) {
-    return(invisible(NULL))
-  }
-
-  varies <- vapply(multi, function(q) {
-    q <- q[!is.na(q)]
-    length(q) > 1L && diff(range(q)) > 0
-  }, logical(1))
-
-  if (!any(varies)) {
-    stop(
-      "rank_by = \"q_value\" cannot resolve paralogs: q-values are ",
-      "constant within every multi-copy HOG. This is expected from ",
-      "find_coexpressologs(method = \"permutation\"), which computes ",
-      "q-values at the HOG level. Use rank_by = \"effect_size\" or ",
-      "\"jaccard\"."
-    )
-  }
-  invisible(NULL)
 }

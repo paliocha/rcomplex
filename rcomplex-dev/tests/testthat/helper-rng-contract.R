@@ -48,19 +48,21 @@ rng_module_fixture <- function() {
 }
 
 
-#' Synthetic all-pairs preservation classification over four species
+#' Synthetic all-pairs preservation classification over twenty species
 #'
 #' `preservation_matrix_test()` reads only `reference`, `test` and the
 #' effect column, so the table is written directly rather than run through
 #' a preservation pipeline that would add minutes for no extra coverage.
+#' Ten species per trait give 184756 free labellings, above the 50000 the
+#' test enumerates, so the null is sampled and draws from the stream.
 rng_matrix_classification <- function() {
-  sp <- c("A1", "A2", "P1", "P2")
+  sp <- c(paste0("A", 1:10), paste0("P", 1:10))
   grid <- expand.grid(
-    reference = sp, test = sp, module = c("1", "2"),
+    reference = sp, test = sp, module = "1",
     stringsAsFactors = FALSE
   )
   grid <- grid[grid$reference != grid$test, , drop = FALSE]
-  trait <- c(A1 = "annual", A2 = "annual", P1 = "peren", P2 = "peren")
+  trait <- stats::setNames(rep(c("annual", "peren"), each = 10L), sp)
   concordant <- trait[grid$reference] == trait[grid$test]
   grid$Zsummary_std <- ifelse(concordant, 8, 2)
   grid$Zsummary <- grid$Zsummary_std
@@ -142,30 +144,14 @@ rng_contract_cases <- function(fx) {
     ),
     list(
       name = "coexpressolog_null",
-      variant = "pi0 none",
-      # n_perm = 2 is far below the 19 permutations p < 0.05 needs, and an
-      # unseeded call announces the seed it drew; neither is what the
-      # contract is about, and the assertions are unaffected by both.
+      # An unseeded call announces the seed it drew; that is not what the
+      # contract is about, and the assertions are unaffected by it. The
+      # scope covers the observed run, not just the permutation loop: its
+      # randomized pi0 draws.
       call = function(seed) {
         suppressMessages(suppressWarnings(
           coexpressolog_null(sparse_nets, td$ortho,
-            n_perm = 2L, swap_factor = 1L, seed = seed,
-            pi0_method = "none", pval_combine = "max"
-          )
-        ))
-      }
-    ),
-    list(
-      name = "coexpressolog_null",
-      variant = "pi0 randomized",
-      # The scope covers the observed run, not just the permutation loop.
-      # Under pi0_method = "none" the observed run draws nothing, so that
-      # is the only case that would notice the scope sliding back below it.
-      call = function(seed) {
-        suppressMessages(suppressWarnings(
-          coexpressolog_null(sparse_nets, td$ortho,
-            n_perm = 2L, swap_factor = 1L, seed = seed,
-            pi0_method = "randomized", pval_combine = "max"
+            swap_factor = 1L, seed = seed, pval_combine = "max"
           )
         ))
       }
@@ -205,15 +191,15 @@ rng_contract_cases <- function(fx) {
       call = function(seed) {
         detect_modules(mf$net_a,
           resolution = c(0.8, 1.0), objective_function = "modularity",
-          n_iterations = 1L, max_consensus_iter = 1L, seed = seed
+          max_consensus_iter = 1L, seed = seed
         )$modules
       }
     ),
     list(
       name = "module_preservation",
       call = function(seed) {
-        module_preservation(mf$mods_a, mf$net_a, mf$net_b,
-          map = mf$map, n_perm = 20L, seed = seed
+        module_preservation(mf$mods_a, mf$net_a, mf$net_b, mf$ortho,
+          n_perm = 20L, seed = seed
         )$preservation
       }
     ),
@@ -240,11 +226,9 @@ rng_contract_cases <- function(fx) {
     list(
       name = "preservation_matrix_test",
       call = function(seed) {
-        # 30 draws is far too few for a usable p-value and the function
-        # says so; the contract is about the stream, not the inference.
         suppressWarnings(preservation_matrix_test(
           mx$classification, mx$group,
-          n_perm = 30L, enum_max = 1L, seed = seed
+          seed = seed
         ))$free$null_distribution
       }
     )

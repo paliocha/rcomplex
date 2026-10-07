@@ -157,21 +157,14 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 }
 
 
-#' Argument checks shared by the specificity path of find_coexpressologs()
-#' and density_sweep()
+#' Argument checks for the specificity path of find_coexpressologs()
 #' @noRd
-.check_specificity_args <- function(method, alternative, null_networks,
-                                    p0 = NULL, rho0 = NULL) {
+.check_specificity_args <- function(method, null_networks, rho0 = NULL) {
   if (method != "rank" && !is.null(null_networks)) {
     stop("null_networks is only used with method = \"rank\"")
   }
   if (method == "rank" && !is.null(rho0)) {
-    stop("rho0 is only used with method = \"hypergeometric\" (p0 sets the ",
-         "rank-test power)")
-  }
-  if (method != "rank" && !is.null(p0)) {
-    stop("p0 is only used with method = \"rank\" (rho0 sets the ",
-         "hypergeometric power)")
+    stop("rho0 is only used with method = \"hypergeometric\"")
   }
   if (method == "rank") {
     if (is.null(null_networks)) {
@@ -179,9 +172,6 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
         "method = \"rank\" needs null_networks; build one per ",
         "species with null_network()"
       )
-    }
-    if (alternative == "less") {
-      stop("method = \"rank\" supports alternative = \"greater\" only")
     }
   }
 }
@@ -193,8 +183,8 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' species 2, direction 2 -> 1 by each null of species 1 against `net2`.
 #' @noRd
 .specificity_pair_edges <- function(net1, net2, nulls1, nulls2, orthologs,
-                                    species1, species2, alpha, n_cores,
-                                    pi0_method, pval_combine, p0 = NULL) {
+                                    species1, species2, n_cores,
+                                    pval_combine) {
   cmp <- compare_specificity(net1, net2, orthologs, n_cores)
   null_p <- list(
     species1 = unlist(lapply(nulls2, function(nb) {
@@ -208,12 +198,8 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
       )$species2.p_value
     }))
   )
-  # the specificity p-values are continuous-ish ranks, so the randomized
-  # pi0 of the hypergeometric path reduces to plain Storey
-  if (pi0_method == "randomized") pi0_method <- "storey"
-  summarize_specificity(cmp, null_p, alpha,
-    pi0_method = pi0_method, species1 = species1, species2 = species2,
-    pval_combine = pval_combine, p0 = p0
+  summarize_specificity(cmp, null_p,
+    species1 = species1, species2 = species2, pval_combine = pval_combine
   )$edges
 }
 

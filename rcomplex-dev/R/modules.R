@@ -78,7 +78,6 @@
 #'   unchanged. At small sample sizes
 #'   `"modularity"` replicated better across independent samples but also
 #'   finds modules in noise; see the section on reproducibility.
-#' @param n_iterations Number of Leiden iterations (default 2).
 #' @param seed Random seed for reproducibility (default `NULL`).
 #'
 #'   With a seed, the result is reproducible and identical at any `n_cores`:
@@ -97,17 +96,12 @@
 #'   stream advances by exactly what was taken from it -- the one draw used
 #'   to pick a root in consensus mode, whatever the backend consumed in
 #'   single-resolution mode -- so consecutive unseeded calls still differ.
-#' @param consensus_threshold Threshold for consensus mode. \code{NULL}
-#'   (default) uses iterative adaptive thresholding per Jeub et al. (2018):
-#'   subtracts the per-pair expected co-classification under random assignment
-#'   and iterates until the partition converges. A numeric value in (0, 1)
-#'   applies a fixed threshold without iteration (single pass).
 #' @param n_cores Number of parallel cores (default 1). Used for
 #'   \code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
 #'   Uses fork-based parallelism; avoid combining with active CUDA
 #'   contexts in the same session.
 #' @param max_consensus_iter Maximum number of consensus iterations for
-#'   adaptive mode (\code{consensus_threshold = NULL}). Default 10.
+#'   consensus mode. Default 10.
 #'   Iteration stops when the sweep reproduces its own input (a fixed
 #'   point) or when all resolutions agree. On the eight Pooideae networks
 #'   that stopping rule was measured on it fired at 5--12 iterations, so
@@ -117,7 +111,6 @@
 #'   returned \code{params$n_consensus_iterations} equals
 #'   \code{max_consensus_iter} -- a truncated run always does, though a
 #'   run that settles on the last allowed iteration does too.
-#'   Ignored when \code{consensus_threshold} is numeric.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -137,7 +130,7 @@
 #'   Rand Index with the next resolution; NA for the last), and
 #'   \code{expected_coclassification} (per-resolution expected scalar).
 #'   The \code{params} list includes \code{n_consensus_iterations}
-#'   (number of iterations until convergence; 0 for fixed threshold).
+#'   (number of iterations until convergence).
 #'
 #' @details The adaptive consensus path uses sparse co-classification
 #'   restricted to the original network's edge set, reducing memory from
@@ -181,9 +174,7 @@ detect_modules <- function(net, ...) UseMethod("detect_modules")
 detect_modules.default <- function(net,
                                    resolution = NULL,
                                    objective_function = c("modularity", "CPM"),
-                                   n_iterations = 2L,
                                    seed = NULL,
-                                   consensus_threshold = NULL,
                                    n_cores = 1L,
                                    max_consensus_iter = 10L, ...) {
   objective_function <- match.arg(objective_function)
@@ -191,13 +182,11 @@ detect_modules.default <- function(net,
   # Consensus mode: vector resolution triggers multi-resolution + consensus
   if (length(resolution) > 1L) {
     return(detect_modules_consensus(
-      net, resolution, consensus_threshold,
-      objective_function, n_iterations, seed, as.integer(n_cores),
+      net, resolution,
+      objective_function, seed, as.integer(n_cores),
       as.integer(max_consensus_iter)
     ))
   }
-
-  n_iterations <- as.integer(n_iterations)
 
   if (!is.list(net) || is.null(net$network)) {
     stop("net must be a network object from compute_network()")
@@ -248,12 +237,11 @@ detect_modules.default <- function(net,
     resolution = resolution,
     objective_function = objective_function,
     weights = .leiden_weights(g, objective_function),
-    n_iterations = n_iterations
+    n_iterations = 2L
   )
   params <- list(
     resolution = resolution,
     objective_function = objective_function,
-    n_iterations = n_iterations,
     seed = seed
   )
 
@@ -294,22 +282,13 @@ detect_modules.default <- function(net,
 #'
 #' Runs Leiden at each resolution, builds a co-classification matrix,
 #' subtracts per-pair expected co-classification (Jeub et al. 2018),
-#' and iterates until the partition converges. For fixed thresholds,
-#' performs a single pass without iteration.
+#' and iterates until the partition converges.
 #'
 #' @noRd
-detect_modules_consensus <- function(net, resolutions, consensus_threshold,
-                                     objective_function, n_iterations, seed,
+detect_modules_consensus <- function(net, resolutions,
+                                     objective_function, seed,
                                      n_cores = 1L,
                                      max_consensus_iter = 10L) {
-  # Validate threshold
-  if (!is.null(consensus_threshold)) {
-    if (!is.numeric(consensus_threshold) || consensus_threshold <= 0 ||
-          consensus_threshold >= 1) {
-      stop("consensus_threshold must be NULL (adaptive) or numeric in (0, 1)")
-    }
-  }
-
   if (!is.list(net) || is.null(net$network)) {
     stop("net must be a network object from compute_network()")
   }
@@ -362,8 +341,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   if (n_res == 1L) {
     return(detect_modules(net,
       resolution = resolutions,
-      objective_function = objective_function,
-      n_iterations = n_iterations, seed = seed
+      objective_function = objective_function, seed = seed
     ))
   }
 
@@ -378,7 +356,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
       resolution = res,
       objective_function = objective_function,
       weights = .leiden_weights(g, objective_function),
-      n_iterations = as.integer(n_iterations)
+      n_iterations = 2L
     )
     mem <- igraph::membership(comm)
     names(mem) <- igraph::V(g)$name
@@ -443,101 +421,72 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
   # Save initial sweep for fallback if consensus graph becomes empty
   initial_memberships <- memberships
 
-  if (!is.null(consensus_threshold)) {
-    # Fixed threshold: single pass, sparse co-classification
+  # Adaptive: iterate until convergence (Jeub et al. 2018, Algorithm 1)
+  for (iter in seq_len(max_consensus_iter)) {
+    n_consensus_iter <- iter
+
     cc_sparse <- build_sparse_coclassification_cpp(
       memberships, n_genes, edge_list_0, n_cores
     )
-    resolution_scan$expected_coclassification <- cc_sparse$expected
 
-    keep <- cc_sparse$coclassification >= consensus_threshold
+    if (iter == 1L) {
+      resolution_scan$expected_coclassification <- cc_sparse$expected
+    }
+
+    keep <- cc_sparse$excess > 0
     if (!any(keep)) {
-      best_r <- which.max(scan_modularity)
-      membership <- initial_memberships[[best_r]]
-    } else {
-      consensus_el <- edge_list_0[keep, , drop = FALSE] + 1L
-      g_consensus <- igraph::make_empty_graph(n = n_genes, directed = FALSE)
-      igraph::V(g_consensus)$name <- genes
-      g_consensus <- igraph::add_edges(
-        g_consensus,
-        as.vector(t(consensus_el)),
-        weight = cc_sparse$coclassification[keep]
-      )
-
-      consensus_mems <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, n_cores,
-        seed_root = seed_root, iter = 0L
-      )
-      membership <- pick_best_partition(consensus_mems, g)
-    }
-  } else {
-    # Adaptive: iterate until convergence (Jeub et al. 2018, Algorithm 1)
-    for (iter in seq_len(max_consensus_iter)) {
-      n_consensus_iter <- iter
-
-      cc_sparse <- build_sparse_coclassification_cpp(
-        memberships, n_genes, edge_list_0, n_cores
-      )
-
-      if (iter == 1L) {
-        resolution_scan$expected_coclassification <- cc_sparse$expected
-      }
-
-      keep <- cc_sparse$excess > 0
-      if (!any(keep)) {
-        memberships <- initial_memberships
-        break
-      }
-
-      consensus_el <- edge_list_0[keep, , drop = FALSE] + 1L
-      g_consensus <- igraph::make_empty_graph(n = n_genes, directed = FALSE)
-      igraph::V(g_consensus)$name <- genes
-      g_consensus <- igraph::add_edges(
-        g_consensus,
-        as.vector(t(consensus_el)),
-        weight = cc_sparse$excess[keep]
-      )
-
-      new_memberships <- consensus_leiden_sweep(
-        g_consensus, resolutions, n_iterations, n_cores,
-        seed_root = seed_root, iter = iter
-      )
-
-      # Convergence: all K partitions are ~identical (vacuously true for
-      # n_res == 1, but that case is caught by the early return above)
-      converged <- all(vapply(seq_len(n_res - 1L), function(r) {
-        igraph::compare(new_memberships[[r]], new_memberships[[r + 1L]],
-          method = "adjusted.rand"
-        ) > 0.999
-      }, logical(1)))
-
-      # Or the sweep has reproduced its own input. The criterion above asks
-      # the K partitions to agree with EACH OTHER, which a stable
-      # disagreement between the coarsest and the finest resolution can deny
-      # forever: on 6 of 8 Pooideae networks the sweep stopped changing after
-      # ~10 iterations and every further iteration rebuilt the same
-      # co-classification, the same consensus graph and the same partitions
-      # until max_consensus_iter.
-      #
-      # This is a stopping heuristic, not a proof of a fixed point. The
-      # sweep is seeded per iteration (.task_seed(seed_root, 100L + iter,
-      # ri) in consensus_leiden_sweep()), so the map applied at iteration
-      # i + 1 is not the map applied at iteration i and one reproduction
-      # does not entail the next. What is checked is that stopping here
-      # agrees with running the full budget: on all 8 Pooideae networks the
-      # break fires at 5-12 iterations and returns the same partition, with
-      # the same n_modules, as max_consensus_iter = 1000.
-      settled <- identical(
-        lapply(new_memberships, .partition_id),
-        lapply(memberships, .partition_id)
-      )
-
-      memberships <- new_memberships
-      if (converged || settled) break
+      memberships <- initial_memberships
+      break
     }
 
-    membership <- pick_best_partition(memberships, g)
+    consensus_el <- edge_list_0[keep, , drop = FALSE] + 1L
+    g_consensus <- igraph::make_empty_graph(n = n_genes, directed = FALSE)
+    igraph::V(g_consensus)$name <- genes
+    g_consensus <- igraph::add_edges(
+      g_consensus,
+      as.vector(t(consensus_el)),
+      weight = cc_sparse$excess[keep]
+    )
+
+    new_memberships <- consensus_leiden_sweep(
+      g_consensus, resolutions, n_cores,
+      seed_root = seed_root, iter = iter
+    )
+
+    # Convergence: all K partitions are ~identical (vacuously true for
+    # n_res == 1, but that case is caught by the early return above)
+    converged <- all(vapply(seq_len(n_res - 1L), function(r) {
+      igraph::compare(new_memberships[[r]], new_memberships[[r + 1L]],
+        method = "adjusted.rand"
+      ) > 0.999
+    }, logical(1)))
+
+    # Or the sweep has reproduced its own input. The criterion above asks
+    # the K partitions to agree with EACH OTHER, which a stable
+    # disagreement between the coarsest and the finest resolution can deny
+    # forever: on 6 of 8 Pooideae networks the sweep stopped changing after
+    # ~10 iterations and every further iteration rebuilt the same
+    # co-classification, the same consensus graph and the same partitions
+    # until max_consensus_iter.
+    #
+    # This is a stopping heuristic, not a proof of a fixed point. The
+    # sweep is seeded per iteration (.task_seed(seed_root, 100L + iter,
+    # ri) in consensus_leiden_sweep()), so the map applied at iteration
+    # i + 1 is not the map applied at iteration i and one reproduction
+    # does not entail the next. What is checked is that stopping here
+    # agrees with running the full budget: on all 8 Pooideae networks the
+    # break fires at 5-12 iterations and returns the same partition, with
+    # the same n_modules, as max_consensus_iter = 1000.
+    settled <- identical(
+      lapply(new_memberships, .partition_id),
+      lapply(memberships, .partition_id)
+    )
+
+    memberships <- new_memberships
+    if (converged || settled) break
   }
+
+  membership <- pick_best_partition(memberships, g)
 
   # Ensure integer membership with gene names
   membership <- stats::setNames(as.integer(membership), names(membership))
@@ -552,7 +501,6 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
     method = "leiden_consensus",
     params = list(
       resolutions = resolutions,
-      consensus_threshold = consensus_threshold,
       objective_function = objective_function,
       n_resolutions = n_res,
       n_consensus_iterations = n_consensus_iter,
@@ -572,7 +520,7 @@ detect_modules_consensus <- function(net, resolutions, consensus_threshold,
 #' with resolution > 1 would make all edges repulsive, collapsing to
 #' singletons. Modularity is the correct objective per Jeub et al. (2018).
 #' @noRd
-consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
+consensus_leiden_sweep <- function(graph, resolutions,
                                    n_cores = 1L, seed_root = 0L, iter = 0L) {
   vertex_names <- igraph::V(graph)$name
 
@@ -583,7 +531,7 @@ consensus_leiden_sweep <- function(graph, resolutions, n_iterations,
       graph,
       resolution = res,
       objective_function = "modularity",
-      n_iterations = as.integer(n_iterations)
+      n_iterations = 2L
     )
     mem <- igraph::membership(comm)
     names(mem) <- vertex_names

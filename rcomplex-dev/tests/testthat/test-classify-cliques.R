@@ -79,7 +79,7 @@ test_that("classify_cliques returns correct structure", {
   expect_true(is.data.frame(result))
   expected_cols <- c(
     "hog", "classification", "n_species", "best_mean_q",
-    "trait_groups", "stability_class", "persistence", "robust"
+    "trait_groups", "stability_class", "robust"
   )
   expect_true(all(expected_cols %in% names(result)))
 })
@@ -295,7 +295,7 @@ test_that("robust flag without annotations is NA", {
 })
 
 
-test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
+test_that("robust flag is TRUE when stability results are provided", {
   setup <- make_classify_edges()
 
   stab <- list(
@@ -312,72 +312,17 @@ test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
     stability_class = 1L
   )
 
-  # Mock sweep: HOG1 survived at multiplier 2
-  sweep <- list(
-    survival = data.frame(
-      clique_idx = 1L, hog = "HOG1",
-      multiplier = 2, survived = TRUE,
-      jaccard = 1.0, n_species_orig = 4L,
-      n_species_new = 4L,
-      stringsAsFactors = FALSE
-    )
-  )
-
   result <- classify_cliques(setup$edges, setup$target, setup$trait,
-    stability = stab, sweep = sweep,
-    min_stability_class = 1L,
-    min_persistence = 1.5
+    stability = stab
   )
 
   hog1 <- result[result$hog == "HOG1", ]
   expect_false(is.na(hog1$stability_class))
-  expect_false(is.na(hog1$persistence))
-  expect_equal(hog1$persistence, 2)
   expect_true(hog1$robust)
 
-  # HOGs without stability/sweep data should not be robust
+  # HOGs without stability data should not be robust
   hog5 <- result[result$hog == "HOG5", ]
   expect_false(isTRUE(hog5$robust))
-})
-
-
-test_that("robust is FALSE when stability passes but sweep fails", {
-  setup <- make_classify_edges()
-
-  stab <- list(
-    stability = data.frame(
-      clique_idx = 1L, hog = "HOG1",
-      k = 1L,
-      n_subsets = 2L, n_stable = 2L,
-      stability_score = 1.0,
-      species_present = "SP_A,SP_B",
-      traits = "annual",
-      sole_rep = FALSE,
-      stringsAsFactors = FALSE
-    ),
-    stability_class = 1L
-  )
-
-  # Sweep: HOG1 did NOT survive at any multiplier
-  sweep <- list(
-    survival = data.frame(
-      clique_idx = 1L, hog = "HOG1",
-      multiplier = 2, survived = FALSE,
-      jaccard = 0.0, n_species_orig = 4L,
-      n_species_new = NA_integer_,
-      stringsAsFactors = FALSE
-    )
-  )
-
-  result <- classify_cliques(setup$edges, setup$target, setup$trait,
-    stability = stab, sweep = sweep,
-    min_stability_class = 1L,
-    min_persistence = 1.5
-  )
-
-  hog1 <- result[result$hog == "HOG1", ]
-  # Stability passes but persistence is NA (never survived) -> robust FALSE
-  expect_false(hog1$robust)
 })
 
 
@@ -422,10 +367,7 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
   trait <- setup$trait
 
   # Find cliques — need trait-exclusive ones for stability to track
-  cliques <- find_cliques(setup$edges, target,
-    min_species = 2L,
-    edge_type = "conserved"
-  )
+  cliques <- find_cliques(setup$edges, target, min_species = 2L)
   if (nrow(cliques) == 0) skip("No cliques found for stability test")
 
   # clique_stability now tests ALL cliques structurally.

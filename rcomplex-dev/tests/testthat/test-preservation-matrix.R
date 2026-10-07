@@ -223,13 +223,12 @@ test_that("preservation_matrix_test returns the documented structure", {
 
   expect_type(res, "list")
   expect_true(all(c(
-    "observed", "statistic", "form", "class_means",
+    "observed", "form", "class_means",
     "rows_per_pair", "free", "blocked", "p_free",
     "p_blocked", "saturation", "n_rows", "n_pairs",
     "n_excluded"
   ) %in% names(res)))
   expect_equal(res$form, "difference")
-  expect_equal(res$statistic, "zsummary")
   # 4 genera give 8 species and choose(8, 2) = 28 contrasts, of which the 4
   # within-genus ones are excluded.
   expect_equal(res$n_pairs, 24L)
@@ -384,96 +383,19 @@ test_that("saturation reports the resolution of the supplied q-values", {
 })
 
 
-test_that("saturation reports the global BH floor the matrix would need", {
-  fix <- make_pmt_fixture()
-  n_q <- nrow(fix$classification)
-
-  res <- preservation_matrix_test(fix$classification, fix$group,
-    n_perm_pres = 20000
-  )
-
-  # q_value from preservation_paired() is corrected per contrast, over a
-  # dozen or two modules. Read as one all-pairs analysis the population is
-  # every module-direction, and BH over n_tests of them cannot reach below
-  # n_tests / (n_perm + 1) whatever the data says.
-  expect_equal(res$saturation$p_min_pres, 1 / 20001)
-  expect_equal(res$saturation$q_floor_global, n_q / 20001)
-  expect_lt(res$saturation$q_floor_global, 0.05)
-
-  # At a low n_perm no global correction is available at all, and that is
-  # worth saying out loud rather than leaving in a list element.
-  w <- capture_warnings(
-    low <- preservation_matrix_test(fix$classification, fix$group,
-      n_perm_pres = 2000
-    )
-  )
-  expect_true(any(grepl("global Benjamini-Hochberg", w)))
-  expect_equal(low$saturation$q_floor_global, n_q / 2001)
-  expect_gt(low$saturation$q_floor_global, 0.05)
-
-  # Unsupplied, the field is NA rather than a guess, and nothing warns.
-  plain <- preservation_matrix_test(fix$classification, fix$group)
-  expect_true(is.na(plain$saturation$p_min_pres))
-  expect_true(is.na(plain$saturation$q_floor_global))
-  expect_error(
-    preservation_matrix_test(fix$classification, fix$group,
-      n_perm_pres = 0
-    ),
-    "n_perm_pres must be"
-  )
-})
-
-
-test_that("statistic = zsummary_raw switches the effect column", {
-  fix <- make_pmt_fixture()
-  cls <- fix$classification
-  # Give the raw column the opposite signal so the two cannot coincide.
-  disc <- fix$group[cls$reference] != fix$group[cls$test]
-  cls$Zsummary <- 10 + 3 * disc
-
-  res <- suppressWarnings(preservation_matrix_test(
-    cls, fix$group,
-    block = fix$block, statistic = "zsummary_raw"
-  ))
-
-  expect_equal(res$statistic, "zsummary_raw")
-  expect_equal(res$observed, -3)
-  expect_error(
-    preservation_matrix_test(cls[, setdiff(names(cls), "Zsummary")],
-      fix$group,
-      statistic = "zsummary_raw"
-    ),
-    "missing columns"
-  )
-})
-
-
-test_that("within-block rows are excluded and the exclusion is fixed", {
+test_that("within-block rows are excluded", {
   fix <- make_pmt_fixture()
 
-  kept <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    exclude_within_block = FALSE
-  ))
   dropped <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
     block = fix$block
   ))
 
-  expect_equal(kept$n_excluded, 0L)
-  expect_equal(kept$n_pairs, 28L)
+  expect_equal(dropped$n_excluded, 4L * 2L * 4L)
   expect_equal(
-    kept$observed,
-    pmt_manual_diff(fix$classification, fix$group, fix$block,
-      exclude = FALSE
-    )
+    dropped$observed,
+    pmt_manual_diff(fix$classification, fix$group, fix$block)
   )
-  # Every within-genus pair is trait-discordant in this design, so keeping
-  # them changes the discordant mean and hence the statistic.
-  expect_false(isTRUE(all.equal(kept$observed, dropped$observed)))
-  # The label space is a property of the species, not of which rows survive.
-  expect_equal(kept$free$n_labellings, dropped$free$n_labellings)
   expect_true(all(!dropped$rows_per_pair$same_block))
 })
 
@@ -487,7 +409,7 @@ test_that("block = NULL runs the free null only", {
   expect_true(is.na(res$p_blocked))
   expect_null(res$block)
   expect_true(all(is.na(res$rows_per_pair$same_block)))
-  # Without a block nothing is excluded, whatever exclude_within_block says.
+  # Without a block nothing is excluded.
   expect_equal(res$n_excluded, 0L)
   expect_equal(res$n_pairs, 28L)
 })
@@ -569,50 +491,6 @@ test_that("a species outside group is dropped with a warning", {
 })
 
 
-test_that("a space too large to enumerate is sampled reproducibly", {
-  fix <- make_pmt_fixture()
-
-  set.seed(11)
-  a <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    n_perm = 200L, enum_max = 5L
-  ))
-  set.seed(11)
-  b <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    n_perm = 200L, enum_max = 5L
-  ))
-
-  expect_false(a$free$exact)
-  expect_equal(a$free$n_scored, 200L)
-  expect_equal(a$free$p_min, 1 / 201)
-  # Sampled nulls do not contain the observed labelling, hence (r + 1)/(m + 1)
-  # and a p-value that can never be 0.
-  expect_gte(a$free$p_value, 1 / 201)
-  expect_equal(a$free$null_distribution, b$free$null_distribution)
-  expect_equal(a$p_free, b$p_free)
-  # The label space is still reported at its true size, not at the draw count.
-  expect_equal(a$free$n_labellings, 70)
-})
-
-
-test_that("n_perm is ignored, with a message, when a null is enumerated", {
-  fix <- make_pmt_fixture()
-
-  expect_message(
-    suppressWarnings(preservation_matrix_test(
-      fix$classification, fix$group,
-      n_perm = 500L
-    )),
-    "enumerated exactly"
-  )
-  # The default leaves n_perm unspoken, so an enumerated null says nothing.
-  expect_silent(preservation_matrix_test(fix$classification, fix$group))
-})
-
-
 test_that("an unreachable p-value floor is warned about", {
   fix <- make_pmt_fixture()
 
@@ -658,14 +536,6 @@ test_that("preservation_matrix_test validates its inputs", {
     ),
     "block missing entries"
   )
-  expect_error(
-    preservation_matrix_test(cls, fix$group, n_perm = 0),
-    "positive whole number"
-  )
-  expect_error(
-    preservation_matrix_test(cls, fix$group, enum_max = -1),
-    "positive number"
-  )
   # A trait taking one value over the tested species has no contrast at all.
   flat <- stats::setNames(
     rep("annual", length(fix$group)),
@@ -709,38 +579,6 @@ test_that("uneven blocks give the product of per-block label spaces", {
   # 3 + 6 within-block pairs, both directions, one module each.
   expect_equal(res$n_excluded, 18L)
   expect_equal(res$n_pairs, choose(8L, 2L) - 9L)
-})
-
-
-test_that("the sampled within-block null still permutes within blocks", {
-  fix <- make_pmt_fixture()
-
-  exact <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block
-  ))
-  set.seed(4)
-  samp <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    n_perm = 300L, enum_max = 5L
-  ))
-
-  expect_false(samp$blocked$exact)
-  # Every draw must be one of the 16 labellings the blocks allow, so its
-  # statistic must be one the exact null already holds. A free permutation
-  # in the sampled branch -- the documented route in, via enum_max -- would
-  # leave that set at once and silently swap the phylogenetically
-  # controlled null for the free one.
-  in_space <- vapply(samp$blocked$null_distribution, function(v) {
-    any(abs(v - exact$blocked$null_distribution) < 1e-8)
-  }, logical(1))
-  expect_true(all(in_space))
-  # Non-vacuous: the free space does hold values the blocks cannot reach.
-  free_only <- vapply(exact$free$null_distribution, function(v) {
-    !any(abs(v - exact$blocked$null_distribution) < 1e-8)
-  }, logical(1))
-  expect_gt(sum(free_only), 0L)
 })
 
 
@@ -894,34 +732,6 @@ test_that("an unbalanced multilevel design ties fewer than g! labellings", {
 })
 
 
-test_that("a sampled null reports its floor over draws, not labellings", {
-  fix <- make_pmt_fixture()
-
-  set.seed(11)
-  sampled <- capture_warnings(
-    samp <- preservation_matrix_test(fix$classification, fix$group,
-      block = fix$block, n_perm = 200L, enum_max = 5L
-    )
-  )
-  enumerated <- capture_warnings(
-    preservation_matrix_test(fix$classification, fix$group,
-      block = fix$block
-    )
-  )
-
-  # A drawn labelling can repeat, so the tie count and p_min of a sampled
-  # null describe the draws and not the space: reporting them as
-  # labellings would claim a design property the run never measured.
-  expect_true(any(grepl("draws share the maximum", sampled)))
-  expect_false(any(grepl("labellings share the maximum", sampled)))
-  expect_true(any(grepl("labellings share the maximum", enumerated)))
-  expect_gt(samp$blocked$n_tied_max, 2L)
-  expect_equal(samp$blocked$p_min, 1 / 201)
-  # The space itself is still reported at its true size.
-  expect_equal(samp$blocked$n_labellings, 16)
-})
-
-
 test_that("preservation_matrix_test consumes a real preservation_paired run", {
   fx <- make_pmt_real()
   pairs <- rcomplex:::all_species_pairs(fx$species)
@@ -932,14 +742,13 @@ test_that("preservation_matrix_test consumes a real preservation_paired run", {
   ))
   res <- suppressWarnings(preservation_matrix_test(
     paired$classification, fx$group,
-    block = fx$block, n_perm_pres = 50L
+    block = fx$block
   ))
 
   # The column names are the contract: reference, test, Zsummary_std and
   # q_value as preservation_paired() writes them, not as a fixture
   # imitates them.
   expect_equal(res$form, "difference")
-  expect_equal(res$statistic, "zsummary")
   expect_true(is.finite(res$observed))
   # 4 species, 6 contrasts x 2 directions x 3 modules, of which the two
   # within-block contrasts are excluded.
@@ -986,18 +795,11 @@ test_that("a designated within-genus table cannot be tested at all", {
   # Every within-genus pair is one annual against one perennial, so the
   # concordant side of the difference has no rows to average. This is the
   # justification for running all pairs: without between-genus contrasts
-  # the statistic is undefined, whichever way the exclusion is set.
+  # the statistic is undefined.
   expect_true(all(fx$group[cls$reference] != fx$group[cls$test]))
   expect_error(
     preservation_matrix_test(cls, fx$group, block = fx$block),
     "leaves nothing to test"
-  )
-  expect_error(
-    preservation_matrix_test(cls, fx$group,
-      block = fx$block,
-      exclude_within_block = FALSE
-    ),
-    "one side of the statistic empty"
   )
 })
 
