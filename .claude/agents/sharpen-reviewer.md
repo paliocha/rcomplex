@@ -21,8 +21,9 @@ Checklist, each a yes/no with evidence:
 - New exported function, new argument, new object slot, or new helper
   that duplicates an existing `.helper` in `R/`?
 - Column or argument name outside the plan vocabulary (`species1
-  species2 gene1 gene2 hog p_value q_value effect_size power
-  Zsummary_std`, `block partition clade`, `n_cores seed alpha`)?
+  species2 gene1 gene2 hog sign score evalue p_value q_value
+  effect_size power n_tests Zsummary_std`, `block partition clade
+  sign`, `n_cores seed alpha`)?
 - A Tier C or Tier B name still exported, or still mentioned in
   README, vignettes, CLAUDE.md?
 - Any `@description` over 3 sentences, any user-facing sentence over

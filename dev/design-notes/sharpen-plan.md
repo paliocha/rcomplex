@@ -189,7 +189,7 @@ Acceptance commands run from the package root after
 `Rscript -e 'devtools::document()' && R CMD INSTALL .`.
 
 Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
--> WP6 -> WP12 -> WP8 -> WP9.
+-> {WP13 || WP14} -> WP6 -> WP12 -> WP8 -> WP9.
 
 ### WP0 Branch + surface snapshot (serial, first)
 
@@ -286,7 +286,88 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
 - Accept: surface test: no export has > 8 named formals; check OK.
 - Deps: WP4.
 
-### WP6 Driver (serial, after WP7, WP10, WP11)
+### WP13 Scores and E-values (parallel with WP14)
+
+- Files: `R/comparison.R` (`comparison_to_edges()`), `R/specificity.R`
+  if the rank path builds its frame elsewhere, `R/module_preservation.R`
+  (one line), tests, `man/`.
+- Why: BLAST reports a bit score (evidence, comparable across searches)
+  and an E-value (expected chance hits in a database this size). A
+  user reads E < 1e-3 without a statistics course. rcomplex reports
+  `p_value`, `q_value`, `effect_size`, `power`; the ingredients are
+  there, the two BLAST numbers are not.
+- Do: two columns on every edge table, same definitions on every path
+  (hypergeometric, rank, permutation), computed on the combined
+  p-value (`pval_combine`, so `max` by default):
+  `score = -log2(p_value)` in bits, the evidence against chance;
+  `evalue = n_tests * p_value`, where `n_tests` is the number of
+  ortholog pairs tested in that species-pair comparison (the rows of
+  the direction with more tests; both directions share the pair set
+  up to genes absent from a network). This is BLAST's own relation,
+  `E = N * 2^(-S)`, so a user who knows BLAST knows these. `effect_size`
+  stays as the "percent identity" of the hit: magnitude, not evidence.
+  `score` is not `log2(effect_size)` on purpose: a fold enrichment of
+  8 on a 3-gene neighbourhood is no evidence, and the hypergeometric p
+  already weighs magnitude against neighbourhood size. Permutation
+  p-values floor at `1 / (n_perm + 1)`, so `score` floors with them;
+  `pvalue_resolution()` already says so. `module_preservation()` gains
+  the same `evalue` on its calibrated p with `n_tests` = modules
+  tested. No new argument anywhere; `n_tests` is a column, not a
+  parameter. `print.rcomplex()` (WP6) and the quickstart show
+  `score` and `evalue` first, then `q_value`, `effect_size`, `power`.
+- Accept: `evalue == n_tests * p_value` and `score == -log2(p_value)`
+  on the fixture edges for all three methods; `sum(evalue < 1)` on a
+  `null_network()` comparison is at most about 1 (one chance hit
+  expected); check OK.
+- Deps: WP5.
+
+### WP14 Signed networks: anticorrelation (parallel with WP13)
+
+- Files: `R/network.R`, `R/network-sparse.R` (`.net_cpp_args()`),
+  `src/mutual_rank.cpp`, `src/network_block.cpp`, `R/null_network.R`
+  and `R/comparison.R` only where `abs_cor` is forwarded, tests,
+  `man/`, `vignettes/articles/methods.Rmd` (one paragraph).
+- Why: today a negative correlation ranks last and never enters a
+  network (`abs_cor = FALSE`, the default), or loses its sign
+  (`abs_cor = TRUE`). Neither can report conserved anticorrelation
+  (the same repressive partners in both species) or a sign flip (the
+  same partners, positive in one species and negative in the other),
+  which is rewiring with a mechanism and is what the proposal's
+  "regulatory rewiring" means at the co-expression level.
+- Do: `compute_network(sign = c("positive", "negative", "unsigned"))`
+  replaces `abs_cor`. The kernels already apply `abs_cor` in one line
+  per column (`col[r] = abs_cor ? fabs(v) : v` in `mutual_rank.cpp`
+  and `network_block.cpp`); it becomes a three-way: negate for
+  `negative`, `fabs` for `unsigned`, identity for `positive`. MR,
+  density threshold, sparse store, blockwise validity rule and every
+  consumer are unchanged, because MR ranks whatever it is given. `sign`
+  joins `params` and `.net_cpp_args()` so `null_network()` and
+  `density_sweep()` rebuild with the same sign. Nothing else changes:
+  `find_coexpressologs(list(A = net_A_pos, B = net_B_neg))` already
+  tests whether A's positive partners are B's negative partners,
+  because the test reads membership only. The driver (WP6) takes the
+  same `sign` argument plus `"both"`: builds positive and negative
+  networks per species, runs the four comparisons, and the edge table
+  gains a `sign` column with values `+` (positive in both), `-`
+  (negative in both), `flip` (positive in one, negative in the other,
+  either way). Gene-graph cliques keep the column and the classifiers
+  ignore it; `sign` is a filter for the user, not a tier.
+- Caveats to write into `@details`, not into code: negative
+  correlations are rarer and weaker in RNA-seq, a top-3 % negative
+  network exists at any n, and WP12's `r_threshold` line is what tells
+  the user whether it holds anything (r >= -0.3 at n = 20 is noise).
+  No default changes: `sign = "positive"`.
+- Accept: `compute_network(x, sign = "negative")$network` equals
+  `compute_network(-x_cor_proxy)`'s where the proxy flips half the
+  genes (`x[flip, ] <- -x[flip, ]` makes those pairs anticorrelated:
+  the negative network of `x` must contain exactly the flipped pairs
+  the positive network of the proxy contains); `sign = "unsigned"`
+  reproduces the old `abs_cor = TRUE` network bit for bit on the
+  fixture; blockwise and dense agree for every sign; `grep abs_cor R/
+  src/ tests/` empty; check OK.
+- Deps: WP11 (same files; WP11 merges first).
+
+### WP6 Driver (serial, after WP7, WP10, WP11, WP13, WP14)
 
 - Files: `R/rcomplex-class.R` (rewrite, target < 300 lines),
   `tests/testthat/test-rcomplex-class.R` (rewrite), `man/`.
@@ -295,9 +376,14 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
   ```r
   rcomplex(expr = NULL, orthologs, networks = NULL, block = NULL,
            clades = NULL, density = 0.03,
+           sign = c("positive", "negative", "unsigned", "both"),
            method = c("hypergeometric", "rank"), alpha = 0.1,
-           modules = FALSE, n_cores = 1L, seed = NULL)
+           modules = FALSE, null = FALSE, n_cores = 1L, seed = NULL)
   ```
+
+  Twelve formals: over the WP5 budget of eight by design, the driver
+  is the one place the knobs meet; the surface test (WP9) exempts it
+  by name.
 
   `expr`: named list (species) of matrices or SummarizedExperiments.
   `networks`: named list of network objects instead, from
@@ -322,7 +408,7 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
   < 30 s and checks tier counts, once from `expr` and once from
   `networks = lapply(expr, compute_network)` with identical edges;
   `print()` snapshot; rng-contract test passes; check OK.
-- Deps: WP7, WP10, WP11, gate G4.
+- Deps: WP7, WP10, WP11, WP13, WP14, gate G4.
 
 ### WP7 Nested clades, MDO I (parallel with WP10, WP11)
 
@@ -485,8 +571,9 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
 
 - Files: `tests/testthat/test-surface.R`.
 - Do: replace the snapshot with budgets: exports <= 30; named formals
-  <= 8 per export; `R/*.R` <= 1,500 lines each; `README.md` <= 150
-  lines. Snapshot of the export list stays so additions are explicit.
+  <= 8 per export except `rcomplex()`; `R/*.R` <= 1,500 lines each;
+  `README.md` <= 150 lines. Snapshot of the export list stays so
+  additions are explicit.
 - Accept: test passes on `refactor/sharpen`; break any budget locally
   and watch it fail.
 - Deps: WP8.
@@ -501,6 +588,8 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
 | G4 | WP6 | Driver returns plain list; container S3 methods deleted? | yes |
 | G5 | WP7 | `species_trait` renamed to `clades` with no alias? | yes |
 | G6 | WP10 | `parse_orthologs()` deleted in favour of `read_orthologs()`? Long table `species gene hog` as the one ortholog shape? | yes |
+| G7 | WP13 | `score = -log2(p)` bits and `evalue = n_tests * p` as the two headline columns, `effect_size` kept as magnitude? | yes |
+| G8 | WP14 | `abs_cor` replaced by `sign`; driver `sign = "both"` runs four comparisons and tags `+ - flip`? | yes |
 
 Out of scope, on purpose: rank-vs-hypergeometric default (needs Orion
 validation, design note 11.15); Bioconductor conventions (MDO V);
@@ -530,7 +619,7 @@ prompt, the plan file is the source of truth.
 |---|---|---|---|
 | `sharpen-census.md` | haiku | Read, Grep, Glob, Bash | pre-WP2 and after every merge: `dev/sharpen-census.R`, grep `prepare_data/` for Tier C names |
 | `sharpen-cutter.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP0, WP1, WP2, WP3, WP4, WP5, WP9: work defined by a list, no design |
-| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10, WP11, WP12: new functions with a stated signature |
+| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10-WP14: new functions with a stated signature |
 | `sharpen-docs.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP8 |
 | `sharpen-reviewer.md` | sonnet | Read, Grep, Glob, Bash | every PR before merge, read-only |
 
@@ -551,7 +640,8 @@ disjoint functions, so WP2 deletes the Tier C methods and WP3 leaves
 `rcomplex-class.R` alone except `characterize_hubs`. WP7, WP10, WP11
 are disjoint by file (`clique_*`/`cliques.R`/`preservation_matrix.R`;
 `orthologs.R`/`as_network.R`; `split_layers.R`/`network.R`/
-`null_network.R`).
+`null_network.R`). WP13 (`comparison.R`) and WP14 (`network.R`,
+kernels) are disjoint; WP14 waits for WP11's `network.R` merge.
 
 Fable cost per WP: one launch, one report read, one reviewer report
 read, one merge. Reports are capped at 30 lines in the agent bodies so
@@ -574,6 +664,7 @@ res
 #>   HVUL  19,877 genes  20 samples  density 0.03  r >= 0.69
 #>   edges 4,112   cliques 1,203   complete_conserved 611 ...
 summary(res)       # classification table; with null = TRUE, calls_null
+head(res$edges)    # gene1 gene2 hog sign score evalue q_value effect_size power
 write_rcomplex(res, "out/")
 ```
 

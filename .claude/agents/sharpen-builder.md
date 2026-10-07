@@ -1,6 +1,6 @@
 ---
 name: sharpen-builder
-description: Implements one new-code work package of the rcomplex sharpen plan from a stated signature (driver, nested clades, input readers, partition aggregation, sample-size reporting). Use for WP6, WP7, WP10, WP11, WP12. Runs in a worktree.
+description: Implements one new-code work package of the rcomplex sharpen plan from a stated signature (driver, clades, input readers, partition aggregation, scores and E-values, signed networks, sample-size reporting). Use for WP6, WP7, WP10-WP14. Runs in a worktree.
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: opus
 skills:
