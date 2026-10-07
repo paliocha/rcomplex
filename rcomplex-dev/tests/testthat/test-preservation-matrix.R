@@ -1035,8 +1035,8 @@ test_that("the two 16-point floors are 2/16 and 1/16 respectively", {
     block = fx$block
   ))
   # Swapping the two trait names everywhere reproduces the statistic, so
-  # the blocked maximum is always shared: 2/16, never tag_permutation()'s
-  # 1/16, which the docs used to quote for a matrix-test design.
+  # the blocked maximum is always shared: 2/16, never 1/16, which the docs
+  # used to quote for a matrix-test design.
   expect_equal(res$blocked$p_attainable, 2 / 16)
   expect_gte(res$blocked$n_tied_max, 2L)
   expect_equal(res$free$p_attainable, 2 / 70)
