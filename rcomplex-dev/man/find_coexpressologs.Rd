@@ -99,16 +99,28 @@ per species.}
 }
 \value{
 Data frame with columns \code{gene1}, \code{gene2},
-\code{species1}, \code{species2}, \code{hog}, \code{q_value},
-\code{effect_size}, \code{jaccard}, \code{power}, \code{type}
+\code{hog}, \code{score}, \code{evalue}, \code{q_value},
+\code{effect_size}, \code{power}, \code{species1}, \code{species2},
+\code{p_value}, \code{n_tests}, \code{jaccard}, \code{type}
 (\code{power} is \code{NA} under \code{method = "permutation"}).
-Ready for
+\code{score} is \code{-log2(p_value)} in bits. \code{evalue} is
+\code{n_tests * p_value}, the expected number of chance hits this
+strong. \code{p_value} combines the two directions like
+\code{pval_combine}. \code{n_tests} counts the ortholog pairs tested
+in that species pair. Ready for
 \code{find_cliques} or \code{classify_cliques}.
 }
 \description{
 Runs the full comparison pipeline for each species pair and combines
 the results into a single edge data frame ready for
 \code{find_cliques}.
+}
+\details{
+\code{score} and \code{evalue} are BLAST's bit score and
+E-value, related as \code{evalue = n_tests * 2^-score}. Under
+\code{method = "permutation"} the p-value is the HOG's, shared by its
+pairs, and it cannot fall below \code{1 / (n_perm + 1)}, so
+\code{score} has a ceiling there (see \code{\link{pvalue_resolution}}).
 }
 \section{Methods}{
 

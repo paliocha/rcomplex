@@ -59,9 +59,19 @@ Data frame with columns:
 \describe{
 \item{gene1}{Gene identifier (gene1)}
 \item{gene2}{Gene identifier (gene2)}
+\item{hog}{Ortholog group identifier}
+\item{score}{Evidence against chance in bits:
+\code{-log2(p_value)}.}
+\item{evalue}{Expected number of pairs this significant by chance:
+\code{n_tests * p_value}.}
 \item{species1}{Species abbreviation for gene1 (\code{species1})}
 \item{species2}{Species abbreviation for gene2 (\code{species2})}
-\item{hog}{Ortholog group identifier}
+\item{p_value}{The two directional p-values combined like
+\code{pval_combine}. Rank-test frames use the calibrated p
+(\code{*.p.emp}) when present. \code{NA} when the comparison has
+no p-value columns.}
+\item{n_tests}{Number of ortholog pairs tested, in the direction
+with more tests.}
 \item{q_value}{Maximum (or minimum, see \code{pval_combine}) of the
 two directional q-values}
 \item{effect_size}{Geometric mean of directional effect sizes}

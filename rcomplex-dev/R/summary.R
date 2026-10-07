@@ -389,13 +389,7 @@ summarize_comparison <- function(comparison,
     )
   )
   if (!is.null(species1) && !is.null(species2)) {
-    out$edges <- data.frame(
-      gene1 = character(0), gene2 = character(0),
-      species1 = character(0), species2 = character(0),
-      hog = character(0), q_value = numeric(0),
-      effect_size = numeric(0), jaccard = numeric(0),
-      power = numeric(0), type = character(0)
-    )
+    out$edges <- .edge_frame()
   }
   out
 }

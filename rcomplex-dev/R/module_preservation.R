@@ -128,6 +128,8 @@
 #'       p-values, the combined `p_value` (raw `pmax`), `p_calibrated` (the
 #'       mixture recalibration described under `calibrate`), `q_value`
 #'       (Benjamini-Hochberg on `p_calibrated`, NOT on `p_value`),
+#'       `evalue` (`p_calibrated` times the number of modules tested: the
+#'       expected count of modules this preserved by chance),
 #'       `Z.avg.weight`, `Z.cor.degree`, `Zsummary`, `Zsummary_null_sd`,
 #'       `Zsummary_std`, and `medianRank` -- the mean of the `avg.weight`
 #'       and `cor.degree` ranks across the tested modules, 1 = strongest.
@@ -501,6 +503,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     p_value = p_comb,
     p_calibrated = p_cal,
     q_value = q_comb,
+    evalue = sum(!is.na(p_cal)) * p_cal,
     Z.avg.weight = z[, d],
     Z.cor.degree = z[, cc],
     Zsummary = (z[, d] + z[, cc]) / 2,

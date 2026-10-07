@@ -84,9 +84,10 @@
 #' Empty result template for [gene_clique_graph()]
 #'
 #' @param has_effect Whether an `effect_size` column is carried.
+#' @param has_score Whether a `score` column is carried.
 #' @return A zero-row data frame with the full column set.
 #' @noRd
-.gcg_empty <- function(has_effect) {
+.gcg_empty <- function(has_effect, has_score) {
   out <- data.frame(
     clique_id = character(0), hog = character(0),
     species = character(0), gene = character(0),
@@ -95,6 +96,7 @@
     stringsAsFactors = FALSE
   )
   if (has_effect) out$mean_effect_size <- numeric(0)
+  if (has_score) out$score <- numeric(0)
   out
 }
 
@@ -144,6 +146,10 @@
 #' within-species edge between two distinct paralogs is kept, and shows
 #' up as `n_species < n_members`.
 #'
+#' The clique `score` adds the edge scores. Log-odds add, so the sum is
+#' the log-likelihood ratio of the conserved subnetwork (NetworkBLAST),
+#' and it grows with clique size on purpose.
+#'
 #' @section Duplicate rows:
 #' Two rows describing the same undirected pair within one HOG collapse
 #' to the more significant of the two, broken on `effect_size`
@@ -158,8 +164,8 @@
 #'
 #' @param edges Data frame of co-expressolog calls, as returned by
 #'   \code{\link{find_coexpressologs}}: columns `gene1`, `gene2`,
-#'   `species1`, `species2`, `hog` and `q_value`. An `effect_size`
-#'   column is used when present.
+#'   `species1`, `species2`, `hog` and `q_value`. The `effect_size`
+#'   and `score` columns are used when present.
 #' @param min_size Minimum number of nodes in a reported clique
 #'   (default 3, matching the published workflow).
 #' @param alpha_graph Edges with `q_value < alpha_graph` build the
@@ -191,6 +197,8 @@
 #'       `effect_size`. Prefer it over `mean_q` for ranking: q-values
 #'       saturate at the permutation floor and cannot separate cliques
 #'       once they get there}
+#'     \item{score}{Present only when `edges` carries `score`. The sum
+#'       of the clique edges' `score`, in bits}
 #'     \item{mean_q_floor, n_cliques_at_q_floor}{Smallest clique
 #'       `mean_q` in the run and how many cliques are tied there. A
 #'       large tie count means `mean_q` cannot rank those cliques at
@@ -252,11 +260,12 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   .gcg_check_ids(edges)
 
   has_effect <- "effect_size" %in% names(edges)
+  has_score <- "score" %in% names(edges)
   keep <- !is.na(edges$q_value) & edges$q_value < alpha_graph
   edges <- edges[keep, , drop = FALSE]
   if (nrow(edges) == 0L) {
     return(.gcg_graph_attrs(
-      .gcg_empty(has_effect), alpha_graph, min_size,
+      .gcg_empty(has_effect, has_score), alpha_graph, min_size,
       NA_real_, NA_real_, 0L
     ))
   }
@@ -269,6 +278,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   } else {
     rep(NA_real_, nrow(edges))
   }
+  sv <- if (has_score) as.numeric(edges$score) else rep(NA_real_, nrow(edges))
   hog_chr <- as.character(edges$hog)
 
   by_hog <- split(seq_len(nrow(edges)), hog_chr)
@@ -282,6 +292,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   mq_v <- numeric(0)
   xq_v <- numeric(0)
   me_v <- numeric(0)
+  sc_v <- numeric(0)
   j <- 0L
   n_capped <- 0L
   n_dropped <- 0L
@@ -322,6 +333,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     i2 <- i2[sel]
     eq <- qv[idx][sel]
     ee <- ev[idx][sel]
+    es <- sv[idx][sel]
 
     # Paralog copy cap, as in find_cliques(): every paralog combination
     # is its own clique, so c copies per species in a near-complete
@@ -346,6 +358,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       i2 <- i2[ke]
       eq <- eq[ke]
       ee <- ee[ke]
+      es <- es[ke]
     }
 
     g <- igraph::make_graph(as.vector(rbind(i1, i2)),
@@ -370,6 +383,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       mq_v[j] <- mean(eq[hit])
       xq_v[j] <- max(eq[hit])
       me_v[j] <- if (has_effect) mean(ee[hit]) else NA_real_
+      sc_v[j] <- sum(es[hit])
     }
   }
 
@@ -383,7 +397,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 
   if (j == 0L) {
     return(.gcg_graph_attrs(
-      .gcg_empty(has_effect), alpha_graph, min_size,
+      .gcg_empty(has_effect, has_score), alpha_graph, min_size,
       min(qv), NA_real_, 0L
     ))
   }
@@ -403,6 +417,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (has_effect) {
     out$mean_effect_size <- rep(me_v, times = nm_v)
   }
+  if (has_score) out$score <- rep(sc_v, times = nm_v)
   # Tie counts go through the tolerant comparison for the same reason
   # pvalue_resolution() does: mean_q is a mean over a different edge
   # subset per clique, so two mathematically equal values need not be
