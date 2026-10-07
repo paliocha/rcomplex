@@ -94,8 +94,11 @@ cor_rfast <- function(x, method = "pearson") {
 #' @param norm_method Normalization method: `"MR"` (Mutual Rank, default) or
 #'   `"CLR"` (Context Likelihood Ratio).
 #' @param density Fraction of top edges to keep (default 0.03 = 3%).
-#' @param abs_cor If `TRUE`, take absolute value of correlations before
-#'   normalization (default `FALSE`).
+#' @param sign `"positive"` (default) ranks the strongest positive
+#'   correlations first. `"negative"` negates every correlation between
+#'   two genes before normalization, so the strongest anticorrelations
+#'   rank first. With `partition`, the function negates the correlation
+#'   of each level before it sets negative values to zero.
 #' @param mr_log_transform If `FALSE` (default), use the raw MR formula
 #'   matching the original RComPlEx R Markdown. If `TRUE`, use Obayashi &
 #'   Kinoshita (2009) log-normalized formula (values in \[0,1\]).
@@ -143,8 +146,7 @@ cor_rfast <- function(x, method = "pearson") {
 #'   correlations to zero and takes the mean over the levels. Then it
 #'   normalises the result. The function drops levels with fewer than 5
 #'   samples and tells you which. At least two levels must remain.
-#'   `abs_cor` has no effect, because no correlation is negative. Use the
-#'   dense build: `block_size` must be `NULL`.
+#'   Use the dense build: `block_size` must be `NULL`.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -165,6 +167,15 @@ cor_rfast <- function(x, method = "pearson") {
 #'       at thresholds below `store_threshold` are refused (see
 #'       [as_sparse_network()]).}
 #'   }
+#'
+#' @details
+#' With `sign = "negative"` a gene keeps its own correlation of 1, so it
+#' ranks itself first in both signs. Negative correlations are rarer and
+#' weaker than positive ones in RNA-seq data. The density threshold still
+#' keeps the top fraction of pairs, so a negative network exists at any
+#' sample size even when it holds only noise: at n = 20 samples, r >= -0.3
+#' is noise. Check the weakest correlation that passed the threshold
+#' before you read a negative network.
 #'
 #' @section Gene universe:
 #' Networks are built on all supplied genes and downstream tests use the
@@ -209,7 +220,7 @@ setMethod("compute_network", "matrix", function(
   cor_method = c("pearson", "spearman"),
   norm_method = c("MR", "CLR"),
   density = 0.03,
-  abs_cor = FALSE,
+  sign = c("positive", "negative"),
   mr_log_transform = FALSE,
   sparse = TRUE,
   store_density = NULL,
@@ -218,6 +229,7 @@ setMethod("compute_network", "matrix", function(
   partition = NULL) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
+  sign <- match.arg(sign)
   if (is.null(rownames(x))) {
     stop("x must have row names (gene identifiers)")
   }
@@ -297,9 +309,11 @@ setMethod("compute_network", "matrix", function(
     cor_method = cor_method,
     norm_method = norm_method,
     density = density,
-    abs_cor = abs_cor,
+    sign = sign,
     mr_log_transform = mr_log_transform
   )
+  # partition applies the sign per level, before the rectification
+  negate <- sign == "negative" && is.null(partition)
   params$partition <- partition
 
   if (!is.null(block_size)) {
@@ -310,7 +324,7 @@ setMethod("compute_network", "matrix", function(
       )
     }
     slots <- mr_block_network_cpp(
-      .standardise_for_cor(x, cor_method), mr_log_transform, abs_cor,
+      .standardise_for_cor(x, cor_method), mr_log_transform, negate,
       density, store_density, as.integer(min(block_size, n_genes)), n_cores
     )
     # log MR holds a reverse index and its values, so a wide fraction can
@@ -356,6 +370,7 @@ setMethod("compute_network", "matrix", function(
     net <- 0
     for (lv in levels_kept) {
       r <- cor_rfast(x[, partition == lv, drop = FALSE], method = cor_method)
+      if (sign == "negative") r <- -r
       net <- net + pmax(r, 0, na.rm = TRUE)
     }
     net <- net / length(levels_kept)
@@ -364,17 +379,18 @@ setMethod("compute_network", "matrix", function(
 
   # Normalization
   if (norm_method == "MR") {
-    # Clip to [-1, 1], abs() (if abs_cor), MR ranks and zero diagonal are all
-    # done in C++ directly on `net`, which is freshly allocated by cor_fn
+    # Clip to [-1, 1], negation (if negate), MR ranks and zero diagonal are
+    # all done in C++ directly on `net`, which is freshly allocated by cor_fn
     # (refcount 1): in-place mutation is intentional (no n x n temporaries).
-    mutual_rank_inplace_cpp(net, mr_log_transform, abs_cor, n_cores)
+    mutual_rank_inplace_cpp(net, mr_log_transform, negate, n_cores)
   } else {
     # Clip to [-1, 1]
     net[net > 1] <- 1
     net[net < -1] <- -1
 
-    if (abs_cor) {
-      net <- abs(net)
+    if (negate) {
+      net <- -net
+      diag(net) <- -diag(net)
     }
 
     net <- apply_clr_to_cor_cpp(net, n_cores = n_cores)

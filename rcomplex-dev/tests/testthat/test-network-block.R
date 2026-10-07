@@ -15,9 +15,9 @@ block_zt <- function(x, cor_method) {
 
 # No two distinct correlations in one column closer than 1e-12, so BLAS
 # last-bit differences between the two paths cannot swap ranks
-has_near_ties <- function(zt, abs_cor) {
+# (negation keeps the gaps, so one check covers both signs)
+has_near_ties <- function(zt) {
   cm <- pmin(pmax(crossprod(zt), -1), 1)
-  if (abs_cor) cm <- abs(cm)
   # exact ties count too: they may round apart under another BLAS
   near <- vapply(seq_len(ncol(cm)), function(j) {
     any(diff(sort(cm[-j, j])) < 1e-12)
@@ -26,16 +26,17 @@ has_near_ties <- function(zt, abs_cor) {
 }
 
 block_modes <- list(
-  pearson_raw = list(cor = "pearson", log = FALSE, abs = FALSE),
-  pearson_log = list(cor = "pearson", log = TRUE, abs = FALSE),
-  spearman_raw = list(cor = "spearman", log = FALSE, abs = FALSE),
-  pearson_abs = list(cor = "pearson", log = FALSE, abs = TRUE)
+  pearson_raw = list(cor = "pearson", log = FALSE, sign = "positive"),
+  pearson_log = list(cor = "pearson", log = TRUE, sign = "positive"),
+  spearman_raw = list(cor = "spearman", log = FALSE, sign = "positive"),
+  pearson_neg = list(cor = "pearson", log = FALSE, sign = "negative"),
+  pearson_log_neg = list(cor = "pearson", log = TRUE, sign = "negative")
 )
 
 run_block <- function(zt, m, density = 0.03, store_density = 0.05,
                       block_size = 7L, n_cores = 1L) {
   rcomplex:::mr_block_network_cpp(
-    zt, m$log, m$abs, density, store_density, block_size, n_cores
+    zt, m$log, m$sign == "negative", density, store_density, block_size, n_cores
   )
 }
 
@@ -66,10 +67,10 @@ for (mode in names(block_modes)) {
       ref <- compute_network(
         x,
         cor_method = m$cor, density = 0.03, store_density = 0.05,
-        mr_log_transform = m$log, abs_cor = m$abs, sparse = TRUE
+        mr_log_transform = m$log, sign = m$sign, sparse = TRUE
       )
       zt <- block_zt(x, m$cor)
-      expect_false(has_near_ties(zt, m$abs))
+      expect_false(has_near_ties(zt))
       blk <- run_block(zt, m)
       expect_identical(net_slots(blk), net_slots(ref))
       for (bs in c(1L, ncol(zt))) {
@@ -99,7 +100,7 @@ test_that("block network widens the candidate fraction when needed", {
     ref <- compute_network(
       x,
       cor_method = "pearson", density = 0.01, store_density = cs$sd,
-      mr_log_transform = cs$m$log, abs_cor = FALSE, sparse = TRUE
+      mr_log_transform = cs$m$log, sparse = TRUE
     )
     blk <- run_block(zt, cs$m, density = 0.01, store_density = cs$sd)
     expect_identical(net_slots(blk), net_slots(ref))
@@ -138,7 +139,7 @@ test_that("block network matches the dense kernels under exact ties", {
         store_threshold = t_s
       )
     )
-    m_mode <- list(log = lg, abs = FALSE)
+    m_mode <- list(log = lg, sign = "positive")
     for (bs in c(1L, 7L, 40L)) {
       blk <- run_block(zt, m_mode,
         density = 0.05, store_density = 0.1,
@@ -165,7 +166,7 @@ for (mode in names(block_modes)) {
         compute_network(
           x,
           cor_method = m$cor, density = 0.03, store_density = 0.05,
-          mr_log_transform = m$log, abs_cor = m$abs, block_size = bs
+          mr_log_transform = m$log, sign = m$sign, block_size = bs
         )
       }
       ref <- build(NULL)

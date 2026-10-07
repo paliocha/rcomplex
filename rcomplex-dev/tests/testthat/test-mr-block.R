@@ -45,9 +45,11 @@ test_that("mr_block matches the dense block for log MR", {
 })
 
 
-test_that("mr_block matches the dense block with abs_cor", {
+test_that("mr_block matches the dense block for sign = \"negative\"", {
   x <- make_mr_block_expr()
-  net <- compute_network(x, density = 0.05, abs_cor = TRUE, sparse = FALSE)
+  net <- compute_network(x,
+    density = 0.05, sign = "negative", sparse = FALSE
+  )
 
   expect_equal(rcomplex:::mr_block(x, mr_block_genes, net),
     as.matrix(net$network[mr_block_genes, mr_block_genes]),

@@ -13,7 +13,7 @@ compute_network(x, ...)
   cor_method = c("pearson", "spearman"),
   norm_method = c("MR", "CLR"),
   density = 0.03,
-  abs_cor = FALSE,
+  sign = c("positive", "negative"),
   mr_log_transform = FALSE,
   sparse = TRUE,
   store_density = NULL,
@@ -38,8 +38,11 @@ names as gene identifiers, or a
 
 \item{density}{Fraction of top edges to keep (default 0.03 = 3\%).}
 
-\item{abs_cor}{If \code{TRUE}, take absolute value of correlations before
-normalization (default \code{FALSE}).}
+\item{sign}{\code{"positive"} (default) ranks the strongest positive
+correlations first. \code{"negative"} negates every correlation between
+two genes before normalization, so the strongest anticorrelations
+rank first. With \code{partition}, the function negates the correlation
+of each level before it sets negative values to zero.}
 
 \item{mr_log_transform}{If \code{FALSE} (default), use the raw MR formula
 matching the original RComPlEx R Markdown. If \code{TRUE}, use Obayashi &
@@ -93,8 +96,7 @@ computes the correlation within each level. It sets negative
 correlations to zero and takes the mean over the levels. Then it
 normalises the result. The function drops levels with fewer than 5
 samples and tells you which. At least two levels must remain.
-\code{abs_cor} has no effect, because no correlation is negative. Use the
-dense build: \code{block_size} must be \code{NULL}.}
+Use the dense build: \code{block_size} must be \code{NULL}.}
 
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
@@ -126,6 +128,15 @@ Calculates correlation, applies normalization (Mutual Rank or CLR),
 and determines a density-based co-expression threshold. Accepts either
 a numeric matrix or a
 \code{\link[SummarizedExperiment]{SummarizedExperiment}}.
+}
+\details{
+With \code{sign = "negative"} a gene keeps its own correlation of 1, so it
+ranks itself first in both signs. Negative correlations are rarer and
+weaker than positive ones in RNA-seq data. The density threshold still
+keeps the top fraction of pairs, so a negative network exists at any
+sample size even when it holds only noise: at n = 20 samples, r >= -0.3
+is noise. Check the weakest correlation that passed the threshold
+before you read a negative network.
 }
 \section{Gene universe}{
 

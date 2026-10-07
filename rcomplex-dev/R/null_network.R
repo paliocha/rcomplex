@@ -69,7 +69,7 @@ null_network <- function(x, net, seed = NULL, n_cores = 1L,
   p <- net$params
   out <- compute_network(xp,
     cor_method = p$cor_method, norm_method = p$norm_method,
-    density = p$density, abs_cor = p$abs_cor,
+    density = p$density, sign = p$sign,
     mr_log_transform = p$mr_log_transform,
     sparse = TRUE, store_density = net$store_density,
     n_cores = n_cores, block_size = block_size, partition = p$partition

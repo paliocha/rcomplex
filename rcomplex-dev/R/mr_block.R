@@ -10,7 +10,7 @@
 #'
 #' Computes the exact Mutual Rank co-expression values for a subset of
 #' genes from the expression matrix, using the network's stored parameters
-#' (`cor_method`, `abs_cor`, `mr_log_transform`). A sparse network
+#' (`cor_method`, `sign`, `mr_log_transform`). A sparse network
 #' (`compute_network(sparse = TRUE)`) discards values below its
 #' `store_threshold`; this function reconstructs them (for heatmaps or
 #' other visualisations of, say, a module) without rebuilding the dense
@@ -99,13 +99,16 @@ mr_block <- function(x, genes, net) {
   n <- length(universe)
 
   # k x n correlation slice: genes vs the full universe (self included,
-  # as in the full matrix). Clamp and abs as mutual_rank_inplace_cpp().
+  # as in the full matrix). Clamp and negate as mutual_rank_inplace_cpp().
   cm <- stats::cor(t(x[genes, , drop = FALSE]), t(x),
     method = params$cor_method
   )
   cm <- pmin(pmax(cm, -1), 1) # cm first: pmin/pmax keep its dim
-  if (isTRUE(params$abs_cor)) {
-    cm <- abs(cm)
+  if (identical(params$sign, "negative")) {
+    # negate all but each gene's correlation with itself
+    self <- cbind(seq_along(genes), match(genes, universe))
+    cm <- -cm
+    cm[self] <- -cm[self]
   }
 
   # Row i = average ranks of gene i's correlations over all n network
