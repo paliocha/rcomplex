@@ -71,8 +71,7 @@ test_that("CLR normalization produces non-negative values", {
   rownames(expr) <- paste0("gene", 1:20)
 
   result <- compute_network(
-    expr,
-    norm_method = "CLR", density = 0.05, sparse = FALSE
+    expr, norm_method = "CLR", density = 0.05, sparse = FALSE
   )
   vals <- result$network[upper.tri(result$network)]
   expect_true(all(vals >= 0))
@@ -92,6 +91,22 @@ test_that("CLR matches R reference", {
   ref_net <- reference_clr(cor_mat)
 
   expect_equal(result$network, ref_net,
+    tolerance = 1e-10,
+    ignore_attr = TRUE
+  )
+})
+
+test_that("negative CLR matches R reference on -cor", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr,
+    norm_method = "CLR", sign = "negative", density = 0.05, sparse = FALSE
+  )
+  neg <- -cor(t(expr))
+  diag(neg) <- 1
+  expect_equal(result$network, reference_clr(neg),
     tolerance = 1e-10,
     ignore_attr = TRUE
   )
@@ -130,8 +145,7 @@ test_that("spearman correlation method works", {
   rownames(expr) <- paste0("gene", 1:20)
 
   result <- compute_network(
-    expr,
-    cor_method = "spearman", density = 0.05, sparse = FALSE
+    expr, cor_method = "spearman", density = 0.05, sparse = FALSE
   )
   expect_true(is.matrix(result$network))
   expect_equal(result$params$cor_method, "spearman")
@@ -144,8 +158,7 @@ test_that("sign option works", {
 
   expect_identical(compute_network(expr)$params$sign, "positive")
   result <- compute_network(
-    expr,
-    sign = "negative", density = 0.05, sparse = FALSE
+    expr, sign = "negative", density = 0.05, sparse = FALSE
   )
   expect_identical(result$params$sign, "negative")
   nn <- null_network(expr, result, seed = 1L)
@@ -182,10 +195,8 @@ test_that("constant genes are removed", {
 
 test_that("constant genes with float-noise variance are removed", {
   set.seed(1)
-  expr <- matrix(rnorm(200),
-    nrow = 20,
-    dimnames = list(paste0("g", 1:20), NULL)
-  )
+  expr <- matrix(rnorm(200), nrow = 20,
+                 dimnames = list(paste0("g", 1:20), NULL))
   # 0.1 is not exact in binary: where rowMeans() accumulates in double
   # (macOS arm64) the row keeps ~1e-34 of residual variance and a plain
   # `var > 0` test kept it; with long-double accumulation (x86_64 Linux)
