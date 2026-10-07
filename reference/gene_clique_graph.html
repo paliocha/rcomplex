@@ -83,7 +83,14 @@ reported separately.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">gene_clique_graph</span><span class="op">(</span><span class="va">edges</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Default S3 method</span></span>
-<span><span class="fu">gene_clique_graph</span><span class="op">(</span><span class="va">edges</span>, min_size <span class="op">=</span> <span class="fl">3L</span>, alpha_graph <span class="op">=</span> <span class="fl">0.1</span>, id_prefix <span class="op">=</span> <span class="st">""</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">gene_clique_graph</span><span class="op">(</span></span>
+<span>  <span class="va">edges</span>,</span>
+<span>  min_size <span class="op">=</span> <span class="fl">3L</span>,</span>
+<span>  alpha_graph <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>  id_prefix <span class="op">=</span> <span class="st">""</span>,</span>
+<span>  max_genes_per_sp <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'rcomplex'</span></span>
 <span><span class="fu">gene_clique_graph</span><span class="op">(</span><span class="va">edges</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
@@ -127,6 +134,21 @@ at one threshold need not be maximal at another.</p></dd>
 <dd><p>String prepended to every <code>clique_id</code>. Clique ids
 are <code>&lt;prefix&gt;&lt;hog&gt;_&lt;k&gt;</code>, so runs at different <code>alpha_graph</code> values
 need distinct prefixes before they can be row-bound.</p></dd>
+
+
+<dt id="arg-max-genes-per-sp">max_genes_per_sp<a class="anchor" aria-label="anchor" href="#arg-max-genes-per-sp"></a></dt>
+<dd><p>Maximum genes per species per ortholog group
+(default 10), the same cap as <code><a href="find_cliques.html">find_cliques</a></code>. Every
+paralog combination is a clique of its own, so a group with <code>c</code>
+copies in each of <code>S</code> species has up to <code>c^S</code> maximal cliques in a
+near-complete graph: one 219-gene group ran for hours at 22 GB
+uncapped. Within each group, a species with more genes than the cap
+keeps the ones with the most edges in the group's graph (after the
+<code>alpha_graph</code> filter and the duplicate-row collapse), ties going to
+the gene that entered the graph first, and the rest are dropped
+with every edge they carry. Results change only for groups above
+the cap; one message per call reports how many groups and genes
+were affected. <code>Inf</code> or <code>NULL</code> disables the cap.</p></dd>
 
 </dl></div>
     <div id="value">
