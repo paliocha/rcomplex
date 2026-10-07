@@ -32,8 +32,8 @@
 #'   identifiers) or a `SummarizedExperiment`, whose first assay is used.
 #'   The same object `net` was built from.
 #' @param net Network object from [compute_network()] built from `x`; its
-#'   `params` and `store_density` are reused so the null is built the same
-#'   way.
+#'   `params` (with `partition`) and `store_density` are reused so the null
+#'   is built the same way.
 #' @param block `NULL` (default) for the full per-gene shuffle, or a
 #'   per-sample grouping (vector or factor of length `ncol(x)`, no `NA`),
 #'   e.g. time point or tree, within which each gene is permuted.
@@ -72,7 +72,7 @@ null_network <- function(x, net, seed = NULL, n_cores = 1L,
     density = p$density, abs_cor = p$abs_cor,
     mr_log_transform = p$mr_log_transform,
     sparse = TRUE, store_density = net$store_density,
-    n_cores = n_cores, block_size = block_size
+    n_cores = n_cores, block_size = block_size, partition = p$partition
   )
   if (!is.null(block)) {
     out$params$block <- stats::setNames(as.integer(tab), names(tab))

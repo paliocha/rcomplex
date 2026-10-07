@@ -137,6 +137,14 @@ cor_rfast <- function(x, method = "pearson") {
 #'   pairs complete the fraction widens and a message says so; peak memory
 #'   grows with it (for log MR it can exceed the dense build), and at all
 #'   pairs the build saves no memory.
+#' @param partition `NULL` (default), or a per-sample factor of length
+#'   `ncol(x)` without `NA`, such as tissue or study. The function
+#'   computes the correlation within each level. It sets negative
+#'   correlations to zero and takes the mean over the levels. Then it
+#'   normalises the result. The function drops levels with fewer than 5
+#'   samples and tells you which. At least two levels must remain.
+#'   `abs_cor` has no effect, because no correlation is negative. Use the
+#'   dense build: `block_size` must be `NULL`.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -150,7 +158,8 @@ cor_rfast <- function(x, method = "pearson") {
 #'     \item{n_genes}{Number of genes in the network.}
 #'     \item{n_removed}{Number of constant genes removed before computing
 #'       correlations.}
-#'     \item{params}{List of parameters used.}
+#'     \item{params}{List of parameters used. It holds `partition` when
+#'       you give one.}
 #'     \item{store_density, store_threshold}{Sparse networks only: the
 #'       stored edge fraction and the value cutoff of the store. Analyses
 #'       at thresholds below `store_threshold` are refused (see
@@ -205,7 +214,8 @@ setMethod("compute_network", "matrix", function(
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  block_size = NULL) {
+  block_size = NULL,
+  partition = NULL) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
   if (is.null(rownames(x))) {
@@ -237,6 +247,34 @@ setMethod("compute_network", "matrix", function(
     if (!sparse) stop("block_size requires sparse = TRUE")
     if (norm_method != "MR") stop("block_size requires norm_method = \"MR\"")
   }
+  if (!is.null(partition)) {
+    if (!is.null(block_size)) {
+      stop("partition needs the dense build; set block_size = NULL")
+    }
+    if (length(partition) != ncol(x)) {
+      stop(
+        "partition must have one entry per sample (ncol(x) = ", ncol(x), ")"
+      )
+    }
+    if (anyNA(partition)) stop("partition must not contain NA")
+    partition <- droplevels(as.factor(partition))
+    min_partition_n <- 5L
+    sizes <- table(partition)
+    small <- names(sizes)[sizes < min_partition_n]
+    if (length(small) > 0L) {
+      message(
+        "Dropped partition levels with fewer than ", min_partition_n,
+        " samples: ", paste(small, collapse = ", ")
+      )
+    }
+    levels_kept <- setdiff(names(sizes), small)
+    if (length(levels_kept) < 2L) {
+      stop(
+        "partition needs at least two levels with ", min_partition_n,
+        " or more samples"
+      )
+    }
+  }
 
   # Filter constant genes
   row_var <- rowSums((x - rowMeans(x))^2) /
@@ -262,6 +300,7 @@ setMethod("compute_network", "matrix", function(
     abs_cor = abs_cor,
     mr_log_transform = mr_log_transform
   )
+  params$partition <- partition
 
   if (!is.null(block_size)) {
     if (block_size >= n_genes) {
@@ -309,7 +348,19 @@ setMethod("compute_network", "matrix", function(
   }
 
   # Correlation
-  net <- cor_rfast(x, method = cor_method)
+  if (is.null(partition)) {
+    net <- cor_rfast(x, method = cor_method)
+  } else {
+    # Rectified average over levels (TEA-GCN): negative correlations count
+    # as zero, and so do the NaN correlations of a gene constant in a level.
+    net <- 0
+    for (lv in levels_kept) {
+      r <- cor_rfast(x[, partition == lv, drop = FALSE], method = cor_method)
+      net <- net + pmax(r, 0, na.rm = TRUE)
+    }
+    net <- net / length(levels_kept)
+    diag(net) <- 1
+  }
 
   # Normalization
   if (norm_method == "MR") {

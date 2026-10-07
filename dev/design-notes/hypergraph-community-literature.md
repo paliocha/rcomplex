@@ -393,6 +393,13 @@ Off topic, two seeds:
   reciprocity. Microscale only; HOGs are undirected.
 - Miyashita et al. 2025 (Sci Rep 15:20729): a clustering coefficient for
   hypergraphs. A local density measure with no communities or nulls.
+- Felippe, Kirkley & Battiston 2026 (Sci Adv 12:eaec5619): a normalised
+  mutual information for hypergraph similarity, covering cross-order
+  overlap and node coarse-graining. It compares two hypergraphs on one
+  labelled node set and does not detect communities, so there was no walk.
+  One possible later use: an all-pairs species similarity after
+  coarse-graining genes to HOGs, as a partition-free input to
+  `preservation_matrix_test()`. Untested.
 
 The 2024 Commun Phys collection (19 articles) has nothing on communities,
 nulls or alignment.
