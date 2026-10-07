@@ -120,7 +120,8 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
 
     // Correlation blocks; each column is clamped, negated (if negate) and
     // ranked exactly as mutual_rank_inplace_cpp() does, then visit(i, col)
-    // reads gene i's ranks. Columns are independent, so visit may run in parallel.
+    // reads gene i's ranks. Columns are independent, so visit may run in
+    // parallel.
     auto sweep = [&](auto&& visit) {
         for (R_xlen_t c0 = 0; c0 < n; c0 += block_size) {
             Rcpp::checkUserInterrupt();
