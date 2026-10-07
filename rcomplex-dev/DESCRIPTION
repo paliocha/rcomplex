@@ -23,7 +23,6 @@ Imports:
     collapse,
     data.table,
     igraph,
-    kit,
     Matrix (>= 1.5-0),
     DiscreteQvalue,
     qvalue,
