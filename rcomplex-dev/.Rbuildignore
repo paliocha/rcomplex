@@ -1,0 +1,5 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^rcomplex\.Rcheck$
+^rcomplex.*\.tar\.gz$
+^src/.*\.tmp[^/]*$
