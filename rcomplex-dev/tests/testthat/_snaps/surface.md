@@ -15,9 +15,10 @@
       [19] "module_correspondence"     "module_preservation"      
       [21] "null_network"              "prepare_orthologs"        
       [23] "preservation_matrix_test"  "preservation_paired"      
-      [25] "pvalue_resolution"         "read_orthologs"           
-      [27] "reduce_orthogroups"        "resolve_ortholog_map"     
-      [29] "split_layers"             
+      [25] "pvalue_resolution"         "rcomplex"                 
+      [27] "read_orthologs"            "reduce_orthogroups"       
+      [29] "resolve_ortholog_map"      "split_layers"             
+      [31] "write_rcomplex"           
     Code
       n_formals
     Output
@@ -37,8 +38,10 @@
                               6                        11                         6 
               prepare_orthologs  preservation_matrix_test       preservation_paired 
                               2                         4                         7 
-              pvalue_resolution            read_orthologs        reduce_orthogroups 
-                              2                         3                         4 
-           resolve_ortholog_map              split_layers 
-                              6                         2 
+              pvalue_resolution                  rcomplex            read_orthologs 
+                              2                        13                         3 
+             reduce_orthogroups      resolve_ortholog_map              split_layers 
+                              4                         6                         2 
+                 write_rcomplex 
+                              2 
 

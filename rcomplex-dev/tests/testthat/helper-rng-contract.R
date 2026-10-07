@@ -224,6 +224,14 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "rcomplex",
+      call = function(seed) {
+        rcomplex(fx$drv_expr, fx$drv_ortho,
+          density = 0.1, null = TRUE, seed = seed
+        )$edges_null
+      }
+    ),
+    list(
       name = "preservation_matrix_test",
       call = function(seed) {
         suppressWarnings(preservation_matrix_test(

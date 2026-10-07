@@ -42,7 +42,13 @@ rng_fx <- local({
     mf = rng_module_fixture(),
     mx = rng_matrix_classification(),
     null_x = null_x,
-    null_net = compute_network(null_x, density = 0.1)
+    null_net = compute_network(null_x, density = 0.1),
+    drv_expr = list(A = null_x, B = `rownames<-`(null_x, paste0("h", 1:40))),
+    drv_ortho = data.frame(
+      species = rep(c("A", "B"), each = 40L),
+      gene = c(rownames(null_x), paste0("h", 1:40)),
+      hog = rep(seq_len(40L), 2L)
+    )
   )
 })
 
