@@ -35,6 +35,7 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           working-directory: rcomplex-dev
+          error-on: '"error"'
 
       - name: Lint
         run: lintr::lint_package("rcomplex-dev")
