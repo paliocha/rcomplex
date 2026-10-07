@@ -21,21 +21,21 @@
       n_formals
     Output
                      as_modules          classify_cliques     classify_gene_cliques 
-                              2                         1                         1 
+                              1                         6                         7 
       classify_hub_conservation     classify_preservation          clique_stability 
-                              1                         3                         1 
+                              3                         3                         7 
          clique_threshold_sweep        coexpressolog_null           compute_network 
                               7                         5                         1 
                   density_sweep            detect_modules              find_cliques 
-                              1                         1                         1 
+                              9                         6                         4 
             find_coexpressologs         gene_clique_graph      get_coexpressed_hogs 
-                              1                         1                         6 
+                             10                         4                         6 
            identify_module_hubs     module_correspondence       module_preservation 
-                              1                         6                        11 
+                              3                         6                        11 
                    null_network           parse_orthologs         prepare_orthologs 
-                              7                         3                         3 
+                              6                         3                         2 
        preservation_matrix_test       preservation_paired         pvalue_resolution 
-                              4                         1                         2 
+                              4                         7                         2 
              reduce_orthogroups      resolve_ortholog_map              split_layers 
                               4                         6                         2 
 
