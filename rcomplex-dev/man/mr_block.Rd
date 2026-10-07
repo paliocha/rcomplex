@@ -26,7 +26,7 @@ with \code{mr_log_transform = TRUE}).
 \description{
 Computes the exact Mutual Rank co-expression values for a subset of
 genes from the expression matrix, using the network's stored parameters
-(\code{cor_method}, \code{abs_cor}, \code{mr_log_transform}). A sparse network
+(\code{cor_method}, \code{sign}, \code{mr_log_transform}). A sparse network
 (\code{compute_network(sparse = TRUE)}) discards values below its
 \code{store_threshold}; this function reconstructs them (for heatmaps or
 other visualisations of, say, a module) without rebuilding the dense

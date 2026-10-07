@@ -96,6 +96,22 @@ test_that("CLR matches R reference", {
   )
 })
 
+test_that("negative CLR matches R reference on -cor", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr,
+    norm_method = "CLR", sign = "negative", density = 0.05, sparse = FALSE
+  )
+  neg <- -cor(t(expr))
+  diag(neg) <- 1
+  expect_equal(result$network, reference_clr(neg),
+    tolerance = 1e-10,
+    ignore_attr = TRUE
+  )
+})
+
 test_that("density threshold is in valid range", {
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
@@ -135,15 +151,19 @@ test_that("spearman correlation method works", {
   expect_equal(result$params$cor_method, "spearman")
 })
 
-test_that("abs_cor option works", {
+test_that("sign option works", {
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
+  expect_identical(compute_network(expr)$params$sign, "positive")
   result <- compute_network(
-    expr, abs_cor = TRUE, density = 0.05, sparse = FALSE
+    expr, sign = "negative", density = 0.05, sparse = FALSE
   )
-  expect_true(result$params$abs_cor)
+  expect_identical(result$params$sign, "negative")
+  nn <- null_network(expr, result, seed = 1L)
+  expect_identical(nn$params$sign, "negative")
+  expect_error(compute_network(expr, sign = "both"), "should be one of")
 })
 
 test_that("input validation works", {
@@ -192,8 +212,8 @@ test_that("constant genes with float-noise variance are removed", {
 test_that(
   "mutual_rank_inplace_cpp matches cached reference (ties, all modes)",
   {
-    # Symmetric matrix with exact ties, values beyond [-1, 1] (clamping creates
-    # further ties) and sign-symmetric pairs (abs() creates ties).
+    # Symmetric matrix with exact ties and values beyond [-1, 1] (clamping
+    # creates further ties).
     m <- matrix(c(
       1.0, 0.5, 0.5, -0.2, 1.2, 0.3,
       0.5, 1.0, -0.5, 0.5, -1.3, 0.3,
@@ -205,9 +225,10 @@ test_that(
     expect_identical(m, t(m))
 
     for (log_transform in c(FALSE, TRUE)) {
-      for (abs_cor in c(FALSE, TRUE)) {
+      for (negate in c(FALSE, TRUE)) {
         ref_in <- pmin(pmax(m, -1), 1)
-        if (abs_cor) ref_in <- abs(ref_in)
+        # negate every correlation but a gene's own
+        if (negate) ref_in <- -ref_in + 2 * diag(diag(ref_in))
         ref <- mutual_rank_transform_cached_cpp(ref_in,
           log_transform = log_transform,
           n_cores = 1L
@@ -216,11 +237,11 @@ test_that(
         diag(ref) <- 0
 
         x <- m + 0 # fresh copy; mutated in place below
-        mutual_rank_inplace_cpp(x, log_transform, abs_cor, 1L)
+        mutual_rank_inplace_cpp(x, log_transform, negate, 1L)
         expect_identical(x, ref)
 
         x2 <- m + 0
-        mutual_rank_inplace_cpp(x2, log_transform, abs_cor, 2L)
+        mutual_rank_inplace_cpp(x2, log_transform, negate, 2L)
         expect_identical(x2, ref)
       }
     }
@@ -258,22 +279,62 @@ test_that(
   }
 )
 
-test_that("compute_network abs_cor MR matches R reference on |cor|", {
+test_that("negative MR matches R reference on -cor", {
   set.seed(42)
   expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
   rownames(expr) <- paste0("gene", 1:20)
 
   result <- compute_network(expr,
     cor_method = "pearson",
-    norm_method = "MR", abs_cor = TRUE,
+    norm_method = "MR", sign = "negative",
     density = 0.05, sparse = FALSE
   )
-  ref_net <- reference_mr_raw(abs(cor(t(expr), method = "pearson")))
+  neg <- -cor(t(expr), method = "pearson")
+  diag(neg) <- 1
+  ref_net <- reference_mr_raw(neg)
 
   expect_equal(result$network, ref_net,
     tolerance = 1e-10,
     ignore_attr = TRUE
   )
+})
+
+# 30 gene pairs (a_k, b_k = -a_k + noise) over 30 samples, with a
+# factor shared by every a gene, so pairs within the a genes or within the
+# b genes correlate positively. Flipping the b genes gives the proxy, whose
+# positive network holds the same anticorrelated pairs.
+sign_fixture <- function() {
+  withr::with_seed(11L, {
+    m <- 30L
+    g <- stats::rnorm(30L)
+    a <- matrix(stats::rnorm(m * 30L), m) + rep(g, each = m)
+    b <- -a + matrix(stats::rnorm(m * 30L, sd = 0.3), m)
+  })
+  x <- rbind(a, b)
+  rownames(x) <- c(paste0("a", seq_len(m)), paste0("b", seq_len(m)))
+  list(x = x, a = rownames(x)[seq_len(m)], b = rownames(x)[m + seq_len(m)])
+}
+
+test_that("negative network holds the pairs a flipped proxy holds", {
+  p <- sign_fixture()
+  proxy <- p$x
+  proxy[p$b, ] <- -proxy[p$b, ]
+  # one edge per pair at this density
+  d <- 30 / choose(60, 2)
+  neg <- compute_network(p$x, sign = "negative", density = d)
+  pos <- compute_network(proxy, density = d)
+  edges <- function(net) as.matrix(net$network >= net$threshold)
+  # the a-b block at the analysis threshold is the same, one edge per pair
+  expect_identical(edges(neg)[p$a, p$b], edges(pos)[p$a, p$b])
+  expect_identical(sum(edges(neg)[p$a, p$b]), 30L)
+  expect_true(all(diag(edges(neg)[p$a, p$b])))
+  # positively correlated pairs are absent even from the store
+  expect_identical(Matrix::nnzero(neg$network[p$a, p$a]), 0L)
+  expect_identical(Matrix::nnzero(neg$network[p$b, p$b]), 0L)
+  # and the positive network of x has no a-b pair
+  expect_identical(Matrix::nnzero(
+    compute_network(p$x, density = d)$network[p$a, p$b]
+  ), 0L)
 })
 
 # ---- partition ------------------------------------------------------------
@@ -298,6 +359,20 @@ test_that("partition is the rectified average of per-level correlations", {
   expect_equal(net$network, ref, tolerance = 1e-10, ignore_attr = TRUE)
   expect_equal(net$threshold, reference_density_threshold(ref, 0.1))
   expect_identical(net$params$partition, p$f)
+})
+
+test_that("negative partition is the rectified average of -cor", {
+  p <- partition_fixture()
+  net <- suppressMessages(compute_network(p$x,
+    partition = p$f, sign = "negative", density = 0.1, sparse = FALSE
+  ))
+  r1 <- cor(t(p$x[, p$f == "leaf"]))
+  r2 <- cor(t(p$x[, p$f == "root"]))
+  neg <- (pmax(-r1, 0) + pmax(-r2, 0)) / 2
+  diag(neg) <- 1
+  ref <- reference_mr_raw(neg)
+  expect_equal(net$network, ref, tolerance = 1e-10, ignore_attr = TRUE)
+  expect_equal(net$threshold, reference_density_threshold(ref, 0.1))
 })
 
 test_that("bad partitions are refused", {

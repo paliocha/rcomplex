@@ -272,15 +272,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // mutual_rank_inplace_cpp
-void mutual_rank_inplace_cpp(SEXP sim, bool log_transform, bool abs_cor, int n_cores);
-RcppExport SEXP _rcomplex_mutual_rank_inplace_cpp(SEXP simSEXP, SEXP log_transformSEXP, SEXP abs_corSEXP, SEXP n_coresSEXP) {
+void mutual_rank_inplace_cpp(SEXP sim, bool log_transform, bool negate, int n_cores);
+RcppExport SEXP _rcomplex_mutual_rank_inplace_cpp(SEXP simSEXP, SEXP log_transformSEXP, SEXP negateSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type sim(simSEXP);
     Rcpp::traits::input_parameter< bool >::type log_transform(log_transformSEXP);
-    Rcpp::traits::input_parameter< bool >::type abs_cor(abs_corSEXP);
+    Rcpp::traits::input_parameter< bool >::type negate(negateSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    mutual_rank_inplace_cpp(sim, log_transform, abs_cor, n_cores);
+    mutual_rank_inplace_cpp(sim, log_transform, negate, n_cores);
     return R_NilValue;
 END_RCPP
 }
@@ -327,19 +327,19 @@ BEGIN_RCPP
 END_RCPP
 }
 // mr_block_network_cpp
-List mr_block_network_cpp(const arma::mat& zt, bool log_transform, bool abs_cor, double density, double store_density, int block_size, int n_cores);
-RcppExport SEXP _rcomplex_mr_block_network_cpp(SEXP ztSEXP, SEXP log_transformSEXP, SEXP abs_corSEXP, SEXP densitySEXP, SEXP store_densitySEXP, SEXP block_sizeSEXP, SEXP n_coresSEXP) {
+List mr_block_network_cpp(const arma::mat& zt, bool log_transform, bool negate, double density, double store_density, int block_size, int n_cores);
+RcppExport SEXP _rcomplex_mr_block_network_cpp(SEXP ztSEXP, SEXP log_transformSEXP, SEXP negateSEXP, SEXP densitySEXP, SEXP store_densitySEXP, SEXP block_sizeSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat& >::type zt(ztSEXP);
     Rcpp::traits::input_parameter< bool >::type log_transform(log_transformSEXP);
-    Rcpp::traits::input_parameter< bool >::type abs_cor(abs_corSEXP);
+    Rcpp::traits::input_parameter< bool >::type negate(negateSEXP);
     Rcpp::traits::input_parameter< double >::type density(densitySEXP);
     Rcpp::traits::input_parameter< double >::type store_density(store_densitySEXP);
     Rcpp::traits::input_parameter< int >::type block_size(block_sizeSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(mr_block_network_cpp(zt, log_transform, abs_cor, density, store_density, block_size, n_cores));
+    rcpp_result_gen = Rcpp::wrap(mr_block_network_cpp(zt, log_transform, negate, density, store_density, block_size, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }

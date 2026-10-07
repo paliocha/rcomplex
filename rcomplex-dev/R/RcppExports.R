@@ -289,8 +289,8 @@ mutual_rank_transform_cached_cpp <- function(sim, log_transform = FALSE, n_cores
 #' In-place mutual rank transformation
 #'
 #' Overwrites `sim` with its mutual rank transform without allocating any
-#' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally takes
-#' absolute values, and replaces the column by its average ranks. Pass 2
+#' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally
+#' negates it, and replaces the column by its average ranks. Pass 2
 #' replaces each pair (i, j) by sqrt(R_ij * R_ji) (log-normalized when
 #' `log_transform`) and sets the diagonal to 0. Same formulas and tie
 #' handling as [mutual_rank_transform_cached_cpp()], which is kept as the
@@ -305,13 +305,14 @@ mutual_rank_transform_cached_cpp <- function(sim, log_transform = FALSE, n_cores
 #' @param log_transform If FALSE, raw mutual rank with ascending ranks
 #'   (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
 #'   log-normalized formula with descending ranks (values in 0 to 1 range).
-#' @param abs_cor If TRUE, take absolute values before ranking.
+#' @param negate If TRUE, negate every value but the diagonal before
+#'   ranking, so the strongest anticorrelation ranks first.
 #' @param n_cores Number of OpenMP threads
 #' @return Invisible `NULL`; `sim` is modified in place.
 #'
 #' @keywords internal
-mutual_rank_inplace_cpp <- function(sim, log_transform, abs_cor, n_cores) {
-    invisible(.Call(`_rcomplex_mutual_rank_inplace_cpp`, sim, log_transform, abs_cor, n_cores))
+mutual_rank_inplace_cpp <- function(sim, log_transform, negate, n_cores) {
+    invisible(.Call(`_rcomplex_mutual_rank_inplace_cpp`, sim, log_transform, negate, n_cores))
 }
 
 #' Compare co-expression neighborhoods across species (integer-indexed)
@@ -369,7 +370,7 @@ compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2,
 #'
 #' @param zt Standardised expression (samples x genes) such that
 #'   `crossprod(zt)` is the correlation matrix.
-#' @param log_transform,abs_cor As in [mutual_rank_inplace_cpp()].
+#' @param log_transform,negate As in [mutual_rank_inplace_cpp()].
 #' @param density,store_density Analysis and store densities.
 #' @param block_size Columns per correlation block.
 #' @param n_cores Number of OpenMP threads.
@@ -379,8 +380,8 @@ compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2,
 #'   `start_fraction` the build began with.
 #'
 #' @keywords internal
-mr_block_network_cpp <- function(zt, log_transform, abs_cor, density, store_density, block_size, n_cores) {
-    .Call(`_rcomplex_mr_block_network_cpp`, zt, log_transform, abs_cor, density, store_density, block_size, n_cores)
+mr_block_network_cpp <- function(zt, log_transform, negate, density, store_density, block_size, n_cores) {
+    .Call(`_rcomplex_mr_block_network_cpp`, zt, log_transform, negate, density, store_density, block_size, n_cores)
 }
 
 #' Reduce orthogroups by merging correlated paralogs
