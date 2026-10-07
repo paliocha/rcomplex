@@ -593,8 +593,7 @@ comparison_to_edges <- function(comparison, species1, species2,
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
 #' @param orthologs Data frame with columns \code{gene1},
-#'   \code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}} or
-#'   \code{\link{extract_orthologs}}).
+#'   \code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}}).
 #' @param method Testing method: \code{"hypergeometric"} (default, fast),
 #'   \code{"rank"} or
 #'   \code{"permutation"} (rigorous).
@@ -1041,8 +1040,7 @@ density_sweep.default <- function(
 #' @param networks Named list of \code{\link{compute_network}} outputs,
 #'   keyed by species abbreviation.
 #' @param orthologs Data frame with columns \code{gene1},
-#'   \code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}} or
-#'   \code{\link{extract_orthologs}}).
+#'   \code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}}).
 #' @param species_trait Optional named character vector mapping species to
 #'   trait labels (e.g., \code{c(SP_A = "annual", SP_B = "perennial")}).
 #'   Enables the \code{coexpressed_traits} output column.

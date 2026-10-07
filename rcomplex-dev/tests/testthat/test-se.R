@@ -44,75 +44,6 @@ test_that("build_se validates inputs", {
 })
 
 
-test_that("extract_orthologs derives correct pairs from shared HOGs", {
-  se1 <- build_se(
-    make_long_data("SP_A", c("A1", "A2"), hogs = c("HOG1", "HOG2")),
-    "SP_A"
-  )
-  se2 <- build_se(
-    make_long_data("SP_B", c("B1", "B2", "B3"),
-      hogs = c("HOG1", "HOG2", "HOG3")
-    ),
-    "SP_B"
-  )
-
-  ortho <- rcomplex:::extract_orthologs(se1, se2)
-
-  expect_equal(names(ortho), c("gene1", "gene2", "hog"))
-  # HOG1: A1 x B1 = 1 pair. HOG2: A2 x B2 = 1 pair. HOG3: no match.
-  expect_equal(nrow(ortho), 2)
-  expect_setequal(ortho$hog, c("HOG1", "HOG2"))
-})
-
-
-test_that("extract_orthologs handles paralogs (multi-gene HOGs)", {
-  se1 <- build_se(
-    make_long_data("SP_A", c("A1", "A2", "A3"),
-      hogs = c("HOG1", "HOG1", "HOG2")
-    ),
-    "SP_A"
-  )
-  se2 <- build_se(
-    make_long_data("SP_B", c("B1", "B2"),
-      hogs = c("HOG1", "HOG2")
-    ),
-    "SP_B"
-  )
-
-  ortho <- rcomplex:::extract_orthologs(se1, se2)
-
-  hog1 <- ortho[ortho$hog == "HOG1", ]
-  expect_equal(nrow(hog1), 2) # A1 x B1, A2 x B1
-  expect_setequal(hog1$gene1, c("A1", "A2"))
-})
-
-
-test_that("extract_orthologs returns empty for no shared HOGs", {
-  se1 <- build_se(make_long_data("SP_A", c("A1"), hogs = c("HOG1")), "SP_A")
-  se2 <- build_se(make_long_data("SP_B", c("B1"), hogs = c("HOG99")), "SP_B")
-
-  ortho <- rcomplex:::extract_orthologs(se1, se2)
-  expect_equal(nrow(ortho), 0)
-  expect_equal(names(ortho), c("gene1", "gene2", "hog"))
-})
-
-
-test_that("extract_orthologs validates missing hog column", {
-  mat <- matrix(1:8, nrow = 2, dimnames = list(c("G1", "G2"), paste0("S", 1:4)))
-  se_no_hog <- SummarizedExperiment::SummarizedExperiment(assays = list(mat))
-  se_with_hog <- build_se(make_long_data("SP_A", c("A1", "A2"),
-                            hogs = c("HOG1", "HOG2")
-                          ), "SP_A")
-
-  expect_error(
-    rcomplex:::extract_orthologs(se_no_hog, se_with_hog), "missing 'hog' column"
-  )
-  expect_error(
-    rcomplex:::extract_orthologs(se_with_hog, se_no_hog), "missing 'hog' column"
-  )
-})
-
-
 test_that("compute_network accepts SummarizedExperiment", {
   set.seed(42)
   mat <- matrix(rnorm(200), nrow = 20, ncol = 10)
@@ -150,11 +81,8 @@ test_that("SE rowData as the long table feeds find_coexpressologs", {
     )
   }))
   ortho <- prepare_orthologs(long)
-  expect_identical(
-    ortho[order(ortho$hog), c("gene1", "gene2", "hog")],
-    rcomplex:::extract_orthologs(se_a, se_b)[order(hogs), ],
-    ignore_attr = TRUE
-  )
+  expect_setequal(paste(ortho$gene1, ortho$gene2, ortho$hog),
+                  paste0("A", 1:30, " B", 1:30, " HOG", 1:30))
   nets <- list(
     SP_A = compute_network(se_a, density = 0.1),
     SP_B = compute_network(se_b, density = 0.1)
