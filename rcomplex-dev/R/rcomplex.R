@@ -240,7 +240,7 @@ summary.rcomplex <- function(object, ...) {
   cls <- object$classification
   alpha <- attr(cls, "alpha_call")
   tab <- table(cls$classification)
-  tiers <- data.frame(tier = names(tab), cliques = as.vector(tab))
+  tiers <- data.frame(tier = as.character(names(tab)), cliques = as.vector(tab))
   null_tab <- NULL
   if (!is.null(object$edges_null)) {
     pr <- t(utils::combn(names(object$networks), 2L))
