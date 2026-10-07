@@ -604,6 +604,12 @@ and not blocking the release: WP15 || WP16 || WP17.
   coupling pulls every copy pair with the same force and big HOGs
   dominate; one hyperedge per HOG with a size-aware null does not.
   Both are a Leiden run on one graph, so one function probes both.
+  Checked and not used: CRAN `HyperG` (1.0.0, 2021, pure R) has no
+  hypergraph modularity; its `cluster_spectral()` is spectral
+  embedding plus `mclust` on the clique expansion, the family
+  `subspace_preservation()` already probed; its conversions are one
+  igraph call each. No CRAN package implements hypergraph modularity
+  as of 2026-10.
 - Do: `joint_modules(nets, orthologs, coupling = c("star", "pairwise"),
   weight = NULL, objective = c("modularity", "CPM"), resolution =
   NULL, seed = NULL)`. Build one igraph: nodes `(species, gene)` for
