@@ -11,7 +11,7 @@ A fresh session that reads "Go!" does this, nothing else first:
    `main`, `git checkout docs/sharpen-plan`.
 2. `git checkout -b refactor/sharpen` from it. The plan travels with
    the branch; the final PR to `main` carries it.
-3. Read section 4: every gate has an answer. Do not re-ask.
+3. Read section 4: every gate is answered (2026-10-07). Do not re-ask.
 4. One Agent call with two tool uses: `sharpen-census` (haiku, read
    only, no worktree) and `sharpen-cutter` for WP0 (sonnet, `isolation:
    "worktree"`). Launch prompt from section 5, nothing more.
@@ -436,11 +436,13 @@ run together.
   same partners, positive in one species and negative in the other),
   which is rewiring with a mechanism and is what the proposal's
   "regulatory rewiring" means at the co-expression level.
-- Do: `compute_network(sign = c("positive", "negative", "unsigned"))`
-  replaces `abs_cor`. The kernels already apply `abs_cor` in one line
+- Do (G8, narrowed): `compute_network(sign = c("positive",
+  "negative"))` replaces `abs_cor`; `unsigned` is dropped, not
+  renamed (unused, no comparative precedent, mixes two
+  distributions). The kernels already apply `abs_cor` in one line
   per column (`col[r] = abs_cor ? fabs(v) : v` in `mutual_rank.cpp`
-  and `network_block.cpp`); it becomes a three-way: negate for
-  `negative`, `fabs` for `unsigned`, identity for `positive`. MR,
+  and `network_block.cpp`); it becomes negate for `negative`,
+  identity for `positive`. MR,
   density threshold, sparse store, blockwise validity rule and every
   consumer are unchanged, because MR ranks whatever it is given. `sign`
   joins `params` and `.net_cpp_args()` so `null_network()` and
@@ -448,12 +450,15 @@ run together.
   `find_coexpressologs(list(A = net_A_pos, B = net_B_neg))` already
   tests whether A's positive partners are B's negative partners,
   because the test reads membership only. The driver (WP6) takes the
-  same `sign` argument plus `"both"`: builds positive and negative
-  networks per species, runs the four comparisons, and the edge table
-  gains a `sign` column with values `+` (positive in both), `-`
-  (negative in both), `flip` (positive in one, negative in the other,
-  either way). Gene-graph cliques keep the column and the classifiers
-  ignore it; `sign` is a filter for the user, not a tier.
+  same two-valued `sign` and builds every species' network with it;
+  the edge table carries `sign` as a constant column. `"both"` and the
+  `flip` tag (positive partners in one species are negative partners
+  in the other) are deferred: structural balance says signed
+  co-expression graphs are near-balanced by construction, so the
+  negative network is mostly the positive clustering with a sign
+  between clusters, and `flip`'s validity is the validity of the
+  negative neighbourhood as a set. The Pooideae probe in G8 decides;
+  if it passes, `"both"` is one more WP of ~60 lines in the driver.
 - Caveats to write into `@details`, not into code: negative
   correlations are rarer and weaker in RNA-seq, a top-3 % negative
   network exists at any n, and WP12's `r_threshold` line is what tells
@@ -463,10 +468,9 @@ run together.
   `compute_network(-x_cor_proxy)`'s where the proxy flips half the
   genes (`x[flip, ] <- -x[flip, ]` makes those pairs anticorrelated:
   the negative network of `x` must contain exactly the flipped pairs
-  the positive network of the proxy contains); `sign = "unsigned"`
-  reproduces the old `abs_cor = TRUE` network bit for bit on the
-  fixture; blockwise and dense agree for every sign; `grep abs_cor R/
-  src/ tests/` empty; check OK.
+  the positive network of the proxy contains); blockwise and dense
+  agree for both signs; `grep -r abs_cor rcomplex-dev/` empty; check
+  OK.
 - Deps: WP11 (same files; WP11 merges first).
 
 ### WP6 Driver (serial, after WP7, WP10, WP11, WP13, WP14)
@@ -478,7 +482,7 @@ run together.
   ```r
   rcomplex(expr = NULL, orthologs, networks = NULL, block = NULL,
            clades = NULL, density = 0.03,
-           sign = c("positive", "negative", "unsigned", "both"),
+           sign = c("positive", "negative"),
            method = c("hypergeometric", "rank"), alpha = 0.1,
            modules = FALSE, null = FALSE, n_cores = 1L, seed = NULL)
   ```
@@ -898,22 +902,24 @@ or Bioconductor package implements hypergraph modularity as of
   their survival on the null.
 - Deps: WP13 (columns), WP12 (regime test). Blocks nothing.
 
-## 4. Gates (Martin decides, before the WP starts)
+## 4. Gates (all answered by Martin, 2026-10-07: "defaults with G8 narrowed")
 
-| Gate | WP | Question | Default if silent |
+No gate is open. A fresh session does not re-ask any of these.
+
+| Gate | WP | Question | Answer |
 |---|---|---|---|
-| G1 | WP2 | Remove all 17 Tier C functions? Any live Orion script or the root vignette sourcing one? `tag_permutation` in or out? | remove all, `dev/probes/` keeps source |
-| G2 | WP3 | Drop Infomap, SBM, K = 1 test from `detect_modules()`? | drop |
-| G3 | WP4 | snake_case columns, no deprecation shims, 0.4.0 break? | yes |
-| G4 | WP6 | Driver returns plain list; container S3 methods deleted? | yes |
-| G5 | WP7 | `species_trait` renamed to `clades` with no alias? | yes |
-| G6 | WP10 | `parse_orthologs()` deleted in favour of `read_orthologs()`? Long table `species gene hog` as the one ortholog shape? | yes |
-| G7 | WP13 | `score = -log2(p)` bits and `evalue = n_tests * p` as the two headline columns, `effect_size` kept as magnitude? | yes |
-| G8 | WP14 | `abs_cor` replaced by `sign`; driver `sign = "both"` runs four comparisons and tags `+ - flip`? | yes |
-| G9 | WP15a | Build the star-expansion baseline? Adopt any joint engine only if the Orion probe beats `detect_modules()` + `module_preservation()` on replication | build |
-| G9b | WP15b | Port GPL-3 `libleidenalg` (package becomes GPL-3) or own MIT kernel? | **answered 2026-10-07: GPL-3 ok, port** |
-| G10 | WP16 | Edge gain/loss on a species tree, `phangorn` in Suggests? | yes |
-| G11 | WP17 | Build `method = "munk"` as a third co-expressolog method? Adopt only if the Orion probe shows calls added among `underpowered` edges that survive the null | build |
+| G1 | WP3, WP4 | Remove all 17 Tier C functions, `tag_permutation` included? | **yes**; sources to `dev/probes/` at the WP9 swap |
+| G2 | WP4 | Drop Infomap, SBM, K = 1 test from `detect_modules()`? | **yes** |
+| G3 | WP1, WP2 | snake_case columns, no deprecation shims, 0.4.0 break? | **yes** |
+| G4 | WP6 | Driver returns plain list; container S3 methods deleted? | **yes** |
+| G5 | WP7 | `species_trait` renamed to `clades` with no alias? | **yes** |
+| G6 | WP10 | `parse_orthologs()` deleted in favour of `read_orthologs()`; long table `species gene hog` as the one ortholog shape? | **yes** |
+| G7 | WP13 | `score = -log2(p)` bits and `evalue = n_tests * p` as the two headline columns, `effect_size` kept as magnitude? | **yes** |
+| G8 | WP14 | `abs_cor` replaced by `sign`? | **yes, narrowed**: `compute_network(sign = c("positive", "negative"))`, no `unsigned`; the driver takes the same two values and no `"both"`; `flip` tagging waits for a Pooideae probe (negative-network `r_threshold`, null-network calls, `flip` vs null flips, top 20 flips), run with `sign = "negative"` and existing functions on Orion after 0.4.0 |
+| G9 | WP15a | Build the star-expansion baseline? | **build**; adopt any joint engine only if the Orion probe beats `detect_modules()` + `module_preservation()` on replication |
+| G9b | WP15b | Port GPL-3 `libleidenalg` (package becomes GPL-3)? | **yes, port** |
+| G10 | WP16 | Edge gain/loss on a species tree, `phangorn` in Suggests? | **yes** |
+| G11 | WP17 | Build `method = "munk"`? | **build**; adopt only if the Orion probe shows calls added among `underpowered` edges that survive the null |
 
 Out of scope, on purpose: rank-vs-hypergeometric default (needs Orion
 validation, design note 11.15); Bioconductor conventions (MDO V);
@@ -994,7 +1000,7 @@ res
 #>   HVUL  19,877 genes  20 samples  density 0.03  r >= 0.69
 #>   edges 4,112   cliques 1,203   complete_conserved 611 ...
 summary(res)       # classification table; with null = TRUE, calls_null
-head(res$edges)    # gene1 gene2 hog sign score evalue q_value effect_size power
+head(res$edges)    # gene1 gene2 hog score evalue q_value effect_size power
 write_rcomplex(res, "out/")
 ```
 
