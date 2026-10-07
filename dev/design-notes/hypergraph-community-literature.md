@@ -14,9 +14,14 @@ changed. Method and failures are at the end.
    (risks 1 and 3).
 2. Hypergraph modularity beats the 2-section by small margins, at moderate
    noise, and only for hyperedges of size >= 3 (Kaminski 2024).
-3. No C++ hypergraph Leiden was found; `h-louvain` has no licence file.
+3. No C++ hypergraph Leiden was found; `h-louvain` has no licence file. At
+   n = 3,000 Bethe Hessian spectral beats h-Louvain (Li 2026).
 4. The field validates against planted partitions, not by permutation.
 5. Which HOGs "split" depends on tau, not only on the data (Li 2026).
+6. In HSBM terms unweighted HOGs add well under 1 % of the signal against
+   about 600 co-expression edges per gene. WP15b's port should wait on a
+   three-engine probe (section 7). Peixoto, Peel & Gross 2026 put the burden
+   of proof on the hypergraph (section 8).
 
 ## 1. Hypergraph modularity definitions, resolution, degeneracy, nulls
 
@@ -282,20 +287,150 @@ shuffled expression, and pass the held-out AUROC test (borrow-scope verdict
    that maximises the objective, and a higher q is not more replicable
    modules.
 
+## 7. Objective and optimiser: is Leiden shoehorned in?
+
+Li, Schaub & Peel 2026 (Sci Adv 12:eaef2184), read in full, define
+`SNR_BH = [sum_k (k-1)(d_in^k - d_out^k)]^2 / sum_k (k-1) d^k` for a symmetric
+non-uniform HSBM, where d^k is a node's mean number of size-k hyperedges and
+d_in^k / d_out^k count the pure and the boundary-crossing ones. Bethe Hessian
+(BH) spectral clustering, with K = number of negative eigenvalues, reaches the
+belief propagation (BP) limit for one hyperedge size and falls short of it
+for mixed sizes. Their supplement has BH beating h-Louvain in AMI at
+n = 3,000; at n = 30,000 h-Louvain would not run. The code
+(`eggplantisme/HyperGraphBetheHessian`) is notebooks without a licence. Li &
+Peel 2026 (arXiv:2604.18565) show three phases above the detectability
+threshold: small communities merged into large ones, then separated as one
+group, then resolved. BH needs a stronger signal than BP for the last phase,
+and the K rule (negative eigenvalues, free energy, MDL) moves all three
+boundaries.
+
+**(a) Maximisation or inference.** Neither family fits rcomplex as stated. The
+HSBM has no hyperedge weights and no species. Co-expression edges never cross
+species, so an unblocked HSBM or BH finds the species first; an inference
+engine needs species-blocked degree correction (Pamfil 2019's multilayer SBM,
+extended to HOGs). The layers are not sparse in SBM terms: at density 0.03 on
+20k genes a gene has about 600 co-expression edges and at most one HOG. The
+null the redesign note measured is a geometric graph, not a block model. For
+inference: rcomplex's problem is the minority one, since conserved modules of
+300-1,000 genes are 2-5 % of a layer. Inference also brings K from the
+data, where modularity brings gamma and a resolution limit (Fortunato 2007).
+For Leiden: it runs at 8 x 20k genes, and gamma and lambda are already
+calibrated against shuffled data (borrow-scope 10.10). Leiden is not
+shoehorned in, but its objective is descriptive and misspecified, so
+replication stays the judge (section 5).
+
+**(b) The SNR from rcomplex data.** d^k comes straight from the data: the
+co-expression degree per species at the analysis density gives k = 2, and a
+gene in a size-k HOG adds 1 to d^k. d_in and d_out need a partition; use the
+existing `detect_modules()` or the WP15a partition. That gives two numbers
+before any engine exists. The co-expression signal per node is
+`d_in^2 - d_out^2`, on a degree of about 600. The most HOGs can add is
+`sum_k (k-1) d^k` with every HOG pure, a few units. Unweighted HOGs therefore
+change SNR_BH by well under 1 %, and everything rests on lambda, which lies
+outside the published model. Two species with 1:1 orthologs give k = 2 only:
+the hypergraph is a graph, tau-modularity is modularity, and hypergraph BH is
+graph BH.
+
+**(c) Probe (Orion, before WP15b).** Engines:
+
+- E1: star expansion on igraph Leiden (WP15a).
+- E2: corrected h-modularity (risk 1 objective, risk 3 tax), a 200-line
+  probe-only serial Louvain on 4k-gene subsamples. Written from the paper,
+  not from h-Louvain's code.
+- E3: species-blocked BH: per-species graph BH plus the lambda-weighted HOG
+  projection `A^(k)`, K from negative eigenvalues. BP via hypergraphx (BSD)
+  on planted data only.
+
+Data:
+
+- Planted: a species-blocked h-SBM, 8 species, degree 600 and 10, 2-5 %
+  minority modules, HOG sizes from the real table. Each copy sits in its
+  HOG's module with probability `1 - delta`, delta in {0, 0.1, 0.3}.
+  h-ABCD adds degree heterogeneity.
+- Real: leaf and wood split halves, scored as in borrow-scope 10.10.
+
+Metrics: AMI, minority best-match Jaccard, and delta-copy precision and recall
+(planted); split-half ARI against shuffled, z cross on the held-out AUROC
+test, and co-localisation (real).
+
+Decision rule:
+
+- E2 earns WP15b only if both hold: it beats E1 on delta-copy recall at equal
+  AMI, and its real-data gains exceed seed noise (0.7-2.2 in z).
+- E3 earns its own WP if it beats E1 on minority recovery at degree 600 and
+  its K replicates across halves.
+- If E1 ties both, WP15 stops at WP15a.
+
+**(d) Recommendation: re-scope WP15b and wait for the probe.** Build WP15a
+(it is E1). Hold the libleidenalg port and the GPL-3 switch it brings. The
+SNR budget says unweighted HOGs add almost nothing; the only comparison at
+this scale favours BH over h-Louvain (Li 2026); and the recurrence engine
+already beat every coupled run (borrow-scope 10.10). Run (b) first; it takes
+an afternoon. If the HOG share stays negligible at the lambda where coupling
+happens (star kappa 16-32), E2 differs from E1 only in how it charges
+defecting copies. The probe then tests one splitting function, which a
+per-HOG cost on E1 might emulate (Veldt 2022 show this for cuts, not for
+modularity).
+
+## 8. Second seed batch
+
+On topic, three seeds:
+
+- Contisciani 2022 (already in section 2) reports Hypergraph-MT faster than
+  its clique expansion when hyperedges are large. On gene-disease and
+  contact data it predicts hyperedges better than the expansion, and on
+  Congress, Walmart and Trivago it does no better.
+- Kritschgau et al. 2024 (Sci Rep 14:6933) fit a degree-corrected
+  microcanonical hypergraph SBM by simulated annealing. They report detection
+  near the conjectured sparse thresholds but stop short of them, with K
+  given. Their gains over the multi-edge clique projection are modest. MDL
+  picks too few clusters (6 against 9 school classes).
+- Kovacs 2025 (already in section 2).
+
+Off topic, two seeds:
+
+- Lotito et al. 2025 (Commun Phys 8:43): directed-hypergraph motifs and
+  reciprocity. Microscale only; HOGs are undirected.
+- Miyashita et al. 2025 (Sci Rep 15:20729): a clustering coefficient for
+  hypergraphs. A local density measure with no communities or nulls.
+
+The 2024 Commun Phys collection (19 articles) has nothing on communities,
+nulls or alignment.
+
+The Asta walk from the on-topic seeds and Li & Peel 2026 returned 136 citing
+papers. Read beyond the title:
+
+- Peixoto, Peel & Gross 2026 (arXiv:2602.16937) argue that graph models
+  represent multibody interactions fully, and that hypergraphs are a
+  constrained special case of them. They find no evidence for the claimed
+  broad advantage of hypergraphs. This backs section 7's default to E1
+  unless the probe says otherwise.
+- Ni, Deng & Mu 2025 (arXiv:2505.04967) give an SBM over several
+  hypergraphs. It infers communities together with the edges between
+  hypergraphs (their example is genes and their protein products). It is
+  the nearest published model to "species layers joined by orthology", and
+  a candidate E3 variant.
+- Kirkley, Felippe & Malizia 2026 (arXiv:2606.00893) prune redundant
+  hyperedges non-parametrically. This is a possible HOG filter before
+  detection.
+
 ## Reading list
 
 | rank | citation | DOI / arXiv | why |
 |---|---|---|---|
 | 1 | Kaminski, Misiorek, Pralat & Theberge 2024, J Complex Netw | 10.1093/comnet/cnae041; arXiv:2406.17556 | the WP15b objective, tau-family, alpha schedule, lift-off |
-| 2 | Chodrow, Veldt & Benson 2021, Sci Adv | 10.1126/sciadv.abh1303 | modularity = DCHSBM likelihood; AON; when it beats clique expansion |
-| 3 | Li, Schaub & Peel 2026, Sci Adv | 10.1126/sciadv.aef2184; arXiv:2601.10502 | which hyperedges a method splits is a built-in bias |
-| 4 | Pamfil, Howison, Lambiotte & Porter 2019, SIAM J Math Data Sci | 10.1137/18M1231304 | omega (lambda) as an estimable persistence parameter |
-| 5 | Poda & Matias 2024, Peer Community J | 10.24072/pcjournal.404 | side-by-side benchmark of hypergraph modularities and codes |
-| 6 | Veldt, Benson & Kleinberg 2022, SIAM Rev | 10.1137/20M1321048 | splitting functions: star, clique, AON, tau in one frame |
-| 7 | Kaminski, Poulin, Pralat, Szufel & Theberge 2019, PLOS ONE | 10.1371/journal.pone.0224307 | Chung-Lu hypergraph null, strict modularity |
-| 8 | Bazzi et al. 2016, Multiscale Model Simul | 10.1137/15M1009615 | what inter-layer coupling does to partitions |
-| 9 | Chodrow 2020, J Complex Netw | 10.1093/comnet/cnaa018 | hypergraph configuration nulls; projection vs native |
-| 10 | Mucha et al. 2010, Science | 10.1126/science.1184819 | the alpha = 0 limit |
+| 2 | Li, Schaub & Peel 2026, Sci Adv | 10.1126/sciadv.aef2184; arXiv:2601.10502 | SNR budget for mixed sizes; BH with K from the spectrum; beats h-Louvain; split bias |
+| 3 | Chodrow, Veldt & Benson 2021, Sci Adv | 10.1126/sciadv.abh1303 | modularity = DCHSBM likelihood; AON; when it beats clique expansion |
+| 4 | Pamfil, Howison, Lambiotte & Porter 2019, SIAM J Math Data Sci | 10.1137/18M1231304 | omega (lambda) as an estimable persistence parameter; multilayer SBM |
+| 5 | Li & Peel 2026, arXiv | arXiv:2604.18565 | minority communities: three phases; BH weaker than BP; K rule moves boundaries |
+| 6 | Peixoto, Peel & Gross 2026, arXiv | arXiv:2602.16937 | graph models already cover multibody interactions; the burden of proof sits with the hypergraph |
+| 7 | Poda & Matias 2024, Peer Community J | 10.24072/pcjournal.404 | side-by-side benchmark of hypergraph modularities and codes |
+| 8 | Veldt, Benson & Kleinberg 2022, SIAM Rev | 10.1137/20M1321048 | splitting functions: star, clique, AON, tau in one frame |
+| 9 | Ni, Deng & Mu 2025, arXiv | arXiv:2505.04967 | SBM over several hypergraphs joined by inter-hypergraph edges (gene-protein) |
+| 10 | Kaminski, Poulin, Pralat, Szufel & Theberge 2019, PLOS ONE | 10.1371/journal.pone.0224307 | Chung-Lu hypergraph null, strict modularity |
+
+Dropped from the top 10, still cited in the text: Bazzi 2016, Chodrow 2020
+and Mucha 2010.
 
 ## Method
 
@@ -313,4 +448,6 @@ as a header only; REST paths 404); it walked papers citing Kaminski 2019 and
 Semantic Scholar returned 429 and was not needed. Not done: a forward walk
 from Mucha 2010; section 4 rests on known papers checked by DOI. Title-only
 hits are not used. x.com and Bluesky `site:` searches found no relevant
-posts, so nothing was fetched.
+posts, so nothing was fetched. Second batch (section 8): five seed PDFs, the
+2024 Commun Phys collection (Sonnet skim), and one more Asta walk; abstracts
+read through arXiv and Crossref, and every new DOI checked on Crossref.
