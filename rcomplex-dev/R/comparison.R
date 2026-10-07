@@ -1043,9 +1043,9 @@ density_sweep.default <- function(
 #' @param orthologs Data frame with columns \code{gene1},
 #'   \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
 #'   \code{\link{extract_orthologs}}).
-#' @param species_trait Optional named character vector mapping species to
-#'   trait labels (e.g., \code{c(SP_A = "annual", SP_B = "perennial")}).
-#'   Enables the \code{coexpressed_traits} output column.
+#' @param clades Optional named list of species vectors, one per clade.
+#'   Clades may nest but must not cross. It enables the
+#'   \code{coexpressed_traits} output column.
 #' @param min_species Minimum number of species where co-expression must
 #'   occur for a partner to be reported (default 2).
 #' @param edges Optional stacked edge data frame from
@@ -1057,9 +1057,9 @@ density_sweep.default <- function(
 #'     \item{partner_hog}{HOG ID of the co-expression partner}
 #'     \item{n_species}{Number of species where co-expression occurs}
 #'     \item{coexpressed_species}{Comma-separated species names}
-#'     \item{coexpressed_traits}{Comma-separated unique trait values of
-#'       those species (sorted); \code{NA} if \code{species_trait} is
-#'       \code{NULL}}
+#'     \item{coexpressed_traits}{Comma-separated top-level clades of
+#'       those species (sorted). A species in no clade gives its own name.
+#'       \code{NA} if \code{clades} is \code{NULL}.}
 #'     \item{mean_weight}{Mean co-expression weight across species. Per
 #'       species, the maximum over candidate-HOG copies of the mean edge
 #'       weight from a copy to the partner-HOG genes in that copy's own
@@ -1079,12 +1079,11 @@ density_sweep.default <- function(
 #'
 #' @examples
 #' \dontrun{
-#' trait <- c(
-#'   SP_A = "annual", SP_B = "annual",
-#'   SP_C = "perennial", SP_D = "perennial"
+#' clades <- list(
+#'   annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D")
 #' )
 #' partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
-#'   species_trait = trait,
+#'   clades = clades,
 #'   min_species = 2L, edges = edges
 #' )
 #' # Annual-only partners
@@ -1093,7 +1092,7 @@ density_sweep.default <- function(
 #'
 #' @export
 get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
-                                 species_trait = NULL,
+                                 clades = NULL,
                                  min_species = 2L,
                                  edges = NULL) {
   # --- Input validation ---
@@ -1108,14 +1107,9 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
   }
   species <- names(networks)
   min_species <- as.integer(min_species)
-  if (!is.null(species_trait)) {
-    missing_trait <- setdiff(species, names(species_trait))
-    if (length(missing_trait) > 0L) {
-      stop(
-        "species_trait missing entries for: ",
-        paste(missing_trait, collapse = ", ")
-      )
-    }
+  trait_of <- NULL
+  if (!is.null(clades)) {
+    trait_of <- .clade_groups(.check_clades(clades, species), species)
   }
 
   # --- Build gene -> HOG lookup (stack both gene columns) ---
@@ -1218,8 +1212,8 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
   agg <- do.call(rbind, lapply(names(partner_split), function(ph) {
     df <- partner_split[[ph]]
     sp_list <- sort(unique(df$species))
-    traits_val <- if (!is.null(species_trait)) {
-      paste(sort(unique(species_trait[sp_list])), collapse = ",")
+    traits_val <- if (!is.null(trait_of)) {
+      paste(sort(unique(trait_of[sp_list])), collapse = ",")
     } else {
       NA_character_
     }

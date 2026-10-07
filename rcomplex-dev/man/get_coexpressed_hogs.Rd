@@ -8,7 +8,7 @@ get_coexpressed_hogs(
   candidate_hog,
   networks,
   orthologs,
-  species_trait = NULL,
+  clades = NULL,
   min_species = 2L,
   edges = NULL
 )
@@ -24,9 +24,9 @@ keyed by species abbreviation.}
 \code{gene2}, \code{hog} (from \code{\link{parse_orthologs}} or
 \code{\link{extract_orthologs}}).}
 
-\item{species_trait}{Optional named character vector mapping species to
-trait labels (e.g., \code{c(SP_A = "annual", SP_B = "perennial")}).
-Enables the \code{coexpressed_traits} output column.}
+\item{clades}{Optional named list of species vectors, one per clade.
+Clades may nest but must not cross. It enables the
+\code{coexpressed_traits} output column.}
 
 \item{min_species}{Minimum number of species where co-expression must
 occur for a partner to be reported (default 2).}
@@ -41,9 +41,9 @@ A data frame with columns:
 \item{partner_hog}{HOG ID of the co-expression partner}
 \item{n_species}{Number of species where co-expression occurs}
 \item{coexpressed_species}{Comma-separated species names}
-\item{coexpressed_traits}{Comma-separated unique trait values of
-those species (sorted); \code{NA} if \code{species_trait} is
-\code{NULL}}
+\item{coexpressed_traits}{Comma-separated top-level clades of
+those species (sorted). A species in no clade gives its own name.
+\code{NA} if \code{clades} is \code{NULL}.}
 \item{mean_weight}{Mean co-expression weight across species. Per
 species, the maximum over candidate-HOG copies of the mean edge
 weight from a copy to the partner-HOG genes in that copy's own
@@ -70,12 +70,11 @@ to explore the co-expression neighborhood of a hub gene.
 }
 \examples{
 \dontrun{
-trait <- c(
-  SP_A = "annual", SP_B = "annual",
-  SP_C = "perennial", SP_D = "perennial"
+clades <- list(
+  annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D")
 )
 partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
-  species_trait = trait,
+  clades = clades,
   min_species = 2L, edges = edges
 )
 # Annual-only partners

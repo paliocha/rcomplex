@@ -211,9 +211,10 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #' @param hub_results Named list keyed by species name.  Each element is the
 #'   data frame output of [identify_module_hubs()] (with `orthologs`
 #'   provided so the `hog` column is populated).
-#' @param species_trait Named character or factor vector mapping species to
-#'   trait groups, e.g. `c(SP_A = "annual", SP_B = "annual",
-#'   SP_C = "perennial", SP_D = "perennial")`.
+#' @param clades Named list of species vectors, one per clade, e.g.
+#'   `list(annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D"))`.
+#'   Clades may nest but must not cross. The trait groups are the
+#'   top-level clades; a species in no clade is a group of its own.
 #' @param module_comparisons Optional named list of
 #'   [module_correspondence()] outputs keyed by alphabetically sorted species
 #'   pair (e.g. `"SP_A.SP_C"`). Required for the conserved_hub vs rewired_hub
@@ -252,8 +253,8 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   SP_A = identify_module_hubs(mods_A, net_A, ortho_A),
 #'   SP_B = identify_module_hubs(mods_B, net_B, ortho_B)
 #' )
-#' trait <- c(SP_A = "annual", SP_B = "perennial")
-#' classify_hub_conservation(hub_list, trait)
+#' clades <- list(annual = "SP_A", perennial = "SP_B")
+#' classify_hub_conservation(hub_list, clades)
 #'
 #' # With module correspondence, for the conserved_hub / rewired_hub split.
 #' # The list key must be the alphabetically sorted species pair.
@@ -264,7 +265,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   mods_A, mods_B, map,
 #'   species_ref = "SP_A", species_test = "SP_B"
 #' ))
-#' classify_hub_conservation(hub_list, trait, module_comparisons = corr)
+#' classify_hub_conservation(hub_list, clades, module_comparisons = corr)
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -275,26 +276,15 @@ classify_hub_conservation <- function(hub_results, ...) {
 
 #' @rdname classify_hub_conservation
 #' @export
-classify_hub_conservation.default <- function(hub_results, species_trait,
+classify_hub_conservation.default <- function(hub_results, clades,
                                               module_comparisons = NULL,
                                               ...) {
   # --- Validation ---
   if (!is.list(hub_results) || is.null(names(hub_results))) {
     stop("hub_results must be a named list keyed by species")
   }
-  if (!is.character(species_trait) && !is.factor(species_trait)) {
-    stop("species_trait must be a named character or factor vector")
-  }
-  if (is.null(names(species_trait))) {
-    stop("species_trait must be a named vector")
-  }
-  missing_sp <- setdiff(names(hub_results), names(species_trait))
-  if (length(missing_sp) > 0) {
-    stop(
-      "species_trait missing entries for: ",
-      paste(missing_sp, collapse = ", ")
-    )
-  }
+  known_sp <- unique(c(names(hub_results), unlist(clades)))
+  clades <- .check_clades(clades, names(hub_results))
   req_cols <- c("gene", "module", "is_hub", "hog", "degree")
   for (sp in names(hub_results)) {
     if (!is.data.frame(hub_results[[sp]]) ||
@@ -306,8 +296,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     }
   }
 
-  trait_char <- as.character(species_trait[names(hub_results)])
-  names(trait_char) <- names(hub_results)
+  trait_char <- .clade_groups(clades, names(hub_results))
   species_by_trait <- split(names(trait_char), trait_char)
 
   primary_col <- "degree"
@@ -417,7 +406,6 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
         "alphabetically sorted species pair (e.g. \"SP_A.SP_C\")"
       )
     }
-    known_sp <- names(species_trait)
     valid_keys <- if (length(known_sp) >= 2L) {
       apply(utils::combn(sort(known_sp), 2L), 2L, paste, collapse = ".")
     } else {
@@ -427,7 +415,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     if (length(bad_keys) > 0L) {
       stop(
         "module_comparisons keys must be alphabetically sorted species ",
-        "pairs drawn from species_trait; unusable: ",
+        "pairs drawn from clades; unusable: ",
         paste(bad_keys, collapse = ", ")
       )
     }

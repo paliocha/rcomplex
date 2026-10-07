@@ -258,7 +258,7 @@ test_that("classify_hub_conservation returns correct structure", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td)
 
-  result <- classify_hub_conservation(hubs, td$trait)
+  result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
   expect_true(is.data.frame(result))
   expected_cols <- c(
@@ -275,7 +275,7 @@ test_that("classify_hub_conservation identifies trait-specific hubs", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 2L)
 
-  result <- classify_hub_conservation(hubs, td$trait)
+  result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
   # Check for at least one trait-specific hub
   trait_specific <- result[grepl("_specific_hub$", result$classification), ]
@@ -287,7 +287,7 @@ test_that("classify_hub_conservation classifies non_hub HOGs", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 1L)
 
-  result <- classify_hub_conservation(hubs, td$trait)
+  result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
   # With only 1 hub per module, most HOGs are non_hub
   non_hubs <- result[result$classification == "non_hub", ]
@@ -304,7 +304,7 @@ test_that(
     # Use top_n = 5 so gene 1 (shared hub) qualifies in both traits
     hubs <- make_hub_results(td, top_n = 5L)
 
-    result <- classify_hub_conservation(hubs, td$trait)
+    result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
     # HOG1 should be hub in multiple species / both traits
     hog1 <- result[result$hog == "HOG1", ]
@@ -356,7 +356,7 @@ test_that(
       )
     }
 
-    result <- classify_hub_conservation(hubs, td$trait,
+    result <- classify_hub_conservation(hubs, as_clades(td$trait),
       module_comparisons = mod_comps
     )
 
@@ -383,7 +383,7 @@ test_that("a species with no HOG-mapped genes is called out", {
   hubs[["SP_B"]]$hog <- NA_character_
 
   expect_warning(
-    classify_hub_conservation(hubs, td$trait),
+    classify_hub_conservation(hubs, as_clades(td$trait)),
     "no HOG-mapped genes"
   )
 })
@@ -399,7 +399,7 @@ test_that("absent species count against the trait group", {
   hubs[["SP_A"]]$is_hub[hubs[["SP_A"]]$hog == "HOG10"] <- TRUE
   hubs[["SP_B"]] <- hubs[["SP_B"]][hubs[["SP_B"]]$hog != "HOG10", ]
 
-  res <- classify_hub_conservation(hubs, td$trait)
+  res <- classify_hub_conservation(hubs, as_clades(td$trait))
   expect_equal(
     res$classification[res$hog == "HOG10"],
     "annual_specific_hub"
@@ -412,22 +412,15 @@ test_that("classify_hub_conservation validates inputs", {
   hubs <- make_hub_results(td)
 
   expect_error(
-    classify_hub_conservation(list(1, 2), td$trait),
+    classify_hub_conservation(list(1, 2), as_clades(td$trait)),
     "must be a named list"
   )
   expect_error(
     classify_hub_conservation(hubs, c("a", "b")),
-    "must be a named vector"
+    "clades must be a named list"
   )
   expect_error(
-    classify_hub_conservation(
-      hubs,
-      c(SP_A = "annual", SP_B = "annual")
-    ),
-    "missing entries"
-  )
-  expect_error(
-    classify_hub_conservation(hubs, td$trait,
+    classify_hub_conservation(hubs, as_clades(td$trait),
       module_comparisons = list(SP_A.SP_C = list(raw = 1))
     ),
     "must be a module_correspondence\\(\\) result"
@@ -446,7 +439,7 @@ test_that("classify_hub_conservation handles empty hub_results", {
     stringsAsFactors = FALSE
   )
   result <- classify_hub_conservation(
-    list(SP_A = empty_hub, SP_B = empty_hub), trait
+    list(SP_A = empty_hub, SP_B = empty_hub), as_clades(trait)
   )
   expect_equal(nrow(result), 0L)
   expect_true(all(c("hog", "classification") %in% names(result)))
@@ -480,7 +473,7 @@ test_that(
     td <- make_hub_test_data()
     hubs <- make_hub_results(td, top_n = 5L)
 
-    result <- classify_hub_conservation(hubs, td$trait)
+    result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
     # HOGs that are hubs in both traits should be multi_trait_hub
     multi <- result[result$classification == "multi_trait_hub", ]
@@ -516,7 +509,7 @@ test_that("orientation check survives species names containing a dot", {
     )
   )
   expect_no_error(
-    classify_hub_conservation(hubs, trait,
+    classify_hub_conservation(hubs, as_clades(trait),
       module_comparisons = list("A.thaliana.O.sativa" = corr)
     )
   )

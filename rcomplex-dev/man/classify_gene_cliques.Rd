@@ -11,7 +11,7 @@ classify_gene_cliques(cliques, ...)
   cliques,
   edges,
   species,
-  lineage = NULL,
+  clades = NULL,
   alpha_call = 0.1,
   alpha_graph = 0.9,
   min_power = 0.8,
@@ -43,9 +43,11 @@ Every species appearing in \code{cliques} must be listed; a stranger
 would be counted into the clique's species total while also being
 reported as missing.}
 
-\item{lineage}{Optional named vector mapping each species to a
-lineage. Required for \code{lineage_specific} and \code{differentiated};
-when \code{NULL} those two tiers are skipped.}
+\item{clades}{Optional named list of species vectors, one per clade.
+Clades may nest but must not cross. A flat lineage vector is
+\code{split(names(lineage), lineage)}. Required for \code{lineage_specific},
+\code{trait_specific} and \code{differentiated}. When \code{NULL}, these tiers are
+skipped.}
 
 \item{alpha_call}{Significance threshold for calling a species pair
 conserved (default 0.1).}
@@ -74,10 +76,13 @@ without discarding the per-clique detail}
 \item{n_pairs, n_present, n_sig}{Member pairs, pairs with a row
 in \code{edges}, and pairs significant at \code{alpha_call}}
 \item{n_sig_within, n_sig_cross}{Significant pairs within and
-across lineages (\code{NA} without \code{lineage})}
+across lineages (\code{NA} without \code{clades})}
 \item{n_underpowered_cross}{Cross-lineage pairs present in
 \code{edges}, not significant, and with \code{power} below \code{min_power}
-(\code{NA} without \code{lineage})}
+(\code{NA} without \code{clades})}
+\item{clade}{Name of the smallest clade that holds every species
+of the clique. \code{NA} when no clade holds them all, or without
+\code{clades}.}
 \item{n_missing, missing_species, missing_reason}{Species not in
 the clique, and why: \code{absent} (no row in the HOG),
 \code{untested} (in the HOG but never compared to a member),
@@ -107,13 +112,18 @@ the number of species actually supplied, so nothing is tied to the
 six species and fifteen species-pairs of the original workflow.
 }
 \details{
+A lineage is a top-level clade of \code{clades}; a species in no clade is
+a lineage of its own. The specificity tiers read the smallest clade
+that holds the clique's species, so a clique can be specific to a
+nested clade.
+
 With \code{S = length(species)} species, \code{P = choose(S, 2)} species-pairs,
 lineage sizes \code{n_l}, \code{W = sum(choose(n_l, 2))} within-lineage pairs
 and \code{X = P - W} cross-lineage pairs, the tiers are:
 \describe{
 \item{complete_conserved}{All \code{S} species present and all
 \code{choose(S, 2)} pairs significant at \code{alpha_call}.}
-\item{lineage_specific}{A complete clique over one entire lineage,
+\item{lineage_specific}{A complete clique over one entire clade,
 with no species outside it testable against the clique. A species
 that \emph{was} compared against every member and came back
 non-significant is evidence of a boundary rather than a gap, so
@@ -131,10 +141,10 @@ rather than a rejected test.}
 at least one lineage of two or more species, every such lineage
 fully significant within itself, and at most \code{cross_max}
 cross-lineage pairs significant.}
-\item{trait_specific}{A complete clique over one entire lineage, at
+\item{trait_specific}{A complete clique over one entire clade, at
 least one outside species compared against every member and
 rejected at adequate power (\code{tested_ns}), no outside species
-\code{underpowered}, and no complete clique of another lineage in the
+\code{underpowered}, and no complete clique of a disjoint clade in the
 same HOG. Where \code{lineage_specific} reads the other lineage's
 absence as a gap, this reads its presence and rejection as a
 boundary: one trait group conserved, the other present but not

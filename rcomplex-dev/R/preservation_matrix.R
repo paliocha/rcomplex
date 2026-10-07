@@ -433,10 +433,11 @@ all_species_pairs <- function(species, sep = ".") {
 #' @param group Named vector mapping species to trait values. Any number of
 #'   levels is allowed. Species not appearing in `classification` are ignored,
 #'   so the permuted label multiset is the one the matrix actually holds.
-#' @param block Optional named vector mapping species to a phylogenetic group
-#'   (a genus, say). Supplying it enables the restricted within-block null and
-#'   the within-block exclusion. With `block = NULL` only the free null is
-#'   run.
+#' @param block Optional named list of species vectors, one per clade (a
+#'   genus, say), as `clades` elsewhere. Only the top-level clades are read.
+#'   A species in no clade is a block of its own. Supplying it enables the
+#'   restricted within-block null and the within-block exclusion. With
+#'   `block = NULL` only the free null is run.
 #' @param seed Integer seed for the sampled branch, or `NULL` (default) to
 #'   draw from the ambient stream and leave it advanced. A seed draws from a
 #'   private stream and restores the caller's on exit, the package-wide
@@ -484,7 +485,8 @@ all_species_pairs <- function(species, sep = ".") {
 #'       significance scale is collapsed.}
 #'     \item{n_rows,n_pairs,n_excluded}{Rows used, distinct species pairs
 #'       behind them, and rows dropped for sharing a block.}
-#'     \item{species,group,block}{The design actually tested.}
+#'     \item{species,group,block}{The design actually tested. `block` is
+#'       the top-level clade of each species.}
 #'   }
 #'
 #' @examples
@@ -492,7 +494,7 @@ all_species_pairs <- function(species, sep = ".") {
 #' pairs <- rcomplex:::all_species_pairs(names(group))
 #' res <- preservation_paired(mods, nets, ortho, pairs, group = group)
 #' pmt <- preservation_matrix_test(res$classification, group,
-#'   block = genus
+#'   block = split(names(genus), genus)
 #' )
 #' c(pmt$observed, pmt$p_free, pmt$p_blocked)
 #' }
@@ -522,16 +524,10 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   if (is.null(names(group)) || length(group) == 0L) {
     stop("group must be a named vector mapping species to trait values")
   }
-  if (!is.null(block) && is.null(names(block))) {
-    stop("block must be a named vector mapping species to a group")
-  }
   # group[species] takes the first match, so a repeated name would hand a
   # species whichever trait happened to be listed first -- silently, and with
   # the wrong labelling then permuted as if it were the design.
   .pmt_check_unique(names(group), "group")
-  if (!is.null(block)) {
-    .pmt_check_unique(names(block), "block")
-  }
 
   cls <- classification
   ref <- as.character(cls$reference)
@@ -589,21 +585,8 @@ preservation_matrix_test <- function(classification, group, block = NULL,
 
   n_excluded <- 0L
   if (!is.null(block)) {
-    miss_bl <- setdiff(unique(c(ref, tst)), names(block))
-    if (length(miss_bl) > 0L) {
-      stop("block missing entries for: ", paste(miss_bl, collapse = ", "))
-    }
-    # A present-but-NA block value passes the name check and then poisons
-    # the within-block comparison: n_excluded becomes NA and NA species
-    # enter ref/tst, so the run dies later complaining about the trait
-    # design. Mirror the group check instead.
     bl_sp <- unique(c(ref, tst))
-    if (anyNA(block[bl_sp])) {
-      stop(
-        "block has NA values for: ",
-        paste(bl_sp[is.na(block[bl_sp])], collapse = ", ")
-      )
-    }
+    block <- .clade_groups(.check_clades(block, bl_sp), bl_sp)
     same <- as.character(block[ref]) == as.character(block[tst])
     n_excluded <- sum(same)
     ref <- ref[!same]

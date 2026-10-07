@@ -7,12 +7,7 @@
 \usage{
 classify_hub_conservation(hub_results, ...)
 
-\method{classify_hub_conservation}{default}(
-  hub_results,
-  species_trait,
-  module_comparisons = NULL,
-  ...
-)
+\method{classify_hub_conservation}{default}(hub_results, clades, module_comparisons = NULL, ...)
 }
 \arguments{
 \item{hub_results}{Named list keyed by species name.  Each element is the
@@ -21,8 +16,10 @@ provided so the \code{hog} column is populated).}
 
 \item{...}{Additional arguments passed to the default method.}
 
-\item{species_trait}{Named character or factor vector mapping species to
-trait groups, e.g. \code{c(SP_A = "annual", SP_B = "annual", SP_C = "perennial", SP_D = "perennial")}.}
+\item{clades}{Named list of species vectors, one per clade, e.g.
+\code{list(annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D"))}.
+Clades may nest but must not cross. The trait groups are the
+top-level clades; a species in no clade is a group of its own.}
 
 \item{module_comparisons}{Optional named list of
 \code{\link[=module_correspondence]{module_correspondence()}} outputs keyed by alphabetically sorted species
@@ -88,8 +85,8 @@ hub_list <- list(
   SP_A = identify_module_hubs(mods_A, net_A, ortho_A),
   SP_B = identify_module_hubs(mods_B, net_B, ortho_B)
 )
-trait <- c(SP_A = "annual", SP_B = "perennial")
-classify_hub_conservation(hub_list, trait)
+clades <- list(annual = "SP_A", perennial = "SP_B")
+classify_hub_conservation(hub_list, clades)
 
 # With module correspondence, for the conserved_hub / rewired_hub split.
 # The list key must be the alphabetically sorted species pair.
@@ -100,7 +97,7 @@ corr <- list(SP_A.SP_B = module_correspondence(
   mods_A, mods_B, map,
   species_ref = "SP_A", species_test = "SP_B"
 ))
-classify_hub_conservation(hub_list, trait, module_comparisons = corr)
+classify_hub_conservation(hub_list, clades, module_comparisons = corr)
 }
 
 }
