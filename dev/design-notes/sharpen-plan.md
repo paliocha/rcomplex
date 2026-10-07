@@ -2,6 +2,33 @@
 
 2026-10-07. Baseline `main` b245ac0 (0.3.2.9000). Target release 0.4.0.
 
+## 0. Start here ("Go!")
+
+A fresh session that reads "Go!" does this, nothing else first:
+
+1. `git status`: expect branch `docs/sharpen-plan` (this note, the
+   agent files, `dev/sharpen-census.R`, the `.gitignore` change). If on
+   `main`, `git checkout docs/sharpen-plan`.
+2. `git checkout -b refactor/sharpen` from it. The plan travels with
+   the branch; the final PR to `main` carries it.
+3. Read section 4: every gate has an answer. Do not re-ask.
+4. One Agent call with two tool uses: `sharpen-census` (haiku, read
+   only, no worktree) and `sharpen-cutter` for WP0 (sonnet, `isolation:
+   "worktree"`). Launch prompt from section 5, nothing more.
+5. On the WP0 report: `sharpen-reviewer` on the worktree branch; merge
+   into `refactor/sharpen` when it says `merge: yes`; then WP1, and so
+   on in the section 3 order. Parallel sets go in one Agent call.
+   Each merged WP is one PR into `refactor/sharpen` (the `pr-create`
+   skill; the branch's own `dev-check.yml` from WP0 is its CI; root
+   workflows run on `main` only). Note from memory: a PR that adds or
+   edits a workflow file may need a push with the user's own git
+   credentials, not `gh`.
+6. Parent model does only: launch, read the report, launch the
+   reviewer, merge, next. No WP work in the parent (section 5, budget
+   rule).
+7. Caveman for everything internal, normal prose to Martin. Karpathy
+   guidelines on, ponytail off, no Claude attribution lines.
+
 Goal. Hvidsten proposal MDO I (multi-species, phylogeny-aware) and II
 (nulls, effect sizes) are already covered by rcomplex. What is missing is
 the BLAST/Clustal shape: one verb, data in, table out, defaults good.
