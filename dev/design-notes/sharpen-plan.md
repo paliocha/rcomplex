@@ -19,6 +19,23 @@ heterogeneous expression designs before alignment (WP11, TEA-GCN as the
 reference), and a controlled prose style for everything a user reads
 (WP8, Karpathy's ASD-STE100 note, section 7).
 
+Regime rule (Martin, 2026-10-07: most people cannot run giant
+experiments). rcomplex works the same way at n = 6 and n = 6,000
+samples: same verbs, same output columns, no default that assumes a
+sample count. What changes with n is power and resolution, and the
+package says so instead of hiding it: `print()` shows n and the
+correlation each network needed to pass its density threshold, the
+`power` column already scales with degree, `pvalue_resolution()`
+already reports the floor, and an opt-in null pass reports the false
+calls at the user's alpha on the user's n (WP12). Calibration must
+hold at every n; power may not, and is reported. Harmonisation has one
+tool per regime (WP11): `block` for a designed experiment with
+replicates (needs two samples per level), `partition` for a compendium
+(needs `min_partition_n` per level). The maintainer's own data is the
+small-n case (Pooideae, 20 samples per species, five time points by
+four replicates), so small n is the default test regime, not an edge
+case.
+
 Rules for every work package: ponytail ladder (deletion over addition, no
 new abstraction, no new object slots), karpathy guidelines (surgical
 edits, state assumptions), lines <= 80, lint clean, no Claude attribution
@@ -172,7 +189,7 @@ Acceptance commands run from the package root after
 `Rscript -e 'devtools::document()' && R CMD INSTALL .`.
 
 Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
--> WP6 -> WP8 -> WP9.
+-> WP6 -> WP12 -> WP8 -> WP9.
 
 ### WP0 Branch + surface snapshot (serial, first)
 
@@ -404,7 +421,36 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
   still matches the wiring layer; check OK.
 - Deps: WP5.
 
-### WP8 Docs (serial after WP6)
+### WP12 Sample-size honesty (serial after WP6)
+
+- Files: `R/rcomplex-class.R` (driver, `print`, `summary`),
+  `tests/testthat/test-rcomplex-class.R`, `tests/testthat/
+  helper-preservation.R` (`pres_expr()` already takes `n_samp`).
+- Do: three small things, no new export.
+  (a) `print.rcomplex()` adds one line per species: `n_genes`,
+  `n_samples`, `density`, and `r_threshold`, the smallest correlation
+  that passed the density threshold (read it from the network object;
+  if `compute_network()` does not keep it, store it in `params`, one
+  field). A user sees "20 samples, r >= 0.71" next to "600 samples,
+  r >= 0.18" and knows what each network can resolve.
+  (b) `rcomplex(null = FALSE)`: when `TRUE`, the driver runs
+  `null_network(block = block)` per species and `find_coexpressologs()`
+  on the null networks with the same settings, and `summary()` reports
+  `calls_null` beside `calls` per species pair, plus their ratio as the
+  empirical false-call rate at `alpha`. Opt-in because it doubles the
+  run time; `summary()` prints `null: not run` otherwise. Same seed
+  contract as the rest of the driver.
+  (c) Test across regimes: one generator (`pres_expr()`), three sample
+  sizes (6, 20, 200), same genes, same orthologs. The driver runs at
+  every n with identical output columns; with `null = TRUE` the
+  false-call rate is at most `alpha` at every n; power (calls among
+  planted conserved pairs) is non-decreasing in n. Keep it under 20 s:
+  200 genes, `density = 0.05`.
+- Accept: the regime test passes; `print()` snapshot shows the per
+  species line; check OK.
+- Deps: WP6.
+
+### WP8 Docs (serial after WP12)
 
 - Files: `README.md`, `vignettes/quickstart.Rmd` (new),
   `vignettes/rcomplex-tutorial.Rmd` -> `vignettes/articles/walkthrough.Rmd`,
@@ -433,7 +479,7 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
   reference group; `Rscript dev/sharpen-prose.R` (WP8 writes it: flags
   `@description` blocks over 3 sentences or any sentence over 25 words
   in `R/*.R`, `README.md`, `vignettes/quickstart.Rmd`) reports zero.
-- Deps: WP6.
+- Deps: WP12.
 
 ### WP9 Surface guard (last)
 
@@ -484,7 +530,7 @@ prompt, the plan file is the source of truth.
 |---|---|---|---|
 | `sharpen-census.md` | haiku | Read, Grep, Glob, Bash | pre-WP2 and after every merge: `dev/sharpen-census.R`, grep `prepare_data/` for Tier C names |
 | `sharpen-cutter.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP0, WP1, WP2, WP3, WP4, WP5, WP9: work defined by a list, no design |
-| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10, WP11: new functions with a stated signature |
+| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10, WP11, WP12: new functions with a stated signature |
 | `sharpen-docs.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP8 |
 | `sharpen-reviewer.md` | sonnet | Read, Grep, Glob, Bash | every PR before merge, read-only |
 
@@ -523,7 +569,11 @@ block <- list(BDIS = bdis_meta$tissue, HVUL = hvul_meta$tissue)
 res <- rcomplex(expr, "N0.tsv", block = block,
                 clades = list(annual = "BDIS", perennial = "HVUL"))
 res
-summary(res)
+#> rcomplex: 2 species, 1,842 hogs, 3 tiers
+#>   BDIS  18,201 genes  20 samples  density 0.03  r >= 0.71
+#>   HVUL  19,877 genes  20 samples  density 0.03  r >= 0.69
+#>   edges 4,112   cliques 1,203   complete_conserved 611 ...
+summary(res)       # classification table; with null = TRUE, calls_null
 write_rcomplex(res, "out/")
 ```
 
