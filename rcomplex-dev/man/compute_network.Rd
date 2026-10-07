@@ -18,7 +18,8 @@ compute_network(x, ...)
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  block_size = NULL
+  block_size = NULL,
+  partition = NULL
 )
 
 \S4method{compute_network}{SummarizedExperiment}(x, assay = 1L, ...)
@@ -86,6 +87,15 @@ pairs complete the fraction widens and a message says so; peak memory
 grows with it (for log MR it can exceed the dense build), and at all
 pairs the build saves no memory.}
 
+\item{partition}{\code{NULL} (default), or a per-sample factor of length
+\code{ncol(x)} without \code{NA}, such as tissue or study. The function
+computes the correlation within each level. It sets negative
+correlations to zero and takes the mean over the levels. Then it
+normalises the result. The function drops levels with fewer than 5
+samples and tells you which. At least two levels must remain.
+\code{abs_cor} has no effect, because no correlation is negative. Use the
+dense build: \code{block_size} must be \code{NULL}.}
+
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
 \pkg{SummarizedExperiment} package.}
@@ -103,7 +113,8 @@ equal to that of the full dense matrix in every mode.}
 \item{n_genes}{Number of genes in the network.}
 \item{n_removed}{Number of constant genes removed before computing
 correlations.}
-\item{params}{List of parameters used.}
+\item{params}{List of parameters used. It holds \code{partition} when
+you give one.}
 \item{store_density, store_threshold}{Sparse networks only: the
 stored edge fraction and the value cutoff of the store. Analyses
 at thresholds below \code{store_threshold} are refused (see

@@ -70,6 +70,12 @@ mr_block <- function(x, genes, net) {
       "got \"", params$norm_method, "\""
     )
   }
+  if (!is.null(params$partition)) {
+    stop(
+      "mr_block() cannot rebuild a network built with partition; ",
+      "use compute_network(sparse = FALSE) instead"
+    )
+  }
   if (!is.character(genes) || length(genes) == 0L) {
     stop("genes must be a non-empty character vector")
   }
