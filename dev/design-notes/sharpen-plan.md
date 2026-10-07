@@ -9,6 +9,16 @@ Package is 57 exports, 18.7k R lines, 1.5k-line tutorial. Most of it is
 research scaffolding from the 2026-09/10 Orion benchmarks. Cut it, keep
 the math, add one driver and nested clades.
 
+Framing. rcomplex is an ortholog-anchored *local* GCN aligner. Pairwise
+alignment = co-expressologs (the BLAST hit); multiple alignment = cliques
+across N species (the Clustal column); modules = aligned blocks. The
+aligner must accept any GCN, from any expression design, not only the
+Pooideae annual/perennial or the EVOTREE wood data. Three consequences
+(Martin, 2026-10-07): input generalisation (WP10), harmonisation of
+heterogeneous expression designs before alignment (WP11, TEA-GCN as the
+reference), and a controlled prose style for everything a user reads
+(WP8, Karpathy's ASD-STE100 note, section 7).
+
 Rules for every work package: ponytail ladder (deletion over addition, no
 new abstraction, no new object slots), karpathy guidelines (surgical
 edits, state assumptions), lines <= 80, lint clean, no Claude attribution
@@ -95,12 +105,15 @@ find_coexpressologs               43      6        3       4    83
 
 ## 2. Export triage
 
-**Tier A, stays exported (27).** The user path plus the building blocks a
-power user needs by name.
+**Tier A, stays exported (29).** The user path plus the building blocks a
+power user needs by name. `split_layers` is the harmonisation primitive
+(WP11), not scaffolding. `read_orthologs` and `as_network` are new
+(WP10); `parse_orthologs` folds into `read_orthologs`.
 
 ```
-compute_network  parse_orthologs  prepare_orthologs  reduce_orthogroups
-find_coexpressologs  density_sweep  null_network  coexpressolog_null
+read_orthologs  prepare_orthologs  reduce_orthogroups
+split_layers  compute_network  as_network  null_network  coexpressolog_null
+find_coexpressologs  density_sweep
 gene_clique_graph  classify_gene_cliques
 find_cliques  clique_stability  clique_threshold_sweep  classify_cliques
 as_modules  detect_modules  resolve_ortholog_map  module_preservation
@@ -109,7 +122,7 @@ preservation_matrix_test  identify_module_hubs  classify_hub_conservation
 get_coexpressed_hogs  pvalue_resolution  rcomplex (driver, WP6)
 ```
 
-**Tier B, demote to internal (12).** Called by Tier A, never needed by
+**Tier B, demote to internal (11).** Called by Tier A, never needed by
 name. Keep the function, drop `@export`, add `@keywords internal`.
 Tests call them as `rcomplex:::fn()`.
 
@@ -117,7 +130,7 @@ Tests call them as `rcomplex:::fn()`.
 compare_neighborhoods  summarize_comparison  comparison_to_edges
 permutation_hog_test  compare_specificity  summarize_specificity
 run_pairwise_comparisons  all_species_pairs  mr_block  as_sparse_network
-extract_orthologs  split_layers
+extract_orthologs
 ```
 
 **Tier C, remove from package (17).** Research probes from the Orion
@@ -158,8 +171,8 @@ it. One PR `refactor/sharpen` -> `main` after WP9, version 0.4.0.
 Acceptance commands run from the package root after
 `Rscript -e 'devtools::document()' && R CMD INSTALL .`.
 
-Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP6 || WP7} -> WP8
--> WP9.
+Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP7 || WP10 || WP11}
+-> WP6 -> WP8 -> WP9.
 
 ### WP0 Branch + surface snapshot (serial, first)
 
@@ -176,7 +189,7 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP6 || WP7} -> WP8
 
 - Files: `R/comparison.R`, `R/specificity.R`, `R/summary.R`,
   `R/mr_block.R`, `R/network-sparse.R`, `R/se_methods.R`,
-  `R/split_layers.R`, `R/preservation_matrix.R` (`all_species_pairs`),
+  `R/preservation_matrix.R` (`all_species_pairs`),
   `R/rcomplex-package.R` (index), `NAMESPACE`, `man/`, `README.md`
   function index rows, tests that call Tier B by name.
 - Do: remove `@export`, add `@keywords internal`. Do not rename, do not
@@ -256,22 +269,29 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP6 || WP7} -> WP8
 - Accept: surface test: no export has > 8 named formals; check OK.
 - Deps: WP4.
 
-### WP6 Driver (parallel with WP7)
+### WP6 Driver (serial, after WP7, WP10, WP11)
 
-- Files: `R/rcomplex-class.R` (rewrite, target < 250 lines),
+- Files: `R/rcomplex-class.R` (rewrite, target < 300 lines),
   `tests/testthat/test-rcomplex-class.R` (rewrite), `man/`.
 - Do: `rcomplex()` becomes the BLAST verb.
 
   ```r
-  rcomplex(expr, orthologs, clades = NULL, density = 0.03,
+  rcomplex(expr = NULL, orthologs, networks = NULL, block = NULL,
+           clades = NULL, density = 0.03,
            method = c("hypergeometric", "rank"), alpha = 0.1,
            modules = FALSE, n_cores = 1L, seed = NULL)
   ```
 
   `expr`: named list (species) of matrices or SummarizedExperiments.
-  `orthologs`: data.frame or file path (via `parse_orthologs()`).
-  Runs `compute_network()` per species, `find_coexpressologs()` over all
-  pairs, `gene_clique_graph()` + `classify_gene_cliques()`; with
+  `networks`: named list of network objects instead, from
+  `compute_network()` or `as_network()` (WP10); exactly one of `expr`
+  and `networks`. `orthologs`: long data.frame (`species gene hog`) or
+  a file path for `read_orthologs()`. `block`: named list of per-sample
+  factors, one per species in `expr`; each species goes through
+  `split_layers()` and its wiring layer is what `compute_network()`
+  sees (WP11); `null_network(block = )` for any null the driver runs.
+  Runs `compute_network()` per species, `find_coexpressologs()` over
+  all pairs, `gene_clique_graph()` + `classify_gene_cliques()`; with
   `modules = TRUE` adds `detect_modules()` + `preservation_paired()`
   over all pairs. Returns a plain list of class `rcomplex`: `networks`,
   `edges`, `cliques`, `classification`, optional `modules`,
@@ -282,11 +302,12 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP6 || WP7} -> WP8
   driver calls the defaults. Seed once, pass `seed = NULL` down (RNG
   contract); add `rcomplex` to the rng-contract table.
 - Accept: `test-rcomplex-class.R` runs the driver on `inst/extdata` in
-  < 30 s and checks tier counts; `print()` snapshot; rng-contract test
-  passes; check OK.
-- Deps: WP5, gate G4.
+  < 30 s and checks tier counts, once from `expr` and once from
+  `networks = lapply(expr, compute_network)` with identical edges;
+  `print()` snapshot; rng-contract test passes; check OK.
+- Deps: WP7, WP10, WP11, gate G4.
 
-### WP7 Nested clades, MDO I (parallel with WP6)
+### WP7 Nested clades, MDO I (parallel with WP10, WP11)
 
 - Files: `R/clique_gene_graph.R`, `R/cliques.R` (`classify_cliques`,
   `clique_stability`), `R/modules.R` (`classify_hub_conservation`),
@@ -309,24 +330,110 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP6 || WP7} -> WP8
   check OK with and without `ape` installed.
 - Deps: WP5, gate G5.
 
-### WP8 Docs (serial after WP6 + WP7)
+### WP10 Generalise inputs (parallel with WP7, WP11)
+
+- Files: `R/orthologs.R`, `R/network-sparse.R` or new `R/as_network.R`
+  (< 120 lines), `inst/extdata/` (one OrthoFinder `N0.tsv` fixture of
+  ~20 rows), tests, `man/`.
+- Do: today `parse_orthologs()` reads PLAZA only, two species at a time,
+  and nothing imports a network built elsewhere. Two additions.
+  (a) `read_orthologs(file, species = NULL, format = c("auto",
+  "orthofinder", "plaza", "long"))` returns the long table `species
+  gene hog` for every species in the file (or the `species` subset).
+  Formats: OrthoFinder `N0.tsv` / `Orthogroups.tsv` (one column per
+  species, comma-separated genes), PLAZA (today's parser), long
+  (already the output shape; passthrough with column check). `auto`
+  reads the header: `HOG`/`Orthogroup` column means OrthoFinder,
+  `gene_content` means PLAZA, `species gene hog` means long. FastOMA
+  and eggNOG users convert to long themselves; one documented sentence,
+  no parser. `parse_orthologs()` is deleted; `prepare_orthologs()`
+  takes the long table where it took SE rowData.
+  (b) `as_network(x, density = 0.03, genes = NULL)`: `x` is a symmetric
+  numeric matrix (dense or `dgCMatrix`, genes in dimnames) or an edge
+  list `gene1 gene2 weight`. Builds the same network object
+  `compute_network()` returns (`network` as `dgCMatrix`, `threshold`
+  at the `density` quantile of the stored weights, `store_threshold`,
+  `params`), so every consumer works unchanged through `.net_check()`.
+  Weights are taken as given; a TEA-GCN `zScore(Co-exp_Str_MR)` or a
+  WGCNA adjacency both qualify. No MR recomputation: that is
+  `compute_network()`'s job on expression.
+- Accept: `read_orthologs()` on the N0 fixture and on
+  `orthologs_small.txt` give the same long table for the two shared
+  species; `as_network()` on `compute_network(x)$network` round-trips to
+  identical `find_coexpressologs()` edges; `find_cliques()` and
+  `module_preservation()` run on `as_network()` input; check OK.
+- Deps: WP5.
+
+### WP11 Harmonise heterogeneous designs (parallel with WP7, WP10)
+
+- Files: `R/split_layers.R`, `R/network.R`, `R/null_network.R`, tests,
+  `vignettes/articles/methods.Rmd` (one section).
+- Why: species rarely share a design. Pooled leaf + root networks are
+  tissue networks (memory: tissue confound), and a 10-tissue compendium
+  against a 3-tissue one aligns tissue coverage, not regulation. TEA-GCN
+  (Lim et al. 2026, Nat Commun 17:5906) solves the public-compendium
+  version: k-means partitions of samples in PCA space, correlation per
+  partition, rectified average (negatives to zero, then mean) across
+  partitions, then MR and a global z-score so networks compare across
+  species. rcomplex already has the small-n version: `split_layers()`
+  projects out a designed block and the wiring layer is correlation
+  within blocks pooled over them; MR + density threshold already make
+  networks comparable (TEA-GCN's z-score is the same idea on raw
+  weights). Three steps close the gap without reimplementing TEA-GCN.
+- Do:
+  (a) `split_layers()` keeps its name and gains nothing; it is the
+  documented answer to "my species have different conditions" and the
+  driver's `block` argument (WP6). Its `@description` becomes three STE
+  sentences; the Breschi/Cote/Parsana rationale moves to methods.Rmd.
+  (b) `compute_network(partition = NULL)`: a per-sample factor. When
+  given, correlation is computed within each level and combined by
+  rectified average before MR (dense path only; `block_size` with
+  `partition` errors with one sentence). Levels with fewer than
+  `min_partition_n = 5` samples are dropped with a message. This is
+  TEA-GCN's partition aggregation on a user-supplied partition; rcomplex
+  does not cluster samples, the user brings the factor (tissue, study,
+  or a k-means they ran). One kernel call per level, existing
+  correlation code, ~40 lines.
+  (c) `harmonise_blocks(block)`: no. The driver checks that every
+  species' `block` levels are a subset of the union and messages which
+  species lack which level; nothing is dropped automatically. Ten
+  lines inside WP6, no new export.
+- Accept: `compute_network(x, partition = f)` on a 2-level factor equals
+  the hand-computed `pmax(cor_1, 0) + pmax(cor_2, 0)) / 2` passed
+  through MR; `split_layers()` tests unchanged; `null_network(block =)`
+  still matches the wiring layer; check OK.
+- Deps: WP5.
+
+### WP8 Docs (serial after WP6)
 
 - Files: `README.md`, `vignettes/quickstart.Rmd` (new),
   `vignettes/rcomplex-tutorial.Rmd` -> `vignettes/articles/walkthrough.Rmd`,
-  `vignettes/articles/methods.Rmd`, `_pkgdown.yml` (new), `CLAUDE.md`.
-- Do: README <= 150 lines: one-paragraph pitch, install, the driver on
+  `vignettes/articles/methods.Rmd`, `_pkgdown.yml` (new), `CLAUDE.md`,
+  every `@description` and `@param` in `R/`, every `stop()` /
+  `warning()` / `message()` string.
+- Do: README <= 150 lines: one-paragraph pitch, a mermaid pipeline
+  diagram (GitHub renders it, no tooling), install, the driver on
   `inst/extdata` in <= 12 lines, output columns, three pitfalls (few
   samples, density, p-value floor), citation. Function index moves to
-  `_pkgdown.yml` reference groups: Run, Networks, Co-expressologs,
-  Cliques, Modules, Traits, Nulls and diagnostics. Quickstart <= 150
-  lines, driver only. Walkthrough = current tutorial minus Tier C and
-  K = 1 sections, <= 800 lines, uses the building blocks. methods.Rmd:
-  drop Tier C paragraphs. CLAUDE.md: rewrite the overview to the new
-  surface, drop Tier C design notes, add the surface budget.
+  `_pkgdown.yml` reference groups: Run, Inputs, Harmonise, Networks,
+  Co-expressologs, Cliques, Modules, Traits, Nulls and diagnostics.
+  Quickstart <= 150 lines, driver only. Walkthrough = current tutorial
+  minus Tier C and K = 1 sections, <= 800 lines, uses the building
+  blocks. methods.Rmd: drop Tier C paragraphs, gain the WP11 section.
+  CLAUDE.md: rewrite the overview to the new surface, drop Tier C design
+  notes, add the surface budget and the prose rules.
+  Prose rules (section 7, STE-lite) apply to every file in this WP:
+  `@description` <= 3 sentences; rationale and literature go to
+  `@details` or methods.Rmd; one term per concept (the WP4 column names
+  are the vocabulary: species, gene, hog, edge, clique, module, block,
+  clade); every error message names the argument, says what it got,
+  says what it needs, one action per sentence.
 - Accept: `wc -l README.md` <= 150; both vignettes knit;
   `pkgdown::build_site()` OK; every Tier A export appears in exactly one
-  reference group.
-- Deps: WP6, WP7.
+  reference group; `Rscript dev/sharpen-prose.R` (WP8 writes it: flags
+  `@description` blocks over 3 sentences or any sentence over 25 words
+  in `R/*.R`, `README.md`, `vignettes/quickstart.Rmd`) reports zero.
+- Deps: WP6.
 
 ### WP9 Surface guard (last)
 
@@ -347,69 +454,120 @@ Order: WP0 -> {WP1 || WP2 || WP3} -> WP4 -> WP5 -> {WP6 || WP7} -> WP8
 | G3 | WP4 | snake_case columns, no deprecation shims, 0.4.0 break? | yes |
 | G4 | WP6 | Driver returns plain list; container S3 methods deleted? | yes |
 | G5 | WP7 | `species_trait` renamed to `clades` with no alias? | yes |
+| G6 | WP10 | `parse_orthologs()` deleted in favour of `read_orthologs()`? Long table `species gene hog` as the one ortholog shape? | yes |
 
 Out of scope, on purpose: rank-vs-hypergeometric default (needs Orion
 validation, design note 11.15); Bioconductor conventions (MDO V);
-plotting and enrichment (MDO IV); regulatory layers (MDO III); PR #4.
+plotting and enrichment (MDO IV); regulatory layers (MDO III); PR #4;
+sample clustering for partitions (TEA-GCN's k-means: the user brings
+the factor, or builds the network in TEA-GCN and imports it with
+`as_network()`); global network alignment (IsoRank-style topology
+matching without orthologs): rcomplex is ortholog-anchored by design.
 
 ## 5. Agents
 
-One agent per WP, `general-purpose` in a worktree unless noted. Launch
-prompts in caveman. Every launch prompt starts with this block:
+Budget rule (Martin, 2026-10-07: Fable quota is short this week). Fable
+is the parent only: it answers gates, launches, reads reports, merges.
+No WP runs on Fable. Model routing follows the Claude Code subagent
+docs ("route high-volume tasks to cheaper models"): census on haiku,
+mechanical cut / rename / docs / review on sonnet, new code on opus.
 
-```
-Rules. Invoke andrej-karpathy-skills:karpathy-guidelines first. Ponytail
-ladder: delete before edit, edit before add, no new abstraction, no new
-object slots, no refactor off the WP path. Lines <= 80. Touch only the
-files the WP lists; if another file must change, stop and say why.
-Before commit: Rscript -e 'Rcpp::compileAttributes()' (if src/ changed),
-Rscript -e 'devtools::document()', R CMD INSTALL ., Rscript -e
-'devtools::test()', Rscript -e 'lintr::lint_package()', then the WP
-acceptance command; paste its output in the report. Commit on the
-worktree branch before finishing or the work is lost. No Co-Authored-By,
-no Claude-Session, no "Generated with" anywhere. Report in caveman:
-files touched, lines +/-, test count before/after, acceptance output,
-anything you did not do.
-```
+Five project subagents in `.claude/agents/` (checked in; `.claude` is
+Rbuildignored). Per the docs: short `description` with the trigger,
+everything else in the body; `tools` allowlisted; `skills` preloaded so
+agents do not spend turns discovering them; `permissionMode:
+acceptEdits` for writers; `maxTurns` as a ceiling, not a target. One
+definition per kind of work; the WP number travels in the launch
+prompt, the plan file is the source of truth.
 
-| Agent | Type | WP | Prompt adds |
+| File | model | tools | WPs |
 |---|---|---|---|
-| census | cavecrew-investigator | pre-WP2, re-run after each merge | run `Rscript dev/sharpen-census.R`, report table; for each Tier C name grep `prepare_data/` (gitignored, maintainer checkout) and report hits |
-| snapshot | general-purpose, worktree | WP0 | file + command from WP0 |
-| demoter | general-purpose, worktree | WP1 | Tier B list verbatim; "no renames" |
-| pruner | general-purpose, worktree | WP2 | Tier C list verbatim; `git mv` to `dev/probes/` first; "do not touch R/modules.R" |
-| modules | general-purpose, worktree | WP3 | WP3 list; "keep leiden + consensus only" |
-| renamer | general-purpose, serial on branch | WP4 | the column list; `grep` acceptance |
-| dieter | general-purpose, serial on branch | WP5 | the keep-list of formals; per export paste the formals it dropped and the grep showing nobody set them |
-| driver | general-purpose, worktree | WP6 | signature verbatim; "plain list, delete container methods" |
-| clades | general-purpose, worktree | WP7 | laminar rule; `ape::prop.part`; test cases |
-| docs | general-purpose, worktree | WP8 | line budgets; reference groups |
-| guard | cavecrew-builder | WP9 | budget numbers |
-| reviewer | cavecrew-reviewer | every PR | review the diff for: new abstraction, new argument, new export, file outside WP list, column name outside the style, attribution line. One line per finding |
+| `sharpen-census.md` | haiku | Read, Grep, Glob, Bash | pre-WP2 and after every merge: `dev/sharpen-census.R`, grep `prepare_data/` for Tier C names |
+| `sharpen-cutter.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP0, WP1, WP2, WP3, WP4, WP5, WP9: work defined by a list, no design |
+| `sharpen-builder.md` | opus | Read, Edit, Write, Grep, Glob, Bash | WP6, WP7, WP10, WP11: new functions with a stated signature |
+| `sharpen-docs.md` | sonnet | Read, Edit, Write, Grep, Glob, Bash | WP8 |
+| `sharpen-reviewer.md` | sonnet | Read, Grep, Glob, Bash | every PR before merge, read-only |
 
-Parallel sets run as one Agent call with several tool uses. Worktree
-agents that share a file must not run together: WP2 and WP3 both touch
-`R/rcomplex-class.R` only through method deletion for disjoint
-functions, so WP2 deletes the Tier C methods and WP3 leaves
-`rcomplex-class.R` alone except `characterize_hubs`.
+Launch prompt shape (caveman, under 15 lines):
+
+```
+WP<n> of dev/design-notes/sharpen-plan.md section 3. Gate G<x>: <answer>.
+Branch: worktree off refactor/sharpen. Read the WP, then the files it
+lists, then start. Stop and report if a file outside the list must
+change.
+```
+
+Writers run with `isolation: "worktree"` and must commit before
+finishing (memory: worktree commits). Parallel sets go in one Agent
+call. Worktree agents that share a file must not run together: WP2 and
+WP3 both touch `R/rcomplex-class.R` only through method deletion for
+disjoint functions, so WP2 deletes the Tier C methods and WP3 leaves
+`rcomplex-class.R` alone except `characterize_hubs`. WP7, WP10, WP11
+are disjoint by file (`clique_*`/`cliques.R`/`preservation_matrix.R`;
+`orthologs.R`/`as_network.R`; `split_layers.R`/`network.R`/
+`null_network.R`).
+
+Fable cost per WP: one launch, one report read, one reviewer report
+read, one merge. Reports are capped at 30 lines in the agent bodies so
+the parent context stays small.
 
 ## 6. Expected end state
 
-27 exports, ~11-12k R lines, ~5.2k C++, ~15k test lines, README 150
+29 exports, ~12k R lines, ~5.3k C++, ~15k test lines, README 150
 lines, a 10-line quickstart that is the whole BLAST analogue:
 
 ```r
 library(rcomplex)
-expr <- list(BDIS = read_expr("bdis.tsv"), HVUL = read_expr("hvul.tsv"))
-res <- rcomplex(expr, "orthogroups.tsv",
+expr <- list(BDIS = bdis_vst, HVUL = hvul_vst)          # genes x samples
+block <- list(BDIS = bdis_meta$tissue, HVUL = hvul_meta$tissue)
+res <- rcomplex(expr, "N0.tsv", block = block,
                 clades = list(annual = "BDIS", perennial = "HVUL"))
 res
 summary(res)
 write_rcomplex(res, "out/")
 ```
 
+or, from networks built elsewhere:
+
+```r
+nets <- list(ATH = as_network(tea_gcn_ath), OSA = as_network(tea_gcn_osa))
+res <- rcomplex(networks = nets, orthologs = "N0.tsv")
+```
+
 MDO I and II then read: multi-species (any N, nested clades, species
-tree in), network-aware nulls (edge-swap, shuffled expression, rank
+tree in), any ortholog source, any network source, designed-block
+harmonisation and partition aggregation for heterogeneous designs,
+network-aware nulls (edge-swap, shuffled expression within block, rank
 test), effect sizes and power on every edge, p-value resolution on every
 test. Nothing in the proposal's P1 that rcomplex does not do except the
 rank-test default, which waits on Orion.
+
+## 7. Prose: Karpathy's ASD-STE100 note, audited
+
+Karpathy (X, 2026-10-02): ask the model to write in ASD-STE100,
+Simplified Technical English, the aerospace maintenance standard; "80 %
+STE" is enough. Rules that matter: sentences under 20 words, one action
+per sentence, active voice, one term per concept. His other tips
+(diagrams, HTML pages, 3b1b-style video) are about explaining model
+output, not package text.
+
+Audit against rcomplex. The package prose fails three of the four
+rules. `@description` blocks run to 40-line essays with literature
+(`split_layers`, `compute_network`); CLAUDE.md sentences average well
+over 20 words; the same concept has several names (`Species1`,
+`species1`, `sp1`; `trait`, `lineage`, `clade`; `block`, `layer`,
+`partition`). Error messages are mostly fine already (they name the
+argument).
+
+Decision. Adopt the four rules as STE-lite for everything a user reads:
+`@description`, `@param`, `@return`, README, quickstart, messages.
+Not the 900-word dictionary (the domain vocabulary is outside it) and
+not `@details`, methods.Rmd, or design notes, which are allowed to
+argue. The vocabulary is the WP4 column names plus `block` (a designed
+sample factor), `partition` (a factor for per-level correlation),
+`clade` (a species set). `layer` is retired from user text except as
+`split_layers()`'s own output names. Enforcement: `dev/sharpen-prose.R`
+in WP8's acceptance, and the reviewer's checklist. Diagrams: one
+mermaid pipeline figure in README; no HTML, no video. For agents: no
+change, caveman is already shorter than STE and agents read the plan,
+not the prose.
