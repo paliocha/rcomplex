@@ -1,0 +1,428 @@
+test_that("compute_network returns correct structure", {
+  set.seed(42)
+  expr <- matrix(rnorm(100), nrow = 10, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:10)
+
+  result <- compute_network(expr, density = 0.1, sparse = FALSE)
+
+  expect_type(result, "list")
+  expect_named(result, c(
+    "network", "threshold", "n_genes", "n_removed", "params"
+  ))
+  expect_equal(result$n_genes, 10)
+  expect_true(is.matrix(result$network))
+  expect_equal(nrow(result$network), 10)
+  expect_equal(ncol(result$network), 10)
+  expect_equal(rownames(result$network), paste0("gene", 1:10))
+  expect_equal(colnames(result$network), paste0("gene", 1:10))
+})
+
+test_that("network is symmetric with zero diagonal", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr, density = 0.05, sparse = FALSE)
+
+  expect_equal(result$network, t(result$network))
+  expect_equal(unname(diag(result$network)), rep(0, 20))
+})
+
+test_that("MR log_transform produces values in [0,1]", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr,
+    norm_method = "MR",
+    mr_log_transform = TRUE, density = 0.05, sparse = FALSE
+  )
+  vals <- result$network[upper.tri(result$network)]
+  expect_true(all(vals >= 0))
+  expect_true(all(vals <= 1))
+})
+
+test_that("MR raw mode matches R reference", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  # Compute via package (raw MR mode)
+  result <- compute_network(expr,
+    cor_method = "pearson",
+    norm_method = "MR", mr_log_transform = FALSE,
+    density = 0.05, sparse = FALSE
+  )
+
+  # Compute via R reference
+  cor_mat <- cor(t(expr), method = "pearson")
+  ref_net <- reference_mr_raw(cor_mat)
+
+  # Values should match closely
+  expect_equal(result$network, ref_net,
+    tolerance = 1e-10,
+    ignore_attr = TRUE
+  )
+})
+
+test_that("CLR normalization produces non-negative values", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(
+    expr, norm_method = "CLR", density = 0.05, sparse = FALSE
+  )
+  vals <- result$network[upper.tri(result$network)]
+  expect_true(all(vals >= 0))
+})
+
+test_that("CLR matches R reference", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr,
+    cor_method = "pearson",
+    norm_method = "CLR", density = 0.05, sparse = FALSE
+  )
+
+  cor_mat <- cor(t(expr), method = "pearson")
+  ref_net <- reference_clr(cor_mat)
+
+  expect_equal(result$network, ref_net,
+    tolerance = 1e-10,
+    ignore_attr = TRUE
+  )
+})
+
+test_that("density threshold is in valid range", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr, density = 0.05, sparse = FALSE)
+  vals <- result$network[upper.tri(result$network)]
+
+  expect_true(result$threshold >= min(vals))
+  expect_true(result$threshold <= max(vals))
+})
+
+test_that("density threshold matches R reference", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr,
+    norm_method = "MR",
+    mr_log_transform = FALSE, density = 0.05, sparse = FALSE
+  )
+
+  ref_thr <- reference_density_threshold(result$network, 0.05)
+
+  expect_equal(result$threshold, ref_thr, tolerance = 1e-10)
+})
+
+test_that("spearman correlation method works", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(
+    expr, cor_method = "spearman", density = 0.05, sparse = FALSE
+  )
+  expect_true(is.matrix(result$network))
+  expect_equal(result$params$cor_method, "spearman")
+})
+
+test_that("abs_cor option works", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(
+    expr, abs_cor = TRUE, density = 0.05, sparse = FALSE
+  )
+  expect_true(result$params$abs_cor)
+})
+
+test_that("input validation works", {
+  expect_error(compute_network(data.frame(a = 1:5)))
+  mat <- matrix(1:10, nrow = 5)
+  expect_error(compute_network(mat), "must have row names")
+  rownames(mat) <- paste0("g", 1:5)
+  expect_error(compute_network(mat, density = 0), "between 0 and 1")
+  expect_error(compute_network(mat, density = 1), "between 0 and 1")
+})
+
+test_that("min_var removes constant genes", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+  # Make 3 genes constant (use exact binary values to avoid fp accumulation)
+  expr[1, ] <- 5.0
+  expr[2, ] <- 0.0
+  expr[3, ] <- -3.0
+
+  result <- compute_network(expr, density = 0.1)
+  expect_equal(result$n_removed, 3L)
+  expect_equal(result$n_genes, 17)
+  expect_equal(nrow(result$network), 17)
+  expect_false("gene1" %in% rownames(result$network))
+  expect_false("gene2" %in% rownames(result$network))
+  expect_false("gene3" %in% rownames(result$network))
+})
+
+test_that("min_var drops constant genes with float-noise variance", {
+  set.seed(1)
+  expr <- matrix(rnorm(200), nrow = 20,
+                 dimnames = list(paste0("g", 1:20), NULL))
+  # 0.1 is not exact in binary: where rowMeans() accumulates in double
+  # (macOS arm64) the row keeps ~1e-34 of residual variance and a plain
+  # `var > 0` test kept it; with long-double accumulation (x86_64 Linux)
+  # the variance is exactly 0. The removal must hold on both.
+  expr["g20", ] <- 0.1
+  for (cm in c("pearson", "spearman")) {
+    net <- compute_network(expr, cor_method = cm, density = 0.1)
+    expect_false("g20" %in% rownames(net$network))
+    expect_equal(net$n_removed, 1L)
+  }
+})
+
+test_that("min_var threshold filters near-invariant genes", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+  # Make gene1 nearly constant (tiny variance)
+  expr[1, ] <- 5.0 + rnorm(10, sd = 1e-6)
+
+  result_strict <- compute_network(expr, density = 0.1, min_var = 1e-8)
+  expect_equal(result_strict$n_removed, 1L)
+  expect_false("gene1" %in% rownames(result_strict$network))
+
+  # Default min_var=0 keeps near-invariant genes (variance > 0)
+  result_default <- compute_network(expr, density = 0.1)
+  expect_equal(result_default$n_removed, 0L)
+  expect_true("gene1" %in% rownames(result_default$network))
+})
+
+test_that("min_var=NULL disables filtering", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr, density = 0.1, min_var = NULL)
+  expect_equal(result$n_removed, 0L)
+  expect_equal(result$n_genes, 20)
+
+  # A constant gene is removed under the default min_var = 0 but kept with
+  # min_var = NULL; its NaN correlations then hit the in-place MR guard
+  # (previously ranked silently via undefined behaviour).
+  expr[1, ] <- 5.0
+  expect_equal(compute_network(expr, density = 0.1)$n_removed, 1L)
+  expect_error(compute_network(expr, density = 0.1, min_var = NULL), "NaN")
+})
+
+test_that("min_var errors when too few genes remain", {
+  set.seed(42)
+  expr <- matrix(rnorm(50), nrow = 5, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:5)
+  # Huge threshold removes all genes
+  expect_error(
+    compute_network(expr, density = 0.1, min_var = 1e6),
+    "Fewer than 3 genes"
+  )
+})
+
+test_that("min_var is stored in params", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr, density = 0.1, min_var = 0.5)
+  expect_equal(result$params$min_var, 0.5)
+})
+
+test_that("use_torch errors when torch not installed", {
+  skip_if(
+    requireNamespace("torch", quietly = TRUE),
+    "torch is installed — cannot test missing-package error"
+  )
+  expr <- matrix(rnorm(100), nrow = 10, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:10)
+  expect_error(
+    compute_network(expr, density = 0.1, use_torch = TRUE),
+    "requires the torch package"
+  )
+})
+
+test_that("torch backend matches Rfast (Pearson)", {
+  skip_if_not_installed("torch")
+  skip_if_not(
+    tryCatch(
+      {
+        torch::torch_tensor(1)
+        TRUE
+      },
+      error = function(e) FALSE
+    ),
+    "torch backend (Lantern) not available"
+  )
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  rfast_result <- compute_network(expr,
+    cor_method = "pearson",
+    density = 0.05, use_torch = FALSE, sparse = FALSE
+  )
+  torch_result <- compute_network(expr,
+    cor_method = "pearson",
+    density = 0.05, use_torch = TRUE, sparse = FALSE
+  )
+
+  expect_equal(torch_result$network, rfast_result$network, tolerance = 1e-10)
+  expect_equal(
+    torch_result$threshold, rfast_result$threshold, tolerance = 1e-10
+  )
+})
+
+test_that("torch backend matches Rfast (Spearman)", {
+  skip_if_not_installed("torch")
+  skip_if_not(
+    tryCatch(
+      {
+        torch::torch_tensor(1)
+        TRUE
+      },
+      error = function(e) FALSE
+    ),
+    "torch backend (Lantern) not available"
+  )
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  # The correlation itself is stable across backends: rank-swap artifacts
+  # only appear AFTER MR ranks the correlations. Strict up to the working
+  # precision of the backend -- MPS is float32 (measured max |diff| ~1.2e-7
+  # on this fixture), so 1e-5 leaves two orders of magnitude of headroom
+  # while still failing for any structural difference (e.g. a halved
+  # matrix).
+  expect_equal(unname(rcomplex:::cor_torch(expr, "spearman")),
+    unname(rcomplex:::cor_rfast(expr, "spearman")),
+    tolerance = 1e-5
+  )
+
+  rfast_result <- compute_network(expr,
+    cor_method = "spearman",
+    density = 0.05, use_torch = FALSE, sparse = FALSE
+  )
+  torch_result <- compute_network(expr,
+    cor_method = "spearman",
+    density = 0.05, use_torch = TRUE, sparse = FALSE
+  )
+
+  # MR normalization is rank-based: swapping two near-tie correlations
+  # changes their mutual ranks by ~1, producing MR differences of O(1) in a
+  # minority of cells. Near-tie swaps happen under ANY non-reference float
+  # path -- MPS float32 and float64 with a different BLAS (Orion
+  # CPU-Lantern vs Rfast) alike -- so bound the damage per cell and in
+  # extent instead of using a vacuous global tolerance (the old
+  # tolerance = 1.0 passed for a halved network): every cell within 2 of
+  # the reference (a near-tie swap moves each mutual rank by ~1), few
+  # cells touched at all (measured 0.14 on MPS float32 here; a halved
+  # network scores ~1.0 with max diff ~15), and the density threshold
+  # agrees.
+  d <- abs(torch_result$network - rfast_result$network)
+  expect_lt(max(d), 2)
+  expect_lt(mean(d > 1e-8), 0.25)
+  expect_equal(torch_result$threshold, rfast_result$threshold, tolerance = 0.1)
+})
+
+test_that(
+  "mutual_rank_inplace_cpp matches cached reference (ties, all modes)",
+  {
+    # Symmetric matrix with exact ties, values beyond [-1, 1] (clamping creates
+    # further ties) and sign-symmetric pairs (abs() creates ties).
+    m <- matrix(c(
+      1.0, 0.5, 0.5, -0.2, 1.2, 0.3,
+      0.5, 1.0, -0.5, 0.5, -1.3, 0.3,
+      0.5, -0.5, 1.0, 0.5, 0.0, -0.3,
+      -0.2, 0.5, 0.5, 1.0, 0.5, 0.7,
+      1.2, -1.3, 0.0, 0.5, 1.0, 0.5,
+      0.3, 0.3, -0.3, 0.7, 0.5, 1.0
+    ), nrow = 6, byrow = TRUE)
+    expect_identical(m, t(m))
+
+    for (log_transform in c(FALSE, TRUE)) {
+      for (abs_cor in c(FALSE, TRUE)) {
+        ref_in <- pmin(pmax(m, -1), 1)
+        if (abs_cor) ref_in <- abs(ref_in)
+        ref <- mutual_rank_transform_cached_cpp(ref_in,
+          log_transform = log_transform,
+          n_cores = 1L
+        )
+        # compute_network() zeroes the diagonal after the cached call
+        diag(ref) <- 0
+
+        x <- m + 0 # fresh copy; mutated in place below
+        mutual_rank_inplace_cpp(x, log_transform, abs_cor, 1L)
+        expect_identical(x, ref)
+
+        x2 <- m + 0
+        mutual_rank_inplace_cpp(x2, log_transform, abs_cor, 2L)
+        expect_identical(x2, ref)
+      }
+    }
+  }
+)
+
+test_that("mutual_rank_inplace_cpp rejects NaN input", {
+  # std::ranges::sort on NaN is UB (breaks strict weak ordering); the C++
+  # guard must error rather than silently rank the NaN cell. Symmetric
+  # 4 x 4 double matrix with one NaN pair.
+  m <- matrix(c(
+    1.0, 0.5, 0.2, 0.1,
+    0.5, 1.0, NaN, 0.3,
+    0.2, NaN, 1.0, 0.4,
+    0.1, 0.3, 0.4, 1.0
+  ), nrow = 4, byrow = TRUE)
+  expect_error(mutual_rank_inplace_cpp(m, FALSE, FALSE, 1L), "NaN")
+  expect_error(mutual_rank_inplace_cpp(m + 0, TRUE, TRUE, 2L), "NaN")
+
+  # NA_real_ is a NaN payload: same guard (cor() yields NA, Rfast NaN)
+  m_na <- m
+  m_na[is.nan(m_na)] <- NA_real_
+  expect_error(mutual_rank_inplace_cpp(m_na, FALSE, FALSE, 1L), "NaN")
+})
+
+test_that(
+  "mutual_rank_inplace_cpp rejects non-double input (in-place contract)",
+  {
+    # NumericMatrix would coerce an integer matrix to a fresh copy and the
+    # in-place result would be lost silently; must error instead and leave
+    # the caller's matrix untouched.
+    mi <- matrix(c(1L, 0L, 0L, 1L), nrow = 2L)
+    expect_error(mutual_rank_inplace_cpp(mi, FALSE, FALSE, 1L), "double")
+    expect_identical(mi, matrix(c(1L, 0L, 0L, 1L), nrow = 2L))
+  }
+)
+
+test_that("compute_network abs_cor MR matches R reference on |cor|", {
+  set.seed(42)
+  expr <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  rownames(expr) <- paste0("gene", 1:20)
+
+  result <- compute_network(expr,
+    cor_method = "pearson",
+    norm_method = "MR", abs_cor = TRUE,
+    density = 0.05, sparse = FALSE
+  )
+  ref_net <- reference_mr_raw(abs(cor(t(expr), method = "pearson")))
+
+  expect_equal(result$network, ref_net,
+    tolerance = 1e-10,
+    ignore_attr = TRUE
+  )
+})
