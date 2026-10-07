@@ -608,7 +608,12 @@ and not blocking the release: WP15 || WP16 || WP17.
   hypergraph modularity; its `cluster_spectral()` is spectral
   embedding plus `mclust` on the clique expansion, the family
   `subspace_preservation()` already probed; its conversions are one
-  igraph call each. No CRAN package implements hypergraph modularity
+  igraph call each. Bioconductor `hypergraph` (1.84.0, Falcon &
+  Gentleman) is S4 classes, incidence matrix, `toGraphNEL()` star
+  expansion into `graph::graphNEL`, k-cores and vertex cover: no
+  clustering either; a `Hypergraph` coercion for HOGs is a 10-line
+  Suggests item if a Bioconductor reviewer asks (MDO V), not before.
+  No CRAN or Bioconductor package implements hypergraph modularity
   as of 2026-10.
 - Do: `joint_modules(nets, orthologs, coupling = c("star", "pairwise"),
   weight = NULL, objective = c("modularity", "CPM"), resolution =
