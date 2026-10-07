@@ -262,13 +262,16 @@ encode_clique_edges <- function(edges, target_species) {
 #'   strength, scaled within its species pair. Callers that filter
 #'   `edges` must weight first and subset with the rows, so the scale is
 #'   still fitted on every tested pair.
-#' @return Data frame with columns intensity, min_effect_size.
+#' @return Data frame with columns intensity, min_effect_size, score
+#'   (sum of the member edges' `score`; `NA` without a `score` column).
 #' @noRd
 compute_clique_edge_stats <- function(cliques, edges, target_species,
                                       weights = .onnela_weight(edges)) {
   n <- nrow(cliques)
   intensity <- rep(NA_real_, n)
   min_eff <- rep(NA_real_, n)
+  score <- rep(NA_real_, n)
+  edge_score <- if ("score" %in% names(edges)) edges$score
   rows <- .clique_edge_rows(cliques, edges, target_species)
 
   for (i in seq_len(n)) {
@@ -284,9 +287,10 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
       intensity[i] <- exp(mean(log(w)))
     }
     min_eff[i] <- min(effs)
+    if (!is.null(edge_score)) score[i] <- sum(edge_score[matched])
   }
 
-  data.frame(intensity = intensity, min_effect_size = min_eff)
+  data.frame(intensity = intensity, min_effect_size = min_eff, score = score)
 }
 
 
@@ -351,7 +355,13 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'       edge lacks a finite value.}
 #'     \item{min_effect_size}{Minimum effect size across present edges
 #'       (bottleneck enrichment)}
+#'     \item{score}{Sum of the present edges' \code{score}, in bits.
+#'       \code{NA} when \code{edges} has no \code{score} column.}
 #'   }
+#'
+#' @details The clique \code{score} adds the edge scores. Log-odds add,
+#' so the sum is the log-likelihood ratio of the conserved subnetwork
+#' (NetworkBLAST), and it grows with clique size on purpose.
 #'
 #' @examples
 #' \dontrun{
@@ -410,7 +420,8 @@ find_cliques.default <- function(edges, target_species,
       n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
       mean_effect_size = numeric(0), n_edges = integer(0),
       n_missing = integer(0),
-      intensity = numeric(0), min_effect_size = numeric(0)
+      intensity = numeric(0), min_effect_size = numeric(0),
+      score = numeric(0)
     )
   )
   empty_result <- as.data.frame(empty_cols)
@@ -484,6 +495,7 @@ find_cliques.default <- function(edges, target_species,
   )
   out$intensity <- stats$intensity
   out$min_effect_size <- stats$min_effect_size
+  out$score <- stats$score
   out
 }
 

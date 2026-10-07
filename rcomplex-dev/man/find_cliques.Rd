@@ -76,6 +76,8 @@ no usable \code{effect_size} column, or when any present clique
 edge lacks a finite value.}
 \item{min_effect_size}{Minimum effect size across present edges
 (bottleneck enrichment)}
+\item{score}{Sum of the present edges' \code{score}, in bits.
+\code{NA} when \code{edges} has no \code{score} column.}
 }
 }
 \description{
@@ -83,6 +85,11 @@ For each Hierarchical Ortholog Group (HOG), uses Bron-Kerbosch with
 pivoting on the species-level adjacency graph to find maximal species
 cliques, then backtracking to assign the best gene per species
 (minimising mean q-value across all present edges).
+}
+\details{
+The clique \code{score} adds the edge scores. Log-odds add,
+so the sum is the log-likelihood ratio of the conserved subnetwork
+(NetworkBLAST), and it grows with clique size on purpose.
 }
 \examples{
 \dontrun{

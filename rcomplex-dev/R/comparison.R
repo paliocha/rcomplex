@@ -418,9 +418,19 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   \describe{
 #'     \item{gene1}{Gene identifier (gene1)}
 #'     \item{gene2}{Gene identifier (gene2)}
+#'     \item{hog}{Ortholog group identifier}
+#'     \item{score}{Evidence against chance in bits:
+#'       \code{-log2(p_value)}.}
+#'     \item{evalue}{Expected number of pairs this significant by chance:
+#'       \code{n_tests * p_value}.}
 #'     \item{species1}{Species abbreviation for gene1 (\code{species1})}
 #'     \item{species2}{Species abbreviation for gene2 (\code{species2})}
-#'     \item{hog}{Ortholog group identifier}
+#'     \item{p_value}{The two directional p-values combined like
+#'       \code{pval_combine}. Rank-test frames use the calibrated p
+#'       (\code{*.p.emp}) when present. \code{NA} when the comparison has
+#'       no p-value columns.}
+#'     \item{n_tests}{Number of ortholog pairs tested, in the direction
+#'       with more tests.}
 #'     \item{q_value}{Maximum (or minimum, see \code{pval_combine}) of the
 #'       two directional q-values}
 #'     \item{effect_size}{Geometric mean of directional effect sizes}
@@ -527,21 +537,74 @@ comparison_to_edges <- function(comparison, species1, species2,
       call. = FALSE
     )
   }
+  # The p-value behind each direction's q: hypergeometric, then the
+  # calibrated rank p, then the raw rank p. No p columns: NA scores.
+  p_cols <- list(
+    paste0(c("species1.", "species2."), "p_value_", suffix),
+    c("species1.p.emp", "species2.p.emp"),
+    c("species1.p_value", "species2.p_value")
+  )
+  p_cols <- Find(function(cl) all(cl %in% names(comparison)), p_cols)
+  sc <- if (is.null(p_cols)) {
+    na <- rep(NA_real_, nrow(comparison))
+    .edge_scores(na, na, combine)
+  } else {
+    .edge_scores(comparison[[p_cols[1L]]], comparison[[p_cols[2L]]], combine)
+  }
+  power <- if (rank_frame) {
+    .rank_power(comparison, alpha, pval_combine, p0)
+  } else {
+    .edge_power(comparison, alpha, alternative, pval_combine, rho0)
+  }
+  .edge_frame(comparison$gene1, comparison$gene2, comparison$hog, sc,
+              q_comb, eff_geo, power, species1, species2, jacc_geo, type)
+}
+
+
+#' Score and E-value from the two directional p-values
+#'
+#' The combined p is `combine(p1, p2)`, as for the q-values. `n_tests`
+#' counts the tested pairs of the direction with more tests.
+#'
+#' @param p1,p2 Directional p-values (`NA` = not tested).
+#' @param combine `pmax` or `pmin`.
+#' @return `list(p_value, n_tests, score, evalue)`.
+#' @noRd
+.edge_scores <- function(p1, p2, combine) {
+  p <- combine(p1, p2, na.rm = TRUE)
+  p[is.infinite(p)] <- NA_real_
+  n_tests <- max(sum(!is.na(p1)), sum(!is.na(p2)))
+  if (n_tests == 0L) n_tests <- NA_integer_
+  list(
+    p_value = p, n_tests = rep(n_tests, length(p)),
+    score = -log2(p), evalue = n_tests * p
+  )
+}
+
+
+#' Assemble an edge table in its fixed column order
+#'
+#' `gene1 gene2 hog score evalue q_value effect_size power`, then
+#' `species1 species2 p_value n_tests jaccard type`. Called with no
+#' arguments it returns the zero-row template.
+#'
+#' @param sc Output of `.edge_scores()`.
+#' @return Data frame.
+#' @noRd
+.edge_frame <- function(gene1 = character(0), gene2 = character(0),
+                        hog = character(0),
+                        sc = .edge_scores(numeric(0), numeric(0), pmax),
+                        q_value = numeric(0), effect_size = numeric(0),
+                        power = numeric(0), species1 = character(0),
+                        species2 = character(0), jaccard = numeric(0),
+                        type = character(0)) {
   data.frame(
-    gene1 = comparison$gene1,
-    gene2 = comparison$gene2,
-    species1 = species1,
-    species2 = species2,
-    hog = comparison$hog,
-    q_value = q_comb,
-    effect_size = eff_geo,
-    jaccard = jacc_geo,
-    power = if (rank_frame) {
-      .rank_power(comparison, alpha, pval_combine, p0)
-    } else {
-      .edge_power(comparison, alpha, alternative, pval_combine, rho0)
-    },
-    type = type
+    gene1 = gene1, gene2 = gene2, hog = hog,
+    score = sc$score, evalue = sc$evalue,
+    q_value = q_value, effect_size = effect_size, power = power,
+    species1 = species1, species2 = species2,
+    p_value = sc$p_value, n_tests = sc$n_tests,
+    jaccard = jaccard, type = type
   )
 }
 
@@ -652,11 +715,22 @@ comparison_to_edges <- function(comparison, species1, species2,
 #'   per species.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
-#'   \code{species1}, \code{species2}, \code{hog}, \code{q_value},
-#'   \code{effect_size}, \code{jaccard}, \code{power}, \code{type}
+#'   \code{hog}, \code{score}, \code{evalue}, \code{q_value},
+#'   \code{effect_size}, \code{power}, \code{species1}, \code{species2},
+#'   \code{p_value}, \code{n_tests}, \code{jaccard}, \code{type}
 #'   (\code{power} is \code{NA} under \code{method = "permutation"}).
-#'   Ready for
+#'   \code{score} is \code{-log2(p_value)} in bits. \code{evalue} is
+#'   \code{n_tests * p_value}, the expected number of chance hits this
+#'   strong. \code{p_value} combines the two directions like
+#'   \code{pval_combine}. \code{n_tests} counts the ortholog pairs tested
+#'   in that species pair. Ready for
 #'   \code{find_cliques} or \code{classify_cliques}.
+#'
+#' @details \code{score} and \code{evalue} are BLAST's bit score and
+#' E-value, related as \code{evalue = n_tests * 2^-score}. Under
+#' \code{method = "permutation"} the p-value is the HOG's, shared by its
+#' pairs, and it cannot fall below \code{1 / (n_perm + 1)}, so
+#' \code{score} has a ceiling there (see \code{\link{pvalue_resolution}}).
 #'
 #' @examples
 #' \dontrun{
@@ -715,13 +789,7 @@ find_coexpressologs.default <- function(
   species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
   nulls <- .check_null_networks(null_networks, networks, names(networks))
 
-  empty_result <- data.frame(
-    gene1 = character(0), gene2 = character(0),
-    species1 = character(0), species2 = character(0),
-    hog = character(0), q_value = numeric(0),
-    effect_size = numeric(0), jaccard = numeric(0),
-    power = numeric(0), type = character(0)
-  )
+  empty_result <- .edge_frame()
 
   pair_edges <- vector("list", length(species_pairs))
   idx <- 0L
@@ -800,27 +868,21 @@ find_coexpressologs.default <- function(
       )
       if (is.null(hog_res) || nrow(hog_res) == 0) next
 
-      # Join HOG q-values onto pair-level comparison
-      hog_q <- stats::setNames(hog_res$q_value, hog_res$hog)
-      q_vals <- hog_q[comparison$hog]
+      # Join HOG p- and q-values onto pair-level comparison; every pair
+      # of a HOG carries the HOG's p, so n_tests counts pairs
+      at <- match(comparison$hog, hog_res$hog)
+      q_vals <- hog_res$q_value[at]
+      p_vals <- hog_res$p_value[at]
       eff <- sqrt(comparison$species1.effect_size *
                     comparison$species2.effect_size)
       jacc <- sqrt(comparison$species1.jaccard *
                      comparison$species2.jaccard)
 
-      edges_df <- data.frame(
-        gene1 = comparison$gene1,
-        gene2 = comparison$gene2,
-        species1 = sp_a,
-        species2 = sp_b,
-        hog = comparison$hog,
-        q_value = as.numeric(q_vals),
-        effect_size = eff,
-        jaccard = jacc,
-        power = NA_real_,
-        type = ifelse(!is.na(q_vals) & q_vals < 0.1,
-          "conserved", "ns"
-        )
+      edges_df <- .edge_frame(
+        comparison$gene1, comparison$gene2, comparison$hog,
+        .edge_scores(p_vals, p_vals, pmax),
+        q_vals, eff, NA_real_, sp_a, sp_b, jacc,
+        ifelse(!is.na(q_vals) & q_vals < 0.1, "conserved", "ns")
       )
     }
 
@@ -955,13 +1017,7 @@ density_sweep.default <- function(
   res_edges <- vector("list", n_mult)
   res_species_densities <- vector("list", n_mult)
 
-  empty_edges <- data.frame(
-    gene1 = character(0), gene2 = character(0),
-    species1 = character(0), species2 = character(0),
-    hog = character(0), q_value = numeric(0),
-    effect_size = numeric(0), jaccard = numeric(0),
-    power = numeric(0), type = character(0)
-  )
+  empty_edges <- .edge_frame()
 
   for (i in seq_len(n_mult)) {
     m <- multipliers[i]

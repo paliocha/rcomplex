@@ -480,13 +480,7 @@ clique_threshold_sweep <- function(
     }
 
     if (length(pair_edges) == 0) {
-      all_edges <- data.frame(
-        gene1 = character(0), gene2 = character(0),
-        species1 = character(0), species2 = character(0),
-        hog = character(0), q_value = numeric(0),
-        effect_size = numeric(0), jaccard = numeric(0),
-        power = numeric(0), type = character(0)
-      )
+      all_edges <- .edge_frame()
     } else {
       all_edges <- do.call(rbind, pair_edges)
     }

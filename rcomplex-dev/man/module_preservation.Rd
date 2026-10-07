@@ -78,6 +78,8 @@ A list with components:
 p-values, the combined \code{p_value} (raw \code{pmax}), \code{p_calibrated} (the
 mixture recalibration described under \code{calibrate}), \code{q_value}
 (Benjamini-Hochberg on \code{p_calibrated}, NOT on \code{p_value}),
+\code{evalue} (\code{p_calibrated} times the number of modules tested: the
+expected count of modules this preserved by chance),
 \code{Z.avg.weight}, \code{Z.cor.degree}, \code{Zsummary}, \code{Zsummary_null_sd},
 \code{Zsummary_std}, and \code{medianRank} -- the mean of the \code{avg.weight}
 and \code{cor.degree} ranks across the tested modules, 1 = strongest.

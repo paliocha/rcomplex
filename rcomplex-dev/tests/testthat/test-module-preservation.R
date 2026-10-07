@@ -177,6 +177,8 @@ test_that("module_preservation returns the documented structure", {
     "cor.degree", "p_value", "q_value", "Zsummary",
     "medianRank"
   ) %in% names(pres$preservation)))
+  pp <- pres$preservation
+  expect_equal(pp$evalue, sum(!is.na(pp$p_calibrated)) * pp$p_calibrated)
   # The diagnostics are reported but take no part in the call.
   expect_true(all(c("meanMAR", "meanClusterCoeff") %in% names(pres$observed)))
 })

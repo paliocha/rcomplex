@@ -33,8 +33,8 @@ spec_null <- function(n0 = 500L, n2 = 200L, seed = 2L) {
 }
 
 edge_names <- c(
-  "gene1", "gene2", "species1", "species2", "hog", "q_value",
-  "effect_size", "jaccard", "power", "type"
+  "gene1", "gene2", "hog", "score", "evalue", "q_value", "effect_size",
+  "power", "species1", "species2", "p_value", "n_tests", "jaccard", "type"
 )
 
 

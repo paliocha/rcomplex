@@ -579,9 +579,9 @@ test_that("comparison_to_edges produces correct edge format", {
   edges <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B")
 
   expect_equal(names(edges), c(
-    "gene1", "gene2", "species1", "species2",
-    "hog", "q_value", "effect_size", "jaccard",
-    "power", "type"
+    "gene1", "gene2", "hog", "score", "evalue", "q_value", "effect_size",
+    "power", "species1", "species2", "p_value", "n_tests", "jaccard",
+    "type"
   ))
   # The fixture carries no neighbourhood sizes, so power is undefined.
   expect_true(all(is.na(edges$power)))
@@ -1718,7 +1718,7 @@ test_that("find_coexpressologs carries power on both paths", {
   fx <- make_clique_fixture()
   an <- find_coexpressologs(fx$networks, fx$orthologs, rho0 = 2, seed = 1L)
   expect_equal(
-    names(an)[7:10], c("effect_size", "jaccard", "power", "type")
+    names(an)[c(7:8, 13:14)], c("effect_size", "power", "jaccard", "type")
   )
   expect_true(any(!is.na(an$power)))
 

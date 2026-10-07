@@ -12,8 +12,8 @@ gene_clique_graph(edges, ...)
 \arguments{
 \item{edges}{Data frame of co-expressolog calls, as returned by
 \code{\link{find_coexpressologs}}: columns \code{gene1}, \code{gene2},
-\code{species1}, \code{species2}, \code{hog} and \code{q_value}. An \code{effect_size}
-column is used when present.}
+\code{species1}, \code{species2}, \code{hog} and \code{q_value}. The \code{effect_size}
+and \code{score} columns are used when present.}
 
 \item{...}{Additional arguments passed to the default method.}
 
@@ -51,6 +51,8 @@ A data frame with one row per clique member:
 \code{effect_size}. Prefer it over \code{mean_q} for ranking: q-values
 saturate at the permutation floor and cannot separate cliques
 once they get there}
+\item{score}{Present only when \code{edges} carries \code{score}. The sum
+of the clique edges' \code{score}, in bits}
 \item{mean_q_floor, n_cliques_at_q_floor}{Smallest clique
 \code{mean_q} in the run and how many cliques are tied there. A
 large tie count means \code{mean_q} cannot rank those cliques at
@@ -80,6 +82,10 @@ species-pair arithmetic downstream. Only a row whose two endpoints are
 the \emph{same} (species, gene) node is dropped as a self-loop; a
 within-species edge between two distinct paralogs is kept, and shows
 up as \code{n_species < n_members}.
+
+The clique \code{score} adds the edge scores. Log-odds add, so the sum is
+the log-likelihood ratio of the conserved subnetwork (NetworkBLAST),
+and it grows with clique size on purpose.
 }
 \section{Duplicate rows}{
 
