@@ -662,7 +662,8 @@ or Bioconductor package implements hypergraph modularity as of
 
 #### WP15b h-Leiden kernel (gated G9b: licence)
 
-- Files: new `src/hleiden.cpp` (< 750 lines), `R/joint_modules.R`
+- Files: new `src/hleiden.cpp` (< 700 lines), `R/joint_modules.R`,
+  `DESCRIPTION`, `LICENSE`, `LICENSE.md`, `README.md` (licence line),
   (`engine = "hleiden"`, arguments `tau = 2, gamma = 1, p_b = 0.5,
   p_c = 0.5, theta = 0.01`), tests, `dev/probes/hleiden_check.R`
   (reticulate against `h_louvain.py` on its bundled primary-school
@@ -684,10 +685,23 @@ or Bioconductor package implements hypergraph modularity as of
   Integer indices, CSC layers, sorted vectors, no `unordered_map`,
   node order under `.seed_scope()`, `n_cores = 1` (the queue is
   serial; parallelism is restarts in R). Guarantee stated in the
-  docs: gamma-connectivity in the 2-section sense. Licence: own
-  code, MIT. `libleidenalg` would cut this to ~250 lines by adding a
-  quality class, but it is GPL-3 and copying it into `src/` makes the
-  package GPL-3; G9b records the choice.
+  docs: gamma-connectivity in the 2-section sense.
+  Licence and provenance (G9b, Martin 2026-10-07: GPL-3 is ok): port
+  `libleidenalg` (Traag, GPL-3) rather than re-derive Leiden. Its
+  `Optimiser` (fast local move, constrained merge, refinement with
+  the `exp(delta/theta)` draw, aggregation, convergence) is kept as
+  logic; its `igraph_t` graph layer is replaced by the package's CSC
+  layers plus the HOG multiplicity table, because R's igraph does not
+  expose the igraph C API for `LinkingTo` and a `SystemRequirements:
+  igraph C` would break macOS, Windows and Bioconductor builds. One
+  `HModularityVertexPartition` supplies `diff_move()` and `quality()`
+  for `q(alpha)`. About 600 lines after stripping the six other
+  quality classes and the Python hooks. `src/hleiden.cpp` carries
+  Traag's copyright and the GPL-3 notice; `DESCRIPTION` `License:
+  GPL-3`, `LICENSE` and `LICENSE.md` replaced, README licence line
+  updated, all in this WP and not before (no reason to be GPL until
+  the derived code lands). `Rfast`, `collapse` and `igraph` are GPL
+  already; nothing else moves.
 - Accept: brute-force `q` over all partitions of 6- and 8-node toy
   hypergraphs equals the kernel's `q`; `engine = "hleiden"` with
   `p_b = 0` (alpha fixed at 0) reproduces WP15a's partition on the
@@ -792,7 +806,7 @@ or Bioconductor package implements hypergraph modularity as of
 | G7 | WP13 | `score = -log2(p)` bits and `evalue = n_tests * p` as the two headline columns, `effect_size` kept as magnitude? | yes |
 | G8 | WP14 | `abs_cor` replaced by `sign`; driver `sign = "both"` runs four comparisons and tags `+ - flip`? | yes |
 | G9 | WP15a | Build the star-expansion baseline? Adopt any joint engine only if the Orion probe beats `detect_modules()` + `module_preservation()` on replication | build |
-| G9b | WP15b | Own MIT h-Leiden kernel (~750 lines) rather than a GPL-3 `libleidenalg` quality class (~250 lines, package becomes GPL-3)? | own kernel, MIT |
+| G9b | WP15b | Port GPL-3 `libleidenalg` (package becomes GPL-3) or own MIT kernel? | **answered 2026-10-07: GPL-3 ok, port** |
 | G10 | WP16 | Edge gain/loss on a species tree, `phangorn` in Suggests? | yes |
 | G11 | WP17 | Build `method = "munk"` as a third co-expressolog method? Adopt only if the Orion probe shows calls added among `underpowered` edges that survive the null | build |
 
