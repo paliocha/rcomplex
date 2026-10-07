@@ -275,3 +275,56 @@ test_that("compute_network abs_cor MR matches R reference on |cor|", {
     ignore_attr = TRUE
   )
 })
+
+# ---- partition ------------------------------------------------------------
+
+partition_fixture <- function() {
+  x <- withr::with_seed(3L, matrix(stats::rnorm(15L * 15L), 15L))
+  rownames(x) <- paste0("g", seq_len(15L))
+  list(x = x, f = factor(rep(c("leaf", "root", "seed"), c(6L, 6L, 3L))))
+}
+
+test_that("partition is the rectified average of per-level correlations", {
+  p <- partition_fixture()
+  expect_message(
+    net <- compute_network(p$x,
+      partition = p$f, density = 0.1, sparse = FALSE
+    ),
+    "seed"
+  )
+  r1 <- cor(t(p$x[, p$f == "leaf"]))
+  r2 <- cor(t(p$x[, p$f == "root"]))
+  ref <- reference_mr_raw((pmax(r1, 0) + pmax(r2, 0)) / 2)
+  expect_equal(net$network, ref, tolerance = 1e-10, ignore_attr = TRUE)
+  expect_equal(net$threshold, reference_density_threshold(ref, 0.1))
+  expect_identical(net$params$partition, p$f)
+})
+
+test_that("bad partitions are refused", {
+  p <- partition_fixture()
+  expect_error(
+    compute_network(p$x, partition = p$f[-1]), "one entry per sample"
+  )
+  expect_error(
+    compute_network(p$x, partition = replace(p$f, 1L, NA)), "NA"
+  )
+  expect_error(
+    compute_network(p$x, partition = p$f, block_size = 8L),
+    "partition.*block_size|block_size.*partition"
+  )
+  expect_error(
+    suppressMessages(compute_network(p$x, partition = rep("a", 15L))),
+    "two levels"
+  )
+})
+
+test_that("null_network rebuilds with the network's partition", {
+  p <- partition_fixture()
+  net <- suppressMessages(compute_network(p$x,
+    partition = p$f, density = 0.1
+  ))
+  nn <- suppressMessages(null_network(p$x, net, seed = 1L))
+  expect_identical(nn$params$partition, p$f)
+  expect_identical(dim(nn$network), dim(net$network))
+  expect_equal(nn$params$density, net$params$density)
+})

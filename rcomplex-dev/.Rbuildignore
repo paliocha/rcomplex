@@ -4,3 +4,4 @@
 ^rcomplex.*\.tar\.gz$
 ^src/.*\.tmp[^/]*$
 ^\.lintr$
+^vignettes$

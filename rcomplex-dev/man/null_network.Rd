@@ -19,8 +19,8 @@ identifiers) or a \code{SummarizedExperiment}, whose first assay is used.
 The same object \code{net} was built from.}
 
 \item{net}{Network object from \code{\link[=compute_network]{compute_network()}} built from \code{x}; its
-\code{params} and \code{store_density} are reused so the null is built the same
-way.}
+\code{params} (with \code{partition}) and \code{store_density} are reused so the null
+is built the same way.}
 
 \item{seed}{Integer seed for the permutation, or \code{NULL} (default)
 to draw from the global RNG. A seeded call draws from a private
