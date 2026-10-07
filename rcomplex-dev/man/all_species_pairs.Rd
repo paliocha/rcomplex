@@ -12,12 +12,13 @@ all_species_pairs(species, sep = ".")
 vector is not normally named.}
 
 \item{sep}{Separator used to build \code{pair_name} (default \code{"."}), matching
-the \code{paste(species1, species2, sep = ".")} default of \code{\link[=preservation_paired]{preservation_paired()}}, so
-the two agree when \code{pair_name} is left implicit.}
+the \code{paste(species1, species2, sep = ".")} default of
+\code{\link[=preservation_paired]{preservation_paired()}}, so the two agree when \code{pair_name} is left
+implicit.}
 }
 \value{
-A data frame with columns \code{species1}, \code{species2} and \code{pair_name}, one row per
-unordered pair. Both directions of each contrast are run by
+A data frame with columns \code{species1}, \code{species2} and \code{pair_name},
+one row per unordered pair. Both directions of each contrast are run by
 \code{\link[=preservation_paired]{preservation_paired()}}, so each pair appears once.
 }
 \description{

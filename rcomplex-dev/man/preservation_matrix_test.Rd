@@ -81,8 +81,9 @@ A list with components:
 otherwise.}
 \item{class_means}{Data frame with \code{class}, \code{n} and \code{mean_z}: the
 observed class means the statistic is built from.}
-\item{rows_per_pair}{Data frame with \code{species1}, \code{species2}, \code{concordant},
-\code{same_block} and \code{n}, one row per species pair contributing.}
+\item{rows_per_pair}{Data frame with \code{species1}, \code{species2},
+\code{concordant}, \code{same_block} and \code{n}, one row per species pair
+contributing.}
 \item{free}{List for the free null: \code{null_distribution}, \code{p_value},
 \code{p_min}, \code{p_attainable}, \code{n_tied_max}, \code{n_distinct}, \code{rank},
 \code{exact}, \code{n_labellings}, \code{n_scored}. \code{p_attainable} is the tie-aware
