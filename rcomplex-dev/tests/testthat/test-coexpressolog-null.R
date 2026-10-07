@@ -30,8 +30,8 @@ load_null_fixture <- local({
     x1 <- x1[rownames(x1) %in% ortho$gene1, ]
     x2 <- x2[rownames(x2) %in% ortho$gene2, ]
     networks <- list(
-      sp1 = compute_network(x1, density = 0.03, sparse = TRUE),
-      sp2 = compute_network(x2, density = 0.03, sparse = TRUE)
+      species1 = compute_network(x1, density = 0.03, sparse = TRUE),
+      species2 = compute_network(x2, density = 0.03, sparse = TRUE)
     )
     cache <<- list(networks = networks, ortho = ortho)
     cache
@@ -129,7 +129,7 @@ test_that("observed conserved calls exceed the rewired null", {
 
   expect_s3_class(res, "data.frame")
   # one row per species pair plus the total
-  expect_identical(res$statistic, c("sp1~sp2", "total"))
+  expect_identical(res$statistic, c("species1~species2", "total"))
   expect_identical(
     names(res),
     c(
@@ -147,7 +147,7 @@ test_that("observed conserved calls exceed the rewired null", {
 
   null_mat <- attr(res, "null")
   expect_identical(dim(null_mat), c(19L, 2L))
-  expect_identical(colnames(null_mat), c("sp1~sp2", "total"))
+  expect_identical(colnames(null_mat), c("species1~species2", "total"))
   expect_equal(res$null_mean, vapply(
     1:2, function(j) mean(null_mat[, j]),
     numeric(1)

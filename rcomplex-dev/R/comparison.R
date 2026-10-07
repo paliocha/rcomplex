@@ -387,9 +387,9 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   (the \code{$results} element). Must contain columns \code{gene1},
 #'   \code{gene2}, \code{hog}, plus q-value and effect-size columns
 #'   from both directions.
-#' @param sp1 Species abbreviation for \code{gene1} genes (e.g.,
+#' @param species1 Species abbreviation for \code{gene1} genes (e.g.,
 #'   \code{"BDIS"}).
-#' @param sp2 Species abbreviation for \code{gene2} genes.
+#' @param species2 Species abbreviation for \code{gene2} genes.
 #' @param alternative Which test direction to use for q-values and
 #'   classification: \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
@@ -418,8 +418,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'   \describe{
 #'     \item{gene1}{Gene identifier (gene1)}
 #'     \item{gene2}{Gene identifier (gene2)}
-#'     \item{species1}{Species abbreviation for gene1 (\code{sp1})}
-#'     \item{species2}{Species abbreviation for gene2 (\code{sp2})}
+#'     \item{species1}{Species abbreviation for gene1 (\code{species1})}
+#'     \item{species2}{Species abbreviation for gene2 (\code{species2})}
 #'     \item{hog}{Ortholog group identifier}
 #'     \item{q_value}{Maximum (or minimum, see \code{pval_combine}) of the
 #'       two directional q-values}
@@ -460,7 +460,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' }
 #'
 #' @keywords internal
-comparison_to_edges <- function(comparison, sp1, sp2,
+comparison_to_edges <- function(comparison, species1, species2,
                                 alternative = c("greater", "less"),
                                 alpha = 0.1,
                                 pval_combine = c("max", "min"),
@@ -530,8 +530,8 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   data.frame(
     gene1 = comparison$gene1,
     gene2 = comparison$gene2,
-    species1 = sp1,
-    species2 = sp2,
+    species1 = species1,
+    species2 = species2,
     hog = comparison$hog,
     q_value = q_comb,
     effect_size = eff_geo,

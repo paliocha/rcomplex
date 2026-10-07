@@ -8,8 +8,8 @@ resolve_ortholog_map(
   orthologs,
   genes1,
   genes2,
-  sp1 = NULL,
-  sp2 = NULL,
+  species1 = NULL,
+  species2 = NULL,
   edges = NULL,
   cliques = NULL,
   rank_by = c("effect_size", "jaccard", "q_value"),
@@ -24,8 +24,8 @@ identifiers; species membership is resolved against \code{genes1} / \code{genes2
 \item{genes1, genes2}{Character vectors giving the gene universes of the two
 species, e.g. \code{rownames(net$network)}.}
 
-\item{sp1, sp2}{Species labels.  Required only when \code{edges} or \code{cliques} is
-supplied, to select clique columns and filter edges.}
+\item{species1, species2}{Species labels.  Required only when \code{edges} or
+\code{cliques} is supplied, to select clique columns and filter edges.}
 
 \item{edges}{Optional coexpressolog edge table from
 \code{find_coexpressologs()}, with columns \code{gene1}, \code{gene2}, \code{species1},
@@ -95,7 +95,8 @@ q-value variation.
 \dontrun{
 map <- resolve_ortholog_map(
   ortho, rownames(net_a$network), rownames(net_b$network),
-  sp1 = "SP_A", sp2 = "SP_B", edges = rcx$edges, cliques = rcx$cliques
+  species1 = "SP_A", species2 = "SP_B",
+  edges = rcx$edges, cliques = rcx$cliques
 )
 table(map$source)
 }

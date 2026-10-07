@@ -8,7 +8,7 @@
 #'   hog, q_value, effect_size (already type-filtered).
 #' @param target_species Character vector of species abbreviations.
 #' @return A list with components: sp_map, gene_map, hog_map, all_genes,
-#'   unique_hogs, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2,
+#'   unique_hogs, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2,
 #'   edge_qval, edge_effect, and a logical `any_valid` flag.
 #' @noRd
 encode_clique_edges <- function(edges, target_species) {
@@ -38,18 +38,18 @@ encode_clique_edges <- function(edges, target_species) {
   edge_hog <- as.integer(hog_map[as.character(edges$hog)])
   edge_g1 <- as.integer(gene_key_map[gene_key1])
   edge_g2 <- as.integer(gene_key_map[gene_key2])
-  edge_sp1 <- as.integer(sp_map[edges$species1])
-  edge_sp2 <- as.integer(sp_map[edges$species2])
+  edge_species1 <- as.integer(sp_map[edges$species1])
+  edge_species2 <- as.integer(sp_map[edges$species2])
 
   # Filter out edges where either species is not in target_species
-  valid <- !is.na(edge_sp1) & !is.na(edge_sp2)
+  valid <- !is.na(edge_species1) & !is.na(edge_species2)
   any_valid <- any(valid)
 
   edge_hog <- edge_hog[valid]
   edge_g1 <- edge_g1[valid]
   edge_g2 <- edge_g2[valid]
-  edge_sp1 <- edge_sp1[valid]
-  edge_sp2 <- edge_sp2[valid]
+  edge_species1 <- edge_species1[valid]
+  edge_species2 <- edge_species2[valid]
   edge_qval <- as.numeric(edges$q_value[valid])
   edge_effect <- as.numeric(edges$effect_size[valid])
 
@@ -57,7 +57,7 @@ encode_clique_edges <- function(edges, target_species) {
     sp_map = sp_map, gene_map = gene_key_map, hog_map = hog_map,
     all_genes = all_genes, unique_hogs = unique_hogs,
     edge_hog = edge_hog, edge_g1 = edge_g1, edge_g2 = edge_g2,
-    edge_sp1 = edge_sp1, edge_sp2 = edge_sp2,
+    edge_species1 = edge_species1, edge_species2 = edge_species2,
     edge_qval = edge_qval, edge_effect = edge_effect,
     any_valid = any_valid
   )
@@ -460,7 +460,8 @@ find_cliques.default <- function(edges, target_species,
 
   # Call C++
   result <- find_cliques_cpp(
-    enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
+    enc$edge_hog, enc$edge_g1, enc$edge_g2,
+    enc$edge_species1, enc$edge_species2,
     enc$edge_qval, enc$edge_effect,
     length(target_species), min_species,
     length(enc$unique_hogs), length(enc$all_genes),

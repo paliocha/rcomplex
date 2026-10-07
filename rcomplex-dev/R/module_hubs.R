@@ -342,9 +342,10 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   element must be built with the alphabetically first species as
 #'   `modules_ref`, and [module_correspondence()] needs a map from
 #'   [resolve_ortholog_map()], so the networks are required for the gene
-#'   universes. Pass `sp_ref` / `sp_test` to [module_correspondence()] and
-#'   that orientation is checked here instead of taken on trust. A module
-#'   pair absent from the table counts as not corresponding.
+#'   universes. Pass `species_ref` / `species_test` to
+#'   [module_correspondence()] and that orientation is checked here instead
+#'   of taken on trust. A module pair absent from the table counts as not
+#'   corresponding.
 #' @param alpha Significance threshold for module correspondence (default 0.1).
 #' @param jaccard_threshold Jaccard threshold for module correspondence
 #'   (default 0.1). [module_correspondence()] computes this over the
@@ -397,7 +398,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #' )
 #' corr <- list(SP_A.SP_B = module_correspondence(
 #'   mods_A, mods_B, map,
-#'   sp_ref = "SP_A", sp_test = "SP_B"
+#'   species_ref = "SP_A", species_test = "SP_B"
 #' ))
 #' classify_hub_conservation(hub_list, trait, module_comparisons = corr)
 #' }
@@ -578,15 +579,15 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     }
     # Orientation, when the producer recorded it. A transposed call --
     # module_correspondence(mods_B, mods_A, ...) filed under "A.B" -- passes
-    # the name and shape checks and then matches lookups with module_sp1 and
-    # module_sp2 swapped, giving wrong verdicts rather than a detectable NA.
+    # the name and shape checks and then matches lookups with module1 and
+    # module2 swapped, giving wrong verdicts rather than a detectable NA.
     for (k in nm) {
-      ref <- module_comparisons[[k]]$sp_ref
+      ref <- module_comparisons[[k]]$species_ref
       if (is.null(ref)) next
-      tst <- module_comparisons[[k]]$sp_test
+      tst <- module_comparisons[[k]]$species_test
       # Rebuild the key from the recorded labels rather than splitting it.
       # Splitting on "." mangles species names that contain one, and
-      # comparing the pair as a whole also catches a sp_test naming a third
+      # comparing the pair as a whole also catches a species_test naming a third
       # species, which a first-element check would pass.
       rebuilt <- if (is.null(tst)) NULL else paste(c(ref, tst), collapse = ".")
       ok <- if (is.null(rebuilt)) {
@@ -596,15 +597,16 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
       }
       if (!ok) {
         stop(
-          "module_comparisons[[\"", k, "\"]] was built with sp_ref = \"",
-          ref, "\"", if (!is.null(tst)) paste0(", sp_test = \"", tst, "\""),
-          "; module_sp1 must belong to the first species of the key, so ",
+          "module_comparisons[[\"", k, "\"]] was built with species_ref = \"",
+          ref, "\"",
+          if (!is.null(tst)) paste0(", species_test = \"", tst, "\""),
+          "; module1 must belong to the first species of the key, so ",
           "the arguments or the key are wrong"
         )
       }
     }
 
-    req_corr <- c("module_sp1", "module_sp2", "jaccard", "q_value")
+    req_corr <- c("module1", "module2", "jaccard", "q_value")
     for (k in nm) {
       pk <- module_comparisons[[k]]$pairs
       if (!is.data.frame(pk) || !all(req_corr %in% names(pk))) {
@@ -622,7 +624,7 @@ classify_hub_conservation.default <- function(hub_results, species_trait,
     for (pair_key in names(module_comparisons)) {
       pairs <- module_comparisons[[pair_key]]$pairs
       is_match <- pairs$q_value < alpha & pairs$jaccard >= jaccard_threshold
-      keys <- paste(pairs$module_sp1, pairs$module_sp2, sep = "\x01")
+      keys <- paste(pairs$module1, pairs$module2, sep = "\x01")
       corresp_lookup[[pair_key]] <- stats::setNames(is_match, keys)
     }
   }

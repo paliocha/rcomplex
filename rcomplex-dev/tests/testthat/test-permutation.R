@@ -590,8 +590,8 @@ test_that("T_obs uses the self-excluded urn and matches the R oracle", {
   # is itself ortholog-reachable from a HOG-mate's neighbours and must
   # leave the reachable set; the population is N - 1 in both directions.
   td <- make_self_excluded_nets()
-  sp1 <- paste0("A", 1:3)
-  sp2 <- paste0("B", 1:3)
+  species1 <- paste0("A", 1:3)
+  species2 <- paste0("B", 1:3)
 
   set.seed(3)
   res <- rcomplex:::permutation_hog_test(td$net1, td$net2, td$comparison,
@@ -600,14 +600,14 @@ test_that("T_obs uses the self-excluded urn and matches the R oracle", {
   t_hog1 <- res$T_obs[res$hog == "HOG1"]
   expected <- reference_T_obs(
     td$net1$network, td$net2$network, 0.5, 0.5,
-    td$ortho, sp1, sp2
+    td$ortho, species1, species2
   )
   expect_equal(t_hog1, expected, tolerance = 1e-12)
 
   # the exclusion is exercised: the pre-0.2.0 urn (k, N) gives a
   # different statistic
   old <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
-    td$ortho, sp1, sp2,
+    td$ortho, species1, species2,
     self_exclude = FALSE
   )
   expect_false(isTRUE(all.equal(t_hog1, old)))

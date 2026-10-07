@@ -6,8 +6,8 @@
 \usage{
 comparison_to_edges(
   comparison,
-  sp1,
-  sp2,
+  species1,
+  species2,
   alternative = c("greater", "less"),
   alpha = 0.1,
   pval_combine = c("max", "min"),
@@ -21,10 +21,10 @@ comparison_to_edges(
 \code{gene2}, \code{hog}, plus q-value and effect-size columns
 from both directions.}
 
-\item{sp1}{Species abbreviation for \code{gene1} genes (e.g.,
+\item{species1}{Species abbreviation for \code{gene1} genes (e.g.,
 \code{"BDIS"}).}
 
-\item{sp2}{Species abbreviation for \code{gene2} genes.}
+\item{species2}{Species abbreviation for \code{gene2} genes.}
 
 \item{alternative}{Which test direction to use for q-values and
 classification: \code{"greater"} (conservation, default) or
@@ -59,8 +59,8 @@ Data frame with columns:
 \describe{
 \item{gene1}{Gene identifier (gene1)}
 \item{gene2}{Gene identifier (gene2)}
-\item{species1}{Species abbreviation for gene1 (\code{sp1})}
-\item{species2}{Species abbreviation for gene2 (\code{sp2})}
+\item{species1}{Species abbreviation for gene1 (\code{species1})}
+\item{species2}{Species abbreviation for gene2 (\code{species2})}
 \item{hog}{Ortholog group identifier}
 \item{q_value}{Maximum (or minimum, see \code{pval_combine}) of the
 two directional q-values}

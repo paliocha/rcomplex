@@ -427,7 +427,7 @@ test_that("sensitivity detects a copy choice that changes the result", {
   amb <- ambiguous_fixture(fx)
 
   pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+    cliques = amb$cliques, species_ref = "A", species_test = "B",
     n_perm = 100L, sensitivity = TRUE, seed = 1
   )
 
@@ -539,7 +539,7 @@ test_that("p_copy is reproducible and pinned under a seed", {
   p <- pcopy_fixture()
   run <- function() {
     module_preservation(p$tm, p$fx$netA, p$fx$netB, p$amb$ortho,
-      cliques = p$amb$cliques, sp_ref = "A", sp_test = "B",
+      cliques = p$amb$cliques, species_ref = "A", species_test = "B",
       n_perm = 100L, copy_draws = 50L, sensitivity = TRUE, seed = 1
     )
   }
@@ -601,10 +601,10 @@ test_that("copy resolution and the copy null do not depend on collation", {
   run <- function() {
     list(
       map = resolve_ortholog_map(amb$ortho, rn, rn2,
-        sp1 = "A", sp2 = "B", cliques = amb$cliques
+        species1 = "A", species2 = "B", cliques = amb$cliques
       ),
       pres = module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-        cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+        cliques = amb$cliques, species_ref = "A", species_test = "B",
         n_perm = 50L, sensitivity = TRUE, copy_draws = 50L, seed = 1
       )
     )
@@ -631,7 +631,7 @@ test_that("p_copy does not depend on what the naive run consumed", {
   genes_a <- rownames(p$fx$netA$network)
   genes_b <- rownames(p$fx$netB$network)
   resolved <- resolve_ortholog_map(p$amb$ortho, genes_a, genes_b,
-    sp1 = "A", sp2 = "B", cliques = p$amb$cliques
+    species1 = "A", species2 = "B", cliques = p$amb$cliques
   )
   naive_map <- resolve_ortholog_map(p$amb$ortho, genes_a, genes_b)
 
@@ -667,7 +667,7 @@ test_that("p_copy does not depend on what the naive run consumed", {
   # And the reassembly is the real thing: the shipped call, whose naive run
   # takes n_perm from the outer call, lands on the same p_copy.
   pres <- module_preservation(p$tm, p$fx$netA, p$fx$netB, p$amb$ortho,
-    cliques = p$amb$cliques, sp_ref = "A", sp_test = "B",
+    cliques = p$amb$cliques, species_ref = "A", species_test = "B",
     n_perm = 100L, copy_draws = 50L, sensitivity = TRUE, seed = 1
   )
   expect_equal(
@@ -713,14 +713,14 @@ test_that("module_correspondence matches the modules that correspond", {
   p <- corr$pairs
 
   expect_true(all(c(
-    "module_sp1", "module_sp2", "overlap", "jaccard",
+    "module1", "module2", "overlap", "jaccard",
     "p_value", "q_value"
   ) %in% names(p)))
   expect_equal(nrow(p), tm_a$n_modules * tm_b$n_modules)
 
   # The fixture maps module k of species A onto module k of species B, so the
   # diagonal must be the significant part of the table.
-  diag_rows <- p$module_sp1 == p$module_sp2
+  diag_rows <- p$module1 == p$module2
   expect_true(all(p$q_value[diag_rows] < 0.05))
   expect_gt(min(p$jaccard[diag_rows]), max(p$jaccard[!diag_rows]))
 })
@@ -1067,7 +1067,7 @@ test_that("sensitivity reports the naive run's own statistics", {
   amb <- ambiguous_fixture(fx)
 
   pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+    cliques = amb$cliques, species_ref = "A", species_test = "B",
     n_perm = 100L, sensitivity = TRUE, seed = 1
   )
 
@@ -1128,7 +1128,7 @@ test_that("correspondence p-values, q-values, jaccard and overlap are sane", {
   expect_true(all(p$q_value >= 0 & p$q_value <= 1))
   expect_false(anyNA(p$jaccard))
   expect_true(all(p$jaccard >= 0 & p$jaccard <= 1))
-  expect_true(all(p$overlap <= pmin(p$size_sp1, p$size_sp2)))
+  expect_true(all(p$overlap <= pmin(p$size1, p$size2)))
   # Every projected gene lands in exactly one (ref, test) module cell. Compare
   # against a projection size computed independently of the cross-tab -- the
   # marginals come from the same table, so comparing them to it is arithmetic.
@@ -1277,10 +1277,12 @@ test_that("module_correspondence records its orientation", {
   map <- resolve_ortholog_map(
     fx$ortho, rownames(fx$netA$network), rownames(fx$netB$network)
   )
-  corr <- module_correspondence(tm_a, tm_b, map, sp_ref = "A", sp_test = "B")
+  corr <- module_correspondence(tm_a, tm_b, map,
+    species_ref = "A", species_test = "B"
+  )
 
-  expect_equal(corr$sp_ref, "A")
-  expect_equal(corr$sp_test, "B")
+  expect_equal(corr$species_ref, "A")
+  expect_equal(corr$species_test, "B")
 })
 
 
@@ -1292,7 +1294,7 @@ test_that("the copy-choice null runs and is skipped when there is no choice", {
   # The ambiguous fixture has multi-copy HOGs, so there is a copy choice to
   # vary and the null has something to say.
   pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-    cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+    cliques = amb$cliques, species_ref = "A", species_test = "B",
     n_perm = 100L, sensitivity = TRUE, copy_draws = 20L, seed = 1
   )
   expect_true(all(c("p_copy.avg.weight", "p_copy.cor.degree") %in%
@@ -1413,7 +1415,7 @@ test_that("the resolution guard compares the set that can actually differ", {
   # because resolving a copy rescues genes whose labels would otherwise tie.
   expect_warning(
     pres <- module_preservation(tm, fx$netA, fx$netB, amb$ortho,
-      cliques = amb$cliques, sp_ref = "A", sp_test = "B",
+      cliques = amb$cliques, species_ref = "A", species_test = "B",
       n_perm = 100L, sensitivity = TRUE, copy_draws = 10L, seed = 1
     ),
     "changed which test-species genes"
@@ -1431,7 +1433,7 @@ test_that("the copy null holds the projected gene set fixed", {
   pres <- suppressWarnings(module_preservation(
     tm, fx$netA, fx$netB, amb$ortho,
     cliques = amb$cliques,
-    sp_ref = "A", sp_test = "B", n_perm = 100L, sensitivity = TRUE,
+    species_ref = "A", species_test = "B", n_perm = 100L, sensitivity = TRUE,
     copy_draws = 20L, seed = 1
   ))
 
@@ -1508,8 +1510,8 @@ test_that("calibration lies between the joint null and raw pmax", {
 
   # pmax is the intersection-union p-value and the calibrated value is a
   # blend of it with the empirical joint null, so it can only move downward.
-  expect_true(all(d$p.calibrated <= d$p_value + 1e-12, na.rm = TRUE))
-  expect_true(all(d$p.calibrated > 0, na.rm = TRUE))
+  expect_true(all(d$p_calibrated <= d$p_value + 1e-12, na.rm = TRUE))
+  expect_true(all(d$p_calibrated > 0, na.rm = TRUE))
   # The identity the blend's validity rests on.
   expect_equal(d$p_value, pmax(d$p.avg.weight, d$p.cor.degree))
   # The estimator is live at this module count.
@@ -1526,7 +1528,7 @@ test_that("calibrate = none reproduces the uncalibrated pmax result", {
   )
   d <- pres$preservation
 
-  expect_identical(d$p.calibrated, d$p_value)
+  expect_identical(d$p_calibrated, d$p_value)
   expect_equal(pres$params$w00, 0)
   # and the q-values are BH on the raw pmax
   expect_equal(d$q_value, stats::p.adjust(d$p_value, "BH"))
@@ -1594,7 +1596,7 @@ test_that("calibrated p-values do not depend on n_cores", {
   b <- module_preservation(tm, fx$netA, fx$netB, fx$ortho,
     n_perm = 200L, min_module_size = 10L, n_cores = 4L, seed = 5
   )
-  expect_equal(a$preservation$p.calibrated, b$preservation$p.calibrated)
+  expect_equal(a$preservation$p_calibrated, b$preservation$p_calibrated)
   expect_equal(a$params$w00, b$params$w00)
 })
 
@@ -1674,7 +1676,7 @@ test_that("copy_null_skipped distinguishes why the copy null did not run", {
   off <- suppressWarnings(module_preservation(
     tm, fx$netA, fx$netB, amb$ortho,
     cliques = amb$cliques,
-    sp_ref = "A", sp_test = "B",
+    species_ref = "A", species_test = "B",
     n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
     copy_draws = 0L, seed = 1
   ))
@@ -1686,7 +1688,7 @@ test_that("copy_null_skipped distinguishes why the copy null did not run", {
   ran <- suppressWarnings(module_preservation(
     tm, fx$netA, fx$netB, amb$ortho,
     cliques = amb$cliques,
-    sp_ref = "A", sp_test = "B",
+    species_ref = "A", species_test = "B",
     n_perm = 20L, min_module_size = 3L, sensitivity = TRUE,
     copy_draws = 5L, seed = 1
   ))
@@ -1767,7 +1769,7 @@ test_that("a partial copy-draw failure is reported, not absorbed", {
   )
   map <- resolve_ortholog_map(
     amb$ortho, rownames(fx$netA$network), rownames(fx$netB$network),
-    cliques = amb$cliques, sp1 = "A", sp2 = "B"
+    cliques = amb$cliques, species1 = "A", species2 = "B"
   )
   out <- module_preservation(
     tm, fx$netA, fx$netB, amb$ortho,

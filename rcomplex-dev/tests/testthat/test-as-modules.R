@@ -197,7 +197,7 @@ test_that("label and gene-ID order do not depend on the collation locale", {
   c_c <- corr()
   c_order <- c("Beta", "Zinc", "auxin", "calvin")
   expect_identical(r_c$preservation$module, c_order)
-  expect_identical(unique(c_c$module_sp1), c_order)
+  expect_identical(unique(c_c$module1), c_order)
   expect_identical(rcomplex:::.pres_project(tie)$gene1, "B2")
   # and the same under en_US, which collates these differently
   en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))

@@ -9,8 +9,8 @@ summarize_comparison(
   alternative = c("greater", "less"),
   alpha = 0.1,
   filter_zero = NULL,
-  sp1 = NULL,
-  sp2 = NULL,
+  species1 = NULL,
+  species2 = NULL,
   pi0_method = c("randomized", "storey", "none"),
   B = 20L,
   pval_combine = c("max", "min"),
@@ -30,7 +30,8 @@ divergence (lower-tail, uses \code{.p_value_div} columns).}
 \item{filter_zero}{If \code{TRUE} (default for \code{"greater"}), remove rows where
 both overlap values are zero. Defaults to \code{FALSE} for \code{"less"}.}
 
-\item{sp1, sp2}{Optional species abbreviations. When both are provided,
+\item{species1, species2}{Optional species abbreviations. When both are
+provided,
 \code{\link{comparison_to_edges}} is called internally and the result
 is returned as a third list element \code{$edges}. This avoids a
 separate \code{comparison_to_edges()} call when preparing input for
@@ -44,7 +45,7 @@ Benjamini-Hochberg).}
 \item{B}{Number of randomized-p draws averaged for pi0 (default 20).}
 
 \item{pval_combine}{Passed to \code{\link{comparison_to_edges}} when
-\code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+\code{species1} and \code{species2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
 
@@ -62,8 +63,8 @@ caller's own seed. Same contract as \code{detect_modules}.}
 
 \item{rho0}{Reference fold enrichment for the \code{power} column of
 \code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
-when \code{sp1} and \code{sp2} are provided. \code{NULL} (default)
-takes the median effect size of the called pairs.}
+when \code{species1} and \code{species2} are provided. \code{NULL}
+(default) takes the median effect size of the called pairs.}
 }
 \value{
 A list with components:
@@ -73,12 +74,12 @@ q-value columns (\code{.q_value_con} or \code{.q_value_div}) added.
 Rows are filtered according to \code{filter_zero}.}
 \item{summary}{List of summary statistics at gene-pair, gene, and
 ortholog-group levels, thresholded on q-values, plus \code{pi0}, the
-estimated null proportion per direction (\code{c(sp1 = , sp2 = )};
+estimated null proportion per direction (\code{c(species1 = , species2 = )};
 for \code{pi0_method = "randomized"} it is estimated from the
 unfiltered comparison rows, i.e. the full ortholog-pair set;
 \code{NA} when fewer than 2 rows remain).}
-\item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
-Edge-format data frame from \code{comparison_to_edges()}.}
+\item{edges}{(Only when \code{species1} and \code{species2} are
+provided.) Edge-format data frame from \code{comparison_to_edges()}.}
 }
 }
 \description{

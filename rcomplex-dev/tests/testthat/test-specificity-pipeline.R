@@ -29,7 +29,7 @@ test_that("conserved calls fall in the shared cliques only", {
   expect_equal(sum(e$type == "conserved" & idx %in% f$one_sided), 0L)
   # the one-sided clique was really tested in direction 1 -> 2 and failed
   cmp <- rcomplex:::compare_specificity(
-    f$networks$sp1, f$networks$sp2, f$ortho,
+    f$networks$species1, f$networks$species2, f$ortho,
     directions = "1to2"
   )
   p1 <- cmp$species1.p_value[f$one_sided]
@@ -39,8 +39,12 @@ test_that("conserved calls fall in the shared cliques only", {
 
 test_that("summarize_specificity reports the pair counts", {
   f <- make_spec_nets()
-  cmp <- rcomplex:::compare_specificity(f$networks$sp1, f$networks$sp2, f$ortho)
-  s <- rcomplex:::summarize_specificity(cmp, sp1 = "sp1", sp2 = "sp2")
+  cmp <- rcomplex:::compare_specificity(
+    f$networks$species1, f$networks$species2, f$ortho
+  )
+  s <- rcomplex:::summarize_specificity(
+    cmp, species1 = "species1", species2 = "species2"
+  )
   expect_gt(s$summary$gene_pairs$total, 0L)
   expect_gt(s$summary$gene_pairs$reciprocal, 0L)
 })
@@ -57,10 +61,10 @@ test_that("specificity arguments are validated", {
   )
   expect_error(spec_edges(f, alternative = "less"), "greater")
   f_part <- f
-  f_part$nulls$sp2 <- NULL
-  expect_error(spec_edges(f_part), "missing: sp2")
+  f_part$nulls$species2 <- NULL
+  expect_error(spec_edges(f_part), "missing: species2")
   f_bad <- f
-  rownames(f_bad$nulls$sp1$network)[1] <- "X"
+  rownames(f_bad$nulls$species1$network)[1] <- "X"
   expect_error(spec_edges(f_bad), "not on the genes")
 })
 
@@ -74,7 +78,7 @@ test_that("density_sweep at multiplier 1 equals find_coexpressologs", {
 
 test_that("dense and sparse input give the same specificity edges", {
   f <- make_spec_nets()
-  lo <- min(f$networks$sp1$network[f$networks$sp1$network > 0])
+  lo <- min(f$networks$species1$network[f$networks$species1$network > 0])
   fs <- f
   # same neighbourhoods: the dense threshold 1 sits below every nonzero
   fs$networks <- lapply(f$networks, function(n) {
@@ -121,18 +125,20 @@ test_that("specificity p-values are uniform under independence", {
 test_that("rank power falls with the reference rank and checks p0", {
   f <- make_spec_nets()
   nets <- f$networks
-  cmp <- rcomplex:::compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  cmp <- rcomplex:::compare_specificity(nets$species1, nets$species2, f$ortho)
   null_p <- list(
-    sp1 = rcomplex:::compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
+    species1 = rcomplex:::compare_specificity(
+      nets$species1, f$nulls$species2, f$ortho,
       directions = "1to2"
     )$species1.p_value,
-    sp2 = rcomplex:::compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
+    species2 = rcomplex:::compare_specificity(
+      f$nulls$species1, nets$species2, f$ortho,
       directions = "2to1"
     )$species2.p_value
   )
   pw <- function(p0) {
     rcomplex:::summarize_specificity(cmp, null_p,
-      sp1 = "sp1", sp2 = "sp2", p0 = p0
+      species1 = "species1", species2 = "species2", p0 = p0
     )$edges$power
   }
   lo <- pw(0.5)
@@ -144,10 +150,11 @@ test_that("rank power falls with the reference rank and checks p0", {
   # "min" never reports less power than "max" (either direction suffices)
   # at one fixed reference rank (the defaults differ between the modes)
   e_min <- rcomplex:::summarize_specificity(cmp, null_p,
-    sp1 = "sp1", sp2 = "sp2", pval_combine = "min", p0 = 0.01
+    species1 = "species1", species2 = "species2",
+    pval_combine = "min", p0 = 0.01
   )$edges
   e_max <- rcomplex:::summarize_specificity(cmp, null_p,
-    sp1 = "sp1", sp2 = "sp2", p0 = 0.01
+    species1 = "species1", species2 = "species2", p0 = 0.01
   )$edges
   expect_true(all(e_min$power >= e_max$power - 1e-12, na.rm = TRUE))
 })
@@ -216,17 +223,21 @@ test_that(".rank_power() matches a hand computation", {
 test_that("both routes to rank edges carry the same power", {
   f <- make_spec_nets()
   nets <- f$networks
-  cmp <- rcomplex:::compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  cmp <- rcomplex:::compare_specificity(nets$species1, nets$species2, f$ortho)
   null_p <- list(
-    sp1 = rcomplex:::compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
+    species1 = rcomplex:::compare_specificity(
+      nets$species1, f$nulls$species2, f$ortho,
       directions = "1to2"
     )$species1.p_value,
-    sp2 = rcomplex:::compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
+    species2 = rcomplex:::compare_specificity(
+      f$nulls$species1, nets$species2, f$ortho,
       directions = "2to1"
     )$species2.p_value
   )
-  sm <- rcomplex:::summarize_specificity(cmp, null_p, sp1 = "sp1", sp2 = "sp2")
-  two_step <- rcomplex:::comparison_to_edges(sm$results, "sp1", "sp2")
+  sm <- rcomplex:::summarize_specificity(cmp, null_p,
+    species1 = "species1", species2 = "species2"
+  )
+  two_step <- rcomplex:::comparison_to_edges(sm$results, "species1", "species2")
   expect_false(anyNA(two_step$power))
   expect_identical(two_step$power, sm$edges$power)
 })
@@ -293,36 +304,46 @@ test_that("p0 reaches density_sweep() and is refused for other methods", {
 test_that("a rank frame without its grid warns instead of going NA quietly", {
   f <- make_spec_nets()
   nets <- f$networks
-  cmp <- rcomplex:::compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  cmp <- rcomplex:::compare_specificity(nets$species1, nets$species2, f$ortho)
   null_p <- list(
-    sp1 = rcomplex:::compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
+    species1 = rcomplex:::compare_specificity(
+      nets$species1, f$nulls$species2, f$ortho,
       directions = "1to2"
     )$species1.p_value,
-    sp2 = rcomplex:::compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
+    species2 = rcomplex:::compare_specificity(
+      f$nulls$species1, nets$species2, f$ortho,
       directions = "2to1"
     )$species2.p_value
   )
   res <- rcomplex:::summarize_specificity(cmp, null_p)$results
   flat <- res[, !grepl("auroc\\.grid", names(res))]
-  expect_warning(rcomplex:::comparison_to_edges(flat, "sp1", "sp2"), "saveRDS")
-  expect_no_warning(rcomplex:::comparison_to_edges(res, "sp1", "sp2"))
+  expect_warning(
+    rcomplex:::comparison_to_edges(flat, "species1", "species2"), "saveRDS"
+  )
+  expect_no_warning(rcomplex:::comparison_to_edges(res, "species1", "species2"))
 })
 
 test_that("comparison_to_edges() refuses p0 on a hypergeometric frame", {
   f <- make_spec_nets()
   hy <- rcomplex:::summarize_comparison(
-    rcomplex:::compare_neighborhoods(f$networks$sp1, f$networks$sp2, f$ortho)
+    rcomplex:::compare_neighborhoods(
+      f$networks$species1, f$networks$species2, f$ortho
+    )
   )$results
-  expect_error(rcomplex:::comparison_to_edges(hy, "sp1", "sp2", p0 = 0.1),
-               "rho0")
+  expect_error(
+    rcomplex:::comparison_to_edges(hy, "species1", "species2", p0 = 0.1),
+    "rho0"
+  )
 })
 
 test_that("rho0 is refused on the rank path", {
   f <- make_spec_nets()
   expect_error(spec_edges(f, rho0 = 2), "rho0 is only used")
   nets <- f$networks
-  cmp <- rcomplex:::compare_specificity(nets$sp1, nets$sp2, f$ortho)
+  cmp <- rcomplex:::compare_specificity(nets$species1, nets$species2, f$ortho)
   res <- rcomplex:::summarize_specificity(cmp)$results
-  expect_error(rcomplex:::comparison_to_edges(res, "sp1", "sp2", rho0 = 2),
-               "p0 sets")
+  expect_error(
+    rcomplex:::comparison_to_edges(res, "species1", "species2", rho0 = 2),
+    "p0 sets"
+  )
 })

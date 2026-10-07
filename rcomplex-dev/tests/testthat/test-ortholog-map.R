@@ -73,7 +73,7 @@ test_that("genes outside the universes are dropped", {
 test_that("a clique resolves the copy pair it names", {
   fx <- map_fixture()
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     cliques = fx$cliques
   )
 
@@ -94,7 +94,7 @@ test_that("the best clique per HOG wins on n_species then mean_q", {
     stringsAsFactors = FALSE
   )
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B", cliques = cl
+    species1 = "SP_A", species2 = "SP_B", cliques = cl
   )
 
   # n_species = 3 beats the lower mean_q at n_species = 2; among the two
@@ -112,7 +112,7 @@ test_that("clique pairs absent from the ortholog table are ignored", {
     stringsAsFactors = FALSE
   )
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B", cliques = cl
+    species1 = "SP_A", species2 = "SP_B", cliques = cl
   )
 
   expect_false(any(res$source == "clique"))
@@ -122,7 +122,7 @@ test_that("clique columns must exist for both species", {
   fx <- map_fixture()
   expect_error(
     resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-      sp1 = "SP_A", sp2 = "NOPE", cliques = fx$cliques
+      species1 = "SP_A", species2 = "NOPE", cliques = fx$cliques
     ),
     "no column for species"
   )
@@ -134,7 +134,7 @@ test_that("clique columns must exist for both species", {
 test_that("mutual-best coexpressologs resolve remaining copies", {
   fx <- map_fixture()
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = fx$edges
   )
 
@@ -148,7 +148,7 @@ test_that("one-sided best pairs are not accepted", {
   fx <- map_fixture()
   # a3's best is A1, but A1's best is a2 - so a3-A1 is not mutual.
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = fx$edges
   )
 
@@ -164,7 +164,7 @@ test_that("cliques take precedence over coexpressologs", {
     type = "conserved", stringsAsFactors = FALSE
   ))
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = edges, cliques = fx$cliques
   )
 
@@ -184,11 +184,11 @@ test_that("reversed edge orientation is handled", {
   rev_edges$species2 <- "SP_A"
 
   fwd <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = fx$edges
   )
   rev <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = rev_edges
   )
 
@@ -200,7 +200,7 @@ test_that("non-significant edges do not resolve copies", {
   edges <- fx$edges
   edges$type <- "ns"
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B", edges = edges
+    species1 = "SP_A", species2 = "SP_B", edges = edges
   )
 
   expect_false(any(res$source == "coexpressolog"))
@@ -211,7 +211,7 @@ test_that("alpha filters edges when the table has no type column", {
   edges <- fx$edges
   edges$type <- NULL
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = edges, alpha = 1e-6
   )
 
@@ -228,7 +228,7 @@ test_that("rank_by = q_value errors on HOG-level (constant) q-values", {
 
   expect_error(
     resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-      sp1 = "SP_A", sp2 = "SP_B",
+      species1 = "SP_A", species2 = "SP_B",
       edges = edges, rank_by = "q_value"
     ),
     "constant within every multi-copy HOG"
@@ -238,7 +238,7 @@ test_that("rank_by = q_value errors on HOG-level (constant) q-values", {
 test_that("rank_by = q_value works when q-values vary within a HOG", {
   fx <- map_fixture()
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = fx$edges, rank_by = "q_value"
   )
 
@@ -257,15 +257,15 @@ test_that("resolution never changes the set of mappable species-2 genes", {
   variants <- list(
     none = resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2),
     clique = resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-      sp1 = "SP_A", sp2 = "SP_B",
+      species1 = "SP_A", species2 = "SP_B",
       cliques = fx$cliques
     ),
     coexpr = resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-      sp1 = "SP_A", sp2 = "SP_B",
+      species1 = "SP_A", species2 = "SP_B",
       edges = fx$edges
     ),
     both = resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-      sp1 = "SP_A", sp2 = "SP_B",
+      species1 = "SP_A", species2 = "SP_B",
       edges = fx$edges, cliques = fx$cliques
     )
   )
@@ -278,7 +278,7 @@ test_that("resolution never changes the set of mappable species-2 genes", {
 test_that("each resolved species-2 gene has exactly one species-1 partner", {
   fx <- map_fixture()
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = fx$edges, cliques = fx$cliques
   )
 
@@ -290,7 +290,7 @@ test_that("resolution reduces the number of candidate pairs", {
   fx <- map_fixture()
   none <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2)
   both <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     edges = fx$edges, cliques = fx$cliques
   )
 
@@ -319,7 +319,7 @@ test_that("resolve_ortholog_map validates its inputs", {
     resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
       cliques = fx$cliques
     ),
-    "sp1 and sp2 are required"
+    "species1 and species2 are required"
   )
   expect_error(
     resolve_ortholog_map(fx$ortho, "zzz", "ZZZ"),
@@ -348,7 +348,7 @@ test_that("a coexpressolog cannot re-claim a gene the clique layer resolved", {
   )
 
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B", edges = edges, cliques = fx$cliques
+    species1 = "SP_A", species2 = "SP_B", edges = edges, cliques = fx$cliques
   )
 
   resolved <- res[res$source != "unresolved", ]
@@ -370,7 +370,7 @@ test_that("cliques without n_species or mean_q still resolve", {
   )
 
   res <- resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-    sp1 = "SP_A", sp2 = "SP_B", cliques = cl
+    species1 = "SP_A", species2 = "SP_B", cliques = cl
   )
   expect_true(any(res$source == "clique"))
 })
@@ -382,7 +382,7 @@ test_that("edges missing hog are reported by name", {
 
   expect_error(
     resolve_ortholog_map(fx$ortho, fx$genes1, fx$genes2,
-      sp1 = "SP_A", sp2 = "SP_B", edges = edges, rank_by = "q_value"
+      species1 = "SP_A", species2 = "SP_B", edges = edges, rank_by = "q_value"
     ),
     "edges missing columns: hog"
   )
@@ -412,7 +412,7 @@ test_that("tied copies resolve the same way under any collation", {
   )
   run <- function() {
     resolve_ortholog_map(ortho, c("b1", "B2", "c3", "C4"), c("t1", "t2"),
-      sp1 = "SP_A", sp2 = "SP_B", edges = edges, cliques = cliques
+      species1 = "SP_A", species2 = "SP_B", edges = edges, cliques = cliques
     )
   }
   # the C-locale (radix) order decides, uppercase first; needs no other locale
@@ -427,7 +427,7 @@ test_that("tied copies resolve the same way under any collation", {
   edges_f <- edges
   edges_f$gene1 <- factor(edges$gene1, levels = c("c3", "C4"))
   r_f <- resolve_ortholog_map(ortho_f, c("b1", "B2", "c3", "C4"), c("t1", "t2"),
-    sp1 = "SP_A", sp2 = "SP_B", edges = edges_f, cliques = cliques
+    species1 = "SP_A", species2 = "SP_B", edges = edges_f, cliques = cliques
   )
   expect_identical(r_f, r_c)
   en <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))

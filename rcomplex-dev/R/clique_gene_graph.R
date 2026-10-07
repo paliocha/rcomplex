@@ -467,17 +467,17 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (length(rows) == 0L) {
     return("absent")
   }
-  sp1 <- edges$species1[rows]
-  sp2 <- edges$species2[rows]
-  if (!any(sp1 == s) && !any(sp2 == s)) {
+  species1 <- edges$species1[rows]
+  species2 <- edges$species2[rows]
+  if (!any(species1 == s) && !any(species2 == s)) {
     return("absent")
   }
   k1 <- key1[rows]
   k2 <- key2[rows]
   # A row tests the species against the clique only when the species
   # sits on one side and a clique member on the other.
-  hit1 <- sp1 == s & k2 %in% mk
-  hit2 <- sp2 == s & k1 %in% mk
+  hit1 <- species1 == s & k2 %in% mk
+  hit2 <- species2 == s & k1 %in% mk
   if (!any(hit1) && !any(hit2)) {
     return("untested")
   }

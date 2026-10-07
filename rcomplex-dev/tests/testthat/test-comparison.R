@@ -1582,7 +1582,7 @@ test_that(
     # q-values are compared across the two paths at line ~1609, so they
     # must correct over the same set of tested pairs.
     s <- rcomplex:::summarize_comparison(cmp,
-      sp1 = "A", sp2 = "B", pi0_method = "none",
+      species1 = "A", species2 = "B", pi0_method = "none",
       pval_combine = "max", filter_zero = FALSE
     )
     expect_equal(
@@ -1721,11 +1721,11 @@ test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
 
   cmp <- rcomplex:::compare_neighborhoods(nets$SP_A, nets$SP_B, ortho)
   s_def <- rcomplex:::summarize_comparison(cmp,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     pi0_method = "none"
   )
   s_max <- rcomplex:::summarize_comparison(cmp,
-    sp1 = "SP_A", sp2 = "SP_B",
+    species1 = "SP_A", species2 = "SP_B",
     pi0_method = "none", pval_combine = "max"
   )
   expect_identical(s_def$edges, s_max$edges)
@@ -1990,7 +1990,7 @@ test_that("summarize_comparison forwards rho0 to its edge table", {
   fx <- make_power_comparison()
   run <- function(...) {
     rcomplex:::summarize_comparison(fx$cmp,
-      sp1 = "SP_A", sp2 = "SP_B",
+      species1 = "SP_A", species2 = "SP_B",
       pi0_method = "none", ...
     )
   }

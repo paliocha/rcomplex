@@ -129,7 +129,8 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' @param alpha Significance threshold applied to q-values (default 0.1).
 #' @param filter_zero If `TRUE` (default for `"greater"`), remove rows where
 #'   both overlap values are zero. Defaults to `FALSE` for `"less"`.
-#' @param sp1,sp2 Optional species abbreviations. When both are provided,
+#' @param species1,species2 Optional species abbreviations. When both are
+#'   provided,
 #'   \code{\link{comparison_to_edges}} is called internally and the result
 #'   is returned as a third list element \code{$edges}. This avoids a
 #'   separate \code{comparison_to_edges()} call when preparing input for
@@ -151,14 +152,14 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   \code{B} consumed and anything drawn afterwards continues from the
 #'   caller's own seed. Same contract as \code{detect_modules}.
 #' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
-#'   \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+#'   \code{species1} and \code{species2} are given: \code{"max"} (default; both
 #'   directions significant -- the reciprocal criterion of Netotea et
 #'   al. (2014)) or \code{"min"} (either direction).
 #'
 #' @param rho0 Reference fold enrichment for the \code{power} column of
 #'   \code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
-#'   when \code{sp1} and \code{sp2} are provided. \code{NULL} (default)
-#'   takes the median effect size of the called pairs.
+#'   when \code{species1} and \code{species2} are provided. \code{NULL}
+#'   (default) takes the median effect size of the called pairs.
 #' @return A list with components:
 #'   \describe{
 #'     \item{results}{Data frame with the original p-values preserved and new
@@ -166,12 +167,12 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'       Rows are filtered according to `filter_zero`.}
 #'     \item{summary}{List of summary statistics at gene-pair, gene, and
 #'       ortholog-group levels, thresholded on q-values, plus `pi0`, the
-#'       estimated null proportion per direction (`c(sp1 = , sp2 = )`;
+#'       estimated null proportion per direction (`c(species1 = , species2 = )`;
 #'       for `pi0_method = "randomized"` it is estimated from the
 #'       unfiltered comparison rows, i.e. the full ortholog-pair set;
 #'       `NA` when fewer than 2 rows remain).}
-#'     \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
-#'       Edge-format data frame from \code{comparison_to_edges()}.}
+#'     \item{edges}{(Only when \code{species1} and \code{species2} are
+#'       provided.) Edge-format data frame from \code{comparison_to_edges()}.}
 #'   }
 #'
 #' @references
@@ -202,7 +203,7 @@ summarize_comparison <- function(comparison,
                                  alternative = c("greater", "less"),
                                  alpha = 0.1,
                                  filter_zero = NULL,
-                                 sp1 = NULL, sp2 = NULL,
+                                 species1 = NULL, species2 = NULL,
                                  pi0_method = c(
                                    "randomized", "storey",
                                    "none"
@@ -215,8 +216,8 @@ summarize_comparison <- function(comparison,
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
 
-  if (xor(is.null(sp1), is.null(sp2))) {
-    stop("Both sp1 and sp2 must be provided, or neither.")
+  if (xor(is.null(species1), is.null(species2))) {
+    stop("Both species1 and species2 must be provided, or neither.")
   }
   .check_rho0(rho0)
 
@@ -270,7 +271,7 @@ summarize_comparison <- function(comparison,
   }
 
   if (nrow(res) == 0) {
-    return(.summary_empty(res, sp1, sp2))
+    return(.summary_empty(res, species1, species2))
   }
 
   # Compute q-values on selected p-value columns. Randomized p-value for
@@ -304,12 +305,13 @@ summarize_comparison <- function(comparison,
     results = res,
     summary = c(
       .summary_counts(res, q1_col, q2_col, alpha),
-      list(pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0))
+      list(pi0 = c(species1 = qv1$pi0, species2 = qv2$pi0))
     )
   )
 
-  if (!is.null(sp1) && !is.null(sp2)) {
-    out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha,
+  if (!is.null(species1) && !is.null(species2)) {
+    out$edges <- comparison_to_edges(
+      res, species1, species2, alternative, alpha,
       pval_combine = pval_combine, rho0 = rho0
     )
   }
@@ -339,20 +341,20 @@ summarize_comparison <- function(comparison,
   max_q <- pmax(q1, q2)
   list(
     gene_pairs = list(
-      sp1 = sum(q1 < alpha),
-      sp2 = sum(q2 < alpha),
+      species1 = sum(q1 < alpha),
+      species2 = sum(q2 < alpha),
       reciprocal = sum(q1 < alpha & q2 < alpha),
       total = nrow(res)
     ),
     genes = list(
-      sp1 = count_sig(q1, res$gene1),
-      sp2 = count_sig(q2, res$gene2),
+      species1 = count_sig(q1, res$gene1),
+      species2 = count_sig(q2, res$gene2),
       reciprocal_sp1 = count_sig(max_q, res$gene1),
       reciprocal_sp2 = count_sig(max_q, res$gene2)
     ),
     orthogroups = list(
-      sp1 = count_sig(q1, res$hog),
-      sp2 = count_sig(q2, res$hog),
+      species1 = count_sig(q1, res$hog),
+      species2 = count_sig(q2, res$hog),
       reciprocal = count_sig(max_q, res$hog),
       total = length(unique(res$hog))
     )
@@ -362,27 +364,31 @@ summarize_comparison <- function(comparison,
 
 #' The summary of a comparison with no testable rows
 #'
-#' Zero counts, undefined pi0, and an empty edge frame when `sp1` and
-#' `sp2` are given.
+#' Zero counts, undefined pi0, and an empty edge frame when `species1` and
+#' `species2` are given.
 #'
 #' @param res The (empty) results frame.
-#' @param sp1,sp2 Species abbreviations or `NULL`.
+#' @param species1,species2 Species abbreviations or `NULL`.
 #' @return `list(results = , summary = )`, plus `edges` when named.
 #' @noRd
-.summary_empty <- function(res, sp1, sp2) {
+.summary_empty <- function(res, species1, species2) {
   out <- list(
     results = res,
     summary = list(
-      gene_pairs = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
+      gene_pairs = list(
+        species1 = 0L, species2 = 0L, reciprocal = 0L, total = 0L
+      ),
       genes = list(
-        sp1 = 0L, sp2 = 0L,
+        species1 = 0L, species2 = 0L,
         reciprocal_sp1 = 0L, reciprocal_sp2 = 0L
       ),
-      orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
-      pi0 = c(sp1 = NA_real_, sp2 = NA_real_)
+      orthogroups = list(
+        species1 = 0L, species2 = 0L, reciprocal = 0L, total = 0L
+      ),
+      pi0 = c(species1 = NA_real_, species2 = NA_real_)
     )
   )
-  if (!is.null(sp1) && !is.null(sp2)) {
+  if (!is.null(species1) && !is.null(species2)) {
     out$edges <- data.frame(
       gene1 = character(0), gene2 = character(0),
       species1 = character(0), species2 = character(0),
@@ -438,8 +444,8 @@ summarize_comparison <- function(comparison,
 #' the shuffled partner calibrates them before Storey is applied.
 #'
 #' @param comparison Data frame from [compare_specificity()].
-#' @param null_p `NULL`, or `list(sp1 = , sp2 = )` of null p-values for
-#'   the 1 -> 2 and 2 -> 1 directions from the shuffled partner. `NA`
+#' @param null_p `NULL`, or `list(species1 = , species2 = )` of null p-values
+#'   for the 1 -> 2 and 2 -> 1 directions from the shuffled partner. `NA`
 #'   entries are dropped.
 #' @param alpha Significance threshold applied to q-values (default 0.1).
 #' @param pi0_method `"storey"` (default) estimates pi0 from the p-values;
@@ -459,8 +465,8 @@ summarize_comparison <- function(comparison,
 #'     \item{summary}{The counts of [summarize_comparison()], `pi0` per
 #'       direction, `n_null` (null draws used per direction, 0 without
 #'       `null_p`) and `n_dropped` (rows with an `NA` p-value).}
-#'     \item{edges}{(Only when `sp1` and `sp2` are provided.) Edge frame
-#'       from [comparison_to_edges()]. `power` is the probability that
+#'     \item{edges}{(Only when `species1` and `species2` are provided.) Edge
+#'       frame from [comparison_to_edges()]. `power` is the probability that
 #'       the pair would have been called had the ortholog ranked at raw p
 #'       `p0` among its candidates: per direction, the anchor's
 #'       `auroc.grid` (log-linear interpolation) gives the AUROC at `p0`
@@ -496,33 +502,36 @@ summarize_comparison <- function(comparison,
 #' @keywords internal
 summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
                                   pi0_method = c("storey", "none"),
-                                  sp1 = NULL, sp2 = NULL,
+                                  species1 = NULL, species2 = NULL,
                                   pval_combine = c("max", "min"),
                                   p0 = NULL) {
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_p0(p0)
-  if (xor(is.null(sp1), is.null(sp2))) {
-    stop("Both sp1 and sp2 must be provided, or neither.")
+  if (xor(is.null(species1), is.null(species2))) {
+    stop("Both species1 and species2 must be provided, or neither.")
   }
   p_cols <- c("species1.p_value", "species2.p_value")
   if (!all(c("gene1", "gene2", "hog", p_cols) %in% names(comparison))) {
     stop("comparison must be output from compare_specificity()")
   }
   if (!is.null(null_p)) {
-    if (!is.list(null_p) || !all(c("sp1", "sp2") %in% names(null_p))) {
-      stop("null_p must be NULL or list(sp1 = , sp2 = )")
+    sp_keys <- c("species1", "species2")
+    if (!is.list(null_p) || !all(sp_keys %in% names(null_p))) {
+      stop("null_p must be NULL or list(species1 = , species2 = )")
     }
-    null_p <- lapply(null_p[c("sp1", "sp2")], function(p) p[!is.na(p)])
+    null_p <- lapply(null_p[sp_keys], function(p) p[!is.na(p)])
   }
 
   keep <- stats::complete.cases(comparison[p_cols])
   res <- comparison[keep, , drop = FALSE]
   n_dropped <- sum(!keep)
-  n_null <- c(sp1 = length(null_p$sp1), sp2 = length(null_p$sp2))
+  n_null <- c(
+    species1 = length(null_p$species1), species2 = length(null_p$species2)
+  )
 
   if (nrow(res) == 0L) {
-    out <- .summary_empty(res, sp1, sp2)
+    out <- .summary_empty(res, species1, species2)
     out$summary$n_null <- n_null
     out$summary$n_dropped <- n_dropped
     return(out)
@@ -531,8 +540,8 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
   p1 <- res$species1.p_value
   p2 <- res$species2.p_value
   if (!is.null(null_p)) {
-    p1 <- res$species1.p.emp <- .p_empirical(p1, null_p$sp1)
-    p2 <- res$species2.p.emp <- .p_empirical(p2, null_p$sp2)
+    p1 <- res$species1.p.emp <- .p_empirical(p1, null_p$species1)
+    p2 <- res$species2.p.emp <- .p_empirical(p2, null_p$species2)
   }
   qv1 <- compute_qvalues(p1, pi0_method = pi0_method)
   qv2 <- compute_qvalues(p2, pi0_method = pi0_method)
@@ -547,16 +556,16 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
         alpha
       ),
       list(
-        pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0),
+        pi0 = c(species1 = qv1$pi0, species2 = qv2$pi0),
         n_null = n_null,
         n_dropped = n_dropped
       )
     )
   )
-  if (!is.null(sp1) && !is.null(sp2)) {
+  if (!is.null(species1) && !is.null(species2)) {
     has_grid <- all(c("species1.auroc.grid", "species2.auroc.grid") %in%
                       names(res))
-    out$edges <- comparison_to_edges(res, sp1, sp2,
+    out$edges <- comparison_to_edges(res, species1, species2,
       alternative = "greater", alpha = alpha, pval_combine = pval_combine,
       p0 = if (has_grid) p0 else NULL
     )

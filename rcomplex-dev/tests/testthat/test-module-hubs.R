@@ -61,11 +61,11 @@ make_hub_test_data <- function() {
   ortho_list <- list()
   sp_pairs <- combn(species, 2, simplify = FALSE)
   for (pair in sp_pairs) {
-    sp1 <- pair[1]
-    sp2 <- pair[2]
-    px1 <- prefixes[sp1]
-    px2 <- prefixes[sp2]
-    ortho_list[[paste(sp1, sp2, sep = ".")]] <- data.frame(
+    species1 <- pair[1]
+    species2 <- pair[2]
+    px1 <- prefixes[species1]
+    px2 <- prefixes[species2]
+    ortho_list[[paste(species1, species2, sep = ".")]] <- data.frame(
       gene1 = paste0(px1, seq_len(n)),
       gene2 = paste0(px2, seq_len(n)),
       hog = paste0("HOG", seq_len(n)),
@@ -421,20 +421,20 @@ test_that(
       c("SP_B", "SP_C"), c("SP_B", "SP_D")
     )
     for (pair in cross_pairs) {
-      sp1 <- pair[1]
-      sp2 <- pair[2]
-      key <- paste(sort(c(sp1, sp2)), collapse = ".")
-      ortho_key <- paste(sp1, sp2, sep = ".")
+      species1 <- pair[1]
+      species2 <- pair[2]
+      key <- paste(sort(c(species1, species2)), collapse = ".")
+      ortho_key <- paste(species1, species2, sep = ".")
       if (!ortho_key %in% names(td$orthologs)) {
-        ortho_key <- paste(sp2, sp1, sep = ".")
+        ortho_key <- paste(species2, species1, sep = ".")
       }
       map <- resolve_ortholog_map(
         td$orthologs[[ortho_key]],
-        rownames(td$nets[[sp1]]$network),
-        rownames(td$nets[[sp2]]$network)
+        rownames(td$nets[[species1]]$network),
+        rownames(td$nets[[species2]]$network)
       )
       mod_comps[[key]] <- module_correspondence(
-        td$mods[[sp1]], td$mods[[sp2]], map
+        td$mods[[species1]], td$mods[[species2]], map
       )
     }
 
@@ -803,22 +803,22 @@ test_that("classify_hub_conservation rejects unusable comparison keys", {
     "alphabetically sorted species"
   )
   # Worse than a bad key: transposed arguments under a VALID key pass every
-  # other check and then match lookups with module_sp1/module_sp2 swapped,
+  # other check and then match lookups with module1/module2 swapped,
   # giving wrong verdicts instead of a detectable NA.
   flipped <- corr
-  flipped$sp_ref <- "SP_C"
-  flipped$sp_test <- "SP_A"
+  flipped$species_ref <- "SP_C"
+  flipped$species_test <- "SP_A"
   expect_error(
     classify_hub_conservation(hubs, td$trait,
       module_comparisons = list(SP_A.SP_C = flipped)
     ),
     "arguments or the key are wrong"
   )
-  # A sp_test naming a third species is the same class of silent wrong
+  # A species_test naming a third species is the same class of silent wrong
   # verdict, and a first-element check would pass it.
   third <- corr
-  third$sp_ref <- "SP_A"
-  third$sp_test <- "SP_D"
+  third$species_ref <- "SP_A"
+  third$species_test <- "SP_D"
   expect_error(
     classify_hub_conservation(hubs, td$trait,
       module_comparisons = list(SP_A.SP_C = third)
@@ -832,9 +832,9 @@ test_that("orientation check survives species names containing a dot", {
   # and reject a correctly oriented table.
   trait <- c(A.thaliana = "annual", O.sativa = "perennial")
   corr <- list(pairs = data.frame(
-    module_sp1 = "1", module_sp2 = "1", jaccard = 0.5, q_value = 0.01,
+    module1 = "1", module2 = "1", jaccard = 0.5, q_value = 0.01,
     stringsAsFactors = FALSE
-  ), sp_ref = "A.thaliana", sp_test = "O.sativa")
+  ), species_ref = "A.thaliana", species_test = "O.sativa")
   hubs <- list(
     A.thaliana = data.frame(
       gene = "a1", module = 1L, is_hub = TRUE,

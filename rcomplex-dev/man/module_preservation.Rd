@@ -12,8 +12,8 @@ module_preservation(
   map = NULL,
   edges = NULL,
   cliques = NULL,
-  sp_ref = NULL,
-  sp_test = NULL,
+  species_ref = NULL,
+  species_test = NULL,
   n_perm = 10000L,
   min_module_size = 10L,
   binary = FALSE,
@@ -41,7 +41,7 @@ Ignored when \code{map} is supplied.}
 \item{edges, cliques}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} and \code{find_cliques()}
 results, passed to \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}} for paralog resolution.}
 
-\item{sp_ref, sp_test}{Species labels, required only when \code{edges} or
+\item{species_ref, species_test}{Species labels, required only when \code{edges} or
 \code{cliques} is supplied.}
 
 \item{n_perm}{Number of permutations (default 10000). The smallest
@@ -124,9 +124,9 @@ A list with components:
 \describe{
 \item{preservation}{One row per tested module: \code{module}, \code{size},
 \code{size_mapped}, the two headline statistics, their permutation
-p-values, the combined \code{p_value} (raw \code{pmax}), \code{p.calibrated} (the
+p-values, the combined \code{p_value} (raw \code{pmax}), \code{p_calibrated} (the
 mixture recalibration described under \code{calibrate}), \code{q_value}
-(Benjamini-Hochberg on \code{p.calibrated}, NOT on \code{p_value}),
+(Benjamini-Hochberg on \code{p_calibrated}, NOT on \code{p_value}),
 \code{Z.avg.weight}, \code{Z.cor.degree}, \code{Zsummary}, \code{Zsummary_null_sd},
 \code{Zsummary_std}, and \code{medianRank} -- the mean of the \code{avg.weight}
 and \code{cor.degree} ranks across the tested modules, 1 = strongest.
@@ -230,7 +230,7 @@ invariant.
 \dontrun{
 pres <- module_preservation(mods_A, net_A, net_B, ortho,
   edges = rcx$edges, cliques = rcx$cliques,
-  sp_ref = "SP_A", sp_test = "SP_B"
+  species_ref = "SP_A", species_test = "SP_B"
 )
 classify_preservation(pres)
 }

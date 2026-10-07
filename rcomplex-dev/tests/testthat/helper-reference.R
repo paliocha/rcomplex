@@ -33,7 +33,7 @@ reference_density_threshold <- function(net, density) {
 #' N - 1 genes. Also returns the ungated upper tail P(X > x) and the point
 #' mass P(X = x) used for randomized p-values (D4).
 reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
-  # Direction 1: sp1 -> sp2
+  # Direction 1: species1 -> species2
   neigh <- net1[g1, ]
   neigh <- setdiff(names(neigh[neigh >= thr1]), g1)
 
@@ -59,7 +59,7 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
     p_val_div1 <- phyper(x, m, n_genes - m, k, lower.tail = TRUE)
   }
 
-  # Direction 2: sp2 -> sp1
+  # Direction 2: species2 -> species1
   neigh2 <- net2[g2, ]
   neigh2 <- setdiff(names(neigh2[neigh2 >= thr2]), g2)
 
@@ -264,8 +264,8 @@ make_spec_nets <- function() {
     hog = paste0("HOG", sprintf("%03d", 1:n)), stringsAsFactors = FALSE
   )
   list(
-    networks = list(sp1 = net1, sp2 = net2), ortho = ortho,
-    nulls = list(sp1 = relabel(net1), sp2 = relabel(net2)),
+    networks = list(species1 = net1, species2 = net2), ortho = ortho,
+    nulls = list(species1 = relabel(net1), species2 = relabel(net2)),
     shared = c(1:35), one_sided = 36:50
   )
 }

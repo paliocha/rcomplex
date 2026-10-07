@@ -14,10 +14,10 @@ make_module_test_data <- function() {
   # Module 2 (genes 11-20): conserved in both species
   mat1[11:20, 11:20] <- mat2[11:20, 11:20] <- 0.9
 
-  # Module 3 in sp1 only (genes 21-25)
+  # Module 3 in species1 only (genes 21-25)
   mat1[21:25, 21:25] <- 0.9
 
-  # Module 3 in sp2 is different genes (26-30)
+  # Module 3 in species2 is different genes (26-30)
   mat2[26:30, 26:30] <- 0.9
 
   diag(mat1) <- diag(mat2) <- 1

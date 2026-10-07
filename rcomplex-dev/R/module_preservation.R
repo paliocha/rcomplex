@@ -89,7 +89,7 @@
 #' @param map Optional pre-built ortholog map from [resolve_ortholog_map()].
 #' @param edges,cliques Optional [find_coexpressologs()] and `find_cliques()`
 #'   results, passed to [resolve_ortholog_map()] for paralog resolution.
-#' @param sp_ref,sp_test Species labels, required only when `edges` or
+#' @param species_ref,species_test Species labels, required only when `edges` or
 #'   `cliques` is supplied.
 #' @param n_perm Number of permutations (default 10000). The smallest
 #'   attainable p-value is `1 / (n_perm + 1)`, so this sets the floor on how
@@ -161,9 +161,9 @@
 #'   \describe{
 #'     \item{preservation}{One row per tested module: `module`, `size`,
 #'       `size_mapped`, the two headline statistics, their permutation
-#'       p-values, the combined `p_value` (raw `pmax`), `p.calibrated` (the
+#'       p-values, the combined `p_value` (raw `pmax`), `p_calibrated` (the
 #'       mixture recalibration described under `calibrate`), `q_value`
-#'       (Benjamini-Hochberg on `p.calibrated`, NOT on `p_value`),
+#'       (Benjamini-Hochberg on `p_calibrated`, NOT on `p_value`),
 #'       `Z.avg.weight`, `Z.cor.degree`, `Zsummary`, `Zsummary_null_sd`,
 #'       `Zsummary_std`, and `medianRank` -- the mean of the `avg.weight`
 #'       and `cor.degree` ranks across the tested modules, 1 = strongest.
@@ -226,7 +226,7 @@
 #' \dontrun{
 #' pres <- module_preservation(mods_A, net_A, net_B, ortho,
 #'   edges = rcx$edges, cliques = rcx$cliques,
-#'   sp_ref = "SP_A", sp_test = "SP_B"
+#'   species_ref = "SP_A", species_test = "SP_B"
 #' )
 #' classify_preservation(pres)
 #' }
@@ -235,7 +235,7 @@
 module_preservation <- function(modules_ref, net_ref, net_test,
                                 orthologs = NULL,
                                 map = NULL, edges = NULL, cliques = NULL,
-                                sp_ref = NULL, sp_test = NULL,
+                                species_ref = NULL, species_test = NULL,
                                 n_perm = 10000L, min_module_size = 10L,
                                 binary = FALSE, alpha = 0.1,
                                 calibrate = c("mixture", "none"),
@@ -295,7 +295,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
       stop("supply either 'orthologs' or a pre-built 'map'")
     }
     map <- resolve_ortholog_map(orthologs, genes_ref, genes_test,
-      sp1 = sp_ref, sp2 = sp_test,
+      species1 = species_ref, species2 = species_test,
       edges = edges, cliques = cliques,
       alpha = alpha
     )
@@ -750,7 +750,7 @@ module_preservation <- function(modules_ref, net_ref, net_test,
     p.avg.weight = res$p_joint[, 1L],
     p.cor.degree = res$p_joint[, 2L],
     p_value = p_comb,
-    p.calibrated = p_cal,
+    p_calibrated = p_cal,
     q_value = q_comb,
     Z.avg.weight = z[, d],
     Z.cor.degree = z[, cc],
@@ -1156,8 +1156,9 @@ classify_preservation <- function(pres, alpha = 0.1, z_conserved = 10,
 #' @param qvalue_method Passed to `compute_qvalues()`; `"randomized"`
 #'   (default) estimates pi0 on randomized p-values, which is what the package
 #'   uses elsewhere for discrete hypergeometric p-values.
-#' @param sp_ref,sp_test Optional species labels recorded on the result.
-#'   `module_sp1` belongs to `modules_ref`, and that orientation cannot be
+#' @param species_ref,species_test Optional species labels recorded on the
+#'   result.
+#'   `module1` belongs to `modules_ref`, and that orientation cannot be
 #'   recovered from the table, so supplying these lets
 #'   [classify_hub_conservation()] catch a transposed call.
 #' @param seed Integer seed for the randomized-p draws behind pi0, or `NULL`
@@ -1166,11 +1167,11 @@ classify_preservation <- function(pres, alpha = 0.1, z_conserved = 10,
 #'   package-wide contract described under [detect_modules()].
 #'   `qvalue_method = "none"` draws nothing, so a seed changes nothing there.
 #'
-#' @return A list with `pairs` -- a data frame of `module_sp1`,
-#'   `module_sp2`, `size_sp1`, `size_sp2`, `overlap`, `jaccard`, `p_value` and
-#'   `q_value`, one row per module pair -- plus the `sp_ref` / `sp_test`
-#'   labels. The column names match what [classify_hub_conservation()]
-#'   expects.
+#' @return A list with `pairs` -- a data frame of `module1`,
+#'   `module2`, `size1`, `size2`, `overlap`, `jaccard`, `p_value` and
+#'   `q_value`, one row per module pair -- plus the `species_ref` /
+#'   `species_test` labels. The column names match what
+#'   [classify_hub_conservation()] expects.
 #'
 #' @examples
 #' \dontrun{
@@ -1185,7 +1186,7 @@ classify_preservation <- function(pres, alpha = 0.1, z_conserved = 10,
 #' @export
 module_correspondence <- function(modules_ref, modules_test, map,
                                   qvalue_method = "randomized",
-                                  sp_ref = NULL, sp_test = NULL,
+                                  species_ref = NULL, species_test = NULL,
                                   seed = NULL) {
   # The default qvalue_method draws uniforms for pi0. See R/rng.R.
   .seed_scope(seed)
@@ -1236,10 +1237,10 @@ module_correspondence <- function(modules_ref, modules_test, map,
   p_eq <- stats::dhyper(overlap, m, n_total - m, k)
 
   pairs <- data.frame(
-    module_sp1 = rownames(tab)[i],
-    module_sp2 = colnames(tab)[j],
-    size_sp1 = m,
-    size_sp2 = k,
+    module1 = rownames(tab)[i],
+    module2 = colnames(tab)[j],
+    size1 = m,
+    size2 = k,
     overlap = overlap,
     jaccard = overlap / (m + k - overlap),
     p_value = p_gt + p_eq,
@@ -1257,10 +1258,10 @@ module_correspondence <- function(modules_ref, modules_test, map,
   }
   rownames(pairs) <- NULL
 
-  # Orientation is not recoverable from the table, so record it: module_sp1
+  # Orientation is not recoverable from the table, so record it: module1
   # belongs to modules_ref. classify_hub_conservation() checks it against the
   # key when present.
-  list(pairs = pairs, sp_ref = sp_ref, sp_test = sp_test)
+  list(pairs = pairs, species_ref = species_ref, species_test = species_test)
 }
 
 
@@ -1420,7 +1421,8 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
           orthologs, rownames(networks[[ref]]$network),
           rownames(networks[[test]]$network)
         ),
-        edges = edges, cliques = cliques, sp_ref = ref, sp_test = test,
+        edges = edges, cliques = cliques,
+        species_ref = ref, species_test = test,
         alpha = alpha, ...
       )
       raw[[key]] <- pres

@@ -252,7 +252,8 @@ clique_stability.default <- function(
 
   # Call C++ stability function (trait-agnostic)
   cpp_result <- find_cliques_stability_cpp(
-    enc$edge_hog, enc$edge_g1, enc$edge_g2, enc$edge_sp1, enc$edge_sp2,
+    enc$edge_hog, enc$edge_g1, enc$edge_g2,
+    enc$edge_species1, enc$edge_species2,
     enc$edge_qval, enc$edge_effect,
     length(all_species),
     length(enc$unique_hogs), length(enc$all_genes),

@@ -129,7 +129,7 @@ test_that(
   ),
   {
     d <- load_complex_py()
-    nets <- list(sp1 = d$n1, sp2 = d$n2)
+    nets <- list(species1 = d$n1, species2 = d$n2)
     # filter_zero = TRUE: canonical ComPlEx drops the zero-overlap pairs
     # before its BH correction, so reproducing its q-values means
     # correcting over the same multiple-testing set. The package default
@@ -176,7 +176,7 @@ test_that(
   ),
   {
     d <- load_complex_py()
-    nets <- list(sp1 = d$n1, sp2 = d$n2)
+    nets <- list(species1 = d$n1, species2 = d$n2)
     # filter_zero = TRUE on both: see the note in the test above. What is
     # under test here is that the *default* pval_combine is "max", so both
     # calls must differ in nothing else.

@@ -9,8 +9,8 @@ summarize_specificity(
   null_p = NULL,
   alpha = 0.1,
   pi0_method = c("storey", "none"),
-  sp1 = NULL,
-  sp2 = NULL,
+  species1 = NULL,
+  species2 = NULL,
   pval_combine = c("max", "min"),
   p0 = NULL
 )
@@ -18,8 +18,8 @@ summarize_specificity(
 \arguments{
 \item{comparison}{Data frame from \code{\link[=compare_specificity]{compare_specificity()}}.}
 
-\item{null_p}{\code{NULL}, or \code{list(sp1 = , sp2 = )} of null p-values for
-the 1 -> 2 and 2 -> 1 directions from the shuffled partner. \code{NA}
+\item{null_p}{\code{NULL}, or \code{list(species1 = , species2 = )} of null p-values
+for the 1 -> 2 and 2 -> 1 directions from the shuffled partner. \code{NA}
 entries are dropped.}
 
 \item{alpha}{Significance threshold applied to q-values (default 0.1).}
@@ -27,14 +27,15 @@ entries are dropped.}
 \item{pi0_method}{\code{"storey"} (default) estimates pi0 from the p-values;
 \code{"none"} fixes pi0 = 1 (Benjamini-Hochberg).}
 
-\item{sp1, sp2}{Optional species abbreviations. When both are provided,
+\item{species1, species2}{Optional species abbreviations. When both are
+provided,
 \code{\link{comparison_to_edges}} is called internally and the result
 is returned as a third list element \code{$edges}. This avoids a
 separate \code{comparison_to_edges()} call when preparing input for
 \code{find_cliques}.}
 
 \item{pval_combine}{Passed to \code{\link{comparison_to_edges}} when
-\code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+\code{species1} and \code{species2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
 
@@ -54,8 +55,8 @@ A list with components:
 \item{summary}{The counts of \code{\link[=summarize_comparison]{summarize_comparison()}}, \code{pi0} per
 direction, \code{n_null} (null draws used per direction, 0 without
 \code{null_p}) and \code{n_dropped} (rows with an \code{NA} p-value).}
-\item{edges}{(Only when \code{sp1} and \code{sp2} are provided.) Edge frame
-from \code{\link[=comparison_to_edges]{comparison_to_edges()}}. \code{power} is the probability that
+\item{edges}{(Only when \code{species1} and \code{species2} are provided.) Edge
+frame from \code{\link[=comparison_to_edges]{comparison_to_edges()}}. \code{power} is the probability that
 the pair would have been called had the ortholog ranked at raw p
 \code{p0} among its candidates: per direction, the anchor's
 \code{auroc.grid} (log-linear interpolation) gives the AUROC at \code{p0}

@@ -58,8 +58,8 @@
 #'   identifiers; species membership is resolved against `genes1` / `genes2`.
 #' @param genes1,genes2 Character vectors giving the gene universes of the two
 #'   species, e.g. `rownames(net$network)`.
-#' @param sp1,sp2 Species labels.  Required only when `edges` or `cliques` is
-#'   supplied, to select clique columns and filter edges.
+#' @param species1,species2 Species labels.  Required only when `edges` or
+#'   `cliques` is supplied, to select clique columns and filter edges.
 #' @param edges Optional coexpressolog edge table from
 #'   `find_coexpressologs()`, with columns `gene1`, `gene2`, `species1`,
 #'   `species2`, `hog` and the column named by `rank_by`.
@@ -82,14 +82,15 @@
 #' \dontrun{
 #' map <- resolve_ortholog_map(
 #'   ortho, rownames(net_a$network), rownames(net_b$network),
-#'   sp1 = "SP_A", sp2 = "SP_B", edges = rcx$edges, cliques = rcx$cliques
+#'   species1 = "SP_A", species2 = "SP_B",
+#'   edges = rcx$edges, cliques = rcx$cliques
 #' )
 #' table(map$source)
 #' }
 #'
 #' @export
 resolve_ortholog_map <- function(orthologs, genes1, genes2,
-                                 sp1 = NULL, sp2 = NULL,
+                                 species1 = NULL, species2 = NULL,
                                  edges = NULL, cliques = NULL,
                                  rank_by = c(
                                    "effect_size", "jaccard",
@@ -108,8 +109,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     stop("genes1 and genes2 must be character vectors")
   }
   if ((!is.null(edges) || !is.null(cliques)) &&
-        (is.null(sp1) || is.null(sp2))) {
-    stop("sp1 and sp2 are required when edges or cliques is supplied")
+        (is.null(species1) || is.null(species2))) {
+    stop("species1 and species2 are required when edges or cliques is supplied")
   }
 
   # Candidate pairs: the same orientation rule the rest of the package uses
@@ -128,10 +129,10 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 
   cand_key <- paste(cand$hog, cand$gene1, cand$gene2, sep = "\x01")
 
-  resolved <- .map_clique_layer(cliques, sp1, sp2, cand, cand_key)
+  resolved <- .map_clique_layer(cliques, species1, species2, cand, cand_key)
 
   coexpr <- .map_coexpressolog_layer(
-    edges, sp1, sp2, cand, cand_key, resolved$gene1, resolved$gene2,
+    edges, species1, species2, cand, cand_key, resolved$gene1, resolved$gene2,
     rank_by, alpha
   )
   resolved <- rbind(resolved, coexpr)
@@ -162,7 +163,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 #' assignment, or a gene outside the network) is dropped.
 #'
 #' @noRd
-.map_clique_layer <- function(cliques, sp1, sp2, cand, cand_key) {
+.map_clique_layer <- function(cliques, species1, species2, cand, cand_key) {
   empty <- cand[0, , drop = FALSE]
   empty$source <- character(0)
   if (is.null(cliques)) {
@@ -172,7 +173,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data.frame with a 'hog' column")
   }
-  missing_cols <- setdiff(c(sp1, sp2), names(cliques))
+  missing_cols <- setdiff(c(species1, species2), names(cliques))
   if (length(missing_cols) > 0L) {
     stop(
       "cliques has no column for species: ",
@@ -180,7 +181,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     )
   }
 
-  cl <- cliques[!is.na(cliques[[sp1]]) & !is.na(cliques[[sp2]]), ,
+  cl <- cliques[!is.na(cliques[[species1]]) & !is.na(cliques[[species2]]), ,
     drop = FALSE
   ]
   if (nrow(cl) == 0L) {
@@ -194,16 +195,16 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
     rep_len(0L, nrow(cl))
   }
   mean_q <- if ("mean_q" %in% names(cl)) cl$mean_q else rep_len(0, nrow(cl))
-  g1 <- as.character(cl[[sp1]])
-  g2 <- as.character(cl[[sp2]])
+  g1 <- as.character(cl[[species1]])
+  g2 <- as.character(cl[[species2]])
   cl <- cl[order(-n_species, mean_q, g1, g2, method = "radix"), ,
     drop = FALSE
   ]
   cl <- cl[!duplicated(as.character(cl$hog)), , drop = FALSE]
 
   hits <- data.frame(
-    gene1 = as.character(cl[[sp1]]),
-    gene2 = as.character(cl[[sp2]]),
+    gene1 = as.character(cl[[species1]]),
+    gene2 = as.character(cl[[species2]]),
     hog = as.character(cl$hog),
     stringsAsFactors = FALSE
   )
@@ -227,7 +228,7 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
 #' treated as the reference.
 #'
 #' @noRd
-.map_coexpressolog_layer <- function(edges, sp1, sp2, cand, cand_key,
+.map_coexpressolog_layer <- function(edges, species1, species2, cand, cand_key,
                                      done_genes, done_gene2,
                                      rank_by, alpha) {
   empty <- cand[0, , drop = FALSE]
@@ -246,8 +247,8 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   }
 
   # Orient every edge so gene1 is the species-1 side.
-  fwd <- edges$species1 == sp1 & edges$species2 == sp2
-  rev <- edges$species1 == sp2 & edges$species2 == sp1
+  fwd <- edges$species1 == species1 & edges$species2 == species2
+  rev <- edges$species1 == species2 & edges$species2 == species1
   e <- rbind(
     edges[fwd, , drop = FALSE],
     .swap_edge_genes(edges[rev, , drop = FALSE])
