@@ -1,5 +1,5 @@
-# rcomplex:::summarize_specificity() on synthetic comparison frames, null_network()
-# and .check_null_networks(). Nothing here runs rcomplex:::compare_specificity().
+# summarize_specificity() on synthetic comparison frames, null_network()
+# and .check_null_networks(). Nothing here runs compare_specificity().
 
 spec_frame <- function(n = 60L, n2 = 200L, seed = 1L) {
   withr::with_seed(seed, {
@@ -115,14 +115,16 @@ test_that("sp1/sp2 give an edge frame with NA power", {
     "no \\*\\.auroc\\.grid"
   )
   expect_equal(s$edges, two_step)
-  expect_error(rcomplex:::summarize_specificity(cmp, sp1 = "SP_A"), "Both sp1 and sp2")
+  expect_error(rcomplex:::summarize_specificity(cmp, sp1 = "SP_A"),
+               "Both sp1 and sp2")
 })
 
 
 test_that("an all-NA comparison returns the empty structure", {
   cmp <- spec_frame()
   cmp$species1.p_value <- NA_real_
-  s <- rcomplex:::summarize_specificity(cmp, null_p = spec_null(), sp1 = "A", sp2 = "B")
+  s <- rcomplex:::summarize_specificity(cmp, null_p = spec_null(), sp1 = "A",
+                                        sp2 = "B")
   expect_equal(nrow(s$results), 0L)
   expect_equal(s$summary$gene_pairs$total, 0L)
   expect_equal(s$summary$n_dropped, nrow(cmp))
@@ -136,7 +138,8 @@ test_that("an all-NA comparison returns the empty structure", {
 test_that("summarize_specificity validates its input", {
   cmp <- spec_frame()
   expect_error(
-    rcomplex:::summarize_specificity(cmp[, setdiff(names(cmp), "species2.p_value")]),
+    rcomplex:::summarize_specificity(cmp[, setdiff(names(cmp),
+                                                   "species2.p_value")]),
     "compare_specificity"
   )
   expect_error(rcomplex:::summarize_specificity(cmp, null_p = 1:3), "null_p")

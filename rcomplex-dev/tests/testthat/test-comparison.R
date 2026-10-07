@@ -261,7 +261,8 @@ test_that(
     got <- r[names(ref)]
     rownames(got) <- NULL
     expect_equal(got, ref)
-    res_s <- rcomplex:::compare_neighborhoods(sparse_net(net1), sparse_net(net2), ortho)
+    res_s <- rcomplex:::compare_neighborhoods(sparse_net(net1),
+                                              sparse_net(net2), ortho)
     expect_equal(res_s, res)
   }
 )
@@ -606,7 +607,8 @@ test_that("comparison_to_edges handles alternative='less'", {
     species1.q_value_div = 0.01, species2.q_value_div = 0.02
   )
 
-  edges <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B", alternative = "less")
+  edges <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
+                                          alternative = "less")
 
   expect_equal(edges$q_value, 0.02)
   expect_equal(edges$type, "diverged")
@@ -709,7 +711,8 @@ test_that("run_pairwise_comparisons validates inputs", {
     "networks must be a named list"
   )
   expect_error(
-    rcomplex:::run_pairwise_comparisons(list(A = list(), B = list()), data.frame(x = 1)),
+    rcomplex:::run_pairwise_comparisons(list(A = list(), B = list()),
+                                        data.frame(x = 1)),
     "orthologs must have columns"
   )
 })
@@ -796,7 +799,8 @@ test_that("find_coexpressologs keeps zero-overlap pairs by default", {
 
   # The dropped rows are exactly the tested pairs with no overlap in one
   # or both directions -- the low-degree failures `power` exists for.
-  cmp <- rcomplex:::compare_neighborhoods(fix$nets$SP_A, fix$nets$SP_B, fix$ortho)
+  cmp <- rcomplex:::compare_neighborhoods(fix$nets$SP_A, fix$nets$SP_B,
+                                          fix$ortho)
   both <- cmp$species1.neigh.overlap > 0 & cmp$species2.neigh.overlap > 0
   n_zero <- sum(!both)
   expect_gt(n_zero, 0L)
@@ -1544,9 +1548,11 @@ test_that("comparison_to_edges combines directional q-values by min or max", {
     species1.q_value_con = c(0.01, 0.80, 0.03),
     species2.q_value_con = c(0.03, 0.90, 0.20)
   )
-  e_min <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "min")
+  e_min <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
+                                          pval_combine = "min")
   e_def <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B")
-  e_max <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "max")
+  e_max <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
+                                          pval_combine = "max")
   expect_identical(e_max, e_def)
   expect_equal(e_min$q_value, c(0.01, 0.80, 0.03))
   expect_equal(e_max$q_value, c(0.03, 0.90, 0.20))
@@ -1757,7 +1763,8 @@ test_that("a seed on find_coexpressologs reaches summarize_comparison", {
   cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
 
   # filter_zero = FALSE to match find_coexpressologs()'s default; what is
-  # under test here is that the seed reaches rcomplex:::summarize_comparison(), so
+  # under test here is that the seed reaches rcomplex:::summarize_comparison(),
+  # so
   # the two paths must agree on everything else.
   s <- rcomplex:::summarize_comparison(cmp,
     alternative = "greater", alpha = 0.05,
@@ -1954,7 +1961,8 @@ test_that("edge power matches a brute-force computation", {
     tolerance = 1e-12
   )
 
-  edges <- rcomplex:::comparison_to_edges(res, "SP_A", "SP_B", alpha = 0.05, rho0 = 3)
+  edges <- rcomplex:::comparison_to_edges(res, "SP_A", "SP_B", alpha = 0.05,
+                                          rho0 = 3)
   expect_equal(edges$power, pmin(b3[[1]], b3[[2]]), tolerance = 1e-12)
 })
 
@@ -1989,7 +1997,8 @@ test_that("summarize_comparison forwards rho0 to its edge table", {
   fixed <- run(rho0 = 3)
   expect_equal(
     fixed$edges$power,
-    rcomplex:::comparison_to_edges(fixed$results, "SP_A", "SP_B", rho0 = 3)$power,
+    rcomplex:::comparison_to_edges(fixed$results, "SP_A", "SP_B",
+                                   rho0 = 3)$power,
     tolerance = 1e-12
   )
   # NULL keeps the data-derived reference enrichment.

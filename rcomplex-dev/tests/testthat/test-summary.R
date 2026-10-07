@@ -483,7 +483,9 @@ test_that("a seeded call restores the caller's stream", {
     f()
     identical(before, get(".Random.seed", envir = globalenv()))
   }
-  expect_true(restored(function() rcomplex:::summarize_comparison(cmp, seed = 42)))
+  expect_true(restored(function() {
+    rcomplex:::summarize_comparison(cmp, seed = 42)
+  }))
   expect_true(restored(function() {
     rcomplex:::summarize_comparison(cmp, pi0_method = "storey", seed = 42)
   }))

@@ -152,8 +152,9 @@ test_that(
     expect_equal(sum(s$results$species1.q_value_con < 0.05), 0L)
     expect_equal(sum(s$results$species2.q_value_con < 0.05), 0L)
 
-    # Why compute_qvalues() has no seed of its own: rcomplex:::summarize_comparison()
-    # seeds once and lets the stream run through both directional calls.
+    # Why compute_qvalues() has no seed of its own:
+    # summarize_comparison() seeds once and lets the stream run through
+    # both directional calls.
     # Here the two directions carry identical p-value columns, so a seed
     # inside compute_qvalues() -- necessarily the same value for both
     # calls -- would hand them the same U and force pi0[sp1] == pi0[sp2].

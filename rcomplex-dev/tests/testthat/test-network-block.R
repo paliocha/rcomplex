@@ -220,7 +220,10 @@ test_that("mr_block() agrees on block and dense networks", {
   genes <- paste0("g", c(2, 9, 17, 40))
   ref <- compute_network(x)
   blk <- compute_network(x, block_size = 7)
-  expect_identical(rcomplex:::mr_block(x, genes, blk), rcomplex:::mr_block(x, genes, ref))
+  expect_identical(
+    rcomplex:::mr_block(x, genes, blk),
+    rcomplex:::mr_block(x, genes, ref)
+  )
 })
 
 # Only a fraction of 1 falls back to all pairs: store_density 0.5 starts
