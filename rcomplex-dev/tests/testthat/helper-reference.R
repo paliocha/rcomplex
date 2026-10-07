@@ -92,24 +92,24 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
   jaccard2 <- if (union2 > 0) x2 / union2 else 0
 
   data.frame(
-    Species1.neigh = m,
-    Species1.ortho.neigh = k,
-    Species1.neigh.overlap = x,
-    Species1.p_value_con = p_val_con1,
-    Species1.p_value_div = p_val_div1,
-    Species1.p_value_gt = p_gt1,
-    Species1.p_value_eq = p_eq1,
-    Species1.effect_size = effect1,
-    Species1.jaccard = jaccard1,
-    Species2.neigh = m2,
-    Species2.ortho.neigh = k2,
-    Species2.neigh.overlap = x2,
-    Species2.p_value_con = p_val_con2,
-    Species2.p_value_div = p_val_div2,
-    Species2.p_value_gt = p_gt2,
-    Species2.p_value_eq = p_eq2,
-    Species2.effect_size = effect2,
-    Species2.jaccard = jaccard2
+    species1.neigh = m,
+    species1.ortho.neigh = k,
+    species1.neigh.overlap = x,
+    species1.p_value_con = p_val_con1,
+    species1.p_value_div = p_val_div1,
+    species1.p_value_gt = p_gt1,
+    species1.p_value_eq = p_eq1,
+    species1.effect_size = effect1,
+    species1.jaccard = jaccard1,
+    species2.neigh = m2,
+    species2.ortho.neigh = k2,
+    species2.neigh.overlap = x2,
+    species2.p_value_con = p_val_con2,
+    species2.p_value_div = p_val_div2,
+    species2.p_value_gt = p_gt2,
+    species2.p_value_eq = p_eq2,
+    species2.effect_size = effect2,
+    species2.jaccard = jaccard2
   )
 }
 
@@ -449,7 +449,7 @@ reference_specificity <- function(net1, net2, thr1, thr2, ortho,
   }
   d1 <- one(net1, net2, thr1, thr2, ortho$Species1, ortho$Species2, store2)
   d2 <- one(net2, net1, thr2, thr1, ortho$Species2, ortho$Species1, store1)
-  names(d1) <- paste0("Species1.", names(d1))
-  names(d2) <- paste0("Species2.", names(d2))
+  names(d1) <- paste0("species1.", names(d1))
+  names(d2) <- paste0("species2.", names(d2))
   cbind(d1, d2)
 }

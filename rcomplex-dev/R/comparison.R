@@ -26,10 +26,10 @@
 #' \eqn{k}); \eqn{x} is their intersection. The urn excludes the anchor
 #' gene: A is never its own neighbour, it is dropped from the mapped set,
 #' and the hypergeometric population is the other \eqn{N - 1} network
-#' genes. `Species1.p_value_con` is \eqn{P(X \ge x)} and keeps the gate of
+#' genes. `species1.p_value_con` is \eqn{P(X \ge x)} and keeps the gate of
 #' the original RComPlEx R Markdown (not the paper): it is reported as 1
-#' when \eqn{x \le 1}. `Species1.p_value_gt` (\eqn{P(X > x)}) and
-#' `Species1.p_value_eq` (\eqn{P(X = x)}) are ungated so that
+#' when \eqn{x \le 1}. `species1.p_value_gt` (\eqn{P(X > x)}) and
+#' `species1.p_value_eq` (\eqn{P(X = x)}) are ungated so that
 #' `p_value_gt + U * p_value_eq` is a randomized p-value, exactly uniform under
 #' the null (used by [summarize_comparison()] to estimate pi0). The effect
 #' size \eqn{(x / k) / (m / (N - 1))} is computed for every \eqn{x}
@@ -56,42 +56,42 @@
 #'     \item{Species1}{Gene identifier for species 1}
 #'     \item{Species2}{Gene identifier for species 2}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
-#'     \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
+#'     \item{species1.neigh}{Number of neighbors of Species1 gene in net1}
+#'     \item{species1.ortho.neigh}{Number of ortholog-mapped neighbors
 #'       from net2, excluding the Species1 gene itself}
-#'     \item{Species1.neigh.overlap}{Intersection size}
-#'     \item{Species1.p_value_con}{Upper-tail hypergeometric p-value for
+#'     \item{species1.neigh.overlap}{Intersection size}
+#'     \item{species1.p_value_con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 1); 1 when the overlap is 0 or 1}
-#'     \item{Species1.p_value_div}{Lower-tail hypergeometric p-value for
+#'     \item{species1.p_value_div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 1)}
-#'     \item{Species1.p_value_gt}{\eqn{P(X > x)}, ungated (direction 1)}
-#'     \item{Species1.p_value_eq}{\eqn{P(X = x)} (direction 1)}
-#'     \item{Species1.effect_size}{Fold enrichment (direction 1). Values > 1
+#'     \item{species1.p_value_gt}{\eqn{P(X > x)}, ungated (direction 1)}
+#'     \item{species1.p_value_eq}{\eqn{P(X = x)} (direction 1)}
+#'     \item{species1.effect_size}{Fold enrichment (direction 1). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
-#'     \item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
-#'     \item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
+#'     \item{species2.neigh}{Number of neighbors of Species2 gene in net2}
+#'     \item{species2.ortho.neigh}{Number of ortholog-mapped neighbors
 #'       from net1, excluding the Species2 gene itself}
-#'     \item{Species2.neigh.overlap}{Intersection size}
-#'     \item{Species2.p_value_con}{Upper-tail hypergeometric p-value for
+#'     \item{species2.neigh.overlap}{Intersection size}
+#'     \item{species2.p_value_con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 2); 1 when the overlap is 0 or 1}
-#'     \item{Species2.p_value_div}{Lower-tail hypergeometric p-value for
+#'     \item{species2.p_value_div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 2)}
-#'     \item{Species2.p_value_gt}{\eqn{P(X > x)}, ungated (direction 2)}
-#'     \item{Species2.p_value_eq}{\eqn{P(X = x)} (direction 2)}
-#'     \item{Species2.effect_size}{Fold enrichment (direction 2). Values > 1
+#'     \item{species2.p_value_gt}{\eqn{P(X > x)}, ungated (direction 2)}
+#'     \item{species2.p_value_eq}{\eqn{P(X = x)} (direction 2)}
+#'     \item{species2.effect_size}{Fold enrichment (direction 2). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
-#'     \item{Species1.jaccard}{Jaccard index of neighborhood overlap
+#'     \item{species1.jaccard}{Jaccard index of neighborhood overlap
 #'       (direction 1): intersection / union of anchor and ortholog-mapped
 #'       neighbors. Range \eqn{[0, 1]}.}
-#'     \item{Species2.jaccard}{Jaccard index of neighborhood overlap
+#'     \item{species2.jaccard}{Jaccard index of neighborhood overlap
 #'       (direction 2).}
-#'     \item{Species1.urn}{Hypergeometric population for direction 1:
+#'     \item{species1.urn}{Hypergeometric population for direction 1:
 #'       the number of genes in net1 less the anchor gene itself. Constant
 #'       within a call. Downstream \code{power} uses it directly rather
 #'       than reconstructing it from the effect sizes.}
-#'     \item{Species2.urn}{Hypergeometric population for direction 2
+#'     \item{species2.urn}{Hypergeometric population for direction 2
 #'       (genes in net2 less the anchor). Differs from
-#'       \code{Species1.urn} whenever the two networks differ in size.}
+#'       \code{species1.urn} whenever the two networks differ in size.}
 #'   }
 #'
 #' @examples
@@ -99,7 +99,7 @@
 #' comparison <- compare_neighborhoods(net_A, net_B, orthologs)
 #' head(comparison[, c(
 #'   "Species1", "Species2", "hog",
-#'   "Species1.effect_size"
+#'   "species1.effect_size"
 #' )])
 #' }
 #'
@@ -149,8 +149,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   cbind(
     orthologs[, c("Species1", "Species2", "hog"), drop = FALSE],
     result,
-    Species1.urn = nrow(net1$network) - 1L,
-    Species2.urn = nrow(net2$network) - 1L
+    species1.urn = nrow(net1$network) - 1L,
+    species2.urn = nrow(net2$network) - 1L
   )
 }
 
@@ -306,7 +306,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
   na_out <- rep(NA_real_, nrow(comparison))
-  dirs <- c("Species1", "Species2")
+  dirs <- c("species1", "species2")
   need <- as.vector(outer(dirs, c(
     ".neigh", ".ortho.neigh", ".neigh.overlap", ".p_value_con",
     ".q_value_con", ".effect_size"
@@ -316,8 +316,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     return(na_out)
   }
   combine <- if (pval_combine == "min") pmin else pmax
-  q_comb <- combine(comparison$Species1.q_value_con,
-    comparison$Species2.q_value_con,
+  q_comb <- combine(comparison$species1.q_value_con,
+    comparison$species2.q_value_con,
     na.rm = TRUE
   )
   called <- is.finite(q_comb) & q_comb < alpha
@@ -425,7 +425,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'       two directional q-values}
 #'     \item{effect_size}{Geometric mean of directional effect sizes}
 #'     \item{jaccard}{Geometric mean of directional Jaccard indices
-#'       (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
+#'       (\code{sqrt(species1.jaccard * species2.jaccard)}). Range
 #'       \eqn{[0, 1]}: 1 = identical neighborhoods, 0 = disjoint.}
 #'     \item{power}{Detection power: the probability that the pair
 #'       would have been called had its partners been shared at the
@@ -471,12 +471,12 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   .check_p0(p0)
 
   suffix <- if (alternative == "greater") "con" else "div"
-  q1_col <- paste0("Species1.q_value_", suffix)
-  q2_col <- paste0("Species2.q_value_", suffix)
+  q1_col <- paste0("species1.q_value_", suffix)
+  q2_col <- paste0("species2.q_value_", suffix)
 
   required <- c(
     "Species1", "Species2", "hog",
-    "Species1.effect_size", "Species2.effect_size",
+    "species1.effect_size", "species2.effect_size",
     q1_col, q2_col
   )
   missing_cols <- setdiff(required, names(comparison))
@@ -491,13 +491,13 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   combine <- if (pval_combine == "min") pmin else pmax
   q_comb <- combine(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
   q_comb[is.infinite(q_comb)] <- NA_real_
-  eff_geo <- sqrt(comparison$Species1.effect_size *
-                    comparison$Species2.effect_size)
+  eff_geo <- sqrt(comparison$species1.effect_size *
+                    comparison$species2.effect_size)
 
-  has_jaccard <- all(c("Species1.jaccard", "Species2.jaccard") %in%
+  has_jaccard <- all(c("species1.jaccard", "species2.jaccard") %in%
                        names(comparison))
   jacc_geo <- if (has_jaccard) {
-    sqrt(comparison$Species1.jaccard * comparison$Species2.jaccard)
+    sqrt(comparison$species1.jaccard * comparison$species2.jaccard)
   } else {
     rep(NA_real_, nrow(comparison))
   }
@@ -505,7 +505,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   type <- ifelse(q_comb < alpha, type_label, "ns")
 
-  rank_frame <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+  rank_frame <- all(c("species1.auroc.grid", "species2.auroc.grid") %in%
                       names(comparison))
   if (!rank_frame && !is.null(p0)) {
     stop("p0 applies to rank-test frames (with *.auroc.grid columns); ",
@@ -515,7 +515,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     stop("rho0 applies to hypergeometric frames; p0 sets the rank-test ",
          "power", call. = FALSE)
   }
-  if (!rank_frame && any(c("Species1.auroc", "Species2.auroc") %in%
+  if (!rank_frame && any(c("species1.auroc", "species2.auroc") %in%
                            names(comparison))) {
     # a rank-test frame without its grid (saved before the grid existed,
     # or flattened by write.csv()) would silently get NA power, which the
@@ -898,10 +898,10 @@ find_coexpressologs.default <- function(
       # Join HOG q-values onto pair-level comparison
       hog_q <- stats::setNames(hog_res$q_value, hog_res$hog)
       q_vals <- hog_q[comparison$hog]
-      eff <- sqrt(comparison$Species1.effect_size *
-                    comparison$Species2.effect_size)
-      jacc <- sqrt(comparison$Species1.jaccard *
-                     comparison$Species2.jaccard)
+      eff <- sqrt(comparison$species1.effect_size *
+                    comparison$species2.effect_size)
+      jacc <- sqrt(comparison$species1.jaccard *
+                     comparison$species2.jaccard)
 
       edges_df <- data.frame(
         gene1 = comparison$Species1,

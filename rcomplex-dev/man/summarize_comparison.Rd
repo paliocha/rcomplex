@@ -121,7 +121,7 @@ summary <- summarize_comparison(comparison,
   alternative = "greater",
   seed = 1
 )
-sig <- summary$results[summary$results$Species1.q_value_con < 0.05, ]
+sig <- summary$results[summary$results$species1.q_value_con < 0.05, ]
 summary$summary$gene_pairs$reciprocal
 summary$summary$pi0
 }

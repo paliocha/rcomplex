@@ -24,14 +24,14 @@ test_that("compare_neighborhoods returns correct structure", {
   expect_equal(nrow(result), 30)
   expected_cols <- c(
     "Species1", "Species2", "hog",
-    "Species1.neigh", "Species1.ortho.neigh",
-    "Species1.neigh.overlap", "Species1.p_value_con",
-    "Species1.p_value_div", "Species1.effect_size",
-    "Species1.jaccard",
-    "Species2.neigh", "Species2.ortho.neigh",
-    "Species2.neigh.overlap", "Species2.p_value_con",
-    "Species2.p_value_div", "Species2.effect_size",
-    "Species2.jaccard"
+    "species1.neigh", "species1.ortho.neigh",
+    "species1.neigh.overlap", "species1.p_value_con",
+    "species1.p_value_div", "species1.effect_size",
+    "species1.jaccard",
+    "species2.neigh", "species2.ortho.neigh",
+    "species2.neigh.overlap", "species2.p_value_con",
+    "species2.p_value_div", "species2.effect_size",
+    "species2.jaccard"
   )
   expect_true(all(expected_cols %in% names(result)))
 })
@@ -59,23 +59,23 @@ test_that("p-values are in [0,1] and effect sizes are positive", {
   result <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
 
   expect_true(all(
-    result$Species1.p_value_con >= 0 & result$Species1.p_value_con <= 1
+    result$species1.p_value_con >= 0 & result$species1.p_value_con <= 1
   ))
   expect_true(all(
-    result$Species2.p_value_con >= 0 & result$Species2.p_value_con <= 1
+    result$species2.p_value_con >= 0 & result$species2.p_value_con <= 1
   ))
   expect_true(all(
-    result$Species1.p_value_div >= 0 & result$Species1.p_value_div <= 1
+    result$species1.p_value_div >= 0 & result$species1.p_value_div <= 1
   ))
   expect_true(all(
-    result$Species2.p_value_div >= 0 & result$Species2.p_value_div <= 1
+    result$species2.p_value_div >= 0 & result$species2.p_value_div <= 1
   ))
-  expect_true(all(result$Species1.effect_size >= 0))
-  expect_true(all(result$Species2.effect_size >= 0))
+  expect_true(all(result$species1.effect_size >= 0))
+  expect_true(all(result$species2.effect_size >= 0))
 
   # Jaccard in [0, 1]
-  expect_true(all(result$Species1.jaccard >= 0 & result$Species1.jaccard <= 1))
-  expect_true(all(result$Species2.jaccard >= 0 & result$Species2.jaccard <= 1))
+  expect_true(all(result$species1.jaccard >= 0 & result$species1.jaccard <= 1))
+  expect_true(all(result$species2.jaccard >= 0 & result$species2.jaccard <= 1))
 })
 
 test_that("C++ comparison matches R reference", {
@@ -108,82 +108,82 @@ test_that("C++ comparison matches R reference", {
       ortho,
       cpp_result$Species1[i], cpp_result$Species2[i]
     )
-    expect_equal(cpp_result$Species1.neigh[i], ref$Species1.neigh)
-    expect_equal(cpp_result$Species1.ortho.neigh[i], ref$Species1.ortho.neigh)
+    expect_equal(cpp_result$species1.neigh[i], ref$species1.neigh)
+    expect_equal(cpp_result$species1.ortho.neigh[i], ref$species1.ortho.neigh)
     expect_equal(
-      cpp_result$Species1.neigh.overlap[i],
-      ref$Species1.neigh.overlap
+      cpp_result$species1.neigh.overlap[i],
+      ref$species1.neigh.overlap
     )
     expect_equal(
-      cpp_result$Species1.p_value_con[i],
-      ref$Species1.p_value_con,
+      cpp_result$species1.p_value_con[i],
+      ref$species1.p_value_con,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species1.p_value_div[i],
-      ref$Species1.p_value_div,
+      cpp_result$species1.p_value_div[i],
+      ref$species1.p_value_div,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species1.effect_size[i],
-      ref$Species1.effect_size,
+      cpp_result$species1.effect_size[i],
+      ref$species1.effect_size,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species2.neigh[i],
-      ref$Species2.neigh
+      cpp_result$species2.neigh[i],
+      ref$species2.neigh
     )
     expect_equal(
-      cpp_result$Species2.ortho.neigh[i],
-      ref$Species2.ortho.neigh
+      cpp_result$species2.ortho.neigh[i],
+      ref$species2.ortho.neigh
     )
     expect_equal(
-      cpp_result$Species2.neigh.overlap[i],
-      ref$Species2.neigh.overlap
+      cpp_result$species2.neigh.overlap[i],
+      ref$species2.neigh.overlap
     )
     expect_equal(
-      cpp_result$Species2.p_value_con[i],
-      ref$Species2.p_value_con,
+      cpp_result$species2.p_value_con[i],
+      ref$species2.p_value_con,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species2.p_value_div[i],
-      ref$Species2.p_value_div,
+      cpp_result$species2.p_value_div[i],
+      ref$species2.p_value_div,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species2.effect_size[i],
-      ref$Species2.effect_size,
+      cpp_result$species2.effect_size[i],
+      ref$species2.effect_size,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species1.jaccard[i],
-      ref$Species1.jaccard,
+      cpp_result$species1.jaccard[i],
+      ref$species1.jaccard,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species2.jaccard[i],
-      ref$Species2.jaccard,
+      cpp_result$species2.jaccard[i],
+      ref$species2.jaccard,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species1.p_value_gt[i],
-      ref$Species1.p_value_gt,
+      cpp_result$species1.p_value_gt[i],
+      ref$species1.p_value_gt,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species1.p_value_eq[i],
-      ref$Species1.p_value_eq,
+      cpp_result$species1.p_value_eq[i],
+      ref$species1.p_value_eq,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species2.p_value_gt[i],
-      ref$Species2.p_value_gt,
+      cpp_result$species2.p_value_gt[i],
+      ref$species2.p_value_gt,
       tolerance = 1e-12
     )
     expect_equal(
-      cpp_result$Species2.p_value_eq[i],
-      ref$Species2.p_value_eq,
+      cpp_result$species2.p_value_eq[i],
+      ref$species2.p_value_eq,
       tolerance = 1e-12
     )
   }
@@ -224,37 +224,37 @@ test_that(
 
     # direction 1: m = 3; mapped {A1 (anchor, dropped), A2, A3} -> k = 2;
     # x = 2; population 9
-    expect_equal(r$Species1.neigh, 3L)
-    expect_equal(r$Species1.ortho.neigh, 2L)
-    expect_equal(r$Species1.neigh.overlap, 2L)
-    expect_equal(r$Species1.p_value_con, phyper(1, 3, 6, 2, lower.tail = FALSE))
-    expect_equal(r$Species1.p_value_gt, phyper(2, 3, 6, 2, lower.tail = FALSE))
-    expect_equal(r$Species1.p_value_eq, dhyper(2, 3, 6, 2))
-    expect_equal(r$Species1.p_value_div, phyper(2, 3, 6, 2))
-    expect_equal(r$Species1.effect_size, (2 / 2) / (3 / 9))
-    expect_equal(r$Species1.jaccard, 2 / 3)
+    expect_equal(r$species1.neigh, 3L)
+    expect_equal(r$species1.ortho.neigh, 2L)
+    expect_equal(r$species1.neigh.overlap, 2L)
+    expect_equal(r$species1.p_value_con, phyper(1, 3, 6, 2, lower.tail = FALSE))
+    expect_equal(r$species1.p_value_gt, phyper(2, 3, 6, 2, lower.tail = FALSE))
+    expect_equal(r$species1.p_value_eq, dhyper(2, 3, 6, 2))
+    expect_equal(r$species1.p_value_div, phyper(2, 3, 6, 2))
+    expect_equal(r$species1.effect_size, (2 / 2) / (3 / 9))
+    expect_equal(r$species1.jaccard, 2 / 3)
 
     # direction 2: anchor B1 is not in the mapped set {B3, B4, B5}; m = 4,
     # k = 3, x = 2; population 9 (the old urn would use 10)
-    expect_equal(r$Species2.neigh, 4L)
-    expect_equal(r$Species2.ortho.neigh, 3L)
-    expect_equal(r$Species2.neigh.overlap, 2L)
-    expect_equal(r$Species2.p_value_con, phyper(1, 4, 5, 3, lower.tail = FALSE))
-    expect_equal(r$Species2.p_value_gt, phyper(2, 4, 5, 3, lower.tail = FALSE))
-    expect_equal(r$Species2.p_value_eq, dhyper(2, 4, 5, 3))
-    expect_equal(r$Species2.p_value_div, phyper(2, 4, 5, 3))
-    expect_equal(r$Species2.effect_size, (2 / 3) / (4 / 9))
+    expect_equal(r$species2.neigh, 4L)
+    expect_equal(r$species2.ortho.neigh, 3L)
+    expect_equal(r$species2.neigh.overlap, 2L)
+    expect_equal(r$species2.p_value_con, phyper(1, 4, 5, 3, lower.tail = FALSE))
+    expect_equal(r$species2.p_value_gt, phyper(2, 4, 5, 3, lower.tail = FALSE))
+    expect_equal(r$species2.p_value_eq, dhyper(2, 4, 5, 3))
+    expect_equal(r$species2.p_value_div, phyper(2, 4, 5, 3))
+    expect_equal(r$species2.effect_size, (2 / 3) / (4 / 9))
 
     # (A1, B2): B2's only neighbour maps back to the anchor -> empty mapped
     # set; p_value_gt / p_value_eq still form a proper randomized p-value
     r2 <- res[res$Species1 == "A1" & res$Species2 == "B2", ]
-    expect_equal(r2$Species1.ortho.neigh, 0L)
-    expect_equal(r2$Species1.neigh.overlap, 0L)
-    expect_equal(r2$Species1.p_value_con, 1)
-    expect_equal(r2$Species1.p_value_div, 1)
-    expect_equal(r2$Species1.effect_size, 1)
-    expect_equal(r2$Species1.p_value_gt, 0)
-    expect_equal(r2$Species1.p_value_eq, 1)
+    expect_equal(r2$species1.ortho.neigh, 0L)
+    expect_equal(r2$species1.neigh.overlap, 0L)
+    expect_equal(r2$species1.p_value_con, 1)
+    expect_equal(r2$species1.p_value_div, 1)
+    expect_equal(r2$species1.effect_size, 1)
+    expect_equal(r2$species1.p_value_gt, 0)
+    expect_equal(r2$species1.p_value_eq, 1)
 
     # pure-R oracle and sparse path agree
     ref <- reference_compare_pair(a, b, 0.5, 0.5, ortho, "A1", "B1")
@@ -270,7 +270,7 @@ test_that(
 test_that("p_value_gt / p_value_eq decompose the exact hypergeometric tail", {
   td <- make_graded_nets()
   res <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
-  for (sp in c("Species1", "Species2")) {
+  for (sp in c("species1", "species2")) {
     gt <- res[[paste0(sp, ".p_value_gt")]]
     eq <- res[[paste0(sp, ".p_value_eq")]]
     con <- res[[paste0(sp, ".p_value_con")]]
@@ -311,8 +311,8 @@ test_that("multicopy orthologs handled correctly", {
 
   expect_equal(nrow(result), 31)
   # No errors
-  expect_true(all(!is.na(result$Species1.p_value_con)))
-  expect_true(all(!is.na(result$Species1.p_value_div)))
+  expect_true(all(!is.na(result$species1.p_value_con)))
+  expect_true(all(!is.na(result$species1.p_value_div)))
 })
 
 test_that("orthologs not in network are filtered", {
@@ -392,13 +392,13 @@ test_that("divergence p-values detect disjoint neighborhoods", {
 
   # Conserved pair (A_001, B_001): identical neighborhoods -> low con p-val
   row1 <- result[result$Species1 == "A_001" & result$Species2 == "B_001", ]
-  expect_true(row1$Species1.p_value_con < 0.05)
-  expect_true(row1$Species1.effect_size > 1)
+  expect_true(row1$species1.p_value_con < 0.05)
+  expect_true(row1$species1.effect_size > 1)
 
   # Diverged pair (A_051, B_051): disjoint neighborhoods -> low div p-val
   row51 <- result[result$Species1 == "A_051" & result$Species2 == "B_051", ]
-  expect_true(row51$Species1.p_value_div < 0.05)
-  expect_true(row51$Species1.effect_size < 1)
+  expect_true(row51$species1.p_value_div < 0.05)
+  expect_true(row51$species1.effect_size < 1)
 })
 
 test_that("identical neighborhoods give high divergence p-value", {
@@ -427,9 +427,9 @@ test_that("identical neighborhoods give high divergence p-value", {
   row1 <- result[result$Species1 == "G_001" & result$Species2 == "H_001", ]
 
   # Conserved: low p-value
-  expect_true(row1$Species1.p_value_con < 0.05)
+  expect_true(row1$species1.p_value_con < 0.05)
   # Divergence: high p-value (neighborhoods are identical, not diverged)
-  expect_true(row1$Species1.p_value_div > 0.5)
+  expect_true(row1$species1.p_value_div > 0.5)
 })
 
 test_that("effect size < 1 when overlap is less than expected", {
@@ -463,9 +463,9 @@ test_that("effect size < 1 when overlap is less than expected", {
   row1 <- result[result$Species1 == "A_001" & result$Species2 == "B_001", ]
 
   # 0 overlap, so effect size = 0
-  expect_equal(row1$Species1.neigh.overlap, 0)
-  expect_equal(row1$Species1.effect_size, 0)
-  expect_true(row1$Species1.p_value_div < 0.05)
+  expect_equal(row1$species1.neigh.overlap, 0)
+  expect_equal(row1$species1.effect_size, 0)
+  expect_true(row1$species1.p_value_div < 0.05)
 })
 
 
@@ -495,8 +495,8 @@ test_that("Jaccard = 1 for identical neighborhoods", {
   row1 <- result[result$Species1 == "G_001" & result$Species2 == "H_001", ]
 
   # Identical neighborhoods -> Jaccard = 1
-  expect_equal(row1$Species1.jaccard, 1.0)
-  expect_equal(row1$Species2.jaccard, 1.0)
+  expect_equal(row1$species1.jaccard, 1.0)
+  expect_equal(row1$species2.jaccard, 1.0)
 })
 
 test_that("Jaccard = 0 for disjoint neighborhoods", {
@@ -528,7 +528,7 @@ test_that("Jaccard = 0 for disjoint neighborhoods", {
   row1 <- result[result$Species1 == "A_001" & result$Species2 == "B_001", ]
 
   # Disjoint neighborhoods -> Jaccard = 0
-  expect_equal(row1$Species1.jaccard, 0.0)
+  expect_equal(row1$species1.jaccard, 0.0)
 })
 
 test_that("Jaccard = 0 (not NaN) when both neighborhoods are empty", {
@@ -553,10 +553,10 @@ test_that("Jaccard = 0 (not NaN) when both neighborhoods are empty", {
   # Both directions: empty neighborhoods -> neigh=0, ortho_neigh=0,
   # union=0 -> jaccard=0  # nolint
 
-  expect_true(all(result$Species1.jaccard == 0.0))
-  expect_true(all(result$Species2.jaccard == 0.0))
-  expect_true(all(!is.nan(result$Species1.jaccard)))
-  expect_true(all(!is.nan(result$Species2.jaccard)))
+  expect_true(all(result$species1.jaccard == 0.0))
+  expect_true(all(result$species2.jaccard == 0.0))
+  expect_true(all(!is.nan(result$species1.jaccard)))
+  expect_true(all(!is.nan(result$species2.jaccard)))
 })
 
 
@@ -567,12 +567,12 @@ test_that("comparison_to_edges produces correct edge format", {
     Species1 = c("A1", "A2"),
     Species2 = c("B1", "B2"),
     hog = c(1L, 2L),
-    Species1.effect_size = c(4.0, 1.0),
-    Species2.effect_size = c(9.0, 1.0),
-    Species1.jaccard = c(0.8, 0.0),
-    Species2.jaccard = c(0.5, 0.0),
-    Species1.q_value_con = c(0.01, 0.80),
-    Species2.q_value_con = c(0.03, 0.90)
+    species1.effect_size = c(4.0, 1.0),
+    species2.effect_size = c(9.0, 1.0),
+    species1.jaccard = c(0.8, 0.0),
+    species2.jaccard = c(0.5, 0.0),
+    species1.q_value_con = c(0.01, 0.80),
+    species2.q_value_con = c(0.03, 0.90)
   )
 
   edges <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B")
@@ -601,9 +601,9 @@ test_that("comparison_to_edges produces correct edge format", {
 test_that("comparison_to_edges handles alternative='less'", {
   comp <- data.frame(
     Species1 = "A1", Species2 = "B1", hog = 1L,
-    Species1.effect_size = 0.2, Species2.effect_size = 0.3,
-    Species1.jaccard = 0.1, Species2.jaccard = 0.2,
-    Species1.q_value_div = 0.01, Species2.q_value_div = 0.02
+    species1.effect_size = 0.2, species2.effect_size = 0.3,
+    species1.jaccard = 0.1, species2.jaccard = 0.2,
+    species1.q_value_div = 0.01, species2.q_value_div = 0.02
   )
 
   edges <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B", alternative = "less")
@@ -797,7 +797,7 @@ test_that("find_coexpressologs keeps zero-overlap pairs by default", {
   # The dropped rows are exactly the tested pairs with no overlap in one
   # or both directions -- the low-degree failures `power` exists for.
   cmp <- rcomplex:::compare_neighborhoods(fix$nets$SP_A, fix$nets$SP_B, fix$ortho)
-  both <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
+  both <- cmp$species1.neigh.overlap > 0 & cmp$species2.neigh.overlap > 0
   n_zero <- sum(!both)
   expect_gt(n_zero, 0L)
   expect_equal(nrow(kept), nrow(dropped) + n_zero)
@@ -1224,15 +1224,15 @@ test_that("sparse compare_neighborhoods with tighter threshold equals dense", {
 
   # overlapping edges survive the cut, and the cut removed some
   res_base <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
-  expect_gt(sum(res_d$Species1.neigh.overlap), 0L)
-  expect_gt(sum(res_d$Species2.neigh.overlap), 0L)
+  expect_gt(sum(res_d$species1.neigh.overlap), 0L)
+  expect_gt(sum(res_d$species2.neigh.overlap), 0L)
   expect_lt(
-    sum(res_d$Species1.neigh.overlap),
-    sum(res_base$Species1.neigh.overlap)
+    sum(res_d$species1.neigh.overlap),
+    sum(res_base$species1.neigh.overlap)
   )
   expect_lt(
-    sum(res_d$Species2.neigh.overlap),
-    sum(res_base$Species2.neigh.overlap)
+    sum(res_d$species2.neigh.overlap),
+    sum(res_base$species2.neigh.overlap)
   )
 })
 
@@ -1442,8 +1442,8 @@ test_that("sparse compare_neighborhoods edge cases equal dense", {
   res_s <- rcomplex:::compare_neighborhoods(net1_s, net2_s, ortho)
   expect_equal(res_s, res_d)
 
-  expect_equal(res_d$Species1.neigh, c(2, 2, 2, 0, 1, 1, 0, 0))
-  expect_equal(res_d$Species2.neigh, c(2, 3, 2, 1, 1, 1, 0, 0))
+  expect_equal(res_d$species1.neigh, c(2, 2, 2, 0, 1, 1, 0, 0))
+  expect_equal(res_d$species2.neigh, c(2, 3, 2, 1, 1, 1, 0, 0))
 })
 
 
@@ -1513,8 +1513,8 @@ test_that(
     # reference BH here has to use the same multiple-testing set.
     # default combine is "max" (D2, reciprocal criterion)
     bh <- pmax(
-      p.adjust(cmp$Species1.p_value_con, "BH"),
-      p.adjust(cmp$Species2.p_value_con, "BH")
+      p.adjust(cmp$species1.p_value_con, "BH"),
+      p.adjust(cmp$species2.p_value_con, "BH")
     )
 
     edges <- find_coexpressologs(nets, td$ortho, pi0_method = "none")
@@ -1539,10 +1539,10 @@ test_that("comparison_to_edges combines directional q-values by min or max", {
   comp <- data.frame(
     Species1 = c("A1", "A2", "A3"), Species2 = c("B1", "B2", "B3"),
     hog = 1:3,
-    Species1.effect_size = c(4, 1, 2), Species2.effect_size = c(9, 1, 2),
-    Species1.jaccard = c(0.8, 0, 0.5), Species2.jaccard = c(0.5, 0, 0.5),
-    Species1.q_value_con = c(0.01, 0.80, 0.03),
-    Species2.q_value_con = c(0.03, 0.90, 0.20)
+    species1.effect_size = c(4, 1, 2), species2.effect_size = c(9, 1, 2),
+    species1.jaccard = c(0.8, 0, 0.5), species2.jaccard = c(0.5, 0, 0.5),
+    species1.q_value_con = c(0.01, 0.80, 0.03),
+    species2.q_value_con = c(0.03, 0.90, 0.20)
   )
   e_min <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B", pval_combine = "min")
   e_def <- rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B")
@@ -1557,7 +1557,7 @@ test_that("comparison_to_edges combines directional q-values by min or max", {
   ))
 
   # NA in one direction: the other direction's value is used either way
-  comp$Species2.q_value_con[1] <- NA
+  comp$species2.q_value_con[1] <- NA
   expect_equal(rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B",
                  pval_combine = "max"
                )$q_value[1], 0.01)
@@ -1585,7 +1585,7 @@ test_that(
     )
     expect_equal(
       s$edges$q_value,
-      pmax(s$results$Species1.q_value_con, s$results$Species2.q_value_con)
+      pmax(s$results$species1.q_value_con, s$results$species2.q_value_con)
     )
 
     nets <- list(A = td$net1, B = td$net2)
@@ -1681,10 +1681,10 @@ test_that("density_sweep forwards pi0_method and pval_combine (D2)", {
 test_that("default pval_combine is 'max' (D2, Netotea reciprocal criterion)", {
   comp <- data.frame(
     Species1 = c("A1", "A2"), Species2 = c("B1", "B2"), hog = 1:2,
-    Species1.effect_size = c(4, 2), Species2.effect_size = c(9, 2),
-    Species1.jaccard = c(0.8, 0.5), Species2.jaccard = c(0.5, 0.5),
-    Species1.q_value_con = c(0.01, 0.03),
-    Species2.q_value_con = c(0.03, 0.20)
+    species1.effect_size = c(4, 2), species2.effect_size = c(9, 2),
+    species1.jaccard = c(0.8, 0.5), species2.jaccard = c(0.5, 0.5),
+    species1.q_value_con = c(0.01, 0.03),
+    species2.q_value_con = c(0.03, 0.20)
   )
   expect_identical(
     rcomplex:::comparison_to_edges(comp, "SP_A", "SP_B"),
@@ -1917,14 +1917,14 @@ test_that(".power_xstar matches brute force, tiny p-values included", {
 test_that("edge power matches a brute-force computation", {
   fx <- make_power_comparison()
   res <- fx$res
-  q1 <- res$Species1.q_value_con
-  q2 <- res$Species2.q_value_con
+  q1 <- res$species1.q_value_con
+  q2 <- res$species2.q_value_con
   called_max <- pmax(q1, q2) < 0.05
   called_min <- pmin(q1, q2) < 0.05
   expect_gt(sum(called_max), 10L)
 
   dir_pw <- function(called, rho0 = NULL) {
-    lapply(c("Species1", "Species2"), power_brute,
+    lapply(c("species1", "species2"), power_brute,
       res = res, np = fx$np, alpha = 0.05, called = called, rho0 = rho0
     )
   }
@@ -1965,10 +1965,10 @@ test_that("\"min\" power ignores a direction without power", {
   # direction's power in place; "max" needs both, so it stays NA.
   fx <- make_power_comparison()
   res <- fx$res
-  res$Species2.q_value_con <- 1
-  called <- res$Species1.q_value_con < 0.05
+  res$species2.q_value_con <- 1
+  called <- res$species1.q_value_con < 0.05
   expect_gt(sum(called), 10L)
-  b1 <- power_brute("Species1",
+  b1 <- power_brute("species1",
     res = res, np = fx$np, alpha = 0.05, called = called
   )
 
@@ -2012,22 +2012,22 @@ test_that("edge power is NA where it is undefined", {
   expect_equal(rcomplex:::.edge_power(res, 0.05, "less", "max"), nas)
   # No called pair: no cut to measure power against.
   none <- res
-  none$Species1.q_value_con <- 1
-  none$Species2.q_value_con <- 1
+  none$species1.q_value_con <- 1
+  none$species2.q_value_con <- 1
   expect_equal(rcomplex:::.edge_power(none, 0.05, "greater", "max"), nas)
   # Effect sizes that disagree on the urn size. This only defeats the
   # reconstruction path: a frame from rcomplex:::compare_neighborhoods() carries
   # the urn, so a corrupted effect size no longer costs the whole
   # direction its power. Strip the columns to reach the fallback.
   bad <- res
-  hit <- which(bad$Species1.neigh.overlap > 0)[1]
-  bad$Species1.effect_size[hit] <- bad$Species1.effect_size[hit] * 2
+  hit <- which(bad$species1.neigh.overlap > 0)[1]
+  bad$species1.effect_size[hit] <- bad$species1.effect_size[hit] * 2
   stripped <- bad
-  stripped$Species1.urn <- NULL
-  stripped$Species2.urn <- NULL
+  stripped$species1.urn <- NULL
+  stripped$species2.urn <- NULL
   expect_warning(
     pw <- rcomplex:::.edge_power(stripped, 0.05, "greater", "max"),
-    "urn size for Species1"
+    "urn size for species1"
   )
   expect_equal(pw, nas)
   # With the urn carried, the same corruption is survivable: power is
@@ -2039,7 +2039,7 @@ test_that("edge power is NA where it is undefined", {
   # and the carried value is the anchor network's gene count less one
   # (expect_equal, not identical: the carried urn is integer and the
   # fixture computes its reference as a double)
-  expect_equal(unique(res$Species1.urn), fx$np)
+  expect_equal(unique(res$species1.urn), fx$np)
 
   expect_error(
     rcomplex:::comparison_to_edges(res, "SP_A", "SP_B", rho0 = 0),
@@ -2117,12 +2117,12 @@ test_that("compare_neighborhoods carries an exact per-direction urn", {
   )
   cmp <- rcomplex:::compare_neighborhoods(net1, net2, ortho)
 
-  expect_true(all(c("Species1.urn", "Species2.urn") %in% names(cmp)))
-  expect_identical(unique(cmp$Species1.urn), length(g1) - 1L)
-  expect_identical(unique(cmp$Species2.urn), length(g2) - 1L)
+  expect_true(all(c("species1.urn", "species2.urn") %in% names(cmp)))
+  expect_identical(unique(cmp$species1.urn), length(g1) - 1L)
+  expect_identical(unique(cmp$species2.urn), length(g2) - 1L)
   # asymmetric, and not the ortholog row count
-  expect_false(unique(cmp$Species1.urn) == unique(cmp$Species2.urn))
-  expect_false(unique(cmp$Species1.urn) == nrow(ortho) - 1L)
+  expect_false(unique(cmp$species1.urn) == unique(cmp$species2.urn))
+  expect_false(unique(cmp$species1.urn) == nrow(ortho) - 1L)
 })
 
 
@@ -2132,16 +2132,16 @@ test_that("edge power uses the carried urn, and falls back without it", {
   # so the two directions have genuinely different urns.
   d <- make_cmp_nets()
   cmp <- rcomplex:::compare_neighborhoods(d$net1, d$net2, d$ortho)
-  expect_identical(unique(cmp$Species1.urn), nrow(d$net1$network) - 1L)
-  expect_identical(unique(cmp$Species2.urn), nrow(d$net2$network) - 1L)
-  expect_false(unique(cmp$Species1.urn) == unique(cmp$Species2.urn))
+  expect_identical(unique(cmp$species1.urn), nrow(d$net1$network) - 1L)
+  expect_identical(unique(cmp$species2.urn), nrow(d$net2$network) - 1L)
+  expect_false(unique(cmp$species1.urn) == unique(cmp$species2.urn))
 
   summ <- rcomplex:::summarize_comparison(cmp, pi0_method = "none")
   with_urn <- rcomplex:::comparison_to_edges(summ$results, "SP_A", "SP_B")
 
   stripped <- summ$results
-  stripped$Species1.urn <- NULL
-  stripped$Species2.urn <- NULL
+  stripped$species1.urn <- NULL
+  stripped$species2.urn <- NULL
   without <- rcomplex:::comparison_to_edges(stripped, "SP_A", "SP_B")
 
   expect_equal(nrow(with_urn), nrow(without))

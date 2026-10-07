@@ -3,24 +3,24 @@ test_that("summarize_comparison returns correct structure", {
     Species1 = paste0("A_", 1:10),
     Species2 = paste0("B_", 1:10),
     hog = rep(1:5, each = 2),
-    Species1.neigh = rep(10, 10),
-    Species1.ortho.neigh = rep(5, 10),
-    Species1.neigh.overlap = c(3, 0, 2, 4, 1, 3, 2, 0, 1, 5),
-    Species1.p_value_con = c(
+    species1.neigh = rep(10, 10),
+    species1.ortho.neigh = rep(5, 10),
+    species1.neigh.overlap = c(3, 0, 2, 4, 1, 3, 2, 0, 1, 5),
+    species1.p_value_con = c(
       0.001, 1, 0.01, 0.0001, 0.5, 0.005, 0.05, 1, 0.3, 0.0001
     ),
-    Species1.p_value_div = c(
+    species1.p_value_div = c(
       0.99, 0.01, 0.9, 0.999, 0.5, 0.99, 0.9, 0.01, 0.7, 0.999
     ),
-    Species1.effect_size = c(5, 1, 3, 8, 1, 4, 2, 1, 1.5, 10),
-    Species2.neigh = rep(8, 10),
-    Species2.ortho.neigh = rep(4, 10),
-    Species2.neigh.overlap = c(2, 0, 1, 3, 0, 2, 1, 0, 1, 4),
-    Species2.p_value_con = c(0.01, 1, 0.1, 0.001, 1, 0.01, 0.1, 1, 0.5, 0.0001),
-    Species2.p_value_div = c(
+    species1.effect_size = c(5, 1, 3, 8, 1, 4, 2, 1, 1.5, 10),
+    species2.neigh = rep(8, 10),
+    species2.ortho.neigh = rep(4, 10),
+    species2.neigh.overlap = c(2, 0, 1, 3, 0, 2, 1, 0, 1, 4),
+    species2.p_value_con = c(0.01, 1, 0.1, 0.001, 1, 0.01, 0.1, 1, 0.5, 0.0001),
+    species2.p_value_div = c(
       0.9, 0.01, 0.8, 0.99, 0.01, 0.9, 0.8, 0.01, 0.5, 0.999
     ),
-    Species2.effect_size = c(4, 1, 2, 6, 1, 3, 1.5, 1, 1, 8),
+    species2.effect_size = c(4, 1, 2, 6, 1, 3, 1.5, 1, 1, 8),
     stringsAsFactors = FALSE
   )
 
@@ -38,18 +38,18 @@ test_that("zero-overlap rows are filtered by default", {
     Species1 = paste0("A_", 1:5),
     Species2 = paste0("B_", 1:5),
     hog = 1:5,
-    Species1.neigh = rep(10, 5),
-    Species1.ortho.neigh = rep(5, 5),
-    Species1.neigh.overlap = c(3, 0, 2, 0, 1),
-    Species1.p_value_con = c(0.001, 1, 0.01, 1, 0.5),
-    Species1.p_value_div = c(0.99, 0.01, 0.9, 0.01, 0.5),
-    Species1.effect_size = c(5, 1, 3, 1, 2),
-    Species2.neigh = rep(8, 5),
-    Species2.ortho.neigh = rep(4, 5),
-    Species2.neigh.overlap = c(2, 0, 1, 0, 1),
-    Species2.p_value_con = c(0.01, 1, 0.1, 1, 0.5),
-    Species2.p_value_div = c(0.9, 0.01, 0.8, 0.01, 0.5),
-    Species2.effect_size = c(4, 1, 2, 1, 1),
+    species1.neigh = rep(10, 5),
+    species1.ortho.neigh = rep(5, 5),
+    species1.neigh.overlap = c(3, 0, 2, 0, 1),
+    species1.p_value_con = c(0.001, 1, 0.01, 1, 0.5),
+    species1.p_value_div = c(0.99, 0.01, 0.9, 0.01, 0.5),
+    species1.effect_size = c(5, 1, 3, 1, 2),
+    species2.neigh = rep(8, 5),
+    species2.ortho.neigh = rep(4, 5),
+    species2.neigh.overlap = c(2, 0, 1, 0, 1),
+    species2.p_value_con = c(0.01, 1, 0.1, 1, 0.5),
+    species2.p_value_div = c(0.9, 0.01, 0.8, 0.01, 0.5),
+    species2.effect_size = c(4, 1, 2, 1, 1),
     stringsAsFactors = FALSE
   )
 
@@ -68,40 +68,40 @@ test_that("q-values are computed", {
     Species1 = paste0("A_", 1:5),
     Species2 = paste0("B_", 1:5),
     hog = 1:5,
-    Species1.neigh = rep(10, 5),
-    Species1.ortho.neigh = rep(5, 5),
-    Species1.neigh.overlap = rep(2, 5),
-    Species1.p_value_con = c(0.001, 0.01, 0.02, 0.03, 0.04),
-    Species1.p_value_div = c(0.9, 0.8, 0.7, 0.6, 0.5),
-    Species1.effect_size = rep(3, 5),
-    Species2.neigh = rep(8, 5),
-    Species2.ortho.neigh = rep(4, 5),
-    Species2.neigh.overlap = rep(2, 5),
-    Species2.p_value_con = c(0.002, 0.02, 0.03, 0.04, 0.05),
-    Species2.p_value_div = c(0.9, 0.8, 0.7, 0.6, 0.5),
-    Species2.effect_size = rep(2, 5),
+    species1.neigh = rep(10, 5),
+    species1.ortho.neigh = rep(5, 5),
+    species1.neigh.overlap = rep(2, 5),
+    species1.p_value_con = c(0.001, 0.01, 0.02, 0.03, 0.04),
+    species1.p_value_div = c(0.9, 0.8, 0.7, 0.6, 0.5),
+    species1.effect_size = rep(3, 5),
+    species2.neigh = rep(8, 5),
+    species2.ortho.neigh = rep(4, 5),
+    species2.neigh.overlap = rep(2, 5),
+    species2.p_value_con = c(0.002, 0.02, 0.03, 0.04, 0.05),
+    species2.p_value_div = c(0.9, 0.8, 0.7, 0.6, 0.5),
+    species2.effect_size = rep(2, 5),
     stringsAsFactors = FALSE
   )
 
   result <- rcomplex:::summarize_comparison(comparison, pi0_method = "storey")
 
   # q-value columns should exist
-  expect_true("Species1.q_value_con" %in% names(result$results))
-  expect_true("Species2.q_value_con" %in% names(result$results))
+  expect_true("species1.q_value_con" %in% names(result$results))
+  expect_true("species2.q_value_con" %in% names(result$results))
 
   # q-values should be >= raw p-values
-  expect_true(all(result$results$Species1.q_value_con >=
-                    result$results$Species1.p_value_con))
-  expect_true(all(result$results$Species2.q_value_con >=
-                    result$results$Species2.p_value_con))
+  expect_true(all(result$results$species1.q_value_con >=
+                    result$results$species1.p_value_con))
+  expect_true(all(result$results$species2.q_value_con >=
+                    result$results$species2.p_value_con))
 
   # Raw p-values should be unchanged
   expect_equal(
-    result$results$Species1.p_value_con,
+    result$results$species1.p_value_con,
     c(0.001, 0.01, 0.02, 0.03, 0.04)
   )
   expect_equal(
-    result$results$Species2.p_value_con,
+    result$results$species2.p_value_con,
     c(0.002, 0.02, 0.03, 0.04, 0.05)
   )
 })
@@ -111,18 +111,18 @@ test_that("summary counts are correct", {
     Species1 = c("A_1", "A_1", "A_2"),
     Species2 = c("B_1", "B_2", "B_2"),
     hog = c(1, 1, 2),
-    Species1.neigh = rep(10, 3),
-    Species1.ortho.neigh = rep(5, 3),
-    Species1.neigh.overlap = rep(5, 3),
-    Species1.p_value_con = c(0.001, 0.5, 0.001),
-    Species1.p_value_div = c(0.99, 0.5, 0.99),
-    Species1.effect_size = c(5, 1, 5),
-    Species2.neigh = rep(8, 3),
-    Species2.ortho.neigh = rep(4, 3),
-    Species2.neigh.overlap = rep(4, 3),
-    Species2.p_value_con = c(0.001, 0.5, 0.001),
-    Species2.p_value_div = c(0.99, 0.5, 0.99),
-    Species2.effect_size = c(4, 1, 4),
+    species1.neigh = rep(10, 3),
+    species1.ortho.neigh = rep(5, 3),
+    species1.neigh.overlap = rep(5, 3),
+    species1.p_value_con = c(0.001, 0.5, 0.001),
+    species1.p_value_div = c(0.99, 0.5, 0.99),
+    species1.effect_size = c(5, 1, 5),
+    species2.neigh = rep(8, 3),
+    species2.ortho.neigh = rep(4, 3),
+    species2.neigh.overlap = rep(4, 3),
+    species2.p_value_con = c(0.001, 0.5, 0.001),
+    species2.p_value_div = c(0.99, 0.5, 0.99),
+    species2.effect_size = c(4, 1, 4),
     stringsAsFactors = FALSE
   )
 
@@ -139,18 +139,18 @@ test_that("empty comparison handled gracefully", {
     Species1 = character(0),
     Species2 = character(0),
     hog = integer(0),
-    Species1.neigh = integer(0),
-    Species1.ortho.neigh = integer(0),
-    Species1.neigh.overlap = integer(0),
-    Species1.p_value_con = numeric(0),
-    Species1.p_value_div = numeric(0),
-    Species1.effect_size = numeric(0),
-    Species2.neigh = integer(0),
-    Species2.ortho.neigh = integer(0),
-    Species2.neigh.overlap = integer(0),
-    Species2.p_value_con = numeric(0),
-    Species2.p_value_div = numeric(0),
-    Species2.effect_size = numeric(0),
+    species1.neigh = integer(0),
+    species1.ortho.neigh = integer(0),
+    species1.neigh.overlap = integer(0),
+    species1.p_value_con = numeric(0),
+    species1.p_value_div = numeric(0),
+    species1.effect_size = numeric(0),
+    species2.neigh = integer(0),
+    species2.ortho.neigh = integer(0),
+    species2.neigh.overlap = integer(0),
+    species2.p_value_con = numeric(0),
+    species2.p_value_div = numeric(0),
+    species2.effect_size = numeric(0),
     stringsAsFactors = FALSE
   )
 
@@ -164,18 +164,18 @@ test_that("alternative='less' uses divergence p-values", {
     Species1 = paste0("A_", 1:5),
     Species2 = paste0("B_", 1:5),
     hog = 1:5,
-    Species1.neigh = rep(10, 5),
-    Species1.ortho.neigh = rep(5, 5),
-    Species1.neigh.overlap = c(0, 0, 0, 3, 5),
-    Species1.p_value_con = c(1, 1, 1, 0.01, 0.001),
-    Species1.p_value_div = c(0.001, 0.01, 0.02, 0.9, 0.99),
-    Species1.effect_size = c(0, 0, 0, 3, 5),
-    Species2.neigh = rep(8, 5),
-    Species2.ortho.neigh = rep(4, 5),
-    Species2.neigh.overlap = c(0, 0, 0, 2, 4),
-    Species2.p_value_con = c(1, 1, 1, 0.01, 0.001),
-    Species2.p_value_div = c(0.001, 0.01, 0.02, 0.9, 0.99),
-    Species2.effect_size = c(0, 0, 0, 3, 5),
+    species1.neigh = rep(10, 5),
+    species1.ortho.neigh = rep(5, 5),
+    species1.neigh.overlap = c(0, 0, 0, 3, 5),
+    species1.p_value_con = c(1, 1, 1, 0.01, 0.001),
+    species1.p_value_div = c(0.001, 0.01, 0.02, 0.9, 0.99),
+    species1.effect_size = c(0, 0, 0, 3, 5),
+    species2.neigh = rep(8, 5),
+    species2.ortho.neigh = rep(4, 5),
+    species2.neigh.overlap = c(0, 0, 0, 2, 4),
+    species2.p_value_con = c(1, 1, 1, 0.01, 0.001),
+    species2.p_value_div = c(0.001, 0.01, 0.02, 0.9, 0.99),
+    species2.effect_size = c(0, 0, 0, 3, 5),
     stringsAsFactors = FALSE
   )
 
@@ -189,14 +189,14 @@ test_that("alternative='less' uses divergence p-values", {
   expect_equal(nrow(result$results), 5)
 
   # q-value columns for divergence should exist
-  expect_true("Species1.q_value_div" %in% names(result$results))
-  expect_true("Species2.q_value_div" %in% names(result$results))
+  expect_true("species1.q_value_div" %in% names(result$results))
+  expect_true("species2.q_value_div" %in% names(result$results))
 
   # Divergence q-values for first three rows should be significant
-  expect_true(result$results$Species1.q_value_div[1] < 0.05)
-  expect_true(result$results$Species1.q_value_div[2] < 0.05)
+  expect_true(result$results$species1.q_value_div[1] < 0.05)
+  expect_true(result$results$species1.q_value_div[2] < 0.05)
   # Rows 4 and 5 have high div p-values, should not be significant
-  expect_true(result$results$Species1.q_value_div[4] > 0.05)
+  expect_true(result$results$species1.q_value_div[4] > 0.05)
 })
 
 test_that("alternative='less' disables zero-overlap filtering by default", {
@@ -204,18 +204,18 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
     Species1 = paste0("A_", 1:3),
     Species2 = paste0("B_", 1:3),
     hog = 1:3,
-    Species1.neigh = rep(10, 3),
-    Species1.ortho.neigh = rep(5, 3),
-    Species1.neigh.overlap = c(0, 0, 2),
-    Species1.p_value_con = c(1, 1, 0.01),
-    Species1.p_value_div = c(0.001, 0.01, 0.9),
-    Species1.effect_size = c(0, 0, 3),
-    Species2.neigh = rep(8, 3),
-    Species2.ortho.neigh = rep(4, 3),
-    Species2.neigh.overlap = c(0, 0, 1),
-    Species2.p_value_con = c(1, 1, 0.01),
-    Species2.p_value_div = c(0.001, 0.01, 0.9),
-    Species2.effect_size = c(0, 0, 2),
+    species1.neigh = rep(10, 3),
+    species1.ortho.neigh = rep(5, 3),
+    species1.neigh.overlap = c(0, 0, 2),
+    species1.p_value_con = c(1, 1, 0.01),
+    species1.p_value_div = c(0.001, 0.01, 0.9),
+    species1.effect_size = c(0, 0, 3),
+    species2.neigh = rep(8, 3),
+    species2.ortho.neigh = rep(4, 3),
+    species2.neigh.overlap = c(0, 0, 1),
+    species2.p_value_con = c(1, 1, 0.01),
+    species2.p_value_div = c(0.001, 0.01, 0.9),
+    species2.effect_size = c(0, 0, 2),
     stringsAsFactors = FALSE
   )
 
@@ -240,18 +240,18 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
     Species1 = paste0("A_", 1:10),
     Species2 = paste0("B_", 1:10),
     hog = rep(1:5, each = 2),
-    Species1.neigh.overlap = c(5, 3, 0, 4, 2, 1, 6, 0, 3, 4),
-    Species2.neigh.overlap = c(4, 2, 0, 3, 1, 2, 5, 0, 4, 3),
-    Species1.p_value_con = c(
+    species1.neigh.overlap = c(5, 3, 0, 4, 2, 1, 6, 0, 3, 4),
+    species2.neigh.overlap = c(4, 2, 0, 3, 1, 2, 5, 0, 4, 3),
+    species1.p_value_con = c(
       0.001, 0.05, 0.9, 0.01, 0.1, 0.2, 0.001, 0.8, 0.03, 0.01
     ),
-    Species2.p_value_con = c(
+    species2.p_value_con = c(
       0.002, 0.06, 0.8, 0.02, 0.15, 0.25, 0.002, 0.7, 0.04, 0.02
     ),
-    Species1.p_value_div = rep(0.99, 10),
-    Species2.p_value_div = rep(0.99, 10),
-    Species1.effect_size = c(3.0, 1.5, 1.0, 2.5, 1.2, 1.1, 3.5, 1.0, 2.0, 2.5),
-    Species2.effect_size = c(2.5, 1.3, 1.0, 2.0, 1.1, 1.2, 3.0, 1.0, 2.5, 2.0)
+    species1.p_value_div = rep(0.99, 10),
+    species2.p_value_div = rep(0.99, 10),
+    species1.effect_size = c(3.0, 1.5, 1.0, 2.5, 1.2, 1.1, 3.5, 1.0, 2.0, 2.5),
+    species2.effect_size = c(2.5, 1.3, 1.0, 2.0, 1.1, 1.2, 3.0, 1.0, 2.5, 2.0)
   )
 
   # Without sp1/sp2: no $edges
@@ -282,10 +282,10 @@ test_that("summarize_comparison with sp1/sp2 returns $edges", {
 test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
   comparison <- data.frame(
     Species1 = "A_1", Species2 = "B_1", hog = 1,
-    Species1.neigh.overlap = 5, Species2.neigh.overlap = 4,
-    Species1.p_value_con = 0.01, Species2.p_value_con = 0.02,
-    Species1.p_value_div = 0.99, Species2.p_value_div = 0.99,
-    Species1.effect_size = 3.0, Species2.effect_size = 2.5
+    species1.neigh.overlap = 5, species2.neigh.overlap = 4,
+    species1.p_value_con = 0.01, species2.p_value_con = 0.02,
+    species1.p_value_div = 0.99, species2.p_value_div = 0.99,
+    species1.effect_size = 3.0, species2.effect_size = 2.5
   )
 
   expect_error(
@@ -306,10 +306,10 @@ test_that(
     comparison <- data.frame(
       Species1 = c("A_1", "A_2"), Species2 = c("B_1", "B_2"),
       hog = c(1, 2),
-      Species1.neigh.overlap = c(0, 0), Species2.neigh.overlap = c(0, 0),
-      Species1.p_value_con = c(1, 1), Species2.p_value_con = c(1, 1),
-      Species1.p_value_div = c(0.5, 0.5), Species2.p_value_div = c(0.5, 0.5),
-      Species1.effect_size = c(1, 1), Species2.effect_size = c(1, 1)
+      species1.neigh.overlap = c(0, 0), species2.neigh.overlap = c(0, 0),
+      species1.p_value_con = c(1, 1), species2.p_value_con = c(1, 1),
+      species1.p_value_div = c(0.5, 0.5), species2.p_value_div = c(0.5, 0.5),
+      species1.effect_size = c(1, 1), species2.effect_size = c(1, 1)
     )
 
     result <- rcomplex:::summarize_comparison(comparison,
@@ -344,12 +344,12 @@ test_that(
     # q-values are the exact p-values' BH values scaled by the recorded pi0
     r <- s$results
     expect_equal(
-      r$Species1.q_value_con,
-      s$summary$pi0[["sp1"]] * p.adjust(r$Species1.p_value_con, "BH")
+      r$species1.q_value_con,
+      s$summary$pi0[["sp1"]] * p.adjust(r$species1.p_value_con, "BH")
     )
     expect_equal(
-      r$Species2.q_value_con,
-      s$summary$pi0[["sp2"]] * p.adjust(r$Species2.p_value_con, "BH")
+      r$species2.q_value_con,
+      s$summary$pi0[["sp2"]] * p.adjust(r$species2.p_value_con, "BH")
     )
 
     # reproducible under set.seed()
@@ -361,9 +361,9 @@ test_that(
     d <- rcomplex:::summarize_comparison(cmp, alternative = "less")
     expect_named(d$summary$pi0, c("sp1", "sp2"))
     expect_equal(
-      d$results$Species1.q_value_div,
+      d$results$species1.q_value_div,
       d$summary$pi0[["sp1"]] *
-        p.adjust(d$results$Species1.p_value_div, "BH")
+        p.adjust(d$results$species1.p_value_div, "BH")
     )
   }
 )
@@ -376,17 +376,17 @@ test_that("pi0_method = 'none' and 'storey' behave as documented", {
   none <- rcomplex:::summarize_comparison(cmp, pi0_method = "none")
   expect_equal(unname(none$summary$pi0), c(1, 1))
   expect_equal(
-    none$results$Species1.q_value_con,
-    p.adjust(none$results$Species1.p_value_con, "BH")
+    none$results$species1.q_value_con,
+    p.adjust(none$results$species1.p_value_con, "BH")
   )
   expect_equal(
-    none$results$Species2.q_value_con,
-    p.adjust(none$results$Species2.p_value_con, "BH")
+    none$results$species2.q_value_con,
+    p.adjust(none$results$species2.p_value_con, "BH")
   )
 
   st <- rcomplex:::summarize_comparison(cmp, pi0_method = "storey")
-  ref <- compute_qvalues(st$results$Species1.p_value_con, pi0_method = "storey")
-  expect_equal(st$results$Species1.q_value_con, ref$qvalues)
+  ref <- compute_qvalues(st$results$species1.p_value_con, pi0_method = "storey")
+  expect_equal(st$results$species1.q_value_con, ref$qvalues)
   expect_equal(st$summary$pi0[["sp1"]], ref$pi0)
   # storey / none do not touch the RNG
   set.seed(8)
@@ -443,7 +443,7 @@ test_that("summarize_comparison(seed = ) pins the randomized-p q-values", {
   b <- rcomplex:::summarize_comparison(cmp, seed = 100)
   expect_false(identical(a$summary$pi0, b$summary$pi0))
   expect_false(identical(
-    a$results$Species1.q_value_con, b$results$Species1.q_value_con
+    a$results$species1.q_value_con, b$results$species1.q_value_con
   ))
 
   # seed = NULL reproduces the old behaviour exactly: seeding the

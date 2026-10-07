@@ -66,7 +66,7 @@ Data frame with columns:
 two directional q-values}
 \item{effect_size}{Geometric mean of directional effect sizes}
 \item{jaccard}{Geometric mean of directional Jaccard indices
-(\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
+(\code{sqrt(species1.jaccard * species2.jaccard)}). Range
 \eqn{[0, 1]}: 1 = identical neighborhoods, 0 = disjoint.}
 \item{power}{Detection power: the probability that the pair
 would have been called had its partners been shared at the

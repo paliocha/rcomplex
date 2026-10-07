@@ -294,10 +294,10 @@ extract_sparse_cpp <- function(m, thr, n_cores = 1L) {
 #' @param grid_frac Ascending fractions f in (0, 1]; for each, the AUROC
 #'   grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
 #'   Empty skips the grid.
-#' @return List with, per requested direction, `Species1.neigh`,
-#'   `Species1.mapped`, `Species1.auroc`, `Species1.p_value`,
-#'   `Species1.jaccard`, `Species1.n.cand` (one element per pair) and the
-#'   matrix `Species1.auroc.grid` (pairs x fractions), and the `Species2.*`
+#' @return List with, per requested direction, `species1.neigh`,
+#'   `species1.mapped`, `species1.auroc`, `species1.p_value`,
+#'   `species1.jaccard`, `species1.n.cand` (one element per pair) and the
+#'   matrix `species1.auroc.grid` (pairs x fractions), and the `species2.*`
 #'   set.
 #'
 #' @keywords internal

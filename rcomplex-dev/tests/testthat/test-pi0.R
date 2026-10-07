@@ -132,16 +132,16 @@ test_that(
     cmp <- data.frame(
       Species1 = paste0("A", seq_len(n)), Species2 = paste0("B", seq_len(n)),
       hog = paste0("HOG", seq_len(n)),
-      Species1.neigh.overlap = x, Species1.p_value_con = p_con,
-      Species1.p_value_div = p_div, Species1.p_value_gt = p_gt,
-      Species1.p_value_eq = p_eq,
-      Species2.neigh.overlap = x, Species2.p_value_con = p_con,
-      Species2.p_value_div = p_div, Species2.p_value_gt = p_gt,
-      Species2.p_value_eq = p_eq,
+      species1.neigh.overlap = x, species1.p_value_con = p_con,
+      species1.p_value_div = p_div, species1.p_value_gt = p_gt,
+      species1.p_value_eq = p_eq,
+      species2.neigh.overlap = x, species2.p_value_con = p_con,
+      species2.p_value_div = p_div, species2.p_value_gt = p_gt,
+      species2.p_value_eq = p_eq,
       stringsAsFactors = FALSE
     )
     # the filter bites (most rows dropped) but enough survive to test on
-    kept <- sum(cmp$Species1.neigh.overlap > 0)
+    kept <- sum(cmp$species1.neigh.overlap > 0)
     expect_gt(kept, 100L)
     expect_lt(kept, n / 2L)
 
@@ -149,8 +149,8 @@ test_that(
     s <- rcomplex:::summarize_comparison(cmp)
     expect_equal(nrow(s$results), kept)
     expect_gt(min(s$summary$pi0), 0.9)
-    expect_equal(sum(s$results$Species1.q_value_con < 0.05), 0L)
-    expect_equal(sum(s$results$Species2.q_value_con < 0.05), 0L)
+    expect_equal(sum(s$results$species1.q_value_con < 0.05), 0L)
+    expect_equal(sum(s$results$species2.q_value_con < 0.05), 0L)
 
     # Why compute_qvalues() has no seed of its own: rcomplex:::summarize_comparison()
     # seeds once and lets the stream run through both directional calls.
@@ -160,8 +160,8 @@ test_that(
     # One seed one level up keeps the draws independent.
     seeded <- rcomplex:::summarize_comparison(cmp, seed = 32)
     expect_identical(seeded, s)
-    expect_identical(cmp$Species1.p_value_gt, cmp$Species2.p_value_gt)
-    expect_identical(cmp$Species1.p_value_eq, cmp$Species2.p_value_eq)
+    expect_identical(cmp$species1.p_value_gt, cmp$species2.p_value_gt)
+    expect_identical(cmp$species1.p_value_eq, cmp$species2.p_value_eq)
     expect_false(identical(
       seeded$summary$pi0[["sp1"]], seeded$summary$pi0[["sp2"]]
     ))

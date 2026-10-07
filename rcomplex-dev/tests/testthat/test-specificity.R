@@ -5,12 +5,12 @@
 spec_cols <- function(prefix) {
   paste0(prefix, c(".neigh", ".mapped", ".auroc", ".p_value", ".jaccard"))
 }
-both_cols <- c(spec_cols("Species1"), spec_cols("Species2"))
+both_cols <- c(spec_cols("species1"), spec_cols("species2"))
 
 # nolint start: object_usage_linter. (oracle from helper-reference.R)
 expect_grid_equal <- function(res, ...) {
   ref <- reference_specificity(..., grid_frac = rcomplex:::.rank_grid_frac)
-  for (s in c("Species1", "Species2")) {
+  for (s in c("species1", "species2")) {
     testthat::expect_equal(unname(res[[paste0(s, ".auroc.grid")]]),
       unname(ref[[paste0(s, ".auroc.grid")]]),
       tolerance = 1e-12
@@ -34,16 +34,16 @@ test_that("dense compare_specificity matches the oracle in both directions", {
   )
   expect_s3_class(res, "data.frame")
   expect_named(res, c(
-    "Species1", "Species2", "hog", spec_cols("Species1"), "Species1.n.cand",
-    spec_cols("Species2"), "Species2.n.cand",
-    "Species1.effect_size", "Species1.auroc.grid",
-    "Species2.effect_size", "Species2.auroc.grid"
+    "Species1", "Species2", "hog", spec_cols("species1"), "species1.n.cand",
+    spec_cols("species2"), "species2.n.cand",
+    "species1.effect_size", "species1.auroc.grid",
+    "species2.effect_size", "species2.auroc.grid"
   ))
   expect_equal(res$Species1, f$ortho$Species1)
   expect_equal(res$hog, f$ortho$hog)
   expect_spec_equal(res, ref)
-  expect_identical(res$Species1.effect_size, res$Species1.auroc)
-  expect_identical(res$Species2.effect_size, res$Species2.auroc)
+  expect_identical(res$species1.effect_size, res$species1.auroc)
+  expect_identical(res$species2.effect_size, res$species2.auroc)
 })
 
 test_that("a store above the lowest tier matches the oracle with store", {
@@ -63,7 +63,7 @@ test_that("a store above the lowest tier matches the oracle with store", {
   # tier 4 really is unstored: collapsing it to the bottom block changes
   # other candidates' AUROCs (e.g. B16 for anchor A04), hence the p-values
   dense <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho)
-  expect_false(isTRUE(all.equal(res$Species1.p_value, dense$Species1.p_value)))
+  expect_false(isTRUE(all.equal(res$species1.p_value, dense$species1.p_value)))
 })
 
 test_that("a store holding every nonzero entry equals the dense result", {
@@ -102,13 +102,13 @@ test_that("own-HOG orthologs leave the mapped set (paralog row)", {
   mapped <- setdiff(
     unique(f$ortho$Species2[f$ortho$Species1 %in% n1]), c("B_001", "B_031")
   )
-  expect_equal(res$Species1.mapped[rows], rep(length(mapped), 2L))
+  expect_equal(res$species1.mapped[rows], rep(length(mapped), 2L))
 })
 
 test_that("p lies on the 1/n grid, AUROC in [0, 1], isolated genes NA", {
   f <- make_graded_nets()
   res <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho)
-  for (s in c("Species1", "Species2")) {
+  for (s in c("species1", "species2")) {
     p <- res[[paste0(s, ".p_value")]]
     a <- res[[paste0(s, ".auroc")]]
     expect_true(any(is.na(p)) && any(!is.na(p)))
@@ -118,10 +118,10 @@ test_that("p lies on the 1/n grid, AUROC in [0, 1], isolated genes NA", {
     expect_true(all(a >= 0 & a <= 1, na.rm = TRUE))
   }
   iso <- res$Species1 %in% paste0("A", 28:30)
-  expect_true(all(is.na(res$Species1.p_value[iso])))
-  expect_true(all(is.na(res$Species2.p_value[iso])))
-  expect_equal(res$Species1.mapped[iso], rep(0L, 3L))
-  expect_false(any(is.na(res$Species1.p_value[res$Species1 %in% "A01"])))
+  expect_true(all(is.na(res$species1.p_value[iso])))
+  expect_true(all(is.na(res$species2.p_value[iso])))
+  expect_equal(res$species1.mapped[iso], rep(0L, 3L))
+  expect_false(any(is.na(res$species1.p_value[res$Species1 %in% "A01"])))
 })
 
 test_that("directions restricts the columns and keeps the values", {
@@ -131,12 +131,12 @@ test_that("directions restricts the columns and keeps the values", {
   d21 <- rcomplex:::compare_specificity(f$net1, f$net2, f$ortho, directions = "2to1")
   keys <- c("Species1", "Species2", "hog")
   expect_named(d12, c(
-    keys, spec_cols("Species1"), "Species1.n.cand",
-    "Species1.effect_size", "Species1.auroc.grid"
+    keys, spec_cols("species1"), "species1.n.cand",
+    "species1.effect_size", "species1.auroc.grid"
   ))
   expect_named(d21, c(
-    keys, spec_cols("Species2"), "Species2.n.cand",
-    "Species2.effect_size", "Species2.auroc.grid"
+    keys, spec_cols("species2"), "species2.n.cand",
+    "species2.effect_size", "species2.auroc.grid"
   ))
   expect_identical(d12, both[names(d12)])
   expect_identical(d21, both[names(d21)])
@@ -189,7 +189,7 @@ test_that("the AUROC grid matches the oracle in both directions", {
     f$net1$network, f$net2$network, 5, 5, f$ortho,
     grid_frac = gf
   )
-  for (s in c("Species1", "Species2")) {
+  for (s in c("species1", "species2")) {
     g <- res[[paste0(s, ".auroc.grid")]]
     expect_identical(dim(g), c(nrow(res), length(gf)))
     expect_equal(unname(g), unname(ref[[paste0(s, ".auroc.grid")]]),
@@ -210,5 +210,5 @@ test_that("the kernel rejects a grid that is not ascending in (0, 1]", {
   expect_error(run(c(0.5, 0.1)), "strictly ascending")
   expect_error(run(c(0, 0.1)), "strictly ascending")
   expect_error(run(1.5), "strictly ascending")
-  expect_false("Species1.auroc.grid" %in% names(run(numeric(0))))
+  expect_false("species1.auroc.grid" %in% names(run(numeric(0))))
 })

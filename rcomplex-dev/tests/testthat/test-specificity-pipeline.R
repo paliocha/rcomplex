@@ -32,7 +32,7 @@ test_that("conserved calls fall in the shared cliques only", {
     f$networks$sp1, f$networks$sp2, f$ortho,
     directions = "1to2"
   )
-  p1 <- cmp$Species1.p_value[f$one_sided]
+  p1 <- cmp$species1.p_value[f$one_sided]
   expect_false(anyNA(p1))
   expect_true(all(p1 > 0.5))
 })
@@ -104,7 +104,7 @@ test_that("specificity p-values are uniform under independence", {
     Species1 = paste0("A", 1:80), Species2 = paste0("B", 1:80),
     hog = paste0("H", 1:80)
   )
-  p <- rcomplex:::compare_specificity(n1, n2, ortho)$Species1.p_value
+  p <- rcomplex:::compare_specificity(n1, n2, ortho)$species1.p_value
   expect_gte(sum(!is.na(p)), 40L)
   expect_lt(abs(mean(p, na.rm = TRUE) - 0.5), 0.1)
   lo <- mean(p <= 0.2, na.rm = TRUE)
@@ -114,7 +114,7 @@ test_that("specificity p-values are uniform under independence", {
   # positive control: the same expression under the partner's labels
   n2_same <- n1
   dimnames(n2_same$network) <- list(paste0("B", 1:80), paste0("B", 1:80))
-  p_same <- rcomplex:::compare_specificity(n1, n2_same, ortho)$Species1.p_value
+  p_same <- rcomplex:::compare_specificity(n1, n2_same, ortho)$species1.p_value
   expect_lt(mean(p_same, na.rm = TRUE), 0.2)
 })
 
@@ -125,10 +125,10 @@ test_that("rank power falls with the reference rank and checks p0", {
   null_p <- list(
     sp1 = rcomplex:::compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
       directions = "1to2"
-    )$Species1.p_value,
+    )$species1.p_value,
     sp2 = rcomplex:::compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
       directions = "2to1"
-    )$Species2.p_value
+    )$species2.p_value
   )
   pw <- function(p0) {
     rcomplex:::summarize_specificity(cmp, null_p,
@@ -162,13 +162,13 @@ rank_frame <- function(q1, q2, p1, p2, a = 0.6, b = 0.01, t = 30L, n = 1000L) {
     g
   }
   d <- data.frame(
-    Species1.p_value = p1, Species1.q_value_con = q1,
-    Species1.mapped = t, Species1.n.cand = n,
-    Species2.p_value = p2, Species2.q_value_con = q2,
-    Species2.mapped = t, Species2.n.cand = n
+    species1.p_value = p1, species1.q_value_con = q1,
+    species1.mapped = t, species1.n.cand = n,
+    species2.p_value = p2, species2.q_value_con = q2,
+    species2.mapped = t, species2.n.cand = n
   )
-  d$Species1.auroc.grid <- grid(a)
-  d$Species2.auroc.grid <- grid(a)
+  d$species1.auroc.grid <- grid(a)
+  d$species2.auroc.grid <- grid(a)
   d
 }
 
@@ -220,10 +220,10 @@ test_that("both routes to rank edges carry the same power", {
   null_p <- list(
     sp1 = rcomplex:::compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
       directions = "1to2"
-    )$Species1.p_value,
+    )$species1.p_value,
     sp2 = rcomplex:::compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
       directions = "2to1"
-    )$Species2.p_value
+    )$species2.p_value
   )
   sm <- rcomplex:::summarize_specificity(cmp, null_p, sp1 = "sp1", sp2 = "sp2")
   two_step <- rcomplex:::comparison_to_edges(sm$results, "sp1", "sp2")
@@ -239,21 +239,21 @@ test_that(".rank_power() branches: clamp, no room, weaker side, bad grid", {
   expect_identical(rp(d, 0.1, p0 = 1e-7), rp(d, 0.1, p0 = 1e-5))
   # no candidates left besides the translated set: no power
   full <- d
-  full$Species1.mapped <- full$Species1.n.cand - 1L
+  full$species1.mapped <- full$species1.n.cand - 1L
   expect_identical(rp(full, 0.1, p0 = 1e-3), c(0, 0, 0))
   # "max" takes the weaker direction when the directions differ
   steep <- rank_frame(q1 = c(0.01, 0.02, 0.5), q2 = c(0.01, 0.02, 0.5),
                       p1 = c(0.001, 0.004, 0.3), p2 = c(0.001, 0.004, 0.3),
                       b = 0.05)
   mixed <- d
-  mixed$Species2.auroc.grid <- steep$Species2.auroc.grid
+  mixed$species2.auroc.grid <- steep$species2.auroc.grid
   w1 <- rp(d, 0.1, p0 = 1e-3)
   w2 <- rp(steep, 0.1, p0 = 1e-3)
   expect_false(isTRUE(all.equal(w1, w2)))
   expect_equal(rp(mixed, 0.1, p0 = 1e-3), pmin(w1, w2))
   # a grid that lost its fraction names gives no power (and says so)
   lost <- d
-  colnames(lost$Species1.auroc.grid) <- NULL
+  colnames(lost$species1.auroc.grid) <- NULL
   expect_warning(pw_lost <- rp(lost, 0.1), "fraction names")
   expect_true(all(is.na(pw_lost)))
   # also under "min": a damaged direction voids the edge, not just itself
@@ -262,8 +262,8 @@ test_that(".rank_power() branches: clamp, no room, weaker side, bad grid", {
   expect_true(all(is.na(pw_lost_min)))
   # so does a frame missing a supporting column
   short <- d
-  short$Species2.n.cand <- NULL
-  expect_warning(pw_short <- rp(short, 0.1), "Species2.n.cand")
+  short$species2.n.cand <- NULL
+  expect_warning(pw_short <- rp(short, 0.1), "species2.n.cand")
   expect_true(all(is.na(pw_short)))
 })
 
@@ -297,10 +297,10 @@ test_that("a rank frame without its grid warns instead of going NA quietly", {
   null_p <- list(
     sp1 = rcomplex:::compare_specificity(nets$sp1, f$nulls$sp2, f$ortho,
       directions = "1to2"
-    )$Species1.p_value,
+    )$species1.p_value,
     sp2 = rcomplex:::compare_specificity(f$nulls$sp1, nets$sp2, f$ortho,
       directions = "2to1"
-    )$Species2.p_value
+    )$species2.p_value
   )
   res <- rcomplex:::summarize_specificity(cmp, null_p)$results
   flat <- res[, !grepl("auroc\\.grid", names(res))]

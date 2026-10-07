@@ -251,8 +251,8 @@ test_that("effect sizes are computed correctly", {
 
   hog1_rows <- td$comparison$hog == "HOG1"
   expected_eff <- mean(sqrt(
-    td$comparison$Species1.effect_size[hog1_rows] *
-      td$comparison$Species2.effect_size[hog1_rows]
+    td$comparison$species1.effect_size[hog1_rows] *
+      td$comparison$species2.effect_size[hog1_rows]
   ))
   hog1 <- result[result$hog == "HOG1", ]
   expect_equal(hog1$mean_eff, expected_eff, tolerance = 1e-10)

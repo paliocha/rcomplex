@@ -46,7 +46,7 @@
 #'   or `"2to1"`.
 #'
 #' @return A data frame with `Species1`, `Species2`, `hog` and, per
-#'   requested direction (`Species1.` for 1 to 2, `Species2.` for 2 to
+#'   requested direction (`species1.` for 1 to 2, `species2.` for 2 to
 #'   1):
 #'   \describe{
 #'     \item{neigh}{Anchor degree.}
@@ -116,7 +116,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   )
   grid_cols <- grepl("\\.auroc\\.grid$", names(res))
   out <- cbind(op$orthologs, as.data.frame(res[!grid_cols]))
-  for (s in c("Species1", "Species2")[c(do_12, do_21)]) {
+  for (s in c("species1", "species2")[c(do_12, do_21)]) {
     out[[paste0(s, ".effect_size")]] <- out[[paste0(s, ".auroc")]]
     if (length(grid_frac)) {
       g <- res[[paste0(s, ".auroc.grid")]]
@@ -200,12 +200,12 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     sp1 = unlist(lapply(nulls2, function(nb) {
       .specificity_run(net1, nb, orthologs, n_cores, "1to2",
         grid_frac = numeric(0)
-      )$Species1.p_value
+      )$species1.p_value
     })),
     sp2 = unlist(lapply(nulls1, function(na) {
       .specificity_run(na, net2, orthologs, n_cores, "2to1",
         grid_frac = numeric(0)
-      )$Species2.p_value
+      )$species2.p_value
     }))
   )
   # the specificity p-values are continuous-ish ranks, so the randomized
@@ -238,7 +238,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   pval_combine <- match.arg(pval_combine)
   .check_p0(p0)
   na_out <- rep(NA_real_, nrow(res))
-  dirs <- c("Species1", "Species2")
+  dirs <- c("species1", "species2")
   need <- as.vector(outer(dirs, c(
     ".p_value", ".q_value_con", ".mapped", ".n.cand", ".auroc.grid"
   ), paste0))
@@ -250,7 +250,7 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     return(na_out)
   }
   combine <- if (pval_combine == "min") pmin else pmax
-  q_comb <- combine(res$Species1.q_value_con, res$Species2.q_value_con,
+  q_comb <- combine(res$species1.q_value_con, res$species2.q_value_con,
     na.rm = TRUE
   )
   called <- is.finite(q_comb) & q_comb < alpha

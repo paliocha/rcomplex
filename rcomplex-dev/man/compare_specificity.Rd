@@ -27,7 +27,7 @@ or \code{"2to1"}.}
 }
 \value{
 A data frame with \code{Species1}, \code{Species2}, \code{hog} and, per
-requested direction (\code{Species1.} for 1 to 2, \code{Species2.} for 2 to
+requested direction (\code{species1.} for 1 to 2, \code{species2.} for 2 to
 1):
 \describe{
 \item{neigh}{Anchor degree.}

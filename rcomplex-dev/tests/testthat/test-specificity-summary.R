@@ -12,14 +12,14 @@ spec_frame <- function(n = 60L, n2 = 200L, seed = 1L) {
       Species1 = paste0("A_", seq_len(n)),
       Species2 = paste0("B_", seq_len(n)),
       hog = paste0("HOG", rep(seq_len(n / 2L), each = 2L)),
-      Species1.neigh = 10L, Species1.mapped = 5L,
-      Species1.auroc = stats::runif(n), Species1.p_value = p1,
-      Species1.effect_size = stats::runif(n),
-      Species1.jaccard = stats::runif(n),
-      Species2.neigh = 8L, Species2.mapped = 4L,
-      Species2.auroc = stats::runif(n), Species2.p_value = p2,
-      Species2.effect_size = stats::runif(n),
-      Species2.jaccard = stats::runif(n),
+      species1.neigh = 10L, species1.mapped = 5L,
+      species1.auroc = stats::runif(n), species1.p_value = p1,
+      species1.effect_size = stats::runif(n),
+      species1.jaccard = stats::runif(n),
+      species2.neigh = 8L, species2.mapped = 4L,
+      species2.auroc = stats::runif(n), species2.p_value = p2,
+      species2.effect_size = stats::runif(n),
+      species2.jaccard = stats::runif(n),
       stringsAsFactors = FALSE
     )
   })
@@ -46,8 +46,8 @@ test_that("empirical p is (1 + #null <= p) / (1 + n_null)", {
   brute <- function(p, p0) {
     vapply(p, function(x) (1 + sum(p0 <= x)) / (1 + length(p0)), 1)
   }
-  expect_equal(r$Species1.p.emp, brute(r$Species1.p_value, p0$sp1))
-  expect_equal(r$Species2.p.emp, brute(r$Species2.p_value, p0$sp2))
+  expect_equal(r$species1.p.emp, brute(r$species1.p_value, p0$sp1))
+  expect_equal(r$species2.p.emp, brute(r$species2.p_value, p0$sp2))
   expect_equal(s$summary$n_null, c(sp1 = 500L, sp2 = 500L))
 
   # NA null draws are not draws
@@ -60,13 +60,13 @@ test_that("q-values are non-decreasing in p, with and without a null", {
   cmp <- spec_frame()
   mono <- function(q, p) all(diff(q[order(p)]) >= -1e-12)
   r <- rcomplex:::summarize_specificity(cmp, null_p = spec_null())$results
-  expect_true(mono(r$Species1.q_value_con, r$Species1.p.emp))
-  expect_true(mono(r$Species2.q_value_con, r$Species2.p.emp))
+  expect_true(mono(r$species1.q_value_con, r$species1.p.emp))
+  expect_true(mono(r$species2.q_value_con, r$species2.p.emp))
 
   raw <- rcomplex:::summarize_specificity(cmp)$results
   expect_false(any(grepl("p\\.emp$", names(raw))))
-  expect_true(mono(raw$Species1.q_value_con, raw$Species1.p_value))
-  expect_true(mono(raw$Species2.q_value_con, raw$Species2.p_value))
+  expect_true(mono(raw$species1.q_value_con, raw$species1.p_value))
+  expect_true(mono(raw$species2.q_value_con, raw$species2.p_value))
 })
 
 
@@ -77,7 +77,7 @@ test_that("NA rows are dropped and counted", {
   expect_equal(s$summary$n_dropped, 3L)
   expect_equal(s$summary$n_null, c(sp1 = 0L, sp2 = 0L))
   expect_equal(s$summary$gene_pairs$total, 57L)
-  expect_false(any(is.na(s$results$Species1.q_value_con)))
+  expect_false(any(is.na(s$results$species1.q_value_con)))
   expect_named(
     s$summary,
     c("gene_pairs", "genes", "orthogroups", "pi0", "n_null", "n_dropped")
@@ -91,8 +91,8 @@ test_that("pi0_method = 'none' is Benjamini-Hochberg on the empirical p", {
   )
   r <- s$results
   expect_equal(unname(s$summary$pi0), c(1, 1))
-  expect_equal(r$Species1.q_value_con, p.adjust(r$Species1.p.emp, "BH"))
-  expect_equal(r$Species2.q_value_con, p.adjust(r$Species2.p.emp, "BH"))
+  expect_equal(r$species1.q_value_con, p.adjust(r$species1.p.emp, "BH"))
+  expect_equal(r$species2.q_value_con, p.adjust(r$species2.p.emp, "BH"))
 })
 
 
@@ -121,7 +121,7 @@ test_that("sp1/sp2 give an edge frame with NA power", {
 
 test_that("an all-NA comparison returns the empty structure", {
   cmp <- spec_frame()
-  cmp$Species1.p_value <- NA_real_
+  cmp$species1.p_value <- NA_real_
   s <- rcomplex:::summarize_specificity(cmp, null_p = spec_null(), sp1 = "A", sp2 = "B")
   expect_equal(nrow(s$results), 0L)
   expect_equal(s$summary$gene_pairs$total, 0L)
@@ -136,7 +136,7 @@ test_that("an all-NA comparison returns the empty structure", {
 test_that("summarize_specificity validates its input", {
   cmp <- spec_frame()
   expect_error(
-    rcomplex:::summarize_specificity(cmp[, setdiff(names(cmp), "Species2.p_value")]),
+    rcomplex:::summarize_specificity(cmp[, setdiff(names(cmp), "species2.p_value")]),
     "compare_specificity"
   )
   expect_error(rcomplex:::summarize_specificity(cmp, null_p = 1:3), "null_p")

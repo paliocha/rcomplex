@@ -192,7 +192,7 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   alternative = "greater",
 #'   seed = 1
 #' )
-#' sig <- summary$results[summary$results$Species1.q_value_con < 0.05, ]
+#' sig <- summary$results[summary$results$species1.q_value_con < 0.05, ]
 #' summary$summary$gene_pairs$reciprocal
 #' summary$summary$pi0
 #' }
@@ -231,22 +231,22 @@ summarize_comparison <- function(comparison,
 
   if (!all(c(
     "Species1", "Species2", "hog",
-    "Species1.p_value_con", "Species2.p_value_con",
-    "Species1.p_value_div", "Species2.p_value_div",
-    "Species1.neigh.overlap",
-    "Species2.neigh.overlap"
+    "species1.p_value_con", "species2.p_value_con",
+    "species1.p_value_div", "species2.p_value_div",
+    "species1.neigh.overlap",
+    "species2.neigh.overlap"
   ) %in%
     names(comparison))) {
     stop("comparison must be output from compare_neighborhoods()")
   }
   if (pi0_method == "randomized" &&
     !all(c(
-      "Species1.p_value_gt", "Species1.p_value_eq",
-      "Species2.p_value_gt", "Species2.p_value_eq"
+      "species1.p_value_gt", "species1.p_value_eq",
+      "species2.p_value_gt", "species2.p_value_eq"
     ) %in%
       names(comparison))) {
     stop(
-      "pi0_method = 'randomized' needs the Species1/Species2.p_value_gt ",
+      "pi0_method = 'randomized' needs the Species1/species2.p_value_gt ",
       "and .p_value_eq columns written by compare_neighborhoods() in ",
       "rcomplex >= 0.2.0; rerun compare_neighborhoods() or use ",
       "pi0_method = 'storey' or 'none'"
@@ -255,16 +255,16 @@ summarize_comparison <- function(comparison,
 
   # Select p-value columns based on alternative
   suffix <- if (alternative == "greater") "con" else "div"
-  sp1_col <- paste0("Species1.p_value_", suffix)
-  sp2_col <- paste0("Species2.p_value_", suffix)
+  sp1_col <- paste0("species1.p_value_", suffix)
+  sp2_col <- paste0("species2.p_value_", suffix)
 
   res <- comparison
 
   # Filter zero-overlap rows
   if (filter_zero) {
     res <- res[
-      res$Species1.neigh.overlap > 0 &
-        res$Species2.neigh.overlap > 0, ,
+      res$species1.neigh.overlap > 0 &
+        res$species2.neigh.overlap > 0, ,
       drop = FALSE
     ]
   }
@@ -295,8 +295,8 @@ summarize_comparison <- function(comparison,
     }
     function() base + stats::runif(length(base)) * eq
   }
-  qv1 <- compute_qvalues(res[[sp1_col]], rand_fn("Species1"), pi0_method, B)
-  qv2 <- compute_qvalues(res[[sp2_col]], rand_fn("Species2"), pi0_method, B)
+  qv1 <- compute_qvalues(res[[sp1_col]], rand_fn("species1"), pi0_method, B)
+  qv2 <- compute_qvalues(res[[sp2_col]], rand_fn("species2"), pi0_method, B)
   res[[q1_col]] <- qv1$qvalues
   res[[q2_col]] <- qv2$qvalues
 
@@ -454,8 +454,8 @@ summarize_comparison <- function(comparison,
 #' @return A list with components:
 #'   \describe{
 #'     \item{results}{The complete rows of `comparison` with
-#'       `Species1.p.emp` / `Species2.p.emp` (when `null_p` is given) and
-#'       `Species1.q_value_con` / `Species2.q_value_con` added.}
+#'       `species1.p.emp` / `species2.p.emp` (when `null_p` is given) and
+#'       `species1.q_value_con` / `species2.q_value_con` added.}
 #'     \item{summary}{The counts of [summarize_comparison()], `pi0` per
 #'       direction, `n_null` (null draws used per direction, 0 without
 #'       `null_p`) and `n_dropped` (rows with an `NA` p-value).}
@@ -505,7 +505,7 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
   if (xor(is.null(sp1), is.null(sp2))) {
     stop("Both sp1 and sp2 must be provided, or neither.")
   }
-  p_cols <- c("Species1.p_value", "Species2.p_value")
+  p_cols <- c("species1.p_value", "species2.p_value")
   if (!all(c("Species1", "Species2", "hog", p_cols) %in% names(comparison))) {
     stop("comparison must be output from compare_specificity()")
   }
@@ -528,22 +528,22 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
     return(out)
   }
 
-  p1 <- res$Species1.p_value
-  p2 <- res$Species2.p_value
+  p1 <- res$species1.p_value
+  p2 <- res$species2.p_value
   if (!is.null(null_p)) {
-    p1 <- res$Species1.p.emp <- .p_empirical(p1, null_p$sp1)
-    p2 <- res$Species2.p.emp <- .p_empirical(p2, null_p$sp2)
+    p1 <- res$species1.p.emp <- .p_empirical(p1, null_p$sp1)
+    p2 <- res$species2.p.emp <- .p_empirical(p2, null_p$sp2)
   }
   qv1 <- compute_qvalues(p1, pi0_method = pi0_method)
   qv2 <- compute_qvalues(p2, pi0_method = pi0_method)
-  res$Species1.q_value_con <- qv1$qvalues
-  res$Species2.q_value_con <- qv2$qvalues
+  res$species1.q_value_con <- qv1$qvalues
+  res$species2.q_value_con <- qv2$qvalues
 
   out <- list(
     results = res,
     summary = c(
       .summary_counts(
-        res, "Species1.q_value_con", "Species2.q_value_con",
+        res, "species1.q_value_con", "species2.q_value_con",
         alpha
       ),
       list(
@@ -554,7 +554,7 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
     )
   )
   if (!is.null(sp1) && !is.null(sp2)) {
-    has_grid <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+    has_grid <- all(c("species1.auroc.grid", "species2.auroc.grid") %in%
                       names(res))
     out$edges <- comparison_to_edges(res, sp1, sp2,
       alternative = "greater", alpha = alpha, pval_combine = pval_combine,
@@ -898,7 +898,7 @@ permutation_hog_test <- function(net1, net2, comparison,
   }
   required <- c(
     "Species1", "Species2", "hog",
-    "Species1.effect_size", "Species2.effect_size"
+    "species1.effect_size", "species2.effect_size"
   )
   missing_cols <- setdiff(required, names(comparison))
   if (length(missing_cols) > 0) {
@@ -1042,7 +1042,7 @@ permutation_hog_test <- function(net1, net2, comparison,
     )
   }
 
-  eff <- sqrt(comparison$Species1.effect_size * comparison$Species2.effect_size)
+  eff <- sqrt(comparison$species1.effect_size * comparison$species2.effect_size)
 
   result <- data.frame(
     hog = hog_names,

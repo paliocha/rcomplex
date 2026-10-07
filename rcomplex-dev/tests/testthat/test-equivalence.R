@@ -61,10 +61,10 @@ test_that("density thresholds are stable and match pure-R reference", {
 test_that("co-expressolog calls match canonical ComPlEx", {
   d <- load_complex_py()
   cmp <- rcomplex:::compare_neighborhoods(d$n1, d$n2, d$ortho)
-  pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
+  pool <- cmp$species1.neigh.overlap > 0 & cmp$species2.neigh.overlap > 0
   cmp <- cmp[pool, ]
-  bh1 <- p.adjust(cmp$Species1.p_value_con, method = "BH")
-  bh2 <- p.adjust(cmp$Species2.p_value_con, method = "BH")
+  bh1 <- p.adjust(cmp$species1.p_value_con, method = "BH")
+  bh2 <- p.adjust(cmp$species2.p_value_con, method = "BH")
   maxbh <- pmax(bh1, bh2)
 
   expected <- d$expected
@@ -92,8 +92,8 @@ test_that("co-expressolog calls match canonical ComPlEx", {
   # absolute guard next to the relative tolerance: measured max |diff| is
   # 2.7e-3, so 5e-3 leaves headroom without letting large shifts through
   expect_lt(max(abs(maxbh[idx] - expected$Max.p.val)), 5e-3)
-  expect_equal(cmp$Species1.neigh.overlap[idx], expected$Species1.neigh.overlap)
-  expect_equal(cmp$Species2.neigh.overlap[idx], expected$Species2.neigh.overlap)
+  expect_equal(cmp$species1.neigh.overlap[idx], expected$Species1.neigh.overlap)
+  expect_equal(cmp$species2.neigh.overlap[idx], expected$Species2.neigh.overlap)
 })
 
 test_that("make_fixture.R reproduces the committed fixture inputs", {

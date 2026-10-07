@@ -49,8 +49,8 @@ the rank-test counterpart of \code{rho0}.}
 A list with components:
 \describe{
 \item{results}{The complete rows of \code{comparison} with
-\code{Species1.p.emp} / \code{Species2.p.emp} (when \code{null_p} is given) and
-\code{Species1.q_value_con} / \code{Species2.q_value_con} added.}
+\code{species1.p.emp} / \code{species2.p.emp} (when \code{null_p} is given) and
+\code{species1.q_value_con} / \code{species2.q_value_con} added.}
 \item{summary}{The counts of \code{\link[=summarize_comparison]{summarize_comparison()}}, \code{pi0} per
 direction, \code{n_null} (null draws used per direction, 0 without
 \code{null_p}) and \code{n_dropped} (rows with an \code{NA} p-value).}
