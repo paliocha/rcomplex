@@ -67,6 +67,14 @@ test_that("specificity arguments are validated", {
   expect_error(spec_edges(f_bad), "not on the genes")
 })
 
+test_that("density_sweep at multiplier 1 equals find_coexpressologs", {
+  f <- make_spec_nets()
+  sw <- suppressMessages(density_sweep(f$networks, f$ortho,
+    multipliers = 1, method = "rank", null_networks = f$nulls
+  ))
+  expect_equal(sw$edges[[1]], spec_edges(f))
+})
+
 test_that("dense and sparse input give the same specificity edges", {
   f <- make_spec_nets()
   lo <- min(f$networks$species1$network[f$networks$species1$network > 0])

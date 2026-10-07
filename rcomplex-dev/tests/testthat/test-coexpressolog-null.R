@@ -465,8 +465,11 @@ test_that("the rewiring kernel validates the dgCMatrix slots it reads", {
   nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
   broken <- nets$B
   broken$network@i[which(broken$network@i > 0L)[1L]] <- 100000L
+  # the observed run now includes C and warns that its pairs fail
   expect_error(
-    coexpressolog_null(c(nets, list(C = broken)), d$ortho, seed = 1L),
+    suppressWarnings(
+      coexpressolog_null(c(nets, list(C = broken)), d$ortho, seed = 1L)
+    ),
     "row indices must be strictly"
   )
 })

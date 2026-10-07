@@ -858,7 +858,7 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   (default \code{seq(0.95, 1.05, by = 0.01)}).
 #' @param method Comparison method passed to
 #'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default),
-#'   \code{"hypergeometric"}.
+#'   \code{"hypergeometric"} or \code{"rank"}.
 #' @param n_cores Number of threads (default 1).
 #' @param use_torch Logical; GPU acceleration for permutation method
 #'   (default \code{FALSE}).
@@ -878,6 +878,9 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   calls a pair when either direction is significant.
 #' @param rho0 Passed to \code{\link{find_coexpressologs}}: reference
 #'   fold enrichment for the analytical \code{power} column.
+#' @param null_networks Passed to \code{\link{find_coexpressologs}}
+#'   (rank method only); every null's threshold is scaled by the
+#'   same multiplier as its species' network.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -904,11 +907,11 @@ density_sweep <- function(networks, ...) UseMethod("density_sweep")
 density_sweep.default <- function(
   networks, orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
-  method = c("permutation", "hypergeometric"),
+  method = c("permutation", "hypergeometric", "rank"),
   n_cores = 1L,
   use_torch = FALSE,
   pval_combine = c("max", "min"),
-  seed = NULL, rho0 = NULL, ...
+  seed = NULL, rho0 = NULL, null_networks = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
@@ -916,6 +919,7 @@ density_sweep.default <- function(
   method <- match.arg(method, eval(formals()$method))
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
+  .check_specificity_args(method, null_networks, rho0)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue
@@ -944,6 +948,8 @@ density_sweep.default <- function(
   if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
     stop("orthologs must have columns: gene1, gene2, hog")
   }
+  nulls <- .check_null_networks(null_networks, networks, names(networks))
+
   n_mult <- length(multipliers)
   res_eff_density <- numeric(n_mult)
   res_n_significant <- integer(n_mult)
@@ -966,6 +972,7 @@ density_sweep.default <- function(
       modifyList(net, list(threshold = net$threshold * m))
     }
     tight_nets <- lapply(networks, scale_thr)
+    tight_nulls <- if (!is.null(nulls)) lapply(nulls, lapply, scale_thr)
 
     densities <- vapply(tight_nets, function(net) {
       # .net_check() also fires the store guard: a multiplier below the
@@ -988,7 +995,8 @@ density_sweep.default <- function(
         tight_nets, orthologs,
         method = method, n_cores = n_cores,
         use_torch = use_torch,
-        pval_combine = pval_combine, rho0 = rho0
+        pval_combine = pval_combine, rho0 = rho0,
+        null_networks = tight_nulls
       ),
       error = function(e) {
         warning(

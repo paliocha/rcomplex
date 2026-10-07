@@ -27,7 +27,7 @@
          clique_threshold_sweep        coexpressolog_null           compute_network 
                               7                         5                         1 
                   density_sweep            detect_modules              find_cliques 
-                              9                         6                         4 
+                             10                         6                         4 
             find_coexpressologs         gene_clique_graph      get_coexpressed_hogs 
                              10                         4                         6 
            identify_module_hubs     module_correspondence       module_preservation 
