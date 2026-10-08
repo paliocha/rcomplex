@@ -79,6 +79,40 @@ cor_rfast <- function(x, method = "pearson") {
   t(mat / sqrt(Rfast::rowsums(mat^2)))
 }
 
+# Weakest correlation among the gene pairs at or above `thr` in `net`:
+# the minimum for sign = "positive", the maximum for "negative". With
+# `levels` (the kept partition levels) it is the rectified mean over the
+# levels, as compute_network() averages it, with the sign put back.
+# Correlations are recomputed for the passing pairs only, in chunks of
+# about 2^24 doubles, so dense and blockwise builds report the same value.
+.r_threshold <- function(x, net, thr, cor_method, sign, partition = NULL,
+                         levels = NULL) {
+  e <- .adj_edges(net, thr)
+  up <- e$rows < e$cols
+  i <- e$rows[up]
+  j <- e$cols[up]
+  if (length(i) == 0L) {
+    return(NA_real_)
+  }
+  s <- if (sign == "negative") -1 else 1
+  groups <- if (is.null(partition)) {
+    list(seq_len(ncol(x)))
+  } else {
+    lapply(levels, function(lv) which(partition == lv))
+  }
+  r <- 0
+  for (g in groups) {
+    zt <- .standardise_for_cor(x[, g, drop = FALSE], cor_method)
+    chunk <- max(1L, 2^24 %/% nrow(zt))
+    rg <- unlist(lapply(
+      split(seq_along(i), (seq_along(i) - 1L) %/% chunk),
+      function(k) colSums(zt[, i[k], drop = FALSE] * zt[, j[k], drop = FALSE])
+    ), use.names = FALSE)
+    r <- r + if (is.null(partition)) s * rg else pmax(s * rg, 0, na.rm = TRUE)
+  }
+  s * min(r / length(groups))
+}
+
 #' Compute co-expression network
 #'
 #' Calculates correlation, applies normalization (Mutual Rank or CLR),
@@ -161,7 +195,10 @@ cor_rfast <- function(x, method = "pearson") {
 #'     \item{n_removed}{Number of constant genes removed before computing
 #'       correlations.}
 #'     \item{params}{List of parameters used. It holds `partition` when
-#'       you give one.}
+#'       you give one. `r_threshold` is the weakest correlation of an edge:
+#'       the smallest for `sign = "positive"`, the largest for
+#'       `"negative"`. With `partition` it is the rectified mean over the
+#'       levels, negated for `"negative"`. It is `NA` when no pair passes.}
 #'     \item{store_density, store_threshold}{Sparse networks only: the
 #'       stored edge fraction and the value cutoff of the store. Analyses
 #'       at thresholds below `store_threshold` are refused (see
@@ -259,6 +296,7 @@ setMethod("compute_network", "matrix", function(
     if (!sparse) stop("block_size requires sparse = TRUE")
     if (norm_method != "MR") stop("block_size requires norm_method = \"MR\"")
   }
+  levels_kept <- NULL
   if (!is.null(partition)) {
     if (!is.null(block_size)) {
       stop("partition needs the dense build; set block_size = NULL")
@@ -345,13 +383,17 @@ setMethod("compute_network", "matrix", function(
         slots$start_fraction, slots$fraction, more
       ))
     }
+    network <- methods::new(
+      "dgCMatrix",
+      i = slots$i, p = slots$p, x = slots$x,
+      Dim = c(n_genes, n_genes),
+      Dimnames = list(gene_names, gene_names)
+    )
+    params$r_threshold <- .r_threshold(
+      x, network, slots$threshold, cor_method, sign
+    )
     return(list(
-      network = methods::new(
-        "dgCMatrix",
-        i = slots$i, p = slots$p, x = slots$x,
-        Dim = c(n_genes, n_genes),
-        Dimnames = list(gene_names, gene_names)
-      ),
+      network = network,
       threshold = slots$threshold,
       n_genes = n_genes,
       n_removed = n_removed,
@@ -405,7 +447,11 @@ setMethod("compute_network", "matrix", function(
   # Compute density threshold (always from the full dense matrix)
   thr <- density_threshold_cpp(net, density)
 
+  r_thr <- function(m) {
+    .r_threshold(x, m, thr, cor_method, sign, partition, levels_kept)
+  }
   if (!sparse) {
+    params$r_threshold <- r_thr(net)
     return(list(
       network = net,
       threshold = thr,
@@ -427,6 +473,7 @@ setMethod("compute_network", "matrix", function(
     Dim = c(n_genes, n_genes),
     Dimnames = list(gene_names, gene_names)
   )
+  params$r_threshold <- r_thr(spnet)
   list(
     network = spnet,
     threshold = thr,
