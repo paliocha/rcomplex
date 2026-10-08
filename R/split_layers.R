@@ -1,8 +1,9 @@
 #' Split expression into wiring and deployment layers
 #'
-#' One OLS projection of every gene on a per-sample block factor (time
-#' point, tree, zone): the fitted values are the block means, the
-#' residuals what is left once they are removed.
+#' The function fits each gene on a per-sample block factor, such as time
+#' point, tree or zone. The block means are the deployment layer, and the
+#' residuals are the wiring layer. Build the network from the wiring layer
+#' with [compute_network()].
 #'
 #' @details
 #' **What each layer is for.** The *wiring* layer (the residuals) holds
@@ -11,7 +12,7 @@
 #' it with [compute_network()]. The *deployment* layer (the block means)
 #' says where along the course a gene is expressed. `r2` is the share of
 #' each gene's sum of squares the block explains (the unadjusted
-#' variance fraction of Breschi et al. 2016).
+#' variance fraction; see the methods article).
 #'
 #' **Two facts not to miss.** The residuals of one gene sum to zero
 #' within each block, so within a block of size \eqn{n_b} they are
@@ -29,26 +30,6 @@
 #' above 0.5) survived in the wiring layer (leaf 0.78, root 0.71), and the
 #' deployment layer conserved weakly. Cluster the wiring layer and carry
 #' `r2` as a per-gene covariate.
-#'
-#' **No latent factors are removed, on purpose.** Only the designed block
-#' is projected out. Removing principal components or other estimated
-#' factors did not improve co-expression network accuracy over unadjusted
-#' data (Cote et al. 2022); principal-component removal lowers false
-#' positives without improving false negatives and is ill-advised when a
-#' designed axis exists (Parsana et al. 2019).
-#'
-#' @references
-#' Breschi A, Djebali S, Gillis J, et al. (2016). Gene-specific patterns
-#' of expression variation across organs and species. *Genome Biology*
-#' 17:151. \doi{10.1186/s13059-016-1008-y}
-#'
-#' Cote AC, Young HE, Huckins LM (2022). Comparison of confound
-#' adjustment methods in the construction of gene co-expression networks.
-#' *Genome Biology* 23:44. \doi{10.1186/s13059-022-02606-0}
-#'
-#' Parsana P, Ruberman C, Jaffe AE, et al. (2019). Addressing confounding
-#' artifacts in reconstruction of gene co-expression networks. *Genome
-#' Biology* 20:94. \doi{10.1186/s13059-019-1700-9}
 #'
 #' @param x Expression matrix (genes x samples) or a
 #'   `SummarizedExperiment`, whose first assay is used (the default of

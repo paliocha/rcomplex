@@ -14,9 +14,6 @@ preservation_paired(modules, ...)
   pairs,
   group = NULL,
   edges = NULL,
-  cliques = NULL,
-  alpha = 0.1,
-  z_conserved = 10,
   seed = NULL,
   ...
 )
@@ -29,22 +26,20 @@ preservation_paired(modules, ...)
 
 \item{networks}{Named list of \code{\link[=compute_network]{compute_network()}} results, keyed by species.}
 
-\item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, \code{hog}.}
+\item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, \code{hog}.}
 
-\item{pairs}{Data frame with columns \code{sp1}, \code{sp2} and optionally
+\item{pairs}{Data frame with columns \code{species1}, \code{species2} and optionally
 \code{pair_name}.}
 
-\item{group}{Optional named vector mapping species to a trait group. When
+\item{group}{Optional named vector mapping species to a clade. When
 supplied, a \code{group} column records \code{"conserved"} for preserved modules and
 the owning species' group for diverged ones. Modules reported
-\code{"untested"} are counted under \code{"untested"} rather than a trait group:
+\code{"untested"} are counted under \code{"untested"} rather than a clade:
 nothing was measured, so attributing them to one would overstate the
 evidence.}
 
-\item{edges, cliques}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} and \code{\link[=find_cliques]{find_cliques()}}
-results, used for paralog resolution.}
-
-\item{alpha, z_conserved}{Passed to \code{\link[=classify_preservation]{classify_preservation()}}.}
+\item{edges}{Optional \code{\link[=find_coexpressologs]{find_coexpressologs()}} results, used for paralog
+resolution.}
 
 \item{seed}{Integer seed for the whole run, or \code{NULL} (default) to draw
 from the ambient stream and leave it advanced. The seed is applied once
@@ -65,21 +60,19 @@ carrying \code{pair_name}, \code{module}, \code{species}, \code{reference}, \cod
 comparable across the rows of this table), \code{summary} (counts per
 contrast and direction) and \code{raw}
 (the \code{\link[=module_preservation]{module_preservation()}} results, keyed by \code{"<reference>.<test>"}).
-
-This table feeds \code{\link[=tag_permutation]{tag_permutation()}} directly: it selects the
-\code{"diverged"} rows and uses \code{reference} / \code{test} to pick each contrast's
-two sides.
 }
 \description{
-Applies \code{\link[=module_preservation]{module_preservation()}} to each contrast in \code{pairs}. Preservation is
-directional -- whether species A's modules survive in B is a different
-question from the reverse -- so both directions are run and reported
-separately.
+Applies \code{\link[=module_preservation]{module_preservation()}} to each contrast in \code{pairs}. Runs both
+directions and reports them separately.
+}
+\details{
+Preservation is directional. Whether the modules of species A survive
+in B differs from the reverse.
 }
 \examples{
 \dontrun{
 res <- preservation_paired(mods, nets, ortho,
-  pairs = data.frame(sp1 = "BDIS", sp2 = "BSYL"),
+  pairs = data.frame(species1 = "BDIS", species2 = "BSYL"),
   group = c(BDIS = "annual", BSYL = "perennial")
 )
 res$summary

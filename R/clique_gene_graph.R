@@ -84,9 +84,10 @@
 #' Empty result template for [gene_clique_graph()]
 #'
 #' @param has_effect Whether an `effect_size` column is carried.
+#' @param has_score Whether a `score` column is carried.
 #' @return A zero-row data frame with the full column set.
 #' @noRd
-.gcg_empty <- function(has_effect) {
+.gcg_empty <- function(has_effect, has_score) {
   out <- data.frame(
     clique_id = character(0), hog = character(0),
     species = character(0), gene = character(0),
@@ -95,6 +96,7 @@
     stringsAsFactors = FALSE
   )
   if (has_effect) out$mean_effect_size <- numeric(0)
+  if (has_score) out$score <- numeric(0)
   out
 }
 
@@ -125,14 +127,13 @@
 
 #' Maximal cliques of the per-orthogroup gene graph
 #'
-#' Builds, for each ortholog group, an undirected graph whose nodes are
-#' (species, gene) pairs and whose edges are the co-expressolog calls in
-#' `edges`, then enumerates every maximal clique of at least `min_size`
-#' nodes. This is the computation used by Netotea-style clique workflows
-#' and it differs from \code{\link{find_cliques}}, which cliques the
-#' \emph{species} graph and returns a single best gene assignment per
-#' species clique: here every paralog combination that forms a clique is
-#' reported separately.
+#' Builds one graph per hog from the co-expressolog calls in `edges`.
+#' Nodes are (species, gene) pairs. Lists every maximal clique of at least
+#' `min_size` nodes, one per paralog combination.
+#'
+#' [find_cliques()] cliques the species graph instead and returns a single
+#' best gene assignment per species clique. This function is the
+#' computation used by Netotea-style clique workflows.
 #'
 #' Because co-expressolog edges are always cross-species, no two genes of
 #' the same species can be adjacent, so a clique carries at most one gene
@@ -144,60 +145,42 @@
 #' within-species edge between two distinct paralogs is kept, and shows
 #' up as `n_species < n_members`.
 #'
+#' The clique `score` adds the edge scores. Log-odds add, so the sum is
+#' the log-likelihood ratio of the conserved subnetwork (NetworkBLAST),
+#' and it grows with clique size on purpose.
+#'
 #' @section Duplicate rows:
 #' Two rows describing the same undirected pair within one HOG collapse
 #' to the more significant of the two, broken on `effect_size`
 #' descending when the q-values tie -- q-values saturate at the
 #' permutation floor, so a tie there must not be settled by input row
 #' order. This is a duplicate-row collapse, not a direction combine:
-#' \code{\link{find_coexpressologs}} already merges the two comparison
+#' [find_coexpressologs()] already merges the two comparison
 #' directions with `pval_combine` (default `"max"`, the reciprocal
 #' criterion) and emits one row per pair. A caller who row-binds the two
 #' directional tables instead gets `"min"` semantics here, so combine
 #' upstream if the reciprocal criterion is wanted.
 #'
 #' @param edges Data frame of co-expressolog calls, as returned by
-#'   \code{\link{find_coexpressologs}}: columns `gene1`, `gene2`,
-#'   `species1`, `species2`, `hog` and `q.value`. An `effect_size`
-#'   column is used when present.
+#'   [find_coexpressologs()]: columns `gene1`, `gene2`,
+#'   `species1`, `species2`, `hog` and `q_value`. The `effect_size`
+#'   and `score` columns are used when present.
 #' @param min_size Minimum number of nodes in a reported clique
 #'   (default 3, matching the published workflow).
-#' @param alpha_graph Edges with `q.value < alpha_graph` build the
+#' @param alpha_graph Edges with `q_value < alpha_graph` build the
 #'   graph. Use the calling threshold (e.g. 0.1) for complete cliques,
 #'   a permissive value (0.9) for partially-significant cliques, and a
 #'   value **above** 1 (`Inf`) for an unfiltered graph. The comparison
-#'   is strict, so `alpha_graph = 1` drops every edge whose `q.value` is
+#'   is strict, so `alpha_graph = 1` drops every edge whose `q_value` is
 #'   exactly 1 -- not a corner case, since BH q-values cap at 1 and 20 of
 #'   511 module q-values sit there on the package's own worked
 #'   example. Passing several thresholds and combining
 #'   the results is the intended way to feed
-#'   \code{\link{classify_gene_cliques}}, since a clique that is maximal
+#'   [classify_gene_cliques()], since a clique that is maximal
 #'   at one threshold need not be maximal at another.
 #' @param id_prefix String prepended to every `clique_id`. Clique ids
 #'   are `<prefix><hog>_<k>`, so runs at different `alpha_graph` values
 #'   need distinct prefixes before they can be row-bound.
-#' @param max_genes_per_sp Maximum genes per species per ortholog group
-#'   (default 10), the same cap as \code{\link{find_cliques}}. Every
-#'   paralog combination is a clique of its own, so a group with `c`
-#'   copies in each of `S` species has up to `c^S` maximal cliques in a
-#'   near-complete graph: one 219-gene group ran for hours at 22 GB
-#'   uncapped. Within each group, a species with more genes than the cap
-#'   keeps the ones with the most edges in the group's graph (after the
-#'   `alpha_graph` filter and the duplicate-row collapse), ties going to
-#'   the gene that entered the graph first, and the rest are dropped
-#'   with every edge they carry. Results change only for groups above
-#'   the cap; one message per call reports how many groups and genes
-#'   were affected. `Inf` or `NULL` disables the cap.
-#'
-#' @section rcomplex container:
-#' The `.rcomplex` method builds the graph from `x$edges`, which in the
-#' container workflow is usually the permutation table
-#' ([find_coexpressologs()] with `method = "permutation"`). Its
-#' Besag-Clifford q-values top out well below 1 (0.4 on the package's own
-#' worked example), so a permissive `alpha_graph` set to relax against
-#' that ceiling can end up with nothing to relax against. The `.rcomplex`
-#' method warns when `alpha_graph` exceeds the largest `q.value` in
-#' `x$edges`.
 #'
 #' @return A data frame with one row per clique member:
 #'   \describe{
@@ -213,6 +196,8 @@
 #'       `effect_size`. Prefer it over `mean_q` for ranking: q-values
 #'       saturate at the permutation floor and cannot separate cliques
 #'       once they get there}
+#'     \item{score}{Present only when `edges` carries `score`. The sum
+#'       of the clique edges' `score`, in bits}
 #'     \item{mean_q_floor, n_cliques_at_q_floor}{Smallest clique
 #'       `mean_q` in the run and how many cliques are tied there. A
 #'       large tie count means `mean_q` cannot rank those cliques at
@@ -227,12 +212,12 @@
 #'   gene1 = c("a1", "a1", "b1"), gene2 = c("b1", "c1", "c1"),
 #'   species1 = c("SP_A", "SP_A", "SP_B"),
 #'   species2 = c("SP_B", "SP_C", "SP_C"),
-#'   hog = "HOG1", q.value = c(0.01, 0.02, 0.03)
+#'   hog = "HOG1", q_value = c(0.01, 0.02, 0.03)
 #' )
 #' gene_clique_graph(edges)
 #'
-#' @seealso \code{\link{classify_gene_cliques}},
-#'   \code{\link{find_cliques}}
+#' @seealso [classify_gene_cliques()],
+#'   [find_cliques()]
 #' @references
 #' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
 #' Comparative regulomics of wood formation across dicot and
@@ -246,12 +231,11 @@ gene_clique_graph <- function(edges, ...) UseMethod("gene_clique_graph")
 #' @export
 gene_clique_graph.default <- function(edges, min_size = 3L,
                                       alpha_graph = 0.1,
-                                      id_prefix = "",
-                                      max_genes_per_sp = 10L, ...) {
+                                      id_prefix = "", ...) {
   rlang::check_dots_empty()
   required <- c(
     "gene1", "gene2", "species1", "species2", "hog",
-    "q.value"
+    "q_value"
   )
   absent <- setdiff(required, names(edges))
   if (length(absent) > 0L) {
@@ -272,33 +256,28 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (!is.character(id_prefix) || length(id_prefix) != 1L) {
     stop("id_prefix must be a single string")
   }
-  if (is.null(max_genes_per_sp)) max_genes_per_sp <- Inf
-  ok_cap <- is.numeric(max_genes_per_sp) &&
-    length(max_genes_per_sp) == 1L && !is.na(max_genes_per_sp) &&
-    max_genes_per_sp >= 1
-  if (!ok_cap) {
-    stop("max_genes_per_sp must be a single number >= 1, or Inf")
-  }
   .gcg_check_ids(edges)
 
   has_effect <- "effect_size" %in% names(edges)
-  keep <- !is.na(edges$q.value) & edges$q.value < alpha_graph
+  has_score <- "score" %in% names(edges)
+  keep <- !is.na(edges$q_value) & edges$q_value < alpha_graph
   edges <- edges[keep, , drop = FALSE]
   if (nrow(edges) == 0L) {
     return(.gcg_graph_attrs(
-      .gcg_empty(has_effect), alpha_graph, min_size,
+      .gcg_empty(has_effect, has_score), alpha_graph, min_size,
       NA_real_, NA_real_, 0L
     ))
   }
 
   key1 <- paste(edges$species1, edges$gene1, sep = .gcg_sep)
   key2 <- paste(edges$species2, edges$gene2, sep = .gcg_sep)
-  qv <- as.numeric(edges$q.value)
+  qv <- as.numeric(edges$q_value)
   ev <- if (has_effect) {
     as.numeric(edges$effect_size)
   } else {
     rep(NA_real_, nrow(edges))
   }
+  sv <- if (has_score) as.numeric(edges$score) else rep(NA_real_, nrow(edges))
   hog_chr <- as.character(edges$hog)
 
   by_hog <- split(seq_len(nrow(edges)), hog_chr)
@@ -312,6 +291,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   mq_v <- numeric(0)
   xq_v <- numeric(0)
   me_v <- numeric(0)
+  sc_v <- numeric(0)
   j <- 0L
   n_capped <- 0L
   n_dropped <- 0L
@@ -352,6 +332,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     i2 <- i2[sel]
     eq <- qv[idx][sel]
     ee <- ev[idx][sel]
+    es <- sv[idx][sel]
 
     # Paralog copy cap, as in find_cliques(): every paralog combination
     # is its own clique, so c copies per species in a near-complete
@@ -360,24 +341,23 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     # edges that enter the graph; order() is stable, so ties keep the
     # gene that entered the graph first. Dropped genes stay as isolated
     # vertices, which max_cliques(min >= 2) never reports.
-    if (is.finite(max_genes_per_sp)) {
-      deg <- tabulate(c(i1, i2), nbins = length(nodes))
-      keep_node <- rep(TRUE, length(nodes))
-      sp_n <- table(node_sp)
-      for (s in names(sp_n)[sp_n > max_genes_per_sp]) {
-        v <- which(node_sp == s)
-        top <- v[order(-deg[v])[seq_len(max_genes_per_sp)]]
-        keep_node[setdiff(v, top)] <- FALSE
-      }
-      if (!all(keep_node)) {
-        n_capped <- n_capped + 1L
-        n_dropped <- n_dropped + sum(!keep_node)
-        ke <- keep_node[i1] & keep_node[i2]
-        i1 <- i1[ke]
-        i2 <- i2[ke]
-        eq <- eq[ke]
-        ee <- ee[ke]
-      }
+    deg <- tabulate(c(i1, i2), nbins = length(nodes))
+    keep_node <- rep(TRUE, length(nodes))
+    sp_n <- table(node_sp)
+    for (s in names(sp_n)[sp_n > 10L]) {
+      v <- which(node_sp == s)
+      top <- v[order(-deg[v])[seq_len(10L)]]
+      keep_node[setdiff(v, top)] <- FALSE
+    }
+    if (!all(keep_node)) {
+      n_capped <- n_capped + 1L
+      n_dropped <- n_dropped + sum(!keep_node)
+      ke <- keep_node[i1] & keep_node[i2]
+      i1 <- i1[ke]
+      i2 <- i2[ke]
+      eq <- eq[ke]
+      ee <- ee[ke]
+      es <- es[ke]
     }
 
     g <- igraph::make_graph(as.vector(rbind(i1, i2)),
@@ -402,20 +382,21 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       mq_v[j] <- mean(eq[hit])
       xq_v[j] <- max(eq[hit])
       me_v[j] <- if (has_effect) mean(ee[hit]) else NA_real_
+      sc_v[j] <- sum(es[hit])
     }
   }
 
   if (n_capped > 0L) {
     message(
       "gene_clique_graph: ", n_capped, " ortholog groups exceeded ",
-      "max_genes_per_sp = ", max_genes_per_sp, " in some species; ",
+      "10 genes in some species; ",
       n_dropped, " genes dropped"
     )
   }
 
   if (j == 0L) {
     return(.gcg_graph_attrs(
-      .gcg_empty(has_effect), alpha_graph, min_size,
+      .gcg_empty(has_effect, has_score), alpha_graph, min_size,
       min(qv), NA_real_, 0L
     ))
   }
@@ -435,6 +416,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (has_effect) {
     out$mean_effect_size <- rep(me_v, times = nm_v)
   }
+  if (has_score) out$score <- rep(sc_v, times = nm_v)
   # Tie counts go through the tolerant comparison for the same reason
   # pvalue_resolution() does: mean_q is a mean over a different edge
   # subset per clique, so two mathematically equal values need not be
@@ -477,23 +459,23 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (length(rows) == 0L) {
     return("absent")
   }
-  sp1 <- edges$species1[rows]
-  sp2 <- edges$species2[rows]
-  if (!any(sp1 == s) && !any(sp2 == s)) {
+  species1 <- edges$species1[rows]
+  species2 <- edges$species2[rows]
+  if (!any(species1 == s) && !any(species2 == s)) {
     return("absent")
   }
   k1 <- key1[rows]
   k2 <- key2[rows]
   # A row tests the species against the clique only when the species
   # sits on one side and a clique member on the other.
-  hit1 <- sp1 == s & k2 %in% mk
-  hit2 <- sp2 == s & k1 %in% mk
+  hit1 <- species1 == s & k2 %in% mk
+  hit2 <- species2 == s & k1 %in% mk
   if (!any(hit1) && !any(hit2)) {
     return("untested")
   }
   cand <- c(k1[hit1], k2[hit2])
   partner <- c(k2[hit1], k1[hit2])
-  qs <- c(edges$q.value[rows][hit1], edges$q.value[rows][hit2])
+  qs <- c(edges$q_value[rows][hit1], edges$q_value[rows][hit2])
   sig <- !is.na(qs) & qs < alpha_call
   if (any(sig)) {
     # A candidate significant against every member would enlarge the
@@ -533,24 +515,33 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 
 #' Classify gene-graph cliques into conservation tiers
 #'
-#' Applies the published five-tier taxonomy of Rodriguez et al. (2026),
-#' plus a `trait_specific` tier, to the cliques returned by
-#' \code{\link{gene_clique_graph}}. Every threshold is derived from
-#' the number of species actually supplied, so nothing is tied to the
-#' six species and fifteen species-pairs of the original workflow.
+#' Applies the five-tier taxonomy of Rodriguez et al. (2026), plus a
+#' `trait_specific` tier, to the cliques from [gene_clique_graph()].
+#' Every threshold follows from the number of species supplied.
+#'
+#' No threshold is tied to the six species and fifteen species-pairs of
+#' the original workflow.
+#'
+#' The home clade of a clique is the smallest clade that holds all its
+#' species. With no such clade, the home is the whole species set. The
+#' child clades of the home are the largest clades inside it. A species
+#' of the home in no child clade forms its own child clade. The
+#' `lineage_specific`, `trait_specific` and `differentiated` tiers, and
+#' the within and cross counts, read the home and its child clades. So
+#' a clique can be specific to, or differentiated inside, a nested clade.
 #'
 #' With `S = length(species)` species, `P = choose(S, 2)` species-pairs,
-#' lineage sizes `n_l`, `W = sum(choose(n_l, 2))` within-lineage pairs
-#' and `X = P - W` cross-lineage pairs, the tiers are:
+#' top-level clade sizes `n_l`, `W = sum(choose(n_l, 2))` within-clade
+#' pairs and `X = P - W` cross-clade pairs, the tiers are:
 #' \describe{
 #'   \item{complete_conserved}{All `S` species present and all
 #'     `choose(S, 2)` pairs significant at `alpha_call`.}
-#'   \item{lineage_specific}{A complete clique over one entire lineage,
+#'   \item{lineage_specific}{A complete clique over one entire clade,
 #'     with no species outside it testable against the clique. A species
 #'     that *was* compared against every member and came back
 #'     non-significant is evidence of a boundary rather than a gap, so
 #'     it blocks this tier: that clique is `trait_specific`, or with both
-#'     lineages conserved within a candidate for `differentiated` on the
+#'     clades conserved within a candidate for `differentiated` on the
 #'     cliques of the unfiltered graph.}
 #'   \item{partial_significant}{All `S` species present, every clique
 #'     edge below `alpha_graph`, and at least `choose(S - 1, 2) + 1`
@@ -559,33 +550,36 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     `1 <= g <= max_gap`, all `choose(S - g, 2)` pairs significant,
 #'     and every absent species an annotation gap or `underpowered`
 #'     rather than a rejected test.}
-#'   \item{differentiated}{All `S` species present, every pair tested,
-#'     at least one lineage of two or more species, every such lineage
-#'     fully significant within itself, and at most `cross_max`
-#'     cross-lineage pairs significant.}
-#'   \item{trait_specific}{A complete clique over one entire lineage, at
+#'   \item{differentiated}{Every species of the home present, every pair
+#'     tested, at least one child clade of two or more species, every
+#'     such child clade fully significant within itself, and at most
+#'     `choose(H - 1, 2) - W_H` cross-clade pairs significant. Here `H`
+#'     is the home size and `W_H` its within-child pairs. The child
+#'     clades are disjoint, so a nested pair is never `differentiated`.
+#'     With the whole species set as home, the bound is `cross_max`.}
+#'   \item{trait_specific}{A complete clique over one entire clade, at
 #'     least one outside species compared against every member and
 #'     rejected at adequate power (`tested_ns`), no outside species
-#'     `underpowered`, and no complete clique of another lineage in the
-#'     same HOG. Where `lineage_specific` reads the other lineage's
+#'     `underpowered`, and no complete clique of a disjoint clade in the
+#'     same HOG. Where `lineage_specific` reads the other clade's
 #'     absence as a gap, this reads its presence and rejection as a
-#'     boundary: one trait group conserved, the other present but not
-#'     co-conserved. Two lineages each conserved within and rejected
+#'     boundary: one clade conserved, the other present but not
+#'     co-conserved. Two clades each conserved within and rejected
 #'     across is `differentiated`, scored on the unfiltered graph's
-#'     clique, and their one-lineage cliques stay `unclassified`. This
+#'     clique, and their one-clade cliques stay `unclassified`. This
 #'     tier is rcomplex's addition to the published five.}
 #'   \item{underpowered}{A clique that would be `lineage_specific`,
 #'     `trait_specific` or `differentiated` but for tests that could not
 #'     have succeeded, read from a `power` column in `edges` (see
-#'     \code{\link{comparison_to_edges}}). It takes the place of the
+#'     \code{comparison_to_edges()}). It takes the place of the
 #'     two specificity tiers when at least one outside species is
 #'     `underpowered` -- reading that species as conserved would extend
 #'     the clique, so neither call survives -- and of
 #'     `differentiated` when `n_sig_cross + n_underpowered_cross`
-#'     exceeds `cross_max`: a specificity or divergence call must survive
+#'     exceeds its bound: a specificity or divergence call must survive
 #'     treating every underpowered pair as possibly significant. A
 #'     low-degree gene cannot reach the call whatever its conservation,
-#'     so without this its missing edges read as a lineage boundary.}
+#'     so without this its missing edges read as a clade boundary.}
 #' }
 #' The waterfall is evaluated in that order, `underpowered` at the
 #' position of the tier it replaces, and the first match wins.
@@ -597,11 +591,11 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' with `S - 2` removals every member still keeps a significant edge.
 #'
 #' `differentiated` demands that every member pair actually has a row in
-#' `edges`. Without that, a clique whose cross-lineage pairs were never
+#' `edges`. Without that, a clique whose cross-clade pairs were never
 #' tested would be scored as diverged on absent evidence -- the same
 #' conflation `partial_present` refuses through `missing_reason`.
 #'
-#' @param cliques Data frame from \code{\link{gene_clique_graph}}, or
+#' @param cliques Data frame from [gene_clique_graph()], or
 #'   any table with `clique_id`, `hog`, `species` and `gene` columns.
 #'   Combine runs at several `alpha_graph` values (with distinct
 #'   `id_prefix`) to expose every tier: a clique complete at
@@ -611,28 +605,25 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   [gene_clique_graph()] run a distinct `id_prefix` rather than
 #'   relying on it.
 #' @param edges The full, unfiltered co-expressolog table. It must not
-#'   be pre-filtered on `q.value`: the gap tier needs to see rows that
+#'   be pre-filtered on `q_value`: the gap tier needs to see rows that
 #'   were tested and failed in order to refuse them. An optional `power`
-#'   column (from \code{\link{comparison_to_edges}}) enables the
+#'   column (from \code{comparison_to_edges()}) enables the
 #'   `underpowered` tier; without it, or where it is `NA`, the
 #'   classification is unchanged.
 #' @param species Character vector of every species in the analysis.
 #'   Every species appearing in `cliques` must be listed; a stranger
 #'   would be counted into the clique's species total while also being
 #'   reported as missing.
-#' @param lineage Optional named vector mapping each species to a
-#'   lineage. Required for `lineage_specific` and `differentiated`;
-#'   when `NULL` those two tiers are skipped.
+#' @param clades Optional named list of species vectors, one per clade.
+#'   Clades may nest but must not cross. A species in no clade forms its
+#'   own clade. A flat vector `x` of species to clade is
+#'   `split(names(x), x)`. Required for `lineage_specific`,
+#'   `trait_specific` and `differentiated`. When `NULL`, these tiers are
+#'   skipped.
 #' @param alpha_call Significance threshold for calling a species pair
 #'   conserved (default 0.1).
 #' @param alpha_graph Loose threshold defining the `partial_significant`
 #'   graph (default 0.9).
-#' @param max_gap Largest number of absent species tolerated by
-#'   `partial_present` (default 1).
-#' @param cross_max Maximum number of significant cross-lineage pairs
-#'   allowed by `differentiated`. Defaults to `choose(S - 1, 2) - W`,
-#'   the generalisation of the published cut; the original six-species
-#'   script used a looser hard-coded 6.
 #' @param min_power Detection power below which a non-significant pair
 #'   is read as uninformative rather than as evidence against
 #'   conservation (default 0.8). Only used when `edges` has `power`. For
@@ -641,15 +632,6 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   construction (0 when a direction of the species pair has no call under
 #'   `pval_combine = "max"`, or neither has under `"min"`), and it
 #'   overstates detection.
-#'
-#' @section rcomplex container:
-#' The `.rcomplex` method calls with `edges = x$edges`, which in the
-#' container workflow is usually the permutation table
-#' ([find_coexpressologs()] with `method = "permutation"`). Its
-#' Besag-Clifford q-values top out well below 1 (0.4 on the package's own
-#' worked example), so the default `alpha_graph = 0.9` has nothing to
-#' relax against there. The `.rcomplex` method warns when `alpha_graph`
-#' exceeds the largest `q.value` in `x$edges`.
 #'
 #' @return A data frame with one row per clique:
 #'   \describe{
@@ -661,11 +643,15 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     \item{n_members, n_species}{Clique size}
 #'     \item{n_pairs, n_present, n_sig}{Member pairs, pairs with a row
 #'       in `edges`, and pairs significant at `alpha_call`}
-#'     \item{n_sig_within, n_sig_cross}{Significant pairs within and
-#'       across lineages (`NA` without `lineage`)}
-#'     \item{n_underpowered_cross}{Cross-lineage pairs present in
+#'     \item{n_sig_within, n_sig_cross}{Significant pairs within one
+#'       child clade of the clique's home, and across two (`NA` without
+#'       `clades`)}
+#'     \item{n_underpowered_cross}{Cross-clade pairs present in
 #'       `edges`, not significant, and with `power` below `min_power`
-#'       (`NA` without `lineage`)}
+#'       (`NA` without `clades`)}
+#'     \item{clade}{Name of the smallest clade that holds every species
+#'       of the clique. `NA` when no clade holds them all, or without
+#'       `clades`.}
 #'     \item{n_missing, missing_species, missing_reason}{Species not in
 #'       the clique, and why: `absent` (no row in the HOG),
 #'       `untested` (in the HOG but never compared to a member),
@@ -692,12 +678,12 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   gene1 = c("a1", "a1", "b1"), gene2 = c("b1", "c1", "c1"),
 #'   species1 = c("SP_A", "SP_A", "SP_B"),
 #'   species2 = c("SP_B", "SP_C", "SP_C"),
-#'   hog = "HOG1", q.value = c(0.01, 0.02, 0.03)
+#'   hog = "HOG1", q_value = c(0.01, 0.02, 0.03)
 #' )
 #' cl <- gene_clique_graph(edges)
 #' classify_gene_cliques(cl, edges, c("SP_A", "SP_B", "SP_C"))
 #'
-#' @seealso \code{\link{gene_clique_graph}}
+#' @seealso [gene_clique_graph()]
 #' @references
 #' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
 #' Comparative regulomics of wood formation across dicot and
@@ -712,9 +698,8 @@ classify_gene_cliques <- function(cliques, ...) {
 #' @rdname classify_gene_cliques
 #' @export
 classify_gene_cliques.default <- function(cliques, edges, species,
-                                          lineage = NULL, alpha_call = 0.1,
-                                          alpha_graph = 0.9, max_gap = 1L,
-                                          cross_max = NULL,
+                                          clades = NULL, alpha_call = 0.1,
+                                          alpha_graph = 0.9,
                                           min_power = 0.8, ...) {
   rlang::check_dots_empty()
   need_cl <- c("clique_id", "hog", "species", "gene")
@@ -727,7 +712,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   }
   need_ed <- c(
     "gene1", "gene2", "species1", "species2", "hog",
-    "q.value"
+    "q_value"
   )
   absent <- setdiff(need_ed, names(edges))
   if (length(absent) > 0L) {
@@ -766,55 +751,35 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       paste(stray, collapse = ", ")
     )
   }
-  max_gap <- as.integer(max_gap)
-  if (length(max_gap) != 1L || is.na(max_gap) || max_gap < 0L) {
-    stop("max_gap must be a single non-negative integer")
-  }
+  max_gap <- 1L
   .gcg_check_ids(edges)
 
   n_sp <- length(species)
   n_pair <- choose(n_sp, 2)
 
   lin <- NULL
-  if (!is.null(lineage)) {
-    if (is.null(names(lineage))) {
-      stop("lineage must be a named vector (names are species)")
-    }
-    miss <- setdiff(species, names(lineage))
-    if (length(miss) > 0L) {
-      stop(
-        "lineage missing entries for: ",
-        paste(miss, collapse = ", ")
-      )
-    }
-    lin <- stats::setNames(as.character(lineage[species]), species)
-    # An NA lineage passes the presence check above (the species is a
-    # name in `lineage`, just with a missing value) but table(lin) drops
-    # NA entries silently, so a clique containing that species would be
-    # scored against undercounted lin_sizes / w_pairs / x_pairs instead of
-    # failing loudly.
-    if (anyNA(lin)) {
-      stop(
-        "lineage has missing values for: ",
-        paste(species[is.na(lin)], collapse = ", ")
-      )
-    }
+  parts <- NULL
+  if (!is.null(clades)) {
+    clades <- .check_clades(clades, species)
+    lin <- .clade_groups(clades, species)
+    # Child clades of every clade, and of the whole species set first.
+    parts <- lapply(c(list(species), clades), function(h) {
+      inner <- vapply(clades, function(v) {
+        length(v) < length(h) && all(v %in% h)
+      }, logical(1))
+      .clade_groups(clades[inner], h)
+    })
+    names(parts) <- c("", names(clades))
   }
   lin_sizes <- if (is.null(lin)) integer(0) else table(lin)
   w_pairs <- if (is.null(lin)) NA_real_ else sum(choose(lin_sizes, 2))
   x_pairs <- if (is.null(lin)) NA_real_ else n_pair - w_pairs
-  if (is.null(cross_max)) {
-    cross_max <- if (is.null(lin)) {
-      NA_real_
-    } else {
-      max(0, choose(n_sp - 1L, 2) - w_pairs)
-    }
+  # choose(S - 1, 2) - W, the generalisation of the published cut; the
+  # original six-species script used a looser hard-coded 6
+  cross_max <- if (is.null(lin)) {
+    NA_real_
   } else {
-    ok_cross <- is.numeric(cross_max) && length(cross_max) == 1L &&
-      !is.na(cross_max) && cross_max >= 0
-    if (!ok_cross) {
-      stop("cross_max must be a single non-negative number")
-    }
+    max(0, choose(n_sp - 1L, 2) - w_pairs)
   }
 
   has_effect <- "effect_size" %in% names(edges)
@@ -844,10 +809,10 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   } else {
     rep(NA_real_, nrow(edges))
   }
-  ord <- order(pkey, edges$q.value, -ev_all, na.last = TRUE)
+  ord <- order(pkey, edges$q_value, -ev_all, na.last = TRUE)
   uniq <- ord[!duplicated(pkey[ord])]
   lut_key <- pkey[uniq]
-  lut_q <- as.numeric(edges$q.value[uniq])
+  lut_q <- as.numeric(edges$q_value[uniq])
   lut_e <- ev_all[uniq]
   pw_all <- if ("power" %in% names(edges)) {
     as.numeric(edges$power)
@@ -893,9 +858,9 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     .gcg_classify_one(
       rr = cl_by_id[[i]], cmb = cmb_l[[i]], hit = hit,
       cl_hog = cl_hog, cl_sp = cl_sp, mk_all = mk_all, edges = edges,
-      species = species, lin = lin, lin_sizes = lin_sizes,
+      species = species, parts = parts, clades = clades,
       alpha_call = alpha_call, alpha_graph = alpha_graph,
-      max_gap = max_gap, cross_max = cross_max, n_sp = n_sp,
+      max_gap = max_gap, n_sp = n_sp,
       lut_q = lut_q, lut_e = lut_e, ekey1 = ekey1, ekey2 = ekey2,
       rows_by_hog = rows_by_hog, lut_p = lut_p, power = pw_all,
       min_power = min_power
@@ -909,6 +874,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     clique_id = ids,
     hog = pick("hog", character(1)),
     classification = pick("cls", character(1)),
+    clade = pick("home", character(1)),
     n_members = pick("m", integer(1)),
     n_species = pick("m_sp", integer(1)),
     n_pairs = pick("n_pairs", integer(1)),
@@ -926,7 +892,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   )
   if (has_effect) out$mean_effect_size <- pick("mean_e", numeric(1))
 
-  # A trait-specific call needs the other lineage to have no complete
+  # A trait-specific call needs no disjoint clade to have a complete
   # clique of its own in the HOG: two lineages each conserved within and
   # rejected across is `differentiated`, scored on the unfiltered graph's
   # clique, and their one-lineage cliques stay unclassified.
@@ -937,7 +903,10 @@ classify_gene_cliques.default <- function(cliques, edges, species,
       has_core <- !is.na(core_lin)
       cores <- split(core_lin[has_core], out$hog[has_core])
       other <- vapply(ts, function(i) {
-        any(cores[[out$hog[i]]] != core_lin[i])
+        mine <- clades[[core_lin[i]]]
+        any(vapply(cores[[out$hog[i]]], function(k) {
+          !any(clades[[k]] %in% mine)
+        }, logical(1)))
       }, logical(1))
       out$classification[ts[other]] <- "unclassified"
     }
@@ -992,7 +961,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 .gcg_empty_class <- function(has_effect) {
   out <- data.frame(
     clique_id = character(0), hog = character(0),
-    classification = character(0), n_members = integer(0),
+    classification = character(0), clade = character(0),
+    n_members = integer(0),
     n_species = integer(0), n_pairs = integer(0),
     n_present = integer(0), n_sig = integer(0),
     n_sig_within = integer(0), n_sig_cross = integer(0),
@@ -1016,9 +986,9 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #' @return A named list of scalars, one per output column.
 #' @noRd
 .gcg_classify_one <- function(rr, cmb, hit, cl_hog, cl_sp, mk_all,
-                              edges, species, lin, lin_sizes,
+                              edges, species, parts, clades,
                               alpha_call, alpha_graph, max_gap,
-                              cross_max, n_sp, lut_q, lut_e, ekey1,
+                              n_sp, lut_q, lut_e, ekey1,
                               ekey2, rows_by_hog, lut_p, power,
                               min_power) {
   hog <- cl_hog[rr[1L]]
@@ -1030,12 +1000,21 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   qp <- lut_q[hit]
   ep <- lut_e[hit]
   pp <- lut_p[hit]
+  home <- if (is.null(clades)) NA_character_ else .clade_home(clades, msp)
+  # The clique is scored against the child clades of its home clade, or
+  # against the top-level clades when no clade holds it.
+  lin <- if (is.null(parts)) NULL else parts[[if (is.na(home)) 1L else home]]
+  if (!is.null(lin)) {
+    lin_sizes <- table(lin)
+    cross_max <- max(0, choose(length(lin) - 1L, 2) -
+                       sum(choose(lin_sizes, 2)))
+  }
   if (m >= 2L && !is.null(lin)) {
     l1 <- lin[msp[cmb[1L, ]]]
     l2 <- lin[msp[cmb[2L, ]]]
     within <- unname(l1 == l2)
-    # A within-lineage pair is labelled by its (single) lineage;
-    # cross-lineage pairs carry no label.
+    # A within pair is labelled by its (single) child clade; cross
+    # pairs carry no label.
     pair_lin <- ifelse(within, unname(l1), NA_character_)
   } else {
     within <- rep(NA, length(qp))
@@ -1102,16 +1081,11 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   # A one-member "clique" has choose(1, 2) == 0 pairs, which every tier
   # count would vacuously satisfy; it carries no conserved edge at all.
   if (m_sp == m && m_sp >= 2L) {
-    lin_m <- if (is.null(lin)) NULL else unique(lin[msp])
-    n_l <- if (is.null(lin) || length(lin_m) != 1L) {
-      NA_integer_
-    } else {
-      as.integer(lin_sizes[[lin_m]])
-    }
+    n_l <- if (is.na(home)) NA_integer_ else length(clades[[home]])
     diff_ok <- FALSE
     # n_present == n_pairs: an untested cross-lineage pair is absent
     # evidence, not evidence of divergence.
-    if (!is.null(lin) && m_sp == n_sp && n_present == n_pairs) {
+    if (!is.null(lin) && m_sp == length(lin) && n_present == n_pairs) {
       big <- names(lin_sizes)[lin_sizes >= 2L]
       full <- vapply(big, function(g) {
         sum(sig & !is.na(pair_lin) & pair_lin == g) ==
@@ -1125,7 +1099,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     gap <- n_sp - m_sp
     is_complete <- m_sp == n_sp && n_sig == choose(n_sp, 2)
     lin_core <- !is.na(n_l) && m_sp == n_l && n_sig == choose(n_l, 2)
-    if (lin_core) core_lin <- lin_m
+    if (lin_core) core_lin <- home
     is_lineage <- lin_core && gap_only
     # choose(S - 1, 2) + 1 == choose(S, 2) - (S - 2): the tolerance is
     # S - 2 non-significant edges, the largest that cannot isolate a
@@ -1165,6 +1139,6 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     missing_species = paste(gone, collapse = ","),
     missing_reason = paste(reason, collapse = ","),
     mean_q = mean_q, max_q = max_q, mean_e = mean_e,
-    core_lin = core_lin
+    core_lin = core_lin, home = home
   )
 }

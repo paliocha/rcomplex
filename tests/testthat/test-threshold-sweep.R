@@ -35,7 +35,7 @@ make_sweep_setup <- function() {
 
   # 1:1 orthologs
   orthologs <- data.frame(
-    Species1 = ga, Species2 = gb,
+    gene1 = ga, gene2 = gb,
     hog = paste0("HOG", seq_len(n)),
     stringsAsFactors = FALSE
   )

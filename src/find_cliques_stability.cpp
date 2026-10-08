@@ -25,7 +25,7 @@ using namespace Rcpp;
 
 //' Leave-k-out jackknife structural stability for cliques
 //'
-//' @param edge_hog,edge_g1,edge_g2,edge_sp1,edge_sp2 0-based edge vectors
+//' @param edge_hog,edge_g1,edge_g2,edge_species1,edge_species2 0-based edge vectors
 //' @param edge_qval,edge_eff per-edge q-value and effect size
 //' @param n_all_species total species in the analysis universe
 //' @param n_hogs,n_genes total HOGs and genes
@@ -39,7 +39,7 @@ using namespace Rcpp;
 // [[Rcpp::export]]
 Rcpp::List find_cliques_stability_cpp(
     IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2,
-    IntegerVector edge_sp1, IntegerVector edge_sp2,
+    IntegerVector edge_species1, IntegerVector edge_species2,
     NumericVector edge_qval, NumericVector edge_eff,
     int n_all_species, int n_hogs, int n_genes,
     IntegerVector is_target,
@@ -74,8 +74,8 @@ Rcpp::List find_cliques_stability_cpp(
     const int* hog_ptr  = edge_hog.begin();
     const int* g1_ptr   = edge_g1.begin();
     const int* g2_ptr   = edge_g2.begin();
-    const int* sp1_ptr  = edge_sp1.begin();
-    const int* sp2_ptr  = edge_sp2.begin();
+    const int* sp1_ptr  = edge_species1.begin();
+    const int* sp2_ptr  = edge_species2.begin();
     const double* qval_ptr = edge_qval.begin();
     const double* eff_ptr  = edge_eff.begin();
 

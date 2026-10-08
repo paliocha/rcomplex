@@ -1,30 +1,30 @@
 test_that("summarize_comparison returns correct structure", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:10),
-    Species2 = paste0("B_", 1:10),
+    gene1 = paste0("A_", 1:10),
+    gene2 = paste0("B_", 1:10),
     hog = rep(1:5, each = 2),
-    Species1.neigh = rep(10, 10),
-    Species1.ortho.neigh = rep(5, 10),
-    Species1.neigh.overlap = c(3, 0, 2, 4, 1, 3, 2, 0, 1, 5),
-    Species1.p.val.con = c(
+    species1.neigh = rep(10, 10),
+    species1.ortho.neigh = rep(5, 10),
+    species1.neigh.overlap = c(3, 0, 2, 4, 1, 3, 2, 0, 1, 5),
+    species1.p_value_con = c(
       0.001, 1, 0.01, 0.0001, 0.5, 0.005, 0.05, 1, 0.3, 0.0001
     ),
-    Species1.p.val.div = c(
+    species1.p_value_div = c(
       0.99, 0.01, 0.9, 0.999, 0.5, 0.99, 0.9, 0.01, 0.7, 0.999
     ),
-    Species1.effect.size = c(5, 1, 3, 8, 1, 4, 2, 1, 1.5, 10),
-    Species2.neigh = rep(8, 10),
-    Species2.ortho.neigh = rep(4, 10),
-    Species2.neigh.overlap = c(2, 0, 1, 3, 0, 2, 1, 0, 1, 4),
-    Species2.p.val.con = c(0.01, 1, 0.1, 0.001, 1, 0.01, 0.1, 1, 0.5, 0.0001),
-    Species2.p.val.div = c(
+    species1.effect_size = c(5, 1, 3, 8, 1, 4, 2, 1, 1.5, 10),
+    species2.neigh = rep(8, 10),
+    species2.ortho.neigh = rep(4, 10),
+    species2.neigh.overlap = c(2, 0, 1, 3, 0, 2, 1, 0, 1, 4),
+    species2.p_value_con = c(0.01, 1, 0.1, 0.001, 1, 0.01, 0.1, 1, 0.5, 0.0001),
+    species2.p_value_div = c(
       0.9, 0.01, 0.8, 0.99, 0.01, 0.9, 0.8, 0.01, 0.5, 0.999
     ),
-    Species2.effect.size = c(4, 1, 2, 6, 1, 3, 1.5, 1, 1, 8),
+    species2.effect_size = c(4, 1, 2, 6, 1, 3, 1.5, 1, 1, 8),
     stringsAsFactors = FALSE
   )
 
-  result <- summarize_comparison(comparison, pi0_method = "storey")
+  result <- rcomplex:::summarize_comparison(comparison, pi0_method = "storey")
 
   expect_type(result, "list")
   expect_named(result, c("results", "summary"))
@@ -35,28 +35,28 @@ test_that("summarize_comparison returns correct structure", {
 
 test_that("zero-overlap rows are filtered by default", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:5),
-    Species2 = paste0("B_", 1:5),
+    gene1 = paste0("A_", 1:5),
+    gene2 = paste0("B_", 1:5),
     hog = 1:5,
-    Species1.neigh = rep(10, 5),
-    Species1.ortho.neigh = rep(5, 5),
-    Species1.neigh.overlap = c(3, 0, 2, 0, 1),
-    Species1.p.val.con = c(0.001, 1, 0.01, 1, 0.5),
-    Species1.p.val.div = c(0.99, 0.01, 0.9, 0.01, 0.5),
-    Species1.effect.size = c(5, 1, 3, 1, 2),
-    Species2.neigh = rep(8, 5),
-    Species2.ortho.neigh = rep(4, 5),
-    Species2.neigh.overlap = c(2, 0, 1, 0, 1),
-    Species2.p.val.con = c(0.01, 1, 0.1, 1, 0.5),
-    Species2.p.val.div = c(0.9, 0.01, 0.8, 0.01, 0.5),
-    Species2.effect.size = c(4, 1, 2, 1, 1),
+    species1.neigh = rep(10, 5),
+    species1.ortho.neigh = rep(5, 5),
+    species1.neigh.overlap = c(3, 0, 2, 0, 1),
+    species1.p_value_con = c(0.001, 1, 0.01, 1, 0.5),
+    species1.p_value_div = c(0.99, 0.01, 0.9, 0.01, 0.5),
+    species1.effect_size = c(5, 1, 3, 1, 2),
+    species2.neigh = rep(8, 5),
+    species2.ortho.neigh = rep(4, 5),
+    species2.neigh.overlap = c(2, 0, 1, 0, 1),
+    species2.p_value_con = c(0.01, 1, 0.1, 1, 0.5),
+    species2.p_value_div = c(0.9, 0.01, 0.8, 0.01, 0.5),
+    species2.effect_size = c(4, 1, 2, 1, 1),
     stringsAsFactors = FALSE
   )
 
-  result <- summarize_comparison(comparison, pi0_method = "storey")
+  result <- rcomplex:::summarize_comparison(comparison, pi0_method = "storey")
   expect_equal(nrow(result$results), 3) # rows 2 and 4 filtered
 
-  result_no_filter <- summarize_comparison(comparison,
+  result_no_filter <- rcomplex:::summarize_comparison(comparison,
     pi0_method = "storey",
     filter_zero = FALSE
   )
@@ -65,68 +65,68 @@ test_that("zero-overlap rows are filtered by default", {
 
 test_that("q-values are computed", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:5),
-    Species2 = paste0("B_", 1:5),
+    gene1 = paste0("A_", 1:5),
+    gene2 = paste0("B_", 1:5),
     hog = 1:5,
-    Species1.neigh = rep(10, 5),
-    Species1.ortho.neigh = rep(5, 5),
-    Species1.neigh.overlap = rep(2, 5),
-    Species1.p.val.con = c(0.001, 0.01, 0.02, 0.03, 0.04),
-    Species1.p.val.div = c(0.9, 0.8, 0.7, 0.6, 0.5),
-    Species1.effect.size = rep(3, 5),
-    Species2.neigh = rep(8, 5),
-    Species2.ortho.neigh = rep(4, 5),
-    Species2.neigh.overlap = rep(2, 5),
-    Species2.p.val.con = c(0.002, 0.02, 0.03, 0.04, 0.05),
-    Species2.p.val.div = c(0.9, 0.8, 0.7, 0.6, 0.5),
-    Species2.effect.size = rep(2, 5),
+    species1.neigh = rep(10, 5),
+    species1.ortho.neigh = rep(5, 5),
+    species1.neigh.overlap = rep(2, 5),
+    species1.p_value_con = c(0.001, 0.01, 0.02, 0.03, 0.04),
+    species1.p_value_div = c(0.9, 0.8, 0.7, 0.6, 0.5),
+    species1.effect_size = rep(3, 5),
+    species2.neigh = rep(8, 5),
+    species2.ortho.neigh = rep(4, 5),
+    species2.neigh.overlap = rep(2, 5),
+    species2.p_value_con = c(0.002, 0.02, 0.03, 0.04, 0.05),
+    species2.p_value_div = c(0.9, 0.8, 0.7, 0.6, 0.5),
+    species2.effect_size = rep(2, 5),
     stringsAsFactors = FALSE
   )
 
-  result <- summarize_comparison(comparison, pi0_method = "storey")
+  result <- rcomplex:::summarize_comparison(comparison, pi0_method = "storey")
 
   # q-value columns should exist
-  expect_true("Species1.q.val.con" %in% names(result$results))
-  expect_true("Species2.q.val.con" %in% names(result$results))
+  expect_true("species1.q_value_con" %in% names(result$results))
+  expect_true("species2.q_value_con" %in% names(result$results))
 
   # q-values should be >= raw p-values
-  expect_true(all(result$results$Species1.q.val.con >=
-                    result$results$Species1.p.val.con))
-  expect_true(all(result$results$Species2.q.val.con >=
-                    result$results$Species2.p.val.con))
+  expect_true(all(result$results$species1.q_value_con >=
+                    result$results$species1.p_value_con))
+  expect_true(all(result$results$species2.q_value_con >=
+                    result$results$species2.p_value_con))
 
   # Raw p-values should be unchanged
   expect_equal(
-    result$results$Species1.p.val.con,
+    result$results$species1.p_value_con,
     c(0.001, 0.01, 0.02, 0.03, 0.04)
   )
   expect_equal(
-    result$results$Species2.p.val.con,
+    result$results$species2.p_value_con,
     c(0.002, 0.02, 0.03, 0.04, 0.05)
   )
 })
 
 test_that("summary counts are correct", {
   comparison <- data.frame(
-    Species1 = c("A_1", "A_1", "A_2"),
-    Species2 = c("B_1", "B_2", "B_2"),
+    gene1 = c("A_1", "A_1", "A_2"),
+    gene2 = c("B_1", "B_2", "B_2"),
     hog = c(1, 1, 2),
-    Species1.neigh = rep(10, 3),
-    Species1.ortho.neigh = rep(5, 3),
-    Species1.neigh.overlap = rep(5, 3),
-    Species1.p.val.con = c(0.001, 0.5, 0.001),
-    Species1.p.val.div = c(0.99, 0.5, 0.99),
-    Species1.effect.size = c(5, 1, 5),
-    Species2.neigh = rep(8, 3),
-    Species2.ortho.neigh = rep(4, 3),
-    Species2.neigh.overlap = rep(4, 3),
-    Species2.p.val.con = c(0.001, 0.5, 0.001),
-    Species2.p.val.div = c(0.99, 0.5, 0.99),
-    Species2.effect.size = c(4, 1, 4),
+    species1.neigh = rep(10, 3),
+    species1.ortho.neigh = rep(5, 3),
+    species1.neigh.overlap = rep(5, 3),
+    species1.p_value_con = c(0.001, 0.5, 0.001),
+    species1.p_value_div = c(0.99, 0.5, 0.99),
+    species1.effect_size = c(5, 1, 5),
+    species2.neigh = rep(8, 3),
+    species2.ortho.neigh = rep(4, 3),
+    species2.neigh.overlap = rep(4, 3),
+    species2.p_value_con = c(0.001, 0.5, 0.001),
+    species2.p_value_div = c(0.99, 0.5, 0.99),
+    species2.effect_size = c(4, 1, 4),
     stringsAsFactors = FALSE
   )
 
-  result <- summarize_comparison(
+  result <- rcomplex:::summarize_comparison(
     comparison, pi0_method = "storey", alpha = 0.05
   )
 
@@ -136,51 +136,51 @@ test_that("summary counts are correct", {
 
 test_that("empty comparison handled gracefully", {
   comparison <- data.frame(
-    Species1 = character(0),
-    Species2 = character(0),
+    gene1 = character(0),
+    gene2 = character(0),
     hog = integer(0),
-    Species1.neigh = integer(0),
-    Species1.ortho.neigh = integer(0),
-    Species1.neigh.overlap = integer(0),
-    Species1.p.val.con = numeric(0),
-    Species1.p.val.div = numeric(0),
-    Species1.effect.size = numeric(0),
-    Species2.neigh = integer(0),
-    Species2.ortho.neigh = integer(0),
-    Species2.neigh.overlap = integer(0),
-    Species2.p.val.con = numeric(0),
-    Species2.p.val.div = numeric(0),
-    Species2.effect.size = numeric(0),
+    species1.neigh = integer(0),
+    species1.ortho.neigh = integer(0),
+    species1.neigh.overlap = integer(0),
+    species1.p_value_con = numeric(0),
+    species1.p_value_div = numeric(0),
+    species1.effect_size = numeric(0),
+    species2.neigh = integer(0),
+    species2.ortho.neigh = integer(0),
+    species2.neigh.overlap = integer(0),
+    species2.p_value_con = numeric(0),
+    species2.p_value_div = numeric(0),
+    species2.effect_size = numeric(0),
     stringsAsFactors = FALSE
   )
 
-  result <- summarize_comparison(comparison, pi0_method = "storey")
+  result <- rcomplex:::summarize_comparison(comparison, pi0_method = "storey")
   expect_equal(nrow(result$results), 0)
   expect_equal(result$summary$gene_pairs$total, 0L)
 })
 
 test_that("alternative='less' uses divergence p-values", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:5),
-    Species2 = paste0("B_", 1:5),
+    gene1 = paste0("A_", 1:5),
+    gene2 = paste0("B_", 1:5),
     hog = 1:5,
-    Species1.neigh = rep(10, 5),
-    Species1.ortho.neigh = rep(5, 5),
-    Species1.neigh.overlap = c(0, 0, 0, 3, 5),
-    Species1.p.val.con = c(1, 1, 1, 0.01, 0.001),
-    Species1.p.val.div = c(0.001, 0.01, 0.02, 0.9, 0.99),
-    Species1.effect.size = c(0, 0, 0, 3, 5),
-    Species2.neigh = rep(8, 5),
-    Species2.ortho.neigh = rep(4, 5),
-    Species2.neigh.overlap = c(0, 0, 0, 2, 4),
-    Species2.p.val.con = c(1, 1, 1, 0.01, 0.001),
-    Species2.p.val.div = c(0.001, 0.01, 0.02, 0.9, 0.99),
-    Species2.effect.size = c(0, 0, 0, 3, 5),
+    species1.neigh = rep(10, 5),
+    species1.ortho.neigh = rep(5, 5),
+    species1.neigh.overlap = c(0, 0, 0, 3, 5),
+    species1.p_value_con = c(1, 1, 1, 0.01, 0.001),
+    species1.p_value_div = c(0.001, 0.01, 0.02, 0.9, 0.99),
+    species1.effect_size = c(0, 0, 0, 3, 5),
+    species2.neigh = rep(8, 5),
+    species2.ortho.neigh = rep(4, 5),
+    species2.neigh.overlap = c(0, 0, 0, 2, 4),
+    species2.p_value_con = c(1, 1, 1, 0.01, 0.001),
+    species2.p_value_div = c(0.001, 0.01, 0.02, 0.9, 0.99),
+    species2.effect_size = c(0, 0, 0, 3, 5),
     stringsAsFactors = FALSE
   )
 
-  # With alternative="less", should use .p.val.div for thresholding
-  result <- summarize_comparison(comparison,
+  # With alternative="less", should use .p_value_div for thresholding
+  result <- rcomplex:::summarize_comparison(comparison,
     pi0_method = "storey",
     alternative = "less", alpha = 0.05
   )
@@ -189,44 +189,44 @@ test_that("alternative='less' uses divergence p-values", {
   expect_equal(nrow(result$results), 5)
 
   # q-value columns for divergence should exist
-  expect_true("Species1.q.val.div" %in% names(result$results))
-  expect_true("Species2.q.val.div" %in% names(result$results))
+  expect_true("species1.q_value_div" %in% names(result$results))
+  expect_true("species2.q_value_div" %in% names(result$results))
 
   # Divergence q-values for first three rows should be significant
-  expect_true(result$results$Species1.q.val.div[1] < 0.05)
-  expect_true(result$results$Species1.q.val.div[2] < 0.05)
+  expect_true(result$results$species1.q_value_div[1] < 0.05)
+  expect_true(result$results$species1.q_value_div[2] < 0.05)
   # Rows 4 and 5 have high div p-values, should not be significant
-  expect_true(result$results$Species1.q.val.div[4] > 0.05)
+  expect_true(result$results$species1.q_value_div[4] > 0.05)
 })
 
 test_that("alternative='less' disables zero-overlap filtering by default", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:3),
-    Species2 = paste0("B_", 1:3),
+    gene1 = paste0("A_", 1:3),
+    gene2 = paste0("B_", 1:3),
     hog = 1:3,
-    Species1.neigh = rep(10, 3),
-    Species1.ortho.neigh = rep(5, 3),
-    Species1.neigh.overlap = c(0, 0, 2),
-    Species1.p.val.con = c(1, 1, 0.01),
-    Species1.p.val.div = c(0.001, 0.01, 0.9),
-    Species1.effect.size = c(0, 0, 3),
-    Species2.neigh = rep(8, 3),
-    Species2.ortho.neigh = rep(4, 3),
-    Species2.neigh.overlap = c(0, 0, 1),
-    Species2.p.val.con = c(1, 1, 0.01),
-    Species2.p.val.div = c(0.001, 0.01, 0.9),
-    Species2.effect.size = c(0, 0, 2),
+    species1.neigh = rep(10, 3),
+    species1.ortho.neigh = rep(5, 3),
+    species1.neigh.overlap = c(0, 0, 2),
+    species1.p_value_con = c(1, 1, 0.01),
+    species1.p_value_div = c(0.001, 0.01, 0.9),
+    species1.effect_size = c(0, 0, 3),
+    species2.neigh = rep(8, 3),
+    species2.ortho.neigh = rep(4, 3),
+    species2.neigh.overlap = c(0, 0, 1),
+    species2.p_value_con = c(1, 1, 0.01),
+    species2.p_value_div = c(0.001, 0.01, 0.9),
+    species2.effect_size = c(0, 0, 2),
     stringsAsFactors = FALSE
   )
 
   # Zero-overlap rows are kept for divergence (the strongest signal)
-  result <- summarize_comparison(
+  result <- rcomplex:::summarize_comparison(
     comparison, pi0_method = "storey", alternative = "less"
   )
   expect_equal(nrow(result$results), 3)
 
   # But can be overridden
-  result_filtered <- summarize_comparison(comparison,
+  result_filtered <- rcomplex:::summarize_comparison(comparison,
     pi0_method = "storey",
     alternative = "less",
     filter_zero = TRUE
@@ -235,93 +235,93 @@ test_that("alternative='less' disables zero-overlap filtering by default", {
 })
 
 
-test_that("summarize_comparison with sp1/sp2 returns $edges", {
+test_that("summarize_comparison with species1/species2 returns $edges", {
   comparison <- data.frame(
-    Species1 = paste0("A_", 1:10),
-    Species2 = paste0("B_", 1:10),
+    gene1 = paste0("A_", 1:10),
+    gene2 = paste0("B_", 1:10),
     hog = rep(1:5, each = 2),
-    Species1.neigh.overlap = c(5, 3, 0, 4, 2, 1, 6, 0, 3, 4),
-    Species2.neigh.overlap = c(4, 2, 0, 3, 1, 2, 5, 0, 4, 3),
-    Species1.p.val.con = c(
+    species1.neigh.overlap = c(5, 3, 0, 4, 2, 1, 6, 0, 3, 4),
+    species2.neigh.overlap = c(4, 2, 0, 3, 1, 2, 5, 0, 4, 3),
+    species1.p_value_con = c(
       0.001, 0.05, 0.9, 0.01, 0.1, 0.2, 0.001, 0.8, 0.03, 0.01
     ),
-    Species2.p.val.con = c(
+    species2.p_value_con = c(
       0.002, 0.06, 0.8, 0.02, 0.15, 0.25, 0.002, 0.7, 0.04, 0.02
     ),
-    Species1.p.val.div = rep(0.99, 10),
-    Species2.p.val.div = rep(0.99, 10),
-    Species1.effect.size = c(3.0, 1.5, 1.0, 2.5, 1.2, 1.1, 3.5, 1.0, 2.0, 2.5),
-    Species2.effect.size = c(2.5, 1.3, 1.0, 2.0, 1.1, 1.2, 3.0, 1.0, 2.5, 2.0)
+    species1.p_value_div = rep(0.99, 10),
+    species2.p_value_div = rep(0.99, 10),
+    species1.effect_size = c(3.0, 1.5, 1.0, 2.5, 1.2, 1.1, 3.5, 1.0, 2.0, 2.5),
+    species2.effect_size = c(2.5, 1.3, 1.0, 2.0, 1.1, 1.2, 3.0, 1.0, 2.5, 2.0)
   )
 
-  # Without sp1/sp2: no $edges
-  result1 <- summarize_comparison(comparison, pi0_method = "storey")
+  # Without species1/species2: no $edges
+  result1 <- rcomplex:::summarize_comparison(comparison, pi0_method = "storey")
   expect_null(result1$edges)
 
-  # With sp1/sp2: has $edges
-  result2 <- summarize_comparison(comparison,
+  # With species1/species2: has $edges
+  result2 <- rcomplex:::summarize_comparison(comparison,
     pi0_method = "storey",
-    sp1 = "SP_A", sp2 = "SP_B"
+    species1 = "SP_A", species2 = "SP_B"
   )
   expect_true(!is.null(result2$edges))
   expect_true(is.data.frame(result2$edges))
   expect_true(all(c(
     "gene1", "gene2", "species1", "species2",
-    "hog", "q.value", "effect_size", "type"
+    "hog", "q_value", "effect_size", "type"
   ) %in%
     names(result2$edges)))
   expect_true(all(result2$edges$species1 == "SP_A"))
   expect_true(all(result2$edges$species2 == "SP_B"))
 
   # $edges should match calling comparison_to_edges separately
-  separate <- comparison_to_edges(result2$results, "SP_A", "SP_B")
+  separate <- rcomplex:::comparison_to_edges(result2$results, "SP_A", "SP_B")
   expect_equal(result2$edges, separate)
 })
 
 
-test_that("summarize_comparison errors when only one of sp1/sp2 provided", {
+test_that("summarize_comparison errors when only one species is provided", {
   comparison <- data.frame(
-    Species1 = "A_1", Species2 = "B_1", hog = 1,
-    Species1.neigh.overlap = 5, Species2.neigh.overlap = 4,
-    Species1.p.val.con = 0.01, Species2.p.val.con = 0.02,
-    Species1.p.val.div = 0.99, Species2.p.val.div = 0.99,
-    Species1.effect.size = 3.0, Species2.effect.size = 2.5
+    gene1 = "A_1", gene2 = "B_1", hog = 1,
+    species1.neigh.overlap = 5, species2.neigh.overlap = 4,
+    species1.p_value_con = 0.01, species2.p_value_con = 0.02,
+    species1.p_value_div = 0.99, species2.p_value_div = 0.99,
+    species1.effect_size = 3.0, species2.effect_size = 2.5
   )
 
   expect_error(
-    summarize_comparison(comparison, sp1 = "SP_A"),
-    "Both sp1 and sp2"
+    rcomplex:::summarize_comparison(comparison, species1 = "SP_A"),
+    "give both or neither"
   )
   expect_error(
-    summarize_comparison(comparison, sp2 = "SP_B"),
-    "Both sp1 and sp2"
+    rcomplex:::summarize_comparison(comparison, species2 = "SP_B"),
+    "give both or neither"
   )
 })
 
 
 test_that(
-  "summarize_comparison with sp1/sp2 returns empty $edges on zero rows",
+  "summarize_comparison with both species returns empty $edges on zero rows",
   {
     # All zero overlap -> filtered out with default filter_zero=TRUE
     comparison <- data.frame(
-      Species1 = c("A_1", "A_2"), Species2 = c("B_1", "B_2"),
+      gene1 = c("A_1", "A_2"), gene2 = c("B_1", "B_2"),
       hog = c(1, 2),
-      Species1.neigh.overlap = c(0, 0), Species2.neigh.overlap = c(0, 0),
-      Species1.p.val.con = c(1, 1), Species2.p.val.con = c(1, 1),
-      Species1.p.val.div = c(0.5, 0.5), Species2.p.val.div = c(0.5, 0.5),
-      Species1.effect.size = c(1, 1), Species2.effect.size = c(1, 1)
+      species1.neigh.overlap = c(0, 0), species2.neigh.overlap = c(0, 0),
+      species1.p_value_con = c(1, 1), species2.p_value_con = c(1, 1),
+      species1.p_value_div = c(0.5, 0.5), species2.p_value_div = c(0.5, 0.5),
+      species1.effect_size = c(1, 1), species2.effect_size = c(1, 1)
     )
 
-    result <- summarize_comparison(comparison,
+    result <- rcomplex:::summarize_comparison(comparison,
       pi0_method = "storey",
-      sp1 = "SP_A", sp2 = "SP_B"
+      species1 = "SP_A", species2 = "SP_B"
     )
     expect_equal(nrow(result$results), 0)
     expect_true(!is.null(result$edges))
     expect_equal(nrow(result$edges), 0)
     expect_true(all(c(
       "gene1", "gene2", "species1", "species2",
-      "hog", "q.value", "effect_size", "type"
+      "hog", "q_value", "effect_size", "type"
     ) %in%
       names(result$edges)))
   }
@@ -334,36 +334,36 @@ test_that(
   "summarize_comparison default estimates pi0 from randomized p-values",
   {
     td <- make_graded_nets()
-    cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+    cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
 
     set.seed(5)
-    s <- summarize_comparison(cmp)
-    expect_named(s$summary$pi0, c("sp1", "sp2"))
+    s <- rcomplex:::summarize_comparison(cmp)
+    expect_named(s$summary$pi0, c("species1", "species2"))
     expect_true(all(s$summary$pi0 > 0 & s$summary$pi0 <= 1))
 
     # q-values are the exact p-values' BH values scaled by the recorded pi0
     r <- s$results
     expect_equal(
-      r$Species1.q.val.con,
-      s$summary$pi0[["sp1"]] * p.adjust(r$Species1.p.val.con, "BH")
+      r$species1.q_value_con,
+      s$summary$pi0[["species1"]] * p.adjust(r$species1.p_value_con, "BH")
     )
     expect_equal(
-      r$Species2.q.val.con,
-      s$summary$pi0[["sp2"]] * p.adjust(r$Species2.p.val.con, "BH")
+      r$species2.q_value_con,
+      s$summary$pi0[["species2"]] * p.adjust(r$species2.p_value_con, "BH")
     )
 
     # reproducible under set.seed()
     set.seed(5)
-    expect_identical(summarize_comparison(cmp), s)
+    expect_identical(rcomplex:::summarize_comparison(cmp), s)
 
     # divergence direction uses the lower tail: (div - eq) + U * eq
     set.seed(6)
-    d <- summarize_comparison(cmp, alternative = "less")
-    expect_named(d$summary$pi0, c("sp1", "sp2"))
+    d <- rcomplex:::summarize_comparison(cmp, alternative = "less")
+    expect_named(d$summary$pi0, c("species1", "species2"))
     expect_equal(
-      d$results$Species1.q.val.div,
-      d$summary$pi0[["sp1"]] *
-        p.adjust(d$results$Species1.p.val.div, "BH")
+      d$results$species1.q_value_div,
+      d$summary$pi0[["species1"]] *
+        p.adjust(d$results$species1.p_value_div, "BH")
     )
   }
 )
@@ -371,48 +371,48 @@ test_that(
 
 test_that("pi0_method = 'none' and 'storey' behave as documented", {
   td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
 
-  none <- summarize_comparison(cmp, pi0_method = "none")
+  none <- rcomplex:::summarize_comparison(cmp, pi0_method = "none")
   expect_equal(unname(none$summary$pi0), c(1, 1))
   expect_equal(
-    none$results$Species1.q.val.con,
-    p.adjust(none$results$Species1.p.val.con, "BH")
+    none$results$species1.q_value_con,
+    p.adjust(none$results$species1.p_value_con, "BH")
   )
   expect_equal(
-    none$results$Species2.q.val.con,
-    p.adjust(none$results$Species2.p.val.con, "BH")
+    none$results$species2.q_value_con,
+    p.adjust(none$results$species2.p_value_con, "BH")
   )
 
-  st <- summarize_comparison(cmp, pi0_method = "storey")
-  ref <- compute_qvalues(st$results$Species1.p.val.con, pi0_method = "storey")
-  expect_equal(st$results$Species1.q.val.con, ref$qvalues)
-  expect_equal(st$summary$pi0[["sp1"]], ref$pi0)
+  st <- rcomplex:::summarize_comparison(cmp, pi0_method = "storey")
+  ref <- compute_qvalues(st$results$species1.p_value_con, pi0_method = "storey")
+  expect_equal(st$results$species1.q_value_con, ref$qvalues)
+  expect_equal(st$summary$pi0[["species1"]], ref$pi0)
   # storey / none do not touch the RNG
   set.seed(8)
   u1 <- runif(1)
   set.seed(8)
-  invisible(summarize_comparison(cmp, pi0_method = "storey"))
+  invisible(rcomplex:::summarize_comparison(cmp, pi0_method = "storey"))
   expect_identical(runif(1), u1)
 })
 
 
-test_that("randomized pi0 requires the p.val.gt / p.val.eq columns", {
+test_that("randomized pi0 requires the p_value_gt / p_value_eq columns", {
   td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
-  old <- cmp[, !grepl("p\\.val\\.(gt|eq)$", names(cmp))]
-  expect_error(summarize_comparison(old), "p\\.val\\.gt")
-  expect_silent(summarize_comparison(old, pi0_method = "storey"))
-  expect_silent(summarize_comparison(old, pi0_method = "none"))
+  cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
+  old <- cmp[, !grepl("p_value_(gt|eq)$", names(cmp))]
+  expect_error(rcomplex:::summarize_comparison(old), "p_value_gt")
+  expect_silent(rcomplex:::summarize_comparison(old, pi0_method = "storey"))
+  expect_silent(rcomplex:::summarize_comparison(old, pi0_method = "none"))
 })
 
 
 test_that("empty result records undefined pi0", {
   td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
-  s <- summarize_comparison(cmp[0, ])
+  cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
+  s <- rcomplex:::summarize_comparison(cmp[0, ])
   expect_equal(nrow(s$results), 0L)
-  expect_named(s$summary$pi0, c("sp1", "sp2"))
+  expect_named(s$summary$pi0, c("species1", "species2"))
   expect_true(all(is.na(s$summary$pi0)))
 })
 
@@ -425,45 +425,45 @@ test_that("empty result records undefined pi0", {
 
 test_that("summarize_comparison(seed = ) pins the randomized-p q-values", {
   td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
 
   # Guard against a vacuous test: the draw has to actually move pi0 on
   # this fixture, or "different seeds differ" would prove nothing. It
   # does -- pi0 spans about 0.73 to 0.89 over seeds 1:6.
   pi0s <- vapply(1:6, function(s) {
-    summarize_comparison(cmp, seed = s)$summary$pi0[["sp1"]]
+    rcomplex:::summarize_comparison(cmp, seed = s)$summary$pi0[["species1"]]
   }, numeric(1))
   expect_gt(diff(range(pi0s)), 0.05)
 
   # same seed, two calls, identical q-values
-  a <- summarize_comparison(cmp, seed = 99)
-  expect_identical(summarize_comparison(cmp, seed = 99), a)
+  a <- rcomplex:::summarize_comparison(cmp, seed = 99)
+  expect_identical(rcomplex:::summarize_comparison(cmp, seed = 99), a)
 
   # a different seed moves pi0, and the q-values with it
-  b <- summarize_comparison(cmp, seed = 100)
+  b <- rcomplex:::summarize_comparison(cmp, seed = 100)
   expect_false(identical(a$summary$pi0, b$summary$pi0))
   expect_false(identical(
-    a$results$Species1.q.val.con, b$results$Species1.q.val.con
+    a$results$species1.q_value_con, b$results$species1.q_value_con
   ))
 
   # seed = NULL reproduces the old behaviour exactly: seeding the
   # session first and seeding the call give the same answer.
   set.seed(99)
-  expect_identical(summarize_comparison(cmp), a)
+  expect_identical(rcomplex:::summarize_comparison(cmp), a)
 })
 
 
 test_that("a seed does not change the pi0-free methods' answers", {
   td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
   # storey and none draw nothing, so a seed can only pin the stream
   expect_identical(
-    summarize_comparison(cmp, pi0_method = "storey", seed = 3),
-    summarize_comparison(cmp, pi0_method = "storey")
+    rcomplex:::summarize_comparison(cmp, pi0_method = "storey", seed = 3),
+    rcomplex:::summarize_comparison(cmp, pi0_method = "storey")
   )
   expect_identical(
-    summarize_comparison(cmp, pi0_method = "none", seed = 3),
-    summarize_comparison(cmp, pi0_method = "none")
+    rcomplex:::summarize_comparison(cmp, pi0_method = "none", seed = 3),
+    rcomplex:::summarize_comparison(cmp, pi0_method = "none")
   )
 })
 
@@ -475,7 +475,7 @@ test_that("a seeded call restores the caller's stream", {
   # B rounds of pi0est() happened to leave things -- or from a position
   # this function's seed decided.
   td <- make_graded_nets()
-  cmp <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  cmp <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
 
   restored <- function(f) {
     set.seed(7)
@@ -483,15 +483,17 @@ test_that("a seeded call restores the caller's stream", {
     f()
     identical(before, get(".Random.seed", envir = globalenv()))
   }
-  expect_true(restored(function() summarize_comparison(cmp, seed = 42)))
   expect_true(restored(function() {
-    summarize_comparison(cmp, pi0_method = "storey", seed = 42)
+    rcomplex:::summarize_comparison(cmp, seed = 42)
+  }))
+  expect_true(restored(function() {
+    rcomplex:::summarize_comparison(cmp, pi0_method = "storey", seed = 42)
   }))
 
   # seed = NULL must still advance the stream, or two unseeded calls in
   # one session would silently share a pi0 draw.
   set.seed(7)
   before <- get(".Random.seed", envir = globalenv())
-  invisible(summarize_comparison(cmp))
+  invisible(rcomplex:::summarize_comparison(cmp))
   expect_false(identical(before, get(".Random.seed", envir = globalenv())))
 })

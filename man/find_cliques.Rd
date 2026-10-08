@@ -11,9 +11,6 @@ find_cliques(edges, ...)
   edges,
   target_species,
   min_species = length(target_species),
-  max_genes_per_sp = 10L,
-  max_missing_edges = 0L,
-  edge_type = "conserved",
   cost_weights = c(q = 1, effect = 0),
   ...
 )
@@ -26,16 +23,16 @@ find_cliques(edges, ...)
 \item{species1}{Species for gene1}
 \item{species2}{Species for gene2}
 \item{hog}{Ortholog group identifier}
-\item{q.value}{q-value for the edge (from pair-level testing)}
+\item{q_value}{q-value for the edge (from pair-level testing)}
 \item{effect_size}{Numeric effect size}
 }
 Optionally includes a \code{type} column for filtering. Pass the
 unfiltered table (every tested pair, e.g. the output of
-\code{\link{find_coexpressologs}}): cliques are built from
-\code{edge_type} rows only, but \code{intensity} fits each edge's
+\code{\link[=find_coexpressologs]{find_coexpressologs()}}): cliques are built from
+\code{"conserved"} rows only, but \code{intensity} fits each edge's
 weight scale on every row of its species pair, so a pre-filtered
 table changes what it measures.
-A table whose \code{type} column holds only \code{edge_type} rows
+A table whose \code{type} column holds only \code{"conserved"} rows
 triggers a warning (class \code{rcomplex_prefiltered_edges}, shown
 once per session).}
 
@@ -45,17 +42,6 @@ once per session).}
 
 \item{min_species}{Minimum number of species per clique
 (default: \code{length(target_species)}).}
-
-\item{max_genes_per_sp}{Maximum genes considered per species per HOG
-(default 10). Keeps the most-connected genes.}
-
-\item{max_missing_edges}{Maximum number of missing species-pair edges
-tolerated per clique (default 0 = all edges required). When > 0,
-uses subset enumeration instead of Bron-Kerbosch. Practical limit:
-~25 species; falls back to exact BK for larger species counts.}
-
-\item{edge_type}{If \code{edges} has a \code{type} column, keep only
-edges with \code{type \%in\% edge_type} (default \code{"conserved"}).}
 
 \item{cost_weights}{Named numeric vector with elements \code{"q"} and
 \code{"effect"} controlling the composite cost used for gene-assignment
@@ -73,8 +59,7 @@ A data frame with one row per clique:
 \item{max_q}{Maximum q-value across present clique edges}
 \item{mean_effect_size}{Mean effect size across present edges}
 \item{n_edges}{Number of present edges}
-\item{n_missing}{Number of missing edges (0 when
-\code{max_missing_edges = 0})}
+\item{n_missing}{Number of missing edges (always 0)}
 \item{intensity}{Onnela intensity: geometric mean, across present
 edges, of each edge's ensemble connection probability (in
 (0, 1); higher = stronger conservation). Each edge's
@@ -82,7 +67,7 @@ association strength (\code{effect_size}, observed overlap over
 its expectation) is mapped to a probability
 \code{p = z w / (1 + z w)}, with \code{z} fitted per species
 pair by maximum entropy, so intensity reads as the per-edge
-probability that the whole clique exists. Not \code{1 - q.value}:
+probability that the whole clique exists. Not \code{1 - q_value}:
 every clique edge already passed alpha, so \code{1 - q} left no
 range (#11). Not the Jaccard index, whose null expectation grows
 with neighbourhood size, which ranked hub genes above equally
@@ -91,20 +76,22 @@ no usable \code{effect_size} column, or when any present clique
 edge lacks a finite value.}
 \item{min_effect_size}{Minimum effect size across present edges
 (bottleneck enrichment)}
+\item{score}{Sum of the present edges' \code{score}, in bits.
+\code{NA} when \code{edges} has no \code{score} column.}
 }
 }
 \description{
-For each Hierarchical Ortholog Group (HOG), uses Bron-Kerbosch with
-pivoting on the species-level adjacency graph to find maximal species
-cliques, then backtracking to assign the best gene per species
-(minimising mean q-value across all present edges).
+Finds the maximal species cliques of each hog. Then assigns the best
+gene to each species of the clique.
 }
 \details{
-When \code{max_missing_edges > 0}, tolerates up to that many missing
-species-pair edges per clique. Instead of Bron-Kerbosch (which only
-finds fully connected subgraphs), all species subsets with at most
-\code{max_missing_edges} missing edges are enumerated. Assignments
-prefer fewer missing edges, then lower mean q-value.
+The search uses Bron-Kerbosch with pivoting on the species-level
+adjacency graph. A backtracker picks the gene per species that
+minimises the mean q-value across all present edges.
+
+The clique \code{score} adds the edge scores. Log-odds add,
+so the sum is the log-likelihood ratio of the conserved subnetwork
+(NetworkBLAST), and it grows with clique size on purpose.
 }
 \examples{
 \dontrun{
@@ -112,9 +99,6 @@ cliques <- find_cliques(edges, target_species = c("SP_A", "SP_B", "SP_C"))
 
 # Allow partial species cliques (2 of 3 species)
 partial <- find_cliques(edges, target_species, min_species = 2L)
-
-# Tolerate 1 missing edge (e.g., 5 of 6 edges in a 4-species clique)
-tolerant <- find_cliques(edges, target_species, max_missing_edges = 1L)
 }
 
 }

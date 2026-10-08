@@ -27,8 +27,8 @@ rng_module_fixture <- function() {
   net_a <- build("A", 11L)
   net_b <- build("B", 12L)
   ortho <- data.frame(
-    Species1 = rownames(net_a$network),
-    Species2 = rownames(net_b$network),
+    gene1 = rownames(net_a$network),
+    gene2 = rownames(net_b$network),
     hog = paste0("HOG", seq_len(n)),
     stringsAsFactors = FALSE
   )
@@ -48,84 +48,27 @@ rng_module_fixture <- function() {
 }
 
 
-#' Synthetic all-pairs preservation classification over four species
+#' Synthetic all-pairs preservation classification over twenty species
 #'
 #' `preservation_matrix_test()` reads only `reference`, `test` and the
 #' effect column, so the table is written directly rather than run through
 #' a preservation pipeline that would add minutes for no extra coverage.
+#' Ten species per trait give 184756 free labellings, above the 50000 the
+#' test enumerates, so the null is sampled and draws from the stream.
 rng_matrix_classification <- function() {
-  sp <- c("A1", "A2", "P1", "P2")
+  sp <- c(paste0("A", 1:10), paste0("P", 1:10))
   grid <- expand.grid(
-    reference = sp, test = sp, module = c("1", "2"),
+    reference = sp, test = sp, module = "1",
     stringsAsFactors = FALSE
   )
   grid <- grid[grid$reference != grid$test, , drop = FALSE]
-  trait <- c(A1 = "annual", A2 = "annual", P1 = "peren", P2 = "peren")
+  trait <- stats::setNames(rep(c("annual", "peren"), each = 10L), sp)
   concordant <- trait[grid$reference] == trait[grid$test]
   grid$Zsummary_std <- ifelse(concordant, 8, 2)
   grid$Zsummary <- grid$Zsummary_std
   grid$classification <- "conserved"
   rownames(grid) <- NULL
   list(classification = grid, group = trait)
-}
-
-
-#' Six-species trait-recurrence fixture for `tag_permutation()`
-#'
-#' Three annual/perennial contrasts, two modules per species, six HOGs.
-#' The same shape as the fixture in test-tag-permutation.R, kept separate
-#' so a change there cannot silently alter what the contract test runs.
-rng_tag_fixture <- function() {
-  annuals <- c("A1", "A2", "A3")
-  perennials <- c("P1", "P2", "P3")
-  group <- stats::setNames(
-    rep(c("annual", "peren"), each = 3L), c(annuals, perennials)
-  )
-  pairs <- data.frame(
-    sp1 = annuals, sp2 = perennials,
-    pair_name = paste0("pair", 1:3), stringsAsFactors = FALSE
-  )
-  one_module_set <- function(genes) {
-    membership <- stats::setNames(
-      rep(c(1L, 2L), each = length(genes) / 2L), genes
-    )
-    list(
-      modules = membership,
-      module_genes = split(names(membership), membership),
-      n_modules = 2L, modularity = 0.3, graph = NULL,
-      method = "leiden", params = list()
-    )
-  }
-  modules <- stats::setNames(
-    lapply(c(annuals, perennials), function(sp) {
-      one_module_set(paste0(sp, "_g", 1:6))
-    }),
-    c(annuals, perennials)
-  )
-  orthologs <- data.frame(
-    Species1 = as.vector(vapply(annuals, function(sp) {
-      paste0(sp, "_g", 1:6)
-    }, character(6))),
-    Species2 = as.vector(vapply(perennials, function(sp) {
-      paste0(sp, "_g", 1:6)
-    }, character(6))),
-    hog = rep(paste0("HOG", 1:6), 3),
-    stringsAsFactors = FALSE
-  )
-  classification <- data.frame(
-    pair_name = rep(pairs$pair_name, each = 4L),
-    module = rep(c("1", "2", "1", "2"), 3L),
-    reference = rep(c(rbind(annuals, annuals, perennials, perennials)), 1L),
-    test = rep(c(rbind(perennials, perennials, annuals, annuals)), 1L),
-    classification = rep(
-      c("diverged", "conserved", "conserved", "diverged"), 3L
-    ),
-    stringsAsFactors = FALSE
-  )
-  list(
-    classification = classification, modules = modules,
-    orthologs = orthologs, pairs = pairs, group = group
-  )
 }
 
 
@@ -169,53 +112,13 @@ rng_contract_cases <- function(fx) {
   cmp <- fx$cmp
   sparse_nets <- fx$sparse_nets
   mf <- fx$mf
-  cf <- fx$cf
   mx <- fx$mx
-  tf <- fx$tf
-  # Built here, outside the thunks: recurrence_graph() draws nothing, but
-  # its Rcpp call creates a .Random.seed when none exists. alpha = 1 keeps
-  # every listed pair (two species cannot reach q < 0.05 on 40 genes); the
-  # contract is about Leiden's draws.
-  rec <- local({
-    hm <- data.frame(
-      species = rep(c("A", "B"), each = 40L),
-      gene = c(mf$ortho$Species1, mf$ortho$Species2),
-      hog = rep(mf$ortho$hog, 2L)
-    )
-    rg <- recurrence_graph(list(A = mf$net_a, B = mf$net_b), hm, alpha = 1)
-    list(hm = hm, rg = rg)
-  })
-
   list(
     list(
       name = "summarize_comparison",
-      call = function(seed) summarize_comparison(cmp, seed = seed)$results
-    ),
-    list(
-      name = "null_network",
+      internal = TRUE,
       call = function(seed) {
-        null_network(fx$null_x, fx$null_net, seed = seed)$network
-      }
-    ),
-    list(
-      name = "null_network",
-      variant = "block",
-      call = function(seed) {
-        null_network(fx$null_x, fx$null_net,
-          seed = seed,
-          block = rep_len(1:3, ncol(fx$null_x))
-        )$network
-      }
-    ),
-    list(
-      name = "module_replication",
-      call = function(seed) {
-        mods <- as_modules(stats::setNames(
-          rep(c("a", "b", "c"), each = 9L), td$ortho$Species2[1:27]
-        ))
-        module_replication(mods, td$net2,
-          n_null = 5L, max_draws = 10L, batch = 5L, seed = seed
-        )
+        rcomplex:::summarize_comparison(cmp, seed = seed)$results
       }
     ),
     list(
@@ -231,84 +134,42 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
-      name = "coexpressolog_strength.default",
-      # Only the reference-density row draws (pi0_method = "randomized");
-      # every other density in the profile grid uses the deterministic
-      # Storey estimator and draws nothing (see R/coexpressolog-strength.R).
-      call = function(seed) {
-        coexpressolog_strength(nets, td$ortho,
-          densities = c(0.05, 0.1), reference_density = 0.1, seed = seed
-        )$reference
-      }
-    ),
-    list(
-      name = "module_auroc",
-      call = function(seed) {
-        mods <- as_modules(stats::setNames(
-          rep(c("a", "b", "c"), each = 9L), td$ortho$Species1[1:27]
-        ))
-        module_auroc(mods, td$net1, td$net2, td$ortho,
-          n_null = 5L, max_draws = 10L, batch = 5L, seed = seed
-        )
-      }
-    ),
-    list(
-      name = "recurrence_modules",
-      call = function(seed) {
-        recurrence_modules(rec$rg, rec$hm,
-          min_size = 2L, seed = seed
-        )$hog_modules
-      }
-    ),
-    list(
-      name = "module_auroc_reciprocal",
-      call = function(seed) {
-        mods <- function(g) {
-          as_modules(stats::setNames(rep(c("a", "b", "c"), each = 9L), g))
-        }
-        module_auroc_reciprocal(
-          mods(td$ortho$Species1[1:27]), mods(td$ortho$Species2[1:27]),
-          td$net1, td$net2, td$ortho,
-          n_null = 5L, max_draws = 10L, batch = 5L, seed = seed
-        )
-      }
-    ),
-    list(
       name = "permutation_hog_test",
+      internal = TRUE,
       call = function(seed) {
-        permutation_hog_test(td$net1, td$net2, cmp,
+        rcomplex:::permutation_hog_test(td$net1, td$net2, cmp,
           min_exceedances = 3L, max_permutations = 40L, seed = seed
         )
       }
     ),
     list(
       name = "coexpressolog_null",
-      variant = "pi0 none",
-      # n_perm = 2 is far below the 19 permutations p < 0.05 needs, and an
-      # unseeded call announces the seed it drew; neither is what the
-      # contract is about, and the assertions are unaffected by both.
+      # An unseeded call announces the seed it drew; that is not what the
+      # contract is about, and the assertions are unaffected by it. The
+      # scope covers the observed run, not just the permutation loop: its
+      # randomized pi0 draws.
       call = function(seed) {
         suppressMessages(suppressWarnings(
           coexpressolog_null(sparse_nets, td$ortho,
-            n_perm = 2L, swap_factor = 1L, seed = seed,
-            pi0_method = "none", pval_combine = "max"
+            swap_factor = 1L, seed = seed, pval_combine = "max"
           )
         ))
       }
     ),
     list(
-      name = "coexpressolog_null",
-      variant = "pi0 randomized",
-      # The scope covers the observed run, not just the permutation loop.
-      # Under pi0_method = "none" the observed run draws nothing, so that
-      # is the only case that would notice the scope sliding back below it.
+      name = "null_network",
       call = function(seed) {
-        suppressMessages(suppressWarnings(
-          coexpressolog_null(sparse_nets, td$ortho,
-            n_perm = 2L, swap_factor = 1L, seed = seed,
-            pi0_method = "randomized", pval_combine = "max"
-          )
-        ))
+        null_network(fx$null_x, fx$null_net, seed = seed)$network
+      }
+    ),
+    list(
+      name = "null_network",
+      variant = "block",
+      call = function(seed) {
+        null_network(fx$null_x, fx$null_net,
+          seed = seed,
+          block = rep_len(1:3, ncol(fx$null_x))
+        )$network
       }
     ),
     list(
@@ -330,16 +191,15 @@ rng_contract_cases <- function(fx) {
       call = function(seed) {
         detect_modules(mf$net_a,
           resolution = c(0.8, 1.0), objective_function = "modularity",
-          n_iterations = 1L, max_consensus_iter = 1L, test_k1 = FALSE,
-          seed = seed
+          max_consensus_iter = 1L, seed = seed
         )$modules
       }
     ),
     list(
       name = "module_preservation",
       call = function(seed) {
-        module_preservation(mf$mods_a, mf$net_a, mf$net_b,
-          map = mf$map, n_perm = 20L, seed = seed
+        module_preservation(mf$mods_a, mf$net_a, mf$net_b, mf$ortho,
+          n_perm = 20L, seed = seed
         )$preservation
       }
     ),
@@ -358,63 +218,26 @@ rng_contract_cases <- function(fx) {
           list(A = mf$mods_a, B = mf$mods_b),
           list(A = mf$net_a, B = mf$net_b),
           mf$ortho,
-          data.frame(sp1 = "A", sp2 = "B", stringsAsFactors = FALSE),
+          data.frame(species1 = "A", species2 = "B", stringsAsFactors = FALSE),
           n_perm = 20L, seed = seed
         )$classification
       }
     ),
     list(
+      name = "rcomplex",
+      call = function(seed) {
+        rcomplex(fx$drv_expr, fx$drv_ortho,
+          density = 0.1, null = TRUE, seed = seed
+        )$edges_null
+      }
+    ),
+    list(
       name = "preservation_matrix_test",
       call = function(seed) {
-        # 30 draws is far too few for a usable p-value and the function
-        # says so; the contract is about the stream, not the inference.
         suppressWarnings(preservation_matrix_test(
           mx$classification, mx$group,
-          n_perm = 30L, enum_max = 1L, seed = seed
+          seed = seed
         ))$free$null_distribution
-      }
-    ),
-    list(
-      name = "tag_permutation",
-      call = function(seed) {
-        suppressWarnings(suppressMessages(tag_permutation(
-          tf$classification, tf$modules, tf$orthologs, tf$pairs,
-          tf$group,
-          target_group = "annual", n_perm = 30L,
-          min_recurrence = 2L, enum_max = 1L, seed = seed
-        )))$null_distribution
-      }
-    ),
-    list(
-      name = "clique_perturbation_test.default",
-      call = function(seed) {
-        clique_perturbation_test(cf$cliques, cf$target_species,
-          cf$networks, cf$orthologs,
-          n_boot = 2L, seed = seed, pi0_method = "none"
-        )
-      }
-    ),
-    list(
-      name = "clique_intensity_test.default",
-      call = function(seed) {
-        clique_intensity_test(cf$cliques, cf$target_species,
-          cf$networks, cf$orthologs,
-          n_perm = 2L, edges = cf$edges, seed = seed,
-          pi0_method = "none"
-        )
-      }
-    ),
-    list(
-      name = "subspace_preservation",
-      call = function(seed) {
-        o <- td$ortho
-        hog_map <- data.frame(
-          species = rep(c("SP_A", "SP_B"), each = nrow(o)),
-          gene = c(o$Species1, o$Species2), hog = c(o$hog, o$hog)
-        )
-        subspace_preservation(nets, hog_map,
-          K = 3L, n_null = 5L, seed = seed
-        )$pairs
       }
     )
   )

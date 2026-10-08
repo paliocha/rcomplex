@@ -3,8 +3,8 @@ ex <- sub("^export\\((.*)\\)$", "\\1", ex)
 rd <- function(p) paste(unlist(lapply(p, readLines)), collapse = "\n")
 rsrc <- rd(list.files("R", full.names = TRUE))
 readme <- rd("README.md")
-tut <- rd("vignettes/rcomplex-tutorial.Rmd")
-meth <- rd("vignettes/articles/methods.Rmd")
+tut <- rd("vignettes/quickstart.Rmd")
+meth <- rd("vignettes/articles/walkthrough.Rmd")
 tests <- rd(list.files("tests/testthat", pattern = "[.]R$", full.names = TRUE))
 cnt <- function(f, txt) {
   m <- gregexpr(paste0("(?<![A-Za-z_.])", f, "\\("), txt, perl = TRUE)[[1]]

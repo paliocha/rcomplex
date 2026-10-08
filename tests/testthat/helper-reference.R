@@ -33,13 +33,13 @@ reference_density_threshold <- function(net, density) {
 #' N - 1 genes. Also returns the ungated upper tail P(X > x) and the point
 #' mass P(X = x) used for randomized p-values (D4).
 reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
-  # Direction 1: sp1 -> sp2
+  # Direction 1: species1 -> species2
   neigh <- net1[g1, ]
   neigh <- setdiff(names(neigh[neigh >= thr1]), g1)
 
   ortho_neigh <- net2[g2, ]
   ortho_neigh <- setdiff(names(ortho_neigh[ortho_neigh >= thr2]), g2)
-  ortho_neigh <- unique(ortho$Species1[ortho$Species2 %in% ortho_neigh])
+  ortho_neigh <- unique(ortho$gene1[ortho$gene2 %in% ortho_neigh])
   ortho_neigh <- setdiff(ortho_neigh, g1)
 
   n_genes <- nrow(net1) - 1
@@ -59,13 +59,13 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
     p_val_div1 <- phyper(x, m, n_genes - m, k, lower.tail = TRUE)
   }
 
-  # Direction 2: sp2 -> sp1
+  # Direction 2: species2 -> species1
   neigh2 <- net2[g2, ]
   neigh2 <- setdiff(names(neigh2[neigh2 >= thr2]), g2)
 
   ortho_neigh2 <- net1[g1, ]
   ortho_neigh2 <- setdiff(names(ortho_neigh2[ortho_neigh2 >= thr1]), g1)
-  ortho_neigh2 <- unique(ortho$Species2[ortho$Species1 %in% ortho_neigh2])
+  ortho_neigh2 <- unique(ortho$gene2[ortho$gene1 %in% ortho_neigh2])
   ortho_neigh2 <- setdiff(ortho_neigh2, g2)
 
   n_genes2 <- nrow(net2) - 1
@@ -92,24 +92,24 @@ reference_compare_pair <- function(net1, net2, thr1, thr2, ortho, g1, g2) {
   jaccard2 <- if (union2 > 0) x2 / union2 else 0
 
   data.frame(
-    Species1.neigh = m,
-    Species1.ortho.neigh = k,
-    Species1.neigh.overlap = x,
-    Species1.p.val.con = p_val_con1,
-    Species1.p.val.div = p_val_div1,
-    Species1.p.val.gt = p_gt1,
-    Species1.p.val.eq = p_eq1,
-    Species1.effect.size = effect1,
-    Species1.jaccard = jaccard1,
-    Species2.neigh = m2,
-    Species2.ortho.neigh = k2,
-    Species2.neigh.overlap = x2,
-    Species2.p.val.con = p_val_con2,
-    Species2.p.val.div = p_val_div2,
-    Species2.p.val.gt = p_gt2,
-    Species2.p.val.eq = p_eq2,
-    Species2.effect.size = effect2,
-    Species2.jaccard = jaccard2
+    species1.neigh = m,
+    species1.ortho.neigh = k,
+    species1.neigh.overlap = x,
+    species1.p_value_con = p_val_con1,
+    species1.p_value_div = p_val_div1,
+    species1.p_value_gt = p_gt1,
+    species1.p_value_eq = p_eq1,
+    species1.effect_size = effect1,
+    species1.jaccard = jaccard1,
+    species2.neigh = m2,
+    species2.ortho.neigh = k2,
+    species2.neigh.overlap = x2,
+    species2.p_value_con = p_val_con2,
+    species2.p_value_div = p_val_div2,
+    species2.p_value_gt = p_gt2,
+    species2.p_value_eq = p_eq2,
+    species2.effect_size = effect2,
+    species2.jaccard = jaccard2
   )
 }
 
@@ -127,7 +127,7 @@ reference_T_obs <- function(net1, net2, thr1, thr2, ortho,  # nolint
   n2 <- nrow(net2) - self_exclude
   T <- 0  # nolint
   for (b in sp2_genes) {
-    reach1 <- unique(ortho$Species1[ortho$Species2 %in% nb(net2, thr2, b)])
+    reach1 <- unique(ortho$gene1[ortho$gene2 %in% nb(net2, thr2, b)])
     for (a in sp1_genes) {
       n1a <- nb(net1, thr1, a)
       m1 <- length(n1a)
@@ -137,7 +137,7 @@ reference_T_obs <- function(net1, net2, thr1, thr2, ortho,  # nolint
     }
   }
   for (a in sp1_genes) {
-    reach2 <- unique(ortho$Species2[ortho$Species1 %in% nb(net1, thr1, a)])
+    reach2 <- unique(ortho$gene2[ortho$gene1 %in% nb(net1, thr1, a)])
     for (b in sp2_genes) {
       n2b <- nb(net2, thr2, b)
       m2 <- length(n2b)
@@ -180,8 +180,8 @@ make_cmp_nets <- function() {
   )
 
   ortho <- data.frame(
-    Species1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
-    Species2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
+    gene1 = c(paste0("A_", sprintf("%03d", 1:30)), "A_001"),
+    gene2 = c(paste0("B_", sprintf("%03d", 1:30)), "B_031"),
     hog = c(1:30, 1)
   )
   list(net1 = net1, net2 = net2, ortho = ortho)
@@ -220,8 +220,8 @@ make_graded_nets <- function() {
   net1 <- list(network = build("A", far = 22:24), threshold = 5)
   net2 <- list(network = build("B", far = 25:27), threshold = 5)
   ortho <- data.frame(
-    Species1 = paste0("A", sprintf("%02d", 1:n)),
-    Species2 = paste0("B", sprintf("%02d", 1:n)),
+    gene1 = paste0("A", sprintf("%02d", 1:n)),
+    gene2 = paste0("B", sprintf("%02d", 1:n)),
     hog = rep(paste0("HOG", 1:10), each = 3),
     stringsAsFactors = FALSE
   )
@@ -260,12 +260,12 @@ make_spec_nets <- function() {
   net1 <- mk(build("A", cliques))
   net2 <- mk(build("B", cliques[1:2]))
   ortho <- data.frame(
-    Species1 = rownames(net1$network), Species2 = rownames(net2$network),
+    gene1 = rownames(net1$network), gene2 = rownames(net2$network),
     hog = paste0("HOG", sprintf("%03d", 1:n)), stringsAsFactors = FALSE
   )
   list(
-    networks = list(sp1 = net1, sp2 = net2), ortho = ortho,
-    nulls = list(sp1 = relabel(net1), sp2 = relabel(net2)),
+    networks = list(species1 = net1, species2 = net2), ortho = ortho,
+    nulls = list(species1 = relabel(net1), species2 = relabel(net2)),
     shared = c(1:35), one_sided = 36:50
   )
 }
@@ -289,13 +289,13 @@ make_self_excluded_nets <- function() {
   net1 <- list(network = build("A"), threshold = 0.5)
   net2 <- list(network = build("B"), threshold = 0.5)
   ortho <- data.frame(
-    Species1 = paste0("A", 1:n), Species2 = paste0("B", 1:n),
+    gene1 = paste0("A", 1:n), gene2 = paste0("B", 1:n),
     hog = c(rep("HOG1", 3), paste0("HOG", 2:(n - 2))),
     stringsAsFactors = FALSE
   )
   list(
     net1 = net1, net2 = net2, ortho = ortho,
-    comparison = compare_neighborhoods(net1, net2, ortho)
+    comparison = rcomplex:::compare_neighborhoods(net1, net2, ortho)
   )
 }
 
@@ -377,7 +377,8 @@ reference_preservation_stats <- function(adj_ref, idx_ref, adj_test,
 }
 
 
-# ---- neighbourhood specificity reference (compare_specificity()) ----
+# ---- neighbourhood specificity reference (rcomplex:::compare_specificity())
+# ----
 
 #' Reference neighbourhood specificity on dense matrices
 #'
@@ -409,7 +410,7 @@ reference_specificity <- function(net1, net2, thr1, thr2, ortho,
     np <- length(pa)
     out <- data.frame(
       neigh = integer(np), mapped = integer(np), auroc = NA_real_,
-      p.val = NA_real_, jaccard = 0
+      p_value = NA_real_, jaccard = 0
     )
     grid <- matrix(NA_real_, np, length(grid_frac))
     for (q in seq_len(np)) {
@@ -441,15 +442,15 @@ reference_specificity <- function(net1, net2, thr1, thr2, ortho,
       if (!is.na(a[js])) {
         ge <- sum(a[names(a) != js] >= a[js], na.rm = TRUE)
         out$auroc[q] <- a[[js]]
-        out$p.val[q] <- (1 + ge) / n_b
+        out$p_value[q] <- (1 + ge) / n_b
       }
     }
     if (length(grid_frac) > 0) out$auroc.grid <- grid
     out
   }
-  d1 <- one(net1, net2, thr1, thr2, ortho$Species1, ortho$Species2, store2)
-  d2 <- one(net2, net1, thr2, thr1, ortho$Species2, ortho$Species1, store1)
-  names(d1) <- paste0("Species1.", names(d1))
-  names(d2) <- paste0("Species2.", names(d2))
+  d1 <- one(net1, net2, thr1, thr2, ortho$gene1, ortho$gene2, store2)
+  d2 <- one(net2, net1, thr2, thr1, ortho$gene2, ortho$gene1, store1)
+  names(d1) <- paste0("species1.", names(d1))
+  names(d2) <- paste0("species2.", names(d2))
   cbind(d1, d2)
 }

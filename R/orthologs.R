@@ -1,87 +1,168 @@
-#' Parse PLAZA ortholog group file
+#' Read an ortholog group file
 #'
-#' Reads a PLAZA ortholog group file and extracts pairwise ortholog
-#' relationships between two species.
+#' Reads an ortholog group file into the long table. The table has one
+#' row per gene: `species`, `gene` and `hog`.
 #'
-#' @param file Path to the PLAZA ortholog group file (tab-delimited,
-#'   optionally gzipped).
-#' @param species1 PLAZA species code for species 1 (e.g., `"potri"`).
-#' @param species2 PLAZA species code for species 2 (e.g., `"piabi"`).
+#' @param file Path to a tab-delimited ortholog file. It can be gzipped.
+#' @param species Character vector of species to keep, or `NULL` for all
+#'   species in the file.
+#' @param format One of `"auto"`, `"orthofinder"`, `"plaza"` or `"long"`.
+#'   `"auto"` reads the format from the header.
 #'
-#' @return A data frame with columns:
-#'   \describe{
-#'     \item{Species1}{Gene identifier for species 1}
-#'     \item{Species2}{Gene identifier for species 2}
-#'     \item{hog}{Integer ortholog group identifier}
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' ortho <- parse_orthologs("orthologs.tsv", "species_A", "species_B")
-#' head(ortho)
-#' }
+#' @return A data frame with columns `species`, `gene` and `hog`.
 #'
 #' @details
-#' Implemented with \pkg{data.table} (\code{\link[data.table]{fread}} only)
-#' rather than \pkg{dplyr}/\pkg{tidyr} (used through rcomplex 0.3.0). This
-#' was the only site in the package using either package, so the switch
-#' drops both from Imports; it is a dependency-economy change
-#' (data.table has zero hard dependencies), not a hot-path optimization --
-#' this parser runs once per ortholog file, not inside any permutation or
-#' per-replicate loop. `hog` ids are assigned by the sorted order of each
-#' row's full `gene_content` string, matching the previous
-#' \code{dplyr::cur_group_id()} convention (which numbers groups by sorted
-#' key, not order of appearance) so pipelines that persist HOG ids across
-#' a rerun see the same numbering.
+#' Three formats are read:
+#' \describe{
+#'   \item{orthofinder}{OrthoFinder `N0.tsv` (HOGs, column `HOG`) or
+#'     `Orthogroups.tsv` (column `Orthogroup`). There is one column per
+#'     species, with genes separated by commas. The columns `OG` and
+#'     `Gene Tree Parent Clade` are skipped.}
+#'   \item{plaza}{PLAZA orthologs: columns `species`, `gene_id` and
+#'     `gene_content`, where `gene_content` lists the orthologs of the
+#'     anchor gene as `code:gene1,gene2;code:gene3`. PLAZA lists pairwise
+#'     orthologs; a hog is a connected component of those lists over the
+#'     whole file, so every gene is in exactly one hog. Hogs are integers,
+#'     numbered by the smallest `species` and gene id they contain.}
+#'   \item{long}{The output shape itself: columns `species`, `gene` and
+#'     `hog`. Other columns are dropped.}
+#' }
+#' `"auto"` picks `orthofinder` when the header has `HOG` or `Orthogroup`,
+#' `plaza` when it has `gene_content`, and `long` when it has `species`,
+#' `gene` and `hog`. FastOMA and eggNOG output have no reader: write them
+#' as the long table, one row per gene and group.
+#'
+#' @examples
+#' f <- system.file("extdata", "N0.tsv", package = "rcomplex")
+#' long <- read_orthologs(f, species = c("SpA", "SpB"))
+#' head(long)
+#' prepare_orthologs(long)
 #'
 #' @export
-parse_orthologs <- function(file, species1, species2) {
-  if (!file.exists(file)) {
-    stop("Ortholog file not found: ", file)
-  }
-
+read_orthologs <- function(file, species = NULL,
+                           format = c(
+                             "auto", "orthofinder", "plaza",
+                             "long"
+                           )) {
+  format <- match.arg(format)
+  if (!file.exists(file)) stop("ortholog file not found: ", file)
   dt <- data.table::fread(file,
     sep = "\t", header = TRUE,
     showProgress = FALSE, data.table = FALSE
   )
-  dt <- dt[dt$species == species1, , drop = FALSE]
+  cols <- names(dt)
+  is_of <- any(c("HOG", "Orthogroup") %in% cols)
+  is_long <- all(c("species", "gene", "hog") %in% cols)
+  if (format == "auto") {
+    format <- if (is_of) {
+      "orthofinder"
+    } else if ("gene_content" %in% cols) {
+      "plaza"
+    } else if (is_long) {
+      "long"
+    } else {
+      stop("Cannot read the file format from the header. Set `format`.")
+    }
+  }
+  out <- switch(format,
+    orthofinder = {
+      if (!is_of) stop("an OrthoFinder file needs a HOG or Orthogroup column")
+      .orthofinder_long(dt)
+    },
+    plaza = {
+      if (!all(c("species", "gene_id", "gene_content") %in% cols)) {
+        stop("a PLAZA file needs columns species, gene_id, gene_content")
+      }
+      .plaza_long(dt)
+    },
+    long = {
+      if (!is_long) stop("a long file needs columns species, gene, hog")
+      data.frame(
+        species = as.character(dt$species),
+        gene = as.character(dt$gene), hog = dt$hog
+      )
+    }
+  )
+  if (!is.null(species)) {
+    miss <- setdiff(species, out$species)
+    if (length(miss) > 0L) {
+      stop("species not in file: ", paste(miss, collapse = ", "))
+    }
+    out <- out[out$species %in% species, , drop = FALSE]
+  }
+  out <- unique(out)
+  rownames(out) <- NULL
+  out
+}
 
-  # hog id: sorted-key group numbering, matching dplyr::cur_group_id()
-  hog <- match(dt$gene_content, sort(unique(dt$gene_content)))
 
-  # one row per ";"-delimited per-species chunk of gene_content
-  chunks <- strsplit(dt$gene_content, ";", fixed = TRUE)
-  n_chunks <- lengths(chunks)
-  gene_id <- rep(dt$gene_id, n_chunks)
-  hog <- rep(hog, n_chunks)
+#' Character cells of a column, with NA as ""
+#' @noRd
+.cells <- function(x) {
+  x <- as.character(x)
+  x[is.na(x)] <- ""
+  x
+}
+
+
+#' OrthoFinder N0.tsv / Orthogroups.tsv to the long table
+#' @noRd
+.orthofinder_long <- function(dt) {
+  hog <- dt[[if ("HOG" %in% names(dt)) "HOG" else "Orthogroup"]]
+  sp <- setdiff(
+    names(dt), c("HOG", "OG", "Gene Tree Parent Clade", "Orthogroup")
+  )
+  parts <- lapply(sp, function(s) {
+    g <- strsplit(.cells(dt[[s]]), ",", fixed = TRUE)
+    gene <- trimws(unlist(g, use.names = FALSE))
+    h <- rep(hog, lengths(g))
+    keep <- gene != ""
+    data.frame(species = rep(s, sum(keep)), gene = gene[keep], hog = h[keep])
+  })
+  do.call(rbind, parts)
+}
+
+
+#' PLAZA species / gene_id / gene_content to the long table
+#'
+#' Each anchor gene is linked to every member of its `gene_content`; a
+#' hog is a connected component of that undirected graph. Components are
+#' numbered by their sorted smallest "species<TAB>gene" key.
+#' @noRd
+.plaza_long <- function(dt) {
+  chunks <- strsplit(.cells(dt$gene_content), ";", fixed = TRUE)
   chunk <- unlist(chunks, use.names = FALSE)
-
-  keep <- grepl(species2, chunk, fixed = TRUE)
-  gene_id <- gene_id[keep]
-  hog <- hog[keep]
-  chunk <- chunk[keep]
-
-  # split "prefix:gene[,gene...]" on the first ":", then explode on ","
-  rest <- sub("^[^:]*:", "", chunk)
-  gene_content_list <- strsplit(rest, ",", fixed = TRUE)
-  n_genes <- lengths(gene_content_list)
-
+  genes <- strsplit(sub("^[^:]*:", "", chunk), ",", fixed = TRUE)
+  n <- lengths(genes)
+  anchor <- paste(dt$species, dt$gene_id, sep = "\t")
+  member <- paste(
+    rep(sub(":.*$", "", chunk), n), unlist(genes, use.names = FALSE),
+    sep = "\t"
+  )
+  key <- unique(c(anchor, member))
+  g <- igraph::graph_from_data_frame(
+    data.frame(from = rep(rep(anchor, lengths(chunks)), n), to = member),
+    directed = FALSE, vertices = data.frame(name = key)
+  )
+  comp <- igraph::components(g)$membership[key]
+  first <- vapply(split(key, comp), min, character(1))
+  hog <- match(as.character(comp), names(first)[order(first)])
+  parts <- strsplit(key, "\t", fixed = TRUE)
   data.frame(
-    Species1 = rep(gene_id, n_genes),
-    Species2 = unlist(gene_content_list, use.names = FALSE),
-    hog = rep(hog, n_genes)
+    species = vapply(parts, `[`, character(1), 1L),
+    gene = vapply(parts, `[`, character(1), 2L),
+    hog = hog
   )
 }
 
 
 #' Reduce orthogroups by merging correlated paralogs
 #'
-#' Within each ortholog group (HOG), paralogs with Pearson correlation above
-#' \code{cor_threshold} are merged into a single representative gene via
-#' Ward.D2 agglomerative clustering. Merged genes are replaced by their
-#' averaged expression profile.
+#' Merges the paralogs of each hog whose Pearson correlation exceeds
+#' \code{cor_threshold}. Clusters them with Ward.D2 agglomeration. Replaces
+#' each merged set by its averaged expression profile.
 #'
-#' This is an optional preprocessing step before \code{\link{compute_network}}.
+#' This is an optional preprocessing step before [compute_network()].
 #' It reduces redundancy from recent duplications where paralogs retain nearly
 #' identical expression patterns, shrinking the expression matrix and avoiding
 #' combinatorial blowup in downstream clique detection.
@@ -92,11 +173,11 @@ parse_orthologs <- function(file, species1, species2) {
 #'
 #' @param expr_matrix Numeric matrix (genes x samples) with gene identifiers
 #'   as row names.
-#' @param orthologs Data frame with columns \code{Species1} (or the column
-#'   matching gene row names), \code{Species2}, and \code{hog}, as
-#'   returned by \code{\link{parse_orthologs}}.
+#' @param orthologs Data frame with columns \code{gene1} (or the column
+#'   matching gene row names), \code{gene2}, and \code{hog}, as
+#'   returned by [prepare_orthologs()].
 #' @param gene_col Character: which column of \code{orthologs} contains gene
-#'   IDs matching row names of \code{expr_matrix} (default \code{"Species1"}).
+#'   IDs matching row names of \code{expr_matrix} (default \code{"gene1"}).
 #' @param cor_threshold Pearson correlation threshold for merging paralogs
 #'   within a HOG (default 0.7). Higher values are more conservative (fewer
 #'   merges).
@@ -122,7 +203,7 @@ parse_orthologs <- function(file, species1, species2) {
 #'
 #' @export
 reduce_orthogroups <- function(expr_matrix, orthologs,
-                               gene_col = "Species1",
+                               gene_col = "gene1",
                                cor_threshold = 0.7) {
   if (!is.matrix(expr_matrix) || !is.numeric(expr_matrix)) {
     stop("expr_matrix must be a numeric matrix")
@@ -183,76 +264,69 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
 }
 
 
-#' Extract pairwise orthologs, optionally with paralog-reduced gene names
+#' Pair orthologs for every species pair
 #'
-#' Convenience wrapper that calls \code{\link{extract_orthologs}} for every
-#' species pair and, when \code{reductions} is supplied, maps gene names
-#' through the gene maps produced by \code{\link{reduce_orthogroups}}.  This
-#' replaces ~20 lines of boilerplate when combining SummarizedExperiment
-#' objects with paralog reduction outputs.
+#' Pairs the genes of each HOG for every pair of species in the long
+#' table. Genes can first be renamed through [reduce_orthogroups()]
+#' output.
+#'
+#' @details
+#' Species pairs follow the order in which species first appear in
+#' `orthologs`. Rows with `NA` hog are skipped. To build the long table
+#' from `SummarizedExperiment` objects, bind one
+#' `data.frame(species = , gene = rownames(se), hog = rowData(se)$hog)`
+#' per species.
 #'
 #' Paralog reduction is a lossy step: correlated paralogs are averaged into
 #' one representative gene, so per-paralog identity is gone by the time
-#' \code{orthologs} reaches downstream consumers. That trade-off pays for
+#' the pairs reach downstream consumers. That trade-off pays for
 #' itself for consumers that need one counterpart per gene (module
 #' preservation, the species-graph clique backend), but the gene-graph
-#' clique backend (\code{\link{gene_clique_graph}} /
-#' \code{\link{classify_gene_cliques}}) is built to resolve which paralog
+#' clique backend (\code{gene_clique_graph} /
+#' \code{classify_gene_cliques}) is built to resolve which paralog
 #' copy is conserved, and needs every original paralog as its own node to do
 #' that. Pass \code{reductions = NULL} (the default) to skip paralog
 #' reduction entirely and keep every gene at its original identity.
 #'
-#' @param se_list Named list of
-#'   \code{\link[SummarizedExperiment]{SummarizedExperiment}} objects, keyed
-#'   by species code.
-#' @param reductions Named list of \code{\link{reduce_orthogroups}} outputs,
-#'   keyed by the same species codes as \code{se_list}, or \code{NULL}
-#'   (the default) to skip paralog reduction and keep original gene
-#'   identities. When supplied, each element must contain a \code{$gene_map}
-#'   data frame with columns \code{original} and \code{representative}.
-#' @param hog_col Column name in \code{rowData} containing HOG identifiers
-#'   (default \code{"hog"}).
+#' @param orthologs The long table from [read_orthologs()]: columns
+#'   `species`, `gene` and `hog`.
+#' @param reductions Named list of [reduce_orthogroups()] outputs, one per
+#'   species in `orthologs`, or `NULL` to keep every gene. Each element
+#'   needs a `gene_map` data frame with columns `original` and
+#'   `representative`.
 #'
-#' @return A data frame with columns \code{Species1}, \code{Species2}, and
-#'   \code{hog}. When \code{reductions} is supplied, gene names have been
-#'   replaced by their reduced representatives and duplicate rows (arising
-#'   when multiple original genes map to the same representative) are
-#'   removed; when \code{reductions} is \code{NULL}, every original paralog
-#'   pair within a shared HOG is retained as its own row.
+#' @return A data frame with columns `gene1`, `gene2` and `hog`, one row
+#'   per gene pair in a shared HOG. With `reductions`, gene names are the
+#'   representatives and duplicate rows are removed.
 #'
 #' @examples
-#' \dontrun{
-#' # With paralog reduction
-#' ortho <- prepare_orthologs(se_list, reductions)
-#'
-#' # Without paralog reduction -- keeps every paralog, for gene_clique_graph()
-#' ortho_full <- prepare_orthologs(se_list)
-#' head(ortho_full)
-#' }
+#' f <- system.file("extdata", "N0.tsv", package = "rcomplex")
+#' ortho <- prepare_orthologs(read_orthologs(f))
+#' head(ortho)
 #'
 #' @export
-prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
-  # --- validation ---
-  if (!is.list(se_list) || is.null(names(se_list))) {
-    stop("se_list must be a named list")
+prepare_orthologs <- function(orthologs, reductions = NULL) {
+  if (!is.data.frame(orthologs) ||
+        !all(c("species", "gene", "hog") %in% names(orthologs))) {
+    stop("orthologs must be a data frame with columns species, gene, hog")
   }
-  sp_names <- names(se_list)
+  sp_names <- unique(as.character(orthologs$species))
   if (length(sp_names) < 2) {
-    stop("se_list must contain at least two species")
+    stop("orthologs must contain at least two species")
   }
 
   if (!is.null(reductions)) {
     if (!is.list(reductions) || is.null(names(reductions))) {
       stop("reductions must be a named list")
     }
-    missing_sp <- setdiff(names(se_list), names(reductions))
+    missing_sp <- setdiff(sp_names, names(reductions))
     if (length(missing_sp) > 0) {
       stop(
-        "reductions missing species present in se_list: ",
+        "reductions missing species present in orthologs: ",
         paste(missing_sp, collapse = ", ")
       )
     }
-    for (sp in names(se_list)) {
+    for (sp in sp_names) {
       if (is.null(reductions[[sp]]$gene_map)) {
         stop("reductions[['", sp, "']] must have a $gene_map element")
       }
@@ -262,27 +336,30 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
   pairs <- utils::combn(sp_names, 2, simplify = FALSE)
 
   result_list <- lapply(pairs, function(pair) {
-    sp1 <- pair[1]
-    sp2 <- pair[2]
+    species1 <- pair[1]
+    species2 <- pair[2]
 
-    ortho <- extract_orthologs(se_list[[sp1]], se_list[[sp2]],
-      hog_col = hog_col
+    m <- merge(
+      orthologs[orthologs$species == species1, c("hog", "gene")],
+      orthologs[orthologs$species == species2, c("hog", "gene")],
+      by = "hog", incomparables = NA
     )
+    ortho <- data.frame(gene1 = m$gene.x, gene2 = m$gene.y, hog = m$hog)
     if (nrow(ortho) == 0 || is.null(reductions)) {
       return(ortho)
     }
 
-    # Map Species1 through sp1 gene_map
-    gm1 <- reductions[[sp1]]$gene_map
-    idx1 <- match(ortho$Species1, gm1$original)
+    # Map gene1 through species1 gene_map
+    gm1 <- reductions[[species1]]$gene_map
+    idx1 <- match(ortho$gene1, gm1$original)
     mapped1 <- gm1$representative[idx1]
-    ortho$Species1 <- ifelse(is.na(mapped1), ortho$Species1, mapped1)
+    ortho$gene1 <- ifelse(is.na(mapped1), ortho$gene1, mapped1)
 
-    # Map Species2 through sp2 gene_map
-    gm2 <- reductions[[sp2]]$gene_map
-    idx2 <- match(ortho$Species2, gm2$original)
+    # Map gene2 through species2 gene_map
+    gm2 <- reductions[[species2]]$gene_map
+    idx2 <- match(ortho$gene2, gm2$original)
     mapped2 <- gm2$representative[idx2]
-    ortho$Species2 <- ifelse(is.na(mapped2), ortho$Species2, mapped2)
+    ortho$gene2 <- ifelse(is.na(mapped2), ortho$gene2, mapped2)
 
     ortho
   })
@@ -290,8 +367,8 @@ prepare_orthologs <- function(se_list, reductions = NULL, hog_col = "hog") {
   result <- do.call(rbind, result_list)
   if (is.null(result) || nrow(result) == 0) {
     return(data.frame(
-      Species1 = character(0),
-      Species2 = character(0),
+      gene1 = character(0),
+      gene2 = character(0),
       hog = character(0)
     ))
   }

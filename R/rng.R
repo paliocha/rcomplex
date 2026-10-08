@@ -101,40 +101,6 @@
 }
 
 
-#' Can forked workers call into BLAS safely?
-#'
-#' Apple's Accelerate (vecLib) BLAS is not fork-safe once the parent process
-#' has run a threaded BLAS call: a forked worker that calls into BLAS again
-#' can segfault. The K = 1 test of [detect_modules()] is the one fork site
-#' whose workers do (`arma::eigs_sym()`, and `arma::eig_sym()` when it does
-#' not converge, in `sparse_excess_spectral_norm_cpp()`), and it crashed on
-#' real Pooideae leaf networks under R's Accelerate BLAS. The other fork
-#' sites (Leiden sweeps, edge rewiring) never call BLAS in the worker.
-#' `VECLIB_MAXIMUM_THREADS=1` keeps Accelerate single-threaded and makes
-#' forking safe again (verified: identical to the serial result), but only
-#' when it is in the environment before R starts (shell or `.Renviron`):
-#' Accelerate reads it once, at initialisation, so a `Sys.setenv()` inside
-#' the session passes this check without taking effect.
-#'
-#' The default reads the variable as it was when the package loaded, not
-#' at call time, so the common "set it in the console after the crash" path
-#' does not unlock forking; a value set before loading but after R started
-#' still cannot be told apart.
-#'
-#' Only Accelerate is known to crash here; `TRUE` means "not known to be
-#' unsafe", not a guarantee (MKL or an OpenBLAS without fork handlers could
-#' have the same hazard and would pass).
-#'
-#' @param blas Path of the BLAS R is linked against.
-#' @param veclib_threads Value of `VECLIB_MAXIMUM_THREADS`.
-#' @return `FALSE` only for Accelerate not pinned to one thread.
-#' @noRd
-.blas_fork_safe <- function(blas = extSoftVersion()[["BLAS"]],
-                            veclib_threads = .load_env$veclib_threads) {
-  !grepl("Accelerate|vecLib", blas) || identical(veclib_threads, "1")
-}
-
-
 #' Check the results of an `mclapply()` call
 #'
 #' `mclapply()` returns a `try-error` for a task that failed and `NULL` for
@@ -181,4 +147,95 @@
     )
   }
   res
+}
+
+
+#' Avalanche-mix a value into 0 to 2^31 - 2 (internal)
+#'
+#' A Thomas Wang-style integer hash, reimplemented with `%%` so every
+#' `bitwXor`/`bitwShiftR` argument stays inside 2^31 - 1 (never exceeding the
+#' 32-bit signed range). The two internal multiplications do exceed 2^53 in
+#' double precision and so round before the `%%`; this is a source of
+#' rounding, not overflow (`x %% p` after the multiply always lands back in
+#' `[0, p)`), and the avalanche property below does not depend on those
+#' products being exact. Two rounds of xor-shift plus modular
+#' multiplication are what make this a permutation with no useful linear
+#' structure left in it: unlike a bare `root + k * index` term, there is no
+#' fixed offset `d` with `.hash32(x + d) - .hash32(x)` constant across `x`,
+#' which is the property `.task_seed()` needs from it.
+#'
+#' `x %% p` on a signed input discards the sign before anything else runs:
+#' `-p %% p == 0 == 0 %% p`, so `.hash32(-.Machine$integer.max)` and
+#' `.hash32(0)` used to be identical even though `.Machine$integer.max` is
+#' the documented other end of the accepted seed domain. The sign is
+#' folded in explicitly here (as a high bit XORed into the reduced
+#' magnitude) before the avalanche runs, so a negative and a non-negative
+#' input with the same magnitude no longer collide at this step. The
+#' domain (`+/- .Machine$integer.max`, `2p + 1` values) is still larger
+#' than the `p`-periodic range this folds into, so some collisions
+#' further apart remain possible in principle; this closes the specific,
+#' cheap-to-reach `x` vs `-x` case, not the pigeonhole bound.
+#'
+#' @noRd
+.hash32 <- function(x) {
+  p <- 2147483647
+  sign_bit <- if (x < 0) 1073741824L else 0L # 2^30, well inside int32 range
+  x <- as.integer(abs(as.numeric(x)) %% p)
+  x <- bitwXor(x, sign_bit)
+  x <- bitwXor(x, bitwShiftR(x, 15L))
+  x <- as.integer((as.numeric(x) * 2246822519) %% p)
+  x <- bitwXor(x, bitwShiftR(x, 13L))
+  x <- as.integer((as.numeric(x) * 3266489917) %% p)
+  bitwXor(x, bitwShiftR(x, 16L))
+}
+
+#' Deterministic per-task RNG seed (internal)
+#'
+#' Maps (root, stream, index) to a legal R seed, so every parallel task seeds
+#' itself from its own identity rather than inheriting one. That is what makes
+#' the result independent of how mclapply chunks the work: with the default
+#' RNGkind a forked child runs parallel:::mc.set.stream(), whose non-L'Ecuyer
+#' branch deletes .Random.seed, and the child then re-seeds from clock and PID
+#' at its first draw. igraph::cluster_leiden() consumes the R stream, so
+#' set.seed() in the parent reaches no worker at n_cores > 1.
+#'
+#' `root`, `stream` and `index` are each run through `.hash32()` before being
+#' combined, rather than combined directly with fixed multipliers. A direct
+#' `root + 2654435761 * stream + 40503 * index` form is affine in `root` and
+#' `index`, so any two roots exactly 40503 apart (mod 2^31 - 1) alias: the
+#' whole permutation vector at root `r + 40503` reproduces the one at root
+#' `r`, shifted by one index -- the same failure `.task_seed()` was written
+#' to remove from `seed_root + b`, just at a rarer, silent distance. Hashing
+#' each argument first breaks that: two hashed roots differing by a fixed
+#' amount no longer differ by that same amount at every index, so no root
+#' pair can alias more than a single, coincidental index.
+#'
+#' The arithmetic is done in doubles and folded modulo 2^31 - 1 so it cannot
+#' overflow integer range: a naive root + offset form gives NA for a seed near
+#' the limit, and set.seed(NA) errors. Products stay exact in double
+#' (2654435761 * 1e6 is well under 2^53).
+#'
+#' `.hash32(root)` used to fold `root %% p` directly before hashing, which
+#' is periodic in `root` with period `p = 2^31 - 1` and, worse, collapses
+#' sign: `-p %% p == 0 == p %% p == 0 %% p`, so root `-.Machine$integer.max`
+#' (a legal seed callers such as `coexpressolog_null()` accept) hashed
+#' identically to root `0`. `.hash32()` now folds the sign in separately
+#' (see its own docs) so that specific collision is closed; the domain is
+#' still larger than the range this folds into (`2p + 1` legal roots
+#' against `p` residues), so some pair of roots further apart than `p`
+#' can in principle still alias -- the risk this leaves is a coincidental
+#' one at cryptographically-unlikely distances, not the cheap, guaranteed
+#' `x` vs `-x` case that existed before.
+#'
+#' Streams: 1 = initial sweep, 2 = K=1 permutations, 100 + iter = consensus
+#' sweep at that iteration. The consensus stream must vary with iter because
+#' the same resolutions are re-run on a different graph each round.
+#'
+#' @noRd
+.task_seed <- function(root, stream, index) {
+  p <- 2147483647
+  r <- .hash32(root)
+  s <- .hash32((as.numeric(stream) * 2654435761) %% p)
+  i <- .hash32((as.numeric(index) * 40503) %% p)
+  as.integer((as.numeric(r) + as.numeric(s) + as.numeric(i)) %% p)
 }

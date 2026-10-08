@@ -15,7 +15,7 @@ make_classify_edges <- function() {
     species1 = c("SP_A", "SP_A", "SP_A", "SP_B", "SP_B", "SP_C"),
     species2 = c("SP_B", "SP_C", "SP_D", "SP_C", "SP_D", "SP_D"),
     hog = "HOG1",
-    q.value = rep(0.01, 6),
+    q_value = rep(0.01, 6),
     effect_size = rep(3.0, 6),
     type = "conserved",
     stringsAsFactors = FALSE
@@ -28,7 +28,7 @@ make_classify_edges <- function() {
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
     hog = "HOG2",
-    q.value = rep(0.02, 3),
+    q_value = rep(0.02, 3),
     effect_size = rep(2.5, 3),
     type = "conserved",
     stringsAsFactors = FALSE
@@ -41,7 +41,7 @@ make_classify_edges <- function() {
     species1 = c("SP_A", "SP_C", "SP_A"),
     species2 = c("SP_B", "SP_D", "SP_C"),
     hog = "HOG3",
-    q.value = c(0.01, 0.01, 0.5),
+    q_value = c(0.01, 0.01, 0.5),
     effect_size = c(3.0, 3.0, 0.8),
     type = c("conserved", "conserved", "ns"),
     stringsAsFactors = FALSE
@@ -52,7 +52,7 @@ make_classify_edges <- function() {
     gene1 = "A4", gene2 = "B4",
     species1 = "SP_A", species2 = "SP_B",
     hog = "HOG4",
-    q.value = 0.01, effect_size = 2.0,
+    q_value = 0.01, effect_size = 2.0,
     type = "conserved",
     stringsAsFactors = FALSE
   )
@@ -62,13 +62,16 @@ make_classify_edges <- function() {
     gene1 = "A5", gene2 = "B5",
     species1 = "SP_A", species2 = "SP_B",
     hog = "HOG5",
-    q.value = 0.8, effect_size = 0.5,
+    q_value = 0.8, effect_size = 0.5,
     type = "ns",
     stringsAsFactors = FALSE
   )
 
   edges <- rbind(hog1, hog2, hog3, hog4, hog5)
-  list(edges = edges, target = target, trait = trait)
+  list(
+    edges = edges, target = target,
+    trait = split(names(trait), trait)
+  )
 }
 
 
@@ -79,7 +82,7 @@ test_that("classify_cliques returns correct structure", {
   expect_true(is.data.frame(result))
   expected_cols <- c(
     "hog", "classification", "n_species", "best_mean_q",
-    "trait_groups", "stability_class", "persistence", "robust"
+    "trait_groups", "clade", "stability_class", "robust"
   )
   expect_true(all(expected_cols %in% names(result)))
 })
@@ -177,13 +180,14 @@ test_that("ternary trait works for differentiated", {
     species1 = c("SP_A", "SP_C", "SP_E"),
     species2 = c("SP_B", "SP_D", "SP_F"),
     hog = "HOG1",
-    q.value = rep(0.01, 3),
+    q_value = rep(0.01, 3),
     effect_size = rep(3.0, 3),
     type = "conserved",
     stringsAsFactors = FALSE
   )
 
-  result <- classify_cliques(edges, target, trait)
+  clades <- split(names(trait), trait)
+  result <- classify_cliques(edges, target, clades)
   expect_equal(result$classification, "differentiated")
   # All 3 groups should be listed
   groups <- strsplit(result$trait_groups, ",")[[1]]
@@ -206,15 +210,7 @@ test_that("classify_cliques validates inputs", {
 
   expect_error(
     classify_cliques(setup$edges, setup$target, c("a", "b")),
-    "species_trait must be a named"
-  )
-
-  expect_error(
-    classify_cliques(
-      setup$edges, setup$target,
-      c(SP_A = "x", SP_B = "y")
-    ),
-    "species_trait missing entries"
+    "clades must be a named list"
   )
 })
 
@@ -295,7 +291,7 @@ test_that("robust flag without annotations is NA", {
 })
 
 
-test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
+test_that("robust flag is TRUE when stability results are provided", {
   setup <- make_classify_edges()
 
   stab <- list(
@@ -312,72 +308,17 @@ test_that("robust flag is TRUE when both stability and sweep pass thresholds", {
     stability_class = 1L
   )
 
-  # Mock sweep: HOG1 survived at multiplier 2
-  sweep <- list(
-    survival = data.frame(
-      clique_idx = 1L, hog = "HOG1",
-      multiplier = 2, survived = TRUE,
-      jaccard = 1.0, n_species_orig = 4L,
-      n_species_new = 4L,
-      stringsAsFactors = FALSE
-    )
-  )
-
   result <- classify_cliques(setup$edges, setup$target, setup$trait,
-    stability = stab, sweep = sweep,
-    min_stability_class = 1L,
-    min_persistence = 1.5
+    stability = stab
   )
 
   hog1 <- result[result$hog == "HOG1", ]
   expect_false(is.na(hog1$stability_class))
-  expect_false(is.na(hog1$persistence))
-  expect_equal(hog1$persistence, 2)
   expect_true(hog1$robust)
 
-  # HOGs without stability/sweep data should not be robust
+  # HOGs without stability data should not be robust
   hog5 <- result[result$hog == "HOG5", ]
   expect_false(isTRUE(hog5$robust))
-})
-
-
-test_that("robust is FALSE when stability passes but sweep fails", {
-  setup <- make_classify_edges()
-
-  stab <- list(
-    stability = data.frame(
-      clique_idx = 1L, hog = "HOG1",
-      k = 1L,
-      n_subsets = 2L, n_stable = 2L,
-      stability_score = 1.0,
-      species_present = "SP_A,SP_B",
-      traits = "annual",
-      sole_rep = FALSE,
-      stringsAsFactors = FALSE
-    ),
-    stability_class = 1L
-  )
-
-  # Sweep: HOG1 did NOT survive at any multiplier
-  sweep <- list(
-    survival = data.frame(
-      clique_idx = 1L, hog = "HOG1",
-      multiplier = 2, survived = FALSE,
-      jaccard = 0.0, n_species_orig = 4L,
-      n_species_new = NA_integer_,
-      stringsAsFactors = FALSE
-    )
-  )
-
-  result <- classify_cliques(setup$edges, setup$target, setup$trait,
-    stability = stab, sweep = sweep,
-    min_stability_class = 1L,
-    min_persistence = 1.5
-  )
-
-  hog1 <- result[result$hog == "HOG1", ]
-  # Stability passes but persistence is NA (never survived) -> robust FALSE
-  expect_false(hog1$robust)
 })
 
 
@@ -401,14 +342,14 @@ test_that("single-species trait groups are handled gracefully", {
     gene1 = c("B1"), gene2 = c("C1"),
     species1 = c("SP_B"), species2 = c("SP_C"),
     hog = "HOG1",
-    q.value = 0.01, effect_size = 3.0,
+    q_value = 0.01, effect_size = 3.0,
     type = "conserved",
     stringsAsFactors = FALSE
   )
 
   # SP_A has no genes -> "rare" group can't form a clique
   # "common" group (B,C) has a clique -> trait_specific
-  result <- classify_cliques(edges, target, trait)
+  result <- classify_cliques(edges, target, split(names(trait), trait))
 
   hog1 <- result[result$hog == "HOG1", ]
   expect_equal(hog1$classification, "trait_specific")
@@ -422,10 +363,7 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
   trait <- setup$trait
 
   # Find cliques — need trait-exclusive ones for stability to track
-  cliques <- find_cliques(setup$edges, target,
-    min_species = 2L,
-    edge_type = "conserved"
-  )
+  cliques <- find_cliques(setup$edges, target, min_species = 2L)
   if (nrow(cliques) == 0) skip("No cliques found for stability test")
 
   # clique_stability now tests ALL cliques structurally.
@@ -463,7 +401,7 @@ test_that("end-to-end: real clique_stability output feeds classify_cliques", {
 up_row <- function(gene1, species1, gene2, species2, power) {
   data.frame(
     gene1 = gene1, gene2 = gene2, species1 = species1,
-    species2 = species2, hog = "HOG4", q.value = 0.7,
+    species2 = species2, hog = "HOG4", q_value = 0.7,
     effect_size = 0.9, type = "ns", power = power,
     stringsAsFactors = FALSE
   )
@@ -564,4 +502,93 @@ test_that("classify_cliques validates min_power", {
       "min_power must be a single number"
     )
   }
+})
+
+
+test_that("a clique specific to an inner clade reports that clade", {
+  sp <- paste0("SP_", LETTERS[1:6])
+  clades <- list(
+    outer = sp[1:4], mid = sp[1:3], inner = sp[1:2], other = sp[5:6]
+  )
+  edge <- function(hog, s1, s2, q, power = 0.99) {
+    data.frame(
+      gene1 = paste0(s1, hog), gene2 = paste0(s2, hog),
+      species1 = s1, species2 = s2, hog = hog, q_value = q,
+      effect_size = 1, type = ifelse(q < 0.1, "conserved", "ns"),
+      power = power, stringsAsFactors = FALSE
+    )
+  }
+  e <- rbind(
+    # HOG1: A-B conserved; C and E tested and rejected.
+    edge("HOG1", "SP_A", "SP_B", 0.01),
+    edge("HOG1", "SP_A", "SP_C", 0.7),
+    edge("HOG1", "SP_B", "SP_E", 0.7),
+    # HOG2: A-B-C conserved, D rejected.
+    edge(
+      "HOG2", c("SP_A", "SP_A", "SP_B"), c("SP_B", "SP_C", "SP_C"), 0.01
+    ),
+    edge("HOG2", "SP_C", "SP_D", 0.7)
+  )
+  res <- classify_cliques(e, sp, clades)
+  cl <- stats::setNames(res$clade, res$hog)
+  expect_equal(res$classification, rep("trait_specific", 2))
+  expect_equal(res$trait_groups, rep("outer", 2))
+  expect_equal(cl[["HOG1"]], "inner")
+  expect_equal(cl[["HOG2"]], "mid")
+  expect_false(any(res$underpowered))
+
+  # A-C crosses the inner boundary, though C shares the outer group.
+  e$power[2] <- 0.1
+  res <- classify_cliques(e, sp, clades)
+  up <- stats::setNames(res$underpowered, res$hog)
+  expect_true(up[["HOG1"]])
+  expect_false(up[["HOG2"]])
+})
+
+
+test_that("species-graph tiers read home clades, not top-level ones", {
+  sp <- paste0("SP_", LETTERS[1:6])
+  clades <- list(
+    outer = sp[1:5], mid = sp[1:4], inner = sp[1:2], sib = sp[3:4],
+    other = sp[6]
+  )
+  edge <- function(hog, s1, s2, q, power = 0.99) {
+    data.frame(
+      gene1 = paste0(s1, hog), gene2 = paste0(s2, hog),
+      species1 = s1, species2 = s2, hog = hog, q_value = q,
+      effect_size = 1, type = ifelse(q < 0.1, "conserved", "ns"),
+      power = power, stringsAsFactors = FALSE
+    )
+  }
+  e <- rbind(
+    # HOG1: inner conserved, C rejected.
+    edge("HOG1", "SP_A", "SP_B", 0.01), edge("HOG1", "SP_A", "SP_C", 0.7),
+    # HOG2: inner and its sibling conserved, rejected across.
+    edge("HOG2", c("SP_A", "SP_C"), c("SP_B", "SP_D"), 0.01),
+    edge("HOG2", "SP_A", "SP_C", 0.7),
+    # HOG3: A-B (home inner) and B-C (home mid) are nested homes.
+    edge("HOG3", c("SP_A", "SP_B"), c("SP_B", "SP_C"), 0.01),
+    edge("HOG3", "SP_A", "SP_C", 0.7)
+  )
+  res <- classify_cliques(e, sp, clades)
+  got <- stats::setNames(res$classification, res$hog)
+  expect_equal(
+    got[c("HOG1", "HOG2", "HOG3")],
+    c(
+      HOG1 = "trait_specific", HOG2 = "differentiated",
+      HOG3 = "trait_specific"
+    )
+  )
+  cl <- stats::setNames(res$clade, res$hog)
+  expect_equal(
+    cl[c("HOG1", "HOG2", "HOG3")],
+    c(HOG1 = "inner", HOG2 = "mid", HOG3 = "mid")
+  )
+  expect_equal(res$trait_groups, rep("outer", 3))
+  expect_false(any(res$underpowered))
+
+  # A-C crosses from inner to its sibling, inside one top-level clade.
+  e$power[e$hog == "HOG2" & e$type == "ns"] <- 0.1
+  res <- classify_cliques(e, sp, clades)
+  expect_true(res$underpowered[res$hog == "HOG2"])
 })

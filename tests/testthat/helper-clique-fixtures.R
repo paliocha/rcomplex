@@ -1,3 +1,23 @@
+# The hypergeometric find_coexpressologs() loop with a fixed pi0 method, so
+# the fixtures below do not depend on randomized pi0 draws.
+fixture_edges <- function(networks, orthologs, pi0_method,
+                          pval_combine = "max") {
+  pairs <- utils::combn(names(networks), 2, simplify = FALSE)
+  do.call(rbind, lapply(pairs, function(p) {
+    cmp <- rcomplex:::compare_neighborhoods(
+      networks[[p[1]]], networks[[p[2]]], orthologs
+    )
+    res <- rcomplex:::summarize_comparison(
+      cmp,
+      filter_zero = FALSE, pi0_method = pi0_method
+    )$results
+    rcomplex:::comparison_to_edges(
+      res, p[1], p[2],
+      pval_combine = pval_combine
+    )
+  }))
+}
+
 # Most clique fixtures below hold conserved edges only, which
 # find_cliques() reads as a pre-filtered table and warns about once per
 # session (rcomplex_prefiltered_edges). Silence those frequency-limited
@@ -6,7 +26,7 @@
 options(rlib_warning_verbosity = "quiet")
 
 # Shared test fixtures for clique pipeline tests
-# (perturbation test, intensity test, etc.)
+# (stability, threshold sweep, classification)
 
 # Build a 2-species clique test fixture.
 # 20 genes per species. A1 strongly connected to A2..A10,
@@ -31,15 +51,13 @@ make_clique_fixture <- function(n_genes = 20L) {
   )
 
   orthologs <- data.frame(
-    Species1 = ga, Species2 = gb,
+    gene1 = ga, gene2 = gb,
     hog = paste0("HOG", seq_len(n_genes)),
     stringsAsFactors = FALSE
   )
 
   target <- c("SP_A", "SP_B")
-  edges <- find_coexpressologs(
-    networks, orthologs, method = "hypergeometric", pi0_method = "storey"
-  )
+  edges <- fixture_edges(networks, orthologs, "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(
@@ -50,9 +68,9 @@ make_clique_fixture <- function(n_genes = 20L) {
 
 
 # Build a 2-species fixture where pval_combine = "min" and "max" call
-# DIFFERENT conserved edges. Pair (A1, B1) is significant in the Species2
+# DIFFERENT conserved edges. Pair (A1, B1) is significant in the species2
 # direction only: A1's neighbourhood is tight (A2..A5, all mapped) while
-# B1 is connected to every other gene, so the Species1 direction has
+# B1 is connected to every other gene, so the species1 direction has
 # m = N - 1 and p = 1 (the overlap cannot beat a full neighbourhood).
 # The mapping covers genes 1-5 only; the unmapped B genes provide the
 # dilution. With pi0_method = "none": exactly one conserved edge under
@@ -71,17 +89,13 @@ make_asym_clique_fixture <- function() {
     SP_B = list(network = mk(gb, 2:n), threshold = 2)
   )
   orthologs <- data.frame(
-    Species1 = ga[1:5], Species2 = gb[1:5],
+    gene1 = ga[1:5], gene2 = gb[1:5],
     hog = paste0("HOG", 1:5),
     stringsAsFactors = FALSE
   )
   target <- c("SP_A", "SP_B")
 
-  edges_min <- find_coexpressologs(networks, orthologs,
-    method = "hypergeometric",
-    pi0_method = "none",
-    pval_combine = "min"
-  )
+  edges_min <- fixture_edges(networks, orthologs, "none", "min")
   cliques <- find_cliques(edges_min, target, min_species = 2L)
 
   list(
@@ -113,26 +127,24 @@ make_clique_fixture_3sp <- function(n_genes = 15L) {
 
   orthologs <- rbind(
     data.frame(
-      Species1 = ga, Species2 = gb,
+      gene1 = ga, gene2 = gb,
       hog = paste0("HOG", seq_len(n_genes)),
       stringsAsFactors = FALSE
     ),
     data.frame(
-      Species1 = ga, Species2 = gc,
+      gene1 = ga, gene2 = gc,
       hog = paste0("HOG", seq_len(n_genes)),
       stringsAsFactors = FALSE
     ),
     data.frame(
-      Species1 = gb, Species2 = gc,
+      gene1 = gb, gene2 = gc,
       hog = paste0("HOG", seq_len(n_genes)),
       stringsAsFactors = FALSE
     )
   )
 
   target <- c("SP_A", "SP_B", "SP_C")
-  edges <- find_coexpressologs(
-    networks, orthologs, method = "hypergeometric", pi0_method = "storey"
-  )
+  edges <- fixture_edges(networks, orthologs, "storey")
   cliques <- find_cliques(edges, target, min_species = 2L)
 
   list(
@@ -140,3 +152,7 @@ make_clique_fixture_3sp <- function(n_genes = 15L) {
     cliques = cliques, target_species = target
   )
 }
+
+
+# A flat species -> trait vector as a clade list.
+as_clades <- function(trait) split(names(trait), trait)

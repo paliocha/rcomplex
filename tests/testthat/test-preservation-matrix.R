@@ -1,7 +1,7 @@
 # --- Fixture: a Pooideae-shaped all-pairs preservation matrix ---
 # n_gen genera, each contributing one annual and one perennial, every
 # choose(n, 2) contrast run in both directions with n_mod modules each.
-# Zsummary_std carries the signal; q.value is deliberately saturated the way
+# Zsummary_std carries the signal; q_value is deliberately saturated the way
 # the real data is (many rows tied at a floor, many at exactly 1) so tests
 # can prove the statistic never reads it.
 make_pmt_fixture <- function(n_gen = 4L, n_mod = 4L, effect = 2,
@@ -11,12 +11,12 @@ make_pmt_fixture <- function(n_gen = 4L, n_mod = 4L, effect = 2,
   sp <- c(paste0(gen, "a"), paste0(gen, "p"))
   group <- stats::setNames(rep(c("annual", "perennial"), each = n_gen), sp)
   block <- stats::setNames(rep(gen, 2L), sp)
-  pairs <- rcomplex::all_species_pairs(sp)
+  pairs <- rcomplex:::all_species_pairs(sp)
 
   rows <- lapply(seq_len(nrow(pairs)), function(i) {
     both <- list(
-      c(pairs$sp1[i], pairs$sp2[i]),
-      c(pairs$sp2[i], pairs$sp1[i])
+      c(pairs$species1[i], pairs$species2[i]),
+      c(pairs$species2[i], pairs$species1[i])
     )
     do.call(rbind, lapply(both, function(d) {
       disc <- group[[d[1L]]] != group[[d[2L]]]
@@ -32,7 +32,7 @@ make_pmt_fixture <- function(n_gen = 4L, n_mod = 4L, effect = 2,
         # Saturated on purpose, and anti-aligned with the effect: the
         # discordant rows carry the *smaller* q-values, so a q-driven
         # statistic would report the opposite sign.
-        q.value = if (disc) rep(0.00071, n_mod) else rep(1, n_mod),
+        q_value = if (disc) rep(0.00071, n_mod) else rep(1, n_mod),
         size = 20L,
         size_mapped = 15L,
         stringsAsFactors = FALSE
@@ -71,11 +71,11 @@ make_pmt_multilevel <- function(n_per = 3L, n_mod = 2L, z_of = NULL) {
   lev <- c("a", "b", "c")
   sp <- paste0(rep(lev, each = n_per), seq_len(n_per))
   grp <- stats::setNames(rep(lev, each = n_per), sp)
-  pairs <- rcomplex::all_species_pairs(sp)
+  pairs <- rcomplex:::all_species_pairs(sp)
   rows <- lapply(seq_len(nrow(pairs)), function(i) {
     both <- list(
-      c(pairs$sp1[i], pairs$sp2[i]),
-      c(pairs$sp2[i], pairs$sp1[i])
+      c(pairs$species1[i], pairs$species2[i]),
+      c(pairs$species2[i], pairs$species1[i])
     )
     do.call(rbind, lapply(both, function(d) {
       data.frame(
@@ -85,7 +85,7 @@ make_pmt_multilevel <- function(n_per = 3L, n_mod = 2L, z_of = NULL) {
         test = d[2L],
         Zsummary = 10,
         Zsummary_std = z_of(grp[[d[1L]]], grp[[d[2L]]]),
-        q.value = 1,
+        q_value = 1,
         stringsAsFactors = FALSE
       )
     }))
@@ -106,20 +106,20 @@ make_pmt_ragged <- function(seed = 5L) {
   sp <- paste0(rep(lev, each = 3L), 1:3)
   grp <- stats::setNames(rep(lev, each = 3L), sp)
   z_of <- c(aa = 10, bb = 11, cc = 9, ab = 7, ac = 3, bc = 8)
-  pairs <- rcomplex::all_species_pairs(sp)
+  pairs <- rcomplex:::all_species_pairs(sp)
   set.seed(seed)
   n_mod <- sample.int(8L, nrow(pairs), replace = TRUE)
   rows <- lapply(seq_len(nrow(pairs)), function(i) {
     both <- list(
-      c(pairs$sp1[i], pairs$sp2[i]),
-      c(pairs$sp2[i], pairs$sp1[i])
+      c(pairs$species1[i], pairs$species2[i]),
+      c(pairs$species2[i], pairs$species1[i])
     )
     do.call(rbind, lapply(both, function(d) {
       k <- paste(sort(c(grp[[d[1L]]], grp[[d[2L]]])), collapse = "")
       data.frame(
         reference = d[1L], test = d[2L],
         module = as.character(seq_len(n_mod[i])),
-        Zsummary_std = z_of[[k]], q.value = 1,
+        Zsummary_std = z_of[[k]], q_value = 1,
         stringsAsFactors = FALSE
       )
     }))
@@ -175,7 +175,7 @@ make_pmt_real <- function(n_mod = 3L, per = 30L, n_gene = 120L,
   list(
     modules = mods, networks = nets, species = sp,
     orthologs = data.frame(
-      Species1 = gene, Species2 = gene,
+      gene1 = gene, gene2 = gene,
       hog = paste0("H", seq_len(n_gene)), stringsAsFactors = FALSE
     ),
     group = stats::setNames(
@@ -187,16 +187,16 @@ make_pmt_real <- function(n_mod = 3L, per = 30L, n_gene = 120L,
 
 
 test_that("all_species_pairs builds every unordered contrast", {
-  p <- rcomplex::all_species_pairs(c("BDIS", "BSYL", "HVUL", "HJUB"))
+  p <- rcomplex:::all_species_pairs(c("BDIS", "BSYL", "HVUL", "HJUB"))
 
   expect_s3_class(p, "data.frame")
   expect_equal(nrow(p), choose(4L, 2L))
-  expect_equal(names(p), c("sp1", "sp2", "pair_name"))
-  expect_equal(p$pair_name, paste(p$sp1, p$sp2, sep = "."))
+  expect_equal(names(p), c("species1", "species2", "pair_name"))
+  expect_equal(p$pair_name, paste(p$species1, p$species2, sep = "."))
   # Unordered: no contrast appears twice in either orientation.
-  key <- paste(pmin(p$sp1, p$sp2), pmax(p$sp1, p$sp2))
+  key <- paste(pmin(p$species1, p$species2), pmax(p$species1, p$species2))
   expect_equal(anyDuplicated(key), 0L)
-  expect_true(all(p$sp1 != p$sp2))
+  expect_true(all(p$species1 != p$species2))
 })
 
 
@@ -204,12 +204,12 @@ test_that("all_species_pairs reads a named vector as its names", {
   grp <- c(BDIS = "annual", BSYL = "perennial", HVUL = "annual")
 
   expect_equal(
-    rcomplex::all_species_pairs(grp),
-    rcomplex::all_species_pairs(names(grp))
+    rcomplex:::all_species_pairs(grp),
+    rcomplex:::all_species_pairs(names(grp))
   )
-  expect_error(rcomplex::all_species_pairs("BDIS"), "at least two")
-  expect_error(rcomplex::all_species_pairs(c("A", "A", "B")), "unique")
-  expect_error(rcomplex::all_species_pairs(c("A", NA)), "NA or empty")
+  expect_error(rcomplex:::all_species_pairs("BDIS"), "at least two")
+  expect_error(rcomplex:::all_species_pairs(c("A", "A", "B")), "unique")
+  expect_error(rcomplex:::all_species_pairs(c("A", NA)), "NA or empty")
 })
 
 
@@ -218,18 +218,17 @@ test_that("preservation_matrix_test returns the documented structure", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_type(res, "list")
   expect_true(all(c(
-    "observed", "statistic", "form", "class_means",
+    "observed", "form", "class_means",
     "rows_per_pair", "free", "blocked", "p_free",
     "p_blocked", "saturation", "n_rows", "n_pairs",
     "n_excluded"
   ) %in% names(res)))
   expect_equal(res$form, "difference")
-  expect_equal(res$statistic, "zsummary")
   # 4 genera give 8 species and choose(8, 2) = 28 contrasts, of which the 4
   # within-genus ones are excluded.
   expect_equal(res$n_pairs, 24L)
@@ -248,7 +247,7 @@ test_that("the binary statistic is exactly the difference of means", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_equal(
@@ -271,7 +270,7 @@ test_that("the free and within-block label spaces are the right size", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   # choose(8, 4) = 70 free labellings against 2^4 = 16 within-genus ones:
@@ -296,7 +295,7 @@ test_that("the observed labelling is a point of both enumerated nulls", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   # Exactness rests on this: the enumeration contains the truth, so the
@@ -317,7 +316,7 @@ test_that("a planted signal ranks near the top of both nulls", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   # Only the global flip should tie the truth, so the observed labelling is
@@ -337,22 +336,22 @@ test_that("the statistic reads Zsummary_std and never the q-values", {
 
   base <- suppressWarnings(preservation_matrix_test(
     cls, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
-  # q.value is anti-aligned with the effect in the fixture, so a q-driven
+  # q_value is anti-aligned with the effect in the fixture, so a q-driven
   # statistic would flip the sign. Scrambling it, then dropping it, must
   # leave everything but $saturation untouched.
   set.seed(7)
   scrambled <- cls
-  scrambled$q.value <- sample(scrambled$q.value)
+  scrambled$q_value <- sample(scrambled$q_value)
   res_scr <- suppressWarnings(preservation_matrix_test(
     scrambled, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
-  no_q <- cls[, setdiff(names(cls), "q.value"), drop = FALSE]
+  no_q <- cls[, setdiff(names(cls), "q_value"), drop = FALSE]
   res_noq <- suppressWarnings(preservation_matrix_test(
     no_q, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_equal(res_scr$observed, base$observed)
@@ -368,10 +367,10 @@ test_that("saturation reports the resolution of the supplied q-values", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
-  q <- fix$classification$q.value
+  q <- fix$classification$q_value
   expect_equal(res$saturation$n_tests, length(q))
   expect_equal(res$saturation$n_distinct, 2L)
   expect_equal(res$saturation$q_floor, min(q))
@@ -384,96 +383,19 @@ test_that("saturation reports the resolution of the supplied q-values", {
 })
 
 
-test_that("saturation reports the global BH floor the matrix would need", {
-  fix <- make_pmt_fixture()
-  n_q <- nrow(fix$classification)
-
-  res <- preservation_matrix_test(fix$classification, fix$group,
-    n_perm_pres = 20000
-  )
-
-  # q.value from preservation_paired() is corrected per contrast, over a
-  # dozen or two modules. Read as one all-pairs analysis the population is
-  # every module-direction, and BH over n_tests of them cannot reach below
-  # n_tests / (n_perm + 1) whatever the data says.
-  expect_equal(res$saturation$p_min_pres, 1 / 20001)
-  expect_equal(res$saturation$q_floor_global, n_q / 20001)
-  expect_lt(res$saturation$q_floor_global, 0.05)
-
-  # At a low n_perm no global correction is available at all, and that is
-  # worth saying out loud rather than leaving in a list element.
-  w <- capture_warnings(
-    low <- preservation_matrix_test(fix$classification, fix$group,
-      n_perm_pres = 2000
-    )
-  )
-  expect_true(any(grepl("global Benjamini-Hochberg", w)))
-  expect_equal(low$saturation$q_floor_global, n_q / 2001)
-  expect_gt(low$saturation$q_floor_global, 0.05)
-
-  # Unsupplied, the field is NA rather than a guess, and nothing warns.
-  plain <- preservation_matrix_test(fix$classification, fix$group)
-  expect_true(is.na(plain$saturation$p_min_pres))
-  expect_true(is.na(plain$saturation$q_floor_global))
-  expect_error(
-    preservation_matrix_test(fix$classification, fix$group,
-      n_perm_pres = 0
-    ),
-    "n_perm_pres must be"
-  )
-})
-
-
-test_that("statistic = zsummary_raw switches the effect column", {
-  fix <- make_pmt_fixture()
-  cls <- fix$classification
-  # Give the raw column the opposite signal so the two cannot coincide.
-  disc <- fix$group[cls$reference] != fix$group[cls$test]
-  cls$Zsummary <- 10 + 3 * disc
-
-  res <- suppressWarnings(preservation_matrix_test(
-    cls, fix$group,
-    block = fix$block, statistic = "zsummary_raw"
-  ))
-
-  expect_equal(res$statistic, "zsummary_raw")
-  expect_equal(res$observed, -3)
-  expect_error(
-    preservation_matrix_test(cls[, setdiff(names(cls), "Zsummary")],
-      fix$group,
-      statistic = "zsummary_raw"
-    ),
-    "missing columns"
-  )
-})
-
-
-test_that("within-block rows are excluded and the exclusion is fixed", {
+test_that("within-block rows are excluded", {
   fix <- make_pmt_fixture()
 
-  kept <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    exclude_within_block = FALSE
-  ))
   dropped <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
-  expect_equal(kept$n_excluded, 0L)
-  expect_equal(kept$n_pairs, 28L)
+  expect_equal(dropped$n_excluded, 4L * 2L * 4L)
   expect_equal(
-    kept$observed,
-    pmt_manual_diff(fix$classification, fix$group, fix$block,
-      exclude = FALSE
-    )
+    dropped$observed,
+    pmt_manual_diff(fix$classification, fix$group, fix$block)
   )
-  # Every within-genus pair is trait-discordant in this design, so keeping
-  # them changes the discordant mean and hence the statistic.
-  expect_false(isTRUE(all.equal(kept$observed, dropped$observed)))
-  # The label space is a property of the species, not of which rows survive.
-  expect_equal(kept$free$n_labellings, dropped$free$n_labellings)
   expect_true(all(!dropped$rows_per_pair$same_block))
 })
 
@@ -487,7 +409,7 @@ test_that("block = NULL runs the free null only", {
   expect_true(is.na(res$p_blocked))
   expect_null(res$block)
   expect_true(all(is.na(res$rows_per_pair$same_block)))
-  # Without a block nothing is excluded, whatever exclude_within_block says.
+  # Without a block nothing is excluded.
   expect_equal(res$n_excluded, 0L)
   expect_equal(res$n_pairs, 28L)
 })
@@ -542,11 +464,11 @@ test_that("rows with no measured effect are dropped", {
 
   base <- suppressWarnings(preservation_matrix_test(
     cls, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
   with_na <- suppressWarnings(preservation_matrix_test(
     rbind(cls, extra), fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
 
   expect_equal(with_na$n_rows, base$n_rows)
@@ -569,50 +491,6 @@ test_that("a species outside group is dropped with a warning", {
 })
 
 
-test_that("a space too large to enumerate is sampled reproducibly", {
-  fix <- make_pmt_fixture()
-
-  set.seed(11)
-  a <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    n_perm = 200L, enum_max = 5L
-  ))
-  set.seed(11)
-  b <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    n_perm = 200L, enum_max = 5L
-  ))
-
-  expect_false(a$free$exact)
-  expect_equal(a$free$n_scored, 200L)
-  expect_equal(a$free$p_min, 1 / 201)
-  # Sampled nulls do not contain the observed labelling, hence (r + 1)/(m + 1)
-  # and a p-value that can never be 0.
-  expect_gte(a$free$p_value, 1 / 201)
-  expect_equal(a$free$null_distribution, b$free$null_distribution)
-  expect_equal(a$p_free, b$p_free)
-  # The label space is still reported at its true size, not at the draw count.
-  expect_equal(a$free$n_labellings, 70)
-})
-
-
-test_that("n_perm is ignored, with a message, when a null is enumerated", {
-  fix <- make_pmt_fixture()
-
-  expect_message(
-    suppressWarnings(preservation_matrix_test(
-      fix$classification, fix$group,
-      n_perm = 500L
-    )),
-    "enumerated exactly"
-  )
-  # The default leaves n_perm unspoken, so an enumerated null says nothing.
-  expect_silent(preservation_matrix_test(fix$classification, fix$group))
-})
-
-
 test_that("an unreachable p-value floor is warned about", {
   fix <- make_pmt_fixture()
 
@@ -620,7 +498,7 @@ test_that("an unreachable p-value floor is warned about", {
   # so the blocked floor is 2/16 = 0.125 and alpha = 0.05 is unreachable.
   expect_warning(
     preservation_matrix_test(fix$classification, fix$group,
-      block = fix$block
+      block = as_clades(fix$block)
     ),
     "smallest attainable p-value"
   )
@@ -649,22 +527,10 @@ test_that("preservation_matrix_test validates its inputs", {
     "named vector"
   )
   expect_error(
-    preservation_matrix_test(cls, fix$group, block = unname(fix$block)),
-    "named vector"
-  )
-  expect_error(
     preservation_matrix_test(cls, fix$group,
-      block = fix$block[1:3]
+      block = unname(as_clades(fix$block))
     ),
-    "block missing entries"
-  )
-  expect_error(
-    preservation_matrix_test(cls, fix$group, n_perm = 0),
-    "positive whole number"
-  )
-  expect_error(
-    preservation_matrix_test(cls, fix$group, enum_max = -1),
-    "positive number"
+    "named list"
   )
   # A trait taking one value over the tested species has no contrast at all.
   flat <- stats::setNames(
@@ -686,11 +552,11 @@ test_that("uneven blocks give the product of per-block label spaces", {
   # restricted space is the product of per-block multinomials, not 2^blocks,
   # and a singleton block contributes exactly one labelling.
   blk <- stats::setNames(c("B1", rep("B2", 3L), rep("B3", 4L)), sp)
-  pairs <- rcomplex::all_species_pairs(sp)
+  pairs <- rcomplex:::all_species_pairs(sp)
   cls <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
     both <- list(
-      c(pairs$sp1[i], pairs$sp2[i]),
-      c(pairs$sp2[i], pairs$sp1[i])
+      c(pairs$species1[i], pairs$species2[i]),
+      c(pairs$species2[i], pairs$species1[i])
     )
     do.call(rbind, lapply(both, function(d) {
       data.frame(
@@ -701,7 +567,9 @@ test_that("uneven blocks give the product of per-block label spaces", {
     }))
   }))
 
-  res <- suppressWarnings(preservation_matrix_test(cls, grp, block = blk))
+  res <- suppressWarnings(
+    preservation_matrix_test(cls, grp, block = as_clades(blk))
+  )
 
   expect_equal(res$free$n_labellings, choose(8, 4))
   expect_equal(res$blocked$n_labellings, 1 * 3 * 6)
@@ -709,38 +577,6 @@ test_that("uneven blocks give the product of per-block label spaces", {
   # 3 + 6 within-block pairs, both directions, one module each.
   expect_equal(res$n_excluded, 18L)
   expect_equal(res$n_pairs, choose(8L, 2L) - 9L)
-})
-
-
-test_that("the sampled within-block null still permutes within blocks", {
-  fix <- make_pmt_fixture()
-
-  exact <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block
-  ))
-  set.seed(4)
-  samp <- suppressWarnings(preservation_matrix_test(
-    fix$classification, fix$group,
-    block = fix$block,
-    n_perm = 300L, enum_max = 5L
-  ))
-
-  expect_false(samp$blocked$exact)
-  # Every draw must be one of the 16 labellings the blocks allow, so its
-  # statistic must be one the exact null already holds. A free permutation
-  # in the sampled branch -- the documented route in, via enum_max -- would
-  # leave that set at once and silently swap the phylogenetically
-  # controlled null for the free one.
-  in_space <- vapply(samp$blocked$null_distribution, function(v) {
-    any(abs(v - exact$blocked$null_distribution) < 1e-8)
-  }, logical(1))
-  expect_true(all(in_space))
-  # Non-vacuous: the free space does hold values the blocks cannot reach.
-  free_only <- vapply(exact$free$null_distribution, function(v) {
-    !any(abs(v - exact$blocked$null_distribution) < 1e-8)
-  }, logical(1))
-  expect_gt(sum(free_only), 0L)
 })
 
 
@@ -802,7 +638,7 @@ test_that("rows_per_pair accounts for every tested row exactly once", {
 
   res <- suppressWarnings(preservation_matrix_test(
     fix$classification, fix$group,
-    block = fix$block
+    block = as_clades(fix$block)
   ))
   ragged <- preservation_matrix_test(rag$classification, rag$group)
 
@@ -834,7 +670,7 @@ test_that("a self-contrast row is dropped, not averaged in", {
   expect_equal(with_self$n_rows, base$n_rows)
   expect_equal(with_self$observed, base$observed)
   pairs_seen <- with_self$rows_per_pair
-  expect_false(any(pairs_seen$sp1 == pairs_seen$sp2))
+  expect_false(any(pairs_seen$species1 == pairs_seen$species2))
 })
 
 
@@ -849,11 +685,12 @@ test_that("a species named twice in group or block is refused", {
     preservation_matrix_test(cls, dup_group),
     "group names a species more than once"
   )
+  # In a clade list, a species named twice must sit in nested clades.
   expect_error(
     preservation_matrix_test(cls, fix$group,
-      block = c(fix$block, Aa = "Z")
+      block = c(as_clades(fix$block), list(Z = c("Aa", "Ba")))
     ),
-    "block names a species more than once"
+    "overlap, but neither holds the other"
   )
 })
 
@@ -867,11 +704,11 @@ test_that("an unbalanced multilevel design ties fewer than g! labellings", {
   sp <- c("a1", "a2", "b1", "b2", "c1")
   grp <- stats::setNames(c("a", "a", "b", "b", "c"), sp)
   z_of <- c(aa = 10, bb = 11, cc = 9, ab = 7, ac = 3, bc = 8)
-  pairs <- rcomplex::all_species_pairs(sp)
+  pairs <- rcomplex:::all_species_pairs(sp)
   cls <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
     both <- list(
-      c(pairs$sp1[i], pairs$sp2[i]),
-      c(pairs$sp2[i], pairs$sp1[i])
+      c(pairs$species1[i], pairs$species2[i]),
+      c(pairs$species2[i], pairs$species1[i])
     )
     do.call(rbind, lapply(both, function(d) {
       k <- paste(sort(c(grp[[d[1L]]], grp[[d[2L]]])), collapse = "")
@@ -894,37 +731,9 @@ test_that("an unbalanced multilevel design ties fewer than g! labellings", {
 })
 
 
-test_that("a sampled null reports its floor over draws, not labellings", {
-  fix <- make_pmt_fixture()
-
-  set.seed(11)
-  sampled <- capture_warnings(
-    samp <- preservation_matrix_test(fix$classification, fix$group,
-      block = fix$block, n_perm = 200L, enum_max = 5L
-    )
-  )
-  enumerated <- capture_warnings(
-    preservation_matrix_test(fix$classification, fix$group,
-      block = fix$block
-    )
-  )
-
-  # A drawn labelling can repeat, so the tie count and p_min of a sampled
-  # null describe the draws and not the space: reporting them as
-  # labellings would claim a design property the run never measured.
-  expect_true(any(grepl("draws share the maximum", sampled)))
-  expect_false(any(grepl("labellings share the maximum", sampled)))
-  expect_true(any(grepl("labellings share the maximum", enumerated)))
-  expect_gt(samp$blocked$n_tied_max, 2L)
-  expect_equal(samp$blocked$p_min, 1 / 201)
-  # The space itself is still reported at its true size.
-  expect_equal(samp$blocked$n_labellings, 16)
-})
-
-
 test_that("preservation_matrix_test consumes a real preservation_paired run", {
   fx <- make_pmt_real()
-  pairs <- rcomplex::all_species_pairs(fx$species)
+  pairs <- rcomplex:::all_species_pairs(fx$species)
 
   paired <- suppressWarnings(preservation_paired(
     fx$modules, fx$networks, fx$orthologs, pairs,
@@ -932,14 +741,13 @@ test_that("preservation_matrix_test consumes a real preservation_paired run", {
   ))
   res <- suppressWarnings(preservation_matrix_test(
     paired$classification, fx$group,
-    block = fx$block, n_perm_pres = 50L
+    block = as_clades(fx$block)
   ))
 
   # The column names are the contract: reference, test, Zsummary_std and
-  # q.value as preservation_paired() writes them, not as a fixture
+  # q_value as preservation_paired() writes them, not as a fixture
   # imitates them.
   expect_equal(res$form, "difference")
-  expect_equal(res$statistic, "zsummary")
   expect_true(is.finite(res$observed))
   # 4 species, 6 contrasts x 2 directions x 3 modules, of which the two
   # within-block contrasts are excluded.
@@ -955,26 +763,8 @@ test_that("preservation_matrix_test consumes a real preservation_paired run", {
   expect_gte(res$p_free, res$free$p_attainable)
   expect_lte(res$p_free, 1)
   expect_equal(res$saturation$n_tests, sum(is.finite(
-    paired$classification$q.value
+    paired$classification$q_value
   )))
-})
-
-
-test_that("a present-but-NA block value is refused", {
-  # It passes the missing-names check, then poisons the within-block
-  # comparison: n_excluded becomes NA and NA species enter ref/tst, so
-  # the run died later complaining about the trait design instead.
-  cls <- data.frame(
-    reference = c("A", "A", "B"), test = c("B", "C", "C"),
-    Zsummary_std = c(1, 2, 3), q.value = c(0.01, 0.02, 0.03),
-    module = "1", stringsAsFactors = FALSE
-  )
-  grp <- c(A = "x", B = "y", C = "x")
-  bl <- c(A = "g1", B = NA_character_, C = "g2")
-  expect_error(
-    preservation_matrix_test(cls, group = grp, block = bl),
-    "block has NA values for: B"
-  )
 })
 
 
@@ -986,18 +776,11 @@ test_that("a designated within-genus table cannot be tested at all", {
   # Every within-genus pair is one annual against one perennial, so the
   # concordant side of the difference has no rows to average. This is the
   # justification for running all pairs: without between-genus contrasts
-  # the statistic is undefined, whichever way the exclusion is set.
+  # the statistic is undefined.
   expect_true(all(fx$group[cls$reference] != fx$group[cls$test]))
   expect_error(
-    preservation_matrix_test(cls, fx$group, block = fx$block),
+    preservation_matrix_test(cls, fx$group, block = as_clades(fx$block)),
     "leaves nothing to test"
-  )
-  expect_error(
-    preservation_matrix_test(cls, fx$group,
-      block = fx$block,
-      exclude_within_block = FALSE
-    ),
-    "one side of the statistic empty"
   )
 })
 
@@ -1006,7 +789,7 @@ test_that("the label spaces belong to the species, not the pairs table", {
   fx <- make_pmt_fixture()
   cls <- fx$classification
   full <- suppressWarnings(
-    preservation_matrix_test(cls, fx$group, block = fx$block)
+    preservation_matrix_test(cls, fx$group, block = as_clades(fx$block))
   )
   expect_equal(full$free$n_labellings, choose(8, 4))
   expect_equal(full$blocked$n_labellings, 2^4)
@@ -1020,7 +803,7 @@ test_that("the label spaces belong to the species, not the pairs table", {
   sub <- cls[keep, , drop = FALSE]
   expect_setequal(unique(c(sub$reference, sub$test)), fx$species)
   part <- suppressWarnings(
-    preservation_matrix_test(sub, fx$group, block = fx$block)
+    preservation_matrix_test(sub, fx$group, block = as_clades(fx$block))
   )
   expect_equal(part$free$n_labellings, full$free$n_labellings)
   expect_equal(part$blocked$n_labellings, full$blocked$n_labellings)
@@ -1032,11 +815,11 @@ test_that("the two 16-point floors are 2/16 and 1/16 respectively", {
   fx <- make_pmt_fixture()
   res <- suppressWarnings(preservation_matrix_test(
     fx$classification, fx$group,
-    block = fx$block
+    block = as_clades(fx$block)
   ))
   # Swapping the two trait names everywhere reproduces the statistic, so
-  # the blocked maximum is always shared: 2/16, never tag_permutation()'s
-  # 1/16, which the docs used to quote for a matrix-test design.
+  # the blocked maximum is always shared: 2/16, never 1/16, which the docs
+  # used to quote for a matrix-test design.
   expect_equal(res$blocked$p_attainable, 2 / 16)
   expect_gte(res$blocked$n_tied_max, 2L)
   expect_equal(res$free$p_attainable, 2 / 70)
@@ -1050,13 +833,13 @@ test_that("$saturation counts near-ties the way pvalue_resolution does", {
   eps <- .Machine$double.eps
   sp <- c("A", "B", "C", "D")
   grp <- c(A = "x", B = "y", C = "x", D = "y")
-  pr <- rcomplex::all_species_pairs(sp)
+  pr <- rcomplex:::all_species_pairs(sp)
   q <- c(0.001 * (1 + c(0, 1, -1) * eps), 1, 1 * (1 - eps), 0.5)
   cls <- data.frame(
-    reference = pr$sp1[c(1, 2, 3, 4, 5, 6)],
-    test = pr$sp2[c(1, 2, 3, 4, 5, 6)],
+    reference = pr$species1[c(1, 2, 3, 4, 5, 6)],
+    test = pr$species2[c(1, 2, 3, 4, 5, 6)],
     Zsummary_std = c(5, 3, 4, 2, 6, 1),
-    q.value = q, module = "1", stringsAsFactors = FALSE
+    q_value = q, module = "1", stringsAsFactors = FALSE
   )
   res <- suppressWarnings(preservation_matrix_test(cls, group = grp))
   pvr <- pvalue_resolution(q)
@@ -1080,10 +863,10 @@ test_that("all three saturation counts match pvalue_resolution exactly", {
   expect_gte(q[4], 1 - sqrt(eps))
   sp <- c("A", "B", "C", "D")
   grp <- c(A = "x", B = "y", C = "x", D = "y")
-  pr <- rcomplex::all_species_pairs(sp)
+  pr <- rcomplex:::all_species_pairs(sp)
   cls <- data.frame(
-    reference = pr$sp1[1:5], test = pr$sp2[1:5],
-    Zsummary_std = c(5, 3, 4, 2, 6), q.value = q, module = "1",
+    reference = pr$species1[1:5], test = pr$species2[1:5],
+    Zsummary_std = c(5, 3, 4, 2, 6), q_value = q, module = "1",
     stringsAsFactors = FALSE
   )
   res <- suppressWarnings(preservation_matrix_test(cls, group = grp))
@@ -1094,7 +877,7 @@ test_that("all three saturation counts match pvalue_resolution exactly", {
 
   # A q-value above 1 is invalid input: counted, never silently dropped
   # out of n_at_one by a two-sided window.
-  cls$q.value[5] <- 1.0000001
+  cls$q_value[5] <- 1.0000001
   bad <- suppressWarnings(preservation_matrix_test(cls, group = grp))
   expect_identical(bad$saturation$n_at_one, 3L)
 })

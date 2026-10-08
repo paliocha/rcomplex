@@ -1,18 +1,17 @@
 #' Neighbourhood specificity of ortholog pairs
 #'
 #' @description
-#' Pair-level co-expressolog test that ranks each ortholog pair against
-#' every other gene of the partner species. The anchor's co-expression
-#' partners are translated to the partner species, and the paired
-#' ortholog is scored by how well its own co-expression ranking
-#' recognises that translated list compared with how well every other
-#' partner-species gene recognises it. It follows the co-expression
-#' conservation score of Suresh et al. (2023). It is the engine of
-#' `method = "rank"` in [find_coexpressologs()] and
-#' [density_sweep()]; [summarize_specificity()] turns its p-values into
-#' q-values.
+#' Ranks each ortholog pair against every other gene of the partner
+#' species. This is the engine of `method = "rank"` in
+#' [find_coexpressologs()] and [density_sweep()].
+#' [summarize_specificity()] turns its p-values into q-values.
 #'
 #' @details
+#' The anchor's co-expression partners are translated to the partner
+#' species. The paired ortholog is scored by how well its own
+#' co-expression ranking recognises that translated list, compared with how
+#' well every other partner-species gene recognises it. The score follows
+#' the co-expression conservation score of Suresh et al. (2023).
 #' For anchor gene \eqn{i} in species 1 and direction 1 to 2:
 #' \enumerate{
 #'   \item \eqn{T} is the set of species-2 genes orthologous, through
@@ -45,27 +44,27 @@
 #' @param directions `"both"` (default), `"1to2"` (anchors in species 1)
 #'   or `"2to1"`.
 #'
-#' @return A data frame with `Species1`, `Species2`, `hog` and, per
-#'   requested direction (`Species1.` for 1 to 2, `Species2.` for 2 to
+#' @return A data frame with `gene1`, `gene2`, `hog` and, per
+#'   requested direction (`species1.` for 1 to 2, `species2.` for 2 to
 #'   1):
 #'   \describe{
 #'     \item{neigh}{Anchor degree.}
 #'     \item{mapped}{Size of the translated set \eqn{T}.}
 #'     \item{auroc}{AUROC of \eqn{T} in the paired ortholog's ranking.}
-#'     \item{p.val}{Rank p-value of the paired ortholog, as above.}
+#'     \item{p_value}{Rank p-value of the paired ortholog, as above.}
 #'     \item{jaccard}{As in [compare_neighborhoods()].}
 #'     \item{n.cand}{Number of candidate genes in the partner network.}
-#'     \item{effect.size}{Equal to `auroc`.}
+#'     \item{effect_size}{Equal to `auroc`.}
 #'     \item{auroc.grid}{Matrix, one row per pair and one column per
 #'       raw-p fraction f (1e-5 to 1, the column names): the
 #'       `ceiling(f * n.cand)`-th largest candidate AUROC for the anchor,
 #'       i.e. the AUROC the ortholog needs to reach raw p of about f.
 #'       [summarize_specificity()] reads it for the edge `power`. It is
 #'       computed on every call; a comparison against a [null_network()]
-#'       partner, which only needs `p.val`, pays for it too (the package's
+#'       partner, which only needs `p_value`, pays for it too (the package's
 #'       own null runs skip it).}
 #'   }
-#'   `auroc` and `p.val` are `NA` when \eqn{T} is empty or spans every
+#'   `auroc` and `p_value` are `NA` when \eqn{T} is empty or spans every
 #'   other partner gene.
 #'
 #' @references
@@ -75,7 +74,7 @@
 #' evolution. \emph{Nature Ecology & Evolution}, 7(11), 1930--1943.
 #' \doi{10.1038/s41559-023-02186-7}
 #'
-#' @export
+#' @keywords internal
 compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
                                 directions = c("both", "1to2", "2to1")) {
   .specificity_run(net1, net2, orthologs, n_cores, match.arg(directions),
@@ -116,8 +115,8 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   )
   grid_cols <- grepl("\\.auroc\\.grid$", names(res))
   out <- cbind(op$orthologs, as.data.frame(res[!grid_cols]))
-  for (s in c("Species1", "Species2")[c(do_12, do_21)]) {
-    out[[paste0(s, ".effect.size")]] <- out[[paste0(s, ".auroc")]]
+  for (s in c("species1", "species2")[c(do_12, do_21)]) {
+    out[[paste0(s, ".effect_size")]] <- out[[paste0(s, ".auroc")]]
     if (length(grid_frac)) {
       g <- res[[paste0(s, ".auroc.grid")]]
       colnames(g) <- format(grid_frac,
@@ -157,21 +156,14 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 }
 
 
-#' Argument checks shared by the specificity path of find_coexpressologs()
-#' and density_sweep()
+#' Argument checks for the specificity path of find_coexpressologs()
 #' @noRd
-.check_specificity_args <- function(method, alternative, null_networks,
-                                    p0 = NULL, rho0 = NULL) {
+.check_specificity_args <- function(method, null_networks, rho0 = NULL) {
   if (method != "rank" && !is.null(null_networks)) {
     stop("null_networks is only used with method = \"rank\"")
   }
   if (method == "rank" && !is.null(rho0)) {
-    stop("rho0 is only used with method = \"hypergeometric\" (p0 sets the ",
-         "rank-test power)")
-  }
-  if (method != "rank" && !is.null(p0)) {
-    stop("p0 is only used with method = \"rank\" (rho0 sets the ",
-         "hypergeometric power)")
+    stop("rho0 is only used with method = \"hypergeometric\"")
   }
   if (method == "rank") {
     if (is.null(null_networks)) {
@@ -179,9 +171,6 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
         "method = \"rank\" needs null_networks; build one per ",
         "species with null_network()"
       )
-    }
-    if (alternative == "less") {
-      stop("method = \"rank\" supports alternative = \"greater\" only")
     }
   }
 }
@@ -193,35 +182,24 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
 #' species 2, direction 2 -> 1 by each null of species 1 against `net2`.
 #' @noRd
 .specificity_pair_edges <- function(net1, net2, nulls1, nulls2, orthologs,
-                                    sp1, sp2, alpha, n_cores, pi0_method,
-                                    pval_combine, p0 = NULL) {
+                                    species1, species2, n_cores,
+                                    pval_combine) {
   cmp <- compare_specificity(net1, net2, orthologs, n_cores)
   null_p <- list(
-    sp1 = unlist(lapply(nulls2, function(nb) {
+    species1 = unlist(lapply(nulls2, function(nb) {
       .specificity_run(net1, nb, orthologs, n_cores, "1to2",
         grid_frac = numeric(0)
-      )$Species1.p.val
+      )$species1.p_value
     })),
-    sp2 = unlist(lapply(nulls1, function(na) {
+    species2 = unlist(lapply(nulls1, function(na) {
       .specificity_run(na, net2, orthologs, n_cores, "2to1",
         grid_frac = numeric(0)
-      )$Species2.p.val
+      )$species2.p_value
     }))
   )
-  # the specificity p-values are continuous-ish ranks, so the randomized
-  # pi0 of the hypergeometric path reduces to plain Storey
-  if (pi0_method == "randomized") pi0_method <- "storey"
-  summarize_specificity(cmp, null_p, alpha,
-    pi0_method = pi0_method, sp1 = sp1, sp2 = sp2,
-    pval_combine = pval_combine, p0 = p0
+  summarize_specificity(cmp, null_p,
+    species1 = species1, species2 = species2, pval_combine = pval_combine
   )$edges
-}
-
-
-#' Accept the pre-0.3.1 name of the hypergeometric arm
-#' @noRd
-.method_alias <- function(method) {
-  if (identical(method, "analytical")) "hypergeometric" else method
 }
 
 
@@ -245,9 +223,9 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
   pval_combine <- match.arg(pval_combine)
   .check_p0(p0)
   na_out <- rep(NA_real_, nrow(res))
-  dirs <- c("Species1", "Species2")
+  dirs <- c("species1", "species2")
   need <- as.vector(outer(dirs, c(
-    ".p.val", ".q.val.con", ".mapped", ".n.cand", ".auroc.grid"
+    ".p_value", ".q_value_con", ".mapped", ".n.cand", ".auroc.grid"
   ), paste0))
   if (nrow(res) == 0L) {
     return(na_out)
@@ -257,14 +235,14 @@ compare_specificity <- function(net1, net2, orthologs, n_cores = 1L,
     return(na_out)
   }
   combine <- if (pval_combine == "min") pmin else pmax
-  q_comb <- combine(res$Species1.q.val.con, res$Species2.q.val.con,
+  q_comb <- combine(res$species1.q_value_con, res$species2.q_value_con,
     na.rm = TRUE
   )
   called <- is.finite(q_comb) & q_comb < alpha
   pw <- lapply(dirs, function(d) {
     col <- function(s) res[[paste0(d, s)]]
-    q <- col(".q.val.con")
-    p <- col(".p.val")
+    q <- col(".q_value_con")
+    p <- col(".p_value")
     sig <- !is.na(q) & q < alpha
     grid <- col(".auroc.grid")
     lf <- suppressWarnings(log(as.numeric(colnames(grid))))
