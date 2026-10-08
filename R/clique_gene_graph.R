@@ -22,82 +22,26 @@
 }
 
 
-#' Refuse a clique table that row-binds two runs under one clique_id
-#'
-#' `gene_clique_graph()` numbers cliques positionally within a HOG, so
-#' two runs at different `alpha_graph` produce the same ids unless the
-#' caller gave them distinct `id_prefix` values. Row-binding them merges
-#' unrelated genes into one oversized "clique" whose `n_members`,
-#' `n_species`, `n_pairs` and `missing_species` are then arithmetic over
-#' genes that were never adjacent -- silently, since nothing downstream
-#' can tell a merged block from a real clique.
-#'
-#' Three independent signatures of such a merge are refused, since each
-#' misses cases the others catch: the repeated (id, species, gene)
-#' triple needs the colliding cliques to share a member, the shared id
-#' needs them to come from different HOGs, and the row-count check needs
-#' the input to carry `n_members` at all. Their union is not complete --
-#' a table without `n_members` whose colliding cliques come from one HOG
-#' and share no member passes all three. Give each
-#' [gene_clique_graph()] run a distinct `id_prefix` rather than relying
-#' on detection.
-#'
-#' @param cl_id Clique id of each row.
-#' @param mk_all Node key (species + gene) of each row.
-#' @param cl_hog HOG of each row.
-#' @param n_members Declared clique size of each row, or `NULL` when the
-#'   input does not carry the column.
-#' @return Invisibly `TRUE`; errors on any merge signature.
-#' @noRd
-.gcg_check_clique_ids <- function(cl_id, mk_all, cl_hog, n_members) {
-  hint <- ": give each gene_clique_graph() run a distinct id_prefix"
-  if (anyDuplicated(paste(cl_id, mk_all, sep = .gcg_sep)) > 0L) {
-    stop(
-      "cliques contain repeated (clique_id, species, gene) rows", hint
-    )
-  }
-  n_id <- length(unique(cl_id))
-  if (length(unique(paste(cl_id, cl_hog, sep = .gcg_sep))) != n_id) {
-    stop("cliques contain a clique_id spanning several hogs", hint)
-  }
-  if (!is.null(n_members)) {
-    by_id <- split(as.integer(n_members), cl_id)
-    # Only MORE rows than declared can be a merge -- stacking two blocks
-    # adds rows, it never removes them. Fewer rows is a row-filtered
-    # table, which is a legitimate thing to hand this function, and
-    # refusing it was a regression that misdiagnosed the cause. A single
-    # clique_id declaring two different sizes is still two blocks.
-    bad <- vapply(by_id, function(v) {
-      u <- unique(v[!is.na(v)])
-      length(u) > 1L || (length(u) == 1L && length(v) > u)
-    }, logical(1))
-    if (any(bad)) {
-      stop(
-        "cliques have more member rows than n_members declares", hint
-      )
-    }
-  }
-  invisible(TRUE)
-}
-
-
 #' Empty result template for [gene_clique_graph()]
 #'
 #' @param has_effect Whether an `effect_size` column is carried.
 #' @param has_score Whether a `score` column is carried.
-#' @return A zero-row data frame with the full column set.
+#' @param sp_lv Species levels of the `members` table.
+#' @return The two zero-row tables with their full column sets.
 #' @noRd
-.gcg_empty <- function(has_effect, has_score) {
-  out <- data.frame(
-    clique_id = character(0), hog = character(0),
-    species = character(0), gene = character(0),
+.gcg_empty <- function(has_effect, has_score, sp_lv) {
+  cliques <- data.frame(
+    clique_id = integer(0), hog = character(0),
     n_members = integer(0), n_species = integer(0),
-    n_edges = integer(0), mean_q = numeric(0), max_q = numeric(0),
-    stringsAsFactors = FALSE
+    n_edges = integer(0), mean_q = numeric(0), max_q = numeric(0)
   )
-  if (has_effect) out$mean_effect_size <- numeric(0)
-  if (has_score) out$score <- numeric(0)
-  out
+  if (has_effect) cliques$mean_effect_size <- numeric(0)
+  if (has_score) cliques$score <- numeric(0)
+  members <- data.frame(
+    clique_id = integer(0), species = factor(character(0), sp_lv),
+    gene = character(0)
+  )
+  list(cliques = cliques, members = members)
 }
 
 
@@ -107,13 +51,15 @@
 #' so a caller who filters the result would otherwise lose the record of
 #' how little resolution `mean_q` has.
 #'
-#' @param out Result frame (possibly zero-row).
+#' @param res List of the `cliques` and `members` tables.
 #' @param alpha_graph,min_size Call parameters.
 #' @param q_floor,mean_q_floor,n_tied Floor diagnostics.
-#' @return `out` with floor columns and attributes.
+#' @return `res` of class `gene_cliques`, with floor columns and
+#'   attributes on `cliques`.
 #' @noRd
-.gcg_graph_attrs <- function(out, alpha_graph, min_size, q_floor,
+.gcg_graph_attrs <- function(res, alpha_graph, min_size, q_floor,
                              mean_q_floor, n_tied) {
+  out <- res$cliques
   out$mean_q_floor <- rep(mean_q_floor, nrow(out))
   out$n_cliques_at_q_floor <- rep(n_tied, nrow(out))
   attr(out, "alpha_graph") <- alpha_graph
@@ -121,7 +67,53 @@
   attr(out, "q_floor") <- q_floor
   attr(out, "mean_q_floor") <- mean_q_floor
   attr(out, "n_cliques_at_q_floor") <- n_tied
-  out
+  res$cliques <- out
+  structure(res, class = "gene_cliques")
+}
+
+
+#' Statistics of one block of cliques of one HOG
+#'
+#' The edges of each clique are visited in edge order, as the edge scan
+#' of the reference did, so the sums come out in the same order. The
+#' mean is the two-pass mean of `mean.default()`.
+#'
+#' @param cl Cliques as integer vectors of node indices.
+#' @param em Node x node matrix of edge indices.
+#' @param eq,ee,es q-value, effect size and score of each edge.
+#' @param sp_h Species index of each node.
+#' @param nodes Global node id of each node.
+#' @return A list of per-clique statistics and the members' node ids.
+#' @noRd
+.gcg_clique_stats <- function(cl, em, eq, ee, es, sp_h, nodes) {
+  n_k <- length(cl)
+  sz <- lengths(cl)
+  nd <- unlist(cl, use.names = FALSE)
+  cq <- rep.int(seq_len(n_k), sz)
+  n_right <- sz[cq] - sequence(sz)
+  left <- rep.int(seq_along(nd), n_right)
+  e_k <- em[cbind(nd[left], nd[left + sequence(n_right)])]
+  o <- order(cq[left], e_k)
+  e_h <- e_k[o]
+  g <- cq[left][o]
+  grp <- structure(g, N.groups = n_k, class = "qG")
+  ne <- tabulate(g, nbins = n_k)
+  gsum <- function(x) {
+    collapse::fsum(x, grp, na.rm = FALSE, use.g.names = FALSE)
+  }
+  gmean <- function(x) {
+    s <- gsum(x) / ne
+    fin <- is.finite(s)
+    s[fin] <- s[fin] + gsum(x - s[g])[fin] / ne[fin]
+    s
+  }
+  first_sp <- !duplicated((cq - 1L) * max(sp_h) + sp_h[nd])
+  list(
+    sz = sz, ns = tabulate(cq[first_sp], nbins = n_k), ne = ne,
+    mq = gmean(eq[e_h]),
+    xq = collapse::fmax(eq[e_h], grp, na.rm = FALSE, use.g.names = FALSE),
+    me = gmean(ee[e_h]), sc = gsum(es[e_h]), gi = nodes[nd]
+  )
 }
 
 
@@ -148,6 +140,10 @@
 #' The clique `score` adds the edge scores. Log-odds add, so the sum is
 #' the log-likelihood ratio of the conserved subnetwork (NetworkBLAST),
 #' and it grows with clique size on purpose.
+#'
+#' A hog of 40 or more genes is enumerated one start gene at a time.
+#' The pieces are disjoint, so the cliques are the same. Only the peak
+#' memory drops.
 #'
 #' @section Duplicate rows:
 #' Two rows describing the same undirected pair within one HOG collapse
@@ -177,16 +173,14 @@
 #'   example. Passing several thresholds and combining
 #'   the results is the intended way to feed
 #'   [classify_gene_cliques()], since a clique that is maximal
-#'   at one threshold need not be maximal at another.
-#' @param id_prefix String prepended to every `clique_id`. Clique ids
-#'   are `<prefix><hog>_<k>`, so runs at different `alpha_graph` values
-#'   need distinct prefixes before they can be row-bound.
+#'   at one threshold need not be maximal at another. Pass the runs to
+#'   it as a list.
 #'
-#' @return A data frame with one row per clique member:
+#' @return A list of class `gene_cliques` with two tables.
+#'   `cliques` has one row per clique:
 #'   \describe{
-#'     \item{clique_id}{Clique identifier, unique within the run}
+#'     \item{clique_id}{Integer clique id, 1 to the number of cliques}
 #'     \item{hog}{Ortholog group}
-#'     \item{species, gene}{The member}
 #'     \item{n_members}{Nodes in the clique}
 #'     \item{n_species}{Distinct species in the clique (equal to
 #'       `n_members` for cross-species edge tables)}
@@ -203,9 +197,12 @@
 #'       large tie count means `mean_q` cannot rank those cliques at
 #'       all}
 #'   }
-#'   The same two floor diagnostics, plus `alpha_graph`, `min_size` and
-#'   `q_floor` (smallest edge q-value in the graph), are also recorded as
-#'   attributes. Both are always set, empty results included.
+#'   `members` has one row per clique member: `clique_id`, `species`
+#'   (a factor; its levels are the species of `edges` in order of first
+#'   appearance) and `gene`.
+#'   The two floor diagnostics, plus `alpha_graph`, `min_size` and
+#'   `q_floor` (smallest edge q-value in the graph), are also attributes
+#'   of `cliques`. Both are always set, empty results included.
 #'
 #' @examples
 #' edges <- data.frame(
@@ -214,7 +211,9 @@
 #'   species2 = c("SP_B", "SP_C", "SP_C"),
 #'   hog = "HOG1", q_value = c(0.01, 0.02, 0.03)
 #' )
-#' gene_clique_graph(edges)
+#' g <- gene_clique_graph(edges)
+#' g$cliques
+#' g$members
 #'
 #' @seealso [classify_gene_cliques()],
 #'   [find_cliques()]
@@ -230,8 +229,7 @@ gene_clique_graph <- function(edges, ...) UseMethod("gene_clique_graph")
 #' @rdname gene_clique_graph
 #' @export
 gene_clique_graph.default <- function(edges, min_size = 3L,
-                                      alpha_graph = 0.1,
-                                      id_prefix = "", ...) {
+                                      alpha_graph = 0.1, ...) {
   rlang::check_dots_empty()
   required <- c(
     "gene1", "gene2", "species1", "species2", "hog",
@@ -253,69 +251,63 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (!ok_alpha) {
     stop("alpha_graph must be a single non-missing number")
   }
-  if (!is.character(id_prefix) || length(id_prefix) != 1L) {
-    stop("id_prefix must be a single string")
-  }
   .gcg_check_ids(edges)
 
   has_effect <- "effect_size" %in% names(edges)
   has_score <- "score" %in% names(edges)
+  sp_lv <- unique(as.character(c(edges$species1, edges$species2)))
   keep <- !is.na(edges$q_value) & edges$q_value < alpha_graph
   edges <- edges[keep, , drop = FALSE]
   if (nrow(edges) == 0L) {
     return(.gcg_graph_attrs(
-      .gcg_empty(has_effect, has_score), alpha_graph, min_size,
+      .gcg_empty(has_effect, has_score, sp_lv), alpha_graph, min_size,
       NA_real_, NA_real_, 0L
     ))
   }
 
-  key1 <- paste(edges$species1, edges$gene1, sep = .gcg_sep)
-  key2 <- paste(edges$species2, edges$gene2, sep = .gcg_sep)
+  # One integer id per (species, gene) node: the first row end that
+  # names it, over both ends of every row.
+  n_row <- nrow(edges)
+  all_sp <- match(as.character(c(edges$species1, edges$species2)), sp_lv)
+  all_gn <- as.character(c(edges$gene1, edges$gene2))
+  gid <- match(
+    paste(all_sp, all_gn, sep = .gcg_sep),
+    paste(all_sp, all_gn, sep = .gcg_sep)
+  )
+  gid1 <- gid[seq_len(n_row)]
+  gid2 <- gid[n_row + seq_len(n_row)]
   qv <- as.numeric(edges$q_value)
   ev <- if (has_effect) {
     as.numeric(edges$effect_size)
   } else {
-    rep(NA_real_, nrow(edges))
+    rep(NA_real_, n_row)
   }
-  sv <- if (has_score) as.numeric(edges$score) else rep(NA_real_, nrow(edges))
-  hog_chr <- as.character(edges$hog)
+  sv <- if (has_score) as.numeric(edges$score) else rep(NA_real_, n_row)
 
-  by_hog <- split(seq_len(nrow(edges)), hog_chr)
-  n_hog <- length(by_hog)
-  cid_l <- sp_l <- gn_l <- hog_l <- vector("list", n_hog)
-  nm_l <- ns_l <- ne_l <- mq_l <- xq_l <- me_l <- sc_l <- cid_l
-  j <- 0L
+  by_hog <- split(seq_len(n_row), as.character(edges$hog))
+  blk <- vector("list", length(by_hog))
   # Plain integer cliques skip igraph's vertex-sequence objects.
   old_opt <- igraph::igraph_options(return.vs.es = FALSE)
   on.exit(igraph::igraph_options(old_opt), add = TRUE)
   n_capped <- 0L
   n_dropped <- 0L
 
-  for (h in names(by_hog)) {
-    idx <- by_hog[[h]]
-    k1 <- key1[idx]
-    k2 <- key2[idx]
+  for (k in seq_along(by_hog)) {
+    h <- names(by_hog)[k]
+    idx <- by_hog[[k]]
     # Both endpoints on the same node is a self-loop, which igraph would
     # happily accept and which would inflate n_edges. A within-species
     # row between two *distinct* paralogs is a real edge and is kept;
     # it surfaces downstream as n_species < n_members.
-    loop <- k1 == k2
-    idx <- idx[!loop]
+    idx <- idx[gid1[idx] != gid2[idx]]
     if (length(idx) == 0L) next
-    k1 <- key1[idx]
-    k2 <- key2[idx]
+    nodes <- unique(c(gid1[idx], gid2[idx]))
+    n_v <- length(nodes)
+    if (n_v < min_size) next
+    node_sp <- all_sp[nodes]
 
-    nodes <- c(k1, k2)
-    node_sp <- c(edges$species1[idx], edges$species2[idx])
-    node_gn <- c(edges$gene1[idx], edges$gene2[idx])
-    first <- !duplicated(nodes)
-    nodes <- nodes[first]
-    node_sp <- node_sp[first]
-    node_gn <- node_gn[first]
-    if (length(nodes) < min_size) next
-
-    i1 <- match(k1, nodes)
-    i2 <- match(k2, nodes)
+    i1 <- match(gid1[idx], nodes)
+    i2 <- match(gid2[idx], nodes)
     # Duplicate rows for one undirected pair collapse to the most
     # significant copy. The q tie-break is effect_size descending, never
     # input row order: q saturates at the permutation floor, and the
@@ -336,10 +328,9 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     # edges that enter the graph; order() is stable, so ties keep the
     # gene that entered the graph first. Dropped genes stay as isolated
     # vertices, which max_cliques(min >= 2) never reports.
-    deg <- tabulate(c(i1, i2), nbins = length(nodes))
-    keep_node <- rep(TRUE, length(nodes))
-    sp_n <- table(node_sp)
-    for (s in names(sp_n)[sp_n > 10L]) {
+    deg <- tabulate(c(i1, i2), nbins = n_v)
+    keep_node <- rep(TRUE, n_v)
+    for (s in which(tabulate(node_sp) > 10L)) {
       v <- which(node_sp == s)
       top <- v[order(-deg[v])[seq_len(10L)]]
       keep_node[setdiff(v, top)] <- FALSE
@@ -356,57 +347,25 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     }
 
     g <- igraph::make_graph(as.vector(rbind(i1, i2)),
-      n = length(nodes), directed = FALSE
+      n = n_v, directed = FALSE
     )
-    cliques <- igraph::max_cliques(g, min = min_size)
-    if (length(cliques) == 0L) next
-
-    # Edges per clique from the member pairs, not from one scan of the
-    # HOG's edges per clique: the collapsed graph has exactly one edge
-    # per member pair, so the work is the clique pair count.
-    n_k <- length(cliques)
-    sz <- lengths(cliques)
-    nd <- as.integer(unlist(cliques, use.names = FALSE))
-    cq <- rep.int(seq_len(n_k), sz)
-    n_v <- length(nodes)
-    n_right <- sz[cq] - sequence(sz)
-    left <- rep.int(seq_along(nd), n_right)
-    right <- left + sequence(n_right)
-    u <- nd[left]
-    v <- nd[right]
-    e_k <- match(
-      (pmin(u, v) - 1) * n_v + pmax(u, v),
-      (pmin(i1, i2) - 1) * n_v + pmax(i1, i2)
-    )
-    o <- order(cq[left], e_k)
-    e_h <- e_k[o]
-    by_cq <- structure(cq[left][o],
-      levels = as.character(seq_len(n_k)), class = "factor"
-    )
-    sp_i <- match(node_sp, unique(node_sp))[nd]
-    first_sp <- !duplicated((cq - 1) * n_v + sp_i)
-
-    j <- j + 1L
-    cid_l[[j]] <- rep.int(paste0(id_prefix, h, "_", seq_len(n_k)), sz)
-    sp_l[[j]] <- node_sp[nd]
-    gn_l[[j]] <- node_gn[nd]
-    hog_l[[j]] <- rep.int(h, n_k)
-    nm_l[[j]] <- sz
-    ns_l[[j]] <- tabulate(cq[first_sp], nbins = n_k)
-    ne_l[[j]] <- tabulate(by_cq, nbins = n_k)
-    q_k <- split(eq[e_h], by_cq)
-    mq_l[[j]] <- vapply(q_k, mean.default, numeric(1), USE.NAMES = FALSE)
-    xq_l[[j]] <- vapply(q_k, max, numeric(1), USE.NAMES = FALSE)
-    me_l[[j]] <- if (has_effect) {
-      vapply(split(ee[e_h], by_cq), mean.default, numeric(1),
-        USE.NAMES = FALSE
-      )
-    } else {
-      rep.int(NA_real_, n_k)
+    em <- matrix(0L, n_v, n_v)
+    em[cbind(i1, i2)] <- em[cbind(i2, i1)] <- seq_along(i1)
+    sp_h <- match(node_sp, unique(node_sp))
+    # A few hogs hold most cliques. One call per start vertex keeps one
+    # piece in memory at a time; the pieces are disjoint and together
+    # complete only when every vertex id starts one.
+    starts <- if (sum(keep_node) >= 40L) seq_len(n_v) else list(NULL)
+    out_h <- list()
+    for (v in starts) {
+      cl <- igraph::max_cliques(g, min = min_size, subset = v)
+      for (b in split(seq_along(cl), ceiling(seq_along(cl) / 2e5))) {
+        st <- .gcg_clique_stats(cl[b], em, eq, ee, es, sp_h, nodes)
+        st$hog <- h
+        out_h[[length(out_h) + 1L]] <- st
+      }
     }
-    sc_l[[j]] <- vapply(split(es[e_h], by_cq), sum, numeric(1),
-      USE.NAMES = FALSE
-    )
+    blk[[k]] <- out_h
   }
 
   if (n_capped > 0L) {
@@ -417,46 +376,54 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     )
   }
 
-  if (j == 0L) {
+  blk <- unlist(blk, recursive = FALSE, use.names = FALSE)
+  if (length(blk) == 0L) {
     return(.gcg_graph_attrs(
-      .gcg_empty(has_effect, has_score), alpha_graph, min_size,
+      .gcg_empty(has_effect, has_score, sp_lv), alpha_graph, min_size,
       min(qv), NA_real_, 0L
     ))
   }
-
-  ul <- function(x) unlist(x, use.names = FALSE)
-  hog_v <- ul(hog_l)
-  nm_v <- ul(nm_l)
-  ns_v <- ul(ns_l)
-  ne_v <- ul(ne_l)
-  mq_v <- ul(mq_l)
-  xq_v <- ul(xq_l)
-  me_v <- ul(me_l)
-  sc_v <- ul(sc_l)
-  out <- data.frame(
-    clique_id = unlist(cid_l, use.names = FALSE),
-    hog = rep(hog_v, times = nm_v),
-    species = unlist(sp_l, use.names = FALSE),
-    gene = unlist(gn_l, use.names = FALSE),
-    n_members = rep(nm_v, times = nm_v),
-    n_species = rep(ns_v, times = nm_v),
-    n_edges = rep(ne_v, times = nm_v),
-    mean_q = rep(mq_v, times = nm_v),
-    max_q = rep(xq_v, times = nm_v),
-    stringsAsFactors = FALSE
+  hog <- rep.int(
+    vapply(blk, `[[`, "", "hog"), vapply(blk, function(b) length(b$sz), 1L)
   )
-  if (has_effect) {
-    out$mean_effect_size <- rep(me_v, times = nm_v)
+  # Each column leaves the blocks as it is joined, so the blocks and the
+  # result never both hold it: that sets the peak memory.
+  take <- function(f) unlist(lapply(blk, `[[`, f), use.names = FALSE)
+  gi <- take("gi")
+  for (i in seq_along(blk)) blk[[i]]$gi <- NULL
+  gene <- all_gn[gi]
+  species <- structure(all_sp[gi], levels = sp_lv, class = "factor")
+  rm(gi)
+  sz <- take("sz")
+  n_k <- length(sz)
+  members <- data.frame(
+    clique_id = rep.int(seq_len(n_k), sz), species = species, gene = gene
+  )
+  rm(species, gene)
+  col <- list()
+  for (f in c("ns", "ne", "mq", "xq", "me", "sc")) {
+    col[[f]] <- take(f)
+    for (i in seq_along(blk)) blk[[i]][[f]] <- NULL
   }
-  if (has_score) out$score <- rep(sc_v, times = nm_v)
+  rm(blk)
+  cliques <- data.frame(
+    clique_id = seq_len(n_k), hog = hog, n_members = sz,
+    n_species = col$ns, n_edges = col$ne, mean_q = col$mq, max_q = col$xq
+  )
+  if (has_effect) cliques$mean_effect_size <- col$me
+  if (has_score) cliques$score <- col$sc
+  rm(col)
   # Tie counts go through the tolerant comparison for the same reason
   # pvalue_resolution() does: mean_q is a mean over a different edge
   # subset per clique, so two mathematically equal values need not be
   # bitwise equal, and a tie count that exists to say "these cannot be
-  # ranked" must not under-report the tie.
-  mq_ties <- .tol_min_ties(mq_v)
+  # ranked" must not under-report the tie. The rule is .tol_min_ties()'s;
+  # its count of distinct values sorts every clique, and is not needed.
+  mq_min <- min(cliques$mean_q)
+  n_tied <- sum(cliques$mean_q <= mq_min + .tie_tol() * abs(mq_min))
   .gcg_graph_attrs(
-    out, alpha_graph, min_size, min(qv), mq_ties$min, mq_ties$n_at_min
+    list(cliques = cliques, members = members), alpha_graph, min_size,
+    min(qv), mq_min, n_tied
   )
 }
 
@@ -627,15 +594,12 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' tested would be scored as diverged on absent evidence -- the same
 #' conflation `partial_present` refuses through `missing_reason`.
 #'
-#' @param cliques Data frame from [gene_clique_graph()], or
-#'   any table with `clique_id`, `hog`, `species` and `gene` columns.
-#'   Combine runs at several `alpha_graph` values (with distinct
-#'   `id_prefix`) to expose every tier: a clique complete at
-#'   `alpha_call` need not be maximal on a looser graph. Two runs that
-#'   collide on a `clique_id` are refused where the collision is
-#'   detectable; detection is not complete, so give each
-#'   [gene_clique_graph()] run a distinct `id_prefix` rather than
-#'   relying on it.
+#' @param cliques A [gene_clique_graph()] result, a list of them, or a
+#'   table of member rows with `clique_id`, `hog`, `species` and `gene`
+#'   columns. Combine runs at several `alpha_graph` values to expose
+#'   every tier: a clique complete at `alpha_call` need not be maximal
+#'   on a looser graph. Pass the runs as a list. The result then gains a
+#'   `run` column, the position of the run in the list.
 #' @param edges The full, unfiltered co-expressolog table. It must not
 #'   be pre-filtered on `q_value`: the gap tier needs to see rows that
 #'   were tested and failed in order to refuse them. An optional `power`
@@ -667,7 +631,9 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'
 #' @return A data frame with one row per clique:
 #'   \describe{
-#'     \item{clique_id, hog}{Clique identity}
+#'     \item{run}{Only for a list of runs: the run of the clique}
+#'     \item{clique_id, hog}{Clique identity. The id is the run's own
+#'       `clique_id`.}
 #'     \item{classification}{Tier, or `"unclassified"`}
 #'     \item{hog_class}{Earliest tier reached by any clique of that HOG,
 #'       reproducing the HOG-level precedence of the published scripts
@@ -734,6 +700,11 @@ classify_gene_cliques.default <- function(cliques, edges, species,
                                           alpha_graph = 0.9,
                                           min_power = 0.8, ...) {
   rlang::check_dots_empty()
+  runs <- NULL
+  if (!is.data.frame(cliques)) {
+    runs <- .gcg_member_rows(cliques)
+    cliques <- runs$rows
+  }
   need_cl <- c("clique_id", "hog", "species", "gene")
   absent <- setdiff(need_cl, names(cliques))
   if (length(absent) > 0L) {
@@ -815,7 +786,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   }
 
   has_effect <- "effect_size" %in% names(edges)
-  ids <- unique(as.character(cliques$clique_id))
+  ids <- unique(cliques$clique_id)
   const <- list(
     n_sp = n_sp, n_pair = n_pair, w_pairs = w_pairs,
     x_pairs = x_pairs, cross_max = cross_max,
@@ -823,7 +794,9 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     max_gap = max_gap
   )
   if (length(ids) == 0L) {
-    return(.gcg_class_attrs(.gcg_empty_class(has_effect), const))
+    out <- .gcg_empty_class(has_effect)
+    out$clique_id <- ids
+    return(.gcg_class_attrs(.gcg_runs(out, runs), const))
   }
 
   ekey1 <- paste(edges$species1, edges$gene1, sep = .gcg_sep)
@@ -857,7 +830,6 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   cl_hog <- as.character(cliques$hog)
   mk_all <- paste(cl_sp, as.character(cliques$gene), sep = .gcg_sep)
   cl_id <- as.character(cliques$clique_id)
-  .gcg_check_clique_ids(cl_id, mk_all, cl_hog, cliques$n_members)
 
   cl_by_id <- split(seq_len(nrow(cliques)), factor(cl_id, levels = ids))
   cmb_l <- lapply(cl_by_id, function(rr) {
@@ -949,7 +921,58 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   rank <- match(out$classification, .gcg_tiers)
   best <- vapply(split(rank, out$hog), min, numeric(1))
   out$hog_class <- .gcg_tiers[best[out$hog]]
-  .gcg_class_attrs(out, const)
+  .gcg_class_attrs(.gcg_runs(out, runs), const)
+}
+
+
+#' Member rows of one or several [gene_clique_graph()] results
+#'
+#' Several runs get offset clique ids, so their cliques stay apart.
+#'
+#' @param x A `gene_cliques` result, or a list of them.
+#' @return A list: `rows`, the member-row table; for a list of runs also
+#'   `run` and `local`, the run and its own id of each offset id.
+#' @noRd
+.gcg_member_rows <- function(x) {
+  one <- inherits(x, "gene_cliques")
+  runs <- if (one) list(x) else x
+  ok <- is.list(runs) && length(runs) > 0L &&
+    all(vapply(runs, inherits, logical(1), "gene_cliques"))
+  if (!ok) {
+    stop(
+      "cliques must be a gene_clique_graph() result, a list of them, ",
+      "or a table of member rows"
+    )
+  }
+  top <- vapply(runs, function(r) max(c(0L, r$cliques$clique_id)), 1L)
+  off <- cumsum(c(0L, top))
+  rows <- lapply(seq_along(runs), function(i) {
+    m <- runs[[i]]$members
+    cl <- runs[[i]]$cliques
+    hit <- match(m$clique_id, cl$clique_id)
+    m <- m[!is.na(hit), , drop = FALSE]
+    data.frame(
+      clique_id = m$clique_id + off[[i]], hog = cl$hog[hit[!is.na(hit)]],
+      species = as.character(m$species), gene = m$gene
+    )
+  })
+  list(
+    rows = do.call(rbind, rows),
+    run = if (!one) rep.int(seq_along(runs), top),
+    local = if (!one) sequence(top)
+  )
+}
+
+
+#' Give each clique its run and its own id back
+#' @noRd
+.gcg_runs <- function(out, runs) {
+  if (is.null(runs$run)) {
+    return(out)
+  }
+  run <- runs$run[out$clique_id]
+  out$clique_id <- runs$local[out$clique_id]
+  cbind(run = run, out)
 }
 
 

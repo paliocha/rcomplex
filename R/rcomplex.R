@@ -36,7 +36,8 @@
 #'     \item{networks}{The network objects, by species.}
 #'     \item{edges}{The edge table from [find_coexpressologs()], plus a
 #'       `sign` column: the sign of every network.}
-#'     \item{cliques}{The cliques from [gene_clique_graph()].}
+#'     \item{cliques, members}{The two tables of [gene_clique_graph()]:
+#'       one row per clique, and one row per clique member.}
 #'     \item{classification}{One row per clique, from
 #'       [classify_gene_cliques()].}
 #'     \item{modules, preservation}{With `modules = TRUE`: the
@@ -118,12 +119,13 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     sign <- signs[[1L]]
   }
   edges <- .driver_edges(networks, xs, ortho, method, block, n_cores, sign)
-  cliques <- gene_clique_graph(edges,
+  g <- gene_clique_graph(edges,
     min_size = min(3L, length(sp)), alpha_graph = alpha
   )
   res <- list(
-    networks = networks, edges = edges, cliques = cliques,
-    classification = classify_gene_cliques(cliques, edges, sp,
+    networks = networks, edges = edges, cliques = g$cliques,
+    members = g$members,
+    classification = classify_gene_cliques(g, edges, sp,
       clades = clades, alpha_call = alpha,
       min_power = if (method == "rank") 0.9 else 0.8
     )
@@ -299,7 +301,8 @@ as.data.frame.rcomplex <- function(x, ...) x$classification
 #'
 #' `write_rcomplex()` writes each table of the result to its own file.
 #' Each file takes the name of its element: `edges.tsv`, `cliques.tsv`,
-#' `classification.tsv` and, with `null = TRUE`, `edges_null.tsv`.
+#' `members.tsv`, `classification.tsv` and, with `null = TRUE`,
+#' `edges_null.tsv`.
 #'
 #' @param x A result of [rcomplex()].
 #' @param dir Output directory. It is created when it does not exist.

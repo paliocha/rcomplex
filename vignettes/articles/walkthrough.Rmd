@@ -398,8 +398,10 @@ table(result$classification)
 ### Gene graph
 
 `gene_clique_graph()` cliques the graph of genes. A hog with paralogs
-gives one clique per gene combination. `classify_gene_cliques()` applies
-the six-tier taxonomy of Rodriguez *et al.* (2026): `complete_conserved`,
+gives one clique per gene combination. It returns two tables: `cliques`
+has one row per clique, `members` one row per clique member.
+`classify_gene_cliques()` applies the six-tier taxonomy of Rodriguez
+*et al.* (2026): `complete_conserved`,
 `lineage_specific`, `partial_significant`, `partial_present`,
 `differentiated` and `trait_specific`. A clique that fits none is
 `unclassified`. A tier that rests on low power becomes `underpowered`.

@@ -35,7 +35,7 @@ test_that("rcomplex() runs the pipeline and counts tiers", {
   res <- rcomplex(drv_expr(), drv_ortho, density = 0.1, seed = 1L)
   expect_s3_class(res, "rcomplex")
   expect_named(res, c(
-    "networks", "edges", "cliques", "classification", "call"
+    "networks", "edges", "cliques", "members", "classification", "call"
   ))
   expect_identical(names(res$networks), c("SpA", "SpB"))
   expect_identical(
@@ -222,9 +222,9 @@ test_that("write_rcomplex() writes one TSV per table", {
   expect_true(dir.exists(dir))
   expect_identical(
     basename(paths),
-    c("edges.tsv", "cliques.tsv", "classification.tsv")
+    c("edges.tsv", "cliques.tsv", "members.tsv", "classification.tsv")
   )
-  back <- read.delim(paths[[3L]])
+  back <- read.delim(paths[[4L]])
   expect_identical(nrow(back), nrow(res$classification))
 })
 
