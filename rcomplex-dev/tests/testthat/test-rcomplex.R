@@ -71,10 +71,93 @@ test_that("expr and networks give identical edges", {
 })
 
 
+test_that("r_threshold is the weakest correlation that passes", {
+  set.seed(5)
+  x <- matrix(rnorm(40 * 12), 40, 12, dimnames = list(sprintf("g%02d", 1:40)))
+  cm <- cor(t(x))
+  weakest <- function(net, val) {
+    m <- as.matrix(net$network)
+    pass <- m >= net$threshold & upper.tri(m)
+    val[pass]
+  }
+  dense <- compute_network(x, density = 0.1, sparse = FALSE)
+  expect_equal(dense$params$r_threshold, min(weakest(dense, cm)))
+  sp <- compute_network(x, density = 0.1)
+  expect_identical(sp$params$r_threshold, dense$params$r_threshold)
+  blk <- compute_network(x, density = 0.1, block_size = 8L)
+  expect_identical(blk$params$r_threshold, sp$params$r_threshold)
+
+  neg <- compute_network(x, density = 0.1, sign = "negative")
+  expect_equal(neg$params$r_threshold, max(weakest(neg, cm)))
+  expect_lt(neg$params$r_threshold, 0)
+  expect_identical(
+    compute_network(x,
+      density = 0.1, sign = "negative",
+      block_size = 8L
+    )$params$r_threshold,
+    neg$params$r_threshold
+  )
+
+  f <- rep(c("a", "b"), each = 6L)
+  rect <- (pmax(cor(t(x[, 1:6])), 0) + pmax(cor(t(x[, 7:12])), 0)) / 2
+  pt <- compute_network(x, density = 0.1, partition = f)
+  expect_equal(pt$params$r_threshold, min(weakest(pt, rect)))
+  rect_neg <- (pmax(-cor(t(x[, 1:6])), 0) + pmax(-cor(t(x[, 7:12])), 0)) / 2
+  pt_neg <- compute_network(x, density = 0.1, partition = f, sign = "negative")
+  expect_equal(pt_neg$params$r_threshold, -min(weakest(pt_neg, rect_neg)))
+
+  expect_null(as_network(sp$network)$params$r_threshold)
+})
+
+
 test_that("print() shows species, edges and tiers", {
   syn <- drv_syn()
   res <- rcomplex(syn$expr, syn$ortho, seed = 1L)
   expect_snapshot(print(res))
+  nets <- lapply(syn$expr, function(x) as_network(compute_network(x)$network))
+  expect_snapshot(print(rcomplex(networks = nets, orthologs = syn$ortho)))
+})
+
+
+# One generator at 6, 20 and 200 samples: same genes, same orthologs.
+# Modules hold the first 75 genes; their orthologs are the planted pairs.
+test_that("the driver runs and stays calibrated at every sample size", {
+  sp <- c("SpA", "SpB")
+  ld <- rep(list(seq(0.9, 0.6, length.out = 25L)), 3L)
+  ortho <- data.frame(
+    species = rep(sp, each = 200L),
+    gene = c(sprintf("SpA%04d", 1:200), sprintf("SpB%04d", 1:200)),
+    hog = rep(sprintf("H%03d", 1:200), 2L)
+  )
+  planted <- sprintf("H%03d", 1:75)
+  run <- function(n) {
+    expr <- withr::with_preserve_seed(lapply(1:2, function(i) {
+      pres_expr(i, 200L, sp[i], ld, 25L, n_samp = n) # nolint
+    }))
+    names(expr) <- sp
+    res <- rcomplex(expr, ortho, density = 0.05, null = TRUE, seed = 1L)
+    expect_output(s <- summary(res), "calls_null")
+    hit <- res$edges$q_value[res$edges$hog %in% planted] < 0.1
+    list(res = res, s = s, power = mean(hit %in% TRUE))
+  }
+  runs <- lapply(c(6L, 20L, 200L), run)
+  ref <- runs[[1L]]
+  for (r in runs) {
+    expect_identical(names(r$res), names(ref$res))
+    expect_identical(names(r$res$edges), names(ref$res$edges))
+    expect_identical(
+      names(r$res$classification), names(ref$res$classification)
+    )
+    expect_identical(names(r$s$null), names(ref$s$null))
+    expect_lte(r$s$null$false_call_rate, 0.1)
+  }
+  power <- vapply(runs, `[[`, 1, "power")
+  expect_true(all(diff(power) >= 0))
+  expect_gt(power[[1L]], 0)
+  r_thr <- vapply(runs, function(r) {
+    r$res$networks$SpA$params$r_threshold
+  }, 1)
+  expect_true(all(diff(r_thr) < 0))
 })
 
 
@@ -110,6 +193,10 @@ test_that("block runs each species on its wiring layer", {
     ),
     "SpB lacks block level: t3"
   )
+  # the fixture makes no calls, so the false-call rate is undefined
+  expect_output(s <- summary(res), "calls_null")
+  expect_identical(s$null$calls, 0L)
+  expect_identical(s$null$false_call_rate, NA_real_)
   wiring <- split_layers(expr$SpB, block$SpB)$wiring
   expect_identical(
     res$networks$SpB$threshold,
@@ -130,8 +217,9 @@ test_that("modules = TRUE adds modules and preservation", {
 
 test_that("write_rcomplex() writes one TSV per table", {
   res <- rcomplex(drv_expr(), drv_ortho, density = 0.1, seed = 1L)
-  dir <- withr::local_tempdir()
+  dir <- file.path(withr::local_tempdir(), "new")
   paths <- write_rcomplex(res, dir)
+  expect_true(dir.exists(dir))
   expect_identical(
     basename(paths),
     c("edges.tsv", "cliques.tsv", "classification.tsv")

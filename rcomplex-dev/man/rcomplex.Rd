@@ -95,6 +95,15 @@ shuffled networks come from \code{\link[=null_network]{null_network()}}, within 
 With \code{null = TRUE}, \code{summary()} reports \code{calls} and \code{calls_null} per
 species pair at \code{q_value < alpha}. Their ratio is the empirical
 false-call rate.
+The rate is \code{NA} for a species pair without calls. With
+\code{method = "rank"}, the null run calibrates its rank test against
+nulls of the null networks.
+
+\code{print()} shows, per species, the genes, the samples, the density and
+\code{r_threshold} from \code{\link[=compute_network]{compute_network()}}: the weakest correlation that
+passed the density threshold. The same density needs a stronger
+correlation at few samples. A network from \code{\link[=as_network]{as_network()}} has no
+correlation and shows \verb{r ?}, as does a network without edges.
 }
 \examples{
 f <- function(x) system.file("extdata", x, package = "rcomplex")

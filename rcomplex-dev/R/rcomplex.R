@@ -60,6 +60,15 @@
 #' With `null = TRUE`, `summary()` reports `calls` and `calls_null` per
 #' species pair at `q_value < alpha`. Their ratio is the empirical
 #' false-call rate.
+#' The rate is `NA` for a species pair without calls. With
+#' `method = "rank"`, the null run calibrates its rank test against
+#' nulls of the null networks.
+#'
+#' `print()` shows, per species, the genes, the samples, the density and
+#' `r_threshold` from [compute_network()]: the weakest correlation that
+#' passed the density threshold. The same density needs a stronger
+#' correlation at few samples. A network from [as_network()] has no
+#' correlation and shows `r ?`, as does a network without edges.
 #'
 #' @examples
 #' f <- function(x) system.file("extdata", x, package = "rcomplex")
@@ -198,6 +207,18 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
 }
 
 
+#' The weakest edge correlation of a network, as print() shows it
+#' @noRd
+.print_r_threshold <- function(n) {
+  r <- n$params$r_threshold
+  if (is.null(r) || is.na(r)) {
+    return("r ?")
+  }
+  neg <- identical(n$params$sign, "negative")
+  sprintf(if (neg) "r <= %.2f" else "r >= %.2f", r)
+}
+
+
 #' @export
 print.rcomplex <- function(x, ...) {
   cls <- x$classification
@@ -206,7 +227,8 @@ print.rcomplex <- function(x, ...) {
   big <- function(n) format(n, big.mark = ",")
   cat(
     "rcomplex: ", length(sp), " species, ", big(length(unique(x$edges$hog))),
-    " hogs, ", length(tiers), " tiers\n",
+    " hogs, ", length(tiers), ngettext(length(tiers), " tier", " tiers"),
+    "\n",
     sep = ""
   )
   genes <- vapply(x$networks, function(n) big(n$n_genes), character(1))
@@ -217,7 +239,7 @@ print.rcomplex <- function(x, ...) {
     "  ", format(sp), "  ", format(genes, justify = "right"), " genes  ",
     format(samples, justify = "right"), " samples  density ",
     vapply(x$networks, function(n) format(n$params$density), character(1)),
-    "\n"
+    "  ", vapply(x$networks, .print_r_threshold, character(1)), "\n"
   ), sep = "")
   alpha <- attr(cls, "alpha_call")
   cat(

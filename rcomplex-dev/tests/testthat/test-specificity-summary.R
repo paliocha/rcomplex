@@ -162,7 +162,8 @@ test_that("null_network keeps the universe and the parameters", {
   expect_identical(rownames(nn$network), rownames(f$net$network))
   expect_equal(nn$n_genes, f$net$n_genes)
   expect_identical(
-    nn$params[names(nn$params) != "log10_perms_per_gene"], f$net$params
+    nn$params[!names(nn$params) %in% c("log10_perms_per_gene", "r_threshold")],
+    f$net$params[names(f$net$params) != "r_threshold"]
   )
   expect_equal(nn$params$log10_perms_per_gene, lgamma(13) / log(10))
   expect_identical(nn$store_density, f$net$store_density)
