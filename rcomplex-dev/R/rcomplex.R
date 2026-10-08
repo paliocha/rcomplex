@@ -14,7 +14,7 @@
 #'   or [as_network()], one entry per species.
 #' @param block Named list of per-sample factors, one per species in
 #'   `expr`. Each species is split with [split_layers()]. The network is
-#'   built from the wiring part.
+#'   built from the wiring layer.
 #' @param clades Named list of species vectors, one per clade, as for
 #'   [classify_gene_cliques()]. `NULL` skips the clade tiers.
 #' @param density Fraction of gene pairs kept as edges in each network.

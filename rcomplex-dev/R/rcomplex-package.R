@@ -14,15 +14,13 @@
 #'
 #' **Inputs**
 #' * [read_orthologs()]: read an ortholog group file.
+#' * [prepare_orthologs()]: pair orthologs for every species pair.
+#' * [reduce_orthogroups()]: merge correlated paralogs.
 #' * [as_network()]: import a network built outside rcomplex.
-#' * [as_modules()]: import modules from any gene partition.
 #' * [clades_from_tree()]: derive clades from a species tree.
 #'
 #' **Harmonise**
-#' * [reduce_orthogroups()]: merge correlated paralogs.
-#' * [prepare_orthologs()]: pair orthologs for every species pair.
-#' * [resolve_ortholog_map()]: pick one paralog copy per gene.
-#' * [split_layers()]: split expression into wiring and deployment parts.
+#' * [split_layers()]: split expression into wiring and deployment layers.
 #'
 #' **Networks**
 #' * [compute_network()]: build a mutual-rank co-expression network.
@@ -30,27 +28,31 @@
 #' **Co-expressologs**
 #' * [find_coexpressologs()]: test every ortholog pair across species pairs.
 #' * [density_sweep()]: repeat the test at several density thresholds.
-#' * [get_coexpressed_hogs()]: query the partners of a candidate hog.
 #'
 #' **Cliques**
-#' * [find_cliques()]: cliques of the species graph.
 #' * [gene_clique_graph()]: every maximal clique of the gene graph.
-#' * [classify_cliques()], [classify_gene_cliques()]: conservation tiers.
+#' * [classify_gene_cliques()]: conservation tiers for gene cliques.
+#' * [find_cliques()]: cliques of the species graph.
 #' * [clique_stability()], [clique_threshold_sweep()]: robustness checks.
+#' * [classify_cliques()]: conservation pattern per hog.
 #'
 #' **Modules**
 #' * [detect_modules()]: find modules with Leiden.
-#' * [module_preservation()], [preservation_paired()],
-#'   [classify_preservation()]: test whether modules are preserved.
+#' * [as_modules()]: import modules from any gene partition.
+#' * [resolve_ortholog_map()]: pick one paralog copy per gene.
+#' * [module_preservation()], [classify_preservation()]: test and call
+#'   whether modules are preserved.
 #' * [module_correspondence()]: match modules across species.
 #' * [identify_module_hubs()], [classify_hub_conservation()]: hub genes.
+#' * [get_coexpressed_hogs()]: query the partners of a candidate hog.
 #'
 #' **Traits**
+#' * [preservation_paired()]: preservation over many species pairs.
 #' * [preservation_matrix_test()]: relabelling test on all species pairs.
 #'
 #' **Nulls and diagnostics**
-#' * [coexpressolog_null()]: degree-preserving edge-swap null.
 #' * [null_network()]: shuffled-partner null network.
+#' * [coexpressolog_null()]: degree-preserving edge-swap null.
 #' * [pvalue_resolution()]: how many distinct p-values a test can give.
 #'
 #' @docType package

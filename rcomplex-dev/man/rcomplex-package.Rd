@@ -22,17 +22,15 @@ blocks below run the same steps one at a time.
 \strong{Inputs}
 \itemize{
 \item \code{\link[=read_orthologs]{read_orthologs()}}: read an ortholog group file.
+\item \code{\link[=prepare_orthologs]{prepare_orthologs()}}: pair orthologs for every species pair.
+\item \code{\link[=reduce_orthogroups]{reduce_orthogroups()}}: merge correlated paralogs.
 \item \code{\link[=as_network]{as_network()}}: import a network built outside rcomplex.
-\item \code{\link[=as_modules]{as_modules()}}: import modules from any gene partition.
 \item \code{\link[=clades_from_tree]{clades_from_tree()}}: derive clades from a species tree.
 }
 
 \strong{Harmonise}
 \itemize{
-\item \code{\link[=reduce_orthogroups]{reduce_orthogroups()}}: merge correlated paralogs.
-\item \code{\link[=prepare_orthologs]{prepare_orthologs()}}: pair orthologs for every species pair.
-\item \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}: pick one paralog copy per gene.
-\item \code{\link[=split_layers]{split_layers()}}: split expression into wiring and deployment parts.
+\item \code{\link[=split_layers]{split_layers()}}: split expression into wiring and deployment layers.
 }
 
 \strong{Networks}
@@ -44,35 +42,39 @@ blocks below run the same steps one at a time.
 \itemize{
 \item \code{\link[=find_coexpressologs]{find_coexpressologs()}}: test every ortholog pair across species pairs.
 \item \code{\link[=density_sweep]{density_sweep()}}: repeat the test at several density thresholds.
-\item \code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}: query the partners of a candidate hog.
 }
 
 \strong{Cliques}
 \itemize{
-\item \code{\link[=find_cliques]{find_cliques()}}: cliques of the species graph.
 \item \code{\link[=gene_clique_graph]{gene_clique_graph()}}: every maximal clique of the gene graph.
-\item \code{\link[=classify_cliques]{classify_cliques()}}, \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}: conservation tiers.
+\item \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}: conservation tiers for gene cliques.
+\item \code{\link[=find_cliques]{find_cliques()}}: cliques of the species graph.
 \item \code{\link[=clique_stability]{clique_stability()}}, \code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}: robustness checks.
+\item \code{\link[=classify_cliques]{classify_cliques()}}: conservation pattern per hog.
 }
 
 \strong{Modules}
 \itemize{
 \item \code{\link[=detect_modules]{detect_modules()}}: find modules with Leiden.
-\item \code{\link[=module_preservation]{module_preservation()}}, \code{\link[=preservation_paired]{preservation_paired()}},
-\code{\link[=classify_preservation]{classify_preservation()}}: test whether modules are preserved.
+\item \code{\link[=as_modules]{as_modules()}}: import modules from any gene partition.
+\item \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}: pick one paralog copy per gene.
+\item \code{\link[=module_preservation]{module_preservation()}}, \code{\link[=classify_preservation]{classify_preservation()}}: test and call
+whether modules are preserved.
 \item \code{\link[=module_correspondence]{module_correspondence()}}: match modules across species.
 \item \code{\link[=identify_module_hubs]{identify_module_hubs()}}, \code{\link[=classify_hub_conservation]{classify_hub_conservation()}}: hub genes.
+\item \code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}: query the partners of a candidate hog.
 }
 
 \strong{Traits}
 \itemize{
+\item \code{\link[=preservation_paired]{preservation_paired()}}: preservation over many species pairs.
 \item \code{\link[=preservation_matrix_test]{preservation_matrix_test()}}: relabelling test on all species pairs.
 }
 
 \strong{Nulls and diagnostics}
 \itemize{
-\item \code{\link[=coexpressolog_null]{coexpressolog_null()}}: degree-preserving edge-swap null.
 \item \code{\link[=null_network]{null_network()}}: shuffled-partner null network.
+\item \code{\link[=coexpressolog_null]{coexpressolog_null()}}: degree-preserving edge-swap null.
 \item \code{\link[=pvalue_resolution]{pvalue_resolution()}}: how many distinct p-values a test can give.
 }
 }

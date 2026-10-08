@@ -33,7 +33,7 @@ or \code{\link[=as_network]{as_network()}}, one entry per species.}
 
 \item{block}{Named list of per-sample factors, one per species in
 \code{expr}. Each species is split with \code{\link[=split_layers]{split_layers()}}. The network is
-built from the wiring part.}
+built from the wiring layer.}
 
 \item{clades}{Named list of species vectors, one per clade, as for
 \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}. \code{NULL} skips the clade tiers.}
