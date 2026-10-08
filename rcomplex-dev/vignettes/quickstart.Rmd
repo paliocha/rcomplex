@@ -76,6 +76,7 @@ one clique per gene combination.
 
 The message about dropped genes is on purpose. The clique search keeps at
 most 10 copies of a hog per species, because gene combinations explode.
+
 ## Read the results
 
 `summary()` gives the tier table. With `null = TRUE` it also gives the
