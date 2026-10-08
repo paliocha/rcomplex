@@ -19,15 +19,12 @@ classify_gene_cliques(cliques, ...)
 )
 }
 \arguments{
-\item{cliques}{Data frame from \code{\link[=gene_clique_graph]{gene_clique_graph()}}, or
-any table with \code{clique_id}, \code{hog}, \code{species} and \code{gene} columns.
-Combine runs at several \code{alpha_graph} values (with distinct
-\code{id_prefix}) to expose every tier: a clique complete at
-\code{alpha_call} need not be maximal on a looser graph. Two runs that
-collide on a \code{clique_id} are refused where the collision is
-detectable; detection is not complete, so give each
-\code{\link[=gene_clique_graph]{gene_clique_graph()}} run a distinct \code{id_prefix} rather than
-relying on it.}
+\item{cliques}{A \code{\link[=gene_clique_graph]{gene_clique_graph()}} result, a list of them, or a
+table of member rows with \code{clique_id}, \code{hog}, \code{species} and \code{gene}
+columns. Combine runs at several \code{alpha_graph} values to expose
+every tier: a clique complete at \code{alpha_call} need not be maximal
+on a looser graph. Pass the runs as a list. The result then gains a
+\code{run} column, the position of the run in the list.}
 
 \item{...}{Additional arguments passed to the default method.}
 
@@ -68,7 +65,9 @@ overstates detection.}
 \value{
 A data frame with one row per clique:
 \describe{
-\item{clique_id, hog}{Clique identity}
+\item{run}{Only for a list of runs: the run of the clique}
+\item{clique_id, hog}{Clique identity. The id is the run's own
+\code{clique_id}.}
 \item{classification}{Tier, or \code{"unclassified"}}
 \item{hog_class}{Earliest tier reached by any clique of that HOG,
 reproducing the HOG-level precedence of the published scripts

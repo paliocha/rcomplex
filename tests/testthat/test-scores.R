@@ -115,12 +115,12 @@ test_that("a clique score is the sum of its member edges' scores", {
   }
 
   gg <- gene_clique_graph(e)
-  expect_gt(nrow(gg), 0L)
-  for (id in unique(gg$clique_id)) {
-    m <- gg[gg$clique_id == id, ]
-    got <- sum_score(m$hog[1], m$gene)
-    expect_equal(got[2], m$n_edges[1])
-    expect_equal(unique(m$score), got[1])
+  expect_gt(nrow(gg$cliques), 0L)
+  genes <- split(gg$members$gene, gg$members$clique_id)
+  for (i in seq_len(nrow(gg$cliques))) {
+    got <- sum_score(gg$cliques$hog[i], genes[[i]])
+    expect_equal(got[2], gg$cliques$n_edges[i])
+    expect_equal(gg$cliques$score[i], got[1])
   }
 })
 

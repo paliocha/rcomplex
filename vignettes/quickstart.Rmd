@@ -116,8 +116,8 @@ table(as.data.frame(res)$classification)
 
 ## Save
 
-`write_rcomplex()` writes `edges.tsv`, `cliques.tsv` and
-`classification.tsv`. After a null run it adds `edges_null.tsv`.
+`write_rcomplex()` writes `edges.tsv`, `cliques.tsv`, `members.tsv`
+and `classification.tsv`. After a null run it adds `edges_null.tsv`.
 
 ```{r save}
 out <- file.path(tempdir(), "rcomplex-out")

@@ -33,7 +33,7 @@
                  detect_modules              find_cliques       find_coexpressologs 
                               6                         4                        10 
               gene_clique_graph      get_coexpressed_hogs      identify_module_hubs 
-                              4                         6                         3 
+                              3                         6                         3 
           module_correspondence       module_preservation              null_network 
                               6                        11                         6 
               prepare_orthologs  preservation_matrix_test       preservation_paired 

@@ -65,7 +65,8 @@ A list of class \code{rcomplex}:
 \item{networks}{The network objects, by species.}
 \item{edges}{The edge table from \code{\link[=find_coexpressologs]{find_coexpressologs()}}, plus a
 \code{sign} column: the sign of every network.}
-\item{cliques}{The cliques from \code{\link[=gene_clique_graph]{gene_clique_graph()}}.}
+\item{cliques, members}{The two tables of \code{\link[=gene_clique_graph]{gene_clique_graph()}}:
+one row per clique, and one row per clique member.}
 \item{classification}{One row per clique, from
 \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}.}
 \item{modules, preservation}{With \code{modules = TRUE}: the

@@ -7,7 +7,7 @@
 \usage{
 gene_clique_graph(edges, ...)
 
-\method{gene_clique_graph}{default}(edges, min_size = 3L, alpha_graph = 0.1, id_prefix = "", ...)
+\method{gene_clique_graph}{default}(edges, min_size = 3L, alpha_graph = 0.1, ...)
 }
 \arguments{
 \item{edges}{Data frame of co-expressolog calls, as returned by
@@ -30,18 +30,15 @@ exactly 1 -- not a corner case, since BH q-values cap at 1 and 20 of
 example. Passing several thresholds and combining
 the results is the intended way to feed
 \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}, since a clique that is maximal
-at one threshold need not be maximal at another.}
-
-\item{id_prefix}{String prepended to every \code{clique_id}. Clique ids
-are \verb{<prefix><hog>_<k>}, so runs at different \code{alpha_graph} values
-need distinct prefixes before they can be row-bound.}
+at one threshold need not be maximal at another. Pass the runs to
+it as a list.}
 }
 \value{
-A data frame with one row per clique member:
+A list of class \code{gene_cliques} with two tables.
+\code{cliques} has one row per clique:
 \describe{
-\item{clique_id}{Clique identifier, unique within the run}
+\item{clique_id}{Integer clique id, 1 to the number of cliques}
 \item{hog}{Ortholog group}
-\item{species, gene}{The member}
 \item{n_members}{Nodes in the clique}
 \item{n_species}{Distinct species in the clique (equal to
 \code{n_members} for cross-species edge tables)}
@@ -58,9 +55,11 @@ of the clique edges' \code{score}, in bits}
 large tie count means \code{mean_q} cannot rank those cliques at
 all}
 }
-The same two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
-\code{q_floor} (smallest edge q-value in the graph), are also recorded as
-attributes. Both are always set, empty results included.
+\code{members} has one row per clique member: \code{clique_id}, \code{species}
+(a factor over the species of \code{edges}) and \code{gene}.
+The two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
+\code{q_floor} (smallest edge q-value in the graph), are also attributes
+of \code{cliques}. Both are always set, empty results included.
 }
 \description{
 Builds one graph per hog from the co-expressolog calls in \code{edges}.
@@ -85,6 +84,10 @@ up as \code{n_species < n_members}.
 The clique \code{score} adds the edge scores. Log-odds add, so the sum is
 the log-likelihood ratio of the conserved subnetwork (NetworkBLAST),
 and it grows with clique size on purpose.
+
+A hog of 40 or more genes is enumerated one start gene at a time.
+The pieces are disjoint, so the cliques are the same. Only the peak
+memory drops.
 }
 \section{Duplicate rows}{
 
@@ -107,7 +110,9 @@ edges <- data.frame(
   species2 = c("SP_B", "SP_C", "SP_C"),
   hog = "HOG1", q_value = c(0.01, 0.02, 0.03)
 )
-gene_clique_graph(edges)
+g <- gene_clique_graph(edges)
+g$cliques
+g$members
 
 }
 \references{
