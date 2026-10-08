@@ -174,9 +174,11 @@ test_that("null = TRUE reports calls beside null calls", {
   expect_identical(nrow(s$null), 3L)
   expect_true(all(s$null$calls > 0L))
   expect_identical(s$tiers$cliques, 3L)
+  expect_identical(s$tiers$hogs, 3L)
+  expect_identical(s$tiers$patterns, 3L)
   off <- rcomplex(drv_expr(), drv_ortho, density = 0.1, seed = 1L)
   expect_output(s_off <- summary(off), "null: not run")
-  expect_named(s_off$tiers, c("tier", "cliques"))
+  expect_named(s_off$tiers, c("tier", "cliques", "hogs", "patterns"))
 })
 
 

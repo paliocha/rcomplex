@@ -186,6 +186,10 @@ with \code{S - 2} removals every member still keeps a significant edge.
 \code{edges}. Without that, a clique whose cross-clade pairs were never
 tested would be scored as diverged on absent evidence -- the same
 conflation \code{partial_present} refuses through \code{missing_reason}.
+
+The classifier works on the sparse gene x clique incidence, in blocks
+of 100,000 cliques. Sparse products with the edge rows give each
+missing species its state.
 }
 \examples{
 edges <- data.frame(

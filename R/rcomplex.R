@@ -58,6 +58,11 @@
 #' `method = "rank"`, `null = TRUE` and `block` need `expr`: the
 #' shuffled networks come from [null_network()], within each block.
 #'
+#' `summary()` counts each tier in `cliques`, in `hogs` and in
+#' `patterns`. A pattern is one HOG with one clique species set. The
+#' paralog copies of a large HOG can form millions of cliques, but they
+#' share a few patterns.
+#'
 #' With `null = TRUE`, `summary()` reports `calls` and `calls_null` per
 #' species pair at `q_value < alpha`. Their ratio is the empirical
 #' false-call rate.
@@ -264,7 +269,18 @@ summary.rcomplex <- function(object, ...) {
   cls <- object$classification
   alpha <- attr(cls, "alpha_call")
   tab <- table(cls$classification)
-  tiers <- data.frame(tier = as.character(names(tab)), cliques = as.vector(tab))
+  # A species pattern is a HOG with one clique species set.
+  pattern <- collapse::group(list(cls$hog, cls$missing_species))
+  n_distinct <- function(x) {
+    n <- vapply(split(x, cls$classification), function(v) {
+      length(unique(v))
+    }, 1L)
+    unname(n[names(tab)])
+  }
+  tiers <- data.frame(
+    tier = as.character(names(tab)), cliques = as.vector(tab),
+    hogs = n_distinct(cls$hog), patterns = n_distinct(pattern)
+  )
   null_tab <- NULL
   if (!is.null(object$edges_null)) {
     pr <- t(utils::combn(names(object$networks), 2L))

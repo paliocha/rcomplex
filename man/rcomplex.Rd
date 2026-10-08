@@ -93,6 +93,11 @@ Cliques use the edges with \code{q_value < alpha} and have at least
 \code{method = "rank"}, \code{null = TRUE} and \code{block} need \code{expr}: the
 shuffled networks come from \code{\link[=null_network]{null_network()}}, within each block.
 
+\code{summary()} counts each tier in \code{cliques}, in \code{hogs} and in
+\code{patterns}. A pattern is one HOG with one clique species set. The
+paralog copies of a large HOG can form millions of cliques, but they
+share a few patterns.
+
 With \code{null = TRUE}, \code{summary()} reports \code{calls} and \code{calls_null} per
 species pair at \code{q_value < alpha}. Their ratio is the empirical
 false-call rate.
