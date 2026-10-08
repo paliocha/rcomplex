@@ -3,7 +3,7 @@
 \name{classify_hub_conservation}
 \alias{classify_hub_conservation}
 \alias{classify_hub_conservation.default}
-\title{Classify hub gene conservation across species and traits}
+\title{Classify hub gene conservation across species and clades}
 \usage{
 classify_hub_conservation(hub_results, ...)
 
@@ -33,7 +33,7 @@ universes. Pass \code{species_ref} / \code{species_test} to
 of taken on trust. A module pair absent from the table counts as not
 corresponding. Modules correspond when \code{q_value < 0.1} and
 \code{jaccard >= 0.1}, and a HOG is \code{conserved_hub} when at least half of
-its cross-trait hub pairs correspond.}
+its cross-clade hub pairs correspond.}
 }
 \value{
 A data frame with one row per HOG:
@@ -43,38 +43,37 @@ A data frame with one row per HOG:
 waterfall)}
 \item{n_species_hub}{Number of species where the HOG is a hub}
 \item{n_species_present}{Number of species where the HOG has genes.
-Reported for context; it is not the trait-group denominator.}
-\item{hub_trait_groups}{Comma-separated trait groups where it qualifies
+Reported for context; it is not the clade denominator.}
+\item{hub_trait_groups}{Comma-separated clades where it qualifies
 as hub (\code{NA} for non_hub)}
-\item{n_corresponding}{Cross-trait hub pairs with corresponding modules
+\item{n_corresponding}{Cross-clade hub pairs with corresponding modules
 (\code{NA} without \code{module_comparisons})}
-\item{n_cross_pairs}{Total cross-trait hub pairs checked (\code{NA} without
+\item{n_cross_pairs}{Total cross-clade hub pairs checked (\code{NA} without
 \code{module_comparisons})}
 \item{max_centrality}{Highest centrality score across species}
 \item{best_hub_species}{Species with highest centrality}
 }
 }
 \description{
-Given per-species hub identification results (from
-\code{\link[=identify_module_hubs]{identify_module_hubs()}}), maps hub genes to HOGs and classifies each HOG
-by its hub conservation pattern relative to a discrete trait (e.g.
-annual / perennial).
+Maps the hub genes from \code{\link[=identify_module_hubs]{identify_module_hubs()}} to hogs. Classifies
+each hog by its hub pattern across clades (for example annual and
+perennial).
 }
 \section{Classification waterfall}{
 
 For each HOG that appears in at least one species:
 \describe{
-\item{conserved_hub}{Hub in multiple trait groups \strong{and} the hub modules
-correspond across traits (checked via \code{module_comparisons}).}
-\item{rewired_hub}{Hub in multiple trait groups but in
+\item{conserved_hub}{Hub in multiple clades \strong{and} the hub modules
+correspond across clades (checked via \code{module_comparisons}).}
+\item{rewired_hub}{Hub in multiple clades but in
 \strong{non-corresponding} modules -- the gene kept its centrality but
 changed regulatory context.}
-\item{multi_trait_hub}{Hub in multiple trait groups; module correspondence
+\item{multi_trait_hub}{Hub in multiple clades; module correspondence
 unknown (\code{module_comparisons} not provided).}
-\item{\emph{trait}_specific_hub}{Hub in exactly one trait group (e.g.
+\item{\emph{trait}_specific_hub}{Hub in exactly one clade (e.g.
 \code{"annual_specific_hub"}).}
 \item{sporadic_hub}{Hub in some species but does not reach
-half of a trait group.}
+half of a clade.}
 \item{non_hub}{Present in modules but not a hub in any species.}
 }
 }

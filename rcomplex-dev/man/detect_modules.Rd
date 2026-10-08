@@ -112,9 +112,8 @@ The \code{params} list includes \code{n_consensus_iterations}
 }
 \description{
 Applies the Leiden algorithm (Traag \emph{et al.}, 2019) to a thresholded
-co-expression network: modularity or CPM optimization with guaranteed
-well-connected communities. The resolution parameter controls module
-granularity.
+co-expression network. Optimises modularity or CPM and guarantees
+well-connected communities. The \code{resolution} argument sets module size.
 }
 \details{
 The adaptive consensus path uses sparse co-classification

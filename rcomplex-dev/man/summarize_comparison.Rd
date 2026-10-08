@@ -32,7 +32,7 @@ both overlap values are zero. Defaults to \code{FALSE} for \code{"less"}.}
 
 \item{species1, species2}{Optional species abbreviations. When both are
 provided,
-\code{\link{comparison_to_edges}} is called internally and the result
+\code{comparison_to_edges()} is called internally and the result
 is returned as a third list element \code{$edges}. This avoids a
 separate \code{comparison_to_edges()} call when preparing input for
 \code{find_cliques}.}
@@ -44,7 +44,7 @@ Benjamini-Hochberg).}
 
 \item{B}{Number of randomized-p draws averaged for pi0 (default 20).}
 
-\item{pval_combine}{Passed to \code{\link{comparison_to_edges}} when
+\item{pval_combine}{Passed to \code{comparison_to_edges()} when
 \code{species1} and \code{species2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
@@ -62,7 +62,7 @@ on exit, so it does not displace the caller by however many draws
 caller's own seed. Same contract as \code{detect_modules}.}
 
 \item{rho0}{Reference fold enrichment for the \code{power} column of
-\code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
+\code{$edges}, passed to \code{comparison_to_edges()}; only used
 when \code{species1} and \code{species2} are provided. \code{NULL}
 (default) takes the median effect size of the called pairs.}
 }

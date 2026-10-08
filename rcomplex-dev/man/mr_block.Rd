@@ -24,17 +24,18 @@ as the network (raw MR, or log-normalized when the network was built
 with \code{mr_log_transform = TRUE}).
 }
 \description{
-Computes the exact Mutual Rank co-expression values for a subset of
-genes from the expression matrix, using the network's stored parameters
-(\code{cor_method}, \code{sign}, \code{mr_log_transform}). A sparse network
-(\code{compute_network(sparse = TRUE)}) discards values below its
-\code{store_threshold}; this function reconstructs them (for heatmaps or
-other visualisations of, say, a module) without rebuilding the dense
-n x n matrix: \eqn{MR_{ij} = \sqrt{R_{ij} R_{ji}}} only needs the
-correlations of genes i and j ranked over all n network genes, so a
-k x n correlation slice suffices.
+Computes the exact mutual rank values for a subset of genes. Uses the
+stored parameters of the network (\code{cor_method}, \code{sign},
+\code{mr_log_transform}). Recovers values that a sparse network discards.
 }
 \details{
+A sparse network (\code{compute_network(sparse = TRUE)}) discards values
+below its \code{store_threshold}. This function reconstructs them, for
+example for a module heatmap, without rebuilding the dense n x n
+matrix. The value \eqn{MR_{ij} = \sqrt{R_{ij} R_{ji}}} only needs the
+correlations of genes i and j ranked over all n network genes, so a
+k x n correlation slice suffices.
+
 The gene universe is \code{rownames(net$network)}: \code{x} is subset to those
 rows first (the constant-gene filter was already applied when the network
 was built), and ranks span exactly the network genes. Pass the same

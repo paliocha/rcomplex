@@ -1,18 +1,17 @@
 #' Neighbourhood specificity of ortholog pairs
 #'
 #' @description
-#' Pair-level co-expressolog test that ranks each ortholog pair against
-#' every other gene of the partner species. The anchor's co-expression
-#' partners are translated to the partner species, and the paired
-#' ortholog is scored by how well its own co-expression ranking
-#' recognises that translated list compared with how well every other
-#' partner-species gene recognises it. It follows the co-expression
-#' conservation score of Suresh et al. (2023). It is the engine of
-#' `method = "rank"` in [find_coexpressologs()] and
-#' [density_sweep()]; [summarize_specificity()] turns its p-values into
-#' q-values.
+#' Ranks each ortholog pair against every other gene of the partner
+#' species. This is the engine of `method = "rank"` in
+#' [find_coexpressologs()] and [density_sweep()].
+#' [summarize_specificity()] turns its p-values into q-values.
 #'
 #' @details
+#' The anchor's co-expression partners are translated to the partner
+#' species. The paired ortholog is scored by how well its own
+#' co-expression ranking recognises that translated list, compared with how
+#' well every other partner-species gene recognises it. The score follows
+#' the co-expression conservation score of Suresh et al. (2023).
 #' For anchor gene \eqn{i} in species 1 and direction 1 to 2:
 #' \enumerate{
 #'   \item \eqn{T} is the set of species-2 genes orthologous, through

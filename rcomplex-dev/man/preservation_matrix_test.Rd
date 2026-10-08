@@ -78,10 +78,13 @@ the top-level clade of each species.}
 }
 }
 \description{
-Asks whether modules are less well preserved between species that differ
-in a trait than between species that share it, using every contrast in an
-all-pairs \code{\link[=preservation_paired]{preservation_paired()}} run. The null relabels species, holding
-the label counts and the whole preservation matrix fixed.
+Tests whether modules are less well preserved between species that
+differ in a trait than between species that share it. Uses every
+contrast in an all-pairs \code{\link[=preservation_paired]{preservation_paired()}} run.
+}
+\details{
+The null relabels species. It holds the label counts and the whole
+preservation matrix fixed.
 }
 \section{Why the effect size and not the q-value}{
 

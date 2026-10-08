@@ -188,7 +188,7 @@ test_that("resolve_ortholog_map validates its inputs", {
   )
   expect_error(
     resolve_ortholog_map(fx$ortho, "zzz", "ZZZ"),
-    "No orthologs found"
+    "no gene pair with both genes"
   )
 })
 

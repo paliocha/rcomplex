@@ -22,12 +22,14 @@ The network object with \code{network} as a \code{dgCMatrix} plus
 }
 \description{
 Thresholds the dense co-expression matrix at the \code{store_density}
-quantile and repacks the surviving off-diagonal entries (both
-triangles) as a \code{Matrix::dgCMatrix}, exactly as
-\code{compute_network(sparse = TRUE)} does. All other fields of \code{net} are
-carried over; \code{store_density}, \code{store_threshold} and
-\code{params$store_density} are added. Values below \code{store_threshold} are
-discarded, so downstream analyses at a threshold below it are refused.
+quantile. Repacks the surviving off-diagonal entries (both triangles) as
+a \code{Matrix::dgCMatrix}, as \code{compute_network(sparse = TRUE)} does.
+}
+\details{
+All other fields of \code{net} are carried over. \code{store_density},
+\code{store_threshold} and \code{params$store_density} are added. Values below
+\code{store_threshold} are discarded, so downstream analyses at a lower
+threshold are refused.
 }
 \examples{
 \dontrun{

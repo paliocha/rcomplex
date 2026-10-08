@@ -1,20 +1,21 @@
 #' Leave-k-out jackknife structural stability for cliques
 #'
-#' Tests how structurally robust each clique is to species removal.
-#' The analysis removes k = 1, 2, \ldots, \code{max_k} species at a time,
-#' re-runs full clique detection on each reduced species set, and checks
-#' whether matching gene assignments are preserved (Jaccard similarity).
-#' ALL cliques are tested, regardless of trait composition. Trait
-#' annotations are added post-hoc if \code{clades} is provided.
+#' Tests how robust each clique is to species removal. Removes
+#' k = 1, 2, \ldots, \code{max_k} species at a time and re-runs clique
+#' detection. Reports whether matching gene assignments survive (Jaccard
+#' similarity).
 #'
-#' @param edges Data frame (same format as \code{\link{find_cliques}}).
+#' All cliques are tested, whatever their clade composition. Clade
+#' annotations are added after the test if \code{clades} is provided.
+#'
+#' @param edges Data frame (same format as [find_cliques()]).
 #' @param target_species Character vector of species that define clique
 #'   membership.
 #' @param clades Optional named list of species vectors, one per clade.
 #'   Clades may nest but must not cross. A species in no clade forms its
 #'   own clade. Annotations use the top-level clades. If
-#'   provided, the output gains trait annotations (\code{traits},
-#'   \code{sole_rep}). If \code{NULL} (default), trait columns are
+#'   provided, the output gains clade annotations (\code{traits},
+#'   \code{sole_rep}). If \code{NULL} (default), clade columns are
 #'   \code{NA}.
 #' @param all_species Character vector of ALL species in the analysis
 #'   universe (default: \code{target_species}). Leave-k-out subsets are
@@ -22,7 +23,7 @@
 #'   \code{target_species}. When larger than \code{target_species},
 #'   removing a non-target species tests whether the clique signal is
 #'   robust to changes in the broader phylogenetic context.
-#' @param full_cliques Output of \code{\link{find_cliques}}, or \code{NULL} to
+#' @param full_cliques Output of [find_cliques()], or \code{NULL} to
 #'   compute internally (default).
 #' @param max_k Maximum number of species to leave out
 #'   (default: \code{length(all_species) - 2}, leaving at least 2 species).
@@ -73,7 +74,7 @@
 #' ## full_cliques parameter
 #'
 #' When \code{full_cliques = NULL} (default), cliques are computed internally
-#' via \code{\link{find_cliques}}. You can also precompute them:
+#' via [find_cliques()]. You can also precompute them:
 #' \preformatted{
 #' fc <- find_cliques(edges, target_species)
 #' stab <- clique_stability(edges, target_species,
@@ -311,8 +312,8 @@ clique_stability.default <- function(
 #' Structural survival of cliques across stricter density thresholds
 #'
 #' Convenience wrapper that re-runs the full comparison-to-clique pipeline
-#' (\code{\link{compare_neighborhoods}} -> \code{\link{summarize_comparison}}
-#' -> \code{\link{comparison_to_edges}} -> \code{\link{find_cliques}}) at
+#' (\code{compare_neighborhoods()} -> \code{summarize_comparison()}
+#' -> \code{comparison_to_edges()} -> [find_cliques()]) at
 #' progressively stricter thresholds. For custom threshold logic, call the
 #' individual functions directly.
 #'
@@ -321,9 +322,9 @@ clique_stability.default <- function(
 #' \code{"storey"}, so the sweep is deterministic and does not consume
 #' the global RNG).
 #'
-#' @param cliques Baseline output of \code{\link{find_cliques}}.
+#' @param cliques Baseline output of [find_cliques()].
 #' @param target_species Character vector of species abbreviations.
-#' @param networks Named list of \code{\link{compute_network}} outputs,
+#' @param networks Named list of [compute_network()] outputs,
 #'   keyed by species abbreviation. Each element must have \code{$network}
 #'   (named numeric matrix) and \code{$threshold} (scalar).
 #' @param orthologs Data frame with columns \code{gene1}, \code{gene2},
@@ -332,7 +333,7 @@ clique_stability.default <- function(
 #'   Default \code{c(1.5, 2, 3, 5, 10)}.
 #' @param min_species Minimum species per clique
 #'   (default \code{length(target_species)}).
-#' @param n_cores Cores for \code{\link{compare_neighborhoods}}
+#' @param n_cores Cores for \code{compare_neighborhoods()}
 #'   (default 1).
 #'
 #' @return A list with components:

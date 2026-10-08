@@ -232,10 +232,10 @@ test_that("write_rcomplex() writes one TSV per table", {
 test_that("rcomplex() refuses bad input", {
   expr <- drv_expr()
   nets <- lapply(expr, compute_network, density = 0.1)
-  expect_error(rcomplex(orthologs = drv_ortho), "one of expr and networks")
+  expect_error(rcomplex(orthologs = drv_ortho), "give exactly one")
   expect_error(
     rcomplex(expr, drv_ortho, networks = nets),
-    "one of expr and networks"
+    "give exactly one"
   )
   names(expr) <- c("SpA", "SpX")
   expect_error(rcomplex(expr, drv_ortho), "SpX")

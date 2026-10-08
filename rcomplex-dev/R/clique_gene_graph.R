@@ -127,14 +127,13 @@
 
 #' Maximal cliques of the per-orthogroup gene graph
 #'
-#' Builds, for each ortholog group, an undirected graph whose nodes are
-#' (species, gene) pairs and whose edges are the co-expressolog calls in
-#' `edges`, then enumerates every maximal clique of at least `min_size`
-#' nodes. This is the computation used by Netotea-style clique workflows
-#' and it differs from \code{\link{find_cliques}}, which cliques the
-#' \emph{species} graph and returns a single best gene assignment per
-#' species clique: here every paralog combination that forms a clique is
-#' reported separately.
+#' Builds one graph per hog from the co-expressolog calls in `edges`.
+#' Nodes are (species, gene) pairs. Lists every maximal clique of at least
+#' `min_size` nodes, one per paralog combination.
+#'
+#' [find_cliques()] cliques the species graph instead and returns a single
+#' best gene assignment per species clique. This function is the
+#' computation used by Netotea-style clique workflows.
 #'
 #' Because co-expressolog edges are always cross-species, no two genes of
 #' the same species can be adjacent, so a clique carries at most one gene
@@ -156,14 +155,14 @@
 #' descending when the q-values tie -- q-values saturate at the
 #' permutation floor, so a tie there must not be settled by input row
 #' order. This is a duplicate-row collapse, not a direction combine:
-#' \code{\link{find_coexpressologs}} already merges the two comparison
+#' [find_coexpressologs()] already merges the two comparison
 #' directions with `pval_combine` (default `"max"`, the reciprocal
 #' criterion) and emits one row per pair. A caller who row-binds the two
 #' directional tables instead gets `"min"` semantics here, so combine
 #' upstream if the reciprocal criterion is wanted.
 #'
 #' @param edges Data frame of co-expressolog calls, as returned by
-#'   \code{\link{find_coexpressologs}}: columns `gene1`, `gene2`,
+#'   [find_coexpressologs()]: columns `gene1`, `gene2`,
 #'   `species1`, `species2`, `hog` and `q_value`. The `effect_size`
 #'   and `score` columns are used when present.
 #' @param min_size Minimum number of nodes in a reported clique
@@ -177,7 +176,7 @@
 #'   511 module q-values sit there on the package's own worked
 #'   example. Passing several thresholds and combining
 #'   the results is the intended way to feed
-#'   \code{\link{classify_gene_cliques}}, since a clique that is maximal
+#'   [classify_gene_cliques()], since a clique that is maximal
 #'   at one threshold need not be maximal at another.
 #' @param id_prefix String prepended to every `clique_id`. Clique ids
 #'   are `<prefix><hog>_<k>`, so runs at different `alpha_graph` values
@@ -217,8 +216,8 @@
 #' )
 #' gene_clique_graph(edges)
 #'
-#' @seealso \code{\link{classify_gene_cliques}},
-#'   \code{\link{find_cliques}}
+#' @seealso [classify_gene_cliques()],
+#'   [find_cliques()]
 #' @references
 #' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
 #' Comparative regulomics of wood formation across dicot and
@@ -516,11 +515,12 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 
 #' Classify gene-graph cliques into conservation tiers
 #'
-#' Applies the published five-tier taxonomy of Rodriguez et al. (2026),
-#' plus a `trait_specific` tier, to the cliques returned by
-#' \code{\link{gene_clique_graph}}. Every threshold is derived from
-#' the number of species actually supplied, so nothing is tied to the
-#' six species and fifteen species-pairs of the original workflow.
+#' Applies the five-tier taxonomy of Rodriguez et al. (2026), plus a
+#' `trait_specific` tier, to the cliques from [gene_clique_graph()].
+#' Every threshold follows from the number of species supplied.
+#'
+#' No threshold is tied to the six species and fifteen species-pairs of
+#' the original workflow.
 #'
 #' The home clade of a clique is the smallest clade that holds all its
 #' species. With no such clade, the home is the whole species set. The
@@ -571,7 +571,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'   \item{underpowered}{A clique that would be `lineage_specific`,
 #'     `trait_specific` or `differentiated` but for tests that could not
 #'     have succeeded, read from a `power` column in `edges` (see
-#'     \code{\link{comparison_to_edges}}). It takes the place of the
+#'     \code{comparison_to_edges()}). It takes the place of the
 #'     two specificity tiers when at least one outside species is
 #'     `underpowered` -- reading that species as conserved would extend
 #'     the clique, so neither call survives -- and of
@@ -579,7 +579,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #'     exceeds its bound: a specificity or divergence call must survive
 #'     treating every underpowered pair as possibly significant. A
 #'     low-degree gene cannot reach the call whatever its conservation,
-#'     so without this its missing edges read as a lineage boundary.}
+#'     so without this its missing edges read as a clade boundary.}
 #' }
 #' The waterfall is evaluated in that order, `underpowered` at the
 #' position of the tier it replaces, and the first match wins.
@@ -591,11 +591,11 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' with `S - 2` removals every member still keeps a significant edge.
 #'
 #' `differentiated` demands that every member pair actually has a row in
-#' `edges`. Without that, a clique whose cross-lineage pairs were never
+#' `edges`. Without that, a clique whose cross-clade pairs were never
 #' tested would be scored as diverged on absent evidence -- the same
 #' conflation `partial_present` refuses through `missing_reason`.
 #'
-#' @param cliques Data frame from \code{\link{gene_clique_graph}}, or
+#' @param cliques Data frame from [gene_clique_graph()], or
 #'   any table with `clique_id`, `hog`, `species` and `gene` columns.
 #'   Combine runs at several `alpha_graph` values (with distinct
 #'   `id_prefix`) to expose every tier: a clique complete at
@@ -607,7 +607,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' @param edges The full, unfiltered co-expressolog table. It must not
 #'   be pre-filtered on `q_value`: the gap tier needs to see rows that
 #'   were tested and failed in order to refuse them. An optional `power`
-#'   column (from \code{\link{comparison_to_edges}}) enables the
+#'   column (from \code{comparison_to_edges()}) enables the
 #'   `underpowered` tier; without it, or where it is `NA`, the
 #'   classification is unchanged.
 #' @param species Character vector of every species in the analysis.
@@ -683,7 +683,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
 #' cl <- gene_clique_graph(edges)
 #' classify_gene_cliques(cl, edges, c("SP_A", "SP_B", "SP_C"))
 #'
-#' @seealso \code{\link{gene_clique_graph}}
+#' @seealso [gene_clique_graph()]
 #' @references
 #' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
 #' Comparative regulomics of wood formation across dicot and

@@ -28,7 +28,7 @@ find_cliques(edges, ...)
 }
 Optionally includes a \code{type} column for filtering. Pass the
 unfiltered table (every tested pair, e.g. the output of
-\code{\link{find_coexpressologs}}): cliques are built from
+\code{\link[=find_coexpressologs]{find_coexpressologs()}}): cliques are built from
 \code{"conserved"} rows only, but \code{intensity} fits each edge's
 weight scale on every row of its species pair, so a pre-filtered
 table changes what it measures.
@@ -81,12 +81,14 @@ edge lacks a finite value.}
 }
 }
 \description{
-For each Hierarchical Ortholog Group (HOG), uses Bron-Kerbosch with
-pivoting on the species-level adjacency graph to find maximal species
-cliques, then backtracking to assign the best gene per species
-(minimising mean q-value across all present edges).
+Finds the maximal species cliques of each hog. Then assigns the best
+gene to each species of the clique.
 }
 \details{
+The search uses Bron-Kerbosch with pivoting on the species-level
+adjacency graph. A backtracker picks the gene per species that
+minimises the mean q-value across all present edges.
+
 The clique \code{score} adds the edge scores. Log-odds add,
 so the sum is the log-likelihood ratio of the conserved subnetwork
 (NetworkBLAST), and it grows with clique size on purpose.

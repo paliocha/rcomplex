@@ -80,7 +80,7 @@ shuffled networks.}
 \description{
 \code{rcomplex()} runs the whole analysis. It builds one network per
 species, tests every ortholog pair in every species pair, and
-classifies the gene cliques. Give it expression or networks, and
+classifies the gene cliques. Give it expression or networks, plus
 orthologs.
 }
 \details{

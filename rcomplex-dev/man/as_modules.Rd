@@ -21,11 +21,10 @@ numeric labels, and order of first appearance for other labels; the
 order changes only listings such as \code{coverage}, not statistics.
 }
 \description{
-Turns gene sets from any source -- anchored regulons, curated pathways,
-clusters from another tool -- into the module assignment that
+Turns any gene sets into a module assignment. The sets can be
+regulons, curated pathways or clusters from another tool.
 \code{\link[=module_preservation]{module_preservation()}}, \code{\link[=module_correspondence]{module_correspondence()}} and
-\code{\link[=preservation_paired]{preservation_paired()}} take, so they can be tested without
-\code{\link[=detect_modules]{detect_modules()}}.
+\code{\link[=preservation_paired]{preservation_paired()}} accept the result without \code{\link[=detect_modules]{detect_modules()}}.
 }
 \details{
 The preservation tests give every gene one module label, so the sets must

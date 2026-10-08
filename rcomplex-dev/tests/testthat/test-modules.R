@@ -119,7 +119,7 @@ test_that("detect_modules errors on no edges", {
   diag(mat) <- 1
   net <- list(network = mat, threshold = 0.5)
 
-  expect_error(detect_modules(net), "No edges above threshold")
+  expect_error(detect_modules(net), "no edge above its threshold")
 })
 
 

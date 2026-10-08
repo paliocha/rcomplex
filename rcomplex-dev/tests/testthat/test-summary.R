@@ -290,11 +290,11 @@ test_that("summarize_comparison errors when only one species is provided", {
 
   expect_error(
     rcomplex:::summarize_comparison(comparison, species1 = "SP_A"),
-    "Both species1 and species2"
+    "give both or neither"
   )
   expect_error(
     rcomplex:::summarize_comparison(comparison, species2 = "SP_B"),
-    "Both species1 and species2"
+    "give both or neither"
   )
 })
 

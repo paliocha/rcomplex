@@ -2,7 +2,7 @@
 #'
 #' `rcomplex()` runs the whole analysis. It builds one network per
 #' species, tests every ortholog pair in every species pair, and
-#' classifies the gene cliques. Give it expression or networks, and
+#' classifies the gene cliques. Give it expression or networks, plus
 #' orthologs.
 #'
 #' @param expr Named list of expression data, one entry per species: a
@@ -68,7 +68,7 @@
 #' `r_threshold` from [compute_network()]: the weakest correlation that
 #' passed the density threshold. The same density needs a stronger
 #' correlation at few samples. A network from [as_network()] has no
-#' correlation and shows `r ?`, as does a network without edges.
+#' correlation and shows \verb{r ?}, as does a network without edges.
 #'
 #' @examples
 #' f <- function(x) system.file("extdata", x, package = "rcomplex")
@@ -89,13 +89,13 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   sign <- match.arg(sign)
   method <- match.arg(method)
   if (is.null(expr) == is.null(networks)) {
-    stop("give exactly one of expr and networks")
+    stop("`expr` and `networks`: give exactly one, not both or neither.")
   }
   input <- if (is.null(expr)) networks else expr
   sp <- names(input)
   bad <- !is.list(input) || length(sp) < 2L || anyDuplicated(sp) > 0L
   if (bad || any(sp == "")) {
-    stop("expr or networks must be a named list of at least two species")
+    stop("`expr` or `networks` must be a named list of at least two species.")
   }
   if (is.null(expr) && (null || method == "rank" || !is.null(block))) {
     stop("null = TRUE, method = \"rank\" and block each needs expr")
@@ -297,8 +297,8 @@ as.data.frame.rcomplex <- function(x, ...) x$classification
 
 #' Write an rcomplex result as tab-separated files
 #'
-#' `write_rcomplex()` writes each table of the result to its own file,
-#' named after the element: `edges.tsv`, `cliques.tsv`,
+#' `write_rcomplex()` writes each table of the result to its own file.
+#' Each file takes the name of its element: `edges.tsv`, `cliques.tsv`,
 #' `classification.tsv` and, with `null = TRUE`, `edges_null.tsv`.
 #'
 #' @param x A result of [rcomplex()].

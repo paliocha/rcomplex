@@ -1,10 +1,9 @@
 #' Build a module assignment from any gene partition
 #'
-#' Turns gene sets from any source -- anchored regulons, curated pathways,
-#' clusters from another tool -- into the module assignment that
+#' Turns any gene sets into a module assignment. The sets can be
+#' regulons, curated pathways or clusters from another tool.
 #' [module_preservation()], [module_correspondence()] and
-#' [preservation_paired()] take, so they can be tested without
-#' [detect_modules()].
+#' [preservation_paired()] accept the result without [detect_modules()].
 #'
 #' The preservation tests give every gene one module label, so the sets must
 #' not overlap. Split overlapping sets (for example regulons that share genes)
