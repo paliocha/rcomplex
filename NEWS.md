@@ -30,8 +30,15 @@ aliased.
   the result takes about 5 GiB (1.8 + 3.2 GiB) instead of about 20 GB.
   It is built in 100 s instead of 335 s. The peak process memory (max
   RSS) is 8.9 GB instead of 26.5 GB.
+- `classify_gene_cliques()` is about 40 times faster, with the same
+  tiers. It works on the sparse gene x clique incidence. At 12,000
+  genes per species it classifies 1.45 M cliques in 11 s instead of
+  445 s. On the full 8-species leaf data it classifies 28.3 M cliques
+  in 6 min. With `gene_clique_graph()` the peak process memory is
+  15.0 GB.
 - `rcomplex()` stores `members` beside `cliques`, and
-  `write_rcomplex()` writes `members.tsv`.
+  `write_rcomplex()` writes `members.tsv`. `summary()` counts each tier
+  in cliques, HOGs and species patterns.
 - `clades` is a named list of species vectors. Clades may nest. A
   species in no clade forms a clade of its own. It replaces
   `species_trait` and `lineage`. The classifier tables gain a `clade`

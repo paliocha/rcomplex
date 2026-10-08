@@ -1470,3 +1470,330 @@ test_that("gene-graph tiers read home clades, not top-level ones", {
   h2 <- res[res$hog == "HOG2", ]
   expect_equal(c(h2$n_sig_within, h2$n_sig_cross), c(2L, 0L))
 })
+
+
+# --- The per-clique classifier of 0.4.0 before WP-b, as a reference ---
+
+gcg_ref_reason <- function(s, rows, edges, key1, key2, mk, m,
+                           alpha_call, power, min_power) {
+  if (length(rows) == 0L) {
+    return("absent")
+  }
+  species1 <- edges$species1[rows]
+  species2 <- edges$species2[rows]
+  if (!any(species1 == s) && !any(species2 == s)) {
+    return("absent")
+  }
+  k1 <- key1[rows]
+  k2 <- key2[rows]
+  hit1 <- species1 == s & k2 %in% mk
+  hit2 <- species2 == s & k1 %in% mk
+  if (!any(hit1) && !any(hit2)) {
+    return("untested")
+  }
+  cand <- c(k1[hit1], k2[hit2])
+  partner <- c(k2[hit1], k1[hit2])
+  qs <- c(edges$q_value[rows][hit1], edges$q_value[rows][hit2])
+  sig <- !is.na(qs) & qs < alpha_call
+  if (any(sig)) {
+    seen <- paste(cand[sig], partner[sig], sep = .gcg_sep)
+    if (max(table(cand[sig][!duplicated(seen)])) >= m) {
+      return("extendable")
+    }
+  }
+  pw <- c(power[rows][hit1], power[rows][hit2])[!sig]
+  if (length(pw) > 0L && all(!is.na(pw) & pw < min_power)) {
+    return("underpowered")
+  }
+  "tested_ns"
+}
+
+gcg_ref_one <- function(rr, cmb, hit, cl_hog, cl_sp, mk_all, edges,
+                        species, parts, clades, alpha_call, alpha_graph,
+                        lut_q, lut_e, lut_p, ekey1, ekey2, rows_by_hog,
+                        power, min_power) {
+  hog <- cl_hog[rr[1L]]
+  msp <- cl_sp[rr]
+  mk <- mk_all[rr]
+  m <- length(rr)
+  m_sp <- length(unique(msp))
+  n_sp <- length(species)
+  qp <- lut_q[hit]
+  ep <- lut_e[hit]
+  pp <- lut_p[hit]
+  home <- if (is.null(clades)) NA_character_ else .clade_home(clades, msp)
+  lin <- if (is.null(parts)) NULL else parts[[if (is.na(home)) 1L else home]]
+  if (!is.null(lin)) {
+    lin_sizes <- table(lin)
+    cross_max <- max(0, choose(length(lin) - 1L, 2) -
+                       sum(choose(lin_sizes, 2)))
+  }
+  if (m >= 2L && !is.null(lin)) {
+    l1 <- lin[msp[cmb[1L, ]]]
+    l2 <- lin[msp[cmb[2L, ]]]
+    within <- unname(l1 == l2)
+    pair_lin <- ifelse(within, unname(l1), NA_character_)
+  } else {
+    within <- rep(NA, length(qp))
+    pair_lin <- rep(NA_character_, length(qp))
+  }
+  sig <- !is.na(qp) & qp < alpha_call
+  n_pairs <- length(qp)
+  n_present <- sum(!is.na(qp))
+  n_sig <- sum(sig)
+  n_sig_w <- if (is.null(lin)) NA_integer_ else sum(sig & within)
+  n_sig_x <- if (is.null(lin)) NA_integer_ else sum(sig & !within)
+  n_up_x <- if (is.null(lin)) {
+    NA_integer_
+  } else {
+    sum(!is.na(qp) & !sig & !within & !is.na(pp) & pp < min_power)
+  }
+  max_q <- if (n_present == 0L) NA_real_ else max(qp, na.rm = TRUE)
+  mean_q <- if (n_present == 0L) NA_real_ else mean(qp, na.rm = TRUE)
+  mean_e <- if (all(is.na(ep))) NA_real_ else mean(ep, na.rm = TRUE)
+  gone <- setdiff(species, msp)
+  rows <- rows_by_hog[[hog]]
+  if (is.null(rows)) rows <- integer(0)
+  reason <- vapply(gone, gcg_ref_reason, character(1),
+    rows = rows, edges = edges, key1 = ekey1, key2 = ekey2, mk = mk,
+    m = m, alpha_call = alpha_call, power = power,
+    min_power = min_power, USE.NAMES = FALSE
+  )
+  gap_only <- length(gone) == 0L ||
+    all(reason %in% c("absent", "untested"))
+  up_only <- length(gone) > 0L && any(reason == "underpowered") &&
+    all(reason %in% c("absent", "untested", "underpowered", "tested_ns"))
+  ts_ok <- length(gone) > 0L && any(reason == "tested_ns") &&
+    all(reason %in% c("absent", "untested", "tested_ns"))
+  gap_pp <- length(gone) == 0L ||
+    all(reason %in% c("absent", "untested", "underpowered"))
+  cls <- "unclassified"
+  core_lin <- NA_character_
+  if (m_sp == m && m_sp >= 2L) {
+    n_l <- if (is.na(home)) NA_integer_ else length(clades[[home]])
+    diff_ok <- FALSE
+    if (!is.null(lin) && m_sp == length(lin) && n_present == n_pairs) {
+      big <- names(lin_sizes)[lin_sizes >= 2L]
+      full <- vapply(big, function(g) {
+        sum(sig & !is.na(pair_lin) & pair_lin == g) ==
+          choose(as.integer(lin_sizes[[g]]), 2L)
+      }, logical(1))
+      diff_ok <- length(big) >= 1L && all(full) && n_sig_x <= cross_max
+    }
+    gap <- n_sp - m_sp
+    lin_core <- !is.na(n_l) && m_sp == n_l && n_sig == choose(n_l, 2)
+    if (lin_core) core_lin <- home
+    is_part_sig <- m_sp == n_sp && n_present == choose(n_sp, 2) &&
+      !is.na(max_q) && max_q < alpha_graph &&
+      n_sig >= choose(n_sp - 1L, 2) + 1
+    is_part_pres <- gap >= 1L && gap <= 1L &&
+      n_sig == choose(m_sp, 2) && gap_pp
+    if (m_sp == n_sp && n_sig == choose(n_sp, 2)) {
+      cls <- "complete_conserved"
+    } else if (lin_core && gap_only) {
+      cls <- "lineage_specific"
+    } else if (lin_core && up_only) {
+      cls <- "underpowered"
+    } else if (is_part_sig) {
+      cls <- "partial_significant"
+    } else if (is_part_pres) {
+      cls <- "partial_present"
+    } else if (diff_ok) {
+      cls <- if (n_sig_x + n_up_x > cross_max) {
+        "underpowered"
+      } else {
+        "differentiated"
+      }
+    } else if (lin_core && ts_ok) {
+      cls <- "trait_specific"
+    }
+  }
+  list(
+    hog = hog, cls = cls, m = m, m_sp = m_sp, n_pairs = n_pairs,
+    n_present = n_present, n_sig = n_sig, n_sig_w = n_sig_w,
+    n_sig_x = n_sig_x, n_up_x = n_up_x, n_missing = length(gone),
+    missing_species = paste(gone, collapse = ","),
+    missing_reason = paste(reason, collapse = ","),
+    mean_q = mean_q, max_q = max_q, mean_e = mean_e,
+    core_lin = core_lin, home = home
+  )
+}
+
+# Member-row table in, classification columns out; no validation.
+gcg_ref_classify <- function(cliques, edges, species, clades = NULL,
+                             alpha_call = 0.1, alpha_graph = 0.9,
+                             min_power = 0.8) {
+  parts <- NULL
+  if (!is.null(clades)) {
+    clades <- suppressMessages(.check_clades(clades, species))
+    parts <- lapply(c(list(species), clades), function(h) {
+      inner <- vapply(clades, function(v) {
+        length(v) < length(h) && all(v %in% h)
+      }, logical(1))
+      .clade_groups(clades[inner], h)
+    })
+    names(parts) <- c("", names(clades))
+  }
+  has_effect <- "effect_size" %in% names(edges)
+  ids <- unique(cliques$clique_id)
+  ekey1 <- paste(edges$species1, edges$gene1, sep = .gcg_sep)
+  ekey2 <- paste(edges$species2, edges$gene2, sep = .gcg_sep)
+  ehog <- as.character(edges$hog)
+  pkey <- paste(ehog, pmin(ekey1, ekey2), pmax(ekey1, ekey2),
+    sep = .gcg_sep
+  )
+  na <- rep(NA_real_, nrow(edges))
+  ev <- if (has_effect) as.numeric(edges$effect_size) else na
+  pw <- if ("power" %in% names(edges)) as.numeric(edges$power) else na
+  ord <- order(pkey, edges$q_value, -ev, na.last = TRUE)
+  uniq <- ord[!duplicated(pkey[ord])]
+  cl_hog <- as.character(cliques$hog)
+  cl_sp <- as.character(cliques$species)
+  mk_all <- paste(cl_sp, as.character(cliques$gene), sep = .gcg_sep)
+  cl_by_id <- split(
+    seq_len(nrow(cliques)),
+    factor(as.character(cliques$clique_id), levels = ids)
+  )
+  res <- lapply(cl_by_id, function(rr) {
+    cmb <- if (length(rr) < 2L) {
+      matrix(integer(0), nrow = 2L)
+    } else {
+      utils::combn(length(rr), 2L)
+    }
+    a <- mk_all[rr[cmb[1L, ]]]
+    b <- mk_all[rr[cmb[2L, ]]]
+    key <- paste(cl_hog[rr[1L]], pmin(a, b), pmax(a, b), sep = .gcg_sep)
+    if (ncol(cmb) == 0L) key <- character(0)
+    gcg_ref_one(
+      rr, cmb, match(key, pkey[uniq]), cl_hog, cl_sp, mk_all, edges,
+      species, parts, clades, alpha_call, alpha_graph,
+      as.numeric(edges$q_value[uniq]), ev[uniq], pw[uniq], ekey1, ekey2,
+      split(seq_len(nrow(edges)), ehog), pw, min_power
+    )
+  })
+  pick <- function(f, what) unname(vapply(res, function(z) z[[f]], what))
+  out <- data.frame(
+    clique_id = ids, hog = pick("hog", ""),
+    classification = pick("cls", ""), clade = pick("home", ""),
+    n_members = pick("m", 1L), n_species = pick("m_sp", 1L),
+    n_pairs = pick("n_pairs", 1L), n_present = pick("n_present", 1L),
+    n_sig = pick("n_sig", 1L), n_sig_within = pick("n_sig_w", 1L),
+    n_sig_cross = pick("n_sig_x", 1L),
+    n_underpowered_cross = pick("n_up_x", 1L),
+    n_missing = pick("n_missing", 1L),
+    missing_species = pick("missing_species", ""),
+    missing_reason = pick("missing_reason", ""),
+    mean_q = pick("mean_q", 1), max_q = pick("max_q", 1),
+    stringsAsFactors = FALSE
+  )
+  if (has_effect) out$mean_effect_size <- pick("mean_e", 1)
+  if (!is.null(clades)) {
+    core_lin <- pick("core_lin", "")
+    ts <- which(out$classification == "trait_specific")
+    has_core <- !is.na(core_lin)
+    cores <- split(core_lin[has_core], out$hog[has_core])
+    other <- vapply(ts, function(i) {
+      mine <- clades[[core_lin[i]]]
+      any(vapply(cores[[out$hog[i]]], function(k) {
+        !any(clades[[k]] %in% mine)
+      }, logical(1)))
+    }, logical(1))
+    out$classification[ts[other]] <- "unclassified"
+  }
+  rank <- match(out$classification, .gcg_tiers)
+  best <- vapply(split(rank, out$hog), min, numeric(1))
+  out$hog_class <- .gcg_tiers[best[out$hog]]
+  out
+}
+
+
+test_that("the incidence classifier matches the per-clique reference", {
+  # Dyadic q-values keep every mean exact under any long double.
+  rows <- function(g1, g2, s1, s2, hog, q, power = 0.99) {
+    data.frame(
+      gene1 = g1, gene2 = g2, species1 = s1, species2 = s2, hog = hog,
+      q_value = q, effect_size = 1 - q, power = power,
+      stringsAsFactors = FALSE
+    )
+  }
+  # Every cross-species pair of a gene set, q drawn from four levels.
+  hog <- function(sp, gene, h) {
+    cmb <- utils::combn(length(sp), 2L)
+    cmb <- cmb[, sp[cmb[1L, ]] != sp[cmb[2L, ]], drop = FALSE]
+    q <- sample(c(0.03125, 0.0625, 0.5, 0.75), ncol(cmb),
+      replace = TRUE, prob = c(5, 3, 1, 1)
+    )
+    rows(gene[cmb[1L, ]], gene[cmb[2L, ]], sp[cmb[1L, ]], sp[cmb[2L, ]],
+      h, q,
+      power = ifelse(q > 0.1, 0.3, 0.99)
+    )
+  }
+  set.seed(7)
+  e <- rbind(
+    # Two copies in SP_A and SP_D; SP_F tested against three genes,
+    # one failed test powered, two not.
+    hog(gcg_six[c(1, 1, 2, 3, 4, 4, 5)],
+      c("a1", "a2", "b1", "c1", "d1", "d2", "e1"), "HOG1"
+    ),
+    rows(c("a1", "b1", "c1"), "f1", gcg_six[1:3], "SP_F", "HOG1",
+      c(0.75, 0.75, 0.0625),
+      power = c(0.3, 0.5, 0.99)
+    ),
+    # An L1 core with a paralog in SP_B; SP_D and SP_E tested and
+    # mostly rejected; SP_F absent.
+    hog(gcg_six[c(1, 2, 2, 3, 4, 5)],
+      c("a3", "b3", "b4", "c3", "d3", "e3"), "HOG2"
+    ),
+    # Five species; SP_F joined only to a gene outside the cliques.
+    hog(gcg_six[1:5], c("a5", "b5", "c5", "d5", "e5"), "HOG3"),
+    rows("a6", "f6", "SP_A", "SP_F", "HOG3", 0.03125),
+    # A reversed duplicate row with a worse q.
+    rows("b1", "a1", "SP_B", "SP_A", "HOG1", 0.75)
+  )
+  clades <- list(
+    L1 = gcg_six[1:3], inner = gcg_six[1:2], L2 = gcg_six[4:6]
+  )
+  # alpha_graph 0.05 leaves out edges significant at alpha_call 0.1,
+  # which makes extendable species.
+  same <- function(e, clades) {
+    tiers <- character(0)
+    for (a in c(0.05, 0.1, 0.9)) {
+      g <- gene_clique_graph(e, min_size = 2L, alpha_graph = a)
+      m <- g$members
+      tab <- data.frame(
+        clique_id = m$clique_id, hog = g$cliques$hog[m$clique_id],
+        species = as.character(m$species), gene = m$gene
+      )
+      for (cl in list(NULL, clades)) {
+        ref <- gcg_ref_classify(tab, e, gcg_six, clades = cl)
+        new <- suppressMessages(
+          classify_gene_cliques(g, e, gcg_six, clades = cl)
+        )
+        expect_identical(names(new)[seq_along(ref)], names(ref))
+        for (nm in names(ref)) expect_identical(new[[nm]], ref[[nm]])
+        tiers <- c(tiers, new$classification)
+      }
+    }
+    unique(tiers)
+  }
+  tiers <- c(
+    same(e, clades), same(make_gcg_fixture(), gcg_clades),
+    same(gcg_up_lineage(0.3), gcg_clades),
+    same(gcg_up_lineage(0.99), gcg_clades),
+    same(gcg_up_diff(c(0.3, 0.99, 0.99)), gcg_clades)
+  )
+  expect_setequal(tiers, .gcg_tiers)
+  runs <- lapply(c(0.05, 0.1, 0.9), function(a) {
+    gene_clique_graph(e, min_size = 2L, alpha_graph = a)
+  })
+  # The fixture reaches every state the incidence has to get right.
+  all_cls <- suppressMessages(
+    classify_gene_cliques(runs, e, gcg_six, clades = clades)
+  )
+  reasons <- unlist(strsplit(all_cls$missing_reason, ","))
+  expect_setequal(
+    unique(reasons),
+    c("absent", "untested", "tested_ns", "underpowered", "extendable")
+  )
+  expect_true(any(all_cls$n_members > 3L & all_cls$hog == "HOG1"))
+})
