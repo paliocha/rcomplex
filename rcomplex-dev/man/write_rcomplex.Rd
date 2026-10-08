@@ -15,8 +15,8 @@ write_rcomplex(x, dir)
 The file paths, invisibly.
 }
 \description{
-\code{write_rcomplex()} writes each table of the result to its own file,
-named after the element: \code{edges.tsv}, \code{cliques.tsv},
+\code{write_rcomplex()} writes each table of the result to its own file.
+Each file takes the name of its element: \code{edges.tsv}, \code{cliques.tsv},
 \code{classification.tsv} and, with \code{null = TRUE}, \code{edges_null.tsv}.
 }
 \seealso{

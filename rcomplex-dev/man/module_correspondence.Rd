@@ -39,14 +39,15 @@ A list with \code{pairs} -- a data frame of \code{module1},
 \code{\link[=classify_hub_conservation]{classify_hub_conservation()}} expects.
 }
 \description{
-Cross-tabulates the modules of two species over a paralog-resolved ortholog
-map and tests each module pair for excess overlap. This answers "which
-module corresponds to which", a different question from whether a module's
-topology is preserved (\code{\link[=module_preservation]{module_preservation()}});
-\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} needs the correspondence, not the
-preservation call.
+Cross-tabulates the modules of two species over a paralog-resolved
+ortholog map. Tests each module pair for excess overlap.
 }
 \details{
+This answers "which module corresponds to which". That differs from
+whether a module's topology is preserved (\code{\link[=module_preservation]{module_preservation()}}).
+\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} needs the correspondence, not the
+preservation call.
+
 The map assigns one reference gene to each test-species gene, so the
 hypergeometric's independence assumption holds. The multi-copy expansion
 that made the same test anti-conservative under the retired

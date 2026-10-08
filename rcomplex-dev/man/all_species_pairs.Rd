@@ -23,12 +23,14 @@ one row per unordered pair. Both directions of each contrast are run by
 }
 \description{
 Builds the \code{pairs} argument of \code{\link[=preservation_paired]{preservation_paired()}} for every
-\code{choose(n, 2)} contrast, so an all-pairs preservation matrix does not have
-to be hand-written. Running all pairs rather than a designated few is what
-makes \code{\link[=preservation_matrix_test]{preservation_matrix_test()}} worth doing: every extra contrast adds
-its modules to the class means the statistic is built from, and any
-species the designated few left out widens the relabelling null as well.
-Eight species split 4/4 give \code{choose(8, 4) = 70} free labellings, against
+\code{choose(n, 2)} contrast. Saves writing an all-pairs table by hand.
+}
+\details{
+Running all pairs rather than a designated few is what makes
+\code{\link[=preservation_matrix_test]{preservation_matrix_test()}} worth doing. Every extra contrast adds its
+modules to the class means the statistic is built from. Any species the
+designated few left out widens the relabelling null as well. Eight
+species split 4/4 give \code{choose(8, 4) = 70} free labellings, against
 the 16 that a within-genus null over four genera of two can reach.
 }
 \examples{

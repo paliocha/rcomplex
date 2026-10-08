@@ -116,7 +116,7 @@ test_that("species1/species2 give an edge frame with NA power", {
   )
   expect_equal(s$edges, two_step)
   expect_error(rcomplex:::summarize_specificity(cmp, species1 = "SP_A"),
-               "Both species1 and species2")
+               "give both or neither")
 })
 
 

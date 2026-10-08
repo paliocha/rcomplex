@@ -296,10 +296,12 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 
 #' Find co-expression cliques using C++ two-level decomposition
 #'
-#' For each Hierarchical Ortholog Group (HOG), uses Bron-Kerbosch with
-#' pivoting on the species-level adjacency graph to find maximal species
-#' cliques, then backtracking to assign the best gene per species
-#' (minimising mean q-value across all present edges).
+#' Finds the maximal species cliques of each hog. Then assigns the best
+#' gene to each species of the clique.
+#'
+#' The search uses Bron-Kerbosch with pivoting on the species-level
+#' adjacency graph. A backtracker picks the gene per species that
+#' minimises the mean q-value across all present edges.
 #'
 #' @param edges Data frame with columns:
 #'   \describe{
@@ -313,7 +315,7 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'   }
 #'   Optionally includes a \code{type} column for filtering. Pass the
 #'   unfiltered table (every tested pair, e.g. the output of
-#'   \code{\link{find_coexpressologs}}): cliques are built from
+#'   [find_coexpressologs()]): cliques are built from
 #'   \code{"conserved"} rows only, but \code{intensity} fits each edge's
 #'   weight scale on every row of its species pair, so a pre-filtered
 #'   table changes what it measures.
@@ -502,7 +504,7 @@ find_cliques.default <- function(edges, target_species,
 
 #' Classify HOGs by clique conservation pattern
 #'
-#' Convenience wrapper that runs \code{\link{find_cliques}} internally
+#' Convenience wrapper that runs [find_cliques()] internally
 #' (once for all species, once per top-level clade) and applies a sequential
 #' waterfall classification. For fine-grained control over the clique
 #' detection parameters per step, call \code{find_cliques()} directly.
@@ -547,21 +549,21 @@ find_cliques.default <- function(edges, target_species,
 #' of the lowest degree decile and none of the highest.
 #'
 #' @section Choosing between the two clique classifiers:
-#' This function and \code{\link{classify_gene_cliques}} answer
+#' This function and [classify_gene_cliques()] answer
 #' different questions; neither is deprecated in favour of the other.
 #'
 #' \code{classify_cliques()} works on the per-orthogroup \emph{species}
 #' graph. It asks which species are joined by conserved co-expression
 #' and whether that pattern respects the trait split, and it returns one
-#' row per HOG. \code{\link{find_cliques}} commits to one best gene
+#' row per HOG. [find_cliques()] commits to one best gene
 #' assignment per species clique, so a multi-copy HOG still gets a
-#' single answer, and that answer is what \code{\link{clique_stability}}
-#' and \code{\link{clique_threshold_sweep}} consume -- the
+#' single answer, and that answer is what [clique_stability()]
+#' and [clique_threshold_sweep()] consume -- the
 #' \code{stability_class} / \code{robust} columns exist only on this
 #' side.
 #'
-#' \code{\link{classify_gene_cliques}} works on the \emph{gene} graph
-#' built by \code{\link{gene_clique_graph}}. It asks which individual
+#' [classify_gene_cliques()] works on the \emph{gene} graph
+#' built by [gene_clique_graph()]. It asks which individual
 #' gene copies are mutually conserved, so one HOG can yield several
 #' overlapping cliques and the answer names paralogs rather than
 #' species. It applies the taxonomy of Rodriguez et al. (2026), plus
@@ -580,17 +582,17 @@ find_cliques.default <- function(edges, target_species,
 #'   (conserved + ns + diverged), not pre-filtered, because the
 #'   differentiated check needs to verify absence of cross-group
 #'   conserved edges. An optional \code{power} column (from
-#'   \code{\link{find_coexpressologs}}) enables the
+#'   [find_coexpressologs()]) enables the
 #'   \code{"underpowered"} class; without it, or where it is \code{NA},
 #'   the classification is unchanged.
 #' @param target_species Character vector of all species.
 #' @param clades Named list of species vectors, one per clade. Clades
 #'   may nest but must not cross. A species in no clade forms its own
 #'   clade. A flat trait is \code{split(names(trait), trait)}. A tree
-#'   gives \code{\link{clades_from_tree}(phy)}.
+#'   gives \code{[clades_from_tree()](phy)}.
 #' @param min_species Minimum species for a partial or within-group
 #'   clique (default 2).
-#' @param stability Optional output of \code{\link{clique_stability}}.
+#' @param stability Optional output of [clique_stability()].
 #' @param min_power Detection power below which a non-conserved edge is
 #'   read as uninformative rather than as evidence against conservation
 #'   (default 0.8). Only used when \code{edges} has \code{power}. For
@@ -635,9 +637,9 @@ find_cliques.default <- function(edges, target_species,
 #' table(result$classification)
 #' }
 #'
-#' @seealso \code{\link{find_cliques}} for the species-graph backend
-#'   this wraps; \code{\link{classify_gene_cliques}} and
-#'   \code{\link{gene_clique_graph}} for the copy-level alternative
+#' @seealso [find_cliques()] for the species-graph backend
+#'   this wraps; [classify_gene_cliques()] and
+#'   [gene_clique_graph()] for the copy-level alternative
 #'   described above.
 #' @references
 #' Rodriguez E, Birkeland S, Chapple ED, et al. (2026).
@@ -981,7 +983,7 @@ classify_cliques.default <- function(
 #' @param edges Full edge table carrying `power`.
 #' @param hogs Candidate HOGs (differentiated and trait-specific).
 #' @param wg_cliques Named list of within-group [find_cliques()] tables.
-#' @param trait_char Named trait group of every target species.
+#' @param trait_char Named clade of every target species.
 #' @param min_power As in [classify_cliques()].
 #' @param hog_homes Home clades of each candidate HOG, named by HOG.
 #' @param clades Checked clade list.

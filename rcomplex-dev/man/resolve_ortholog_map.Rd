@@ -38,11 +38,13 @@ A data frame with columns:
 }
 }
 \description{
-Reduces the candidate gene pairs of multi-copy ortholog groups (HOGs) to a
-single counterpart per gene, using evidence the pipeline has already
-produced.  Intended for \code{module_preservation()}, which projects module
-labels from one species onto another and is sensitive to the paralog
-expansion that a raw ortholog table implies.
+Reduces the candidate gene pairs of multi-copy hogs to one counterpart
+per gene. Uses evidence the pipeline has already produced. Use it before
+\code{\link[=module_preservation]{module_preservation()}}, which projects module labels between species.
+}
+\details{
+A raw ortholog table implies a paralog expansion, and the projection is
+sensitive to it.
 }
 \section{Resolution waterfall}{
 

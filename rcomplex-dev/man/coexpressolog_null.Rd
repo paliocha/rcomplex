@@ -17,11 +17,11 @@ coexpressolog_null(
 \item{networks}{Named list of sparse network objects
 (\code{compute_network(sparse = TRUE)} outputs), keyed by species
 abbreviation. Dense networks are rejected; convert them with
-\code{\link{as_sparse_network}}.}
+\code{as_sparse_network()}.}
 
 \item{orthologs}{Data frame with columns \code{gene1},
 \code{gene2}, \code{hog}, as for
-\code{\link{find_coexpressologs}}.}
+\code{\link[=find_coexpressologs]{find_coexpressologs()}}.}
 
 \item{swap_factor}{Swap trials per permutation, rejected ones
 included, as a multiple of the edge count of each thresholded network
@@ -58,7 +58,7 @@ permutation the same seed, so the null is identical for the two runs
 even though the observed statistic is not: see the aliasing note under
 \code{.task_seed()}.}
 
-\item{...}{Passed unchanged to \code{\link{find_coexpressologs}} for
+\item{...}{Passed unchanged to \code{\link[=find_coexpressologs]{find_coexpressologs()}} for
 both the observed and every null run (\code{pval_combine}, ...).
 Zero-overlap ortholog pairs are dropped before the q-values
 (\code{filter_zero = TRUE}): the statistic reads called edges only, so
@@ -84,16 +84,17 @@ the base seed the run used as \code{attr(, "seed")}.
 }
 \description{
 Tests whether an observed co-expressolog statistic exceeds what
-network topology alone produces. Each species network is binarised at
-its analysis threshold and rewired by degree-preserving edge swaps,
-which keep every gene's degree but destroy the correspondence between
-network neighbourhoods and the ortholog mapping.
-\code{\link{find_coexpressologs}} then runs on the rewired networks
-with exactly the same arguments (\code{...}) as the
-observed run, and the statistic is compared against the resulting
+network topology alone produces. Rewires each species network and runs
+\code{\link[=find_coexpressologs]{find_coexpressologs()}} on the result. Compares the statistic with the
 null distribution.
 }
 \details{
+Each network is binarised at its analysis threshold and rewired by
+degree-preserving edge swaps. The swaps keep every gene's degree and
+destroy the match between neighbourhoods and the ortholog mapping.
+The null run takes exactly the same arguments (\code{...}) as the
+observed run.
+
 Rewiring operates on the network thresholded at \code{net$threshold}
 (the analysis density), not on the stored superset: sparse-store
 entries with values at or above the threshold become edges, the rest

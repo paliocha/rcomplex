@@ -384,7 +384,7 @@ test_that("a species with no HOG-mapped genes is called out", {
 
   expect_warning(
     classify_hub_conservation(hubs, as_clades(td$trait)),
-    "no HOG-mapped genes"
+    "no hog-mapped gene"
   )
 })
 

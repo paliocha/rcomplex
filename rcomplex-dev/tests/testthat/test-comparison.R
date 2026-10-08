@@ -1005,15 +1005,15 @@ test_that("compare_neighborhoods rejects non-dgCMatrix Matrix classes", {
 
   expect_error(
     rcomplex:::compare_neighborhoods(net_dsc, net2_s, ortho),
-    "network must be a dgCMatrix"
+    "must be a dgCMatrix"
   )
   expect_error(
     rcomplex:::compare_neighborhoods(net_dgt, net2_s, ortho),
-    "network must be a dgCMatrix"
+    "must be a dgCMatrix"
   )
   expect_error(
     rcomplex:::compare_neighborhoods(net2_s, net_dsc, ortho_rev),
-    "network must be a dgCMatrix"
+    "must be a dgCMatrix"
   )
 })
 

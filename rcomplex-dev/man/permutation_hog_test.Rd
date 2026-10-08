@@ -67,9 +67,8 @@ Besag-Clifford support}
 }
 }
 \description{
-Tests each Hierarchical Ortholog Group (HOG) for co-expression conservation
-(or divergence) using a gene-identity permutation null with adaptive stopping
-(Besag & Clifford, 1991).
+Tests each hog for co-expression conservation or divergence. Permutes
+gene identities and stops adaptively (Besag & Clifford, 1991).
 }
 \section{Statistical method}{
 

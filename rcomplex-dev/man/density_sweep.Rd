@@ -22,7 +22,7 @@ density_sweep(networks, ...)
 )
 }
 \arguments{
-\item{networks}{Named list of \code{\link{compute_network}} outputs.}
+\item{networks}{Named list of \code{\link[=compute_network]{compute_network()}} outputs.}
 
 \item{...}{Additional arguments passed to the default method.}
 
@@ -33,7 +33,7 @@ density_sweep(networks, ...)
 (default \code{seq(0.95, 1.05, by = 0.01)}).}
 
 \item{method}{Comparison method passed to
-\code{\link{find_coexpressologs}}: \code{"permutation"} (default),
+\code{\link[=find_coexpressologs]{find_coexpressologs()}}: \code{"permutation"} (default),
 \code{"hypergeometric"} or \code{"rank"}.}
 
 \item{n_cores}{Number of threads (default 1).}
@@ -41,7 +41,7 @@ density_sweep(networks, ...)
 \item{use_torch}{Logical; GPU acceleration for permutation method
 (default \code{FALSE}).}
 
-\item{pval_combine}{Passed to \code{\link{find_coexpressologs}}:
+\item{pval_combine}{Passed to \code{\link[=find_coexpressologs]{find_coexpressologs()}}:
 \code{"max"} (default) requires both directions to be significant
 (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
 calls a pair when either direction is significant.}
@@ -49,18 +49,18 @@ calls a pair when either direction is significant.}
 \item{seed}{Integer seed for the sweep's random draws, or \code{NULL}
 (default) to draw from the global RNG. Applied once here, so the
 whole sweep is one reproducible unit: the multipliers are visited in
-order and each \code{\link{find_coexpressologs}} call continues the
+order and each \code{\link[=find_coexpressologs]{find_coexpressologs()}} call continues the
 same stream, which keeps a level's draws independent of its
 neighbours' while making the sweep as a whole repeatable. Because
 nothing is drawn before the first multiplier, a sweep seeded with
 \code{s} reproduces \code{find_coexpressologs(seed = s)} exactly at
-its first level. See \code{\link{find_coexpressologs}} for what a
+its first level. See \code{\link[=find_coexpressologs]{find_coexpressologs()}} for what a
 seed does and does not pin under each \code{method}.}
 
-\item{rho0}{Passed to \code{\link{find_coexpressologs}}: reference
+\item{rho0}{Passed to \code{\link[=find_coexpressologs]{find_coexpressologs()}}: reference
 fold enrichment for the analytical \code{power} column.}
 
-\item{null_networks}{Passed to \code{\link{find_coexpressologs}}
+\item{null_networks}{Passed to \code{\link[=find_coexpressologs]{find_coexpressologs()}}
 (rank method only); every null's threshold is scaled by the
 same multiplier as its species' network.}
 }
@@ -72,14 +72,13 @@ A data frame with columns \code{multiplier},
 density per species at each threshold level).
 }
 \description{
-Reruns the full pairwise comparison pipeline at multiple threshold
-multipliers to assess how sensitive conservation results are to the
-choice of density cutoff.
+Reruns the pairwise comparison at several threshold multipliers.
+Shows how sensitive the conservation results are to the density cutoff.
 }
 \details{
 For each multiplier, every network's threshold is scaled by
 \code{threshold * multiplier}, the effective density is recorded, and
-\code{\link{find_coexpressologs}} is called on the modified networks.
+\code{\link[=find_coexpressologs]{find_coexpressologs()}} is called on the modified networks.
 }
 \examples{
 \dontrun{
@@ -90,6 +89,6 @@ sweep <- density_sweep(networks, orthologs,
 
 }
 \seealso{
-\code{\link{find_coexpressologs}},
+\code{\link[=find_coexpressologs]{find_coexpressologs()}},
 \code{classify_cliques}
 }

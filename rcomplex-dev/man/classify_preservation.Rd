@@ -23,10 +23,13 @@ through from \code{\link[=module_preservation]{module_preservation()}} and takes
 \emph{Ordering modules} for when to read it instead.
 }
 \description{
-Turns \code{\link[=module_preservation]{module_preservation()}} output into a per-module call. The call is
-driven by the combined permutation q-value; the \code{Zsummary} thresholds of
-Langfelder et al. (2011) are applied as a secondary split among the
-significant modules, so the familiar 2 / 10 cut points still appear.
+Turns \code{\link[=module_preservation]{module_preservation()}} output into a call per module. The
+combined permutation q-value drives the call.
+}
+\details{
+The \code{Zsummary} thresholds of Langfelder et al. (2011) split the
+significant modules a second time, so the familiar 2 / 10 cut points
+still appear.
 }
 \section{Criteria}{
 

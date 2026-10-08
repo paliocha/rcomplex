@@ -8,13 +8,14 @@
 
 #' Reconstruct mutual-rank values for a gene subset
 #'
-#' Computes the exact Mutual Rank co-expression values for a subset of
-#' genes from the expression matrix, using the network's stored parameters
-#' (`cor_method`, `sign`, `mr_log_transform`). A sparse network
-#' (`compute_network(sparse = TRUE)`) discards values below its
-#' `store_threshold`; this function reconstructs them (for heatmaps or
-#' other visualisations of, say, a module) without rebuilding the dense
-#' n x n matrix: \eqn{MR_{ij} = \sqrt{R_{ij} R_{ji}}} only needs the
+#' Computes the exact mutual rank values for a subset of genes. Uses the
+#' stored parameters of the network (`cor_method`, `sign`,
+#' `mr_log_transform`). Recovers values that a sparse network discards.
+#'
+#' A sparse network (`compute_network(sparse = TRUE)`) discards values
+#' below its `store_threshold`. This function reconstructs them, for
+#' example for a module heatmap, without rebuilding the dense n x n
+#' matrix. The value \eqn{MR_{ij} = \sqrt{R_{ij} R_{ji}}} only needs the
 #' correlations of genes i and j ranked over all n network genes, so a
 #' k x n correlation slice suffices.
 #'

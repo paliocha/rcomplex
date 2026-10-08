@@ -1,9 +1,11 @@
 #' Identify hub genes within co-expression modules
 #'
-#' Computes within-module centrality for each gene and flags the top-ranked
-#' genes as hubs (the top 10% by weighted degree, at least one per module of
-#' three or more genes).  Optionally maps genes to ortholog groups (HOGs) for
-#' downstream conservation analysis with [classify_hub_conservation()].
+#' Computes within-module centrality for each gene. Flags the top-ranked
+#' genes as hubs. Optionally maps genes to hogs for
+#' [classify_hub_conservation()].
+#'
+#' A hub is in the top 10% by weighted degree, with at least one hub per
+#' module of three or more genes.
 #'
 #' @section Centrality measures:
 #' Centrality is computed on the **within-module subgraph** (edges between
@@ -184,27 +186,26 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 }
 
 
-#' Classify hub gene conservation across species and traits
+#' Classify hub gene conservation across species and clades
 #'
-#' Given per-species hub identification results (from
-#' [identify_module_hubs()]), maps hub genes to HOGs and classifies each HOG
-#' by its hub conservation pattern relative to a discrete trait (e.g.
-#' annual / perennial).
+#' Maps the hub genes from [identify_module_hubs()] to hogs. Classifies
+#' each hog by its hub pattern across clades (for example annual and
+#' perennial).
 #'
 #' @section Classification waterfall:
 #' For each HOG that appears in at least one species:
 #' \describe{
-#'   \item{conserved_hub}{Hub in multiple trait groups **and** the hub modules
-#'     correspond across traits (checked via `module_comparisons`).}
-#'   \item{rewired_hub}{Hub in multiple trait groups but in
+#'   \item{conserved_hub}{Hub in multiple clades **and** the hub modules
+#'     correspond across clades (checked via `module_comparisons`).}
+#'   \item{rewired_hub}{Hub in multiple clades but in
 #'     **non-corresponding** modules -- the gene kept its centrality but
 #'     changed regulatory context.}
-#'   \item{multi_trait_hub}{Hub in multiple trait groups; module correspondence
+#'   \item{multi_trait_hub}{Hub in multiple clades; module correspondence
 #'     unknown (`module_comparisons` not provided).}
-#'   \item{\emph{trait}_specific_hub}{Hub in exactly one trait group (e.g.
+#'   \item{\emph{trait}_specific_hub}{Hub in exactly one clade (e.g.
 #'     `"annual_specific_hub"`).}
 #'   \item{sporadic_hub}{Hub in some species but does not reach
-#'     half of a trait group.}
+#'     half of a clade.}
 #'   \item{non_hub}{Present in modules but not a hub in any species.}
 #' }
 #'
@@ -227,7 +228,7 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'   of taken on trust. A module pair absent from the table counts as not
 #'   corresponding. Modules correspond when `q_value < 0.1` and
 #'   `jaccard >= 0.1`, and a HOG is `conserved_hub` when at least half of
-#'   its cross-trait hub pairs correspond.
+#'   its cross-clade hub pairs correspond.
 #'
 #' @return A data frame with one row per HOG:
 #'   \describe{
@@ -236,12 +237,12 @@ identify_module_hubs.default <- function(modules, net, orthologs = NULL,
 #'       waterfall)}
 #'     \item{n_species_hub}{Number of species where the HOG is a hub}
 #'     \item{n_species_present}{Number of species where the HOG has genes.
-#'       Reported for context; it is not the trait-group denominator.}
-#'     \item{hub_trait_groups}{Comma-separated trait groups where it qualifies
+#'       Reported for context; it is not the clade denominator.}
+#'     \item{hub_trait_groups}{Comma-separated clades where it qualifies
 #'       as hub (`NA` for non_hub)}
-#'     \item{n_corresponding}{Cross-trait hub pairs with corresponding modules
+#'     \item{n_corresponding}{Cross-clade hub pairs with corresponding modules
 #'       (`NA` without `module_comparisons`)}
-#'     \item{n_cross_pairs}{Total cross-trait hub pairs checked (`NA` without
+#'     \item{n_cross_pairs}{Total cross-clade hub pairs checked (`NA` without
 #'       `module_comparisons`)}
 #'     \item{max_centrality}{Highest centrality score across species}
 #'     \item{best_hub_species}{Species with highest centrality}
@@ -326,15 +327,15 @@ classify_hub_conservation.default <- function(hub_results, clades,
     return(empty)
   }
 
-  # A species with no HOG-mapped gene still sits in the trait-group
+  # A species with no HOG-mapped gene still sits in the clade
   # denominator, where it counts as non-hub for every HOG and depresses the
-  # whole trait group -- silently, if the caller forgot its ortholog table.
+  # whole clade -- silently, if the caller forgot its ortholog table.
   no_hog <- setdiff(names(hub_results), unique(stacked$species))
   if (length(no_hog) > 0L) {
     warning(
-      "no HOG-mapped genes in hub_results for: ",
+      "`hub_results` has no hog-mapped gene for: ",
       paste(no_hog, collapse = ", "),
-      "; they count as non-hub in their trait group"
+      ". These species count as non-hub in their clade."
     )
   }
 
@@ -361,7 +362,7 @@ classify_hub_conservation.default <- function(hub_results, clades,
   rownames(hog_df) <- NULL
 
   # --- Pre-compute (hog x trait) hub fraction matrix ---
-  # The denominator is the size of the trait group, not the number of its
+  # The denominator is the size of the clade, not the number of its
   # species that carry the HOG. Dividing by the species present scores a HOG
   # seen in one annual and a hub there as 1.0 -- the same as a hub in all
   # four annuals -- so accessory HOGs are not comparable with core ones and
@@ -511,7 +512,7 @@ classify_hub_conservation.default <- function(hub_results, clades,
     if (n_hub == 0L) {
       classification <- "non_hub"
     } else if (length(hub_group_names) >= 2L) {
-      # Hub in multiple trait groups -- check module correspondence
+      # Hub in multiple clades -- check module correspondence
       hub_sp_by_group <- lapply(hub_group_names, function(g) {
         h_df$species[h_df$species %in% species_by_trait[[g]] & h_df$is_hub]
       })

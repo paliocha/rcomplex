@@ -29,12 +29,12 @@ entries are dropped.}
 
 \item{species1, species2}{Optional species abbreviations. When both are
 provided,
-\code{\link{comparison_to_edges}} is called internally and the result
+\code{comparison_to_edges()} is called internally and the result
 is returned as a third list element \code{$edges}. This avoids a
 separate \code{comparison_to_edges()} call when preparing input for
 \code{find_cliques}.}
 
-\item{pval_combine}{Passed to \code{\link{comparison_to_edges}} when
+\item{pval_combine}{Passed to \code{comparison_to_edges()} when
 \code{species1} and \code{species2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
@@ -76,10 +76,13 @@ classifiers read it through \code{min_power}.}
 }
 \description{
 Computes q-values for the per-direction specificity p-values from
-\code{\link[=compare_specificity]{compare_specificity()}}, optionally calibrated against a shuffled
-partner null, and the same gene-pair, gene and orthogroup counts as
-\code{\link[=summarize_comparison]{summarize_comparison()}}. Rows where either direction is \code{NA} (an
-anchor gene with no mapped neighbours) are dropped before testing.
+\code{\link[=compare_specificity]{compare_specificity()}}. Optionally calibrates them against a shuffled
+partner null. Returns the same gene-pair, gene and hog counts as
+\code{\link[=summarize_comparison]{summarize_comparison()}}.
+}
+\details{
+Rows where either direction is \code{NA} (an anchor gene with no mapped
+neighbours) are dropped before testing.
 }
 \section{Multiple testing correction}{
 

@@ -15,11 +15,11 @@ clique_threshold_sweep(
 )
 }
 \arguments{
-\item{cliques}{Baseline output of \code{\link{find_cliques}}.}
+\item{cliques}{Baseline output of \code{\link[=find_cliques]{find_cliques()}}.}
 
 \item{target_species}{Character vector of species abbreviations.}
 
-\item{networks}{Named list of \code{\link{compute_network}} outputs,
+\item{networks}{Named list of \code{\link[=compute_network]{compute_network()}} outputs,
 keyed by species abbreviation. Each element must have \code{$network}
 (named numeric matrix) and \code{$threshold} (scalar).}
 
@@ -32,7 +32,7 @@ Default \code{c(1.5, 2, 3, 5, 10)}.}
 \item{min_species}{Minimum species per clique
 (default \code{length(target_species)}).}
 
-\item{n_cores}{Cores for \code{\link{compare_neighborhoods}}
+\item{n_cores}{Cores for \code{compare_neighborhoods()}
 (default 1).}
 }
 \value{
@@ -58,8 +58,8 @@ is \code{NA}).}
 }
 \description{
 Convenience wrapper that re-runs the full comparison-to-clique pipeline
-(\code{\link{compare_neighborhoods}} -> \code{\link{summarize_comparison}}
--> \code{\link{comparison_to_edges}} -> \code{\link{find_cliques}}) at
+(\code{compare_neighborhoods()} -> \code{summarize_comparison()}
+-> \code{comparison_to_edges()} -> \code{\link[=find_cliques]{find_cliques()}}) at
 progressively stricter thresholds. For custom threshold logic, call the
 individual functions directly.
 }

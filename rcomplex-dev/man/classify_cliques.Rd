@@ -24,7 +24,7 @@ classify_cliques(edges, ...)
 (conserved + ns + diverged), not pre-filtered, because the
 differentiated check needs to verify absence of cross-group
 conserved edges. An optional \code{power} column (from
-\code{\link{find_coexpressologs}}) enables the
+\code{\link[=find_coexpressologs]{find_coexpressologs()}}) enables the
 \code{"underpowered"} class; without it, or where it is \code{NA},
 the classification is unchanged.}
 
@@ -35,12 +35,12 @@ the classification is unchanged.}
 \item{clades}{Named list of species vectors, one per clade. Clades
 may nest but must not cross. A species in no clade forms its own
 clade. A flat trait is \code{split(names(trait), trait)}. A tree
-gives \code{\link{clades_from_tree}(phy)}.}
+gives \code{[clades_from_tree()](phy)}.}
 
 \item{min_species}{Minimum species for a partial or within-group
 clique (default 2).}
 
-\item{stability}{Optional output of \code{\link{clique_stability}}.}
+\item{stability}{Optional output of \code{\link[=clique_stability]{clique_stability()}}.}
 
 \item{min_power}{Detection power below which a non-conserved edge is
 read as uninformative rather than as evidence against conservation
@@ -81,7 +81,7 @@ stability results provided)}
 }
 }
 \description{
-Convenience wrapper that runs \code{\link{find_cliques}} internally
+Convenience wrapper that runs \code{\link[=find_cliques]{find_cliques()}} internally
 (once for all species, once per top-level clade) and applies a sequential
 waterfall classification. For fine-grained control over the clique
 detection parameters per step, call \code{find_cliques()} directly.
@@ -130,21 +130,21 @@ of the lowest degree decile and none of the highest.
 
 \section{Choosing between the two clique classifiers}{
 
-This function and \code{\link{classify_gene_cliques}} answer
+This function and \code{\link[=classify_gene_cliques]{classify_gene_cliques()}} answer
 different questions; neither is deprecated in favour of the other.
 
 \code{classify_cliques()} works on the per-orthogroup \emph{species}
 graph. It asks which species are joined by conserved co-expression
 and whether that pattern respects the trait split, and it returns one
-row per HOG. \code{\link{find_cliques}} commits to one best gene
+row per HOG. \code{\link[=find_cliques]{find_cliques()}} commits to one best gene
 assignment per species clique, so a multi-copy HOG still gets a
-single answer, and that answer is what \code{\link{clique_stability}}
-and \code{\link{clique_threshold_sweep}} consume -- the
+single answer, and that answer is what \code{\link[=clique_stability]{clique_stability()}}
+and \code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}} consume -- the
 \code{stability_class} / \code{robust} columns exist only on this
 side.
 
-\code{\link{classify_gene_cliques}} works on the \emph{gene} graph
-built by \code{\link{gene_clique_graph}}. It asks which individual
+\code{\link[=classify_gene_cliques]{classify_gene_cliques()}} works on the \emph{gene} graph
+built by \code{\link[=gene_clique_graph]{gene_clique_graph()}}. It asks which individual
 gene copies are mutually conserved, so one HOG can yield several
 overlapping cliques and the answer names paralogs rather than
 species. It applies the taxonomy of Rodriguez et al. (2026), plus
@@ -173,8 +173,8 @@ conifer trees. \emph{Nature Communications} 17(1).
 \doi{10.1038/s41467-026-75624-2}
 }
 \seealso{
-\code{\link{find_cliques}} for the species-graph backend
-this wraps; \code{\link{classify_gene_cliques}} and
-\code{\link{gene_clique_graph}} for the copy-level alternative
+\code{\link[=find_cliques]{find_cliques()}} for the species-graph backend
+this wraps; \code{\link[=classify_gene_cliques]{classify_gene_cliques()}} and
+\code{\link[=gene_clique_graph]{gene_clique_graph()}} for the copy-level alternative
 described above.
 }

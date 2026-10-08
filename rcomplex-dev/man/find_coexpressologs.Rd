@@ -25,22 +25,22 @@ find_coexpressologs(networks, ...)
 run_pairwise_comparisons(...)
 }
 \arguments{
-\item{networks}{Named list of \code{\link{compute_network}} outputs,
+\item{networks}{Named list of \code{\link[=compute_network]{compute_network()}} outputs,
 keyed by species abbreviation.}
 
 \item{...}{Additional arguments passed to the default method.}
 
 \item{orthologs}{Data frame with columns \code{gene1},
-\code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}}).}
+\code{gene2}, \code{hog} (from \code{\link[=prepare_orthologs]{prepare_orthologs()}}).}
 
 \item{method}{Testing method: \code{"hypergeometric"} (default, fast),
 \code{"rank"} or
 \code{"permutation"} (rigorous).
 \code{"rank"} scores each ortholog pair with
-\code{\link{compare_specificity}} and calibrates it against
-\code{null_networks} via \code{\link{summarize_specificity}};
+\code{compare_specificity()} and calibrates it against
+\code{null_networks} via \code{summarize_specificity()};
 \code{rho0} is refused; \code{power} is
-the rank-test power (see \code{\link{summarize_specificity}}).}
+the rank-test power (see \code{summarize_specificity()}).}
 
 \item{n_cores}{Number of threads (default 1).}
 
@@ -49,27 +49,27 @@ precomputation for permutation method (default \code{FALSE}).}
 
 \item{pval_combine}{Hypergeometric and rank methods: how the two
 directional q-values are combined, passed to
-\code{\link{comparison_to_edges}}:
+\code{comparison_to_edges()}:
 \code{"max"} (default; both directions significant -- the reciprocal
 criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 the original ComPlEx) or \code{"min"} (permissive; either direction,
 denser edge supply for \code{find_cliques}).}
 
 \item{filter_zero}{Analytical method only: passed to
-\code{\link{summarize_comparison}}. \code{FALSE} (default) keeps
+\code{summarize_comparison()}. \code{FALSE} (default) keeps
 every tested ortholog pair, including those whose neighbourhood
 overlap is zero in either direction, so a pair that could not have
 been called still reaches the edge table carrying its \code{power}.
 \code{TRUE} removes them before the q-values are computed, which is
 what canonical ComPlEx does -- it shrinks the multiple-testing set, so
-every q-value moves. Set by \code{\link{coexpressolog_null}}.}
+every q-value moves. Set by \code{\link[=coexpressolog_null]{coexpressolog_null()}}.}
 
 \item{seed}{Integer seed for the call's random draws, or \code{NULL}
 (default) to draw from the global RNG. Seeding here makes the call
 reproducible, and with it every downstream count thresholded on
 \code{q_value}. The seed is applied once, for the whole species-pair
 loop, rather than being handed to each
-\code{\link{summarize_comparison}} call: one seeded stream flows
+\code{summarize_comparison()} call: one seeded stream flows
 through the pairs in order, so each pair draws its own uniforms
 instead of every pair reusing the same ones.
 
@@ -84,17 +84,17 @@ pairing of thread streams to HOGs still moves between runs.
 A seeded call draws from a private stream and restores the caller's
 on exit; with \code{seed = NULL} the draws come from the ambient
 stream and leave it advanced. Same contract as
-\code{detect_modules} and \code{\link{summarize_comparison}}.}
+\code{detect_modules} and \code{summarize_comparison()}.}
 
 \item{rho0}{Analytical method only: reference fold enrichment for
 the \code{power} column, passed to
-\code{\link{comparison_to_edges}} (default \code{NULL}, the median
+\code{comparison_to_edges()} (default \code{NULL}, the median
 effect size of the called pairs). The permutation path always
 reports \code{power = NA}: its HOG-level q-value has no per-pair
 call threshold to measure power against.}
 
 \item{null_networks}{Specificity method only (required there): named
-list with one \code{\link{null_network}} object, or a list of them,
+list with one \code{\link[=null_network]{null_network()}} object, or a list of them,
 per species.}
 }
 \value{
@@ -111,27 +111,26 @@ in that species pair. Ready for
 \code{find_cliques} or \code{classify_cliques}.
 }
 \description{
-Runs the full comparison pipeline for each species pair and combines
-the results into a single edge data frame ready for
-\code{find_cliques}.
+Runs the comparison pipeline for each species pair. Combines the
+results into one edge table for \code{\link[=find_cliques]{find_cliques()}}.
 }
 \details{
 \code{score} and \code{evalue} are BLAST's bit score and
 E-value, related as \code{evalue = n_tests * 2^-score}. Under
 \code{method = "permutation"} the p-value is the HOG's, shared by its
 pairs, and it cannot fall below \code{1 / (n_perm + 1)}, so
-\code{score} has a ceiling there (see \code{\link{pvalue_resolution}}).
+\code{score} has a ceiling there (see \code{\link[=pvalue_resolution]{pvalue_resolution()}}).
 }
 \section{Methods}{
 
 \describe{
 \item{hypergeometric}{Fast path: pair-level Storey q-values via
-\code{\link{summarize_comparison}}. Appropriate when most HOGs
+\code{summarize_comparison()}. Appropriate when most HOGs
 are single-copy.}
-\item{rank}{Opt-in: \code{\link{compare_specificity}}
-against shuffled-partner networks from \code{\link{null_network}}
+\item{rank}{Opt-in: \code{compare_specificity()}
+against shuffled-partner networks from \code{\link[=null_network]{null_network()}}
 (argument \code{null_networks}), q-values via
-\code{\link{summarize_specificity}}. The hypergeometric test counts
+\code{summarize_specificity()}. The hypergeometric test counts
 how many of gene A's translated partners are among ortholog B's
 partners, against an urn of random draws. With small
 neighbourhoods (top-25 lists) that urn let technically "sticky"
@@ -144,10 +143,10 @@ so a list that thousands of genes recognise as well as B is not
 evidence. The q-value is read against a partner whose expression
 was shuffled within each gene. \code{effect_size} is
 \code{sqrt(auroc12 * auroc21)}; \code{power} is the rank-test
-power of \code{\link{summarize_specificity}} at its default
+power of \code{summarize_specificity()} at its default
 reference rank.}
 \item{permutation}{Rigorous path: gene-identity permutation via
-\code{\link{permutation_hog_test}} with Besag-Clifford adaptive
+\code{permutation_hog_test()} with Besag-Clifford adaptive
 stopping and Liang discrete q-values. Required for multi-copy
 HOGs where pair-level tests are correlated.}
 }
@@ -156,12 +155,12 @@ HOGs where pair-level tests are correlated.}
 \section{Gene universe}{
 
 Each network is built on all genes supplied to
-\code{\link{compute_network}} and the hypergeometric population is the
+\code{\link[=compute_network]{compute_network()}} and the hypergeometric population is the
 whole network (Netotea et al. 2014). Canonical ComPlEx implementations
 restrict expression to ortholog genes before building the networks;
 that changes neighbourhoods and calls, so rcomplex matches them only
 when the expression matrices are restricted the same way beforehand
-(see \code{\link{compare_neighborhoods}}).
+(see \code{compare_neighborhoods()}).
 }
 
 \examples{

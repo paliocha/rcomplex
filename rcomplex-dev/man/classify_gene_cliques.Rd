@@ -19,7 +19,7 @@ classify_gene_cliques(cliques, ...)
 )
 }
 \arguments{
-\item{cliques}{Data frame from \code{\link{gene_clique_graph}}, or
+\item{cliques}{Data frame from \code{\link[=gene_clique_graph]{gene_clique_graph()}}, or
 any table with \code{clique_id}, \code{hog}, \code{species} and \code{gene} columns.
 Combine runs at several \code{alpha_graph} values (with distinct
 \code{id_prefix}) to expose every tier: a clique complete at
@@ -34,7 +34,7 @@ relying on it.}
 \item{edges}{The full, unfiltered co-expressolog table. It must not
 be pre-filtered on \code{q_value}: the gap tier needs to see rows that
 were tested and failed in order to refuse them. An optional \code{power}
-column (from \code{\link{comparison_to_edges}}) enables the
+column (from \code{comparison_to_edges()}) enables the
 \code{underpowered} tier; without it, or where it is \code{NA}, the
 classification is unchanged.}
 
@@ -107,13 +107,14 @@ The two floor diagnostics are also attributes, alongside
 \code{max_gap}. All are set even when the result is empty.
 }
 \description{
-Applies the published five-tier taxonomy of Rodriguez et al. (2026),
-plus a \code{trait_specific} tier, to the cliques returned by
-\code{\link{gene_clique_graph}}. Every threshold is derived from
-the number of species actually supplied, so nothing is tied to the
-six species and fifteen species-pairs of the original workflow.
+Applies the five-tier taxonomy of Rodriguez et al. (2026), plus a
+\code{trait_specific} tier, to the cliques from \code{\link[=gene_clique_graph]{gene_clique_graph()}}.
+Every threshold follows from the number of species supplied.
 }
 \details{
+No threshold is tied to the six species and fifteen species-pairs of
+the original workflow.
+
 The home clade of a clique is the smallest clade that holds all its
 species. With no such clade, the home is the whole species set. The
 child clades of the home are the largest clades inside it. A species
@@ -163,7 +164,7 @@ tier is rcomplex's addition to the published five.}
 \item{underpowered}{A clique that would be \code{lineage_specific},
 \code{trait_specific} or \code{differentiated} but for tests that could not
 have succeeded, read from a \code{power} column in \code{edges} (see
-\code{\link{comparison_to_edges}}). It takes the place of the
+\code{comparison_to_edges()}). It takes the place of the
 two specificity tiers when at least one outside species is
 \code{underpowered} -- reading that species as conserved would extend
 the clique, so neither call survives -- and of
@@ -171,7 +172,7 @@ the clique, so neither call survives -- and of
 exceeds its bound: a specificity or divergence call must survive
 treating every underpowered pair as possibly significant. A
 low-degree gene cannot reach the call whatever its conservation,
-so without this its missing edges read as a lineage boundary.}
+so without this its missing edges read as a clade boundary.}
 }
 The waterfall is evaluated in that order, \code{underpowered} at the
 position of the tier it replaces, and the first match wins.
@@ -183,7 +184,7 @@ cutting a member loose needs all \code{S - 1} of its edges removed, so
 with \code{S - 2} removals every member still keeps a significant edge.
 
 \code{differentiated} demands that every member pair actually has a row in
-\code{edges}. Without that, a clique whose cross-lineage pairs were never
+\code{edges}. Without that, a clique whose cross-clade pairs were never
 tested would be scored as diverged on absent evidence -- the same
 conflation \code{partial_present} refuses through \code{missing_reason}.
 }
@@ -205,5 +206,5 @@ conifer trees. \emph{Nature Communications} 17(1).
 \doi{10.1038/s41467-026-75624-2}
 }
 \seealso{
-\code{\link{gene_clique_graph}}
+\code{\link[=gene_clique_graph]{gene_clique_graph()}}
 }
