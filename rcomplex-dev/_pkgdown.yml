@@ -1,0 +1,69 @@
+url: https://paliocha.github.io/rcomplex/
+
+template:
+  bootstrap: 5
+
+articles:
+  - title: Guides
+    contents:
+      - quickstart
+      - articles/walkthrough
+      - articles/methods
+
+reference:
+  - title: Run
+    desc: One call from expression to cliques.
+    contents:
+      - rcomplex
+      - write_rcomplex
+  - title: Inputs
+    desc: Ortholog groups, clades and networks built elsewhere.
+    contents:
+      - read_orthologs
+      - prepare_orthologs
+      - reduce_orthogroups
+      - as_network
+      - clades_from_tree
+  - title: Harmonise
+    desc: Remove a designed factor before correlation.
+    contents:
+      - split_layers
+  - title: Networks
+    contents:
+      - compute_network
+  - title: Co-expressologs
+    desc: Pairwise alignment of ortholog pairs.
+    contents:
+      - find_coexpressologs
+      - density_sweep
+  - title: Cliques
+    desc: Multiple alignment across species.
+    contents:
+      - find_cliques
+      - clique_stability
+      - clique_threshold_sweep
+      - classify_cliques
+      - gene_clique_graph
+      - classify_gene_cliques
+  - title: Modules
+    desc: Aligned blocks and their hubs.
+    contents:
+      - detect_modules
+      - as_modules
+      - resolve_ortholog_map
+      - module_preservation
+      - classify_preservation
+      - module_correspondence
+      - identify_module_hubs
+      - classify_hub_conservation
+      - get_coexpressed_hogs
+  - title: Traits
+    desc: Is divergence associated with a trait?
+    contents:
+      - preservation_paired
+      - preservation_matrix_test
+  - title: Nulls and diagnostics
+    contents:
+      - null_network
+      - coexpressolog_null
+      - pvalue_resolution
