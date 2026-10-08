@@ -16,7 +16,7 @@ comparison_to_edges(
 )
 }
 \arguments{
-\item{comparison}{Data frame from \code{\link{summarize_comparison}}
+\item{comparison}{Data frame from \code{summarize_comparison()}
 (the \code{$results} element). Must contain columns \code{gene1},
 \code{gene2}, \code{hog}, plus q-value and effect-size columns
 from both directions.}
@@ -48,9 +48,9 @@ are shared. \code{NULL} (default) takes, per direction, the median
 data); a single positive number fixes it for both directions.}
 
 \item{p0}{Rank-test frames only (from
-\code{\link{summarize_specificity}}, carrying the AUROC grid):
+\code{summarize_specificity()}, carrying the AUROC grid):
 reference raw p for the \code{power} column, see
-\code{\link{summarize_specificity}}. \code{NULL} (default) takes, per
+\code{summarize_specificity()}. \code{NULL} (default) takes, per
 direction, the median raw p of the pairs called and significant in
 that direction.}
 }
@@ -94,7 +94,7 @@ when no pair is called in a direction, or when the comparison
 lacks the neighbourhood-size columns. For a rank-test frame (one
 carrying \code{*.auroc.grid}) it is the rank-test power instead,
 at reference rank \code{p0} (see
-\code{\link{summarize_specificity}}); there a direction with no call
+\code{summarize_specificity()}); there a direction with no call
 gives 0 rather than \code{NA}, so the classifiers read it as
 uninformative, not as a rejection.}
 \item{type}{\code{"conserved"} or \code{"diverged"} if
@@ -102,7 +102,7 @@ uninformative, not as a rejection.}
 }
 }
 \description{
-Converts output from \code{\link{summarize_comparison}} into the edge
+Converts output from \code{summarize_comparison()} into the edge
 format expected by \code{find_cliques} and
 \code{classify_cliques}. Renames columns, injects species
 identity, and computes per-pair effect sizes and classification.

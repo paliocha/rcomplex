@@ -40,10 +40,13 @@ not in the ortholog table)}
 }
 }
 \description{
-Computes within-module centrality for each gene and flags the top-ranked
-genes as hubs (the top 10\% by weighted degree, at least one per module of
-three or more genes).  Optionally maps genes to ortholog groups (HOGs) for
-downstream conservation analysis with \code{\link[=classify_hub_conservation]{classify_hub_conservation()}}.
+Computes within-module centrality for each gene. Flags the top-ranked
+genes as hubs. Optionally maps genes to hogs for
+\code{\link[=classify_hub_conservation]{classify_hub_conservation()}}.
+}
+\details{
+A hub is in the top 10\% by weighted degree, with at least one hub per
+module of three or more genes.
 }
 \section{Centrality measures}{
 

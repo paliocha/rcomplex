@@ -31,10 +31,10 @@ preservation_paired(modules, ...)
 \item{pairs}{Data frame with columns \code{species1}, \code{species2} and optionally
 \code{pair_name}.}
 
-\item{group}{Optional named vector mapping species to a trait group. When
+\item{group}{Optional named vector mapping species to a clade. When
 supplied, a \code{group} column records \code{"conserved"} for preserved modules and
 the owning species' group for diverged ones. Modules reported
-\code{"untested"} are counted under \code{"untested"} rather than a trait group:
+\code{"untested"} are counted under \code{"untested"} rather than a clade:
 nothing was measured, so attributing them to one would overstate the
 evidence.}
 
@@ -62,10 +62,12 @@ contrast and direction) and \code{raw}
 (the \code{\link[=module_preservation]{module_preservation()}} results, keyed by \code{"<reference>.<test>"}).
 }
 \description{
-Applies \code{\link[=module_preservation]{module_preservation()}} to each contrast in \code{pairs}. Preservation is
-directional -- whether species A's modules survive in B is a different
-question from the reverse -- so both directions are run and reported
-separately.
+Applies \code{\link[=module_preservation]{module_preservation()}} to each contrast in \code{pairs}. Runs both
+directions and reports them separately.
+}
+\details{
+Preservation is directional. Whether the modules of species A survive
+in B differs from the reverse.
 }
 \examples{
 \dontrun{

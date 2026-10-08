@@ -448,12 +448,12 @@ test_that("permutation_hog_test rejects non-dgCMatrix Matrix classes", {
   expect_error(
     rcomplex:::permutation_hog_test(net1_bad, sparse_net(td$net2),
                                     td$comparison),
-    "network must be a dgCMatrix"
+    "must be a dgCMatrix"
   )
   expect_error(
     rcomplex:::permutation_hog_test(sparse_net(td$net1), net1_bad,
                                     td$comparison),
-    "network must be a dgCMatrix"
+    "must be a dgCMatrix"
   )
 })
 

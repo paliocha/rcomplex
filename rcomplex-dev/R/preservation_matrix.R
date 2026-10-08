@@ -1,12 +1,13 @@
 #' All unordered species pairs as a `pairs` data frame
 #'
 #' Builds the `pairs` argument of [preservation_paired()] for every
-#' `choose(n, 2)` contrast, so an all-pairs preservation matrix does not have
-#' to be hand-written. Running all pairs rather than a designated few is what
-#' makes [preservation_matrix_test()] worth doing: every extra contrast adds
-#' its modules to the class means the statistic is built from, and any
-#' species the designated few left out widens the relabelling null as well.
-#' Eight species split 4/4 give `choose(8, 4) = 70` free labellings, against
+#' `choose(n, 2)` contrast. Saves writing an all-pairs table by hand.
+#'
+#' Running all pairs rather than a designated few is what makes
+#' [preservation_matrix_test()] worth doing. Every extra contrast adds its
+#' modules to the class means the statistic is built from. Any species the
+#' designated few left out widens the relabelling null as well. Eight
+#' species split 4/4 give `choose(8, 4) = 70` free labellings, against
 #' the 16 that a within-genus null over four genera of two can reach.
 #'
 #' @param species Character vector of species identifiers. A *named* vector
@@ -323,10 +324,12 @@ all_species_pairs <- function(species, sep = ".") {
 
 #' Trait relabelling test on the all-pairs preservation matrix
 #'
-#' Asks whether modules are less well preserved between species that differ
-#' in a trait than between species that share it, using every contrast in an
-#' all-pairs [preservation_paired()] run. The null relabels species, holding
-#' the label counts and the whole preservation matrix fixed.
+#' Tests whether modules are less well preserved between species that
+#' differ in a trait than between species that share it. Uses every
+#' contrast in an all-pairs [preservation_paired()] run.
+#'
+#' The null relabels species. It holds the label counts and the whole
+#' preservation matrix fixed.
 #'
 #' @section Why the effect size and not the q-value:
 #' The statistic ranks contrasts by `Zsummary_std`, never by `p_value` or

@@ -1,9 +1,8 @@
 #' Detect co-expression modules in a network
 #'
 #' Applies the Leiden algorithm (Traag *et al.*, 2019) to a thresholded
-#' co-expression network: modularity or CPM optimization with guaranteed
-#' well-connected communities. The resolution parameter controls module
-#' granularity.
+#' co-expression network. Optimises modularity or CPM and guarantees
+#' well-connected communities. The `resolution` argument sets module size.
 #'
 #' @section Reproducibility at small sample sizes:
 #' Modules can be stable across seeds and still not replicate across
@@ -208,7 +207,7 @@ detect_modules.default <- function(net,
   }
 
   if (!has_edges) {
-    stop("No edges above threshold; cannot detect modules")
+    stop("`net` has no edge above its threshold; there is nothing to cluster.")
   }
 
   # A seeded call runs cluster_leiden() on a private stream and restores the
@@ -266,7 +265,7 @@ detect_modules.default <- function(net,
 #' the weight scale. Raw mutual-rank weights are of the order of the gene
 #' count, which made any gamma near 1 effectively 0 and every edge
 #' attractive (one module). CPM weights are divided by the graph's maximum
-#' so gamma is a density in [0, 1]. Modularity is scale-invariant: NULL
+#' so gamma is a density in \[0, 1\]. Modularity is scale-invariant: NULL
 #' keeps igraph's default (the weight attribute), bit for bit.
 #'
 #' @noRd
@@ -309,7 +308,7 @@ detect_modules_consensus <- function(net, resolutions,
   }
 
   if (!has_edges) {
-    stop("No edges above threshold; cannot detect modules")
+    stop("`net` has no edge above its threshold; there is nothing to cluster.")
   }
 
   # The per-task set.seed() calls below run in the caller's session on the

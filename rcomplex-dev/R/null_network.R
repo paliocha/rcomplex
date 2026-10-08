@@ -1,12 +1,13 @@
 #' Shuffled-partner null network
 #'
-#' Rebuilds a network with the parameters recorded in `net` after
-#' permuting every gene's expression values across samples independently,
-#' which keeps each gene's marginal distribution and the gene universe
-#' but destroys all co-expression. It is the partner network for the
-#' empirical calibration of `method = "rank"`: p-values from a
-#' comparison against it are the null draws that
-#' `summarize_specificity()` turns into empirical p-values.
+#' Rebuilds a network after permuting each gene's expression values across
+#' samples. Keeps each gene's marginal distribution and the gene universe.
+#' Destroys all co-expression.
+#'
+#' It is the partner network for the empirical calibration of
+#' `method = "rank"`. P-values from a comparison against it are the null
+#' draws that `summarize_specificity()` turns into empirical p-values.
+#' The rebuild uses the parameters recorded in `net`.
 #'
 #' With `block`, each gene's samples are permuted independently *within*
 #' each block (one permutation per gene per block). The permutations
@@ -25,7 +26,7 @@
 #' place, so within-species module statistics stay uninterpretable under
 #' it. After regressing time out, one gene's residuals correlate -1/3
 #' within a time point of four samples, which is a second reason to
-#' permute within time point rather than across it; the wiring layer from
+#' permute within time point rather than across it; the wiring part from
 #' [split_layers()] needs this null.
 #'
 #' @param x Expression matrix (genes x samples, row names are gene

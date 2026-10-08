@@ -150,7 +150,7 @@
 }
 
 
-#' Avalanche-mix a value into [0, 2^31 - 2] (internal)
+#' Avalanche-mix a value into 0 to 2^31 - 2 (internal)
 #'
 #' A Thomas Wang-style integer hash, reimplemented with `%%` so every
 #' `bitwXor`/`bitwShiftR` argument stays inside 2^31 - 1 (never exceeding the

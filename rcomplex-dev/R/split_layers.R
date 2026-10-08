@@ -1,12 +1,12 @@
-#' Split expression into wiring and deployment layers
+#' Split expression into wiring and deployment parts
 #'
 #' The function fits each gene on a per-sample block factor, such as time
-#' point, tree or zone. The block means are the deployment layer, and the
-#' residuals are the wiring layer. Build the network from the wiring layer
+#' point, tree or zone. The block means are the deployment part, and the
+#' residuals are the wiring part. Build the network from the wiring part
 #' with [compute_network()].
 #'
 #' @details
-#' **What each layer is for.** The *wiring* layer (the residuals) holds
+#' **What each part is for.** The *wiring* layer (the residuals) holds
 #' co-expression beyond the shared course: two genes that only follow the
 #' same time course have no residual correlation. Build the network from
 #' it with [compute_network()]. The *deployment* layer (the block means)
@@ -19,16 +19,16 @@
 #' correlated \eqn{-1/(n_b - 1)} (-1/3 for four replicates). A full
 #' shuffle would break that structure, so the shuffled-expression null
 #' for a wiring network must be `null_network(..., block = block)`. And
-#' the wiring layer keeps only \eqn{n_b - 1} degrees of freedom per
+#' the wiring part keeps only \eqn{n_b - 1} degrees of freedom per
 #' block (`df_residual` in all, 15 on a 5 x 4 design of 20 samples), so
 #' each half of a split-half design carries about 5 df: split-half
 #' replication is not informative there, and the gate for a wiring
 #' network has to be cross-species.
 #'
-#' **Which layer to cluster.** On the Pooideae leaf and root time series,
+#' **Which part to cluster.** On the Pooideae leaf and root time series,
 #' about 75 % of cross-species gene-level conservation (neighbour AUROC
-#' above 0.5) survived in the wiring layer (leaf 0.78, root 0.71), and the
-#' deployment layer conserved weakly. Cluster the wiring layer and carry
+#' above 0.5) survived in the wiring part (leaf 0.78, root 0.71), and the
+#' deployment part conserved weakly. Cluster the wiring part and carry
 #' `r2` as a per-gene covariate.
 #'
 #' @param x Expression matrix (genes x samples) or a

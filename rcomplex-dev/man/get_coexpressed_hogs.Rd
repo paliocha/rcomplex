@@ -17,11 +17,11 @@ get_coexpressed_hogs(
 \item{candidate_hog}{Character string: the HOG ID to query (e.g.,
 \code{"HOG42"}).}
 
-\item{networks}{Named list of \code{\link{compute_network}} outputs,
+\item{networks}{Named list of \code{\link[=compute_network]{compute_network()}} outputs,
 keyed by species abbreviation.}
 
 \item{orthologs}{Data frame with columns \code{gene1},
-\code{gene2}, \code{hog} (from \code{\link{prepare_orthologs}}).}
+\code{gene2}, \code{hog} (from \code{\link[=prepare_orthologs]{prepare_orthologs()}}).}
 
 \item{clades}{Optional named list of species vectors, one per clade.
 Clades may nest but must not cross. A species in no clade forms its
@@ -31,7 +31,7 @@ own clade. It enables the \code{coexpressed_traits} output column.}
 occur for a partner to be reported (default 2).}
 
 \item{edges}{Optional stacked edge data frame from
-\code{\link{run_pairwise_comparisons}}. When provided, attaches
+\code{run_pairwise_comparisons()}. When provided, attaches
 conservation statistics for each partner HOG.}
 }
 \value{
@@ -63,8 +63,8 @@ Rows are sorted by \code{n_species} (descending), then
 \description{
 For a given HOG, finds which other HOGs co-express with it in each
 species network, then aggregates across species. Useful after
-\code{\link{identify_module_hubs}} and
-\code{\link{classify_hub_conservation}}
+\code{\link[=identify_module_hubs]{identify_module_hubs()}} and
+\code{\link[=classify_hub_conservation]{classify_hub_conservation()}}
 to explore the co-expression neighborhood of a hub gene.
 }
 \examples{

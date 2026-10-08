@@ -61,7 +61,7 @@ read_orthologs <- function(file, species = NULL,
     } else if (is_long) {
       "long"
     } else {
-      stop("cannot read the format from the header; set format")
+      stop("Cannot read the file format from the header. Set `format`.")
     }
   }
   out <- switch(format,
@@ -158,12 +158,11 @@ read_orthologs <- function(file, species = NULL,
 
 #' Reduce orthogroups by merging correlated paralogs
 #'
-#' Within each ortholog group (HOG), paralogs with Pearson correlation above
-#' \code{cor_threshold} are merged into a single representative gene via
-#' Ward.D2 agglomerative clustering. Merged genes are replaced by their
-#' averaged expression profile.
+#' Merges the paralogs of each hog whose Pearson correlation exceeds
+#' \code{cor_threshold}. Clusters them with Ward.D2 agglomeration. Replaces
+#' each merged set by its averaged expression profile.
 #'
-#' This is an optional preprocessing step before \code{\link{compute_network}}.
+#' This is an optional preprocessing step before [compute_network()].
 #' It reduces redundancy from recent duplications where paralogs retain nearly
 #' identical expression patterns, shrinking the expression matrix and avoiding
 #' combinatorial blowup in downstream clique detection.
@@ -176,7 +175,7 @@ read_orthologs <- function(file, species = NULL,
 #'   as row names.
 #' @param orthologs Data frame with columns \code{gene1} (or the column
 #'   matching gene row names), \code{gene2}, and \code{hog}, as
-#'   returned by \code{\link{prepare_orthologs}}.
+#'   returned by [prepare_orthologs()].
 #' @param gene_col Character: which column of \code{orthologs} contains gene
 #'   IDs matching row names of \code{expr_matrix} (default \code{"gene1"}).
 #' @param cor_threshold Pearson correlation threshold for merging paralogs

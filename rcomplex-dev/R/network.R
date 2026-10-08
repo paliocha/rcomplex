@@ -337,7 +337,10 @@ setMethod("compute_network", "matrix", function(
     x <- x[keep, , drop = FALSE]
   }
   if (nrow(x) < 3L) {
-    stop("Fewer than 3 genes remain after variance filtering")
+    stop(
+      "`x` has fewer than 3 genes after the variance filter; ",
+      "it needs at least 3."
+    )
   }
 
   gene_names <- rownames(x)

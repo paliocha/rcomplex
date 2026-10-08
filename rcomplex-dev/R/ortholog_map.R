@@ -17,11 +17,12 @@
 
 #' Resolve paralog copies in an ortholog map
 #'
-#' Reduces the candidate gene pairs of multi-copy ortholog groups (HOGs) to a
-#' single counterpart per gene, using evidence the pipeline has already
-#' produced.  Intended for `module_preservation()`, which projects module
-#' labels from one species onto another and is sensitive to the paralog
-#' expansion that a raw ortholog table implies.
+#' Reduces the candidate gene pairs of multi-copy hogs to one counterpart
+#' per gene. Uses evidence the pipeline has already produced. Use it before
+#' [module_preservation()], which projects module labels between species.
+#'
+#' A raw ortholog table implies a paralog expansion, and the projection is
+#' sensitive to it.
 #'
 #' @section Resolution waterfall:
 #' \describe{
@@ -95,7 +96,10 @@ resolve_ortholog_map <- function(orthologs, genes1, genes2,
   cand[] <- lapply(cand, as.character)
 
   if (nrow(cand) == 0L) {
-    stop("No orthologs found in both gene universes")
+    stop(
+      "`orthologs` has no gene pair with both genes ",
+      "in the two gene universes."
+    )
   }
 
   cand_key <- paste(cand$hog, cand$gene1, cand$gene2, sep = "\x01")

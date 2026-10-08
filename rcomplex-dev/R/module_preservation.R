@@ -37,11 +37,12 @@
 
 #' Test whether co-expression modules are preserved across species
 #'
-#' Projects the modules of a reference species onto a test species through an
-#' ortholog map and tests, per module, whether the module's topology survives
-#' in the test species' network. Unlike gene-overlap tests, a module that keeps
-#' its gene membership but loses its internal wiring is correctly reported as
-#' diverged.
+#' Projects the modules of a reference species onto a test species through
+#' an ortholog map. Tests, per module, whether its topology survives in the
+#' test species network.
+#'
+#' Unlike gene-overlap tests, this test reports a module as diverged when
+#' it keeps its gene membership but loses its internal wiring.
 #'
 #' @section Statistics:
 #' Two statistics carry the call, the pair NetRep computes when only an
@@ -591,10 +592,12 @@ module_preservation <- function(modules_ref, net_ref, net_test,
 
 #' Classify modules as conserved, moderately preserved, or diverged
 #'
-#' Turns [module_preservation()] output into a per-module call. The call is
-#' driven by the combined permutation q-value; the `Zsummary` thresholds of
-#' Langfelder et al. (2011) are applied as a secondary split among the
-#' significant modules, so the familiar 2 / 10 cut points still appear.
+#' Turns [module_preservation()] output into a call per module. The
+#' combined permutation q-value drives the call.
+#'
+#' The `Zsummary` thresholds of Langfelder et al. (2011) split the
+#' significant modules a second time, so the familiar 2 / 10 cut points
+#' still appear.
 #'
 #' @section Criteria:
 #' \describe{
@@ -746,10 +749,11 @@ classify_preservation <- function(pres, species = NA_character_,
 
 #' Match modules across species by ortholog overlap
 #'
-#' Cross-tabulates the modules of two species over a paralog-resolved ortholog
-#' map and tests each module pair for excess overlap. This answers "which
-#' module corresponds to which", a different question from whether a module's
-#' topology is preserved ([module_preservation()]);
+#' Cross-tabulates the modules of two species over a paralog-resolved
+#' ortholog map. Tests each module pair for excess overlap.
+#'
+#' This answers "which module corresponds to which". That differs from
+#' whether a module's topology is preserved ([module_preservation()]).
 #' [classify_hub_conservation()] needs the correspondence, not the
 #' preservation call.
 #'
@@ -872,10 +876,11 @@ module_correspondence <- function(modules_ref, modules_test, map,
 
 #' Run module preservation across many species pairs
 #'
-#' Applies [module_preservation()] to each contrast in `pairs`. Preservation is
-#' directional -- whether species A's modules survive in B is a different
-#' question from the reverse -- so both directions are run and reported
-#' separately.
+#' Applies [module_preservation()] to each contrast in `pairs`. Runs both
+#' directions and reports them separately.
+#'
+#' Preservation is directional. Whether the modules of species A survive
+#' in B differs from the reverse.
 #'
 #' @param modules Named list of module assignments ([detect_modules()] or
 #'   [as_modules()]), keyed by species.
@@ -883,10 +888,10 @@ module_correspondence <- function(modules_ref, modules_test, map,
 #' @param orthologs Data frame with columns `gene1`, `gene2`, `hog`.
 #' @param pairs Data frame with columns `species1`, `species2` and optionally
 #'   `pair_name`.
-#' @param group Optional named vector mapping species to a trait group. When
+#' @param group Optional named vector mapping species to a clade. When
 #'   supplied, a `group` column records `"conserved"` for preserved modules and
 #'   the owning species' group for diverged ones. Modules reported
-#'   `"untested"` are counted under `"untested"` rather than a trait group:
+#'   `"untested"` are counted under `"untested"` rather than a clade:
 #'   nothing was measured, so attributing them to one would overstate the
 #'   evidence.
 #' @param edges Optional [find_coexpressologs()] results, used for paralog

@@ -50,10 +50,9 @@ not given and the observed minimum is too large to be a floor.}
 with a \code{print} method.
 }
 \description{
-Reports how many distinct values a set of p-values (or q-values) actually
-takes, how many are tied at the smallest one and at 1, and -- when
-\code{n_perm} is supplied -- whether that smallest value is the permutation
-floor \code{1 / (n_perm + 1)} rather than a statement about the evidence.
+Counts the distinct values in a set of p-values or q-values. Counts how
+many are tied at the smallest value and at 1. Given \code{n_perm}, reports
+whether the smallest value is the permutation floor \code{1 / (n_perm + 1)}.
 }
 \details{
 A permutation p-value cannot go below \code{1 / (n_perm + 1)}, because the
@@ -113,7 +112,8 @@ pvalue_resolution(p, n_perm = 2000)
 
 }
 \seealso{
-\code{module_preservation()} for \code{Zsummary_std}, the continuous
-effect size to rank on; \code{tag_permutation()}, whose label space puts a
-floor under its p-value that no amount of sampling can lower.
+\code{\link[=module_preservation]{module_preservation()}} for \code{Zsummary_std}, the continuous
+effect size to rank on; \code{\link[=preservation_matrix_test]{preservation_matrix_test()}}, whose label
+space puts a floor under its p-value that no amount of sampling can
+lower.
 }

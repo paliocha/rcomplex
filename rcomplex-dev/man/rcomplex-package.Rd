@@ -5,9 +5,76 @@
 \alias{rcomplex-package}
 \title{rcomplex: Comparative Co-Expression Network Analysis Across Species}
 \description{
-Compares gene co-expression networks across species by mapping orthologous
-genes, building co-expression networks independently per species, then
-testing conservation at gene, module, and clique levels.
+Compares gene co-expression networks across species. Maps orthologous
+genes, builds one network per species, and tests conservation. The tests
+work at the gene, hog, module and clique levels.
+}
+\details{
+Start with \code{\link[=rcomplex]{rcomplex()}}, which runs the whole analysis. The building
+blocks below run the same steps one at a time.
+
+\strong{Run}
+\itemize{
+\item \code{\link[=rcomplex]{rcomplex()}}: the driver, from expression and orthologs to cliques.
+\item \code{\link[=write_rcomplex]{write_rcomplex()}}: write the result as tab-separated files.
+}
+
+\strong{Inputs}
+\itemize{
+\item \code{\link[=read_orthologs]{read_orthologs()}}: read an ortholog group file.
+\item \code{\link[=as_network]{as_network()}}: import a network built outside rcomplex.
+\item \code{\link[=as_modules]{as_modules()}}: import modules from any gene partition.
+\item \code{\link[=clades_from_tree]{clades_from_tree()}}: derive clades from a species tree.
+}
+
+\strong{Harmonise}
+\itemize{
+\item \code{\link[=reduce_orthogroups]{reduce_orthogroups()}}: merge correlated paralogs.
+\item \code{\link[=prepare_orthologs]{prepare_orthologs()}}: pair orthologs for every species pair.
+\item \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}: pick one paralog copy per gene.
+\item \code{\link[=split_layers]{split_layers()}}: split expression into wiring and deployment parts.
+}
+
+\strong{Networks}
+\itemize{
+\item \code{\link[=compute_network]{compute_network()}}: build a mutual-rank co-expression network.
+}
+
+\strong{Co-expressologs}
+\itemize{
+\item \code{\link[=find_coexpressologs]{find_coexpressologs()}}: test every ortholog pair across species pairs.
+\item \code{\link[=density_sweep]{density_sweep()}}: repeat the test at several density thresholds.
+\item \code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}: query the partners of a candidate hog.
+}
+
+\strong{Cliques}
+\itemize{
+\item \code{\link[=find_cliques]{find_cliques()}}: cliques of the species graph.
+\item \code{\link[=gene_clique_graph]{gene_clique_graph()}}: every maximal clique of the gene graph.
+\item \code{\link[=classify_cliques]{classify_cliques()}}, \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}: conservation tiers.
+\item \code{\link[=clique_stability]{clique_stability()}}, \code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}: robustness checks.
+}
+
+\strong{Modules}
+\itemize{
+\item \code{\link[=detect_modules]{detect_modules()}}: find modules with Leiden.
+\item \code{\link[=module_preservation]{module_preservation()}}, \code{\link[=preservation_paired]{preservation_paired()}},
+\code{\link[=classify_preservation]{classify_preservation()}}: test whether modules are preserved.
+\item \code{\link[=module_correspondence]{module_correspondence()}}: match modules across species.
+\item \code{\link[=identify_module_hubs]{identify_module_hubs()}}, \code{\link[=classify_hub_conservation]{classify_hub_conservation()}}: hub genes.
+}
+
+\strong{Traits}
+\itemize{
+\item \code{\link[=preservation_matrix_test]{preservation_matrix_test()}}: relabelling test on all species pairs.
+}
+
+\strong{Nulls and diagnostics}
+\itemize{
+\item \code{\link[=coexpressolog_null]{coexpressolog_null()}}: degree-preserving edge-swap null.
+\item \code{\link[=null_network]{null_network()}}: shuffled-partner null network.
+\item \code{\link[=pvalue_resolution]{pvalue_resolution()}}: how many distinct p-values a test can give.
+}
 }
 \seealso{
 Useful links:

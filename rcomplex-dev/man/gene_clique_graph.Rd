@@ -11,7 +11,7 @@ gene_clique_graph(edges, ...)
 }
 \arguments{
 \item{edges}{Data frame of co-expressolog calls, as returned by
-\code{\link{find_coexpressologs}}: columns \code{gene1}, \code{gene2},
+\code{\link[=find_coexpressologs]{find_coexpressologs()}}: columns \code{gene1}, \code{gene2},
 \code{species1}, \code{species2}, \code{hog} and \code{q_value}. The \code{effect_size}
 and \code{score} columns are used when present.}
 
@@ -29,7 +29,7 @@ exactly 1 -- not a corner case, since BH q-values cap at 1 and 20 of
 511 module q-values sit there on the package's own worked
 example. Passing several thresholds and combining
 the results is the intended way to feed
-\code{\link{classify_gene_cliques}}, since a clique that is maximal
+\code{\link[=classify_gene_cliques]{classify_gene_cliques()}}, since a clique that is maximal
 at one threshold need not be maximal at another.}
 
 \item{id_prefix}{String prepended to every \code{clique_id}. Clique ids
@@ -63,16 +63,15 @@ The same two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
 attributes. Both are always set, empty results included.
 }
 \description{
-Builds, for each ortholog group, an undirected graph whose nodes are
-(species, gene) pairs and whose edges are the co-expressolog calls in
-\code{edges}, then enumerates every maximal clique of at least \code{min_size}
-nodes. This is the computation used by Netotea-style clique workflows
-and it differs from \code{\link{find_cliques}}, which cliques the
-\emph{species} graph and returns a single best gene assignment per
-species clique: here every paralog combination that forms a clique is
-reported separately.
+Builds one graph per hog from the co-expressolog calls in \code{edges}.
+Nodes are (species, gene) pairs. Lists every maximal clique of at least
+\code{min_size} nodes, one per paralog combination.
 }
 \details{
+\code{\link[=find_cliques]{find_cliques()}} cliques the species graph instead and returns a single
+best gene assignment per species clique. This function is the
+computation used by Netotea-style clique workflows.
+
 Because co-expressolog edges are always cross-species, no two genes of
 the same species can be adjacent, so a clique carries at most one gene
 per species. The \code{n_species} column records that explicitly rather
@@ -94,7 +93,7 @@ to the more significant of the two, broken on \code{effect_size}
 descending when the q-values tie -- q-values saturate at the
 permutation floor, so a tie there must not be settled by input row
 order. This is a duplicate-row collapse, not a direction combine:
-\code{\link{find_coexpressologs}} already merges the two comparison
+\code{\link[=find_coexpressologs]{find_coexpressologs()}} already merges the two comparison
 directions with \code{pval_combine} (default \code{"max"}, the reciprocal
 criterion) and emits one row per pair. A caller who row-binds the two
 directional tables instead gets \code{"min"} semantics here, so combine
@@ -118,6 +117,6 @@ conifer trees. \emph{Nature Communications} 17(1).
 \doi{10.1038/s41467-026-75624-2}
 }
 \seealso{
-\code{\link{classify_gene_cliques}},
-\code{\link{find_cliques}}
+\code{\link[=classify_gene_cliques]{classify_gene_cliques()}},
+\code{\link[=find_cliques]{find_cliques()}}
 }

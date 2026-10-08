@@ -35,16 +35,16 @@
   if (.net_is_sparse(net)) {
     if (nrow(m) != ncol(m)) {
       stop(
-        "network must be a square dgCMatrix (got ", nrow(m), " x ",
-        ncol(m), "); see as_sparse_network()"
+        "`network` must be a square dgCMatrix; got ", nrow(m), " x ",
+        ncol(m), ". Build it with compute_network(sparse = TRUE)."
       )
     }
     dn <- dimnames(m)
     if (is.null(dn[[1L]]) || is.null(dn[[2L]]) ||
           !identical(dn[[1L]], dn[[2L]])) {
       stop(
-        "network must have identical, non-NULL row and column names; ",
-        "see as_sparse_network()"
+        "`network` must have identical, non-NULL row and column names. ",
+        "Build it with compute_network(sparse = TRUE)."
       )
     }
     dp <- diff(m@p)
@@ -55,8 +55,8 @@
       # malformed slots skip this check and fall through to the C++
       # validator in neighbor_lists_sparse() (canonical error messages)
       stop(
-        "network must not store diagonal entries; ",
-        "see as_sparse_network()"
+        "`network` must not store diagonal entries. ",
+        "Build it with compute_network(sparse = TRUE)."
       )
     }
     if (!is.null(net$store_threshold)) {
@@ -79,7 +79,10 @@
       )
     }
   } else if (methods::is(m, "Matrix")) {
-    stop("network must be a dgCMatrix; see as_sparse_network()")
+    stop(
+      "`network` must be a dgCMatrix. ",
+      "Build it with compute_network(sparse = TRUE)."
+    )
   }
   invisible(m)
 }
@@ -116,8 +119,8 @@
   sparse1 <- .net_is_sparse(net1)
   if (sparse1 != .net_is_sparse(net2)) {
     stop(
-      "net1 and net2 must be both dense or both sparse; ",
-      "see as_sparse_network()"
+      "`net1` and `net2` must be both dense or both sparse. ",
+      "Rebuild one with compute_network(sparse = TRUE)."
     )
   }
   sparse1
@@ -147,12 +150,13 @@ dense_to_dgc <- function(m, thr) {
 #' Convert a dense network object to the sparse representation
 #'
 #' Thresholds the dense co-expression matrix at the `store_density`
-#' quantile and repacks the surviving off-diagonal entries (both
-#' triangles) as a `Matrix::dgCMatrix`, exactly as
-#' `compute_network(sparse = TRUE)` does. All other fields of `net` are
-#' carried over; `store_density`, `store_threshold` and
-#' `params$store_density` are added. Values below `store_threshold` are
-#' discarded, so downstream analyses at a threshold below it are refused.
+#' quantile. Repacks the surviving off-diagonal entries (both triangles) as
+#' a `Matrix::dgCMatrix`, as `compute_network(sparse = TRUE)` does.
+#'
+#' All other fields of `net` are carried over. `store_density`,
+#' `store_threshold` and `params$store_density` are added. Values below
+#' `store_threshold` are discarded, so downstream analyses at a lower
+#' threshold are refused.
 #'
 #' @param net Dense network object: output of
 #'   `compute_network(sparse = FALSE)`, or a hand-built
@@ -176,7 +180,7 @@ as_sparse_network <- function(net, store_density = 0.05) {
     stop("net must be a network object from compute_network()")
   }
   if (.net_is_sparse(net)) {
-    stop("net is already sparse")
+    stop("`net` is already sparse; there is nothing to convert.")
   }
   m <- net$network
   if (!is.matrix(m) || !is.numeric(m)) {

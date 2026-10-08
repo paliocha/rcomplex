@@ -55,7 +55,7 @@ compute_qvalues <- function(pvals, p_rand_fn = NULL,
     }
     B <- as.integer(B)  # nolint
     if (length(B) != 1L || is.na(B) || B < 1L) {
-      stop("B must be a positive integer")
+      stop("`B` must be a positive whole number.")
     }
     pi0_draws <- vapply(seq_len(B), function(b) {
       p_rand <- pmin(1, pmax(0, p_rand_fn()))
@@ -131,7 +131,7 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   both overlap values are zero. Defaults to `FALSE` for `"less"`.
 #' @param species1,species2 Optional species abbreviations. When both are
 #'   provided,
-#'   \code{\link{comparison_to_edges}} is called internally and the result
+#'   \code{comparison_to_edges()} is called internally and the result
 #'   is returned as a third list element \code{$edges}. This avoids a
 #'   separate \code{comparison_to_edges()} call when preparing input for
 #'   \code{find_cliques}.
@@ -151,13 +151,13 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   on exit, so it does not displace the caller by however many draws
 #'   \code{B} consumed and anything drawn afterwards continues from the
 #'   caller's own seed. Same contract as \code{detect_modules}.
-#' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
+#' @param pval_combine Passed to \code{comparison_to_edges()} when
 #'   \code{species1} and \code{species2} are given: \code{"max"} (default; both
 #'   directions significant -- the reciprocal criterion of Netotea et
 #'   al. (2014)) or \code{"min"} (either direction).
 #'
 #' @param rho0 Reference fold enrichment for the \code{power} column of
-#'   \code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
+#'   \code{$edges}, passed to \code{comparison_to_edges()}; only used
 #'   when \code{species1} and \code{species2} are provided. \code{NULL}
 #'   (default) takes the median effect size of the called pairs.
 #' @return A list with components:
@@ -217,7 +217,7 @@ summarize_comparison <- function(comparison,
   pval_combine <- match.arg(pval_combine)
 
   if (xor(is.null(species1), is.null(species2))) {
-    stop("Both species1 and species2 must be provided, or neither.")
+    stop("`species1` and `species2`: give both or neither.")
   }
   .check_rho0(rho0)
 
@@ -414,10 +414,12 @@ summarize_comparison <- function(comparison,
 #' Summarize a specificity comparison
 #'
 #' Computes q-values for the per-direction specificity p-values from
-#' [compare_specificity()], optionally calibrated against a shuffled
-#' partner null, and the same gene-pair, gene and orthogroup counts as
-#' [summarize_comparison()]. Rows where either direction is `NA` (an
-#' anchor gene with no mapped neighbours) are dropped before testing.
+#' [compare_specificity()]. Optionally calibrates them against a shuffled
+#' partner null. Returns the same gene-pair, gene and hog counts as
+#' [summarize_comparison()].
+#'
+#' Rows where either direction is `NA` (an anchor gene with no mapped
+#' neighbours) are dropped before testing.
 #'
 #' @section Multiple testing correction:
 #' With `null_p`, each direction's p-values are first made empirical
@@ -503,7 +505,7 @@ summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
   pval_combine <- match.arg(pval_combine)
   .check_p0(p0)
   if (xor(is.null(species1), is.null(species2))) {
-    stop("Both species1 and species2 must be provided, or neither.")
+    stop("`species1` and `species2`: give both or neither.")
   }
   p_cols <- c("species1.p_value", "species2.p_value")
   if (!all(c("gene1", "gene2", "hog", p_cols) %in% names(comparison))) {
@@ -753,9 +755,8 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 
 #' Permutation-based HOG-level conservation/divergence test
 #'
-#' Tests each Hierarchical Ortholog Group (HOG) for co-expression conservation
-#' (or divergence) using a gene-identity permutation null with adaptive stopping
-#' (Besag & Clifford, 1991).
+#' Tests each hog for co-expression conservation or divergence. Permutes
+#' gene identities and stops adaptively (Besag & Clifford, 1991).
 #'
 #' @section Statistical method:
 #' The null hypothesis is that the specific gene identities in a HOG carry no

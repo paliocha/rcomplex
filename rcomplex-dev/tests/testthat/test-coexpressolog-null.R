@@ -41,13 +41,13 @@ test_that("coexpressolog_null requires sparse networks", {
   nets_dense <- list(A = d$net1, B = d$net2)
   expect_error(
     coexpressolog_null(nets_dense, d$ortho),
-    "as_sparse_network"
+    "compute_network"
   )
   # mixed dense/sparse is rejected too
   nets_mixed <- list(A = sparse_net(d$net1), B = d$net2)
   expect_error(
     coexpressolog_null(nets_mixed, d$ortho),
-    "as_sparse_network"
+    "compute_network"
   )
 })
 

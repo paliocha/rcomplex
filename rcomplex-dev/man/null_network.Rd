@@ -45,15 +45,16 @@ full shuffle, the sum over blocks otherwise); with \code{block},
 \code{params$block} holds the block sizes, named by level.
 }
 \description{
-Rebuilds a network with the parameters recorded in \code{net} after
-permuting every gene's expression values across samples independently,
-which keeps each gene's marginal distribution and the gene universe
-but destroys all co-expression. It is the partner network for the
-empirical calibration of \code{method = "rank"}: p-values from a
-comparison against it are the null draws that
-\code{summarize_specificity()} turns into empirical p-values.
+Rebuilds a network after permuting each gene's expression values across
+samples. Keeps each gene's marginal distribution and the gene universe.
+Destroys all co-expression.
 }
 \details{
+It is the partner network for the empirical calibration of
+\code{method = "rank"}. P-values from a comparison against it are the null
+draws that \code{summarize_specificity()} turns into empirical p-values.
+The rebuild uses the parameters recorded in \code{net}.
+
 With \code{block}, each gene's samples are permuted independently \emph{within}
 each block (one permutation per gene per block). The permutations
 must differ between genes: one permutation applied to every gene only
@@ -71,6 +72,6 @@ null leaves the random-geometric-graph geometry of the shared axis in
 place, so within-species module statistics stay uninterpretable under
 it. After regressing time out, one gene's residuals correlate -1/3
 within a time point of four samples, which is a second reason to
-permute within time point rather than across it; the wiring layer from
+permute within time point rather than across it; the wiring part from
 \code{\link[=split_layers]{split_layers()}} needs this null.
 }

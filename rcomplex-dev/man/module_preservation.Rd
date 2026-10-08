@@ -108,11 +108,13 @@ both-null fraction \code{w00}, and \code{n_joint} per module.}
 }
 }
 \description{
-Projects the modules of a reference species onto a test species through an
-ortholog map and tests, per module, whether the module's topology survives
-in the test species' network. Unlike gene-overlap tests, a module that keeps
-its gene membership but loses its internal wiring is correctly reported as
-diverged.
+Projects the modules of a reference species onto a test species through
+an ortholog map. Tests, per module, whether its topology survives in the
+test species network.
+}
+\details{
+Unlike gene-overlap tests, this test reports a module as diverged when
+it keeps its gene membership but loses its internal wiring.
 }
 \section{Statistics}{
 

@@ -19,7 +19,7 @@ clique_stability(edges, ...)
 )
 }
 \arguments{
-\item{edges}{Data frame (same format as \code{\link{find_cliques}}).}
+\item{edges}{Data frame (same format as \code{\link[=find_cliques]{find_cliques()}}).}
 
 \item{...}{Additional arguments passed to the default method.}
 
@@ -29,8 +29,8 @@ membership.}
 \item{clades}{Optional named list of species vectors, one per clade.
 Clades may nest but must not cross. A species in no clade forms its
 own clade. Annotations use the top-level clades. If
-provided, the output gains trait annotations (\code{traits},
-\code{sole_rep}). If \code{NULL} (default), trait columns are
+provided, the output gains clade annotations (\code{traits},
+\code{sole_rep}). If \code{NULL} (default), clade columns are
 \code{NA}.}
 
 \item{all_species}{Character vector of ALL species in the analysis
@@ -40,7 +40,7 @@ drawn from \code{all_species}. Must be a superset of
 removing a non-target species tests whether the clique signal is
 robust to changes in the broader phylogenetic context.}
 
-\item{full_cliques}{Output of \code{\link{find_cliques}}, or \code{NULL} to
+\item{full_cliques}{Output of \code{\link[=find_cliques]{find_cliques()}}, or \code{NULL} to
 compute internally (default).}
 
 \item{max_k}{Maximum number of species to leave out
@@ -67,14 +67,14 @@ all subsets}
 }
 }
 \description{
-Tests how structurally robust each clique is to species removal.
-The analysis removes k = 1, 2, \ldots, \code{max_k} species at a time,
-re-runs full clique detection on each reduced species set, and checks
-whether matching gene assignments are preserved (Jaccard similarity).
-ALL cliques are tested, regardless of trait composition. Trait
-annotations are added post-hoc if \code{clades} is provided.
+Tests how robust each clique is to species removal. Removes
+k = 1, 2, \ldots, \code{max_k} species at a time and re-runs clique
+detection. Reports whether matching gene assignments survive (Jaccard
+similarity).
 }
 \details{
+All cliques are tested, whatever their clade composition. Clade
+annotations are added after the test if \code{clades} is provided.
 \subsection{How it works}{
 
 For each combination of k species removed from \code{all_species}
@@ -104,7 +104,7 @@ representative. Only populated when \code{clades} is provided.
 \subsection{full_cliques parameter}{
 
 When \code{full_cliques = NULL} (default), cliques are computed internally
-via \code{\link{find_cliques}}. You can also precompute them:
+via \code{\link[=find_cliques]{find_cliques()}}. You can also precompute them:
 \preformatted{
 fc <- find_cliques(edges, target_species)
 stab <- clique_stability(edges, target_species,
