@@ -4,4 +4,7 @@
 ^rcomplex.*\.tar\.gz$
 ^src/.*\.tmp[^/]*$
 ^\.lintr$
-^vignettes$
+^vignettes/articles$
+^_pkgdown\.yml$
+^docs$
+^CLAUDE\.md$

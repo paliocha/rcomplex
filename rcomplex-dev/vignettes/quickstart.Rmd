@@ -1,0 +1,138 @@
+---
+title: "Quickstart"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Quickstart}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+has_se <- requireNamespace("SummarizedExperiment", quietly = TRUE)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = has_se)
+```
+
+This quickstart runs the whole analysis with one call, `rcomplex()`.
+It answers one question: which genes keep their co-expression partners
+in other species?
+
+## Data
+
+The package ships leaf and root RNA-seq from eight Pooideae grasses.
+Each species has 20 leaf samples. We use four species: two annual and
+two perennial.
+
+```{r data, message = FALSE}
+library(rcomplex)
+library(SummarizedExperiment)
+
+se <- readRDS(system.file("extdata", "pooideae_vignette.rds",
+  package = "rcomplex"
+))
+leaf <- lapply(
+  se[c("BDIS", "BSYL", "HVUL", "HJUB")],
+  function(s) s[, s$tissue == "leaf"]
+)
+```
+
+`rcomplex()` needs two inputs. The first is one expression object per
+species, with genes in rows and samples in columns. The second is a
+table of hogs: ortholog groups with the columns `species`, `gene` and
+`hog`. For an OrthoFinder file, call `read_orthologs()` instead.
+
+```{r hogs}
+hogs <- do.call(rbind, lapply(names(leaf), function(s) {
+  data.frame(
+    species = s, gene = rownames(leaf[[s]]),
+    hog = rowData(leaf[[s]])$hog
+  )
+}))
+head(hogs, 3)
+```
+
+## Run
+
+`clades` names the species sets. `null = TRUE` repeats the comparison
+on shuffled networks. The run takes about 10 seconds.
+
+```{r run}
+res <- rcomplex(leaf, hogs,
+  clades = list(
+    annual = c("BDIS", "HVUL"),
+    perennial = c("BSYL", "HJUB")
+  ),
+  null = TRUE, seed = 1
+)
+res
+```
+
+The header lists, per species, the genes, the samples and the density.
+The value after "r >=" is the weakest correlation that became an edge. At 20 samples,
+a correlation of 0.3 is weak evidence. Read this value first.
+
+The last line counts the cliques by tier. A clique is a set of genes,
+one per species, that are all co-expressed. A hog with paralogs gives one clique per gene combination.
+
+## Read the results
+
+`summary()` gives the tier table. With `null = TRUE` it also gives the
+calls on shuffled networks.
+
+```{r summary}
+summary(res)
+```
+
+`calls_null` counts the calls that survive on shuffled networks. Zero
+means the false-call rate at this `alpha` is low on this data.
+
+`res$edges` has one row per ortholog pair and species pair.
+
+```{r edges}
+head(res$edges[, c(
+  "gene1", "gene2", "hog", "score", "evalue",
+  "q_value", "effect_size", "power"
+)], 4)
+```
+
+- `score` is `-log2(p)`. Higher is stronger.
+- `evalue` is the expected number of pairs this strong by chance.
+- `q_value` is the false discovery rate.
+- `effect_size` is the fold enrichment of shared partners.
+- `power` is the chance to call the pair if it were conserved.
+
+A low `power` means a non-significant pair is weak evidence of
+divergence.
+
+`res$classification` has one row per clique. `as.data.frame(res)`
+returns the same table.
+
+```{r tiers}
+table(as.data.frame(res)$classification)
+```
+
+## Save
+
+`write_rcomplex()` writes `edges.tsv`, `cliques.tsv` and
+`classification.tsv`. After a null run it adds `edges_null.tsv`.
+
+```{r save}
+out <- file.path(tempdir(), "rcomplex-out")
+write_rcomplex(res, out)
+list.files(out)
+```
+
+## Check the p-value floor
+
+Run `pvalue_resolution()` on any p-values you report. It shows how many
+values tie at the floor.
+
+```{r resolution}
+pvalue_resolution(res$edges$p_value)
+```
+
+## Next steps
+
+- Designed experiment: pass `block` to remove a designed factor.
+- Networks built elsewhere: pass `networks = ` to `rcomplex()`.
+- Modules: pass `modules = TRUE`.
+- Each step alone: see the walkthrough article.
