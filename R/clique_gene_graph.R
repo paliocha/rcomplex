@@ -281,18 +281,13 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   hog_chr <- as.character(edges$hog)
 
   by_hog <- split(seq_len(nrow(edges)), hog_chr)
-  cid_l <- list()
-  sp_l <- list()
-  gn_l <- list()
-  hog_v <- character(0)
-  nm_v <- integer(0)
-  ns_v <- integer(0)
-  ne_v <- integer(0)
-  mq_v <- numeric(0)
-  xq_v <- numeric(0)
-  me_v <- numeric(0)
-  sc_v <- numeric(0)
+  n_hog <- length(by_hog)
+  cid_l <- sp_l <- gn_l <- hog_l <- vector("list", n_hog)
+  nm_l <- ns_l <- ne_l <- mq_l <- xq_l <- me_l <- sc_l <- cid_l
   j <- 0L
+  # Plain integer cliques skip igraph's vertex-sequence objects.
+  old_opt <- igraph::igraph_options(return.vs.es = FALSE)
+  on.exit(igraph::igraph_options(old_opt), add = TRUE)
   n_capped <- 0L
   n_dropped <- 0L
 
@@ -366,24 +361,52 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     cliques <- igraph::max_cliques(g, min = min_size)
     if (length(cliques) == 0L) next
 
-    for (k in seq_along(cliques)) {
-      cc <- as.integer(cliques[[k]])
-      inc <- logical(length(nodes))
-      inc[cc] <- TRUE
-      hit <- inc[i1] & inc[i2]
-      j <- j + 1L
-      cid_l[[j]] <- rep(paste0(id_prefix, h, "_", k), length(cc))
-      sp_l[[j]] <- node_sp[cc]
-      gn_l[[j]] <- node_gn[cc]
-      hog_v[j] <- h
-      nm_v[j] <- length(cc)
-      ns_v[j] <- length(unique(node_sp[cc]))
-      ne_v[j] <- sum(hit)
-      mq_v[j] <- mean(eq[hit])
-      xq_v[j] <- max(eq[hit])
-      me_v[j] <- if (has_effect) mean(ee[hit]) else NA_real_
-      sc_v[j] <- sum(es[hit])
+    # Edges per clique from the member pairs, not from one scan of the
+    # HOG's edges per clique: the collapsed graph has exactly one edge
+    # per member pair, so the work is the clique pair count.
+    n_k <- length(cliques)
+    sz <- lengths(cliques)
+    nd <- as.integer(unlist(cliques, use.names = FALSE))
+    cq <- rep.int(seq_len(n_k), sz)
+    n_v <- length(nodes)
+    n_right <- sz[cq] - sequence(sz)
+    left <- rep.int(seq_along(nd), n_right)
+    right <- left + sequence(n_right)
+    u <- nd[left]
+    v <- nd[right]
+    e_k <- match(
+      (pmin(u, v) - 1) * n_v + pmax(u, v),
+      (pmin(i1, i2) - 1) * n_v + pmax(i1, i2)
+    )
+    o <- order(cq[left], e_k)
+    e_h <- e_k[o]
+    by_cq <- structure(cq[left][o],
+      levels = as.character(seq_len(n_k)), class = "factor"
+    )
+    sp_i <- match(node_sp, unique(node_sp))[nd]
+    first_sp <- !duplicated((cq - 1) * n_v + sp_i)
+
+    j <- j + 1L
+    cid_l[[j]] <- rep.int(paste0(id_prefix, h, "_", seq_len(n_k)), sz)
+    sp_l[[j]] <- node_sp[nd]
+    gn_l[[j]] <- node_gn[nd]
+    hog_l[[j]] <- rep.int(h, n_k)
+    nm_l[[j]] <- sz
+    ns_l[[j]] <- tabulate(cq[first_sp], nbins = n_k)
+    ne_l[[j]] <- tabulate(by_cq, nbins = n_k)
+    q_k <- split(eq[e_h], by_cq)
+    mq_l[[j]] <- vapply(q_k, mean.default, numeric(1), USE.NAMES = FALSE)
+    xq_l[[j]] <- vapply(q_k, max, numeric(1), USE.NAMES = FALSE)
+    me_l[[j]] <- if (has_effect) {
+      vapply(split(ee[e_h], by_cq), mean.default, numeric(1),
+        USE.NAMES = FALSE
+      )
+    } else {
+      rep.int(NA_real_, n_k)
     }
+    sc_l[[j]] <- vapply(split(es[e_h], by_cq), sum, numeric(1),
+      USE.NAMES = FALSE
+    )
   }
 
   if (n_capped > 0L) {
@@ -401,6 +424,15 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     ))
   }
 
+  ul <- function(x) unlist(x, use.names = FALSE)
+  hog_v <- ul(hog_l)
+  nm_v <- ul(nm_l)
+  ns_v <- ul(ns_l)
+  ne_v <- ul(ne_l)
+  mq_v <- ul(mq_l)
+  xq_v <- ul(xq_l)
+  me_v <- ul(me_l)
+  sc_v <- ul(sc_l)
   out <- data.frame(
     clique_id = unlist(cid_l, use.names = FALSE),
     hog = rep(hog_v, times = nm_v),
