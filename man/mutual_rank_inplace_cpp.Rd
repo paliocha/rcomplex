@@ -4,7 +4,7 @@
 \alias{mutual_rank_inplace_cpp}
 \title{In-place mutual rank transformation}
 \usage{
-mutual_rank_inplace_cpp(sim, log_transform, abs_cor, n_cores)
+mutual_rank_inplace_cpp(sim, log_transform, negate, n_cores)
 }
 \arguments{
 \item{sim}{Symmetric correlation/similarity matrix (n x n). Modified in
@@ -18,7 +18,8 @@ and the contents of \code{sim} are then unspecified.}
 (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
 log-normalized formula with descending ranks (values in 0 to 1 range).}
 
-\item{abs_cor}{If TRUE, take absolute values before ranking.}
+\item{negate}{If TRUE, negate every value but the diagonal before
+ranking, so the strongest anticorrelation ranks first.}
 
 \item{n_cores}{Number of OpenMP threads}
 }
@@ -27,8 +28,8 @@ Invisible \code{NULL}; \code{sim} is modified in place.
 }
 \description{
 Overwrites \code{sim} with its mutual rank transform without allocating any
-n x n temporaries. Pass 1 clamps each column to [-1, 1], optionally takes
-absolute values, and replaces the column by its average ranks. Pass 2
+n x n temporaries. Pass 1 clamps each column to [-1, 1], optionally
+negates it, and replaces the column by its average ranks. Pass 2
 replaces each pair (i, j) by sqrt(R_ij * R_ji) (log-normalized when
 \code{log_transform}) and sets the diagonal to 0. Same formulas and tie
 handling as \code{\link[=mutual_rank_transform_cached_cpp]{mutual_rank_transform_cached_cpp()}}, which is kept as the

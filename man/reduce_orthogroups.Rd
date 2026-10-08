@@ -7,7 +7,7 @@
 reduce_orthogroups(
   expr_matrix,
   orthologs,
-  gene_col = "Species1",
+  gene_col = "gene1",
   cor_threshold = 0.7
 )
 }
@@ -15,12 +15,12 @@ reduce_orthogroups(
 \item{expr_matrix}{Numeric matrix (genes x samples) with gene identifiers
 as row names.}
 
-\item{orthologs}{Data frame with columns \code{Species1} (or the column
-matching gene row names), \code{Species2}, and \code{hog}, as
-returned by \code{\link{parse_orthologs}}.}
+\item{orthologs}{Data frame with columns \code{gene1} (or the column
+matching gene row names), \code{gene2}, and \code{hog}, as
+returned by \code{\link[=prepare_orthologs]{prepare_orthologs()}}.}
 
 \item{gene_col}{Character: which column of \code{orthologs} contains gene
-IDs matching row names of \code{expr_matrix} (default \code{"Species1"}).}
+IDs matching row names of \code{expr_matrix} (default \code{"gene1"}).}
 
 \item{cor_threshold}{Pearson correlation threshold for merging paralogs
 within a HOG (default 0.7). Higher values are more conservative (fewer
@@ -40,13 +40,12 @@ representative in the reduced matrix.}
 }
 }
 \description{
-Within each ortholog group (HOG), paralogs with Pearson correlation above
-\code{cor_threshold} are merged into a single representative gene via
-Ward.D2 agglomerative clustering. Merged genes are replaced by their
-averaged expression profile.
+Merges the paralogs of each hog whose Pearson correlation exceeds
+\code{cor_threshold}. Clusters them with Ward.D2 agglomeration. Replaces
+each merged set by its averaged expression profile.
 }
 \details{
-This is an optional preprocessing step before \code{\link{compute_network}}.
+This is an optional preprocessing step before \code{\link[=compute_network]{compute_network()}}.
 It reduces redundancy from recent duplications where paralogs retain nearly
 identical expression patterns, shrinking the expression matrix and avoiding
 combinatorial blowup in downstream clique detection.

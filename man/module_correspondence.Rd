@@ -8,9 +8,8 @@ module_correspondence(
   modules_ref,
   modules_test,
   map,
-  qvalue_method = "randomized",
-  sp_ref = NULL,
-  sp_test = NULL,
+  species_ref = NULL,
+  species_test = NULL,
   seed = NULL
 )
 }
@@ -21,37 +20,34 @@ from \code{\link[=detect_modules]{detect_modules()}} or \code{\link[=as_modules]
 \item{map}{Ortholog map from \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}, with \code{gene1} in the
 reference species and \code{gene2} in the test species.}
 
-\item{qvalue_method}{Passed to \code{compute_qvalues()}; \code{"randomized"}
-(default) estimates pi0 on randomized p-values, which is what the package
-uses elsewhere for discrete hypergeometric p-values.}
-
-\item{sp_ref, sp_test}{Optional species labels recorded on the result.
-\code{module_sp1} belongs to \code{modules_ref}, and that orientation cannot be
+\item{species_ref, species_test}{Optional species labels recorded on the
+result.
+\code{module1} belongs to \code{modules_ref}, and that orientation cannot be
 recovered from the table, so supplying these lets
 \code{\link[=classify_hub_conservation]{classify_hub_conservation()}} catch a transposed call.}
 
 \item{seed}{Integer seed for the randomized-p draws behind pi0, or \code{NULL}
 (default) to draw from the ambient stream and leave it advanced. A seed
 draws from a private stream and restores the caller's on exit, the
-package-wide contract described under \code{\link[=detect_modules]{detect_modules()}}.
-\code{qvalue_method = "none"} draws nothing, so a seed changes nothing there.}
+package-wide contract described under \code{\link[=detect_modules]{detect_modules()}}.}
 }
 \value{
-A list with \code{pairs} -- a data frame of \code{module_sp1},
-\code{module_sp2}, \code{size_sp1}, \code{size_sp2}, \code{overlap}, \code{jaccard}, \code{p.value} and
-\code{q.value}, one row per module pair -- plus the \code{sp_ref} / \code{sp_test}
-labels. The column names match what \code{\link[=classify_hub_conservation]{classify_hub_conservation()}}
-expects.
+A list with \code{pairs} -- a data frame of \code{module1},
+\code{module2}, \code{size1}, \code{size2}, \code{overlap}, \code{jaccard}, \code{p_value} and
+\code{q_value}, one row per module pair -- plus the \code{species_ref} /
+\code{species_test} labels. The column names match what
+\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} expects.
 }
 \description{
-Cross-tabulates the modules of two species over a paralog-resolved ortholog
-map and tests each module pair for excess overlap. This answers "which
-module corresponds to which", a different question from whether a module's
-topology is preserved (\code{\link[=module_preservation]{module_preservation()}});
-\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} needs the correspondence, not the
-preservation call.
+Cross-tabulates the modules of two species over a paralog-resolved
+ortholog map. Tests each module pair for excess overlap.
 }
 \details{
+This answers "which module corresponds to which". That differs from
+whether a module's topology is preserved (\code{\link[=module_preservation]{module_preservation()}}).
+\code{\link[=classify_hub_conservation]{classify_hub_conservation()}} needs the correspondence, not the
+preservation call.
+
 The map assigns one reference gene to each test-species gene, so the
 hypergeometric's independence assumption holds. The multi-copy expansion
 that made the same test anti-conservative under the retired
@@ -65,7 +61,7 @@ map <- resolve_ortholog_map(
   rownames(net_b$network)
 )
 corr <- module_correspondence(mods_a, mods_b, map)
-subset(corr$pairs, q.value < 0.1)
+subset(corr$pairs, q_value < 0.1)
 }
 
 }

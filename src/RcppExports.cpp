@@ -50,20 +50,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// sparse_excess_spectral_norm_cpp
-double sparse_excess_spectral_norm_cpp(const Rcpp::List& memberships, int n_genes, const Rcpp::IntegerMatrix& edges, int n_cores);
-RcppExport SEXP _rcomplex_sparse_excess_spectral_norm_cpp(SEXP membershipsSEXP, SEXP n_genesSEXP, SEXP edgesSEXP, SEXP n_coresSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Rcpp::List& >::type memberships(membershipsSEXP);
-    Rcpp::traits::input_parameter< int >::type n_genes(n_genesSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type edges(edgesSEXP);
-    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(sparse_excess_spectral_norm_cpp(memberships, n_genes, edges, n_cores));
-    return rcpp_result_gen;
-END_RCPP
-}
 // density_threshold_cpp
 double density_threshold_cpp(const arma::mat& mat, double density);
 RcppExport SEXP _rcomplex_density_threshold_cpp(SEXP matSEXP, SEXP densitySEXP) {
@@ -94,16 +80,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // find_cliques_cpp
-Rcpp::List find_cliques_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_sp1, IntegerVector edge_sp2, NumericVector edge_qval, NumericVector edge_eff, int n_target_species, int min_species, int n_hogs, int n_genes, int max_genes_per_sp, int max_missing_edges, double w_q, double w_eff);
-RcppExport SEXP _rcomplex_find_cliques_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_sp1SEXP, SEXP edge_sp2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_target_speciesSEXP, SEXP min_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP max_genes_per_spSEXP, SEXP max_missing_edgesSEXP, SEXP w_qSEXP, SEXP w_effSEXP) {
+Rcpp::List find_cliques_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_species1, IntegerVector edge_species2, NumericVector edge_qval, NumericVector edge_eff, int n_target_species, int min_species, int n_hogs, int n_genes, int max_genes_per_sp, int max_missing_edges, double w_q, double w_eff);
+RcppExport SEXP _rcomplex_find_cliques_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_species1SEXP, SEXP edge_species2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_target_speciesSEXP, SEXP min_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP max_genes_per_spSEXP, SEXP max_missing_edgesSEXP, SEXP w_qSEXP, SEXP w_effSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type edge_hog(edge_hogSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type edge_g1(edge_g1SEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type edge_g2(edge_g2SEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp1(edge_sp1SEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp2(edge_sp2SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_species1(edge_species1SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_species2(edge_species2SEXP);
     Rcpp::traits::input_parameter< NumericVector >::type edge_qval(edge_qvalSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type edge_eff(edge_effSEXP);
     Rcpp::traits::input_parameter< int >::type n_target_species(n_target_speciesSEXP);
@@ -114,21 +100,21 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type max_missing_edges(max_missing_edgesSEXP);
     Rcpp::traits::input_parameter< double >::type w_q(w_qSEXP);
     Rcpp::traits::input_parameter< double >::type w_eff(w_effSEXP);
-    rcpp_result_gen = Rcpp::wrap(find_cliques_cpp(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges, w_q, w_eff));
+    rcpp_result_gen = Rcpp::wrap(find_cliques_cpp(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges, w_q, w_eff));
     return rcpp_result_gen;
 END_RCPP
 }
 // find_cliques_stability_cpp
-Rcpp::List find_cliques_stability_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_sp1, IntegerVector edge_sp2, NumericVector edge_qval, NumericVector edge_eff, int n_all_species, int n_hogs, int n_genes, IntegerVector is_target, Rcpp::List full_cliques, int max_k, int max_genes_per_sp, double jaccard_threshold, int n_cores, double w_q, double w_eff);
-RcppExport SEXP _rcomplex_find_cliques_stability_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_sp1SEXP, SEXP edge_sp2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_all_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP is_targetSEXP, SEXP full_cliquesSEXP, SEXP max_kSEXP, SEXP max_genes_per_spSEXP, SEXP jaccard_thresholdSEXP, SEXP n_coresSEXP, SEXP w_qSEXP, SEXP w_effSEXP) {
+Rcpp::List find_cliques_stability_cpp(IntegerVector edge_hog, IntegerVector edge_g1, IntegerVector edge_g2, IntegerVector edge_species1, IntegerVector edge_species2, NumericVector edge_qval, NumericVector edge_eff, int n_all_species, int n_hogs, int n_genes, IntegerVector is_target, Rcpp::List full_cliques, int max_k, int max_genes_per_sp, double jaccard_threshold, int n_cores, double w_q, double w_eff);
+RcppExport SEXP _rcomplex_find_cliques_stability_cpp(SEXP edge_hogSEXP, SEXP edge_g1SEXP, SEXP edge_g2SEXP, SEXP edge_species1SEXP, SEXP edge_species2SEXP, SEXP edge_qvalSEXP, SEXP edge_effSEXP, SEXP n_all_speciesSEXP, SEXP n_hogsSEXP, SEXP n_genesSEXP, SEXP is_targetSEXP, SEXP full_cliquesSEXP, SEXP max_kSEXP, SEXP max_genes_per_spSEXP, SEXP jaccard_thresholdSEXP, SEXP n_coresSEXP, SEXP w_qSEXP, SEXP w_effSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type edge_hog(edge_hogSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type edge_g1(edge_g1SEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type edge_g2(edge_g2SEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp1(edge_sp1SEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type edge_sp2(edge_sp2SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_species1(edge_species1SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type edge_species2(edge_species2SEXP);
     Rcpp::traits::input_parameter< NumericVector >::type edge_qval(edge_qvalSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type edge_eff(edge_effSEXP);
     Rcpp::traits::input_parameter< int >::type n_all_species(n_all_speciesSEXP);
@@ -142,7 +128,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
     Rcpp::traits::input_parameter< double >::type w_q(w_qSEXP);
     Rcpp::traits::input_parameter< double >::type w_eff(w_effSEXP);
-    rcpp_result_gen = Rcpp::wrap(find_cliques_stability_cpp(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores, w_q, w_eff));
+    rcpp_result_gen = Rcpp::wrap(find_cliques_stability_cpp(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores, w_q, w_eff));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -193,23 +179,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
     Rcpp::traits::input_parameter< bool >::type force_flag_mode(force_flag_modeSEXP);
     rcpp_result_gen = Rcpp::wrap(hog_permutation_test_sparse_cpp(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode));
-    return rcpp_result_gen;
-END_RCPP
-}
-// module_auroc_cpp
-NumericVector module_auroc_cpp(IntegerVector p, IntegerVector i, IntegerVector set_ptr, IntegerVector set_gene, IntegerVector set_fold, int n_fold, int n_cores);
-RcppExport SEXP _rcomplex_module_auroc_cpp(SEXP pSEXP, SEXP iSEXP, SEXP set_ptrSEXP, SEXP set_geneSEXP, SEXP set_foldSEXP, SEXP n_foldSEXP, SEXP n_coresSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type p(pSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type i(iSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type set_ptr(set_ptrSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type set_gene(set_geneSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type set_fold(set_foldSEXP);
-    Rcpp::traits::input_parameter< int >::type n_fold(n_foldSEXP);
-    Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(module_auroc_cpp(p, i, set_ptr, set_gene, set_fold, n_fold, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -303,15 +272,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // mutual_rank_inplace_cpp
-void mutual_rank_inplace_cpp(SEXP sim, bool log_transform, bool abs_cor, int n_cores);
-RcppExport SEXP _rcomplex_mutual_rank_inplace_cpp(SEXP simSEXP, SEXP log_transformSEXP, SEXP abs_corSEXP, SEXP n_coresSEXP) {
+void mutual_rank_inplace_cpp(SEXP sim, bool log_transform, bool negate, int n_cores);
+RcppExport SEXP _rcomplex_mutual_rank_inplace_cpp(SEXP simSEXP, SEXP log_transformSEXP, SEXP negateSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type sim(simSEXP);
     Rcpp::traits::input_parameter< bool >::type log_transform(log_transformSEXP);
-    Rcpp::traits::input_parameter< bool >::type abs_cor(abs_corSEXP);
+    Rcpp::traits::input_parameter< bool >::type negate(negateSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    mutual_rank_inplace_cpp(sim, log_transform, abs_cor, n_cores);
+    mutual_rank_inplace_cpp(sim, log_transform, negate, n_cores);
     return R_NilValue;
 END_RCPP
 }
@@ -358,19 +327,19 @@ BEGIN_RCPP
 END_RCPP
 }
 // mr_block_network_cpp
-List mr_block_network_cpp(const arma::mat& zt, bool log_transform, bool abs_cor, double density, double store_density, int block_size, int n_cores);
-RcppExport SEXP _rcomplex_mr_block_network_cpp(SEXP ztSEXP, SEXP log_transformSEXP, SEXP abs_corSEXP, SEXP densitySEXP, SEXP store_densitySEXP, SEXP block_sizeSEXP, SEXP n_coresSEXP) {
+List mr_block_network_cpp(const arma::mat& zt, bool log_transform, bool negate, double density, double store_density, int block_size, int n_cores);
+RcppExport SEXP _rcomplex_mr_block_network_cpp(SEXP ztSEXP, SEXP log_transformSEXP, SEXP negateSEXP, SEXP densitySEXP, SEXP store_densitySEXP, SEXP block_sizeSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat& >::type zt(ztSEXP);
     Rcpp::traits::input_parameter< bool >::type log_transform(log_transformSEXP);
-    Rcpp::traits::input_parameter< bool >::type abs_cor(abs_corSEXP);
+    Rcpp::traits::input_parameter< bool >::type negate(negateSEXP);
     Rcpp::traits::input_parameter< double >::type density(densitySEXP);
     Rcpp::traits::input_parameter< double >::type store_density(store_densitySEXP);
     Rcpp::traits::input_parameter< int >::type block_size(block_sizeSEXP);
     Rcpp::traits::input_parameter< int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(mr_block_network_cpp(zt, log_transform, abs_cor, density, store_density, block_size, n_cores));
+    rcpp_result_gen = Rcpp::wrap(mr_block_network_cpp(zt, log_transform, negate, density, store_density, block_size, n_cores));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -441,34 +410,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// top_eigs_sym_cpp
-Rcpp::List top_eigs_sym_cpp(const arma::uvec& p, const arma::uvec& i, const arma::vec& x, int n, int k);
-RcppExport SEXP _rcomplex_top_eigs_sym_cpp(SEXP pSEXP, SEXP iSEXP, SEXP xSEXP, SEXP nSEXP, SEXP kSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::uvec& >::type p(pSEXP);
-    Rcpp::traits::input_parameter< const arma::uvec& >::type i(iSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type n(nSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    rcpp_result_gen = Rcpp::wrap(top_eigs_sym_cpp(p, i, x, n, k));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_apply_clr_to_cor_cpp", (DL_FUNC) &_rcomplex_apply_clr_to_cor_cpp, 2},
     {"_rcomplex_build_coclassification_cpp", (DL_FUNC) &_rcomplex_build_coclassification_cpp, 3},
     {"_rcomplex_build_sparse_coclassification_cpp", (DL_FUNC) &_rcomplex_build_sparse_coclassification_cpp, 4},
-    {"_rcomplex_sparse_excess_spectral_norm_cpp", (DL_FUNC) &_rcomplex_sparse_excess_spectral_norm_cpp, 4},
     {"_rcomplex_density_threshold_cpp", (DL_FUNC) &_rcomplex_density_threshold_cpp, 2},
     {"_rcomplex_fe_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_fe_hog_permutation_test_cpp, 7},
     {"_rcomplex_find_cliques_cpp", (DL_FUNC) &_rcomplex_find_cliques_cpp, 15},
     {"_rcomplex_find_cliques_stability_cpp", (DL_FUNC) &_rcomplex_find_cliques_stability_cpp, 18},
     {"_rcomplex_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_cpp, 13},
     {"_rcomplex_hog_permutation_test_sparse_cpp", (DL_FUNC) &_rcomplex_hog_permutation_test_sparse_cpp, 17},
-    {"_rcomplex_module_auroc_cpp", (DL_FUNC) &_rcomplex_module_auroc_cpp, 7},
     {"_rcomplex_module_preservation_dense_cpp", (DL_FUNC) &_rcomplex_module_preservation_dense_cpp, 11},
     {"_rcomplex_module_preservation_sparse_cpp", (DL_FUNC) &_rcomplex_module_preservation_sparse_cpp, 13},
     {"_rcomplex_module_gene_stats_dense_cpp", (DL_FUNC) &_rcomplex_module_gene_stats_dense_cpp, 5},
@@ -482,7 +434,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_rewire_degseq_cpp", (DL_FUNC) &_rcomplex_rewire_degseq_cpp, 4},
     {"_rcomplex_extract_sparse_cpp", (DL_FUNC) &_rcomplex_extract_sparse_cpp, 3},
     {"_rcomplex_specificity_sparse_cpp", (DL_FUNC) &_rcomplex_specificity_sparse_cpp, 16},
-    {"_rcomplex_top_eigs_sym_cpp", (DL_FUNC) &_rcomplex_top_eigs_sym_cpp, 5},
     {NULL, NULL, 0}
 };
 

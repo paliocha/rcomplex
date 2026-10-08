@@ -4,16 +4,13 @@
 \alias{as_modules}
 \title{Build a module assignment from any gene partition}
 \usage{
-as_modules(x, min_size = 1L)
+as_modules(x)
 }
 \arguments{
 \item{x}{One of: a named vector mapping gene to module label (\code{NA} for an
 unassigned gene); a named list mapping module label to a character
 vector of genes; or an existing module assignment (a \code{\link[=detect_modules]{detect_modules()}}
 or \code{as_modules()} result), which is returned unchanged.}
-
-\item{min_size}{Modules with fewer genes than this become unassigned and
-are dropped from \code{module_genes}.}
 }
 \value{
 A list with \code{modules} (named character vector, gene -> module
@@ -24,11 +21,10 @@ numeric labels, and order of first appearance for other labels; the
 order changes only listings such as \code{coverage}, not statistics.
 }
 \description{
-Turns gene sets from any source -- anchored regulons, curated pathways,
-clusters from another tool -- into the module assignment that
+Turns any gene sets into a module assignment. The sets can be
+regulons, curated pathways or clusters from another tool.
 \code{\link[=module_preservation]{module_preservation()}}, \code{\link[=module_correspondence]{module_correspondence()}} and
-\code{\link[=preservation_paired]{preservation_paired()}} take, so they can be tested without
-\code{\link[=detect_modules]{detect_modules()}}.
+\code{\link[=preservation_paired]{preservation_paired()}} accept the result without \code{\link[=detect_modules]{detect_modules()}}.
 }
 \details{
 The preservation tests give every gene one module label, so the sets must

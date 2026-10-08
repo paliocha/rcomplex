@@ -1,29 +1,31 @@
 #' All unordered species pairs as a `pairs` data frame
 #'
 #' Builds the `pairs` argument of [preservation_paired()] for every
-#' `choose(n, 2)` contrast, so an all-pairs preservation matrix does not have
-#' to be hand-written. Running all pairs rather than a designated few is what
-#' makes [preservation_matrix_test()] worth doing: every extra contrast adds
-#' its modules to the class means the statistic is built from, and any
-#' species the designated few left out widens the relabelling null as well.
-#' Eight species split 4/4 give `choose(8, 4) = 70` free labellings, against
+#' `choose(n, 2)` contrast. Saves writing an all-pairs table by hand.
+#'
+#' Running all pairs rather than a designated few is what makes
+#' [preservation_matrix_test()] worth doing. Every extra contrast adds its
+#' modules to the class means the statistic is built from. Any species the
+#' designated few left out widens the relabelling null as well. Eight
+#' species split 4/4 give `choose(8, 4) = 70` free labellings, against
 #' the 16 that a within-genus null over four genera of two can reach.
 #'
 #' @param species Character vector of species identifiers. A *named* vector
 #'   --- a `group` map, say --- is read as its names, since a bare species
 #'   vector is not normally named.
 #' @param sep Separator used to build `pair_name` (default `"."`), matching
-#'   the `paste(sp1, sp2, sep = ".")` default of [preservation_paired()], so
-#'   the two agree when `pair_name` is left implicit.
+#'   the `paste(species1, species2, sep = ".")` default of
+#'   [preservation_paired()], so the two agree when `pair_name` is left
+#'   implicit.
 #'
-#' @return A data frame with columns `sp1`, `sp2` and `pair_name`, one row per
-#'   unordered pair. Both directions of each contrast are run by
+#' @return A data frame with columns `species1`, `species2` and `pair_name`,
+#'   one row per unordered pair. Both directions of each contrast are run by
 #'   [preservation_paired()], so each pair appears once.
 #'
 #' @examples
-#' all_species_pairs(c("BDIS", "BSYL", "HVUL"))
+#' rcomplex:::all_species_pairs(c("BDIS", "BSYL", "HVUL"))
 #'
-#' @export
+#' @keywords internal
 all_species_pairs <- function(species, sep = ".") {
   if (!is.null(names(species))) {
     species <- names(species)
@@ -43,8 +45,8 @@ all_species_pairs <- function(species, sep = ".") {
   }
   idx <- utils::combn(length(species), 2L)
   data.frame(
-    sp1 = species[idx[1L, ]],
-    sp2 = species[idx[2L, ]],
+    species1 = species[idx[1L, ]],
+    species2 = species[idx[2L, ]],
     pair_name = paste(species[idx[1L, ]], species[idx[2L, ]], sep = sep),
     stringsAsFactors = FALSE
   )
@@ -224,16 +226,13 @@ all_species_pairs <- function(species, sep = ".") {
 
 #' Run one relabelling null and summarise its resolution (internal)
 #'
-#' Enumerates while the space is small enough to be walked exactly, otherwise
-#' samples. Enumeration is decided on the size of the space and not on
-#' `n_perm`, so raising `n_perm` for precision cannot demote an exact null to
-#' a sampled one.
+#' Enumerates while the space holds at most 50000 labellings, otherwise
+#' samples 10000 draws.
 #'
 #' @noRd
-.pmt_null <- function(stat_fun, obs, labels, blocks, n_perm, enum_max,
-                      what, n_perm_supplied) {
+.pmt_null <- function(stat_fun, obs, labels, blocks, what) {
   n_space <- .pmt_space(labels, blocks)
-  exact <- n_space <= enum_max
+  exact <- n_space <= 50000L
   # A sampled null counts draws, not distinct labellings: the same labelling
   # can be drawn twice, so calling them labellings would overstate how much
   # of the space a reported count covers.
@@ -241,15 +240,9 @@ all_species_pairs <- function(species, sep = ".") {
   if (exact) {
     mat <- .pmt_enumerate(labels, blocks)
     null <- apply(mat, 1L, stat_fun)
-    if (n_perm_supplied) {
-      message(
-        what, " null enumerated exactly over ", nrow(mat),
-        " labellings; n_perm = ", n_perm, " ignored"
-      )
-    }
   } else {
     null <- vapply(
-      seq_len(n_perm),
+      seq_len(10000L),
       function(i) stat_fun(.pmt_draw(labels, blocks)),
       numeric(1)
     )
@@ -331,15 +324,17 @@ all_species_pairs <- function(species, sep = ".") {
 
 #' Trait relabelling test on the all-pairs preservation matrix
 #'
-#' Asks whether modules are less well preserved between species that differ
-#' in a trait than between species that share it, using every contrast in an
-#' all-pairs [preservation_paired()] run. The null relabels species, holding
-#' the label counts and the whole preservation matrix fixed.
+#' Tests whether modules are less well preserved between species that
+#' differ in a trait than between species that share it. Uses every
+#' contrast in an all-pairs [preservation_paired()] run.
+#'
+#' The null relabels species. It holds the label counts and the whole
+#' preservation matrix fixed.
 #'
 #' @section Why the effect size and not the q-value:
-#' The statistic ranks contrasts by `Zsummary_std`, never by `p.value` or
-#' `q.value`. A permutation p-value saturates: on the eight-species Pooideae
-#' set with `n_perm = 2000` and 511 module-directions, `q.value` takes 172
+#' The statistic ranks contrasts by `Zsummary_std`, never by `p_value` or
+#' `q_value`. A permutation p-value saturates: on the eight-species Pooideae
+#' set with 2000 permutations and 511 module-directions, `q_value` takes 172
 #' distinct values, 35 modules sit tied at the floor of 0.00071 and 20 at
 #' exactly 1. Among those 35 floored modules `Zsummary_std` spans 6.4 to
 #' 66.7 --- a tenfold range of effect that the p-value cannot see at all.
@@ -405,27 +400,20 @@ all_species_pairs <- function(species, sep = ".") {
 #'
 #' Both floors describe an *enumerated* null. When a space is too large to
 #' enumerate, `p_min`, `p_attainable` and `n_tied_max` are counted over the
-#' `n_perm` draws instead: `p_min` is then the sampling floor
-#' `1 / (n_perm + 1)`, which can sit far below the labelling-space floor the
+#' 10000 draws instead: `p_min` is then the sampling floor
+#' `1 / 10001`, which can sit far below the labelling-space floor the
 #' design really imposes, and `n_tied_max` counts drawn labellings with
 #' repeats rather than distinct ones. `exact` says which regime a null is in,
 #' and only an exact one bounds the design.
 #'
 #' @section Multiplicity scope of the q-values:
-#' [preservation_paired()] corrects within each contrast: `q.value` is
+#' [preservation_paired()] corrects within each contrast: `q_value` is
 #' Benjamini-Hochberg over that contrast's own modules, a dozen or two tests.
 #' An all-pairs matrix reframes those contrasts as one analysis --- every
 #' module-direction tests the same hypothesis --- so the per-contrast
-#' correction under-corrects, by roughly the number of contrasts. Whether a
-#' global correction is available instead is a question about the
-#' permutation floor, not about the data: with `n_tests` module-directions
-#' and a smallest attainable p-value of `1 / (n_perm + 1)`, BH cannot put any
-#' module below `n_tests / (n_perm + 1)`. For 511 tests that is 0.26 at
-#' `n_perm = 2000`, which nothing can pass, and 0.026 at `n_perm = 20000`,
-#' which is usable. Pass `n_perm_pres` and `$saturation$q_floor_global`
-#' reports that number, with a warning when it exceeds 0.05. The relabelling
-#' test itself is untouched --- it never reads a q-value --- but any
-#' per-module significance call taken off the same matrix is.
+#' correction under-corrects, by roughly the number of contrasts. The
+#' relabelling test itself is untouched --- it never reads a q-value --- but
+#' any per-module significance call taken off the same matrix is.
 #'
 #' @section Why within-block pairs are excluded:
 #' In a paired design such as the Pooideae one --- each genus contributing an
@@ -434,52 +422,25 @@ all_species_pairs <- function(species, sep = ".") {
 #' phylogenetic distance are then perfectly confounded within that subset,
 #' and the confound runs *against* the hypothesis: close relatives are better
 #' preserved, so the within-genus discordant pairs are pulled upward and mask
-#' a real effect. `exclude_within_block = TRUE` (the default) drops those
-#' rows. The exclusion is by block membership, which no relabelling changes,
-#' so the same rows are excluded under every labelling and the null stays
-#' valid.
+#' a real effect. Those rows are dropped. The exclusion is by block
+#' membership, which no relabelling changes, so the same rows are excluded
+#' under every labelling and the null stays valid.
 #'
 #' @param classification The `classification` data frame from
 #'   [preservation_paired()], ideally over an all-pairs `pairs` table (see
 #'   [all_species_pairs()]). Must carry `reference`, `test` and the effect
-#'   column named by `statistic`; `q.value` is used only for the
+#'   column `Zsummary_std`; `q_value` is used only for the
 #'   `$saturation` diagnostic. Rows whose effect is `NA` --- `"untested"`
 #'   modules, and any module whose null correlation was unavailable --- are
 #'   dropped, since nothing was measured for them.
 #' @param group Named vector mapping species to trait values. Any number of
 #'   levels is allowed. Species not appearing in `classification` are ignored,
 #'   so the permuted label multiset is the one the matrix actually holds.
-#' @param block Optional named vector mapping species to a phylogenetic group
-#'   (a genus, say). Supplying it enables the restricted within-block null and
-#'   the within-block exclusion. With `block = NULL` only the free null is
-#'   run and `exclude_within_block` has nothing to act on.
-#' @param statistic Which effect column to average. `"zsummary"` (default)
-#'   uses `Zsummary_std`, which has unit variance under the permutation null
-#'   and is therefore comparable across modules and contrasts; `"zsummary_raw"`
-#'   uses `Zsummary`, whose null spread depends on the correlation between the
-#'   two preservation statistics and so differs from module to module. There
-#'   is deliberately no q-value option.
-#' @param exclude_within_block Drop rows whose two species share a block
-#'   (default `TRUE`). Ignored when `block` is `NULL`.
-#' @param n_perm Number of labellings to draw when a space is too large to
-#'   enumerate. `NULL` (default) means 10000 if it comes to that. Ignored, with
-#'   a message when it was supplied explicitly, for a space that is enumerated.
-#'   The sampled branch draws from the RNG, so pass `seed` (or call
-#'   `set.seed()` beforehand) for a reproducible p-value. Which
-#'   branch runs is decided by `enum_max` rather than by the
-#'   caller, so a design can cross into the sampled regime
-#'   without the call site changing.
-#' @param enum_max Enumerate a null while its space holds at most this many
-#'   labellings (default 50000). Lower it to cap runtime on wide designs; the
-#'   free space grows as the multinomial coefficient, so 20 species split
-#'   10/10 is already 184756. A sampled null reports its floor over draws,
-#'   not over the labelling space --- see the last paragraph of *The two
-#'   nulls*.
-#' @param n_perm_pres The `n_perm` used in the [module_preservation()] runs
-#'   behind `classification`, if known. Nothing in the test reads it; it lets
-#'   `$saturation` report `q_floor_global`, the smallest q-value a *global*
-#'   Benjamini-Hochberg correction over the whole matrix could reach,
-#'   `n_tests / (n_perm_pres + 1)`. `NULL` (default) leaves that field `NA`.
+#' @param block Optional named list of species vectors, one per clade (a
+#'   genus, say), as `clades` elsewhere. Only the top-level clades are read.
+#'   A species in no clade forms its own clade. Supplying it enables the
+#'   restricted within-block null and the within-block exclusion. With
+#'   `block = NULL` only the free null is run.
 #' @param seed Integer seed for the sampled branch, or `NULL` (default) to
 #'   draw from the ambient stream and leave it advanced. A seed draws from a
 #'   private stream and restores the caller's on exit, the package-wide
@@ -489,13 +450,13 @@ all_species_pairs <- function(species, sep = ".") {
 #' @return A list with components:
 #'   \describe{
 #'     \item{observed}{The statistic under the true labelling.}
-#'     \item{statistic}{Echo of the input.}
 #'     \item{form}{`"difference"` for two trait levels, `"dispersion"`
 #'       otherwise.}
 #'     \item{class_means}{Data frame with `class`, `n` and `mean_z`: the
 #'       observed class means the statistic is built from.}
-#'     \item{rows_per_pair}{Data frame with `sp1`, `sp2`, `concordant`,
-#'       `same_block` and `n`, one row per species pair contributing.}
+#'     \item{rows_per_pair}{Data frame with `species1`, `species2`,
+#'       `concordant`, `same_block` and `n`, one row per species pair
+#'       contributing.}
 #'     \item{free}{List for the free null: `null_distribution`, `p_value`,
 #'       `p_min`, `p_attainable`, `n_tied_max`, `n_distinct`, `rank`,
 #'       `exact`, `n_labellings`, `n_scored`. `p_attainable` is the tie-aware
@@ -509,9 +470,8 @@ all_species_pairs <- function(species, sep = ".") {
 #'     \item{p_free,p_blocked}{The two p-values, lifted out for convenience.
 #'       `p_blocked` is `NA` without a `block`.}
 #'     \item{saturation}{List describing the resolution of the supplied
-#'       q-values: `n_tests`, `n_distinct`, `q_floor`, `n_at_floor`,
-#'       `n_at_one`, plus `p_min_pres` and `q_floor_global` (both `NA`
-#'       without `n_perm_pres`). `n_distinct`, `n_at_floor` and `n_at_one`
+#'       q-values: `n_tests`, `n_distinct`, `q_floor`, `n_at_floor` and
+#'       `n_at_one`. `n_distinct`, `n_at_floor` and `n_at_one`
 #'       are counted with the tolerance [pvalue_resolution()] uses, so
 #'       the two agree on one q-vector --- relative for `n_distinct` and
 #'       `n_at_floor`, and a one-sided window below 1 for `n_at_one`,
@@ -528,42 +488,30 @@ all_species_pairs <- function(species, sep = ".") {
 #'       significance scale is collapsed.}
 #'     \item{n_rows,n_pairs,n_excluded}{Rows used, distinct species pairs
 #'       behind them, and rows dropped for sharing a block.}
-#'     \item{species,group,block}{The design actually tested.}
+#'     \item{species,group,block}{The design actually tested. `block` is
+#'       the top-level clade of each species.}
 #'   }
 #'
 #' @examples
 #' \dontrun{
-#' pairs <- all_species_pairs(names(group))
+#' pairs <- rcomplex:::all_species_pairs(names(group))
 #' res <- preservation_paired(mods, nets, ortho, pairs, group = group)
 #' pmt <- preservation_matrix_test(res$classification, group,
-#'   block = genus
+#'   block = split(names(genus), genus)
 #' )
 #' c(pmt$observed, pmt$p_free, pmt$p_blocked)
 #' }
 #'
-#' @seealso [preservation_paired()], [all_species_pairs()],
-#'   [tag_permutation()]
+#' @seealso [preservation_paired()], [all_species_pairs()]
 #' @export
 preservation_matrix_test <- function(classification, group, block = NULL,
-                                     statistic = c(
-                                       "zsummary",
-                                       "zsummary_raw"
-                                     ),
-                                     exclude_within_block = TRUE,
-                                     n_perm = NULL,
-                                     enum_max = 50000L,
-                                     n_perm_pres = NULL,
                                      seed = NULL) {
   # Only the sampled branch draws, but the scope is opened unconditionally:
-  # enum_max decides which branch runs, so a caller cannot tell from the call
-  # site whether a seed matters. See .seed_scope() in R/rng.R.
+  # the size of the label space decides which branch runs, so a caller cannot
+  # tell from the call site whether a seed matters (see .seed_scope()).
   .seed_scope(seed)
 
-  # Captured before n_perm is defaulted: missing() reports FALSE once an
-  # argument has been written to, so this cannot be asked for later.
-  n_perm_supplied <- !is.null(n_perm)
-  statistic <- match.arg(statistic)
-  z_col <- if (statistic == "zsummary") "Zsummary_std" else "Zsummary"
+  z_col <- "Zsummary_std"
 
   if (!is.data.frame(classification)) {
     stop("classification must be a data frame from preservation_paired()")
@@ -579,37 +527,10 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   if (is.null(names(group)) || length(group) == 0L) {
     stop("group must be a named vector mapping species to trait values")
   }
-  if (!is.null(block) && is.null(names(block))) {
-    stop("block must be a named vector mapping species to a group")
-  }
   # group[species] takes the first match, so a repeated name would hand a
   # species whichever trait happened to be listed first -- silently, and with
   # the wrong labelling then permuted as if it were the design.
   .pmt_check_unique(names(group), "group")
-  if (!is.null(block)) {
-    .pmt_check_unique(names(block), "block")
-  }
-  if (is.null(n_perm)) {
-    n_perm <- 10000L
-  }
-  bad_perm <- !is.numeric(n_perm) || length(n_perm) != 1L || is.na(n_perm) ||
-    !is.finite(n_perm) || n_perm != round(n_perm)
-  if (bad_perm || n_perm < 1) {
-    stop("n_perm must be a single positive whole number or NULL")
-  }
-  n_perm <- as.integer(min(n_perm, .Machine$integer.max))
-  bad_enum <- !is.numeric(enum_max) || length(enum_max) != 1L
-  if (bad_enum || is.na(enum_max) || enum_max < 1) {
-    stop("enum_max must be a single positive number")
-  }
-  if (!is.null(n_perm_pres)) {
-    bad_pres <- !is.numeric(n_perm_pres) || length(n_perm_pres) != 1L ||
-      is.na(n_perm_pres) || !is.finite(n_perm_pres) ||
-      n_perm_pres != round(n_perm_pres)
-    if (bad_pres || n_perm_pres < 1) {
-      stop("n_perm_pres must be a single positive whole number or NULL")
-    }
-  }
 
   cls <- classification
   ref <- as.character(cls$reference)
@@ -622,13 +543,9 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   # rows as supplied, before the NA and within-block drops below: the
   # multiplicity population is every test the matrix ran, not the subset this
   # statistic averages.
-  qv <- if ("q.value" %in% names(cls)) as.numeric(cls$q.value) else NA_real_
+  qv <- if ("q_value" %in% names(cls)) as.numeric(cls$q_value) else NA_real_
   qv_ok <- qv[is.finite(qv)]
   n_tests <- length(qv_ok)
-  # Benjamini-Hochberg over the whole matrix cannot reach below
-  # n_tests * p_min, so at a given n_perm the global correction the all-pairs
-  # framing calls for may not be available at all.
-  p_min_pres <- if (is.null(n_perm_pres)) NA_real_ else 1 / (n_perm_pres + 1)
   q_ties <- .tol_min_ties(qv_ok)
   saturation <- list(
     n_tests = n_tests,
@@ -644,26 +561,8 @@ preservation_matrix_test <- function(classification, group, block = NULL,
     # input, and silently dropping it out of the count would hide that
     # rather than report it. The tolerance only pulls in values a few
     # last bits below 1.
-    n_at_one = sum(qv_ok >= 1 - .tie_tol()),
-    p_min_pres = p_min_pres,
-    # No q-values means no multiplicity to correct, which is not the same as
-    # a floor of zero.
-    q_floor_global = if (n_tests == 0L) {
-      NA_real_
-    } else {
-      min(1, n_tests * p_min_pres)
-    }
+    n_at_one = sum(qv_ok >= 1 - .tie_tol())
   )
-  if (isTRUE(saturation$q_floor_global > 0.05)) {
-    warning(
-      "a global Benjamini-Hochberg correction over the ", n_tests,
-      " tests of this matrix cannot reach below q = ",
-      signif(saturation$q_floor_global, 3), " at n_perm = ", n_perm_pres,
-      "; the supplied q-values are corrected per contrast, which is the ",
-      "wrong scope for an all-pairs matrix. Raise n_perm in ",
-      "module_preservation()"
-    )
-  }
 
   # A module whose statistic is NA was never measured, and a self-contrast is
   # not a comparison; either would enter the mean as if it carried evidence.
@@ -689,33 +588,15 @@ preservation_matrix_test <- function(classification, group, block = NULL,
 
   n_excluded <- 0L
   if (!is.null(block)) {
-    miss_bl <- setdiff(unique(c(ref, tst)), names(block))
-    if (length(miss_bl) > 0L) {
-      stop("block missing entries for: ", paste(miss_bl, collapse = ", "))
-    }
-    # A present-but-NA block value passes the name check and then poisons
-    # the within-block comparison: n_excluded becomes NA and NA species
-    # enter ref/tst, so the run dies later complaining about the trait
-    # design. Mirror the group check instead.
     bl_sp <- unique(c(ref, tst))
-    if (anyNA(block[bl_sp])) {
-      stop(
-        "block has NA values for: ",
-        paste(bl_sp[is.na(block[bl_sp])], collapse = ", ")
-      )
-    }
-    if (isTRUE(exclude_within_block)) {
-      same <- as.character(block[ref]) == as.character(block[tst])
-      n_excluded <- sum(same)
-      ref <- ref[!same]
-      tst <- tst[!same]
-      z <- z[!same]
-      if (length(z) == 0L) {
-        stop(
-          "excluding within-block rows leaves nothing to test; ",
-          "set exclude_within_block = FALSE"
-        )
-      }
+    block <- .clade_groups(.check_clades(block, bl_sp), bl_sp)
+    same <- as.character(block[ref]) == as.character(block[tst])
+    n_excluded <- sum(same)
+    ref <- ref[!same]
+    tst <- tst[!same]
+    z <- z[!same]
+    if (length(z) == 0L) {
+      stop("excluding within-block rows leaves nothing to test")
     }
   }
 
@@ -758,17 +639,11 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   } else {
     as.integer(factor(as.character(block[species])))
   }
-  free <- .pmt_null(
-    stat_fun, obs, labels, NULL, n_perm, enum_max,
-    "free", n_perm_supplied
-  )
+  free <- .pmt_null(stat_fun, obs, labels, NULL, "free")
   blocked <- if (is.null(block)) {
     NULL
   } else {
-    .pmt_null(
-      stat_fun, obs, labels, blocks_v, n_perm, enum_max,
-      "within-block", n_perm_supplied
-    )
+    .pmt_null(stat_fun, obs, labels, blocks_v, "within-block")
   }
 
   # Observed class means: the pieces the statistic is assembled from, and the
@@ -792,8 +667,8 @@ preservation_matrix_test <- function(classification, group, block = NULL,
   key <- paste(pmin(ref, tst), pmax(ref, tst), sep = "\x01")
   first <- !duplicated(key)
   rows_per_pair <- data.frame(
-    sp1 = pmin(ref, tst)[first],
-    sp2 = pmax(ref, tst)[first],
+    species1 = pmin(ref, tst)[first],
+    species2 = pmax(ref, tst)[first],
     concordant = (grp[ri] == grp[ti])[first],
     same_block = if (is.null(block)) {
       rep(NA, sum(first))
@@ -807,7 +682,6 @@ preservation_matrix_test <- function(classification, group, block = NULL,
 
   list(
     observed = obs,
-    statistic = statistic,
     form = form,
     class_means = class_means,
     rows_per_pair = rows_per_pair,

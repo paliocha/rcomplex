@@ -268,10 +268,10 @@ void specificity_direction(
 //' @param grid_frac Ascending fractions f in (0, 1]; for each, the AUROC
 //'   grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
 //'   Empty skips the grid.
-//' @return List with, per requested direction, `Species1.neigh`,
-//'   `Species1.mapped`, `Species1.auroc`, `Species1.p.val`,
-//'   `Species1.jaccard`, `Species1.n.cand` (one element per pair) and the
-//'   matrix `Species1.auroc.grid` (pairs x fractions), and the `Species2.*`
+//' @return List with, per requested direction, `species1.neigh`,
+//'   `species1.mapped`, `species1.auroc`, `species1.p_value`,
+//'   `species1.jaccard`, `species1.n.cand` (one element per pair) and the
+//'   matrix `species1.auroc.grid` (pairs x fractions), and the `species2.*`
 //'   set.
 //'
 //' @keywords internal
@@ -331,13 +331,13 @@ Rcpp::List specificity_sparse_cpp(
             pair_sp1_idx, pair_sp2_idx, n_cores,
             neigh.begin(), mapped.begin(), auroc.begin(), pv.begin(),
             jac.begin(), gf, grid.begin());
-        out["Species1.neigh"] = neigh;
-        out["Species1.mapped"] = mapped;
-        out["Species1.auroc"] = auroc;
-        out["Species1.p.val"] = pv;
-        out["Species1.jaccard"] = jac;
-        out["Species1.n.cand"] = IntegerVector(n_pairs, n2);
-        out["Species1.auroc.grid"] = grid;
+        out["species1.neigh"] = neigh;
+        out["species1.mapped"] = mapped;
+        out["species1.auroc"] = auroc;
+        out["species1.p_value"] = pv;
+        out["species1.jaccard"] = jac;
+        out["species1.n.cand"] = IntegerVector(n_pairs, n2);
+        out["species1.auroc.grid"] = grid;
     }
     if (do_21) {
         IntegerVector neigh(n_pairs), mapped(n_pairs);
@@ -349,13 +349,13 @@ Rcpp::List specificity_sparse_cpp(
             pair_sp2_idx, pair_sp1_idx, n_cores,
             neigh.begin(), mapped.begin(), auroc.begin(), pv.begin(),
             jac.begin(), gf, grid.begin());
-        out["Species2.neigh"] = neigh;
-        out["Species2.mapped"] = mapped;
-        out["Species2.auroc"] = auroc;
-        out["Species2.p.val"] = pv;
-        out["Species2.jaccard"] = jac;
-        out["Species2.n.cand"] = IntegerVector(n_pairs, n1);
-        out["Species2.auroc.grid"] = grid;
+        out["species2.neigh"] = neigh;
+        out["species2.mapped"] = mapped;
+        out["species2.auroc"] = auroc;
+        out["species2.p_value"] = pv;
+        out["species2.jaccard"] = jac;
+        out["species2.n.cand"] = IntegerVector(n_pairs, n1);
+        out["species2.auroc.grid"] = grid;
     }
     return out;
 }

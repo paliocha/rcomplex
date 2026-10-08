@@ -40,14 +40,15 @@
 #' Degree-preserving edge-swap null for co-expressolog statistics
 #'
 #' Tests whether an observed co-expressolog statistic exceeds what
-#' network topology alone produces. Each species network is binarised at
-#' its analysis threshold and rewired by degree-preserving edge swaps,
-#' which keep every gene's degree but destroy the correspondence between
-#' network neighbourhoods and the ortholog mapping.
-#' \code{\link{find_coexpressologs}} then runs on the rewired networks
-#' with exactly the same arguments (\code{...}) as the
-#' observed run, and the statistic is compared against the resulting
+#' network topology alone produces. Rewires each species network and runs
+#' [find_coexpressologs()] on the result. Compares the statistic with the
 #' null distribution.
+#'
+#' Each network is binarised at its analysis threshold and rewired by
+#' degree-preserving edge swaps. The swaps keep every gene's degree and
+#' destroy the match between neighbourhoods and the ortholog mapping.
+#' The null run takes exactly the same arguments (\code{...}) as the
+#' observed run.
 #'
 #' @details
 #' Rewiring operates on the network thresholded at \code{net$threshold}
@@ -71,28 +72,23 @@
 #' results are reproducible, independent of \code{n_cores}, and two
 #' neighbouring base seeds share no rewiring. On Unix the permutations run
 #' under \code{parallel::mclapply()}; on Windows they run serially. The seed
-#' covers the observed run as well as the null runs, so \code{...}
-#' settings that draw --- the default \code{pi0_method = "randomized"},
-#' for one --- are pinned too. \code{method = "permutation"} in
+#' covers the observed run as well as the null runs, so settings that
+#' draw --- the default randomized pi0, for one --- are pinned too.
+#' The statistic is the count of rows with \code{type == "conserved"} per
+#' species pair (named \code{paste(species1, species2, sep = "~")}) plus
+#' \code{"total"}, over 100 rewired permutations. A null run whose
+#' rewiring leaves a species pair with no overlap > 0 rows records 0
+#' conserved calls for that pair. \code{method = "permutation"} in
 #' \code{...} is allowed but slow (a full permutation test per rewired
 #' network).
 #'
 #' @param networks Named list of sparse network objects
 #'   (\code{compute_network(sparse = TRUE)} outputs), keyed by species
 #'   abbreviation. Dense networks are rejected; convert them with
-#'   \code{\link{as_sparse_network}}.
-#' @param orthologs Data frame with columns \code{Species1},
-#'   \code{Species2}, \code{hog}, as for
-#'   \code{\link{find_coexpressologs}}.
-#' @param statistic Function mapping the \code{find_coexpressologs()}
-#'   edge data frame to a named numeric vector, or \code{NULL} (default)
-#'   for the count of rows with \code{type == "conserved"} per species
-#'   pair (named \code{paste(species1, species2, sep = "~")}) plus
-#'   \code{"total"}. For the built-in statistic, a null run whose
-#'   rewiring leaves a species pair with no overlap > 0 rows records 0
-#'   conserved calls for that pair; a user-supplied statistic missing a
-#'   name from the observed run errors.
-#' @param n_perm Number of rewired permutations (default 100).
+#'   \code{as_sparse_network()}.
+#' @param orthologs Data frame with columns \code{gene1},
+#'   \code{gene2}, \code{hog}, as for
+#'   [find_coexpressologs()].
 #' @param swap_factor Swap trials per permutation, rejected ones
 #'   included, as a multiple of the edge count of each thresholded network
 #'   (default 10). Must be a single finite number > 0. The trial count is
@@ -107,7 +103,7 @@
 #'   \code{set.seed()} in the caller's script reproduces the whole run.
 #'   With a seed the call draws from a private stream and restores the
 #'   caller's on exit --- the package-wide contract, see
-#'   \code{\link{detect_modules}}.
+#'   \code{detect_modules}.
 #'
 #'   What a default call guarantees is replayability, not a fixed null.
 #'   The seed actually used --- drawn or supplied --- is recorded as
@@ -125,18 +121,12 @@
 #'   permutation the same seed, so the null is identical for the two runs
 #'   even though the observed statistic is not: see the aliasing note under
 #'   \code{.task_seed()}.
-#' @param filter_zero Passed to \code{\link{find_coexpressologs}} for
-#'   both the observed and every null run. \code{TRUE} (default) drops
-#'   ortholog pairs with zero neighbourhood overlap before the q-values,
-#'   which is what this test wants: the statistic reads called edges
-#'   only, so retaining the zero-overlap rows adds tens of thousands of
-#'   never-called rows per pair to every permutation for nothing. It also
-#'   differs from the \code{find_coexpressologs()} default, which keeps
-#'   them so that low-degree failures carry a \code{power} value.
-#' @param ... Passed unchanged to \code{\link{find_coexpressologs}} for
-#'   both the observed and every null run (\code{species_pairs},
-#'   \code{method}, \code{alternative}, \code{alpha},
-#'   \code{pval_combine}, \code{pi0_method}, ...).
+#' @param ... Passed unchanged to [find_coexpressologs()] for
+#'   both the observed and every null run (\code{pval_combine}, ...).
+#'   Zero-overlap ortholog pairs are dropped before the q-values
+#'   (\code{filter_zero = TRUE}): the statistic reads called edges only, so
+#'   retaining them adds tens of thousands of never-called rows per pair to
+#'   every permutation for nothing.
 #'
 #' @return Data frame with one row per statistic and columns
 #'   \code{statistic}, \code{observed}, \code{null_mean},
@@ -156,24 +146,18 @@
 #'
 #' @examples
 #' \dontrun{
-#' res <- coexpressolog_null(networks, orthologs,
-#'   n_perm = 100L,
-#'   n_cores = 4L
-#' )
+#' res <- coexpressolog_null(networks, orthologs, n_cores = 4L)
 #' res[res$statistic == "total", ]
 #'
 #' # replay that exact run, whether or not it was seeded
 #' same <- coexpressolog_null(networks, orthologs,
-#'   n_perm = 100L,
 #'   n_cores = 4L, seed = attr(res, "seed")
 #' )
 #' }
 #'
 #' @export
-coexpressolog_null <- function(networks, orthologs, statistic = NULL,
-                               n_perm = 100L, swap_factor = 10L,
-                               n_cores = 1L, seed = NULL,
-                               filter_zero = TRUE, ...) {
+coexpressolog_null <- function(networks, orthologs, swap_factor = 10L,
+                               n_cores = 1L, seed = NULL, ...) {
   if (identical(list(...)$method, "rank")) {
     stop("coexpressolog_null() supports the hypergeometric path only")
   }
@@ -183,9 +167,9 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   is_sparse <- vapply(networks, .net_is_sparse, logical(1))
   if (!all(is_sparse)) {
     stop(
-      "coexpressolog_null() requires sparse networks; convert ",
+      "`networks` must be sparse for coexpressolog_null(); these are dense: ",
       paste(names(networks)[!is_sparse], collapse = ", "),
-      " with as_sparse_network()"
+      ". Rebuild them with compute_network(sparse = TRUE)."
     )
   }
   # The rewiring kernel indexes an nrow x nrow bit matrix with column
@@ -194,10 +178,7 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   # species_pairs in `...` leave out of the observed run, which are rewired
   # all the same.
   for (net in networks) .net_check(net, net$threshold)
-  n_perm <- as.integer(n_perm)
-  if (length(n_perm) != 1L || is.na(n_perm) || n_perm < 1L) {
-    stop("n_perm must be a single integer >= 1")
-  }
+  n_perm <- 100L
   # An NA, NaN or non-positive swap_factor used to reach the kernel as a
   # trial count below 1, which rewires nothing: the "null" was the observed
   # graph, and the run returned without a word.
@@ -205,18 +186,12 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
         !is.finite(swap_factor) || swap_factor <= 0) {
     stop("swap_factor must be a single finite number > 0")
   }
-  builtin_stat <- is.null(statistic)
-  if (builtin_stat) {
-    statistic <- .coexpressolog_conserved_counts
-  }
-  if (!is.function(statistic)) {
-    stop("statistic must be NULL or a function(edges) -> named numeric")
-  }
+  statistic <- .coexpressolog_conserved_counts
 
   # The base seed is drawn from the ambient stream when none was given, so
   # the caller sees exactly one draw and consecutive unseeded calls differ.
   # The scope covers the observed run too: with the default
-  # pi0_method = "randomized" that run draws, and leaving it outside the
+  # randomized pi0 that run draws, and leaving it outside the
   # scope would make the observed statistic irreproducible under a seed.
   # A drawn root is announced here rather than at the return, so a run that
   # errors halfway through still names the seed that would reproduce it.
@@ -266,7 +241,7 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
   .seed_scope(seed_root)
 
   observed <- statistic(find_coexpressologs(networks, orthologs,
-    filter_zero = filter_zero, ...
+    filter_zero = TRUE, ...
   ))
   if (!is.numeric(observed) || is.null(names(observed))) {
     stop("statistic must return a named numeric vector")
@@ -290,7 +265,7 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     set.seed(.task_seed(seed_root, 1L, b))
     nets_perm <- lapply(networks, rewire_net)
     statistic(find_coexpressologs(nets_perm, orthologs,
-      filter_zero = filter_zero, ...
+      filter_zero = TRUE, ...
     ))
   }
 
@@ -324,17 +299,10 @@ coexpressolog_null <- function(networks, orthologs, statistic = NULL,
     }
     miss <- setdiff(nm, names(s))
     if (length(miss) > 0L) {
-      if (builtin_stat) {
-        # a rewired run can leave a species pair with no overlap > 0
-        # rows at all; for the built-in conserved count that IS a null
-        # observation of 0 conserved calls, not an error
-        s[miss] <- 0
-      } else {
-        stop(
-          "permutation ", b, " statistic is missing: ",
-          paste(miss, collapse = ", ")
-        )
-      }
+      # a rewired run can leave a species pair with no overlap > 0
+      # rows at all; for the built-in conserved count that IS a null
+      # observation of 0 conserved calls, not an error
+      s[miss] <- 0
     }
     null_mat[b, ] <- s[nm]
   }

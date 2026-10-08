@@ -1,12 +1,13 @@
 #' Shuffled-partner null network
 #'
-#' Rebuilds a network with the parameters recorded in `net` after
-#' permuting every gene's expression values across samples independently,
-#' which keeps each gene's marginal distribution and the gene universe
-#' but destroys all co-expression. It is the partner network for the
-#' empirical calibration of `method = "rank"`: p-values from a
-#' comparison against it are the null draws that
-#' [summarize_specificity()] turns into empirical p-values.
+#' Rebuilds a network after permuting each gene's expression values across
+#' samples. Keeps each gene's marginal distribution and the gene universe.
+#' Destroys all co-expression.
+#'
+#' It is the partner network for the empirical calibration of
+#' `method = "rank"`. P-values from a comparison against it are the null
+#' draws that `summarize_specificity()` turns into empirical p-values.
+#' The rebuild uses the parameters recorded in `net`.
 #'
 #' With `block`, each gene's samples are permuted independently *within*
 #' each block (one permutation per gene per block). The permutations
@@ -32,8 +33,8 @@
 #'   identifiers) or a `SummarizedExperiment`, whose first assay is used.
 #'   The same object `net` was built from.
 #' @param net Network object from [compute_network()] built from `x`; its
-#'   `params` and `store_density` are reused so the null is built the same
-#'   way.
+#'   `params` (with `partition`) and `store_density` are reused so the null
+#'   is built the same way.
 #' @param block `NULL` (default) for the full per-gene shuffle, or a
 #'   per-sample grouping (vector or factor of length `ncol(x)`, no `NA`),
 #'   e.g. time point or tree, within which each gene is permuted.
@@ -42,8 +43,8 @@
 #'   stream and restores the caller's on exit, so it does not displace the
 #'   caller by however many draws the permutation consumed; with
 #'   \code{seed = NULL} the draws come from the ambient stream and leave
-#'   it advanced. Same contract as \code{\link{summarize_comparison}}.
-#' @param n_cores,use_torch,block_size Passed to [compute_network()];
+#'   it advanced. Same contract as \code{summarize_comparison}.
+#' @param n_cores,block_size Passed to [compute_network()];
 #'   pass the `block_size` `net` was built with to keep the null build
 #'   blockwise (it is not recorded in `params`).
 #' @return A sparse network object, as [compute_network()] returns, on the
@@ -53,8 +54,7 @@
 #'   `params$block` holds the block sizes, named by level.
 #' @export
 null_network <- function(x, net, seed = NULL, n_cores = 1L,
-                         use_torch = FALSE, block_size = NULL,
-                         block = NULL) {
+                         block_size = NULL, block = NULL) {
   .seed_scope(seed)
   if (methods::is(x, "SummarizedExperiment")) {
     x <- SummarizedExperiment::assay(x, 1L)
@@ -70,10 +70,10 @@ null_network <- function(x, net, seed = NULL, n_cores = 1L,
   p <- net$params
   out <- compute_network(xp,
     cor_method = p$cor_method, norm_method = p$norm_method,
-    density = p$density, abs_cor = p$abs_cor,
-    mr_log_transform = p$mr_log_transform, min_var = p$min_var,
+    density = p$density, sign = p$sign,
+    mr_log_transform = p$mr_log_transform,
     sparse = TRUE, store_density = net$store_density,
-    n_cores = n_cores, use_torch = use_torch, block_size = block_size
+    n_cores = n_cores, block_size = block_size, partition = p$partition
   )
   if (!is.null(block)) {
     out$params$block <- stats::setNames(as.integer(tab), names(tab))
