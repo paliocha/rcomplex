@@ -9,18 +9,11 @@ detect_modules(net, ...)
 
 \method{detect_modules}{default}(
   net,
-  method = c("leiden", "infomap", "sbm"),
   resolution = NULL,
   objective_function = c("modularity", "CPM"),
-  n_iterations = 2L,
-  nb_trials = 10L,
   seed = NULL,
-  consensus_threshold = NULL,
   n_cores = 1L,
   max_consensus_iter = 10L,
-  test_k1 = TRUE,
-  n_perm_k1 = 100L,
-  alpha_k1 = 0.05,
   ...
 )
 }
@@ -28,9 +21,6 @@ detect_modules(net, ...)
 \item{net}{Network object from \code{\link[=compute_network]{compute_network()}}.}
 
 \item{...}{Additional arguments passed to the default method.}
-
-\item{method}{Community detection method: \code{"leiden"} (default), \code{"infomap"},
-or \code{"sbm"}.}
 
 \item{resolution}{Resolution parameter for Leiden. \code{NULL}
 (default) runs a single resolution: for CPM the edge density of the
@@ -40,7 +30,7 @@ value is returned in \code{params$resolution}. Pass a numeric vector
 (e.g., \code{seq(0.5, 2.0, by = 0.5)} for modularity) to run at
 multiple resolutions and produce a consensus partition via
 co-classification (Lancichinetti & Fortunato, 2012); consensus mode
-has no default. Ignored for other methods. Under CPM it is read on
+has no default. Under CPM it is read on
 the 0--1 weight scale (edge weights divided by their maximum, since
 0.3.2): a density each module must exceed, so values below 1 are the
 useful range (at 1 no edge is attractive and genes stay singletons).
@@ -51,25 +41,17 @@ default gave 13--63 modules per species: a few large ones (over 1,000
 genes) that replicated between sample halves and were conserved
 across species as well as modularity's, plus a tail of small
 communities (under 300 genes) that were not conserved. Drop the tail
-by size (\code{as_modules(min_size = )}) or by the
-\code{\link[=module_auroc]{module_auroc()}} score before reading modules as units.}
+by size before reading modules as units.}
 
 \item{objective_function}{Leiden objective: \code{"modularity"} (default
-since 0.3.2; CPM before) or \code{"CPM"}. Ignored for other methods. The
+since 0.3.2; CPM before) or \code{"CPM"}. The
 two replicated and conserved large modules equally on 20,000-gene
 data, and modularity has no tail of small non-conserved communities;
 see the section on reproducibility. CPM sees edge weights
 rescaled to 0--1; modularity is scale-invariant and sees them
 unchanged. At small sample sizes
 \code{"modularity"} replicated better across independent samples but also
-finds modules in noise, where the K = 1 test does not catch it; see
-the section on reproducibility.}
-
-\item{n_iterations}{Number of Leiden iterations (default 2). Ignored for
-other methods.}
-
-\item{nb_trials}{Number of Infomap attempts; best result is kept
-(default 10). Ignored for other methods.}
+finds modules in noise; see the section on reproducibility.}
 
 \item{seed}{Random seed for reproducibility (default \code{NULL}).
 
@@ -90,23 +72,13 @@ stream advances by exactly what was taken from it -- the one draw used
 to pick a root in consensus mode, whatever the backend consumed in
 single-resolution mode -- so consecutive unseeded calls still differ.}
 
-\item{consensus_threshold}{Threshold for consensus mode. \code{NULL}
-(default) uses iterative adaptive thresholding per Jeub et al. (2018):
-subtracts the per-pair expected co-classification under random assignment
-and iterates until the partition converges. A numeric value in (0, 1)
-applies a fixed threshold without iteration (single pass).}
-
 \item{n_cores}{Number of parallel cores (default 1). Used for
 \code{mclapply} Leiden sweeps on Unix and OpenMP edge scans in C++.
 Uses fork-based parallelism; avoid combining with active CUDA
-contexts in the same session. The K = 1 permutations run serially
-when R uses Apple's Accelerate BLAS, which is not fork-safe for their
-eigensolver, unless \code{VECLIB_MAXIMUM_THREADS=1} was set before R
-started (shell or \code{.Renviron}; Accelerate ignores a later
-\code{Sys.setenv()}).}
+contexts in the same session.}
 
 \item{max_consensus_iter}{Maximum number of consensus iterations for
-adaptive mode (\code{consensus_threshold = NULL}). Default 10.
+consensus mode. Default 10.
 Iteration stops when the sweep reproduces its own input (a fixed
 point) or when all resolutions agree. On the eight Pooideae networks
 that stopping rule was measured on it fired at 5--12 iterations, so
@@ -115,33 +87,7 @@ at the default the loop may return a partition it had not finished
 settling. Raise it (20 is above every measured stop) when the
 returned \code{params$n_consensus_iterations} equals
 \code{max_consensus_iter} -- a truncated run always does, though a
-run that settles on the last allowed iteration does too.
-Ignored when \code{consensus_threshold} is numeric.}
-
-\item{test_k1}{Logical. Test the null hypothesis K = 1 (no community
-structure) via permutation of the spectral norm of the excess
-co-classification matrix. Default \code{TRUE}. Only used in adaptive
-consensus mode. This is the expensive part of a
-\code{detect_modules()} call on a structured network: see
-\code{n_perm_k1} for what it costs and when to turn it off.}
-
-\item{n_perm_k1}{Number of permutations for the K = 1 test.
-Default 100. Sets both the resolution of the p-value (its floor is
-\code{1 / (n_perm_k1 + 1)}) and the power of the test; batches stop
-early only when the remaining permutations cannot change the call.
-An unstructured network accumulates exceedances fast and stops after
-a batch or two, but a structured one, which most real networks are,
-can only stop once no outstanding permutation matters, so it
-spends the whole budget. Each of those permutations rewires the graph
-degree-preservingly and runs the full Leiden sweep at the observed
-\code{n_iterations}, so the K = 1 test dominates the runtime and the
-peak memory of the call; the rewiring step has been the cause of
-out-of-memory kills on large networks. On a network already known to
-be structured, set \code{test_k1 = FALSE} rather than lowering
-\code{n_perm_k1}, which buys speed by weakening the test.}
-
-\item{alpha_k1}{Significance level for the K = 1 test.
-Default 0.05.}
+run that settles on the last allowed iteration does too.}
 }
 \value{
 A list with components:
@@ -156,47 +102,24 @@ gene names}
 \item{method}{Method used}
 \item{params}{List of parameters used}
 }
-When \code{resolution} is a vector, the output also includes:
-\describe{
-\item{resolution_scan}{Data frame with columns \code{resolution},
+When \code{resolution} is a vector, the output also includes
+\code{resolution_scan}, a data frame with columns \code{resolution},
 \code{n_modules}, \code{modularity}, \code{ari_next} (Adjusted
 Rand Index with the next resolution; NA for the last), and
-\code{expected_coclassification} (per-resolution expected scalar).}
-\item{k1_test}{When \code{test_k1 = TRUE}, a list with components:
-\code{lambda_obs} (observed spectral norm), \code{lambda_null}
-(null distribution), \code{p_value}, \code{has_structure}, and
-\code{n_perm_completed} (actual permutations run; may be less
-than \code{n_perm_k1} due to early stopping).}
-}
+\code{expected_coclassification} (per-resolution expected scalar).
 The \code{params} list includes \code{n_consensus_iterations}
-(number of iterations until convergence; 0 for fixed threshold).
+(number of iterations until convergence).
 }
 \description{
-Applies community detection to a thresholded co-expression network using
-the Leiden algorithm, Infomap, or a Stochastic Block Model (SBM).
+Applies the Leiden algorithm (Traag \emph{et al.}, 2019) to a thresholded
+co-expression network. Optimises modularity or CPM and guarantees
+well-connected communities. The \code{resolution} argument sets module size.
 }
 \details{
 The adaptive consensus path uses sparse co-classification
 restricted to the original network's edge set, reducing memory from
 O(N^2) to O(|E|).
 }
-\section{Methods}{
-
-\describe{
-\item{leiden}{Modularity or CPM optimization with guaranteed well-connected
-communities (Traag \emph{et al.}, 2019). Resolution parameter controls module
-granularity.}
-\item{infomap}{Flow-based method that compresses the description of random
-walks on the network (Rosvall & Bergstrom, 2008). No resolution
-parameter;
-naturally handles weighted networks.}
-\item{sbm}{Gaussian Stochastic Block Model fit by variational EM
-(requires the \pkg{sbm} package). Number of blocks is selected
-automatically via the Integrated Classification Likelihood (ICL).
-Can detect both assortative and non-assortative structure.}
-}
-}
-
 \section{Reproducibility at small sample sizes}{
 
 Modules can be stable across seeds and still not replicate across
@@ -207,7 +130,7 @@ scripts and tables are in the package's source repository under
 \file{dev/bench/}:
 \itemize{
 \item \emph{Replication} (samples split into two halves of 10, two
-replicates per time point each, \code{test_k1 = FALSE}): with
+replicates per time point each): with
 \code{objective_function = "CPM"}, whether modules exist at
 all flipped between the halves -- in 4 of 8 species one half gave
 6--10 modules and the other 1, and two species gave 1 in both
@@ -215,16 +138,9 @@ all flipped between the halves -- in 4 of 8 species one half gave
 \code{"modularity"} the modules replicated partially (median ARI
 0.36, range 0.05--0.44; about 0 on shuffled expression).
 \item \emph{Noise}: on random and per-gene shuffled expression (18 data
-sets, all 20 samples), CPM returned one module and the K = 1 test did
-not reject -- degenerately, with the observed and every null
-statistic exactly 0 (on 10-sample halves, though, CPM gave 10 modules
-on shuffled expression in 3 of 8 species). Modularity returned 8--14
-modules and the K = 1 test rejected
-\emph{every} null data set: its degree-preserving rewiring null
-removes the geometric clustering that noise produces, so it cannot
-separate modules from noise under modularity. Real networks still
-scored far above shuffled expression (statistic 63--89 against
-14--22).
+sets, all 20 samples), CPM returned one module, but on 10-sample
+halves it gave 10 modules on shuffled expression in 3 of 8 species.
+Modularity returned 8--14 modules on noise.
 }
 These CPM measurements predate 0.3.2 and ran on raw mutual-rank edge
 weights, of the order of the gene count, so a resolution of 0.5--2 was
@@ -242,16 +158,16 @@ small communities that were not conserved. The 2,000-gene
 \file{dev/bench/} numbers above predate the CPM scale fix.
 
 Treat modules as units only after they replicate on independent samples,
-well above the same split on shuffled expression, not on the strength of
-the K = 1 test; \code{"modularity"} replicated better here but needs
-that check most. To test gene sets from other sources (pathways,
-regulons, another tool) use \code{\link[=as_modules]{as_modules()}} with \code{\link[=module_preservation]{module_preservation()}}.
+well above the same split on shuffled expression; \code{"modularity"}
+replicated better here but needs that check most. To test gene sets from
+other sources (pathways, regulons, another tool) use \code{\link[=as_modules]{as_modules()}} with
+\code{\link[=module_preservation]{module_preservation()}}.
 }
 
 \examples{
 \dontrun{
 # Single resolution (modularity at resolution 1)
-mods <- detect_modules(net, method = "leiden")
+mods <- detect_modules(net)
 table(mods$modules) # module sizes
 
 # Multi-resolution consensus (Jeub et al. 2018)
@@ -266,10 +182,6 @@ mods_consensus <- detect_modules(net,
 Traag, V. A., Waltman, L. & van Eck, N. J. (2019). From Louvain to Leiden:
 guaranteeing well-connected communities. \emph{Scientific Reports}, 9, 5233.
 \doi{10.1038/s41598-019-41695-z}
-
-Rosvall, M. & Bergstrom, C. T. (2008). Maps of random walks on complex
-networks reveal community structure. \emph{PNAS}, 105(4), 1118--1123.
-\doi{10.1073/pnas.0706851105}
 
 Lancichinetti, A. & Fortunato, S. (2012). Consensus clustering in complex
 networks. \emph{Scientific Reports}, 2, 336. \doi{10.1038/srep00336}

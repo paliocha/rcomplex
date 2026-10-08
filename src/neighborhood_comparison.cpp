@@ -204,24 +204,24 @@ static Rcpp::DataFrame compare_neighborhoods_core(
     }
 
     return Rcpp::DataFrame::create(
-        Rcpp::Named("Species1.neigh") = sp1_neigh,
-        Rcpp::Named("Species1.ortho.neigh") = sp1_ortho_neigh,
-        Rcpp::Named("Species1.neigh.overlap") = sp1_overlap,
-        Rcpp::Named("Species1.p.val.con") = sp1_pval,
-        Rcpp::Named("Species1.p.val.div") = sp1_pval_div,
-        Rcpp::Named("Species1.p.val.gt") = sp1_pval_gt,
-        Rcpp::Named("Species1.p.val.eq") = sp1_pval_eq,
-        Rcpp::Named("Species1.effect.size") = sp1_effect,
-        Rcpp::Named("Species1.jaccard") = sp1_jaccard,
-        Rcpp::Named("Species2.neigh") = sp2_neigh,
-        Rcpp::Named("Species2.ortho.neigh") = sp2_ortho_neigh,
-        Rcpp::Named("Species2.neigh.overlap") = sp2_overlap,
-        Rcpp::Named("Species2.p.val.con") = sp2_pval,
-        Rcpp::Named("Species2.p.val.div") = sp2_pval_div,
-        Rcpp::Named("Species2.p.val.gt") = sp2_pval_gt,
-        Rcpp::Named("Species2.p.val.eq") = sp2_pval_eq,
-        Rcpp::Named("Species2.effect.size") = sp2_effect,
-        Rcpp::Named("Species2.jaccard") = sp2_jaccard
+        Rcpp::Named("species1.neigh") = sp1_neigh,
+        Rcpp::Named("species1.ortho.neigh") = sp1_ortho_neigh,
+        Rcpp::Named("species1.neigh.overlap") = sp1_overlap,
+        Rcpp::Named("species1.p_value_con") = sp1_pval,
+        Rcpp::Named("species1.p_value_div") = sp1_pval_div,
+        Rcpp::Named("species1.p_value_gt") = sp1_pval_gt,
+        Rcpp::Named("species1.p_value_eq") = sp1_pval_eq,
+        Rcpp::Named("species1.effect_size") = sp1_effect,
+        Rcpp::Named("species1.jaccard") = sp1_jaccard,
+        Rcpp::Named("species2.neigh") = sp2_neigh,
+        Rcpp::Named("species2.ortho.neigh") = sp2_ortho_neigh,
+        Rcpp::Named("species2.neigh.overlap") = sp2_overlap,
+        Rcpp::Named("species2.p_value_con") = sp2_pval,
+        Rcpp::Named("species2.p_value_div") = sp2_pval_div,
+        Rcpp::Named("species2.p_value_gt") = sp2_pval_gt,
+        Rcpp::Named("species2.p_value_eq") = sp2_pval_eq,
+        Rcpp::Named("species2.effect_size") = sp2_effect,
+        Rcpp::Named("species2.jaccard") = sp2_jaccard
     );
 }
 
@@ -243,7 +243,7 @@ static Rcpp::DataFrame compare_neighborhoods_core(
 //' @param n_cores Number of OpenMP threads (default: 1)
 //' @return DataFrame with comparison results for each ortholog pair. The
 //'   hypergeometric urn excludes the anchor gene (population n - 1, anchor
-//'   dropped from the ortholog-mapped set); `*.p.val.gt` / `*.p.val.eq`
+//'   dropped from the ortholog-mapped set); `*.p_value_gt` / `*.p_value_eq`
 //'   are the ungated upper tail P(X > x) and point mass P(X = x).
 //'
 //' @keywords internal

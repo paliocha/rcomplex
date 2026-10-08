@@ -1019,6 +1019,26 @@ test), effect sizes and power on every edge, p-value resolution on every
 test. Nothing in the proposal's P1 that rcomplex does not do except the
 rank-test default, which waits on Orion.
 
+### Measured end state (2026-10-08)
+
+| Metric | Section 1 target | Measured |
+|---|---|---|
+| Exports | <= 30 | 31 |
+| R lines | <= 12,000 | 12,599 |
+| C++ lines (`src/*.cpp`, `*.h`) | <= 5,000 | 5,479 |
+| Test lines | <= 15,000 | 16,274 |
+| Largest R file | <= 1,500 | comparison.R 1,331 |
+| Max named formals | <= 8 | 8, except four exempt exports |
+| README | <= 150 | 121 |
+| Quickstart / walkthrough | <= 150 / <= 800 | 142 / 451 |
+
+Two budgets are missed by decision: 31 exports against <= 30, and four
+exports over 8 named formals (`rcomplex`, `module_preservation`,
+`find_coexpressologs`, `density_sweep`), exempted by name in
+`tests/testthat/test-surface.R` (WP5/WP6). The R, C++ and test line
+counts also sit above target. WP15 is re-scoped by
+`dev/design-notes/hypergraph-community-literature.md`.
+
 ## 7. Prose: Karpathy's ASD-STE100 note, audited
 
 Karpathy (X, 2026-10-02): ask the model to write in ASD-STE100,

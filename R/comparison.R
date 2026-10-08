@@ -26,11 +26,11 @@
 #' \eqn{k}); \eqn{x} is their intersection. The urn excludes the anchor
 #' gene: A is never its own neighbour, it is dropped from the mapped set,
 #' and the hypergeometric population is the other \eqn{N - 1} network
-#' genes. `Species1.p.val.con` is \eqn{P(X \ge x)} and keeps the gate of
+#' genes. `species1.p_value_con` is \eqn{P(X \ge x)} and keeps the gate of
 #' the original RComPlEx R Markdown (not the paper): it is reported as 1
-#' when \eqn{x \le 1}. `Species1.p.val.gt` (\eqn{P(X > x)}) and
-#' `Species1.p.val.eq` (\eqn{P(X = x)}) are ungated so that
-#' `p.val.gt + U * p.val.eq` is a randomized p-value, exactly uniform under
+#' when \eqn{x \le 1}. `species1.p_value_gt` (\eqn{P(X > x)}) and
+#' `species1.p_value_eq` (\eqn{P(X = x)}) are ungated so that
+#' `p_value_gt + U * p_value_eq` is a randomized p-value, exactly uniform under
 #' the null (used by [summarize_comparison()] to estimate pi0). The effect
 #' size \eqn{(x / k) / (m / (N - 1))} is computed for every \eqn{x}
 #' (1 when \eqn{m = 0} or \eqn{k = 0}). Direction 2 is symmetric.
@@ -47,63 +47,63 @@
 #'
 #' @param net1 Network object for species 1 (output of [compute_network()]).
 #' @param net2 Network object for species 2 (output of [compute_network()]).
-#' @param orthologs Data frame with columns `Species1`, `Species2`, and
-#'   `hog` (output of [parse_orthologs()]).
+#' @param orthologs Data frame with columns `gene1`, `gene2`, and
+#'   `hog` (output of [prepare_orthologs()]).
 #' @param n_cores Number of threads for parallel computation (default 1).
 #'
 #' @return A data frame with columns:
 #'   \describe{
-#'     \item{Species1}{Gene identifier for species 1}
-#'     \item{Species2}{Gene identifier for species 2}
+#'     \item{gene1}{Gene identifier for species 1}
+#'     \item{gene2}{Gene identifier for species 2}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
-#'     \item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net2, excluding the Species1 gene itself}
-#'     \item{Species1.neigh.overlap}{Intersection size}
-#'     \item{Species1.p.val.con}{Upper-tail hypergeometric p-value for
+#'     \item{species1.neigh}{Number of neighbors of gene1 gene in net1}
+#'     \item{species1.ortho.neigh}{Number of ortholog-mapped neighbors
+#'       from net2, excluding the gene1 gene itself}
+#'     \item{species1.neigh.overlap}{Intersection size}
+#'     \item{species1.p_value_con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 1); 1 when the overlap is 0 or 1}
-#'     \item{Species1.p.val.div}{Lower-tail hypergeometric p-value for
+#'     \item{species1.p_value_div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 1)}
-#'     \item{Species1.p.val.gt}{\eqn{P(X > x)}, ungated (direction 1)}
-#'     \item{Species1.p.val.eq}{\eqn{P(X = x)} (direction 1)}
-#'     \item{Species1.effect.size}{Fold enrichment (direction 1). Values > 1
+#'     \item{species1.p_value_gt}{\eqn{P(X > x)}, ungated (direction 1)}
+#'     \item{species1.p_value_eq}{\eqn{P(X = x)} (direction 1)}
+#'     \item{species1.effect_size}{Fold enrichment (direction 1). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
-#'     \item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
-#'     \item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
-#'       from net1, excluding the Species2 gene itself}
-#'     \item{Species2.neigh.overlap}{Intersection size}
-#'     \item{Species2.p.val.con}{Upper-tail hypergeometric p-value for
+#'     \item{species2.neigh}{Number of neighbors of gene2 gene in net2}
+#'     \item{species2.ortho.neigh}{Number of ortholog-mapped neighbors
+#'       from net1, excluding the gene2 gene itself}
+#'     \item{species2.neigh.overlap}{Intersection size}
+#'     \item{species2.p_value_con}{Upper-tail hypergeometric p-value for
 #'       conservation (direction 2); 1 when the overlap is 0 or 1}
-#'     \item{Species2.p.val.div}{Lower-tail hypergeometric p-value for
+#'     \item{species2.p_value_div}{Lower-tail hypergeometric p-value for
 #'       divergence (direction 2)}
-#'     \item{Species2.p.val.gt}{\eqn{P(X > x)}, ungated (direction 2)}
-#'     \item{Species2.p.val.eq}{\eqn{P(X = x)} (direction 2)}
-#'     \item{Species2.effect.size}{Fold enrichment (direction 2). Values > 1
+#'     \item{species2.p_value_gt}{\eqn{P(X > x)}, ungated (direction 2)}
+#'     \item{species2.p_value_eq}{\eqn{P(X = x)} (direction 2)}
+#'     \item{species2.effect_size}{Fold enrichment (direction 2). Values > 1
 #'       indicate conservation, < 1 indicate divergence.}
-#'     \item{Species1.jaccard}{Jaccard index of neighborhood overlap
+#'     \item{species1.jaccard}{Jaccard index of neighborhood overlap
 #'       (direction 1): intersection / union of anchor and ortholog-mapped
 #'       neighbors. Range \eqn{[0, 1]}.}
-#'     \item{Species2.jaccard}{Jaccard index of neighborhood overlap
+#'     \item{species2.jaccard}{Jaccard index of neighborhood overlap
 #'       (direction 2).}
-#'     \item{Species1.urn}{Hypergeometric population for direction 1:
+#'     \item{species1.urn}{Hypergeometric population for direction 1:
 #'       the number of genes in net1 less the anchor gene itself. Constant
 #'       within a call. Downstream \code{power} uses it directly rather
 #'       than reconstructing it from the effect sizes.}
-#'     \item{Species2.urn}{Hypergeometric population for direction 2
+#'     \item{species2.urn}{Hypergeometric population for direction 2
 #'       (genes in net2 less the anchor). Differs from
-#'       \code{Species1.urn} whenever the two networks differ in size.}
+#'       \code{species1.urn} whenever the two networks differ in size.}
 #'   }
 #'
 #' @examples
 #' \dontrun{
 #' comparison <- compare_neighborhoods(net_A, net_B, orthologs)
 #' head(comparison[, c(
-#'   "Species1", "Species2", "hog",
-#'   "Species1.effect.size"
+#'   "gene1", "gene2", "hog",
+#'   "species1.effect_size"
 #' )])
 #' }
 #'
-#' @export
+#' @keywords internal
 compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   op <- .ortholog_pair_index(net1, net2, orthologs)
   orthologs <- op$orthologs
@@ -147,10 +147,10 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   # otherwise reconstructs it from the effect sizes and returns NA for a
   # whole direction when those estimates disagree.
   cbind(
-    orthologs[, c("Species1", "Species2", "hog"), drop = FALSE],
+    orthologs[, c("gene1", "gene2", "hog"), drop = FALSE],
     result,
-    Species1.urn = nrow(net1$network) - 1L,
-    Species2.urn = nrow(net2$network) - 1L
+    species1.urn = nrow(net1$network) - 1L,
+    species2.urn = nrow(net2$network) - 1L
   )
 }
 
@@ -171,8 +171,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   if (!is.list(net2) || is.null(net2$network)) {
     stop("net2 must be a network object from compute_network()")
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+  if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: gene1, gene2, hog")
   }
 
   net1_genes <- rownames(net1$network)
@@ -180,16 +180,16 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
   # Filter orthologs to genes present in both networks and deduplicate
   orthologs <- orthologs[
-    orthologs$Species1 %in% net1_genes &
-      orthologs$Species2 %in% net2_genes, ,
+    orthologs$gene1 %in% net1_genes &
+      orthologs$gene2 %in% net2_genes, ,
     drop = FALSE
   ]
-  orthologs <- unique(orthologs[, c("Species1", "Species2", "hog"),
+  orthologs <- unique(orthologs[, c("gene1", "gene2", "hog"),
                         drop = FALSE
                       ])
 
   if (nrow(orthologs) == 0) {
-    stop("No orthologs found in both networks")
+    stop("`orthologs` has no gene pair with both genes in the two networks.")
   }
 
   # Build gene name -> 0-based index maps
@@ -198,8 +198,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
   list(
     orthologs = orthologs,
-    sp1_idx = as.integer(idx1[orthologs$Species1]),
-    sp2_idx = as.integer(idx2[orthologs$Species2])
+    sp1_idx = as.integer(idx1[orthologs$gene1]),
+    sp2_idx = as.integer(idx2[orthologs$gene2])
   )
 }
 
@@ -286,7 +286,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' reaching the largest called p-value (the direction's q-value cut on
 #' the p scale) is found, and the power is the chance that
 #' `Binomial(min(k, m), rho0 * max(k, m) / N)` reaches it. With
-#' `rho0 = NULL` the reference is the median `effect.size` over the
+#' `rho0 = NULL` the reference is the median `effect_size` over the
 #' pairs called under `pval_combine`, per direction. A fixed conserved
 #' *fraction* was the alternative before 0.3.0: at the measured 6-10% it
 #' implied about 60-fold enrichment for a 20-partner gene and roughly
@@ -306,18 +306,18 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
   na_out <- rep(NA_real_, nrow(comparison))
-  dirs <- c("Species1", "Species2")
+  dirs <- c("species1", "species2")
   need <- as.vector(outer(dirs, c(
-    ".neigh", ".ortho.neigh", ".neigh.overlap", ".p.val.con",
-    ".q.val.con", ".effect.size"
+    ".neigh", ".ortho.neigh", ".neigh.overlap", ".p_value_con",
+    ".q_value_con", ".effect_size"
   ), paste0))
   if (alternative == "less" || nrow(comparison) == 0L ||
         !all(need %in% names(comparison))) {
     return(na_out)
   }
   combine <- if (pval_combine == "min") pmin else pmax
-  q_comb <- combine(comparison$Species1.q.val.con,
-    comparison$Species2.q.val.con,
+  q_comb <- combine(comparison$species1.q_value_con,
+    comparison$species2.q_value_con,
     na.rm = TRUE
   )
   called <- is.finite(q_comb) & q_comb < alpha
@@ -327,8 +327,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
     m <- col(".neigh")
     k <- col(".ortho.neigh")
     x <- col(".neigh.overlap")
-    p <- col(".p.val.con")
-    q <- col(".q.val.con")
+    p <- col(".p_value_con")
+    q <- col(".q_value_con")
     # Exact when the frame carries the urn, as compare_neighborhoods()
     # now does; frames from before that fall back to reconstructing it.
     urn_col <- paste0(d, ".urn")
@@ -340,7 +340,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
         NA_real_
       }
     } else {
-      .urn_size(m, k, x, col(".effect.size"), d)
+      .urn_size(m, k, x, col(".effect_size"), d)
     }
     sig <- !is.na(q) & q < alpha
     if (is.na(np) || !any(sig)) {
@@ -353,7 +353,7 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
       if (!any(use)) {
         return(na_out)
       }
-      rho_d <- stats::median(col(".effect.size")[use])
+      rho_d <- stats::median(col(".effect_size")[use])
     }
     n <- pmin(k, m)
     # Alternative mean rho_d * k * m / N over n = min(k, m) draws, so the
@@ -378,54 +378,64 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 
 #' Build clique edges from pairwise comparison results
 #'
-#' Converts output from \code{\link{summarize_comparison}} into the edge
-#' format expected by \code{\link{find_cliques}} and
-#' \code{\link{clique_persistence}}. Renames columns, injects species
+#' Converts output from \code{summarize_comparison()} into the edge
+#' format expected by \code{find_cliques} and
+#' \code{classify_cliques}. Renames columns, injects species
 #' identity, and computes per-pair effect sizes and classification.
 #'
-#' @param comparison Data frame from \code{\link{summarize_comparison}}
-#'   (the \code{$results} element). Must contain columns \code{Species1},
-#'   \code{Species2}, \code{hog}, plus q-value and effect-size columns
+#' @param comparison Data frame from \code{summarize_comparison()}
+#'   (the \code{$results} element). Must contain columns \code{gene1},
+#'   \code{gene2}, \code{hog}, plus q-value and effect-size columns
 #'   from both directions.
-#' @param sp1 Species abbreviation for \code{Species1} genes (e.g.,
+#' @param species1 Species abbreviation for \code{gene1} genes (e.g.,
 #'   \code{"BDIS"}).
-#' @param sp2 Species abbreviation for \code{Species2} genes.
+#' @param species2 Species abbreviation for \code{gene2} genes.
 #' @param alternative Which test direction to use for q-values and
 #'   classification: \code{"greater"} (conservation, default) or
 #'   \code{"less"} (divergence).
 #' @param alpha Significance threshold for the \code{type} column
 #'   (default 0.1).
 #' @param pval_combine How the two directional q-values are combined into
-#'   \code{q.value}: \code{"max"} (default; both directions must be
+#'   \code{q_value}: \code{"max"} (default; both directions must be
 #'   significant -- the reciprocal criterion of Netotea et al. (2014),
 #'   the \code{Max.p.val} filter of the original ComPlEx) or \code{"min"}
 #'   (permissive; a pair is called when either direction is significant,
-#'   yielding a denser edge supply for \code{\link{find_cliques}}). A
+#'   yielding a denser edge supply for \code{find_cliques}). A
 #'   missing directional q-value is ignored in either case.
 #' @param rho0 Reference fold enrichment for the \code{power} column:
 #'   how many times more often than chance a conserved pair's partners
 #'   are shared. \code{NULL} (default) takes, per direction, the median
-#'   \code{effect.size} of the called pairs (about 2.5 on the Pooideae
+#'   \code{effect_size} of the called pairs (about 2.5 on the Pooideae
 #'   data); a single positive number fixes it for both directions.
 #' @param p0 Rank-test frames only (from
-#'   \code{\link{summarize_specificity}}, carrying the AUROC grid):
+#'   \code{summarize_specificity()}, carrying the AUROC grid):
 #'   reference raw p for the \code{power} column, see
-#'   \code{\link{summarize_specificity}}. \code{NULL} (default) takes, per
+#'   \code{summarize_specificity()}. \code{NULL} (default) takes, per
 #'   direction, the median raw p of the pairs called and significant in
 #'   that direction.
 #'
 #' @return Data frame with columns:
 #'   \describe{
-#'     \item{gene1}{Gene identifier (Species1)}
-#'     \item{gene2}{Gene identifier (Species2)}
-#'     \item{species1}{Species abbreviation for gene1 (\code{sp1})}
-#'     \item{species2}{Species abbreviation for gene2 (\code{sp2})}
+#'     \item{gene1}{Gene identifier (gene1)}
+#'     \item{gene2}{Gene identifier (gene2)}
 #'     \item{hog}{Ortholog group identifier}
-#'     \item{q.value}{Maximum (or minimum, see \code{pval_combine}) of the
+#'     \item{score}{Evidence against chance in bits:
+#'       \code{-log2(p_value)}.}
+#'     \item{evalue}{Expected number of pairs this significant by chance:
+#'       \code{n_tests * p_value}.}
+#'     \item{species1}{Species abbreviation for gene1 (\code{species1})}
+#'     \item{species2}{Species abbreviation for gene2 (\code{species2})}
+#'     \item{p_value}{The two directional p-values combined like
+#'       \code{pval_combine}. Rank-test frames use the calibrated p
+#'       (\code{*.p.emp}) when present. \code{NA} when the comparison has
+#'       no p-value columns.}
+#'     \item{n_tests}{Number of ortholog pairs tested, in the direction
+#'       with more tests.}
+#'     \item{q_value}{Maximum (or minimum, see \code{pval_combine}) of the
 #'       two directional q-values}
 #'     \item{effect_size}{Geometric mean of directional effect sizes}
 #'     \item{jaccard}{Geometric mean of directional Jaccard indices
-#'       (\code{sqrt(Species1.jaccard * Species2.jaccard)}). Range
+#'       (\code{sqrt(species1.jaccard * species2.jaccard)}). Range
 #'       \eqn{[0, 1]}: 1 = identical neighborhoods, 0 = disjoint.}
 #'     \item{power}{Detection power: the probability that the pair
 #'       would have been called had its partners been shared at the
@@ -436,18 +446,18 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #'       low-degree gene's shared partners amount to less than one, which
 #'       no count test can call, so a non-significant low-power pair is
 #'       absent evidence, not evidence of divergence.
-#'       \code{\link{classify_gene_cliques}} and
-#'       \code{\link{classify_cliques}} read it through
+#'       \code{classify_gene_cliques} and
+#'       \code{classify_cliques} read it through
 #'       \code{min_power}. \code{NA} for \code{alternative = "less"},
 #'       when no pair is called in a direction, or when the comparison
 #'       lacks the neighbourhood-size columns. For a rank-test frame (one
 #'       carrying \code{*.auroc.grid}) it is the rank-test power instead,
 #'       at reference rank \code{p0} (see
-#'       \code{\link{summarize_specificity}}); there a direction with no call
+#'       \code{summarize_specificity()}); there a direction with no call
 #'       gives 0 rather than \code{NA}, so the classifiers read it as
 #'       uninformative, not as a rejection.}
 #'     \item{type}{\code{"conserved"} or \code{"diverged"} if
-#'       \code{q.value < alpha}; \code{"ns"} otherwise}
+#'       \code{q_value < alpha}; \code{"ns"} otherwise}
 #'   }
 #'
 #' @examples
@@ -459,8 +469,8 @@ compare_neighborhoods <- function(net1, net2, orthologs, n_cores = 1L) {
 #' edges <- rbind(edges_AB, edges_AC, edges_BC)
 #' }
 #'
-#' @export
-comparison_to_edges <- function(comparison, sp1, sp2,
+#' @keywords internal
+comparison_to_edges <- function(comparison, species1, species2,
                                 alternative = c("greater", "less"),
                                 alpha = 0.1,
                                 pval_combine = c("max", "min"),
@@ -471,12 +481,12 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   .check_p0(p0)
 
   suffix <- if (alternative == "greater") "con" else "div"
-  q1_col <- paste0("Species1.q.val.", suffix)
-  q2_col <- paste0("Species2.q.val.", suffix)
+  q1_col <- paste0("species1.q_value_", suffix)
+  q2_col <- paste0("species2.q_value_", suffix)
 
   required <- c(
-    "Species1", "Species2", "hog",
-    "Species1.effect.size", "Species2.effect.size",
+    "gene1", "gene2", "hog",
+    "species1.effect_size", "species2.effect_size",
     q1_col, q2_col
   )
   missing_cols <- setdiff(required, names(comparison))
@@ -491,13 +501,13 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   combine <- if (pval_combine == "min") pmin else pmax
   q_comb <- combine(comparison[[q1_col]], comparison[[q2_col]], na.rm = TRUE)
   q_comb[is.infinite(q_comb)] <- NA_real_
-  eff_geo <- sqrt(comparison$Species1.effect.size *
-                    comparison$Species2.effect.size)
+  eff_geo <- sqrt(comparison$species1.effect_size *
+                    comparison$species2.effect_size)
 
-  has_jaccard <- all(c("Species1.jaccard", "Species2.jaccard") %in%
+  has_jaccard <- all(c("species1.jaccard", "species2.jaccard") %in%
                        names(comparison))
   jacc_geo <- if (has_jaccard) {
-    sqrt(comparison$Species1.jaccard * comparison$Species2.jaccard)
+    sqrt(comparison$species1.jaccard * comparison$species2.jaccard)
   } else {
     rep(NA_real_, nrow(comparison))
   }
@@ -505,7 +515,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
   type_label <- if (alternative == "greater") "conserved" else "diverged"
   type <- ifelse(q_comb < alpha, type_label, "ns")
 
-  rank_frame <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+  rank_frame <- all(c("species1.auroc.grid", "species2.auroc.grid") %in%
                       names(comparison))
   if (!rank_frame && !is.null(p0)) {
     stop("p0 applies to rank-test frames (with *.auroc.grid columns); ",
@@ -515,7 +525,7 @@ comparison_to_edges <- function(comparison, sp1, sp2,
     stop("rho0 applies to hypergeometric frames; p0 sets the rank-test ",
          "power", call. = FALSE)
   }
-  if (!rank_frame && any(c("Species1.auroc", "Species2.auroc") %in%
+  if (!rank_frame && any(c("species1.auroc", "species2.auroc") %in%
                            names(comparison))) {
     # a rank-test frame without its grid (saved before the grid existed,
     # or flattened by write.csv()) would silently get NA power, which the
@@ -527,40 +537,92 @@ comparison_to_edges <- function(comparison, sp1, sp2,
       call. = FALSE
     )
   }
+  # The p-value behind each direction's q: hypergeometric, then the
+  # calibrated rank p, then the raw rank p. No p columns: NA scores.
+  p_cols <- list(
+    paste0(c("species1.", "species2."), "p_value_", suffix),
+    c("species1.p.emp", "species2.p.emp"),
+    c("species1.p_value", "species2.p_value")
+  )
+  p_cols <- Find(function(cl) all(cl %in% names(comparison)), p_cols)
+  sc <- if (is.null(p_cols)) {
+    na <- rep(NA_real_, nrow(comparison))
+    .edge_scores(na, na, combine)
+  } else {
+    .edge_scores(comparison[[p_cols[1L]]], comparison[[p_cols[2L]]], combine)
+  }
+  power <- if (rank_frame) {
+    .rank_power(comparison, alpha, pval_combine, p0)
+  } else {
+    .edge_power(comparison, alpha, alternative, pval_combine, rho0)
+  }
+  .edge_frame(comparison$gene1, comparison$gene2, comparison$hog, sc,
+              q_comb, eff_geo, power, species1, species2, jacc_geo, type)
+}
+
+
+#' Score and E-value from the two directional p-values
+#'
+#' The combined p is `combine(p1, p2)`, as for the q-values. `n_tests`
+#' counts the tested pairs of the direction with more tests.
+#'
+#' @param p1,p2 Directional p-values (`NA` = not tested).
+#' @param combine `pmax` or `pmin`.
+#' @return `list(p_value, n_tests, score, evalue)`.
+#' @noRd
+.edge_scores <- function(p1, p2, combine) {
+  p <- combine(p1, p2, na.rm = TRUE)
+  p[is.infinite(p)] <- NA_real_
+  n_tests <- max(sum(!is.na(p1)), sum(!is.na(p2)))
+  if (n_tests == 0L) n_tests <- NA_integer_
+  list(
+    p_value = p, n_tests = rep(n_tests, length(p)),
+    score = -log2(p), evalue = n_tests * p
+  )
+}
+
+
+#' Assemble an edge table in its fixed column order
+#'
+#' `gene1 gene2 hog score evalue q_value effect_size power`, then
+#' `species1 species2 p_value n_tests jaccard type`. Called with no
+#' arguments it returns the zero-row template.
+#'
+#' @param sc Output of `.edge_scores()`.
+#' @return Data frame.
+#' @noRd
+.edge_frame <- function(gene1 = character(0), gene2 = character(0),
+                        hog = character(0),
+                        sc = .edge_scores(numeric(0), numeric(0), pmax),
+                        q_value = numeric(0), effect_size = numeric(0),
+                        power = numeric(0), species1 = character(0),
+                        species2 = character(0), jaccard = numeric(0),
+                        type = character(0)) {
   data.frame(
-    gene1 = comparison$Species1,
-    gene2 = comparison$Species2,
-    species1 = sp1,
-    species2 = sp2,
-    hog = comparison$hog,
-    q.value = q_comb,
-    effect_size = eff_geo,
-    jaccard = jacc_geo,
-    power = if (rank_frame) {
-      .rank_power(comparison, alpha, pval_combine, p0)
-    } else {
-      .edge_power(comparison, alpha, alternative, pval_combine, rho0)
-    },
-    type = type
+    gene1 = gene1, gene2 = gene2, hog = hog,
+    score = sc$score, evalue = sc$evalue,
+    q_value = q_value, effect_size = effect_size, power = power,
+    species1 = species1, species2 = species2,
+    p_value = sc$p_value, n_tests = sc$n_tests,
+    jaccard = jaccard, type = type
   )
 }
 
 
 #' Find co-expressologs across all species pairs
 #'
-#' Runs the full comparison pipeline for each species pair and combines
-#' the results into a single edge data frame ready for
-#' \code{\link{find_cliques}}.
+#' Runs the comparison pipeline for each species pair. Combines the
+#' results into one edge table for [find_cliques()].
 #'
 #' @section Methods:
 #' \describe{
-#'   \item{analytical}{Fast path: pair-level Storey q-values via
-#'     \code{\link{summarize_comparison}}. Appropriate when most HOGs
+#'   \item{hypergeometric}{Fast path: pair-level Storey q-values via
+#'     \code{summarize_comparison()}. Appropriate when most HOGs
 #'     are single-copy.}
-#'   \item{rank}{Opt-in: \code{\link{compare_specificity}}
-#'     against shuffled-partner networks from \code{\link{null_network}}
+#'   \item{rank}{Opt-in: \code{compare_specificity()}
+#'     against shuffled-partner networks from [null_network()]
 #'     (argument \code{null_networks}), q-values via
-#'     \code{\link{summarize_specificity}}. The hypergeometric test counts
+#'     \code{summarize_specificity()}. The hypergeometric test counts
 #'     how many of gene A's translated partners are among ortholog B's
 #'     partners, against an urn of random draws. With small
 #'     neighbourhoods (top-25 lists) that urn let technically "sticky"
@@ -573,74 +635,52 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'     evidence. The q-value is read against a partner whose expression
 #'     was shuffled within each gene. \code{effect_size} is
 #'     \code{sqrt(auroc12 * auroc21)}; \code{power} is the rank-test
-#'     power of \code{\link{summarize_specificity}} at its default
+#'     power of \code{summarize_specificity()} at its default
 #'     reference rank.}
 #'   \item{permutation}{Rigorous path: gene-identity permutation via
-#'     \code{\link{permutation_hog_test}} with Besag-Clifford adaptive
+#'     \code{permutation_hog_test()} with Besag-Clifford adaptive
 #'     stopping and Liang discrete q-values. Required for multi-copy
 #'     HOGs where pair-level tests are correlated.}
 #' }
 #'
 #' @section Gene universe:
 #' Each network is built on all genes supplied to
-#' \code{\link{compute_network}} and the hypergeometric population is the
+#' [compute_network()] and the hypergeometric population is the
 #' whole network (Netotea et al. 2014). Canonical ComPlEx implementations
 #' restrict expression to ortholog genes before building the networks;
 #' that changes neighbourhoods and calls, so rcomplex matches them only
 #' when the expression matrices are restricted the same way beforehand
-#' (see \code{\link{compare_neighborhoods}}).
+#' (see \code{compare_neighborhoods()}).
 #'
-#' @param networks Named list of \code{\link{compute_network}} outputs,
+#' @param networks Named list of [compute_network()] outputs,
 #'   keyed by species abbreviation.
-#' @param orthologs Data frame with columns \code{Species1},
-#'   \code{Species2}, \code{hog} (from \code{\link{parse_orthologs}} or
-#'   \code{\link{extract_orthologs}}).
-#' @param species_pairs Optional list of length-2 character vectors
-#'   specifying which pairs to compare. Defaults to all
-#'   \code{combn(names(networks), 2)}.
-#' @param method Testing method: \code{"hypergeometric"} (default, fast;
-#'   \code{"analytical"} is accepted as its former name), \code{"rank"} or
+#' @param orthologs Data frame with columns \code{gene1},
+#'   \code{gene2}, \code{hog} (from [prepare_orthologs()]).
+#' @param method Testing method: \code{"hypergeometric"} (default, fast),
+#'   \code{"rank"} or
 #'   \code{"permutation"} (rigorous).
 #'   \code{"rank"} scores each ortholog pair with
-#'   \code{\link{compare_specificity}} and calibrates it against
-#'   \code{null_networks} via \code{\link{summarize_specificity}};
-#'   \code{filter_zero} does not apply and \code{rho0} is refused (use
-#'   \code{p0}); \code{power} is
-#'   the rank-test power (see \code{\link{summarize_specificity}}).
-#' @param alternative \code{"greater"} (conservation, default) or
-#'   \code{"less"} (divergence).
-#' @param alpha Significance threshold (default 0.1).
+#'   \code{compare_specificity()} and calibrates it against
+#'   \code{null_networks} via \code{summarize_specificity()};
+#'   \code{rho0} is refused; \code{power} is
+#'   the rank-test power (see \code{summarize_specificity()}).
 #' @param n_cores Number of threads (default 1).
 #' @param use_torch Logical. Use GPU-accelerated fold-enrichment
 #'   precomputation for permutation method (default \code{FALSE}).
-#' @param min_exceedances Besag-Clifford stopping parameter for
-#'   permutation method (default 50).
-#' @param max_permutations Maximum permutations for permutation method
-#'   (default 10000).
-#' @param pi0_method Hypergeometric and rank methods: how pi0 is
-#'   estimated for the pair-level Storey q-values, passed to
-#'   \code{\link{summarize_comparison}}: \code{"randomized"} (default),
-#'   \code{"storey"} or \code{"none"} (Benjamini-Hochberg). The default
-#'   draws; pass \code{seed} to pin those draws. Under
-#'   \code{"rank"}, \code{"randomized"} is read as
-#'   \code{"storey"}.
 #' @param filter_zero Analytical method only: passed to
-#'   \code{\link{summarize_comparison}}. \code{FALSE} (default) keeps
+#'   \code{summarize_comparison()}. \code{FALSE} (default) keeps
 #'   every tested ortholog pair, including those whose neighbourhood
 #'   overlap is zero in either direction, so a pair that could not have
 #'   been called still reaches the edge table carrying its \code{power}.
-#'   Those are exactly the low-degree failures the \code{power} column
-#'   exists to mark; dropping them hands the clique classifiers an
-#'   untested-looking gap instead of an underpowered one. \code{TRUE}
-#'   removes them before the q-values are computed, which is what
-#'   canonical ComPlEx does -- it shrinks the multiple-testing set, so
-#'   every q-value moves.
+#'   \code{TRUE} removes them before the q-values are computed, which is
+#'   what canonical ComPlEx does -- it shrinks the multiple-testing set, so
+#'   every q-value moves. Set by [coexpressolog_null()].
 #' @param seed Integer seed for the call's random draws, or \code{NULL}
 #'   (default) to draw from the global RNG. Seeding here makes the call
 #'   reproducible, and with it every downstream count thresholded on
-#'   \code{q.value}. The seed is applied once, for the whole species-pair
+#'   \code{q_value}. The seed is applied once, for the whole species-pair
 #'   loop, rather than being handed to each
-#'   \code{\link{summarize_comparison}} call: one seeded stream flows
+#'   \code{summarize_comparison()} call: one seeded stream flows
 #'   through the pairs in order, so each pair draws its own uniforms
 #'   instead of every pair reusing the same ones.
 #'
@@ -655,63 +695,46 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #'   A seeded call draws from a private stream and restores the caller's
 #'   on exit; with \code{seed = NULL} the draws come from the ambient
 #'   stream and leave it advanced. Same contract as
-#'   \code{\link{detect_modules}} and \code{\link{summarize_comparison}}.
+#'   \code{detect_modules} and \code{summarize_comparison()}.
 #' @param pval_combine Hypergeometric and rank methods: how the two
 #'   directional q-values are combined, passed to
-#'   \code{\link{comparison_to_edges}}:
+#'   \code{comparison_to_edges()}:
 #'   \code{"max"} (default; both directions significant -- the reciprocal
 #'   criterion of Netotea et al. (2014), the \code{Max.p.val} filter of
 #'   the original ComPlEx) or \code{"min"} (permissive; either direction,
-#'   denser edge supply for \code{\link{find_cliques}}).
-#' @param p0 Rank method only: reference raw p for the \code{power}
-#'   column, passed to \code{\link{summarize_specificity}}. \code{NULL}
-#'   (default) takes, per species pair and direction, the median raw p of
-#'   the pairs called and significant in that direction, so references
-#'   differ between species pairs; a single number puts every pair on one
-#'   reference, as \code{rho0} does for the hypergeometric power.
+#'   denser edge supply for \code{find_cliques}).
 #' @param rho0 Analytical method only: reference fold enrichment for
 #'   the \code{power} column, passed to
-#'   \code{\link{comparison_to_edges}} (default \code{NULL}, the median
+#'   \code{comparison_to_edges()} (default \code{NULL}, the median
 #'   effect size of the called pairs). The permutation path always
 #'   reports \code{power = NA}: its HOG-level q-value has no per-pair
 #'   call threshold to measure power against.
-#' @param out_file Optional path to a CSV file. When supplied, each
-#'   species pair's edge table is appended to \code{out_file} via
-#'   \code{\link[data.table]{fwrite}} as soon as it is computed, instead
-#'   of being accumulated in memory and combined with \code{rbind()} at
-#'   the end. This keeps peak memory bounded by one pair's edge table
-#'   rather than the whole run, which matters for many species / dense
-#'   networks. Any existing file at \code{out_file} is overwritten (not
-#'   appended to) at the start of the call. When \code{out_file} is
-#'   used, this function always creates \code{out_file} -- including a
-#'   header-only file when no species pair produces any edges -- and
-#'   returns \code{out_file} (invisibly) instead of a data frame; read
-#'   the result back with e.g. \code{data.table::fread(out_file)}.
-#'   Not supported on the \code{rcomplex} S3 method (see
-#'   \code{find_coexpressologs.rcomplex}), which stores the in-memory
-#'   edge table on \code{$edges}. Default \code{NULL} keeps the original
-#'   in-memory behaviour.
 #' @param null_networks Specificity method only (required there): named
-#'   list with one \code{\link{null_network}} object, or a list of them,
+#'   list with one [null_network()] object, or a list of them,
 #'   per species.
 #'
 #' @return Data frame with columns \code{gene1}, \code{gene2},
-#'   \code{species1}, \code{species2}, \code{hog}, \code{q.value},
-#'   \code{effect_size}, \code{jaccard}, \code{power}, \code{type}
+#'   \code{hog}, \code{score}, \code{evalue}, \code{q_value},
+#'   \code{effect_size}, \code{power}, \code{species1}, \code{species2},
+#'   \code{p_value}, \code{n_tests}, \code{jaccard}, \code{type}
 #'   (\code{power} is \code{NA} under \code{method = "permutation"}).
-#'   Ready for
-#'   \code{\link{find_cliques}} or \code{\link{classify_cliques}}. When
-#'   \code{out_file} is supplied, the edge table is streamed to that
-#'   file instead (always created, even when empty), and \code{out_file}
-#'   is returned (invisibly).
+#'   \code{score} is \code{-log2(p_value)} in bits. \code{evalue} is
+#'   \code{n_tests * p_value}, the expected number of chance hits this
+#'   strong. \code{p_value} combines the two directions like
+#'   \code{pval_combine}. \code{n_tests} counts the ortholog pairs tested
+#'   in that species pair. Ready for
+#'   \code{find_cliques} or \code{classify_cliques}.
+#'
+#' @details \code{score} and \code{evalue} are BLAST's bit score and
+#' E-value, related as \code{evalue = n_tests * 2^-score}. Under
+#' \code{method = "permutation"} the p-value is the HOG's, shared by its
+#' pairs, and it cannot fall below \code{1 / (n_perm + 1)}, so
+#' \code{score} has a ceiling there (see [pvalue_resolution()]).
 #'
 #' @examples
 #' \dontrun{
 #' # Fast analytical path; seed pins the randomized pi0 draws
 #' edges <- find_coexpressologs(networks, orthologs, seed = 1)
-#'
-#' # Canonical ComPlEx calls: reciprocal criterion (default) + plain BH
-#' edges <- find_coexpressologs(networks, orthologs, pi0_method = "none")
 #'
 #' # Permissive either-direction calls (denser clique input)
 #' edges <- find_coexpressologs(networks, orthologs, pval_combine = "min")
@@ -720,10 +743,6 @@ comparison_to_edges <- function(comparison, sp1, sp2,
 #' edges <- find_coexpressologs(networks, orthologs,
 #'   method = "permutation", use_torch = TRUE, n_cores = 4L
 #' )
-#'
-#' # Stream edges to disk instead of holding every pair in memory
-#' find_coexpressologs(networks, orthologs, out_file = "edges.csv")
-#' edges <- data.table::fread("edges.csv")
 #' }
 #'
 #' @param ... Additional arguments passed to the default method.
@@ -734,30 +753,21 @@ find_coexpressologs <- function(networks, ...) UseMethod("find_coexpressologs")
 #' @export
 find_coexpressologs.default <- function(
   networks, orthologs,
-  species_pairs = NULL,
   method = c("hypergeometric", "rank", "permutation"),
-  alternative = c("greater", "less"),
-  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
-  min_exceedances = 50L,
-  max_permutations = 10000L,
-  pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
   filter_zero = FALSE,
   seed = NULL,
-  out_file = NULL, rho0 = NULL, null_networks = NULL, p0 = NULL, ...
+  rho0 = NULL, null_networks = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
   }
-  method <- match.arg(.method_alias(method), eval(formals()$method))
-  alternative <- match.arg(alternative)
-  pi0_method <- match.arg(pi0_method)
+  method <- match.arg(method, eval(formals()$method))
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
-  .check_p0(p0)
-  .check_specificity_args(method, alternative, null_networks, p0, rho0)
+  .check_specificity_args(method, null_networks, rho0)
 
   # Seeded once here, not per pair: the loop below leaves seed at its
   # NULL default in every summarize_comparison() call, so the pairs draw
@@ -771,48 +781,17 @@ find_coexpressologs.default <- function(
   if (length(networks) < 2) {
     stop("networks must contain at least 2 species")
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+  if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: gene1, gene2, hog")
   }
 
-  if (is.null(species_pairs)) {
-    species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
-  }
-  nulls <- .check_null_networks(
-    null_networks, networks, unique(unlist(species_pairs))
-  )
+  species_pairs <- utils::combn(names(networks), 2, simplify = FALSE)
+  nulls <- .check_null_networks(null_networks, networks, names(networks))
 
-  streaming <- !is.null(out_file)
-  if (streaming) {
-    if (!is.character(out_file) || length(out_file) != 1L ||
-          is.na(out_file) || !nzchar(out_file)) {
-      stop("out_file must be a single non-empty file path")
-    }
-    # Overwrite, not append: a stale file from a previous run must not
-    # silently mix with this one's edges. Abort rather than proceed if
-    # the stale file cannot be removed -- fwrite(append = TRUE) would
-    # otherwise append this run's edges onto the old file's contents.
-    if (file.exists(out_file) &&
-          !suppressWarnings(file.remove(out_file))) {
-      stop("could not remove existing out_file: ", out_file)
-    }
-  }
+  empty_result <- .edge_frame()
 
-  empty_result <- data.frame(
-    gene1 = character(0), gene2 = character(0),
-    species1 = character(0), species2 = character(0),
-    hog = character(0), q.value = numeric(0),
-    effect_size = numeric(0), jaccard = numeric(0),
-    power = numeric(0), type = character(0)
-  )
-
-  type_label <- if (alternative == "greater") "conserved" else "diverged"
-  n_pairs <- length(species_pairs)
-  # Streaming mode never holds more than one pair's edge table at a time;
-  # non-streaming mode keeps the original in-memory accumulation.
-  pair_edges <- if (streaming) NULL else vector("list", n_pairs)
+  pair_edges <- vector("list", length(species_pairs))
   idx <- 0L
-  n_ok <- 0L
 
   for (pair in species_pairs) {
     sp_a <- pair[1]
@@ -829,8 +808,7 @@ find_coexpressologs.default <- function(
       edges_df <- tryCatch(
         .specificity_pair_edges(
           networks[[sp_a]], networks[[sp_b]], nulls[[sp_a]], nulls[[sp_b]],
-          orthologs, sp_a, sp_b, alpha, n_cores, pi0_method, pval_combine,
-          p0
+          orthologs, sp_a, sp_b, n_cores, pval_combine
         ),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
@@ -858,10 +836,7 @@ find_coexpressologs.default <- function(
         # is a failure the power column can explain, so it belongs in the
         # edge table rather than being dropped into a gap the classifiers
         # read as never tested.
-        summarize_comparison(comparison, alternative, alpha,
-          filter_zero = filter_zero,
-          pi0_method = pi0_method
-        ),
+        summarize_comparison(comparison, filter_zero = filter_zero),
         error = function(e) {
           warning(
             "Pair ", sp_a, "-", sp_b,
@@ -872,16 +847,13 @@ find_coexpressologs.default <- function(
       )
       if (is.null(summary_res) || nrow(summary_res$results) == 0) next
       edges_df <- comparison_to_edges(summary_res$results, sp_a, sp_b,
-        alternative, alpha,
         pval_combine = pval_combine, rho0 = rho0
       )
     } else if (method == "permutation") {
       # Permutation path: HOG-level permutation test
       hog_res <- tryCatch(
         permutation_hog_test(networks[[sp_a]], networks[[sp_b]],
-          comparison, alternative,
-          min_exceedances = min_exceedances,
-          max_permutations = max_permutations,
+          comparison,
           n_cores = n_cores,
           use_torch = use_torch
         ),
@@ -895,57 +867,28 @@ find_coexpressologs.default <- function(
       )
       if (is.null(hog_res) || nrow(hog_res) == 0) next
 
-      # Join HOG q-values onto pair-level comparison
-      hog_q <- stats::setNames(hog_res$q.value, hog_res$hog)
-      q_vals <- hog_q[comparison$hog]
-      eff <- sqrt(comparison$Species1.effect.size *
-                    comparison$Species2.effect.size)
-      jacc <- sqrt(comparison$Species1.jaccard *
-                     comparison$Species2.jaccard)
+      # Join HOG p- and q-values onto pair-level comparison; every pair
+      # of a HOG carries the HOG's p, so n_tests counts pairs
+      at <- match(comparison$hog, hog_res$hog)
+      q_vals <- hog_res$q_value[at]
+      p_vals <- hog_res$p_value[at]
+      eff <- sqrt(comparison$species1.effect_size *
+                    comparison$species2.effect_size)
+      jacc <- sqrt(comparison$species1.jaccard *
+                     comparison$species2.jaccard)
 
-      edges_df <- data.frame(
-        gene1 = comparison$Species1,
-        gene2 = comparison$Species2,
-        species1 = sp_a,
-        species2 = sp_b,
-        hog = comparison$hog,
-        q.value = as.numeric(q_vals),
-        effect_size = eff,
-        jaccard = jacc,
-        power = NA_real_,
-        type = ifelse(!is.na(q_vals) & q_vals < alpha,
-          type_label, "ns"
-        )
+      edges_df <- .edge_frame(
+        comparison$gene1, comparison$gene2, comparison$hog,
+        .edge_scores(p_vals, p_vals, pmax),
+        q_vals, eff, NA_real_, sp_a, sp_b, jacc,
+        ifelse(!is.na(q_vals) & q_vals < 0.1, "conserved", "ns")
       )
     }
 
-    n_ok <- n_ok + 1L
-    if (streaming) {
-      # Track the first successful write explicitly rather than relying
-      # on fwrite()'s own file-existence check: col.names is only wanted
-      # once, on the very first pair that produces edges, regardless of
-      # how many earlier pairs were skipped (empty comparison, failed
-      # test, etc.).
-      data.table::fwrite(edges_df, out_file,
-        append = TRUE, col.names = (n_ok == 1L),
-        nThread = n_cores
-      )
-    } else {
-      idx <- idx + 1L
-      pair_edges[[idx]] <- edges_df
-    }
+    idx <- idx + 1L
+    pair_edges[[idx]] <- edges_df
   }
 
-  if (streaming) {
-    if (n_ok == 0L) {
-      # Documented contract: out_file always exists and is always what
-      # this function returns, even when no pair produced any edges --
-      # write the header-only (empty) table rather than silently
-      # skipping file creation and returning a data frame instead.
-      data.table::fwrite(empty_result, out_file, nThread = n_cores)
-    }
-    return(invisible(out_file))
-  }
   if (idx == 0L) {
     return(empty_result)
   }
@@ -954,69 +897,49 @@ find_coexpressologs.default <- function(
 
 
 #' @rdname find_coexpressologs
-#' @export
+#' @keywords internal
 run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 
 
 #' Sweep density thresholds for robustness assessment
 #'
-#' Reruns the full pairwise comparison pipeline at multiple threshold
-#' multipliers to assess how sensitive conservation results are to the
-#' choice of density cutoff.
+#' Reruns the pairwise comparison at several threshold multipliers.
+#' Shows how sensitive the conservation results are to the density cutoff.
 #'
 #' For each multiplier, every network's threshold is scaled by
 #' \code{threshold * multiplier}, the effective density is recorded, and
-#' \code{\link{find_coexpressologs}} is called on the modified networks.
+#' [find_coexpressologs()] is called on the modified networks.
 #'
-#' @param networks Named list of \code{\link{compute_network}} outputs.
-#' @param orthologs Data frame with columns \code{Species1},
-#'   \code{Species2}, \code{hog}.
+#' @param networks Named list of [compute_network()] outputs.
+#' @param orthologs Data frame with columns \code{gene1},
+#'   \code{gene2}, \code{hog}.
 #' @param multipliers Numeric vector of threshold multipliers
 #'   (default \code{seq(0.95, 1.05, by = 0.01)}).
 #' @param method Comparison method passed to
-#'   \code{\link{find_coexpressologs}}: \code{"permutation"} (default),
-#'   \code{"hypergeometric"} (formerly \code{"analytical"}) or
-#'   \code{"rank"}.
-#' @param null_networks Passed to \code{\link{find_coexpressologs}}
-#'   (rank method only); every null's threshold is scaled by the
-#'   same multiplier as its species' network.
-#' @param alternative \code{"greater"} (conservation, default) or
-#'   \code{"less"} (divergence).
-#' @param alpha Significance threshold (default 0.1).
+#'   [find_coexpressologs()]: \code{"permutation"} (default),
+#'   \code{"hypergeometric"} or \code{"rank"}.
 #' @param n_cores Number of threads (default 1).
 #' @param use_torch Logical; GPU acceleration for permutation method
 #'   (default \code{FALSE}).
-#' @param min_exceedances Besag-Clifford parameter for permutation
-#'   method (default 50).
-#' @param max_permutations Maximum permutations (default 10000).
-#' @param species_pairs Optional list of length-2 character vectors
-#'   passed to \code{\link{find_coexpressologs}} at each threshold
-#'   level. Defaults to all pairwise combinations.
-#' @param pi0_method Passed to \code{\link{find_coexpressologs}} (used
-#'   by the hypergeometric and rank methods): \code{"randomized"}
-#'   (default), \code{"storey"} or \code{"none"}. The default draws; pass
-#'   \code{seed} to pin those draws.
-#' @param filter_zero Passed to \code{\link{find_coexpressologs}}:
-#'   whether zero-overlap ortholog pairs are dropped before the
-#'   analytical q-values are computed (default \code{FALSE}, keep them).
 #' @param seed Integer seed for the sweep's random draws, or \code{NULL}
 #'   (default) to draw from the global RNG. Applied once here, so the
 #'   whole sweep is one reproducible unit: the multipliers are visited in
-#'   order and each \code{\link{find_coexpressologs}} call continues the
+#'   order and each [find_coexpressologs()] call continues the
 #'   same stream, which keeps a level's draws independent of its
 #'   neighbours' while making the sweep as a whole repeatable. Because
 #'   nothing is drawn before the first multiplier, a sweep seeded with
 #'   \code{s} reproduces \code{find_coexpressologs(seed = s)} exactly at
-#'   its first level. See \code{\link{find_coexpressologs}} for what a
+#'   its first level. See [find_coexpressologs()] for what a
 #'   seed does and does not pin under each \code{method}.
-#' @param pval_combine Passed to \code{\link{find_coexpressologs}}:
+#' @param pval_combine Passed to [find_coexpressologs()]:
 #'   \code{"max"} (default) requires both directions to be significant
 #'   (the reciprocal criterion of Netotea et al. (2014)); \code{"min"}
 #'   calls a pair when either direction is significant.
-#' @param rho0 Passed to \code{\link{find_coexpressologs}}: reference
+#' @param rho0 Passed to [find_coexpressologs()]: reference
 #'   fold enrichment for the analytical \code{power} column.
-#' @param p0 Passed to \code{\link{find_coexpressologs}}: reference raw p
-#'   for the rank-test \code{power} column.
+#' @param null_networks Passed to [find_coexpressologs()]
+#'   (rank method only); every null's threshold is scaled by the
+#'   same multiplier as its species' network.
 #'
 #' @return A data frame with columns \code{multiplier},
 #'   \code{eff_density}, \code{n_significant}, \code{edges}
@@ -1024,8 +947,8 @@ run_pairwise_comparisons <- function(...) find_coexpressologs(...)
 #'   (list-column of named numeric vectors giving the effective
 #'   density per species at each threshold level).
 #'
-#' @seealso \code{\link{find_coexpressologs}},
-#'   \code{\link{clique_persistence}}
+#' @seealso [find_coexpressologs()],
+#'   \code{classify_cliques}
 #'
 #' @examples
 #' \dontrun{
@@ -1044,28 +967,18 @@ density_sweep.default <- function(
   networks, orthologs,
   multipliers = seq(0.95, 1.05, by = 0.01),
   method = c("permutation", "hypergeometric", "rank"),
-  alternative = c("greater", "less"),
-  alpha = 0.1,
   n_cores = 1L,
   use_torch = FALSE,
-  min_exceedances = 50L,
-  max_permutations = 10000L,
-  species_pairs = NULL,
-  pi0_method = c("randomized", "storey", "none"),
   pval_combine = c("max", "min"),
-  filter_zero = FALSE,
-  seed = NULL, rho0 = NULL, null_networks = NULL, p0 = NULL, ...
+  seed = NULL, rho0 = NULL, null_networks = NULL, ...
 ) {
   if ("f0" %in% ...names()) {
     stop("f0 was replaced by rho0 (reference fold enrichment) in 0.3.0")
   }
-  method <- match.arg(.method_alias(method), eval(formals()$method))
-  alternative <- match.arg(alternative)
-  pi0_method <- match.arg(pi0_method)
+  method <- match.arg(method, eval(formals()$method))
   pval_combine <- match.arg(pval_combine)
   .check_rho0(rho0)
-  .check_p0(p0)
-  .check_specificity_args(method, alternative, null_networks, p0, rho0)
+  .check_specificity_args(method, null_networks, rho0)
 
   # Seeded once for the whole sweep; the per-multiplier
   # find_coexpressologs() calls below leave seed at NULL and continue
@@ -1091,17 +1004,10 @@ density_sweep.default <- function(
   if (any(multipliers <= 0)) {
     stop("all multipliers must be positive")
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+  if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: gene1, gene2, hog")
   }
-  sweep_species <- if (is.null(species_pairs)) {
-    names(networks)
-  } else {
-    unique(unlist(species_pairs))
-  }
-  nulls <- .check_null_networks(null_networks, networks, sweep_species)
-
-  type_label <- if (alternative == "greater") "conserved" else "diverged"
+  nulls <- .check_null_networks(null_networks, networks, names(networks))
 
   n_mult <- length(multipliers)
   res_eff_density <- numeric(n_mult)
@@ -1109,13 +1015,7 @@ density_sweep.default <- function(
   res_edges <- vector("list", n_mult)
   res_species_densities <- vector("list", n_mult)
 
-  empty_edges <- data.frame(
-    gene1 = character(0), gene2 = character(0),
-    species1 = character(0), species2 = character(0),
-    hog = character(0), q.value = numeric(0),
-    effect_size = numeric(0), jaccard = numeric(0),
-    power = numeric(0), type = character(0)
-  )
+  empty_edges <- .edge_frame()
 
   for (i in seq_len(n_mult)) {
     m <- multipliers[i]
@@ -1146,15 +1046,10 @@ density_sweep.default <- function(
     edges_df <- tryCatch(
       find_coexpressologs(
         tight_nets, orthologs,
-        species_pairs = species_pairs,
-        method = method, alternative = alternative,
-        alpha = alpha, n_cores = n_cores,
+        method = method, n_cores = n_cores,
         use_torch = use_torch,
-        min_exceedances = min_exceedances,
-        max_permutations = max_permutations,
-        pi0_method = pi0_method,
-        pval_combine = pval_combine, filter_zero = filter_zero, rho0 = rho0,
-        null_networks = tight_nulls, p0 = p0
+        pval_combine = pval_combine, rho0 = rho0,
+        null_networks = tight_nulls
       ),
       error = function(e) {
         warning(
@@ -1169,7 +1064,7 @@ density_sweep.default <- function(
       edges_df <- empty_edges
       res_n_significant[i] <- 0L
     } else {
-      res_n_significant[i] <- sum(edges_df$type == type_label, na.rm = TRUE)
+      res_n_significant[i] <- sum(edges_df$type == "conserved", na.rm = TRUE)
     }
     res_edges[[i]] <- edges_df
   }
@@ -1185,30 +1080,28 @@ density_sweep.default <- function(
 }
 
 
+
 #' Query co-expression partners of a candidate HOG across species
 #'
 #' For a given HOG, finds which other HOGs co-express with it in each
 #' species network, then aggregates across species. Useful after
-#' \code{\link{identify_module_hubs}} and
-#' \code{\link{classify_hub_conservation}}
+#' [identify_module_hubs()] and
+#' [classify_hub_conservation()]
 #' to explore the co-expression neighborhood of a hub gene.
 #'
 #' @param candidate_hog Character string: the HOG ID to query (e.g.,
 #'   \code{"HOG42"}).
-#' @param networks Named list of \code{\link{compute_network}} outputs,
+#' @param networks Named list of [compute_network()] outputs,
 #'   keyed by species abbreviation.
-#' @param orthologs Data frame with columns \code{Species1},
-#'   \code{Species2}, \code{hog} (from \code{\link{parse_orthologs}} or
-#'   \code{\link{extract_orthologs}}).
-#' @param species Character vector of species to query (default: all in
-#'   \code{networks}).
-#' @param species_trait Optional named character vector mapping species to
-#'   trait labels (e.g., \code{c(SP_A = "annual", SP_B = "perennial")}).
-#'   Enables the \code{coexpressed_traits} output column.
+#' @param orthologs Data frame with columns \code{gene1},
+#'   \code{gene2}, \code{hog} (from [prepare_orthologs()]).
+#' @param clades Optional named list of species vectors, one per clade.
+#'   Clades may nest but must not cross. A species in no clade forms its
+#'   own clade. It enables the \code{coexpressed_traits} output column.
 #' @param min_species Minimum number of species where co-expression must
 #'   occur for a partner to be reported (default 2).
 #' @param edges Optional stacked edge data frame from
-#'   \code{\link{run_pairwise_comparisons}}. When provided, attaches
+#'   \code{run_pairwise_comparisons()}. When provided, attaches
 #'   conservation statistics for each partner HOG.
 #'
 #' @return A data frame with columns:
@@ -1216,9 +1109,9 @@ density_sweep.default <- function(
 #'     \item{partner_hog}{HOG ID of the co-expression partner}
 #'     \item{n_species}{Number of species where co-expression occurs}
 #'     \item{coexpressed_species}{Comma-separated species names}
-#'     \item{coexpressed_traits}{Comma-separated unique trait values of
-#'       those species (sorted); \code{NA} if \code{species_trait} is
-#'       \code{NULL}}
+#'     \item{coexpressed_traits}{Comma-separated top-level clades of
+#'       those species (sorted). A species in no clade gives its own name.
+#'       \code{NA} if \code{clades} is \code{NULL}.}
 #'     \item{mean_weight}{Mean co-expression weight across species. Per
 #'       species, the maximum over candidate-HOG copies of the mean edge
 #'       weight from a copy to the partner-HOG genes in that copy's own
@@ -1238,12 +1131,11 @@ density_sweep.default <- function(
 #'
 #' @examples
 #' \dontrun{
-#' trait <- c(
-#'   SP_A = "annual", SP_B = "annual",
-#'   SP_C = "perennial", SP_D = "perennial"
+#' clades <- list(
+#'   annual = c("SP_A", "SP_B"), perennial = c("SP_C", "SP_D")
 #' )
 #' partners <- get_coexpressed_hogs("HOG42", networks, orthologs,
-#'   species_trait = trait,
+#'   clades = clades,
 #'   min_species = 2L, edges = edges
 #' )
 #' # Annual-only partners
@@ -1252,8 +1144,7 @@ density_sweep.default <- function(
 #'
 #' @export
 get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
-                                 species = names(networks),
-                                 species_trait = NULL,
+                                 clades = NULL,
                                  min_species = 2L,
                                  edges = NULL) {
   # --- Input validation ---
@@ -1263,28 +1154,19 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
   if (!is.list(networks) || is.null(names(networks))) {
     stop("networks must be a named list keyed by species")
   }
-  if (!all(c("Species1", "Species2", "hog") %in% names(orthologs))) {
-    stop("orthologs must have columns: Species1, Species2, hog")
+  if (!all(c("gene1", "gene2", "hog") %in% names(orthologs))) {
+    stop("orthologs must have columns: gene1, gene2, hog")
   }
-  species <- as.character(species)
-  bad_sp <- setdiff(species, names(networks))
-  if (length(bad_sp) > 0L) {
-    stop("species not found in networks: ", paste(bad_sp, collapse = ", "))
-  }
+  species <- names(networks)
   min_species <- as.integer(min_species)
-  if (!is.null(species_trait)) {
-    missing_trait <- setdiff(species, names(species_trait))
-    if (length(missing_trait) > 0L) {
-      stop(
-        "species_trait missing entries for: ",
-        paste(missing_trait, collapse = ", ")
-      )
-    }
+  trait_of <- NULL
+  if (!is.null(clades)) {
+    trait_of <- .clade_groups(.check_clades(clades, species), species)
   }
 
-  # --- Build gene -> HOG lookup (stack both Species columns) ---
-  g1 <- orthologs[, c("Species1", "hog"), drop = FALSE]
-  g2 <- orthologs[, c("Species2", "hog"), drop = FALSE]
+  # --- Build gene -> HOG lookup (stack both gene columns) ---
+  g1 <- orthologs[, c("gene1", "hog"), drop = FALSE]
+  g2 <- orthologs[, c("gene2", "hog"), drop = FALSE]
   names(g1) <- c("gene", "hog")
   names(g2) <- c("gene", "hog")
   gene_hog_df <- unique(rbind(g1, g2))
@@ -1382,8 +1264,8 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
   agg <- do.call(rbind, lapply(names(partner_split), function(ph) {
     df <- partner_split[[ph]]
     sp_list <- sort(unique(df$species))
-    traits_val <- if (!is.null(species_trait)) {
-      paste(sort(unique(species_trait[sp_list])), collapse = ",")
+    traits_val <- if (!is.null(trait_of)) {
+      paste(sort(unique(trait_of[sp_list])), collapse = ",")
     } else {
       NA_character_
     }
@@ -1410,8 +1292,8 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
 
   # --- Optional edges join ---
   if (!is.null(edges)) {
-    if (!all(c("hog", "q.value", "effect_size", "type") %in% names(edges))) {
-      stop("edges must have columns: hog, q.value, effect_size, type")
+    if (!all(c("hog", "q_value", "effect_size", "type") %in% names(edges))) {
+      stop("edges must have columns: hog, q_value, effect_size, type")
     }
     # Summarize edges per HOG
     edge_by_hog <- split(edges, edges$hog)
@@ -1431,10 +1313,10 @@ get_coexpressed_hogs <- function(candidate_hog, networks, orthologs,
     }, numeric(1))
     partner_min_q <- vapply(agg$partner_hog, function(ph) {
       e <- edge_by_hog[[ph]]
-      if (is.null(e) || all(is.na(e$q.value))) {
+      if (is.null(e) || all(is.na(e$q_value))) {
         return(NA_real_)
       }
-      min(e$q.value, na.rm = TRUE)
+      min(e$q_value, na.rm = TRUE)
     }, numeric(1))
 
     agg$partner_conserved <- partner_conserved

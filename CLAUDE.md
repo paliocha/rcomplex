@@ -1,26 +1,38 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with code in this repository.
+Guidance for Claude Code in this repository. Keep sentences short.
 
-## Project Overview
+## Overview
 
-rcomplex is an R package for comparative co-expression network analysis across species. It maps orthologous genes (via ortholog groups / HOGs from OrthoFinder, FastOMA, PLAZA, etc.), builds co-expression networks independently per species, then tests conservation at four levels:
+rcomplex compares gene co-expression networks across species. It maps
+orthologous genes (hogs), builds one network per species, and tests
+conservation ([Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106);
+clique taxonomy from [Rodriguez *et al.*, 2026](https://doi.org/10.1038/s41467-026-75624-2)).
 
-- **Gene / HOG-level**: Hypergeometric tests with q-value correction (`compare_neighborhoods()` + `summarize_comparison()`), gene-identity permutation with adaptive stopping (`permutation_hog_test()`), batch orchestration (`find_coexpressologs()`, `density_sweep()`), degree-preserving edge-swap null (`coexpressolog_null()`)
-- **Module-level**: Community detection (Leiden / Infomap / SBM) with multi-resolution consensus, connectivity preservation testing (`module_preservation()` — permutation null on `avg.weight` + `cor.degree`) over paralog-resolved ortholog maps (`resolve_ortholog_map()`), module correspondence (`module_correspondence()`), module hubs + conservation. `as_modules()` builds the module map from any gene partition, so the preservation tests do not depend on `detect_modules()`, whose pre-0.3.2 CPM objective was unstable on 10-sample halves of the n = 20 leaf data (split-half ARI ~0; modularity 0.36; `dev/bench/modules_split_half.tsv`) and whose K = 1 test rejects on every noise data set under modularity (rewiring null; `dev/bench/k1_null_check.tsv`) -- replication, not the K = 1 test, is the evidence for a module. Since 0.3.2 CPM divides edge weights by their maximum before Leiden, so `resolution` is a density on [0, 1] and its default (`NULL`) is the graph's edge density for CPM (1 for modularity); before, raw MR weights (~n) made resolution 1 effectively 0 and CPM returned one module everywhere (design note `module-engine-borrow-scope.md` 10.6), so the CPM figures above predate the fix. The default objective is modularity since 0.3.2: on 20,000-gene leaf and wood data the fixed CPM replicated and conserved large modules equally and only added a tail of small non-conserved communities (design note 10.9); CPM stays an option.
-- **Clique-level**: two backends. The *species* graph (`find_cliques()` — C++ Bron-Kerbosch / Tomita plus a backtracker that picks one best gene assignment per species clique) carries leave-k-out jackknife stability for trait-exclusive cliques, persistence, threshold sweep, perturbation and intensity tests, and `classify_cliques()`. The per-HOG *gene* graph (`gene_clique_graph()`) enumerates every maximal clique, one per paralog combination, and feeds the six-tier taxonomy of `classify_gene_cliques()`
-- **Trait-level**: `preservation_matrix_test()` — relabelling null over an all-pairs preservation matrix (`all_species_pairs()` + `preservation_paired()`), reported under a free and a phylogeny-blocked null; `tag_permutation()` — recurrence of HOGs in diverged modules across designated contrasts. `pvalue_resolution()` reports how much resolution a finite label space leaves
+Start with the driver `rcomplex()`. It takes `expr` (or `networks`) and
+`orthologs`, and returns edges, cliques and a classification. `print()`
+shows `r_threshold` per species: the weakest correlation that passed the
+density threshold. `write_rcomplex()` writes the tables.
 
-Based on [Netotea *et al.*, 2014](https://doi.org/10.1186/1471-2164-15-106). The gene-graph clique taxonomy follows [Rodriguez *et al.*, 2026](https://doi.org/10.1038/s41467-026-75624-2).
+- Inputs: `read_orthologs()` reads the long table (`species`, `gene`,
+  `hog`). `as_network()` imports a network. `as_modules()` imports modules.
+- `clades`: named list of species vectors. It may nest, never cross.
+  `clades_from_tree()` derives it. A clique's home clade is the smallest
+  clade holding all its species.
+- `partition`: per-sample factor for per-level correlation. `block`: a
+  designed sample factor (time point, tree, zone). `sign`: `"positive"`
+  or `"negative"` correlation.
+- Edge `score` is `-log2(p)` in bits. `evalue` is the expected count of
+  pairs this strong by chance.
 
-## Repository status
-
-There is one open draft PR, `#4`
-(`experiment/clique-module-deployment`, "ZDS interpretation"): a large (133
-files, 61 commits) speculative branch that predates today's fixes, has
-diverged from `main`, and fails CI (including the pre-fix `covr` hang below).
-It has been deliberately set aside — do not merge, rebase, or otherwise act
-on it without being asked.
+The four levels:
+- **Gene / hog**: hypergeometric q-values (`find_coexpressologs()`,
+  `density_sweep()`), hog permutation, rank specificity, edge-swap null.
+- **Module**: `detect_modules()`, `module_preservation()`,
+  `preservation_paired()`, `module_correspondence()`, hubs.
+- **Clique**: `find_cliques()` (species graph), `gene_clique_graph()`
+  (gene graph), `classify_cliques()`, `classify_gene_cliques()`.
+- **Trait**: `preservation_matrix_test()` on an all-pairs matrix.
 
 ## Build & Test
 
@@ -28,124 +40,111 @@ on it without being asked.
 Rscript -e 'Rcpp::compileAttributes()'
 Rscript -e 'devtools::document()'
 R CMD INSTALL .
-Rscript -e 'devtools::test()'
+NOT_CRAN=true Rscript -e 'devtools::test()'
 Rscript -e 'lintr::lint_package()'
-R CMD build . && R CMD check --no-manual rcomplex_0.3.2.tar.gz   # expect "Status: OK"
+Rscript dev/sharpen-prose.R
+R CMD build . && R CMD check --no-manual rcomplex_0.4.0.tar.gz   # expect "Status: OK"
 ```
 
-Check the built tarball, not the source directory — `Authors@R` only expands at build time, so `R CMD check .` fails with "Author/Maintainer missing". `--no-manual` avoids needing pdflatex. The historical `R_ext/Boolean.h` warning no longer appears with clang 22. CI runs `lintr::lint_package()` with `LINTR_ERROR_ON_LINT` and there is no `.lintr` file, so any lint fails the build — keep lines at or under 80 characters.
+Check the built tarball, not the directory: `Authors@R` expands at build
+time. CI runs `lintr::lint_package()` with `LINTR_ERROR_ON_LINT` and there
+is no `.lintr` file, so keep lines at or under 80 characters. Only one
+`rcomplex` installs per library: use `R CMD INSTALL -l <lib> .` and
+`R_LIBS=<lib>`.
+
+## Surface budget
+
+Guard: `tests/testthat/test-surface.R`.
+- Exports: 31.
+- Named formals per export: 8 or fewer. Exceptions: `rcomplex()`,
+  `module_preservation()`, `find_coexpressologs()`, `density_sweep()`, the
+  matrix method of `compute_network()`.
+- Each `R/*.R` file: 1,500 lines or fewer. `README.md`: 150 or fewer.
+
+## Prose rules (STE-lite)
+
+Applies to everything a user reads: roxygen, README, quickstart, messages.
+- `@description`: 3 sentences at most. Rationale, literature and caveats
+  go to `@details`.
+- Sentences under 20 words. One action each. Active voice.
+- One term per concept: species, gene, hog, edge, clique, module, block,
+  partition, clade. Keep identifiers such as `lineage_specific`,
+  `trait_specific`, `trait_groups`.
+- Every error names the argument, says what it got, says what it needs.
+- Link exported functions as `[fn()]`. Write internals as `\code{fn()}`.
+- `Rscript dev/sharpen-prose.R` checks `R/*.R`, README and quickstart.
 
 ## Key Design Decisions
 
-### Sparse network object (dgCMatrix + store_density)
-`compute_network(sparse = TRUE)` (default since 0.2.0) stores a `dgCMatrix` with both triangles of entries at or above the `store_density` quantile (default `max(density, 0.05)`); the analysis `threshold` is still computed from the full dense MR, so dense and sparse results are identical. `.net_cpp_args()` / `.net_check()` in `R/network-sparse.R` are the single choke points: every consumer validates there, and a threshold below `store_threshold` errors (the sparse object cannot represent that density). Sub-store values are reconstructible exactly via `mr_block()`.
-
-### Blockwise network build (opt-in)
-`compute_network(block_size = b)` calls `mr_block_network_cpp()` (`src/network_block.cpp`) on the standardised expression (`.standardise_for_cor()`, so `crossprod(zt)` is the `Rfast::cora()` correlation) and never forms the n x n matrix. A single pass computes correlation blocks, ranks each column exactly (`src/rank_column.h`, self included, as the dense kernel does), and keeps per gene a list of (partner, rank) for partners in the top fraction f of that column (raw: `R >= n(1 - f)`; log: `R <= n f`), sorted by partner, 8 bytes an entry (ranks are multiples of 0.5, exact in a float up to n = 2^23). Raw MR: a pair is a candidate when each gene is on the other's list, found by binary search. Log MR: v >= T iff `R_ij * R_ji <= n^(2(1 - T))`, so a qualifying pair has min rank <= `n^(1 - T)` and a pair is a candidate when *either* gene is on the other's list; the lists are transposed into a reverse index (for each b, the genes a ranking b within the top f), and a second correlation pass ranks column b again and reads the other rank directly (a pair on both lists is kept once). Either way the MR is computed exactly as the dense kernel does, and the thresholds are selected over the candidates with the same `density_k()` (`src/density_k.h`) as `density_threshold_cpp()`. Validity rule: raw MR is `sqrt(R_ij * R_ji)` with both ranks at most n, so every pair with MR >= T has min rank >= T^2 / n; the candidate set is exact when `T^2 / n >= n(1 - f)` (log: `n^(1 - T) <= n f`), and otherwise the lists are rebuilt once at the fraction the provisional threshold implies (raw `1 - T^2 / n^2`, log `n^-T`; the provisional T is a lower bound on the true one, so one rebuild suffices), or 1.5x when there were too few candidates to select one, up to all pairs; `compute_network()` messages on any widening. f starts at `3 * store_density` for raw (0.15 at the default; BDIS leaf needed about 0.11) and `2 * store_density` for log (0.1; independent uniform ranks predict about 0.095 at store 0.05, and BDIS leaf passed at 0.1 for n = 5,000-20,000). The stored pairs come from one more sweep over the lists (raw) or the reverse index (log), which are then freed before the CSC slots are laid out. The result is `identical()` to the dense sparse build except at floating-point near-ties between correlations: dense uses `syrk`, blocks use `gemm`, and a last-bit difference can swap two ranks; with Spearman on few samples, rationally tied correlations are common, so differences can be many. At f = 1 the build saves nothing (a message says so); only a store_density of about 1/3 (raw) or 1/2 (log) or more gets there. Measured on BDIS leaf (20 samples, n = 20,000, 8 threads, `dev/bench/network_memory.tsv`): peak RSS 1.2 GB (`block_size = 256`) / 1.4 GB (1024) in 7.6 / 7.9 s, against 5.1 GB in 8.5 s dense, slots identical; log MR (`dev/bench/network_memory_log.tsv`, `block_size = 512`, f = 0.1) peaked at 1.7 GB in 9.2 s against 5.1 GB in 8.2 s, slots identical. On Orion (16 cores, `block_size = 512`, raw MR) the 52,452-gene HJUB root network peaked at 5.9 GB in 31 s against 32.8 GB in 66 s dense, with identical thresholds and entry counts (4 columns of near-tied correlations differ), and the 20,517-gene spruce wood network was bit-identical. The default stays dense; log MR has not been run on Orion.
-
-### Membership-only consumers
-Rewired null networks from `coexpressolog_null()` are binary (`threshold = 1`, `store_threshold = 1`): only membership-based consumers (neighborhood comparison, HOG permutation, adjacency extraction) are valid downstream — nothing that reads edge weights (density_sweep multipliers < 1, perturbation, module weights).
-
-### Self-excluded urn
-The anchor gene is never its own neighbour, so it leaves the ortholog-mapped set (k) and the hypergeometric population (N - 1) in `compare_neighborhoods()`, both permutation engines, and the torch FE matrix. O(1/N) p-value shift vs canonical ComPlEx; the reported `*.p.val.con` keeps the canonical `x > 1` gate.
-
-### One RNG seeding contract
-Every exported function that consumes randomness takes `seed = NULL` and routes it through `.seed_scope()` (`R/rng.R`). The rule: **the caller's stream advances by exactly what the function drew from it, and by nothing else.** `seed = NULL` draws from the ambient stream and leaves it advanced (as `sample()` does); a seed draws from a private stream and restores the caller's on exit, byte for byte, including removing `.Random.seed` when it did not exist before. This replaced three coexisting contracts in 0.3.0 — pinning the exit state at `set.seed(seed)` (which handed a downstream unseeded draw a stream decided by the *upstream* function's seed), restoring the ambient stream, and a bare `set.seed(seed)` with no restore. Batch wrappers (`find_coexpressologs()`, `density_sweep()`, `preservation_paired()`) seed once and pass `seed = NULL` down, so their inner calls draw in sequence instead of all reusing one set of uniforms. `mclapply()` forks never propagate `.Random.seed` to the parent, so core-count reproducibility comes from `.task_seed()`, not from the ambient stream. `tests/testthat/test-rng-contract.R` enforces this table-driven over every seeded entry point and fails if a new one appears without joining the table.
-
-### Randomized-p pi0 (pair level)
-Exact hypergeometric p-values pile up at 1 and force Storey's pi0 to 1. `summarize_comparison(pi0_method = "randomized")` (default) estimates pi0 on draws of `p.val.gt + U * p.val.eq` (exactly uniform under H0) and applies it to the exact p-values. `summarize_comparison()`, `find_coexpressologs()` and `density_sweep()` take `seed` (default `NULL`) to pin those draws under the contract above. HOG-level q-values stay `DiscreteQvalue::DQ(method = "Liang")` (Besag–Clifford p-values have discrete support).
-
-### Specificity score (pair level, opt-in)
-`find_coexpressologs(method = "rank")` / `density_sweep()` score each ortholog pair with `compare_specificity()` (kernel `src/specificity.cpp`). For anchor i, the set T is i's network neighbours mapped to species 2 through every ortholog copy, minus the species-2 genes of i's own HOG (so a pair cannot score itself through its paralogs). Every species-2 gene j gets the AUROC of T in j's co-expression ranking; the p-value is `(1 + #{j != ortholog : AUROC_j >= AUROC_ortholog}) / n2`, the ortholog's rank among all species-2 genes (Suresh et al. 2023). Ranks come from the sparse store: stored top entries of a column are ranked exactly, unstored ones tie at the bottom at their mid-rank, so dense networks are converted with every nonzero stored. The raw ranks are not calibrated: `summarize_specificity()` makes them empirical against the same comparison run on `null_network()` partners (samples permuted within each gene), pooled over pairs, then Storey q-values (qvalue, BH fallback; `pi0_method = "randomized"` is read as `"storey"`). No discrete correction: every test of one direction shares the one `1/n2` support, so Liang (DiscreteQvalue) gains nothing and Döhler-Durand-Roquain, which exploits heterogeneous supports such as the hypergeometric's, has nothing to exploit. Edge `effect_size` is `sqrt(auroc12 * auroc21)`; `filter_zero` has no effect and `rho0` is refused (`p0` is its rank-test counterpart, refused on the other methods). Edge `power` comes from an AUROC grid the kernel records per anchor (the AUROC an ortholog needs for raw p 1e-5 to 1): `Phi((G(p0) - G(p_cut)) / se)`, with G(p_cut) the AUROC needed for the direction's largest called raw p, G(p0) the AUROC at the reference rank `p0` (default, per direction, the median raw p of pairs called and significant in that direction) and se the Hanley-McNeil error over the translated set. The reference is a rank, not an AUROC, on purpose: a fixed reference AUROC inverted the power, because anchors whose candidates all score high both need and reach high AUROCs. Validated against cross-tissue positives (design note 11.15): it orders detectability but overstates rates, so gate rank edges at `min_power = 0.9`. Why it exists: calibration by construction and a rank for every paralog copy. It is not a fix for false calls at density 0.03: there the hypergeometric made about 1 call in 28,000 against a shuffled-expression null network on the n = 20 leaf data and called about twice as many pairs as the rank test at q < 0.1 (design note 11.12). The 25 % false-call rate in note 11.9 belongs to a top-25 neighbour-list hypergeometric, not to `compare_neighborhoods()`. `"hypergeometric"` (formerly `"analytical"`, still accepted) stays the default and is kept for canonical ComPlEx equivalence; the default flips only after Orion validation.
-
-### pval_combine default "max"
-`comparison_to_edges()` / `summarize_comparison()` / `find_coexpressologs()` / `density_sweep()` combine directional q-values with `pmax` by default: both directions must be significant (reciprocal criterion of Netotea et al. 2014, the `Max.p.val` filter). `"min"` is the permissive either-direction option (pre-0.2.0 behaviour).
-
-### Column-major memory access
-Armadillo stores matrices column-major. All hot loops use `colptr()` for sequential reads. ~3x speedup on MR normalization and neighbor list extraction. MR normalization runs in place on the correlation matrix (`mutual_rank_inplace_cpp()`), holding the `compute_network()` peak transient at ~1.5 n^2 doubles.
-
-### Integer indices in C++, string mapping in R
-Homebrew clang ABI issue with `std::unordered_map<std::string, ...>`. All C++ uses integer indices; R wrappers handle string-to-int mapping. The codebase also avoids `std::unordered_map` entirely — uses sorted vectors + binary search instead.
-
-### HOG-level testing uses permutation, not Fisher's method
-Fisher's method is anti-conservative for multi-copy HOGs (correlated tests). `permutation_hog_test()` permutes gene identities instead.
-
-### Module-level testing measures connectivity, not membership
-Gene overlap called a module conserved whenever its membership survived, even when the wiring inside it was gone. `module_preservation()` permutes gene identities with the edges held fixed and tests `avg.weight` (module density) and `cor.degree` (Pearson correlation of intramodular connectivity), combined with `pmax` so both must be significant. `pmax` is valid for that intersection-union null but was measured ~400x conservative, so the combined p-value is first recalibrated against the permutation joint null of the two statistics (`p.calibrated`, argument `calibrate`) and q-values are Benjamini-Hochberg on that; `classify_preservation()` reads its cut point against `Zsummary_std`, which has unit null variance, not raw `Zsummary`. `resolve_ortholog_map()` may only choose *which* paralog copy carries a label, never which genes are **mappable** — but it can still change which genes are **tested**, by rescuing genes whose candidate labels would otherwise tie in the majority vote. The circularity defence therefore rests on the `p_copy` columns of `sensitivity`, a null over random copy choices holding the projected gene set fixed, not on the mappable-set invariant.
-
-### Two clique backends, because they answer different questions
-`find_cliques()` cliques the *species* graph — nodes are species, edges are species pairs joined by a co-expressolog — and the C++ backtracker returns **one** best gene assignment per species clique (fewest missing edges first, then the lowest composite cost `cost_weights["q"] * mean_q - cost_weights["effect"] * mean_effect`, whose `c(q = 1, effect = 0)` default is mean-q only). That single-object-per-clique shape is what `clique_stability()`, `clique_persistence()`, `clique_threshold_sweep()` and `clique_perturbation_test()` need: each asks what happens to *a* clique under resampling. It cannot say which paralog combinations form cliques, because it reports one. `gene_clique_graph()` cliques the per-HOG *gene* graph instead — nodes are (species, gene) pairs, edges are the co-expressolog calls — and enumerates every maximal clique, so a multi-copy HOG contributes each combination separately. That is what the published taxonomy needs. Because co-expressolog edges are cross-species, a clique normally carries at most one gene per species; `n_species` records this rather than assuming it, so a caller who supplies within-species edges sees `n_species < n_members` instead of silently wrong species-pair arithmetic. `classify_gene_cliques()` then runs a six-tier waterfall (`complete_conserved`, `lineage_specific`, `partial_significant`, `partial_present`, `differentiated`, `trait_specific`, else `unclassified`; `underpowered` takes the place of `lineage_specific`, `trait_specific` or `differentiated`), first match wins, with every threshold derived from `length(species)` — e.g. `partial_significant` tolerates `S - 2` non-significant edges, the largest tolerance under which no member can be isolated. A clique maximal on the strict graph need not be maximal on a looser one, so the intended use is to combine `gene_clique_graph()` runs at several `alpha_graph` values under distinct `id_prefix` values. The tiers separate absent evidence from negative evidence: `missing_reason` is `absent` / `untested` / `tested_ns` / `underpowered` / `extendable`, which is why `classify_gene_cliques()` takes the **unfiltered** edge table — a gap tier has to see the rows that were tested and failed in order to refuse them. `trait_specific` is rcomplex's addition to the published five: one lineage's complete clique with at least one outside species compared against every member and rejected at adequate power, no outside species underpowered, and no complete clique of another lineage in the HOG. `lineage_specific` is the same clique when the outside species are absent or untested. On the Pooideae design the other trait group is always present and tested, so without this tier the gene graph found 0 of the 297 root / 384 leaf trait-specific HOGs the species graph finds. A failed test is negative evidence only if it could have succeeded: hypergeometric power rises with degree, so `comparison_to_edges()` writes a per-edge `power` (probability of a call had the pair's partners been shared at the reference fold enrichment `rho0`, the median effect size of called pairs; `NA` on the permutation path) and both classifiers read it through `min_power`. The rule is that a specificity or divergence call must survive treating every underpowered edge as possibly conserved. The two classifiers report a failure of that rule differently: `classify_gene_cliques()` uses `underpowered` as a tier, replacing `lineage_specific` or `differentiated`, while `classify_cliques()` keeps its `differentiated` / `trait_specific` call and sets an `underpowered` flag column beside it, so the call is qualified rather than thrown away. Under the fold-enrichment alternative power rises with degree, so the flag marks low-degree genes whose neighbourhoods are too small for ordinary conservation to be visible (most of the lowest degree decile on the Pooideae data, none of the highest). An underpowered missing species is still a gap for `partial_present`, which only refuses rejected species. `NA` power, or no `power` column, is the old behaviour.
-
-### Trait-level testing is all-pairs preservation, not HOG recurrence
-Two trait-level tests with different units. `tag_permutation()` asks whether HOGs recur in *diverged* modules across designated contrasts; its null swaps the two trait labels within each contrast, so the label space is the product over connected components of the species/contrast graph (`R/tag_blocks.R`) — `2^k` for a disjoint pairing, the special case rather than the assumption — and `2^-4 = 0.0625` means a design with fewer than five independent contrast groups cannot reach p < 0.05 however strong the signal. `preservation_matrix_test()` drops the recurrence requirement: it reads `Zsummary_std` from every `choose(n, 2)` contrast of an all-pairs `preservation_paired()` run, and the unit is the module-direction, not the HOG. The statistic is `mean(Zsummary_std | concordant) - mean(Zsummary_std | discordant)` for two trait levels (one-sided upward, positive meaning discordant pairs are the less preserved), and for more levels the row-weighted between-class SD of the class means, with concordant rows pooled so the binary case is exactly the difference. Running *all* pairs is what buys the resolution: eight species split 4/4 give `choose(8, 4) = 70` free labellings against the 16 a within-genus null over four genera of two can reach. Both nulls are reported — `p_free` over all species, `p_blocked` within `block` — because their agreement is the phylogenetic-control diagnostic: a free p-value far below the blocked one bought its resolution by breaking phylogenetic control. Within-block pairs are excluded by default, since in a paired design every within-genus pair is trait-discordant and every concordant pair is between-genus, so trait status and phylogenetic distance are perfectly confounded and the confound runs *against* the hypothesis; the exclusion is by block membership, which no relabelling changes, so the null stays valid. The statistic never reads `p.value` or `q.value`.
-
-### Permutation p-values saturate by design
-A relabelling p-value cannot go below the tail of the maximum of a **finite** label space, and that space is a property of the species set, not of how long the analysis runs. Relabellings that leave every pair's concordance alone reproduce the statistic exactly — swapping the two trait values everywhere is one — so a binary design always carries at least a twofold tie at the top: `p_attainable` is 2/70 = 0.029 free on eight species split 4/4 and 2/16 = 0.125 inside four blocks of two, and no amount of sampling lowers either. `preservation_matrix_test()` reports `p_min`, `p_attainable`, `n_tied_max` and `exact` per null and warns when the binding floor exceeds 0.05; a null whose space exceeds `enum_max` is sampled and then reports its floor over draws (`1 / (n_perm + 1)`), which can sit far below the floor the design really imposes — only `exact = TRUE` bounds the design. Downstream q-values collapse the same way: on the eight-species Pooideae run, 511 module-directions took 172 distinct q-values with 35 tied at the floor of 0.00071 and 20 at exactly 1, and among those 35 `Zsummary_std` spanned 6.4 to 66.7 — a tenfold range of effect the q-value cannot see. `preservation_paired()` also corrects BH *within* each contrast, which under-corrects an all-pairs matrix by roughly the number of contrasts, and a global BH could not put any module below `n_tests / (n_perm + 1)` (0.26 for 511 tests at `n_perm = 2000`); pass `n_perm_pres` and `$saturation$q_floor_global` reports that number. `pvalue_resolution()` exists to report this resolution wherever a p-value is reported. Rank on `Zsummary_std`, which is standardised to unit null variance; reserve p and q for the significance call.
-
-### Iterative consensus module detection
-Multi-resolution Leiden sweep + iterative consensus per Jeub et al. (2018). Per-pair null subtraction: E(i,j) = (1/K) sum_k (s_m(i)/N)(s_m(j)/N), not a scalar mean. Iterates co-classification → Leiden sweep on consensus graph until all resolutions converge (ARI > 0.999).
-
-### Build system
-- `Makevars` / `Makevars.win`: C++23, `$(SHLIB_OPENMP_CXXFLAGS)` for portable OpenMP
-- RcppArmadillo in `LinkingTo` only (NOT `Imports`)
-- `-DARMA_DONT_USE_OPENMP` in both Makevars: Armadillo's *internal* OpenMP deadlocks `mclapply()` workers forked after the parent used OpenMP (see Known CI/tooling gotchas). Package kernels parallelise with their own `#pragma omp`, which the flag does not touch
+- **Sparse network.** `compute_network(sparse = TRUE)` stores a
+  `dgCMatrix` at the `store_density` quantile; `threshold` still comes
+  from the dense MR. `.net_check()` in `R/network-sparse.R` is the one
+  choke point; a threshold below `store_threshold` errors. `mr_block()`
+  rebuilds sub-store values.
+- **Blockwise build (opt-in).** `block_size = b` never forms the n x n
+  matrix (`src/network_block.cpp`). It keeps top-fraction candidates per
+  column and widens the fraction when it is not exact. The result matches
+  the dense build except at floating-point near-ties. Default stays dense.
+- **Membership-only consumers.** Null networks from `coexpressolog_null()`
+  are binary. Nothing that reads edge weights is valid on them.
+- **Self-excluded urn.** The anchor gene leaves the mapped set and the
+  population in `compare_neighborhoods()` and both permutation engines.
+- **One RNG contract.** Every function that draws random numbers takes
+  `seed = NULL` and uses `.seed_scope()` (`R/rng.R`). The caller's stream
+  advances by what the function drew, and by nothing else. Forks use
+  `.task_seed()`. `test-rng-contract.R` fails on a missing entry point.
+- **Randomized-p pi0.** Exact hypergeometric p-values pile up at 1.
+  `pi0_method = "randomized"` (default) estimates pi0 on
+  `p.val.gt + U * p.val.eq`. Hog q-values use `DiscreteQvalue::DQ`.
+- **Specificity score (opt-in).** `method = "rank"` uses
+  `compare_specificity()` (`src/specificity.cpp`) and calibrates against
+  `null_network()` partners. Gate rank edges at `min_power = 0.9`.
+  `"hypergeometric"` stays the default for ComPlEx equivalence.
+- **`pval_combine = "max"`.** Both directions must be significant
+  (Netotea *et al.* 2014). `"min"` is the either-direction option.
+- **Column-major, integer indices.** Hot loops use `colptr()`. C++ uses
+  integer indices and sorted vectors, never `std::unordered_map` with
+  string keys (Homebrew clang ABI). R maps strings to integers.
+- **Hog permutation, not Fisher's method.** Fisher is anti-conservative
+  for multi-copy hogs. `permutation_hog_test()` permutes gene identities.
+- **Modules: connectivity, not membership.** `module_preservation()`
+  permutes gene identities with edges fixed and tests `avg.weight` and
+  `cor.degree` with `pmax`. The `pmax` p-value is recalibrated against the
+  joint null (`p_calibrated`). `classify_preservation()` cuts on
+  `Zsummary_std`. `resolve_ortholog_map()` picks the paralog copy.
+- **Two clique backends.** `find_cliques()` returns one gene assignment
+  per species clique; stability and sweeps need that. `gene_clique_graph()`
+  returns every maximal clique, one per paralog combination.
+  `classify_gene_cliques()` runs a tier waterfall with thresholds from
+  `length(species)`; `clades` and home clades set the specificity and
+  divergence tiers. It takes the unfiltered edge table, because a failed
+  test is negative evidence only if it had `power`.
+- **Trait level.** `preservation_matrix_test()` reads `Zsummary_std` from
+  every contrast of `all_species_pairs()`. It reports `p_free` and
+  `p_blocked`; their gap shows phylogenetic confounding.
+- **P-values saturate.** A relabelling p-value cannot go below the tail
+  of a finite label space. Read `p_attainable` and `pvalue_resolution()`.
+  Rank on `Zsummary_std`; keep p and q for the call.
+- **Consensus modules.** `detect_modules()` is Leiden only, with an
+  iterative multi-resolution consensus (Jeub *et al.* 2018). Default
+  objective: modularity. Few samples give modules that do not replicate.
+- **Build.** C++23, `$(SHLIB_OPENMP_CXXFLAGS)`, RcppArmadillo in
+  `LinkingTo` only, `-DARMA_DONT_USE_OPENMP` (Armadillo's OpenMP
+  deadlocks forked workers).
 
 ## Design notes
 
-`dev/design-notes/` holds research/handoff documents for work that has been
-investigated but not yet implemented. `network-sparsification-plan.md`
-(2026-09-15) is the operative plan for automatic network sparsification:
-gated work packages T1-T6, where T1-T3 must reach a go/no-go decision before
-any package code changes. `mdl-engine.md` is the earlier MDL literature
-review it supersedes, kept as historical research rather than a
-specification. The directory deliberately lives under `dev/`, not `docs/`:
-`docs/` is pkgdown's GitHub Pages output directory (see `.Rbuildignore`'s
-`^docs$`), and `pkgdown::build_site_github_pages()` refuses to touch a
-non-empty `docs/` that it did not itself build.
-
-`prepare_data/` is gitignored and exists only in the maintainer's checkout.
-`prepare_data/convert_to_se.R` is the one-time script that converted the
-Pooideae long-format `vst_hog.RDS` into the per-species SummarizedExperiment
-objects in `prepare_data/data/`. It is not part of the package.
+`dev/design-notes/` holds plans and research. The operative plan is
+`sharpen-plan.md`.
 
 ## Known CI/tooling gotchas
 
 - **Forked workers must not enter OpenMP with more than one thread.**
-  On Linux, libgomp is not fork-safe: once the parent has run an OpenMP
-  region with `n_cores > 1`, a `mclapply()` worker that enters another
-  OpenMP region blocks for good (macOS LLVM libomp survives, so it never
-  reproduces locally). Package kernels guard their pragmas with
-  `if(n_cores > 1)` and workers pass `n_cores = 1`; Armadillo's own
-  internal OpenMP is disabled with `ARMA_DONT_USE_OPENMP` for the same
-  reason (it hung `detect_modules()`'s K = 1 workers inside
-  `arma::eigs_sym()`). Only C/C++ CI (`cpp-check.yml`, plain
-  `testthat::test_local()`) reaches the `n_cores = 3` determinism test --
-  R-CMD-check's `--as-cran` makes it skip via `_R_CHECK_LIMIT_CORES_` and
-  covr disables forking -- so the `n_cores = 2` regression test next to it
-  is the one R-CMD-check runs. Both workflows carry `timeout-minutes: 30`.
-- **Accelerate BLAS is not fork-safe (macOS).** With R linked to Apple's
-  vecLib, a forked worker that calls into BLAS after the parent ran a
-  threaded BLAS call can segfault. The only fork site whose workers do is
-  the K = 1 test (`sparse_excess_spectral_norm_cpp()` -> `arma::eigs_sym()` /
-  `eig_sym()`); it now forks only when `.blas_fork_safe()` (`R/rng.R`) says
-  so (not Accelerate, or `VECLIB_MAXIMUM_THREADS=1` set before R starts --
-  Accelerate reads it once; the value is snapshotted in `.onLoad()`). It
-  only knows Accelerate: `TRUE` means "not known to crash", not a
-  guarantee for MKL or other BLAS builds. A new fork site whose workers
-  call BLAS must check it too. Falling back to serial prints a one-time
-  notice. Every fork site passes its results through
-  `.check_fork_results()`, which turns failed tasks and crashed workers
-  (`mclapply()` returns `NULL` with only a warning) into a clear error.
-- **`mclapply()` forking deadlocks under `covr` coverage instrumentation.**
-  `covr::package_coverage()` compiles the package with gcov instrumentation;
-  forking under gcov is a documented deadlock (a forked child can inherit a
-  coverage-counter file lock the parent held at fork time and never release
-  it — r-lib/covr#322), not a bug in the forked code itself. `.can_fork()`
-  in `R/rng.R` returns `FALSE` whenever `Sys.getenv("R_COVR") == "true"`
-  (the same signal `covr::in_covr()` uses), and every `mclapply()` call site
-  (`coexpressolog_null()`, and `detect_modules()`'s two sweeps plus its
-  batched significance loop in `R/modules.R`) is gated on it. A new fork
-  call site must route through `.can_fork()` too, or it will reintroduce
-  the hang under `.github/workflows/test-coverage.yml` (which also carries
-  a `timeout-minutes: 30` safety net now, so a regression fails fast
-  instead of burning hours).
+  Linux libgomp is not fork-safe; macOS libomp survives, so it never
+  reproduces locally. Kernels guard pragmas with `if(n_cores > 1)` and
+  workers pass `n_cores = 1`.
+- **`mclapply()` deadlocks under `covr`** (r-lib/covr#322). `.can_fork()`
+  in `R/rng.R` returns `FALSE` when `R_COVR == "true"`. Every
+  `mclapply()` site must call `.can_fork()` and pass its results through
+  `.check_fork_results()`.
+- Workflows carry `timeout-minutes: 30`, so a hang fails fast.

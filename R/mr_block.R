@@ -8,18 +8,19 @@
 
 #' Reconstruct mutual-rank values for a gene subset
 #'
-#' Computes the exact Mutual Rank co-expression values for a subset of
-#' genes from the expression matrix, using the network's stored parameters
-#' (`cor_method`, `abs_cor`, `mr_log_transform`). A sparse network
-#' (`compute_network(sparse = TRUE)`) discards values below its
-#' `store_threshold`; this function reconstructs them (for heatmaps or
-#' other visualisations of, say, a module) without rebuilding the dense
-#' n x n matrix: \eqn{MR_{ij} = \sqrt{R_{ij} R_{ji}}} only needs the
+#' Computes the exact mutual rank values for a subset of genes. Uses the
+#' stored parameters of the network (`cor_method`, `sign`,
+#' `mr_log_transform`). Recovers values that a sparse network discards.
+#'
+#' A sparse network (`compute_network(sparse = TRUE)`) discards values
+#' below its `store_threshold`. This function reconstructs them, for
+#' example for a module heatmap, without rebuilding the dense n x n
+#' matrix. The value \eqn{MR_{ij} = \sqrt{R_{ij} R_{ji}}} only needs the
 #' correlations of genes i and j ranked over all n network genes, so a
 #' k x n correlation slice suffices.
 #'
 #' The gene universe is `rownames(net$network)`: `x` is subset to those
-#' rows first (the `min_var` filter was already applied when the network
+#' rows first (the constant-gene filter was already applied when the network
 #' was built), and ranks span exactly the network genes. Pass the same
 #' expression matrix that built the network; the reconstructed block then
 #' matches the dense `compute_network(sparse = FALSE)` matrix.
@@ -33,7 +34,7 @@
 #'
 #' @param x Expression matrix (genes x samples) the network was built
 #'   from. Must contain every network gene as a row; extra rows (e.g.
-#'   genes removed by the `min_var` filter) are ignored.
+#'   genes removed as constant) are ignored.
 #' @param genes Character vector of gene identifiers (no duplicates), all
 #'   present in `rownames(net$network)`.
 #' @param net Network object from [compute_network()] (sparse or dense)
@@ -51,7 +52,7 @@
 #' heatmap(blk)
 #' }
 #'
-#' @export
+#' @keywords internal
 mr_block <- function(x, genes, net) {
   universe <- rownames(net$network)
   if (is.null(universe)) {
@@ -68,6 +69,12 @@ mr_block <- function(x, genes, net) {
     stop(
       "mr_block() requires a network built with norm_method = \"MR\"; ",
       "got \"", params$norm_method, "\""
+    )
+  }
+  if (!is.null(params$partition)) {
+    stop(
+      "mr_block() cannot rebuild a network built with partition; ",
+      "use compute_network(sparse = FALSE) instead"
     )
   }
   if (!is.character(genes) || length(genes) == 0L) {
@@ -87,19 +94,22 @@ mr_block <- function(x, genes, net) {
     stop("x must contain every network gene as a row")
   }
 
-  # Same gene universe as the network (min_var filter already applied
+  # Same gene universe as the network (constant-gene filter already applied
   # there); ranks below must span exactly the n network genes.
   x <- x[universe, , drop = FALSE]
   n <- length(universe)
 
   # k x n correlation slice: genes vs the full universe (self included,
-  # as in the full matrix). Clamp and abs as mutual_rank_inplace_cpp().
+  # as in the full matrix). Clamp and negate as mutual_rank_inplace_cpp().
   cm <- stats::cor(t(x[genes, , drop = FALSE]), t(x),
     method = params$cor_method
   )
   cm <- pmin(pmax(cm, -1), 1) # cm first: pmin/pmax keep its dim
-  if (isTRUE(params$abs_cor)) {
-    cm <- abs(cm)
+  if (identical(params$sign, "negative")) {
+    # negate all but each gene's correlation with itself
+    self <- cbind(seq_along(genes), match(genes, universe))
+    cm <- -cm
+    cm[self] <- -cm[self]
   }
 
   # Row i = average ranks of gene i's correlations over all n network

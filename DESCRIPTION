@@ -1,13 +1,13 @@
 Package: rcomplex
 Title: Comparative Co-Expression Network Analysis Across Species
-Version: 0.3.2.9000
+Version: 0.4.0
 Authors@R:
     person("Martin", "Paliocha", , "martin.paliocha@nmbu.no", role = c("aut", "cre"))
 Description: Compares gene co-expression networks across species by mapping
     orthologous genes, building co-expression networks independently per species,
     then testing conservation at gene, module, and clique levels. Includes
     hypergeometric and permutation-based neighborhood tests, multi-resolution
-    consensus module detection (Leiden / Infomap / SBM), clique detection via
+    consensus module detection (Leiden), clique detection via
     Bron-Kerbosch decomposition with leave-k-out jackknife stability analysis,
     and HOG conservation classification.
     Based on Netotea et al. (2014) <doi:10.1186/1471-2164-15-106>.
@@ -23,7 +23,6 @@ Imports:
     collapse,
     data.table,
     igraph,
-    kit,
     Matrix (>= 1.5-0),
     DiscreteQvalue,
     qvalue,
@@ -39,13 +38,13 @@ URL: https://paliocha.github.io/rcomplex/,
     https://github.com/paliocha/rcomplex
 BugReports: https://github.com/paliocha/rcomplex/issues
 Suggests:
+    ape,
     DT,
     dplyr,
     knitr,
     purrr (>= 1.0.0),
     rmarkdown,
     S4Vectors,
-    sbm,
     stringr,
     SummarizedExperiment,
     tibble (>= 3.1.0),
@@ -54,6 +53,6 @@ Suggests:
     lintr,
     withr,
     pkgdown
-VignetteBuilder: knitr
 Config/testthat/edition: 3
+VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.0

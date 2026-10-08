@@ -1,4 +1,4 @@
-# Tests for permutation_hog_test()
+# Tests for rcomplex:::permutation_hog_test()
 
 # Helper: build test networks with a clearly conserved HOG (HOG1)
 # and a clearly non-conserved HOG (HOG_NC)
@@ -36,13 +36,13 @@ make_test_nets <- function() {
 
   # Orthologs: 1:1 for genes 1-8 and 14-15
   orthologs <- data.frame(
-    Species1 = paste0("A", c(1:8, 14, 15)),
-    Species2 = paste0("B", c(1:8, 14, 15)),
+    gene1 = paste0("A", c(1:8, 14, 15)),
+    gene2 = paste0("B", c(1:8, 14, 15)),
     hog = c(rep("HOG1", 3), paste0("HOG", 2:6), "HOG_NC", "HOG_NC"),
     stringsAsFactors = FALSE
   )
 
-  comparison <- compare_neighborhoods(net1, net2, orthologs)
+  comparison <- rcomplex:::compare_neighborhoods(net1, net2, orthologs)
   list(net1 = net1, net2 = net2, comparison = comparison)
 }
 
@@ -50,7 +50,7 @@ make_test_nets <- function() {
 test_that("permutation_hog_test returns correct structure", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
@@ -59,7 +59,7 @@ test_that("permutation_hog_test returns correct structure", {
   expect_named(result, c(
     "hog", "n_pairs", "n_sp1", "n_sp2",
     "T_obs", "n_perm", "n_exceed", "mean_eff",
-    "p.value", "q.value"
+    "p_value", "q_value"
   ))
   n_hogs <- length(unique(td$comparison$hog))
   expect_equal(nrow(result), n_hogs)
@@ -69,7 +69,7 @@ test_that("permutation_hog_test returns correct structure", {
 test_that("conserved HOG has smaller p-value than non-conserved", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 2000L, min_exceedances = 50L
   )
@@ -78,7 +78,7 @@ test_that("conserved HOG has smaller p-value than non-conserved", {
   hog_nc <- result[result$hog == "HOG_NC", ]
 
   # HOG1 (conserved) should have much smaller p-value
-  expect_true(hog1$p.value < hog_nc$p.value)
+  expect_true(hog1$p_value < hog_nc$p_value)
   # HOG1 should have higher observed statistic
   expect_true(hog1$T_obs > hog_nc$T_obs)
   # Non-conserved HOG with zero overlap should have T_obs = 0
@@ -89,7 +89,7 @@ test_that("conserved HOG has smaller p-value than non-conserved", {
 test_that("adaptive stopping terminates early for clearly null HOGs", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 5000L, min_exceedances = 20L
   )
@@ -108,14 +108,14 @@ test_that("adaptive stopping terminates early for clearly null HOGs", {
 test_that("p-value formula is (n_exceed + 1) / (n_perm + 1)", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 100L, min_exceedances = 50L
   )
 
   for (i in seq_len(nrow(result))) {
     expected_p <- (result$n_exceed[i] + 1) / (result$n_perm[i] + 1)
-    expect_equal(result$p.value[i], expected_p, tolerance = 1e-10)
+    expect_equal(result$p_value[i], expected_p, tolerance = 1e-10)
   }
 })
 
@@ -123,12 +123,12 @@ test_that("p-value formula is (n_exceed + 1) / (n_perm + 1)", {
 test_that("q-values are computed", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
 
-  expect_true(all(result$q.value >= 0 & result$q.value <= 1))
+  expect_true(all(result$q_value >= 0 & result$q_value <= 1))
 })
 
 
@@ -136,12 +136,12 @@ test_that("alternative='less' tests divergence", {
   td <- make_test_nets()
   set.seed(42)
 
-  result_con <- permutation_hog_test(
+  result_con <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     alternative = "greater",
     max_permutations = 500L, min_exceedances = 20L
   )
-  result_div <- permutation_hog_test(
+  result_div <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     alternative = "less",
     max_permutations = 500L, min_exceedances = 20L
@@ -151,7 +151,7 @@ test_that("alternative='less' tests divergence", {
   hog1_div <- result_div[result_div$hog == "HOG1", ]
 
   # Conserved HOG should be significant for conservation, not divergence
-  expect_true(hog1_con$p.value < hog1_div$p.value)
+  expect_true(hog1_con$p_value < hog1_div$p_value)
 
   # Non-conserved HOG with T_obs=0: under "less", T_obs=0 is extreme
   # divergence — permutations must actually run (not be short-circuited)
@@ -164,12 +164,12 @@ test_that("empty comparison handled gracefully", {
   td <- make_test_nets()
   empty <- td$comparison[0, ]
 
-  result <- permutation_hog_test(td$net1, td$net2, empty)
+  result <- rcomplex:::permutation_hog_test(td$net1, td$net2, empty)
   expect_equal(nrow(result), 0)
   expect_named(result, c(
     "hog", "n_pairs", "n_sp1", "n_sp2",
     "T_obs", "n_perm", "n_exceed", "mean_eff",
-    "p.value", "q.value"
+    "p_value", "q_value"
   ))
 })
 
@@ -180,7 +180,7 @@ test_that("single-pair HOG works", {
                             paste0("HOG", 2:6), ]
 
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, single,
     max_permutations = 200L, min_exceedances = 10L
   )
@@ -194,7 +194,7 @@ test_that("single-pair HOG works", {
 test_that("n_sp1 and n_sp2 reflect unique gene counts", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 100L, min_exceedances = 10L
   )
@@ -214,12 +214,12 @@ test_that("n_sp1 and n_sp2 reflect unique gene counts", {
 test_that("results are ordered by p-value", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
 
-  expect_true(all(diff(result$p.value) >= 0))
+  expect_true(all(diff(result$p_value) >= 0))
 })
 
 
@@ -227,15 +227,15 @@ test_that("input validation works", {
   td <- make_test_nets()
 
   expect_error(
-    permutation_hog_test("not_a_net", td$net2, td$comparison),
+    rcomplex:::permutation_hog_test("not_a_net", td$net2, td$comparison),
     "net1 must be a network object"
   )
   expect_error(
-    permutation_hog_test(td$net1, "not_a_net", td$comparison),
+    rcomplex:::permutation_hog_test(td$net1, "not_a_net", td$comparison),
     "net2 must be a network object"
   )
   expect_error(
-    permutation_hog_test(td$net1, td$net2, data.frame(x = 1)),
+    rcomplex:::permutation_hog_test(td$net1, td$net2, data.frame(x = 1)),
     "comparison missing required columns"
   )
 })
@@ -244,15 +244,15 @@ test_that("input validation works", {
 test_that("effect sizes are computed correctly", {
   td <- make_test_nets()
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 100L, min_exceedances = 10L
   )
 
   hog1_rows <- td$comparison$hog == "HOG1"
   expected_eff <- mean(sqrt(
-    td$comparison$Species1.effect.size[hog1_rows] *
-      td$comparison$Species2.effect.size[hog1_rows]
+    td$comparison$species1.effect_size[hog1_rows] *
+      td$comparison$species2.effect_size[hog1_rows]
   ))
   hog1 <- result[result$hog == "HOG1", ]
   expect_equal(hog1$mean_eff, expected_eff, tolerance = 1e-10)
@@ -268,7 +268,7 @@ test_that("use_torch errors when torch not installed", {
   )
   td <- make_test_nets()
   expect_error(
-    permutation_hog_test(td$net1, td$net2, td$comparison,
+    rcomplex:::permutation_hog_test(td$net1, td$net2, td$comparison,
       use_torch = TRUE
     ),
     "requires the torch package"
@@ -291,12 +291,12 @@ test_that("torch backend T_obs matches bit-vector backend", {
   td <- make_test_nets()
 
   set.seed(42)
-  result_bv <- permutation_hog_test(
+  result_bv <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 100L, min_exceedances = 10L
   )
   set.seed(42)
-  result_fe <- permutation_hog_test(
+  result_fe <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 100L, min_exceedances = 10L,
     use_torch = TRUE
@@ -326,7 +326,7 @@ test_that("torch backend conserved vs non-conserved HOGs", {
   td <- make_test_nets()
 
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 2000L, min_exceedances = 50L,
     use_torch = TRUE
@@ -335,7 +335,7 @@ test_that("torch backend conserved vs non-conserved HOGs", {
   hog1 <- result[result$hog == "HOG1", ]
   hog_nc <- result[result$hog == "HOG_NC", ]
 
-  expect_true(hog1$p.value < hog_nc$p.value)
+  expect_true(hog1$p_value < hog_nc$p_value)
   expect_true(hog1$T_obs > hog_nc$T_obs)
   expect_equal(hog_nc$T_obs, 0)
 })
@@ -356,7 +356,7 @@ test_that("torch backend p-value formula is correct", {
   td <- make_test_nets()
 
   set.seed(42)
-  result <- permutation_hog_test(
+  result <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 100L, min_exceedances = 50L,
     use_torch = TRUE
@@ -364,7 +364,7 @@ test_that("torch backend p-value formula is correct", {
 
   for (i in seq_len(nrow(result))) {
     expected_p <- (result$n_exceed[i] + 1) / (result$n_perm[i] + 1)
-    expect_equal(result$p.value[i], expected_p, tolerance = 1e-10)
+    expect_equal(result$p_value[i], expected_p, tolerance = 1e-10)
   }
 })
 
@@ -377,12 +377,12 @@ test_that("sparse permutation_hog_test equals dense (seeded)", {
   net2_s <- sparse_net(td$net2)
 
   set.seed(42)
-  res_d <- permutation_hog_test(
+  res_d <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
   set.seed(42)
-  res_s <- permutation_hog_test(
+  res_s <- rcomplex:::permutation_hog_test(
     net1_s, net2_s, td$comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
@@ -390,13 +390,13 @@ test_that("sparse permutation_hog_test equals dense (seeded)", {
 
   # divergence direction too
   set.seed(7)
-  res_d <- permutation_hog_test(
+  res_d <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     alternative = "less",
     max_permutations = 200L, min_exceedances = 10L
   )
   set.seed(7)
-  res_s <- permutation_hog_test(
+  res_s <- rcomplex:::permutation_hog_test(
     net1_s, net2_s, td$comparison,
     alternative = "less",
     max_permutations = 200L, min_exceedances = 10L
@@ -410,7 +410,7 @@ test_that("sparse permutation_hog_test with tighter threshold equals dense", {
   # analysis threshold 8 keeps tier 10 and drops the stored tier 7, so
   # T_obs > 0 for the conserved hub HOG is structural, not seed-dependent
   td <- make_graded_nets()
-  comparison <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  comparison <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
   thr <- 8
   net1_s <- modifyList(sparse_net(td$net1), list(threshold = thr))
   net2_s <- modifyList(sparse_net(td$net2), list(threshold = thr))
@@ -421,12 +421,12 @@ test_that("sparse permutation_hog_test with tighter threshold equals dense", {
   expect_lt(sum(net1_s$network@x >= thr), length(net1_s$network@x))
 
   set.seed(11)
-  res_d <- permutation_hog_test(
+  res_d <- rcomplex:::permutation_hog_test(
     net1_d, net2_d, comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
   set.seed(11)
-  res_s <- permutation_hog_test(
+  res_s <- rcomplex:::permutation_hog_test(
     net1_s, net2_s, comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
@@ -446,12 +446,14 @@ test_that("permutation_hog_test rejects non-dgCMatrix Matrix classes", {
   ))
   expect_s4_class(net1_bad$network, "dsCMatrix")
   expect_error(
-    permutation_hog_test(net1_bad, sparse_net(td$net2), td$comparison),
-    "network must be a dgCMatrix"
+    rcomplex:::permutation_hog_test(net1_bad, sparse_net(td$net2),
+                                    td$comparison),
+    "must be a dgCMatrix"
   )
   expect_error(
-    permutation_hog_test(sparse_net(td$net1), net1_bad, td$comparison),
-    "network must be a dgCMatrix"
+    rcomplex:::permutation_hog_test(sparse_net(td$net1), net1_bad,
+                                    td$comparison),
+    "must be a dgCMatrix"
   )
 })
 
@@ -473,12 +475,12 @@ test_that("torch backend accepts sparse networks and matches dense", {
   net2_s <- sparse_net(td$net2)
 
   set.seed(42)
-  res_d <- permutation_hog_test(
+  res_d <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 100L, min_exceedances = 10L, use_torch = TRUE
   )
   set.seed(42)
-  res_s <- permutation_hog_test(
+  res_s <- rcomplex:::permutation_hog_test(
     net1_s, net2_s, td$comparison,
     max_permutations = 100L, min_exceedances = 10L, use_torch = TRUE
   )
@@ -523,11 +525,13 @@ test_that(".adj_edges gives identical edges for dense and sparse input", {
 test_that("permutation_hog_test rejects mixed dense/sparse inputs", {
   td <- make_test_nets()
   expect_error(
-    permutation_hog_test(sparse_net(td$net1), td$net2, td$comparison),
+    rcomplex:::permutation_hog_test(sparse_net(td$net1), td$net2,
+                                    td$comparison),
     "both dense or both sparse"
   )
   expect_error(
-    permutation_hog_test(td$net1, sparse_net(td$net2), td$comparison),
+    rcomplex:::permutation_hog_test(td$net1, sparse_net(td$net2),
+                                    td$comparison),
     "both dense or both sparse"
   )
 })
@@ -546,7 +550,7 @@ test_that("torch backend with tighter threshold: sparse equals dense", {
     "torch backend (Lantern) not available"
   )
   td <- make_graded_nets()
-  comparison <- compare_neighborhoods(td$net1, td$net2, td$ortho)
+  comparison <- rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho)
   thr <- 8
   net1_s <- modifyList(sparse_net(td$net1), list(threshold = thr))
   net2_s <- modifyList(sparse_net(td$net2), list(threshold = thr))
@@ -554,17 +558,17 @@ test_that("torch backend with tighter threshold: sparse equals dense", {
   net2_d <- modifyList(td$net2, list(threshold = thr))
 
   set.seed(11)
-  res_d <- permutation_hog_test(
+  res_d <- rcomplex:::permutation_hog_test(
     net1_d, net2_d, comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
   set.seed(11)
-  res_td <- permutation_hog_test(
+  res_td <- rcomplex:::permutation_hog_test(
     net1_d, net2_d, comparison,
     max_permutations = 200L, min_exceedances = 10L, use_torch = TRUE
   )
   set.seed(11)
-  res_ts <- permutation_hog_test(
+  res_ts <- rcomplex:::permutation_hog_test(
     net1_s, net2_s, comparison,
     max_permutations = 200L, min_exceedances = 10L, use_torch = TRUE
   )
@@ -586,32 +590,32 @@ test_that("T_obs uses the self-excluded urn and matches the R oracle", {
   # is itself ortholog-reachable from a HOG-mate's neighbours and must
   # leave the reachable set; the population is N - 1 in both directions.
   td <- make_self_excluded_nets()
-  sp1 <- paste0("A", 1:3)
-  sp2 <- paste0("B", 1:3)
+  species1 <- paste0("A", 1:3)
+  species2 <- paste0("B", 1:3)
 
   set.seed(3)
-  res <- permutation_hog_test(td$net1, td$net2, td$comparison,
+  res <- rcomplex:::permutation_hog_test(td$net1, td$net2, td$comparison,
     max_permutations = 50L, min_exceedances = 5L
   )
   t_hog1 <- res$T_obs[res$hog == "HOG1"]
   expected <- reference_T_obs(
     td$net1$network, td$net2$network, 0.5, 0.5,
-    td$ortho, sp1, sp2
+    td$ortho, species1, species2
   )
   expect_equal(t_hog1, expected, tolerance = 1e-12)
 
   # the exclusion is exercised: the pre-0.2.0 urn (k, N) gives a
   # different statistic
   old <- reference_T_obs(td$net1$network, td$net2$network, 0.5, 0.5,
-    td$ortho, sp1, sp2,
+    td$ortho, species1, species2,
     self_exclude = FALSE
   )
   expect_false(isTRUE(all.equal(t_hog1, old)))
 
   # sparse path identical
   set.seed(3)
-  res_s <- permutation_hog_test(sparse_net(td$net1), sparse_net(td$net2),
-    td$comparison,
+  res_s <- rcomplex:::permutation_hog_test(
+    sparse_net(td$net1), sparse_net(td$net2), td$comparison,
     max_permutations = 50L, min_exceedances = 5L
   )
   expect_equal(res_s, res)
@@ -632,12 +636,12 @@ test_that("forced flag-vector engine equals bit-vector engine (seeded)", {
   td <- make_test_nets()
 
   set.seed(42)
-  res_bv <- permutation_hog_test(
+  res_bv <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 500L, min_exceedances = 20L
   )
   set.seed(7)
-  res_bv_less <- permutation_hog_test(
+  res_bv_less <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     alternative = "less",
     max_permutations = 500L, min_exceedances = 20L
@@ -646,7 +650,7 @@ test_that("forced flag-vector engine equals bit-vector engine (seeded)", {
   withr::local_options(rcomplex.force_flag_vector = TRUE)
   set.seed(42)
   msgs <- capture.output(
-    res_fl <- permutation_hog_test(
+    res_fl <- rcomplex:::permutation_hog_test(
       td$net1, td$net2, td$comparison,
       max_permutations = 500L, min_exceedances = 20L
     ),
@@ -658,7 +662,7 @@ test_that("forced flag-vector engine equals bit-vector engine (seeded)", {
   # divergence direction too
   set.seed(7)
   msgs <- capture.output(
-    res_fl_less <- permutation_hog_test(
+    res_fl_less <- rcomplex:::permutation_hog_test(
       td$net1, td$net2, td$comparison,
       alternative = "less",
       max_permutations = 500L, min_exceedances = 20L
@@ -681,7 +685,7 @@ test_that("forced flag-vector T_obs matches the self-excluded R oracle", {
   withr::local_options(rcomplex.force_flag_vector = TRUE)
   set.seed(3)
   msgs <- capture.output(
-    res <- permutation_hog_test(td$net1, td$net2, td$comparison,
+    res <- rcomplex:::permutation_hog_test(td$net1, td$net2, td$comparison,
       max_permutations = 50L,
       min_exceedances = 5L
     ),
@@ -714,7 +718,7 @@ test_that("forced flag-vector mode: sparse equals dense (seeded)", {
   withr::local_options(rcomplex.force_flag_vector = TRUE)
   set.seed(42)
   msgs_d <- capture.output(
-    res_d <- permutation_hog_test(
+    res_d <- rcomplex:::permutation_hog_test(
       td$net1, td$net2, td$comparison,
       max_permutations = 200L, min_exceedances = 10L
     ),
@@ -722,7 +726,7 @@ test_that("forced flag-vector mode: sparse equals dense (seeded)", {
   )
   set.seed(42)
   msgs_s <- capture.output(
-    res_s <- permutation_hog_test(
+    res_s <- rcomplex:::permutation_hog_test(
       net1_s, net2_s, td$comparison,
       max_permutations = 200L, min_exceedances = 10L
     ),
@@ -741,7 +745,7 @@ test_that("forced flag-vector engine: n_cores = 2 matches serial T_obs", {
   withr::local_options(rcomplex.force_flag_vector = TRUE)
   set.seed(42)
   msgs_1 <- capture.output(
-    res_1 <- permutation_hog_test(
+    res_1 <- rcomplex:::permutation_hog_test(
       td$net1, td$net2, td$comparison,
       max_permutations = 200L, min_exceedances = 10L, n_cores = 1L
     ),
@@ -749,7 +753,7 @@ test_that("forced flag-vector engine: n_cores = 2 matches serial T_obs", {
   )
   set.seed(42)
   msgs_2 <- capture.output(
-    res_2 <- permutation_hog_test(
+    res_2 <- rcomplex:::permutation_hog_test(
       td$net1, td$net2, td$comparison,
       max_permutations = 200L, min_exceedances = 10L, n_cores = 2L
     ),
@@ -769,7 +773,7 @@ test_that("option set to FALSE keeps the bit-vector path unchanged", {
   td <- make_test_nets()
 
   set.seed(42)
-  res_plain <- permutation_hog_test(
+  res_plain <- rcomplex:::permutation_hog_test(
     td$net1, td$net2, td$comparison,
     max_permutations = 200L, min_exceedances = 10L
   )
@@ -777,7 +781,7 @@ test_that("option set to FALSE keeps the bit-vector path unchanged", {
   withr::local_options(rcomplex.force_flag_vector = FALSE)
   set.seed(42)
   msgs <- capture.output(
-    res_false <- permutation_hog_test(
+    res_false <- rcomplex:::permutation_hog_test(
       td$net1, td$net2, td$comparison,
       max_permutations = 200L, min_exceedances = 10L
     ),

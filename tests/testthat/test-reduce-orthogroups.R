@@ -11,8 +11,8 @@ test_that("identical paralogs are merged", {
     G4 = rnorm(5)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2"),
-    Species2 = c("X1", "X2"),
+    gene1 = c("G1", "G2"),
+    gene2 = c("X1", "X2"),
     hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
@@ -40,8 +40,8 @@ test_that("uncorrelated paralogs are kept separate", {
     G3 = rnorm(10)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2"),
-    Species2 = c("X1", "X2"),
+    gene1 = c("G1", "G2"),
+    gene2 = c("X1", "X2"),
     hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
@@ -61,8 +61,8 @@ test_that("non-HOG genes are preserved", {
     SOLO = c(5, 6, 7)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2"),
-    Species2 = c("X1", "X2"),
+    gene1 = c("G1", "G2"),
+    gene2 = c("X1", "X2"),
     hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
@@ -82,8 +82,8 @@ test_that("zero-variance genes are kept as singletons", {
     G3 = c(1, 2, 3, 4)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2", "G3"),
-    Species2 = c("X1", "X2", "X3"),
+    gene1 = c("G1", "G2", "G3"),
+    gene2 = c("X1", "X2", "X3"),
     hog = c(1L, 1L, 1L),
     stringsAsFactors = FALSE
   )
@@ -103,8 +103,8 @@ test_that("merged genes have averaged expression", {
     G2 = c(4.0, 8.0, 12.0)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2"),
-    Species2 = c("X1", "X2"),
+    gene1 = c("G1", "G2"),
+    gene2 = c("X1", "X2"),
     hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
@@ -127,8 +127,8 @@ test_that("multiple HOGs are processed independently", {
     B2 = base2 + rnorm(10, sd = 0.01) # nearly identical to B1
   )
   orthologs <- data.frame(
-    Species1 = c("A1", "A2", "B1", "B2"),
-    Species2 = c("X1", "X2", "Y1", "Y2"),
+    gene1 = c("A1", "A2", "B1", "B2"),
+    gene2 = c("X1", "X2", "Y1", "Y2"),
     hog = c(1L, 1L, 2L, 2L),
     stringsAsFactors = FALSE
   )
@@ -146,8 +146,8 @@ test_that("cor_threshold = 1.0 merges nothing", {
     G2 = c(2, 4, 6) # perfectly correlated but different scale
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2"),
-    Species2 = c("X1", "X2"),
+    gene1 = c("G1", "G2"),
+    gene2 = c("X1", "X2"),
     hog = c(1L, 1L),
     stringsAsFactors = FALSE
   )
@@ -158,20 +158,20 @@ test_that("cor_threshold = 1.0 merges nothing", {
 })
 
 
-test_that("gene_col parameter works for Species2", {
+test_that("gene_col parameter works for gene2", {
   expr <- rbind(
     X1 = c(1, 2, 3),
     X2 = c(1, 2, 3),
     X3 = c(4, 5, 6)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2", "G3"),
-    Species2 = c("X1", "X2", "X3"),
+    gene1 = c("G1", "G2", "G3"),
+    gene2 = c("X1", "X2", "X3"),
     hog = c(1L, 1L, 2L),
     stringsAsFactors = FALSE
   )
 
-  result <- reduce_orthogroups(expr, orthologs, gene_col = "Species2")
+  result <- reduce_orthogroups(expr, orthologs, gene_col = "gene2")
 
   expect_equal(result$n_merged, 1L)
   expect_equal(result$n_reduced, 2L)
@@ -184,8 +184,8 @@ test_that("single-gene HOGs are passed through", {
     G2 = c(4, 5, 6)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2"),
-    Species2 = c("X1", "X2"),
+    gene1 = c("G1", "G2"),
+    gene2 = c("X1", "X2"),
     hog = c(1L, 2L),
     stringsAsFactors = FALSE
   )
@@ -204,8 +204,8 @@ test_that("gene_map covers all original genes", {
     G4 = rnorm(5), G5 = rnorm(5)
   )
   orthologs <- data.frame(
-    Species1 = c("G1", "G2", "G3"),
-    Species2 = c("X1", "X2", "X3"),
+    gene1 = c("G1", "G2", "G3"),
+    gene2 = c("X1", "X2", "X3"),
     hog = c(1L, 1L, 2L),
     stringsAsFactors = FALSE
   )
@@ -219,7 +219,7 @@ test_that("gene_map covers all original genes", {
 test_that("input validation works", {
   expr <- rbind(G1 = c(1, 2, 3))
   ortho <- data.frame(
-    Species1 = "G1", Species2 = "X1", hog = 1L,
+    gene1 = "G1", gene2 = "X1", hog = 1L,
     stringsAsFactors = FALSE
   )
 
@@ -237,6 +237,6 @@ test_that("input validation works", {
   )
   expect_error(
     reduce_orthogroups(expr, data.frame(x = 1)),
-    "column 'Species1'"
+    "column 'gene1'"
   )
 })

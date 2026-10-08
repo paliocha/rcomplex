@@ -1,0 +1,451 @@
+---
+title: "Walkthrough: the building blocks"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Walkthrough: the building blocks}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+has_se <- requireNamespace("SummarizedExperiment", quietly = TRUE)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = has_se)
+tab <- function(df, ...) knitr::kable(df, digits = 3, row.names = FALSE, ...)
+```
+
+The [quickstart](quickstart.html) runs `rcomplex()` in one call. This
+article runs the same analysis step by step on eight Pooideae grasses.
+Use it when you need to change one step, to inspect an intermediate
+object, or to run the module and trait tests.
+
+| Species | Code | Life cycle | Genus pair |
+|---------|------|------------|------------|
+| *Brachypodium distachyon* | BDIS | annual | Brachypodium |
+| *Brachypodium sylvaticum* | BSYL | perennial | Brachypodium |
+| *Hordeum vulgare* | HVUL | annual | Hordeum |
+| *Hordeum jubatum* | HJUB | perennial | Hordeum |
+| *Briza maxima* | BMAX | annual | Briza |
+| *Briza media* (mapped to BMAX) | BMED | perennial | Briza |
+| *Vulpia bromoides* | VBRO | annual | Festuca/Vulpia |
+| *Festuca pratensis* | FPRA | perennial | Festuca/Vulpia |
+
+The data are VST-normalised RNA-seq for the 1,500 most expressed hogs
+from the "Live or let die?" project, stored as
+`SummarizedExperiment` objects. Each species has 20 leaf and 20 root
+samples.
+
+## 1. Inputs
+
+We keep the 20 leaf samples. A network built from pooled leaf and root
+samples mostly separates tissues, so use one tissue per network or
+remove the tissue with `block` (see the methods article).
+
+```{r data, message = FALSE}
+library(rcomplex)
+library(SummarizedExperiment)
+
+se_list <- readRDS(system.file("extdata", "pooideae_vignette.rds",
+  package = "rcomplex"
+))
+se_list <- lapply(se_list, function(s) s[, s$tissue == "leaf"])
+species <- names(se_list)
+
+clades <- list(
+  annual = c("BDIS", "HVUL", "BMAX", "VBRO"),
+  perennial = c("BSYL", "HJUB", "BMED", "FPRA")
+)
+```
+
+`clades` is a named list of species vectors. Every function that takes
+a trait or a lineage takes this one shape. `clades_from_tree()` builds
+it from a species tree.
+
+The ortholog table has one row per gene: `species`, `gene` and `hog`.
+Here it comes from `rowData()`. For an OrthoFinder or PLAZA file, call
+`read_orthologs()`.
+
+```{r hogs}
+long <- do.call(rbind, lapply(species, function(s) {
+  data.frame(
+    species = s, gene = rownames(se_list[[s]]),
+    hog = as.character(rowData(se_list[[s]])$hog)
+  )
+}))
+long <- long[!is.na(long$hog), ]
+tab(head(long, 4))
+```
+
+### Paralog reduction
+
+Recent duplicates often have near-identical expression. They inflate
+the number of cliques without adding information.
+`reduce_orthogroups()` merges the paralogs of a hog that correlate
+above `cor_threshold` and keeps divergent copies apart.
+
+```{r reduce}
+reduced <- lapply(species, function(s) {
+  reduce_orthogroups(
+    assay(se_list[[s]], 1), long[long$species == s, c("gene", "hog")],
+    gene_col = "gene", cor_threshold = 0.7
+  )
+})
+names(reduced) <- species
+vapply(reduced, function(r) r$n_merged, integer(1))
+```
+
+`prepare_orthologs()` turns the long table into ortholog pairs and maps
+the genes through the reduction.
+
+```{r orthologs}
+orthologs <- prepare_orthologs(long, reduced)
+nrow(orthologs)
+```
+
+## 2. Networks
+
+`compute_network()` correlates all gene pairs and converts the
+correlations to mutual rank (MR). MR asks whether two genes rank each
+other among their best partners, so a gene that correlates with
+everything does not dominate. The network keeps the top 3% of gene
+pairs as edges.
+
+The sparse store holds more pairs than the analysis threshold:
+`store_density = 0.06` leaves room for the density sweep in section 4.
+
+```{r networks}
+networks <- lapply(reduced, function(r) {
+  compute_network(r$expr_matrix, density = 0.03, store_density = 0.06)
+})
+```
+
+Each network records the correlation it needed to pass the threshold.
+At 20 samples this value is low, and many edges are chance
+correlations.
+
+```{r rthreshold}
+vapply(networks, function(n) n$params$r_threshold, numeric(1))
+```
+
+Networks built elsewhere enter through `as_network()`. Pass a gene by
+gene matrix of edge weights or a sparse matrix.
+
+## 3. Co-expressologs
+
+`find_coexpressologs()` tests every ortholog pair in every species pair.
+It maps the neighbours of gene A in species 1 to species 2 and asks how
+many are neighbours of the ortholog of A. The test runs in both
+directions, and both must pass.
+
+```{r edges}
+edges <- find_coexpressologs(networks, orthologs, seed = 1)
+table(edges$type)
+tab(head(edges[order(-edges$effect_size), c(
+  "gene1", "gene2", "hog", "score", "evalue", "q_value", "effect_size",
+  "power"
+)], 4))
+```
+
+- `score` is `-log2(p)` and `evalue` is `n_tests * p`.
+- `effect_size` is the fold enrichment of shared neighbours.
+- `power` is the chance to call the pair had it been conserved. A
+  non-significant pair with low power is weak evidence of divergence.
+
+`type == "conserved"` marks a co-expressolog.
+
+### Hypergeometric or rank
+
+The default test is the hypergeometric test of ComPlEx. It is fast and
+matches the published method. `method = "rank"` ranks every gene in
+species 2 by its co-expression with the translated neighbours, and
+reports the ortholog's place in that ranking. The rank test needs the
+argument `null_networks`: one network per species, built by
+`null_network()` from the expression with the samples shuffled.
+
+### Nulls
+
+`coexpressolog_null()` rewires each network with the degrees held fixed
+and repeats the test. It answers how many calls to expect from the
+degree sequence alone.
+
+```{r null, eval = FALSE}
+nul <- coexpressolog_null(networks, orthologs, n_cores = 2, seed = 1)
+```
+
+`rcomplex(null = TRUE)` runs the cheaper shuffled-expression null and
+reports `calls_null` per species pair.
+
+## 4. Density sweep
+
+A 3% density is a convention. A conserved pair should survive a range
+of densities. `density_sweep()` repeats the test at a set of
+multipliers of the threshold. A multiplier above 1 tightens the network
+and a multiplier below 1 loosens it. The loosest multiplier must stay
+inside the stored edges.
+
+```{r sweep, message = FALSE}
+multipliers <- seq(0.975, 1.025, by = 0.0125)
+store_floor <- max(vapply(
+  networks, function(n) n$store_threshold / n$threshold, numeric(1)
+))
+stopifnot(min(multipliers) >= store_floor)
+
+sweep <- density_sweep(networks, orthologs,
+  multipliers = multipliers, method = "hypergeometric", seed = 1
+)
+tab(sweep[, c("multiplier", "eff_density", "n_significant")])
+```
+
+Raw MR values are compressed near the top. A small multiplier moves the
+effective density a lot. Count, for each hog, how many levels keep a
+conserved edge:
+
+```{r survival}
+survive <- table(unlist(lapply(sweep$edges, function(e) {
+  unique(e$hog[e$type == "conserved"])
+})))
+table(factor(survive, levels = seq_len(nrow(sweep))))
+```
+
+## 5. Modules
+
+A module is a group of genes that are co-expressed with each other.
+`detect_modules()` runs Leiden clustering. Check that your modules
+replicate before you test them. At 20 samples they often do not.
+
+```{r modules}
+modules <- lapply(networks, detect_modules, seed = 42)
+vapply(modules, function(m) m$n_modules, integer(1))
+```
+
+`as_modules()` builds the same object from any gene partition, such as
+the output of another tool.
+
+### Preservation
+
+`preservation_paired()` asks, for each ordered species pair, whether
+the modules of the reference species keep their wiring in the partner
+network. It tests two statistics against a gene-identity permutation
+null: the density of the module (`avg.weight`) and the correlation of
+intramodular connectivity (`cor.degree`). A module is preserved only
+when both are significant. Each module is `conserved`, `moderate`,
+`diverged` or `untested`.
+
+The trait test in the next section needs all pairs. Pairs between genera
+supply the same-trait contrasts. `n_perm = 500` keeps the example
+short. Use the default of 10,000 for results you report.
+
+```{r preservation, message = FALSE}
+pairs <- as.data.frame(t(utils::combn(species, 2)))
+names(pairs) <- c("species1", "species2")
+
+trait <- stack(clades)
+trait <- setNames(as.character(trait$ind), trait$values)
+
+pres <- preservation_paired(modules, networks, orthologs,
+  pairs = pairs, group = trait, edges = edges, n_perm = 500, seed = 42
+)
+table(pres$classification$classification)
+```
+
+### Is divergence associated with the trait?
+
+`preservation_matrix_test()` asks one question of the whole matrix:
+are trait-discordant pairs the less preserved ones? It compares the
+mean `Zsummary_std` of concordant pairs (two annuals or two
+perennials) with that of discordant pairs. It refers the difference to
+a null that relabels the traits of the species.
+
+`block` names the genera. It enables a second null that relabels only
+within a genus, which holds the phylogeny fixed. It also drops the
+within-genus pairs, where trait and relatedness are confounded.
+
+```{r matrix-test}
+genus <- list(
+  Brachypodium = c("BDIS", "BSYL"), Hordeum = c("HVUL", "HJUB"),
+  Briza = c("BMAX", "BMED"), Festuca = c("VBRO", "FPRA")
+)
+pmt <- suppressWarnings(preservation_matrix_test(
+  pres$classification, trait,
+  block = genus, seed = 1
+))
+tab(pmt$class_means)
+c(
+  observed = pmt$observed, p_free = pmt$p_free, p_blocked = pmt$p_blocked,
+  floor_free = pmt$free$p_attainable,
+  floor_blocked = pmt$blocked$p_attainable
+)
+```
+
+A positive statistic means discordant pairs are less preserved. On this
+data the statistic is near zero, so the leaf modules carry no trait
+signal. The two nulls agree.
+
+The floor of a relabelling p-value comes from the species set. Eight
+species split 4/4 give `choose(8, 4) = 70` labellings, and two of them
+share the maximum, so the floor is `2/70 = 0.029`. Within four genera
+the floor is `2/16 = 0.125`. No amount of sampling lowers either floor.
+`preservation_matrix_test()` warns when the floor exceeds 0.05, and the
+chunk above silences that warning.
+
+### P-value resolution
+
+A permutation p-value cannot fall below `1 / (n_perm + 1)`. Tests whose
+true p-value is smaller all return the floor and tie. Rank on
+`Zsummary_std` and keep p and q for the significance call.
+`pvalue_resolution()` reports the ties:
+
+```{r resolution}
+pvalue_resolution(pres$classification$q_value, n_perm = 500)
+```
+
+## 6. Hubs
+
+`identify_module_hubs()` finds the hub genes of each module. The
+primary centrality is the weighted degree. It also reports betweenness
+and eigenvector centrality.
+
+```{r hubs}
+hubs <- lapply(species, function(s) {
+  identify_module_hubs(modules[[s]], networks[[s]], orthologs)
+})
+names(hubs) <- species
+vapply(hubs, function(h) sum(h$is_hub), integer(1))
+```
+
+`classify_hub_conservation()` labels each hog by where it is a hub.
+It needs `module_correspondence()`, which tests which module of species
+1 matches which module of species 2. Reuse the ortholog map that
+`preservation_paired()` resolved. The key is the sorted species pair.
+
+```{r hub-conservation}
+pairs_genus <- lapply(genus, sort)
+correspondence <- lapply(pairs_genus, function(sp) {
+  key <- paste(sp, collapse = ".")
+  module_correspondence(modules[[sp[1]]], modules[[sp[2]]],
+    pres$raw[[key]]$map,
+    species_ref = sp[1], species_test = sp[2], seed = 1
+  )
+})
+names(correspondence) <- vapply(
+  pairs_genus, paste, character(1), collapse = "."
+)
+
+hub_class <- classify_hub_conservation(hubs, clades,
+  module_comparisons = correspondence
+)
+table(hub_class$classification)
+```
+
+`get_coexpressed_hogs()` lists the hogs that co-express with a
+candidate hub in several species.
+
+```{r hub-partners}
+candidate <- hub_class$hog[hub_class$classification == "conserved_hub"][1]
+partners <- get_coexpressed_hogs(candidate, networks, orthologs,
+  clades = clades, min_species = 2L, edges = edges
+)
+tab(head(partners[, c(
+  "partner_hog", "n_species", "coexpressed_traits", "partner_min_q"
+)], 5))
+```
+
+## 7. Cliques
+
+A clique is a set of genes, one per species, that are all co-expressed
+with each other. The edges of one hog form a graph, and rcomplex finds
+cliques on it in two ways. The two answer different questions.
+
+### Species graph
+
+`find_cliques()` cliques the graph of species. It returns one best gene
+assignment per clique. Give it the full edge table, so the intensity
+scale uses every tested pair.
+
+```{r cliques}
+cliques <- find_cliques(edges, species, min_species = 2L)
+table(cliques$n_species)
+```
+
+A clique of two species is a single conserved edge. Cliques that span
+three or more species need conservation across independent lineages.
+
+`clique_stability()` removes k species at a time and checks whether each
+clique persists. A clique that survives the removal of any one species
+does not depend on a single lineage.
+
+```{r stability}
+stab <- clique_stability(edges, species,
+  clades = clades, all_species = species,
+  full_cliques = cliques, max_k = 2L
+)
+table(stab$stability_class)
+```
+
+`classify_cliques()` assigns each hog to one class: `complete` (all
+species), `partial` (both clades, not all species), `differentiated`
+(a clique in each clade and none across), `trait_specific` (one clade
+only) or `unclassified`. The `underpowered` column flags a
+`differentiated` or `trait_specific` call that rests on edges with low
+power.
+
+```{r classify}
+result <- classify_cliques(edges, species, clades,
+  min_species = 2L, stability = stab
+)
+table(result$classification)
+```
+
+### Gene graph
+
+`gene_clique_graph()` cliques the graph of genes. A hog with paralogs
+gives one clique per gene combination. `classify_gene_cliques()` applies
+the six-tier taxonomy of Rodriguez *et al.* (2026): `complete_conserved`,
+`lineage_specific`, `partial_significant`, `partial_present`,
+`differentiated` and `trait_specific`. A clique that fits none is
+`unclassified`. A tier that rests on low power becomes `underpowered`.
+
+```{r gene-cliques}
+gene_cliques <- gene_clique_graph(edges)
+gene_class <- classify_gene_cliques(gene_cliques, edges, species,
+  clades = clades
+)
+table(gene_class$classification)
+```
+
+Pass the unfiltered edge table. The gap tiers need the pairs that were
+tested and failed, so they can refuse them.
+
+Use the species graph for stability and for one clique per hog. Use the
+gene graph to see every paralog combination and to follow the published
+taxonomy. The species graph finds more `trait_specific` hogs because it
+asks for a clique among the species it can see, and the gene graph asks
+for a complete clique of one clade with an outside species tested at
+adequate power.
+
+## 8. Reading the results
+
+Combine the robustness signals. A hog with a `complete` class, a
+stability class of 2 or more, and survival at most density levels is a
+strong candidate.
+
+```{r robust}
+result$n_densities <- as.integer(survive[result$hog])
+result$n_densities[is.na(result$n_densities)] <- 0L
+keep <- result$classification == "complete" &
+  result$stability_class >= 2L &
+  result$n_densities >= nrow(sweep) - 1L
+strong <- result[keep, ]
+nrow(strong)
+tab(head(strong[order(strong$best_mean_q), c(
+  "hog", "n_species", "best_mean_q", "stability_class", "n_densities"
+)], 5))
+```
+
+Check three things before you believe any result.
+
+1. Read the correlation each network needed (`r_threshold`).
+2. Read the power of the edges behind a negative call.
+3. Read `pvalue_resolution()` for every permutation p-value.
+
+The [methods article](methods.html) gives the statistics behind each
+step.
