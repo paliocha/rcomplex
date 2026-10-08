@@ -349,6 +349,25 @@ test_that("a list of runs keeps the cliques of each run apart", {
   one <- classify_gene_cliques(b, e, gcg_six)
   expect_false("run" %in% names(one))
   expect_identical(one$clique_id, b$cliques$clique_id)
+
+  # A run on a species subset has other factor levels: SP_B is level 2
+  # in `a` and level 1 in `d`. Its cliques must read the same species.
+  sub <- e$species1 != "SP_A" & e$species2 != "SP_A"
+  d <- gene_clique_graph(e[sub, ], alpha_graph = 0.9)
+  expect_identical(levels(a$members$species), gcg_six)
+  expect_identical(levels(d$members$species), gcg_six[-1])
+  mix <- classify_gene_cliques(list(a, d), e, gcg_six)
+  expect_identical(
+    mix$run, rep(1:2, c(nrow(a$cliques), nrow(d$cliques)))
+  )
+  expect_identical(mix$clique_id, c(a$cliques$clique_id, d$cliques$clique_id))
+  alone <- classify_gene_cliques(d, e, gcg_six)
+  run2 <- mix[mix$run == 2L, names(alone)]
+  rownames(run2) <- NULL
+  # hog_class and the floor columns span both runs by design.
+  own <- c("hog_class", "mean_q_floor", "n_cliques_at_q_floor")
+  keep <- setdiff(names(alone), own)
+  expect_identical(as.list(run2[keep]), as.list(alone[keep]))
 })
 
 

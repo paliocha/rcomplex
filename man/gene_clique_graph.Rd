@@ -56,7 +56,8 @@ large tie count means \code{mean_q} cannot rank those cliques at
 all}
 }
 \code{members} has one row per clique member: \code{clique_id}, \code{species}
-(a factor over the species of \code{edges}) and \code{gene}.
+(a factor; its levels are the species of \code{edges} in order of first
+appearance) and \code{gene}.
 The two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
 \code{q_floor} (smallest edge q-value in the graph), are also attributes
 of \code{cliques}. Both are always set, empty results included.

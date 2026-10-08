@@ -198,7 +198,8 @@
 #'       all}
 #'   }
 #'   `members` has one row per clique member: `clique_id`, `species`
-#'   (a factor over the species of `edges`) and `gene`.
+#'   (a factor; its levels are the species of `edges` in order of first
+#'   appearance) and `gene`.
 #'   The two floor diagnostics, plus `alpha_graph`, `min_size` and
 #'   `q_floor` (smallest edge q-value in the graph), are also attributes
 #'   of `cliques`. Both are always set, empty results included.

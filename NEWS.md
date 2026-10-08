@@ -27,8 +27,9 @@ aliased.
   clique member. The per-clique statistics are no longer repeated on
   every member row. `id_prefix` is gone: pass several runs to
   `classify_gene_cliques()` as a list. On the full 8-species leaf data
-  the result is 5.0 GB instead of about 20 GB. It is built in 100 s
-  instead of 335 s, at a peak of 8.9 GB instead of 26.5 GB.
+  the result takes about 5 GiB (1.8 + 3.2 GiB) instead of about 20 GB.
+  It is built in 100 s instead of 335 s. The peak process memory (max
+  RSS) is 8.9 GB instead of 26.5 GB.
 - `rcomplex()` stores `members` beside `cliques`, and
   `write_rcomplex()` writes `members.tsv`.
 - `clades` is a named list of species vectors. Clades may nest. A
