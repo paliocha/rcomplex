@@ -2,7 +2,6 @@
 % Please edit documentation in R/rcomplex-package.R
 \docType{package}
 \name{rcomplex-package}
-\alias{rcomplex}
 \alias{rcomplex-package}
 \title{rcomplex: Comparative Co-Expression Network Analysis Across Species}
 \description{
