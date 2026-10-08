@@ -71,8 +71,11 @@ The value after "r >=" is the weakest correlation that became an edge. At 20 sam
 a correlation of 0.3 is weak evidence. Read this value first.
 
 The last line counts the cliques by tier. A clique is a set of genes,
-one per species, that are all co-expressed. A hog with paralogs gives one clique per gene combination.
+one per species, that are all co-expressed. A hog with paralogs gives
+one clique per gene combination.
 
+The message about dropped genes is on purpose. The clique search keeps at
+most 10 copies of a hog per species, because gene combinations explode.
 ## Read the results
 
 `summary()` gives the tier table. With `null = TRUE` it also gives the

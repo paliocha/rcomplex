@@ -43,6 +43,9 @@ aliased.
 - `rcomplex(null = TRUE)` repeats the comparison on shuffled networks
   and reports `calls_null` and `false_call_rate` per species pair.
 - `classify_cliques()` no longer returns a `persistence` column.
+- `find_coexpressologs(method = "permutation")` joins HOG q-values to pairs
+  with `match()`. It used a positional lookup, which gave wrong p and q
+  values for integer hog ids.
 - `find_coexpressologs(method = "hypergeometric")` is the name of the
   default test. The alias `"analytical"` is gone.
 

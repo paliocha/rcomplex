@@ -45,13 +45,17 @@ se <- readRDS(system.file("extdata", "pooideae_vignette.rds",
                           package = "rcomplex"))
 leaf <- lapply(se[c("BDIS", "BSYL", "HVUL", "HJUB")],
                function(s) s[, s$tissue == "leaf"])
-hogs <- do.call(rbind, lapply(names(leaf), function(s) {
-  data.frame(species = s, gene = rownames(leaf[[s]]),
-             hog = rowData(leaf[[s]])$hog)
-}))
-res <- rcomplex(leaf, hogs, seed = 1,
-                clades = list(annual = c("BDIS", "HVUL"),
-                              perennial = c("BSYL", "HJUB")))
+hogs <- do.call(rbind, lapply(names(leaf), function(s) data.frame(
+  species = s, gene = rownames(leaf[[s]]), hog = rowData(leaf[[s]])$hog)))
+```
+
+Then run the driver:
+
+```r
+clades <- list(annual = c("BDIS", "HVUL"), perennial = c("BSYL", "HJUB"))
+res <- rcomplex(leaf, hogs, clades = clades, seed = 1)
+#> gene_clique_graph: 9 ortholog groups exceeded 10 genes in some species;
+#>   68 genes dropped
 res
 #> rcomplex: 4 species, 1,500 hogs, 3 tiers
 #>   BDIS  1,935 genes  20 samples  density 0.03  r >= 0.35

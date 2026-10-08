@@ -104,8 +104,8 @@ p-value is the hog's, shared by its pairs, and it cannot fall below
 
 A clade is a set of species. `clades` is a named list of species
 vectors, and every function that reads a trait or a lineage reads this
-one shape. The old `species_trait` vector is retired: a vector holds
-one flat label per species, and a list also holds nested lineages.
+one shape. A vector holds one flat label per species, and a list also
+holds nested lineages.
 
 The clades of one call must be nested or disjoint. Two clades that
 overlap without containment are an error. A species in no clade forms a
