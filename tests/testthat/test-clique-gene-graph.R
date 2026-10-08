@@ -133,6 +133,68 @@ test_that("gene_clique_graph reports every paralog combination", {
 })
 
 
+test_that("clique statistics match a per-clique edge scan", {
+  # Paralogs in three and four species: many cliques per HOG share
+  # edges. Every 4th pair is dropped so the cliques differ in size.
+  mk <- function(sp, n_copy, hog) {
+    sp_g <- rep(sp, each = n_copy)
+    gn <- paste0(tolower(sp_g), rep(seq_len(n_copy), length(sp)), hog)
+    cmb <- utils::combn(length(gn), 2L)
+    cmb <- cmb[, sp_g[cmb[1L, ]] != sp_g[cmb[2L, ]], drop = FALSE]
+    cmb <- cmb[, seq_len(ncol(cmb)) %% 4L != 0L, drop = FALSE]
+    n <- ncol(cmb)
+    data.frame(
+      gene1 = gn[cmb[1L, ]], gene2 = gn[cmb[2L, ]],
+      species1 = sp_g[cmb[1L, ]], species2 = sp_g[cmb[2L, ]],
+      hog = hog, q_value = (seq_len(n) %% 7L + 1) / 100,
+      effect_size = seq_len(n) / 3, score = (n - seq_len(n)) / 7,
+      stringsAsFactors = FALSE
+    )
+  }
+  e <- rbind(
+    mk(c("SP_A", "SP_B", "SP_C"), 3L, "H1"),
+    mk(c("SP_A", "SP_B", "SP_C", "SP_D"), 3L, "H2")
+  )
+  # Reference: the edge scan per clique that gene_clique_graph() ran
+  # before issue #66. The fixture has no duplicate rows and no copy
+  # above the cap. Nodes keep their input order; edges take the order
+  # of the duplicate collapse, the "i-j" node-pair key.
+  ref <- lapply(split(e, e$hog), function(d) {
+    k1 <- paste(d$species1, d$gene1)
+    k2 <- paste(d$species2, d$gene2)
+    nodes <- unique(c(k1, k2))
+    sp <- c(d$species1, d$species2)[match(nodes, c(k1, k2))]
+    gn <- c(d$gene1, d$gene2)[match(nodes, c(k1, k2))]
+    i1 <- match(k1, nodes)
+    i2 <- match(k2, nodes)
+    o <- order(paste(pmin(i1, i2), pmax(i1, i2), sep = "-"))
+    d <- d[o, ]
+    i1 <- i1[o]
+    i2 <- i2[o]
+    g <- igraph::make_graph(as.vector(rbind(i1, i2)),
+      n = length(nodes), directed = FALSE
+    )
+    cl <- igraph::max_cliques(g, min = 3L)
+    do.call(rbind, lapply(seq_along(cl), function(k) {
+      cc <- as.integer(cl[[k]])
+      hit <- i1 %in% cc & i2 %in% cc
+      data.frame(
+        clique_id = paste0(d$hog[1L], "_", k), hog = d$hog[1L],
+        species = sp[cc], gene = gn[cc], n_members = length(cc),
+        n_species = length(unique(sp[cc])), n_edges = sum(hit),
+        mean_q = mean(d$q_value[hit]), max_q = max(d$q_value[hit]),
+        mean_effect_size = mean(d$effect_size[hit]),
+        score = sum(d$score[hit]), stringsAsFactors = FALSE
+      )
+    }))
+  })
+  ref <- do.call(rbind, unname(ref))
+  res <- gene_clique_graph(e)
+  expect_gt(length(unique(ref$clique_id)), 20L)
+  expect_identical(as.list(res)[names(ref)], as.list(ref))
+})
+
+
 test_that("gene_clique_graph honours min_size and alpha_graph", {
   e <- data.frame(
     gene1 = c("a1", "a1", "b1"), gene2 = c("b1", "c1", "c1"),
