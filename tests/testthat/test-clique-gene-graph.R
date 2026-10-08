@@ -1770,7 +1770,15 @@ test_that("the incidence classifier matches the per-clique reference", {
           classify_gene_cliques(g, e, gcg_six, clades = cl)
         )
         expect_identical(names(new)[seq_along(ref)], names(ref))
-        for (nm in names(ref)) expect_identical(new[[nm]], ref[[nm]])
+        # mean() sums in long double on x86_64, so means can differ in
+        # the last bit.
+        for (nm in names(ref)) {
+          if (is.double(ref[[nm]])) {
+            expect_equal(new[[nm]], ref[[nm]])
+          } else {
+            expect_identical(new[[nm]], ref[[nm]])
+          }
+        }
         tiers <- c(tiers, new$classification)
       }
     }

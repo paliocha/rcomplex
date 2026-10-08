@@ -112,7 +112,9 @@
 #' Grouped two-pass mean, as `mean.default()` computes it
 #'
 #' Values are summed in input order within each group, as `mean()` sums
-#' them. An empty group gives `NA`.
+#' them. An empty group gives `NA`. R's `mean()` sums in long double where
+#' the platform has one, so the last bit can differ from this helper on
+#' x86_64.
 #'
 #' @param x Values.
 #' @param g Group of each value, in `seq_len(n_k)`.
