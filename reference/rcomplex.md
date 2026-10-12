@@ -1,0 +1,194 @@
+# Compare co-expression networks across species in one call
+
+`rcomplex()` runs the whole analysis. It builds one network per species,
+tests every ortholog pair in every species pair, and classifies the gene
+cliques. Give it expression or networks, plus orthologs.
+
+## Usage
+
+``` r
+rcomplex(
+  expr = NULL,
+  orthologs,
+  networks = NULL,
+  block = NULL,
+  clades = NULL,
+  density = 0.03,
+  sign = c("positive", "negative"),
+  method = c("hypergeometric", "rank"),
+  alpha = 0.1,
+  modules = FALSE,
+  null = FALSE,
+  n_cores = 1L,
+  seed = NULL
+)
+```
+
+## Arguments
+
+- expr:
+
+  Named list of expression data, one entry per species: a genes x
+  samples matrix or a `SummarizedExperiment`. Give `expr` or `networks`,
+  not both.
+
+- orthologs:
+
+  The long ortholog table (`species`, `gene`, `hog`), or a path to an
+  ortholog file for
+  [`read_orthologs()`](https://paliocha.github.io/rcomplex/reference/read_orthologs.md).
+
+- networks:
+
+  Named list of network objects from
+  [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md)
+  or
+  [`as_network()`](https://paliocha.github.io/rcomplex/reference/as_network.md),
+  one entry per species.
+
+- block:
+
+  Named list of per-sample factors, one per species in `expr`. Each
+  species is split with
+  [`split_layers()`](https://paliocha.github.io/rcomplex/reference/split_layers.md).
+  The network is built from the wiring layer.
+
+- clades:
+
+  Named list of species vectors, one per clade, as for
+  [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md).
+  `NULL` skips the clade tiers.
+
+- density:
+
+  Fraction of gene pairs kept as edges in each network.
+
+- sign:
+
+  `"positive"` or `"negative"`: the correlation sign that makes an edge.
+  See
+  [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md).
+
+- method:
+
+  `"hypergeometric"` or `"rank"`: the test of each ortholog pair. See
+  [`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.md).
+
+- alpha:
+
+  The q-value threshold for a call.
+
+- modules:
+
+  If `TRUE`, detect modules in each species and test their preservation
+  in every species pair.
+
+- null:
+
+  If `TRUE`, repeat the comparison on shuffled networks. The null calls
+  estimate the false-call rate.
+
+- n_cores:
+
+  Number of threads.
+
+- seed:
+
+  Integer seed, or `NULL` to draw from the global stream. A seed makes
+  the run reproducible and leaves your stream unchanged.
+
+## Value
+
+A list of class `rcomplex`:
+
+- networks:
+
+  The network objects, by species.
+
+- edges:
+
+  The edge table from
+  [`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.md),
+  plus a `sign` column: the sign of every network.
+
+- cliques, members:
+
+  The two tables of
+  [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md):
+  one row per clique, and one row per clique member.
+
+- classification:
+
+  One row per clique, from
+  [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md).
+
+- modules, preservation:
+
+  With `modules = TRUE`: the
+  [`detect_modules()`](https://paliocha.github.io/rcomplex/reference/detect_modules.md)
+  results by species, and the
+  [`preservation_paired()`](https://paliocha.github.io/rcomplex/reference/preservation_paired.md)
+  result.
+
+- edges_null:
+
+  With `null = TRUE`: the edge table of the shuffled networks.
+
+- call:
+
+  The call.
+
+[`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html) returns
+the classification.
+
+## Details
+
+Cliques use the edges with `q_value < alpha` and have at least
+`min(3, number of species)` genes. Rank edges are classified at
+`min_power = 0.9`, hypergeometric edges at 0.8.
+
+`density` and `sign` apply only to networks built from `expr`.
+`method = "rank"`, `null = TRUE` and `block` need `expr`: the shuffled
+networks come from
+[`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.md),
+within each block.
+
+[`summary()`](https://rdrr.io/r/base/summary.html) counts each tier in
+`cliques`, in `hogs` and in `patterns`. A pattern is one HOG with one
+clique species set. The paralog copies of a large HOG can form millions
+of cliques, but they share a few patterns.
+
+With `null = TRUE`, [`summary()`](https://rdrr.io/r/base/summary.html)
+reports `calls` and `calls_null` per species pair at `q_value < alpha`.
+Their ratio is the empirical false-call rate. The rate is `NA` for a
+species pair without calls. With `method = "rank"`, the null run
+calibrates its rank test against nulls of the null networks.
+
+[`print()`](https://rdrr.io/r/base/print.html) shows, per species, the
+genes, the samples, the density and `r_threshold` from
+[`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md):
+the weakest correlation that passed the density threshold. The same
+density needs a stronger correlation at few samples. A network from
+[`as_network()`](https://paliocha.github.io/rcomplex/reference/as_network.md)
+has no correlation and shows `r ?`, as does a network without edges.
+
+## Examples
+
+``` r
+f <- function(x) system.file("extdata", x, package = "rcomplex")
+read <- function(x) as.matrix(read.delim(f(x), row.names = 1L))
+expr <- lapply(c(SpA = "expr_sp1_small.txt", SpB = "expr_sp2_small.txt"),
+  read)
+res <- rcomplex(expr, f("orthologs_small.txt"), density = 0.1, seed = 1)
+res
+#> rcomplex: 2 species, 10 hogs, 0 tiers
+#>   SpA  50 genes  10 samples  density 0.1  r >= 0.30
+#>   SpB  40 genes  10 samples  density 0.1  r >= 0.23
+#>   edges 12 tested, 0 called at q < 0.1
+#>   cliques 0
+summary(res)
+#> [1] tier     cliques  hogs     patterns
+#> <0 rows> (or 0-length row.names)
+#> null: not run
+write_rcomplex(res, tempfile())
+```

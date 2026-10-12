@@ -4,597 +4,184 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Comparative Co-Expression Network Analysis Across Species • rcomplex</title>
-<!-- jquery --><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script><!-- Bootstrap --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha256-bZLfwXAP04zRMK2BjiO8iu9pf4FbLqX6zitd+tIvLhE=" crossorigin="anonymous">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script><!-- bootstrap-toc --><link rel="stylesheet" href="bootstrap-toc.css">
-<script src="bootstrap-toc.js"></script><!-- Font Awesome icons --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous">
-<!-- clipboard.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><!-- headroom.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script><!-- pkgdown --><link href="pkgdown.css" rel="stylesheet">
-<script src="pkgdown.js"></script><meta property="og:title" content="Comparative Co-Expression Network Analysis Across Species">
-<meta property="og:description" content="Compares gene co-expression networks across species by mapping orthologous genes, building co-expression networks independently per species, then testing conservation at gene, module, and clique levels. Includes hypergeometric and permutation-based neighborhood tests, multi-resolution consensus module detection (Leiden / Infomap / SBM), clique detection via Bron-Kerbosch decomposition with leave-k-out jackknife stability analysis, and HOG conservation classification. Based on Netotea et al. (2014) &lt;doi:10.1186/1471-2164-15-106&gt;.">
-<!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
-<script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
-<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-<![endif]-->
+<script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Comparative Co-Expression Network Analysis Across Species">
+<meta name="description" content="Compares gene co-expression networks across species by mapping orthologous genes, building co-expression networks independently per species, then testing conservation at gene, module, and clique levels. Includes hypergeometric and permutation-based neighborhood tests, multi-resolution consensus module detection (Leiden), clique detection via Bron-Kerbosch decomposition with leave-k-out jackknife stability analysis, and HOG conservation classification. Based on Netotea et al. (2014) &lt;doi:10.1186/1471-2164-15-106&gt;.">
+<meta property="og:description" content="Compares gene co-expression networks across species by mapping orthologous genes, building co-expression networks independently per species, then testing conservation at gene, module, and clique levels. Includes hypergeometric and permutation-based neighborhood tests, multi-resolution consensus module detection (Leiden), clique detection via Bron-Kerbosch decomposition with leave-k-out jackknife stability analysis, and HOG conservation classification. Based on Netotea et al. (2014) &lt;doi:10.1186/1471-2164-15-106&gt;.">
 </head>
-<body data-spy="scroll" data-target="#toc">
+<body>
+    <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <div class="container template-home">
-      <header><div class="navbar navbar-default navbar-fixed-top" role="navigation">
-  <div class="container">
-    <div class="navbar-header">
-      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false">
-        <span class="sr-only">Toggle navigation</span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-      </button>
-      <span class="navbar-brand">
-        <a class="navbar-link" href="index.html">rcomplex</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2.9000</span>
-      </span>
-    </div>
+    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
 
-    <div id="navbar" class="navbar-collapse collapse">
-      <ul class="nav navbar-nav">
-<li>
-  <a href="reference/index.html">Reference</a>
-</li>
-<li class="dropdown">
-  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-    Articles
+    <a class="navbar-brand me-2" href="index.html">rcomplex</a>
 
-    <span class="caret"></span>
-  </a>
-  <ul class="dropdown-menu" role="menu">
-<li>
-      <a href="articles/methods.html">Methods in detail</a>
-    </li>
-    <li>
-      <a href="articles/rcomplex-tutorial.html">Comparative co-expression analysis with rcomplex</a>
-    </li>
-  </ul>
-</li>
-<li>
-  <a href="news/index.html">Changelog</a>
-</li>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div id="navbar" class="collapse navbar-collapse ms-3">
+      <ul class="navbar-nav me-auto">
+<li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="articles/index.html">Articles</a></li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul>
-<ul class="nav navbar-nav navbar-right">
-<li>
-  <a href="https://github.com/paliocha/rcomplex/" class="external-link">
-    <span class="fab fa-github fa-lg"></span>
-
-  </a>
-</li>
+<ul class="navbar-nav">
+<li class="nav-item"><form class="form-inline" role="search">
+ <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json">
+</form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/paliocha/rcomplex/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
-<!--/.nav-collapse -->
+
+
   </div>
-<!--/.container -->
-</div>
-<!--/.navbar -->
-
-
-
-      </header><div class="row">
-  <div class="contents col-md-9">
-<div class="section level1">
+</nav><div class="container template-home">
+<div class="row">
+  <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="rcomplex">rcomplex<a class="anchor" aria-label="anchor" href="#rcomplex"></a>
 </h1></div>
 <!-- badges: start -->
 
-<p>rcomplex compares gene co-expression networks between species. It asks which genes, modules and gene groups keep their co-expression partners across species, and whether that differs between species with different traits, such as annual and perennial life cycles. You build one network per species from RNA-seq data, link the networks through ortholog groups, and test conservation for single genes, for modules (groups of genes that are co-expressed with each other), and for ortholog groups across many species at once. The method extends ComPlEx by <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">Netotea <em>et al.</em> (2014)</a>.</p>
-<p>For the statistics behind each test, see <a href="https://paliocha.github.io/rcomplex/articles/methods.html" class="external-link">Methods in detail</a>.</p>
+<p>rcomplex aligns gene co-expression networks across species, the way BLAST aligns sequences. Ortholog groups anchor the alignment. A pairwise alignment is a set of co-expressologs: ortholog pairs that keep their co-expression partners. A multiple alignment is a clique: genes in three or more species that are all co-expressed. An aligned block is a module. Every edge gets a score, an e-value, a q-value, an effect size and a power. The method extends ComPlEx (Netotea <em>et al.</em>, 2014).</p>
+<pre class="mermaid"><code>flowchart LR
+  A[expression per species] --&gt; H[harmonise: block or partition]
+  H --&gt; N[networks: top 3% of gene pairs]
+  O[ortholog groups: hogs] --&gt; C
+  N --&gt; C[co-expressologs: edges]
+  C --&gt; Q[cliques: multiple alignment]
+  C --&gt; M[modules: aligned blocks]
+  Q --&gt; T[tiers and clades]
+  C --&gt; Z[nulls and power]</code></pre>
 <div class="section level2">
-<h2 id="what-you-need">What you need<a class="anchor" aria-label="anchor" href="#what-you-need"></a>
+<h2 id="install">Install<a class="anchor" aria-label="anchor" href="#install"></a>
 </h2>
-<ul>
-<li>One expression matrix per species: genes in rows, samples in columns, normalised and on a log-like scale (for example DESeq2 VST). A plain matrix or a <code>SummarizedExperiment</code> both work.</li>
-<li>Enough samples: aim for at least 15 to 20 samples per species, taken under matched conditions (same tissues, time points or treatments in every species). A co-expression network built from few samples is noisy: many of its edges are chance correlations, and conservation tests then have little to find. See <a href="#designing-an-rcomplex-experiment">Designing an rcomplex experiment</a> and <a href="#reading-the-results-and-common-pitfalls">pitfalls</a>.</li>
-<li>Ortholog groups: a table that places genes of all species into ortholog groups (HOGs), from OrthoFinder, FastOMA, PLAZA or similar. See <a href="#ortholog-file-format">the file format</a>.</li>
-<li>For trait tests, several species per trait. A comparison of one annual with one perennial species cannot separate the trait from everything else that differs between the two. Use several species per trait, ideally as phylogenetic pairs (one annual and one perennial in each genus).</li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="designing-an-rcomplex-experiment">Designing an rcomplex experiment<a class="anchor" aria-label="anchor" href="#designing-an-rcomplex-experiment"></a>
-</h2>
-<p>rcomplex does not care which species, tissues or conditions you study: it takes one expression matrix per species, ortholog groups, and a table of species traits. What it can detect is set by the design. The numbers below come from two data sets, eight Pooideae grasses with 20 samples per species and tissue, and six trees with 65 to 106 samples per species (design notes in the source repository, <code>dev/design-notes/</code>).</p>
-<ul>
-<li>
-<strong>Species: six to eight or more, chosen as phylogenetic pairs that differ in the trait.</strong> The trait tests relabel species, and their smallest p-value is set by the number of independent contrasts, not by sampling. Four genus pairs give a floor of 0.125 when swaps are kept within genera; a binary trait needs at least five independent pairs, or more species per genus, to reach 0.05. Two species gives you the ComPlEx gene-pair test; the module and trait tests start paying off at about six.</li>
-<li>
-<strong>Samples: 20 per species and tissue is the floor; 50 or more is where modules become real.</strong> With 20 samples a correlation network has structure even on shuffled data, so gene-level conservation and coarse or anchored modules replicate across sample halves, fine modules do not. The tree data at 65 to 106 samples replicated modules of about 50 ortholog groups; the grasses at 20 did not.</li>
-<li>
-<strong>Matched conditions in every species, at least four replicates per condition.</strong> The same tissues, time points or treatments make the species comparable, and four replicates let the package split samples into halves balanced within each condition, which is how it measures whether a module replicates at all. Record harvest day or batch as a factor: in one grass species it was a second axis of expression.</li>
-<li>
-<strong>One tissue per network.</strong> Pooled tissues give networks that mostly separate tissues (see pitfalls).</li>
-<li>
-<strong>Repeated measures over destructive sampling, if plant effects matter.</strong> When each plant is sampled once per tissue, the plant effect cannot be told apart from residual noise within that tissue.</li>
-<li>
-<strong>All expressed genes, ortholog groups kept many-to-many.</strong> Networks are built from the whole transcriptome; restricting to orthologs changes every gene’s neighbourhood. Paralogs stay as separate copies and enter the null distributions as copy counts.</li>
-</ul>
-<p>The analysis then runs in this order: <code><a href="reference/compute_network.html">compute_network()</a></code> per species; <code>null_network(block = )</code> for the null that keeps each condition’s mean (the shared time course or gradient) and removes everything else; <code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code> for gene pairs (<code>method = "hypergeometric"</code> for comparability with ComPlEx, <code>method = "rank"</code> for a calibrated score with a power column); <code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> and <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> for ortholog groups; <code><a href="reference/recurrence_graph.html">recurrence_graph()</a></code> and <code><a href="reference/recurrence_modules.html">recurrence_modules()</a></code> for modules shared across species; <code><a href="reference/module_auroc.html">module_auroc()</a></code>, <code><a href="reference/module_replication.html">module_replication()</a></code> and <code><a href="reference/module_auroc_reciprocal.html">module_auroc_reciprocal()</a></code> to score any module set against random sets and against its own within-species replication; <code><a href="reference/subspace_preservation.html">subspace_preservation()</a></code> and <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> for the trait question, with <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> read before any p-value is believed.</p>
-<p>Defaults such as the 3% network density, <code>min_power = 0.9</code> and the subspace rank <code>K</code> were measured on those two data sets. On new data, rerun the three cheap checks the package provides before trusting them: the shuffled-expression null, the split-half replication, and the <code><a href="reference/module_auroc.html">module_auroc()</a></code> calibration described in its help page.</p>
-</div>
-<div class="section level2">
-<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
-</h2>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"paliocha/rcomplex"</span><span class="op">)</span></span></code></pre></div>
-<p><strong>System requirements:</strong> C++23 compiler, GNU make. OpenMP is optional but recommended for parallel permutation and stability tests.</p>
-</div>
-<div class="section level2">
-<h2 id="a-first-analysis-in-five-steps">A first analysis in five steps<a class="anchor" aria-label="anchor" href="#a-first-analysis-in-five-steps"></a>
-</h2>
-<p>This example uses data that ships with the package: VST-normalised RNA-seq for about 1,900 to 4,000 genes in each of four Pooideae grasses, two annual and two perennial. It keeps only the 20 leaf samples per species (see <a href="#reading-the-results-and-common-pitfalls">pitfalls</a> on pooled tissues). It runs in about a minute.</p>
-<div class="section level3">
-<h3 id="id_1-load-expression-data-and-ortholog-pairs">1. Load expression data and ortholog pairs<a class="anchor" aria-label="anchor" href="#id_1-load-expression-data-and-ortholog-pairs"></a>
-</h3>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://paliocha.github.io/rcomplex/" class="external-link">rcomplex</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://bioconductor.org/packages/SummarizedExperiment" class="external-link">SummarizedExperiment</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">se_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"pooideae_vignette.rds"</span>,</span>
-<span>                               package <span class="op">=</span> <span class="st">"rcomplex"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">species</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BDIS"</span>, <span class="st">"BSYL"</span>, <span class="st">"HVUL"</span>, <span class="st">"HJUB"</span><span class="op">)</span></span>
-<span><span class="va">se_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">[</span><span class="va">species</span><span class="op">]</span>, <span class="kw">function</span><span class="op">(</span><span class="va">se</span><span class="op">)</span> <span class="va">se</span><span class="op">[</span>, <span class="va">se</span><span class="op">$</span><span class="va">tissue</span> <span class="op">==</span> <span class="st">"leaf"</span><span class="op">]</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Ortholog pairs from the HOG column of rowData(). With an ortholog</span></span>
-<span><span class="co"># file instead, use parse_orthologs("orthogroups.txt", "BDIS", "BSYL").</span></span>
-<span><span class="va">orthologs</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/prepare_orthologs.html">prepare_orthologs</a></span><span class="op">(</span><span class="va">se_list</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">orthologs</span><span class="op">)</span></span></code></pre></div>
-<p><code>orthologs</code> has one row per pair of genes that share an ortholog group. A gene with paralogs appears in several rows.</p>
+<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"paliocha/rcomplex"</span><span class="op">)</span></span></code></pre></div>
+<p>You need a C++23 compiler and GNU make. OpenMP is optional.</p>
 </div>
-<div class="section level3">
-<h3 id="id_2-build-one-network-per-species">2. Build one network per species<a class="anchor" aria-label="anchor" href="#id_2-build-one-network-per-species"></a>
-</h3>
+<div class="section level2">
+<h2 id="run">Run<a class="anchor" aria-label="anchor" href="#run"></a>
+</h2>
+<p>Give <code><a href="reference/rcomplex.html">rcomplex()</a></code> one expression object per species, a table of hogs, and optional clades. The example uses four Pooideae grasses that ship with the package.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">networks</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">se_list</span>, <span class="va">compute_network</span>, density <span class="op">=</span> <span class="fl">0.03</span><span class="op">)</span></span></code></pre></div>
-<p><code><a href="reference/compute_network.html">compute_network()</a></code> correlates every pair of genes and turns the correlations into Mutual Rank (MR) scores. MR asks whether two genes rank each other among their best partners, so a gene correlated with everything does not dominate. The network keeps the top 3% of gene pairs (<code>density = 0.03</code>) as edges. Each gene’s neighbourhood is the set of genes it shares an edge with. The build needs memory for the full gene-by-gene matrix (about 5 GB at 20,000 genes); for larger genomes, <code>compute_network(x, block_size = 512)</code> builds the same network in a fraction of that.</p>
-</div>
-<div class="section level3">
-<h3 id="id_3-find-co-expressologs">3. Find co-expressologs<a class="anchor" aria-label="anchor" href="#id_3-find-co-expressologs"></a>
-</h3>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://paliocha.github.io/rcomplex/">rcomplex</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://bioconductor.org/packages/SummarizedExperiment" class="external-link">SummarizedExperiment</a></span><span class="op">)</span></span>
+<span><span class="va">se</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"pooideae_vignette.rds"</span>,</span>
+<span>                          package <span class="op">=</span> <span class="st">"rcomplex"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">leaf</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">se</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BDIS"</span>, <span class="st">"BSYL"</span>, <span class="st">"HVUL"</span>, <span class="st">"HJUB"</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>               <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="va">s</span><span class="op">[</span>, <span class="va">s</span><span class="op">$</span><span class="va">tissue</span> <span class="op">==</span> <span class="st">"leaf"</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">hogs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">leaf</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  species <span class="op">=</span> <span class="va">s</span>, gene <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">leaf</span><span class="op">[[</span><span class="va">s</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>, hog <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">rowData</a></span><span class="op">(</span><span class="va">leaf</span><span class="op">[[</span><span class="va">s</span><span class="op">]</span><span class="op">]</span><span class="op">)</span><span class="op">$</span><span class="va">hog</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Then run the driver:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/find_coexpressologs.html">find_coexpressologs</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">edges</span><span class="op">$</span><span class="va">type</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">edges</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">edges</span><span class="op">$</span><span class="va">effect_size</span><span class="op">)</span>, <span class="op">]</span><span class="op">)</span></span></code></pre></div>
-<p>Each row is one ortholog pair in one pair of species. The test asks whether the gene’s neighbours in species A have orthologs among its partner’s neighbours in species B more often than chance (a hypergeometric test). <code>type == "conserved"</code> marks a co-expressolog: an ortholog pair that kept its co-expression partners in both species. The test runs in both directions and both must pass.</p>
-<ul>
-<li>
-<code>q.value</code>: the false discovery rate at which this pair would be called conserved.</li>
-<li>
-<code>effect_size</code>: fold enrichment, the observed number of shared neighbours divided by the number expected by chance. An effect of 5 means five times more shared partners than chance.</li>
-<li>
-<code>power</code>: the chance that the test would have called this pair had it been conserved at a typical effect size (for the rank test, had the ortholog ranked like a typical called pair). Genes with few neighbours have low power, so a non-significant result for them is weak evidence of divergence.</li>
-</ul>
-<div class="section level4">
-<h4 id="hypergeometric-or-rank">Hypergeometric or rank?<a class="anchor" aria-label="anchor" href="#hypergeometric-or-rank"></a>
-</h4>
-<p>Both methods ask whether a gene’s co-expression partners in species A are still its ortholog’s partners in species B, but they measure it differently.</p>
-<ul>
-<li>
-<strong>Hypergeometric</strong> (the default, and the original ComPlEx test): take the gene’s neighbours in A, translate them to B through orthologs, and count how many are also neighbours of the ortholog in B. The p-value is the chance of that overlap for two random neighbourhoods of those sizes. It is fast, exact, and matches the published method call for call. Its null is the network alone: it does not know how a partner gene would score, only how the overlap of two sets behaves.</li>
-<li>
-<strong>Rank</strong> (<code>method = "rank"</code>): take the same translated neighbour set and rank <em>every</em> gene in B by how strongly it co-expresses with that set (an AUROC). The ortholog’s p-value is its place in that ranking among all B genes. Three things follow. The test is calibrated by construction: the ranking is also run on a network built from shuffled expression (<code><a href="reference/null_network.html">null_network()</a></code>), and the empirical null from that is what the q-values rest on. Each paralog copy gets its own test, so a family with two B copies gets two answers instead of one pooled overlap. And the test records the AUROC a pair would have needed to be called, which is what the <code>power</code> column is: a non-call on a gene with few neighbours is not read as divergence.</li>
-</ul>
-<p>On the Pooideae data the rank calls are almost a subset of the hypergeometric calls. The hypergeometric test calls more pairs, especially for high-degree genes; the rank test adds a few low-degree pairs and refuses many high-degree ones. Neither is a fix for chance edges at low sample sizes: both made about one false call in tens of thousands against shuffled expression. Use the hypergeometric test when you want comparability with ComPlEx or the most calls; use the rank test when you need calibration you can check, per-copy answers for paralogs, or the power column for the clique classifiers and <code><a href="reference/module_auroc.html">module_auroc()</a></code>. Running both and reading the pairs they agree on is the conservative choice.</p>
-</div>
-</div>
-<div class="section level3">
-<h3 id="id_4-detect-modules-and-test-whether-they-are-preserved">4. Detect modules and test whether they are preserved<a class="anchor" aria-label="anchor" href="#id_4-detect-modules-and-test-whether-they-are-preserved"></a>
-</h3>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mods</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_modules.html">detect_modules</a></span><span class="op">(</span><span class="va">networks</span><span class="op">$</span><span class="va">BDIS</span>, resolution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span>, <span class="fl">1.5</span>, <span class="fl">2</span><span class="op">)</span>,</span>
-<span>                       objective_function <span class="op">=</span> <span class="st">"modularity"</span>,</span>
-<span>                       n_perm_k1 <span class="op">=</span> <span class="fl">20L</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">pres</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/module_preservation.html">module_preservation</a></span><span class="op">(</span><span class="va">mods</span>, <span class="va">networks</span><span class="op">$</span><span class="va">BDIS</span>, <span class="va">networks</span><span class="op">$</span><span class="va">BSYL</span>, <span class="va">orthologs</span>,</span>
-<span>                            edges <span class="op">=</span> <span class="va">edges</span>, sp_ref <span class="op">=</span> <span class="st">"BDIS"</span>,</span>
-<span>                            sp_test <span class="op">=</span> <span class="st">"BSYL"</span>, n_perm <span class="op">=</span> <span class="fl">1000L</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="reference/classify_preservation.html">classify_preservation</a></span><span class="op">(</span><span class="va">pres</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"module"</span>, <span class="st">"size"</span>, <span class="st">"classification"</span>,</span>
-<span>                                <span class="st">"Zsummary_std"</span>, <span class="st">"q.value"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
-<p><code><a href="reference/detect_modules.html">detect_modules()</a></code> groups genes into modules with the Leiden algorithm over several resolutions and keeps the consensus. It also tests for module structure at all, but with the modularity objective that test also says yes on pure noise: a correlation network from 20 samples has cluster structure even when the expression is shuffled. Treat modules as units only once they replicate on independent samples (see <code><a href="reference/detect_modules.html">?detect_modules</a></code>), and to test gene sets from elsewhere – pathways, regulons, another tool’s clusters – build the module map with <code><a href="reference/as_modules.html">as_modules()</a></code> instead. <code><a href="reference/module_preservation.html">module_preservation()</a></code> then asks whether each <em>Brachypodium distachyon</em> module keeps its wiring in the <em>B. sylvaticum</em> network: are its genes’ orthologs still densely connected to each other, and are the same genes still the hubs? A module whose genes all survive but lost their connections counts as diverged.</p>
-<p><code>Zsummary_std</code> is the effect size: how many standard deviations the module’s preservation lies above what random gene sets of the same size show. Values above 10 are strong preservation. <code>q.value</code> is the false discovery rate for calling the module preserved. <code>classification</code> is <code>conserved</code> (significant, <code>Zsummary_std</code> of at least 10), <code>moderate</code> (significant, weaker), <code>diverged</code> (not significant) or <code>untested</code> (a statistic could not be computed). Preservation is directional: run the reverse direction to ask about <em>B. sylvaticum</em> modules in <em>B. distachyon</em>.</p>
-<p>With 1,000 permutations no p-value can go below 1/1001. In this example every module ties at the same smallest q-value, while <code>Zsummary_std</code> ranges from about 8 to 42. Rank modules on <code>Zsummary_std</code>, not on q.</p>
-</div>
-<div class="section level3">
-<h3 id="id_5-find-conserved-and-lineage-specific-cliques">5. Find conserved and lineage-specific cliques<a class="anchor" aria-label="anchor" href="#id_5-find-conserved-and-lineage-specific-cliques"></a>
-</h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="reference/gene_clique_graph.html">gene_clique_graph</a></span><span class="op">(</span><span class="va">edges</span>, alpha_graph <span class="op">=</span> <span class="fl">0.1</span>, id_prefix <span class="op">=</span> <span class="st">"strict_"</span><span class="op">)</span>,</span>
-<span>  <span class="fu"><a href="reference/gene_clique_graph.html">gene_clique_graph</a></span><span class="op">(</span><span class="va">edges</span>, alpha_graph <span class="op">=</span> <span class="fl">0.9</span>, id_prefix <span class="op">=</span> <span class="st">"loose_"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">life_cycle</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>BDIS <span class="op">=</span> <span class="st">"annual"</span>, HVUL <span class="op">=</span> <span class="st">"annual"</span>,</span>
-<span>                BSYL <span class="op">=</span> <span class="st">"perennial"</span>, HJUB <span class="op">=</span> <span class="st">"perennial"</span><span class="op">)</span></span>
-<span><span class="va">classes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_gene_cliques.html">classify_gene_cliques</a></span><span class="op">(</span><span class="va">cliques</span>, <span class="va">edges</span>, <span class="va">species</span>,</span>
-<span>                                 lineage <span class="op">=</span> <span class="va">life_cycle</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">classes</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span></span></code></pre></div>
-<p>A clique is a set of genes, one per species, from one ortholog group, where every pair is a co-expressolog. A clique over all species is an ortholog group whose co-expression is conserved across the whole sample. <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> sorts cliques into tiers:</p>
-<ul>
-<li>
-<code>complete_conserved</code>: every species present, every pair conserved.</li>
-<li>
-<code>partial_significant</code>: every species present, a few pairs are not significant at the strict cut-off but pass the loose one (q &lt; 0.9).</li>
-<li>
-<code>partial_present</code>: conserved in all but one species, and that species lacks the gene, was not tested, or had too little power.</li>
-<li>
-<code>lineage_specific</code> or <code>trait_specific</code>: conserved within one group (here a life cycle), and absent or rejected outside it.</li>
-<li>
-<code>differentiated</code>: conserved within each group but not between them.</li>
-<li>
-<code>underpowered</code>: would be specific or differentiated, but the tests that separate the groups had too little power to count as evidence.</li>
-<li>
-<code>unclassified</code>: fits none of the tiers, for example a clique that lacks a species whose test was run and failed.</li>
-</ul>
-<p>Pass <code>edges</code> unfiltered. A tier that claims divergence needs to see the pairs that were tested and failed. <code>lineage_specific</code> and <code>trait_specific</code> need a complete clique over one group, and <code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code> keeps only cliques of at least three genes by default (<code>min_size = 3</code>), so with two species per group they stay empty here; <code>min_size = 2</code> makes them reachable. <code>differentiated</code> can still appear. The tutorial runs eight species, but pools leaf and root samples, so read it as a demonstration rather than trait evidence.</p>
-</div>
+<code class="sourceCode R"><span><span class="va">clades</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>annual <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BDIS"</span>, <span class="st">"HVUL"</span><span class="op">)</span>, perennial <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BSYL"</span>, <span class="st">"HJUB"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/rcomplex.html">rcomplex</a></span><span class="op">(</span><span class="va">leaf</span>, <span class="va">hogs</span>, clades <span class="op">=</span> <span class="va">clades</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="co">#&gt; gene_clique_graph: 9 ortholog groups exceeded 10 genes in some species;</span></span>
+<span><span class="co">#&gt;   68 genes dropped</span></span>
+<span><span class="va">res</span></span>
+<span><span class="co">#&gt; rcomplex: 4 species, 1,500 hogs, 3 tiers</span></span>
+<span><span class="co">#&gt;   BDIS  1,935 genes  20 samples  density 0.03  r &gt;= 0.35</span></span>
+<span><span class="co">#&gt;   BSYL  1,967 genes  20 samples  density 0.03  r &gt;= 0.33</span></span>
+<span><span class="co">#&gt;   HVUL  1,925 genes  20 samples  density 0.03  r &gt;= 0.29</span></span>
+<span><span class="co">#&gt;   HJUB  3,983 genes  20 samples  density 0.03  r &gt;= 0.28</span></span>
+<span><span class="co">#&gt;   edges 33,575 tested, 10,387 called at q &lt; 0.1</span></span>
+<span><span class="co">#&gt;   cliques 14,047: complete_conserved 12,592, partial_present    114, unclassified  1,341</span></span></code></pre></div>
+<p>Use <code>summary(res)</code> for the tier table, <code>write_rcomplex(res, "out/")</code> to save the tables, and <code>rcomplex(networks = ...)</code> for networks built elsewhere. Pass <code>block</code> for a designed experiment. Pass <code>modules = TRUE</code> for modules. Pass <code>null = TRUE</code> to count calls on shuffled networks.</p>
+<p>The quickstart runs this example step by step.</p>
 </div>
 <div class="section level2">
-<h2 id="which-test-should-i-use">Which test should I use?<a class="anchor" aria-label="anchor" href="#which-test-should-i-use"></a>
+<h2 id="output">Output<a class="anchor" aria-label="anchor" href="#output"></a>
 </h2>
+<p><code>res$edges</code> has one row per ortholog pair in each species pair.</p>
 <table class="table">
-<colgroup>
-<col width="33%">
-<col width="33%">
-<col width="33%">
-</colgroup>
-<thead><tr class="header">
-<th>Biological question</th>
-<th>Level</th>
-<th>Functions</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>Has this gene kept its co-expression partners in the other species?</td>
-<td>Gene pair</td>
-<td><code><a href="reference/find_coexpressologs.html">find_coexpressologs()</a></code></td>
-</tr>
-<tr class="even">
-<td>Is the ortholog more specifically tied to those partners than any other gene? (opt-in; calibrated against shuffled expression, one test per paralog copy)</td>
-<td>Gene pair</td>
-<td>
-<code>find_coexpressologs(method = "rank")</code>, <code><a href="reference/null_network.html">null_network()</a></code>
-</td>
-</tr>
-<tr class="odd">
-<td>Is this gene family conserved as a whole, counting all its paralogs?</td>
-<td>Ortholog group</td>
-<td>
-<code>find_coexpressologs(method = "permutation")</code>, <code><a href="reference/permutation_hog_test.html">permutation_hog_test()</a></code>
-</td>
-</tr>
-<tr class="even">
-<td>Are there more co-expressologs than the network structure alone would produce?</td>
-<td>Whole network</td>
-<td><code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code></td>
-</tr>
-<tr class="odd">
-<td>Does a call depend on the chosen network density?</td>
-<td>Gene pair</td>
-<td>
-<code><a href="reference/density_sweep.html">density_sweep()</a></code>, <code><a href="reference/coexpressolog_strength.html">coexpressolog_strength()</a></code>
-</td>
-</tr>
-<tr class="even">
-<td>Does this module keep its wiring in the other species?</td>
-<td>Module</td>
-<td>
-<code><a href="reference/module_preservation.html">module_preservation()</a></code>, <code><a href="reference/classify_preservation.html">classify_preservation()</a></code>
-</td>
-</tr>
-<tr class="odd">
-<td>Which module in species B corresponds to this module in species A?</td>
-<td>Module</td>
-<td><code><a href="reference/module_correspondence.html">module_correspondence()</a></code></td>
-</tr>
-<tr class="even">
-<td>Does this module keep its co-expression in the other species, scored against random gene sets matched on size, copy number and degree?</td>
-<td>Module</td>
-<td>
-<code><a href="reference/module_auroc.html">module_auroc()</a></code>, <code><a href="reference/module_auroc_reciprocal.html">module_auroc_reciprocal()</a></code>
-</td>
-</tr>
-<tr class="odd">
-<td>Would this module replicate within its own species, on the other sample half?</td>
-<td>Module</td>
-<td><code><a href="reference/module_replication.html">module_replication()</a></code></td>
-</tr>
-<tr class="even">
-<td>Which ortholog-group pairs are co-expressed in more species than chance, and what modules do they form?</td>
-<td>Many species</td>
-<td>
-<code><a href="reference/recurrence_graph.html">recurrence_graph()</a></code>, <code><a href="reference/recurrence_modules.html">recurrence_modules()</a></code>
-</td>
-</tr>
-<tr class="odd">
-<td>Do two species share the same large-scale network structure, without choosing modules?</td>
-<td>Species pair</td>
-<td>
-<code><a href="reference/subspace_preservation.html">subspace_preservation()</a></code>, <code><a href="reference/as_preservation_matrix.html">as_preservation_matrix()</a></code>
-</td>
-</tr>
-<tr class="even">
-<td>What would this statistic look like with no co-expression beyond the shared time course or gradient?</td>
-<td>Any</td>
-<td><code>null_network(block = )</code></td>
-</tr>
-<tr class="odd">
-<td>In which species sets are cliques conserved, and which species pairs share more cliques than their rates imply?</td>
-<td>Ortholog group</td>
-<td>
-<code><a href="reference/conservation_pattern_table.html">conservation_pattern_table()</a></code>, <code><a href="reference/conservation_lattice.html">conservation_lattice()</a></code>, <code><a href="reference/bicm_species_z.html">bicm_species_z()</a></code>
-</td>
-</tr>
-<tr class="even">
-<td>Are the hub genes of a module the same across traits?</td>
-<td>Gene within module</td>
-<td>
-<code><a href="reference/identify_module_hubs.html">identify_module_hubs()</a></code>, <code><a href="reference/classify_hub_conservation.html">classify_hub_conservation()</a></code>
-</td>
-</tr>
-<tr class="odd">
-<td>Do species pairs that differ in the trait preserve fewer modules?</td>
-<td>Trait</td>
-<td>
-<code><a href="reference/preservation_paired.html">preservation_paired()</a></code>, <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code>
-</td>
-</tr>
-<tr class="even">
-<td>Do the same ortholog groups sit in diverged modules in every trait contrast?</td>
-<td>Trait</td>
-<td><code><a href="reference/tag_permutation.html">tag_permutation()</a></code></td>
-</tr>
-<tr class="odd">
-<td>Which ortholog groups are conserved in all species, or in one lineage or trait group only?</td>
-<td>Ortholog group</td>
-<td>
-<code><a href="reference/gene_clique_graph.html">gene_clique_graph()</a></code>, <code><a href="reference/classify_gene_cliques.html">classify_gene_cliques()</a></code>
-</td>
-</tr>
-<tr class="even">
-<td>Does a trait-exclusive clique survive when species are left out?</td>
-<td>Ortholog group</td>
-<td>
-<code><a href="reference/find_cliques.html">find_cliques()</a></code>, <code><a href="reference/clique_stability.html">clique_stability()</a></code>, <code><a href="reference/classify_cliques.html">classify_cliques()</a></code>
-</td>
-</tr>
-<tr class="odd">
-<td>What does this ortholog group co-express with in each species?</td>
-<td>Ortholog group</td>
-<td><code><a href="reference/get_coexpressed_hogs.html">get_coexpressed_hogs()</a></code></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section level2">
-<h2 id="reading-the-results-and-common-pitfalls">Reading the results and common pitfalls<a class="anchor" aria-label="anchor" href="#reading-the-results-and-common-pitfalls"></a>
-</h2>
-<div class="section level3">
-<h3 id="few-samples-make-noisy-networks">Few samples make noisy networks<a class="anchor" aria-label="anchor" href="#few-samples-make-noisy-networks"></a>
-</h3>
-<p>With 10 samples, a correlation of 0.6 or stronger turns up by chance in about 7% of unrelated gene pairs; with 20 samples, in 0.5%. Chance edges differ between species, so conservation looks weaker than it is and modules are not reproducible. Use 15 to 20 or more samples per species under comparable conditions.</p>
-</div>
-<div class="section level3">
-<h3 id="network-density-changes-the-answer">Network density changes the answer<a class="anchor" aria-label="anchor" href="#network-density-changes-the-answer"></a>
-</h3>
-<p>A denser network gives each gene more neighbours, which raises power but adds weaker edges. The default of 3% is a convention. Check that your conclusions hold over a range with <code><a href="reference/density_sweep.html">density_sweep()</a></code>, or pick a density from the data with <code><a href="reference/suggest_reference_density.html">suggest_reference_density()</a></code>.</p>
-</div>
-<div class="section level3">
-<h3 id="pooled-tissues-dominate-the-network">Pooled tissues dominate the network<a class="anchor" aria-label="anchor" href="#pooled-tissues-dominate-the-network"></a>
-</h3>
-<p>If leaf and root samples are in one matrix, the strongest correlations separate leaf genes from root genes. Most modules then reflect tissue, and species comparisons mostly compare tissue programs. Build and compare networks one tissue at a time.</p>
-</div>
-<div class="section level3">
-<h3 id="permutation-tests-have-a-floor">Permutation tests have a floor<a class="anchor" aria-label="anchor" href="#permutation-tests-have-a-floor"></a>
-</h3>
-<p>A permutation p-value compares the real labelling of species with every other possible labelling. With few species there are few labellings, and the p-value cannot go below a floor set by the design. Eight species split four annual and four perennial can be labelled in <code>choose(8, 4) = 70</code> ways. Swapping the labels “annual” and “perennial” gives the same statistic, so at least two labellings tie at the top and the smallest p-value is 2/70 = 0.029. If you only allow swaps within each of four genera (to respect phylogeny), there are 2^4 = 16 labellings and the floor is 2/16 = 0.125, which can never reach significance at 0.1 (the package’s default <code>alpha</code> for calls elsewhere), let alone 0.05. This is a property of the species set, not of the number of permutations. <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> reports the floor, and <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> reports how many p- or q-values are tied at it.</p>
-</div>
-<div class="section level3">
-<h3 id="paralogs-complicate-the-ortholog-map">Paralogs complicate the ortholog map<a class="anchor" aria-label="anchor" href="#paralogs-complicate-the-ortholog-map"></a>
-</h3>
-<p>A gene family with several copies in one species has several candidate partners in the other. <code><a href="reference/resolve_ortholog_map.html">resolve_ortholog_map()</a></code> picks one copy per gene, first from cliques, then from mutual best co-expressologs, and leaves the rest unresolved. <code><a href="reference/module_preservation.html">module_preservation()</a></code> calls it for you when you pass <code>edges</code>. For recent duplicates with near-identical expression, <code><a href="reference/reduce_orthogroups.html">reduce_orthogroups()</a></code> can merge them before you build networks.</p>
-</div>
-<div class="section level3">
-<h3 id="rank-on-effect-size-call-on-q">Rank on effect size, call on q<a class="anchor" aria-label="anchor" href="#rank-on-effect-size-call-on-q"></a>
-</h3>
-<p>Many strong results tie at the smallest q-value a permutation test can give. Use <code>q.value</code> to decide what is significant, and <code>effect_size</code>, <code>Zsummary_std</code> or <code>mean_effect_size</code> to rank what is.</p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="ortholog-file-format">Ortholog file format<a class="anchor" aria-label="anchor" href="#ortholog-file-format"></a>
-</h2>
-<p><code><a href="reference/parse_orthologs.html">parse_orthologs()</a></code> reads a tab-delimited file with at least these columns:</p>
-<table class="table">
-<colgroup>
-<col width="38%">
-<col width="61%">
-</colgroup>
 <thead><tr class="header">
 <th>Column</th>
-<th>Description</th>
+<th>Meaning</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><code>species</code></td>
-<td>Species code of the anchor species</td>
+<td>
+<code>gene1</code>, <code>gene2</code>
+</td>
+<td>The two orthologs.</td>
 </tr>
 <tr class="even">
-<td><code>gene_id</code></td>
-<td>Gene identifier in the anchor species</td>
+<td><code>hog</code></td>
+<td>Their ortholog group.</td>
 </tr>
 <tr class="odd">
-<td><code>gene_content</code></td>
-<td>Members in other species, as <code>code:gene1,gene2;code:gene3</code>
-</td>
+<td><code>score</code></td>
+<td>
+<code>-log2(p)</code>. Higher is stronger.</td>
+</tr>
+<tr class="even">
+<td><code>evalue</code></td>
+<td>
+<code>n_tests * p</code>: pairs this strong expected by chance.</td>
+</tr>
+<tr class="odd">
+<td><code>q_value</code></td>
+<td>False discovery rate.</td>
+</tr>
+<tr class="even">
+<td><code>effect_size</code></td>
+<td>Fold enrichment of shared partners.</td>
+</tr>
+<tr class="odd">
+<td><code>power</code></td>
+<td>Chance to call the pair if it were conserved.</td>
 </tr>
 </tbody>
 </table>
-<p>Each row defines one ortholog group from the anchor species’ point of view. <code>gene_content</code> lists the members per species, separated by semicolons. PLAZA writes this format; OrthoFinder and FastOMA output can be reshaped into it. If your expression data are <code>SummarizedExperiment</code> objects with a HOG column in <code><a href="https://rdrr.io/pkg/SummarizedExperiment/man/SummarizedExperiment-class.html" class="external-link">rowData()</a></code>, use <code><a href="reference/extract_orthologs.html">extract_orthologs()</a></code> or <code><a href="reference/prepare_orthologs.html">prepare_orthologs()</a></code> instead and skip the file.</p>
+<p><code>res$classification</code> has one row per clique and its tier.</p>
 </div>
 <div class="section level2">
-<h2 id="function-index">Function index<a class="anchor" aria-label="anchor" href="#function-index"></a>
+<h2 id="three-pitfalls">Three pitfalls<a class="anchor" aria-label="anchor" href="#three-pitfalls"></a>
 </h2>
-<p>Full documentation is in the <a href="https://paliocha.github.io/rcomplex/reference/" class="external-link">reference pages</a>.</p>
-<p><strong>Input and networks</strong></p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>Few samples.</strong> The density threshold keeps the top 3% of gene pairs at any sample size. At 20 samples that means weak correlations. Read <code>r &gt;=</code> in the header. A value near 0.3 means the network holds a lot of chance correlation.</li>
+<li>
+<strong>Density.</strong> A looser density adds edges and noise. A tighter one removes true edges. Run <code><a href="reference/density_sweep.html">density_sweep()</a></code> and keep the calls that survive.</li>
+<li>
+<strong>The p-value floor.</strong> A permutation p-value cannot fall below <code>1 / (n_perm + 1)</code>. Trait tests over few species have a higher floor. Run <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code> before you trust a q-value.</li>
+</ol>
+</div>
+<div class="section level2">
+<h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
+</h2>
 <ul>
+<li><a href="https://paliocha.github.io/rcomplex/articles/quickstart.html">Quickstart</a></li>
 <li>
-<a href="https://paliocha.github.io/rcomplex/reference/parse_orthologs.html" class="external-link"><code>parse_orthologs()</code></a>: read an ortholog group file into ortholog pairs.</li>
+<a href="https://paliocha.github.io/rcomplex/articles/walkthrough.html">Walkthrough</a>: every step alone, with modules and traits.</li>
 <li>
-<a href="https://paliocha.github.io/rcomplex/reference/extract_orthologs.html" class="external-link"><code>extract_orthologs()</code></a>: ortholog pairs from the HOG column of two <code>SummarizedExperiment</code> objects.</li>
+<a href="https://paliocha.github.io/rcomplex/articles/methods.html">Methods</a>: the statistics.</li>
 <li>
-<a href="https://paliocha.github.io/rcomplex/reference/prepare_orthologs.html" class="external-link"><code>prepare_orthologs()</code></a>: ortholog pairs for many species, optionally after paralog reduction.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/reduce_orthogroups.html" class="external-link"><code>reduce_orthogroups()</code></a>: merge paralogs with near-identical expression within each HOG.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/compute_network.html" class="external-link"><code>compute_network()</code></a>: correlation, MR or CLR normalisation and density threshold for one species.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/as_sparse_network.html" class="external-link"><code>as_sparse_network()</code></a>: convert a dense network object to sparse storage.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/mr_block.html" class="external-link"><code>mr_block()</code></a>: exact MR values for a gene subset, including pairs below the stored edges.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/suggest_reference_density.html" class="external-link"><code>suggest_reference_density()</code></a>: choose a network density from a scale-free fit diagnostic.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/rcomplex.html" class="external-link"><code>rcomplex()</code></a>: container that carries species, networks and results through the pipeline.</li>
-</ul>
-<p><strong>Gene and ortholog-group conservation</strong></p>
-<ul>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/compare_neighborhoods.html" class="external-link"><code>compare_neighborhoods()</code></a>: hypergeometric neighbourhood tests for one species pair.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/summarize_comparison.html" class="external-link"><code>summarize_comparison()</code></a>: q-values and summaries for <code><a href="reference/compare_neighborhoods.html">compare_neighborhoods()</a></code> output.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/compare_specificity.html" class="external-link"><code>compare_specificity()</code></a>: rank test for one species pair: where the ortholog ranks among all partner-species genes at matching the translated neighbourhood.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/summarize_specificity.html" class="external-link"><code>summarize_specificity()</code></a>: q-values for <code><a href="reference/compare_specificity.html">compare_specificity()</a></code> output, calibrated against a null network.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/null_network.html" class="external-link"><code>null_network()</code></a>: the same network built from expression shuffled within each gene, the null for <code>method = "rank"</code>; <code>block =</code> shuffles within time points or trees and keeps the shared course.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/comparison_to_edges.html" class="external-link"><code>comparison_to_edges()</code></a>: convert comparison results to the edge table used downstream.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/find_coexpressologs.html" class="external-link"><code>find_coexpressologs()</code></a>: co-expressolog calls for all species pairs (alias <code><a href="reference/find_coexpressologs.html">run_pairwise_comparisons()</a></code>).</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/permutation_hog_test.html" class="external-link"><code>permutation_hog_test()</code></a>: permutation test of conservation for whole ortholog groups.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/density_sweep.html" class="external-link"><code>density_sweep()</code></a>: rerun the co-expressolog calls at several network densities.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/coexpressolog_strength.html" class="external-link"><code>coexpressolog_strength()</code></a>: edge strength integrated over several densities.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/coexpressolog_null.html" class="external-link"><code>coexpressolog_null()</code></a>: degree-preserving rewiring null for co-expressolog counts.</li>
-</ul>
-<p><strong>Modules and hubs</strong></p>
-<ul>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/detect_modules.html" class="external-link"><code>detect_modules()</code></a>: Leiden, Infomap or SBM modules, with multi-resolution consensus.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/as_modules.html" class="external-link"><code>as_modules()</code></a>: module map from any gene partition (pathways, regulons, another tool’s clusters) for the preservation tests.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/resolve_ortholog_map.html" class="external-link"><code>resolve_ortholog_map()</code></a>: pick one paralog copy per gene where evidence allows.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/module_preservation.html" class="external-link"><code>module_preservation()</code></a>: test whether modules keep their density and hubs in another species.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/classify_preservation.html" class="external-link"><code>classify_preservation()</code></a>: label modules conserved, moderate, diverged or untested.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/module_correspondence.html" class="external-link"><code>module_correspondence()</code></a>: match modules across species by ortholog overlap.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/identify_module_hubs.html" class="external-link"><code>identify_module_hubs()</code></a>: hub genes within each module.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/characterize_hubs.html" class="external-link"><code>characterize_hubs()</code></a>: bridge and betweenness metrics for hub genes.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/classify_hub_conservation.html" class="external-link"><code>classify_hub_conservation()</code></a>: hub conservation across trait groups.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/get_coexpressed_hogs.html" class="external-link"><code>get_coexpressed_hogs()</code></a>: co-expression partners of one ortholog group across species.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/module_auroc.html" class="external-link"><code>module_auroc()</code></a>: cross-species conservation of a module: neighbour-voting AUROC of its ortholog set in the other species against random sets matched on size, copy number and degree, with sequential Monte Carlo p-values.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/module_auroc_reciprocal.html" class="external-link"><code>module_auroc_reciprocal()</code></a>: the same in both directions, modules paired by reciprocal best overlap, p-values combined with <code>pmax</code>.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/module_replication.html" class="external-link"><code>module_replication()</code></a>: the same statistic within one species, modules from one sample half scored on the other: the replication ceiling.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/recurrence_graph.html" class="external-link"><code>recurrence_graph()</code></a>: ortholog-group pairs co-expressed in more species than independence predicts, with paralog copy number in the null.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/recurrence_modules.html" class="external-link"><code>recurrence_modules()</code></a>: modules from the recurrence graph, by coarse Leiden or as the densest subgraph around anchor groups, as per-species module maps.</li>
-</ul>
-<p><strong>Trait tests</strong></p>
-<ul>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/all_species_pairs.html" class="external-link"><code>all_species_pairs()</code></a>: table of every species pair for <code><a href="reference/preservation_paired.html">preservation_paired()</a></code>.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/preservation_paired.html" class="external-link"><code>preservation_paired()</code></a>: module preservation over many species pairs, both directions.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/preservation_matrix_test.html" class="external-link"><code>preservation_matrix_test()</code></a>: do trait-discordant species pairs preserve less?</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/tag_permutation.html" class="external-link"><code>tag_permutation()</code></a>: do the same ortholog groups recur in diverged modules across contrasts?</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/pvalue_resolution.html" class="external-link"><code>pvalue_resolution()</code></a>: how many p- or q-values are tied at the permutation floor.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/subspace_preservation.html" class="external-link"><code>subspace_preservation()</code></a>: agreement between two species’ leading network subspaces mapped through orthology, against a label-permutation null; no modules needed.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/as_preservation_matrix.html" class="external-link"><code>as_preservation_matrix()</code></a>: its symmetrised z in the shape <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> reads.</li>
-</ul>
-<p><strong>Cliques</strong></p>
-<ul>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/gene_clique_graph.html" class="external-link"><code>gene_clique_graph()</code></a>: all maximal cliques of each ortholog group’s gene graph.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.html" class="external-link"><code>classify_gene_cliques()</code></a>: conservation tiers for gene-graph cliques.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/find_cliques.html" class="external-link"><code>find_cliques()</code></a>: species-graph cliques with one best gene per species.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/classify_cliques.html" class="external-link"><code>classify_cliques()</code></a>: conservation classes for ortholog groups from species-graph cliques.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/clique_stability.html" class="external-link"><code>clique_stability()</code></a>: leave-k-species-out stability of trait-exclusive cliques.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/clique_persistence.html" class="external-link"><code>clique_persistence()</code></a>: how far each clique’s supporting edges sit above the threshold.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/clique_threshold_sweep.html" class="external-link"><code>clique_threshold_sweep()</code></a>: clique survival at stricter densities.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/clique_perturbation_test.html" class="external-link"><code>clique_perturbation_test()</code></a>: clique survival under added noise.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/clique_intensity_test.html" class="external-link"><code>clique_intensity_test()</code></a>: are a clique’s edges stronger than matched random edges?</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/conservation_pattern_table.html" class="external-link"><code>conservation_pattern_table()</code></a>: one row per gene clique with a member / rejected / no-evidence state per species.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/conservation_lattice.html" class="external-link"><code>conservation_lattice()</code></a>: the closed species sets of those patterns with their support, so conservation tiers read off as named sets.</li>
-<li>
-<a href="https://paliocha.github.io/rcomplex/reference/bicm_species_z.html" class="external-link"><code>bicm_species_z()</code></a>: species-pair co-membership z under the bipartite configuration model, a standardiser for the trait test.</li>
+<a href="https://paliocha.github.io/rcomplex/reference/">Function reference</a>.</li>
 </ul>
 </div>
 <div class="section level2">
 <h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
 </h2>
-<p>If you use rcomplex, please cite the method paper and the package:</p>
 <ul>
-<li>Netotea, S., Sundell, D., Street, N. R. &amp; Hvidsten, T. R. (2014). ComPlEx: conservation and divergence of co-expression networks in <em>A. thaliana</em>, <em>Populus</em> and <em>O. sativa</em>. <em>BMC Genomics</em>, 15, 106. <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">doi:10.1186/1471-2164-15-106</a>
+<li>Netotea S, Sundell D, Street NR, Hvidsten TR (2014). ComPlEx: conservation and divergence of co-expression networks in <em>A. thaliana</em>, <em>Populus</em> and <em>O. sativa</em>. <em>BMC Genomics</em> 15:106. <a href="https://doi.org/10.1186/1471-2164-15-106" class="external-link">doi:10.1186/1471-2164-15-106</a>
 </li>
-<li>Paliocha, M. rcomplex: Comparative Co-Expression Network Analysis Across Species. R package version 0.3.1. <a href="https://github.com/paliocha/rcomplex" class="external-link uri">https://github.com/paliocha/rcomplex</a>
+<li>Rodriguez <em>et al.</em> (2026), for the gene-graph clique taxonomy. <a href="https://doi.org/10.1038/s41467-026-75624-2" class="external-link">doi:10.1038/s41467-026-75624-2</a>
 </li>
 </ul>
-<p>Key references for the methods:</p>
-<ul>
-<li>Obayashi, T. &amp; Kinoshita, K. (2009). Rank of correlation coefficient as a comparable measure for biological significance of gene coexpression. <em>DNA Research</em>, 16(5), 249-260. <a href="https://doi.org/10.1093/dnares/dsp016" class="external-link">doi:10.1093/dnares/dsp016</a>
-</li>
-<li>Jeub, L. G. S., Sporns, O. &amp; Fortunato, S. (2018). Multiresolution consensus clustering in networks. <em>Scientific Reports</em>, 8, 3259. <a href="https://doi.org/10.1038/s41598-018-21352-7" class="external-link">doi:10.1038/s41598-018-21352-7</a>
-</li>
-<li>Ritchie, S. C. <em>et al.</em> (2016). A scalable permutation approach reveals replication and preservation patterns of network modules in large datasets. <em>Cell Systems</em>, 3(1), 71-82. <a href="https://doi.org/10.1016/j.cels.2016.06.012" class="external-link">doi:10.1016/j.cels.2016.06.012</a>
-</li>
-<li>Rodriguez, E. <em>et al.</em> (2026). Comparative regulomics of wood formation across dicot and conifer trees. <em>Nature Communications</em>, 17, 8916. <a href="https://doi.org/10.1038/s41467-026-75624-2" class="external-link">doi:10.1038/s41467-026-75624-2</a>
-</li>
-</ul>
-<p>The full reference list is in <a href="https://paliocha.github.io/rcomplex/articles/methods.html#references" class="external-link">Methods in detail</a>.</p>
-</div>
-<div class="section level2">
-<h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
-</h2>
-<p>MIT</p>
 </div>
 </div>
-  </div>
-
-  <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
-    <div class="links">
+  </main><aside class="col-md-3"><div class="links">
 <h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
 <li><a href="https://github.com/paliocha/rcomplex/" class="external-link">Browse source code</a></li>
@@ -630,27 +217,23 @@
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
 <li><a href="https://github.com/paliocha/rcomplex/actions/workflows/r.yml" class="external-link"><img src="https://github.com/paliocha/rcomplex/actions/workflows/r.yml/badge.svg" alt="R-CMD-check"></a></li>
-<li><a href="https://deepwiki.com/paliocha/rcomplex" class="external-link"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a></li>
 </ul>
 </div>
 
-  </div>
+  </aside>
 </div>
 
 
-      <footer><div class="copyright">
-  <p></p>
-<p>Developed by Martin Paliocha.</p>
+    <footer><div class="pkgdown-footer-left">
+  <p>Developed by Martin Paliocha.</p>
 </div>
 
-<div class="pkgdown">
-  <p></p>
-<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
+<div class="pkgdown-footer-right">
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
-      </footer>
+    </footer>
 </div>
-
 
 
 

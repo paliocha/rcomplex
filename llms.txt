@@ -1,0 +1,237 @@
+# rcomplex
+
+rcomplex aligns gene co-expression networks across species, the way
+BLAST aligns sequences. Ortholog groups anchor the alignment. A pairwise
+alignment is a set of co-expressologs: ortholog pairs that keep their
+co-expression partners. A multiple alignment is a clique: genes in three
+or more species that are all co-expressed. An aligned block is a module.
+Every edge gets a score, an e-value, a q-value, an effect size and a
+power. The method extends ComPlEx (Netotea *et al.*, 2014).
+
+``` mermaid
+flowchart LR
+  A[expression per species] --> H[harmonise: block or partition]
+  H --> N[networks: top 3% of gene pairs]
+  O[ortholog groups: hogs] --> C
+  N --> C[co-expressologs: edges]
+  C --> Q[cliques: multiple alignment]
+  C --> M[modules: aligned blocks]
+  Q --> T[tiers and clades]
+  C --> Z[nulls and power]
+```
+
+## Install
+
+``` r
+devtools::install_github("paliocha/rcomplex")
+```
+
+You need a C++23 compiler and GNU make. OpenMP is optional.
+
+## Run
+
+Give
+[`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+one expression object per species, a table of hogs, and optional clades.
+The example uses four Pooideae grasses that ship with the package.
+
+``` r
+library(rcomplex)
+library(SummarizedExperiment)
+se <- readRDS(system.file("extdata", "pooideae_vignette.rds",
+                          package = "rcomplex"))
+leaf <- lapply(se[c("BDIS", "BSYL", "HVUL", "HJUB")],
+               function(s) s[, s$tissue == "leaf"])
+hogs <- do.call(rbind, lapply(names(leaf), function(s) data.frame(
+  species = s, gene = rownames(leaf[[s]]), hog = rowData(leaf[[s]])$hog)))
+```
+
+Then run the driver:
+
+``` r
+clades <- list(annual = c("BDIS", "HVUL"), perennial = c("BSYL", "HJUB"))
+res <- rcomplex(leaf, hogs, clades = clades, seed = 1)
+#> gene_clique_graph: 9 ortholog groups exceeded 10 genes in some species;
+#>   68 genes dropped
+res
+#> rcomplex: 4 species, 1,500 hogs, 3 tiers
+#>   BDIS  1,935 genes  20 samples  density 0.03  r >= 0.35
+#>   BSYL  1,967 genes  20 samples  density 0.03  r >= 0.33
+#>   HVUL  1,925 genes  20 samples  density 0.03  r >= 0.29
+#>   HJUB  3,983 genes  20 samples  density 0.03  r >= 0.28
+#>   edges 33,575 tested, 10,387 called at q < 0.1
+#>   cliques 14,047: complete_conserved 12,592, partial_present    114, unclassified  1,341
+```
+
+Use `summary(res)` for the tier table, `write_rcomplex(res, "out/")` to
+save the tables, and `rcomplex(networks = ...)` for networks built
+elsewhere. Pass `block` for a designed experiment. Pass `modules = TRUE`
+for modules. Pass `null = TRUE` to count calls on shuffled networks.
+
+The quickstart runs this example step by step.
+
+## Output
+
+`res$edges` has one row per ortholog pair in each species pair.
+
+| Column           | Meaning                                              |
+|------------------|------------------------------------------------------|
+| `gene1`, `gene2` | The two orthologs.                                   |
+| `hog`            | Their ortholog group.                                |
+| `score`          | `-log2(p)`. Higher is stronger.                      |
+| `evalue`         | `n_tests * p`: pairs this strong expected by chance. |
+| `q_value`        | False discovery rate.                                |
+| `effect_size`    | Fold enrichment of shared partners.                  |
+| `power`          | Chance to call the pair if it were conserved.        |
+
+`res$classification` has one row per clique and its tier.
+
+## Three pitfalls
+
+1.  **Few samples.** The density threshold keeps the top 3% of gene
+    pairs at any sample size. At 20 samples that means weak
+    correlations. Read `r >=` in the header. A value near 0.3 means the
+    network holds a lot of chance correlation.
+2.  **Density.** A looser density adds edges and noise. A tighter one
+    removes true edges. Run
+    [`density_sweep()`](https://paliocha.github.io/rcomplex/reference/density_sweep.md)
+    and keep the calls that survive.
+3.  **The p-value floor.** A permutation p-value cannot fall below
+    `1 / (n_perm + 1)`. Trait tests over few species have a higher
+    floor. Run
+    [`pvalue_resolution()`](https://paliocha.github.io/rcomplex/reference/pvalue_resolution.md)
+    before you trust a q-value.
+
+## Documentation
+
+- [Quickstart](https://paliocha.github.io/rcomplex/articles/quickstart.html)
+- [Walkthrough](https://paliocha.github.io/rcomplex/articles/walkthrough.html):
+  every step alone, with modules and traits.
+- [Methods](https://paliocha.github.io/rcomplex/articles/methods.html):
+  the statistics.
+- [Function reference](https://paliocha.github.io/rcomplex/reference/).
+
+## Citation
+
+- Netotea S, Sundell D, Street NR, Hvidsten TR (2014). ComPlEx:
+  conservation and divergence of co-expression networks in *A.
+  thaliana*, *Populus* and *O. sativa*. *BMC Genomics* 15:106.
+  [doi:10.1186/1471-2164-15-106](https://doi.org/10.1186/1471-2164-15-106)
+- Rodriguez *et al.* (2026), for the gene-graph clique taxonomy.
+  [doi:10.1038/s41467-026-75624-2](https://doi.org/10.1038/s41467-026-75624-2)
+
+# Package index
+
+## Run
+
+One call from expression to cliques.
+
+- [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  : Compare co-expression networks across species in one call
+- [`write_rcomplex()`](https://paliocha.github.io/rcomplex/reference/write_rcomplex.md)
+  : Write an rcomplex result as tab-separated files
+
+## Inputs
+
+Ortholog groups, clades and networks built elsewhere.
+
+- [`read_orthologs()`](https://paliocha.github.io/rcomplex/reference/read_orthologs.md)
+  : Read an ortholog group file
+- [`prepare_orthologs()`](https://paliocha.github.io/rcomplex/reference/prepare_orthologs.md)
+  : Pair orthologs for every species pair
+- [`reduce_orthogroups()`](https://paliocha.github.io/rcomplex/reference/reduce_orthogroups.md)
+  : Reduce orthogroups by merging correlated paralogs
+- [`as_network()`](https://paliocha.github.io/rcomplex/reference/as_network.md)
+  : Import a network built outside rcomplex
+- [`clades_from_tree()`](https://paliocha.github.io/rcomplex/reference/clades_from_tree.md)
+  : Clades from a species tree
+
+## Harmonise
+
+Remove a designed factor before correlation.
+
+- [`split_layers()`](https://paliocha.github.io/rcomplex/reference/split_layers.md)
+  : Split expression into wiring and deployment layers
+
+## Networks
+
+- [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md)
+  : Compute co-expression network
+
+## Co-expressologs
+
+Pairwise alignment of ortholog pairs.
+
+- [`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.md)
+  [`run_pairwise_comparisons()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.md)
+  : Find co-expressologs across all species pairs
+- [`density_sweep()`](https://paliocha.github.io/rcomplex/reference/density_sweep.md)
+  : Sweep density thresholds for robustness assessment
+
+## Cliques
+
+Multiple alignment across species.
+
+- [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md)
+  : Find co-expression cliques using C++ two-level decomposition
+- [`clique_stability()`](https://paliocha.github.io/rcomplex/reference/clique_stability.md)
+  : Leave-k-out jackknife structural stability for cliques
+- [`clique_threshold_sweep()`](https://paliocha.github.io/rcomplex/reference/clique_threshold_sweep.md)
+  : Structural survival of cliques across stricter density thresholds
+- [`classify_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_cliques.md)
+  : Classify HOGs by clique conservation pattern
+- [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
+  : Maximal cliques of the per-orthogroup gene graph
+- [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
+  : Classify gene-graph cliques into conservation tiers
+
+## Modules
+
+Aligned blocks and their hubs.
+
+- [`detect_modules()`](https://paliocha.github.io/rcomplex/reference/detect_modules.md)
+  : Detect co-expression modules in a network
+- [`as_modules()`](https://paliocha.github.io/rcomplex/reference/as_modules.md)
+  : Build a module assignment from any gene partition
+- [`resolve_ortholog_map()`](https://paliocha.github.io/rcomplex/reference/resolve_ortholog_map.md)
+  : Resolve paralog copies in an ortholog map
+- [`module_preservation()`](https://paliocha.github.io/rcomplex/reference/module_preservation.md)
+  : Test whether co-expression modules are preserved across species
+- [`classify_preservation()`](https://paliocha.github.io/rcomplex/reference/classify_preservation.md)
+  : Classify modules as conserved, moderately preserved, or diverged
+- [`module_correspondence()`](https://paliocha.github.io/rcomplex/reference/module_correspondence.md)
+  : Match modules across species by ortholog overlap
+- [`identify_module_hubs()`](https://paliocha.github.io/rcomplex/reference/identify_module_hubs.md)
+  : Identify hub genes within co-expression modules
+- [`classify_hub_conservation()`](https://paliocha.github.io/rcomplex/reference/classify_hub_conservation.md)
+  : Classify hub gene conservation across species and clades
+- [`get_coexpressed_hogs()`](https://paliocha.github.io/rcomplex/reference/get_coexpressed_hogs.md)
+  : Query co-expression partners of a candidate HOG across species
+
+## Traits
+
+Is divergence associated with a trait?
+
+- [`preservation_paired()`](https://paliocha.github.io/rcomplex/reference/preservation_paired.md)
+  : Run module preservation across many species pairs
+- [`preservation_matrix_test()`](https://paliocha.github.io/rcomplex/reference/preservation_matrix_test.md)
+  : Trait relabelling test on the all-pairs preservation matrix
+
+## Nulls and diagnostics
+
+- [`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.md)
+  : Shuffled-partner null network
+- [`coexpressolog_null()`](https://paliocha.github.io/rcomplex/reference/coexpressolog_null.md)
+  : Degree-preserving edge-swap null for co-expressolog statistics
+- [`pvalue_resolution()`](https://paliocha.github.io/rcomplex/reference/pvalue_resolution.md)
+  : How much resolution is left in a set of p-values
+
+# Articles
+
+### Guides
+
+- [Quickstart](https://paliocha.github.io/rcomplex/articles/quickstart.md):
+- [Walkthrough: the building
+  blocks](https://paliocha.github.io/rcomplex/articles/walkthrough.md):
+- [Methods in
+  detail](https://paliocha.github.io/rcomplex/articles/methods.md):
