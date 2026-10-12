@@ -421,6 +421,116 @@ papers. Read beyond the title:
   hyperedges non-parametrically. This is a possible HOG filter before
   detection.
 
+## 9. Hypergraph encodings and multi-copy hogs (2026-10-12)
+
+All numbers come from the 12,000-gene Pooideae leaf table: 8 species,
+1,452,683 gene cliques, 3,742 hogs. Scripts: `dev/probes/encodings-frc.R`
+and `dev/probes/encodings-twins.R`.
+
+### 9.1 The paper
+
+Pellegrin, Fesser & Weber 2025, "Enhancing the Utility of Higher-Order
+Information in Relational Learning", NeurIPS 2025 (arXiv:2502.09570; code
+`github.com/Weber-GeoML/Hypergraph_Encodings`, Python 3.11, torch 2.0, Julia
+for Ollivier-Ricci). They compute node-level encodings from a hypergraph and
+feed them to GNNs. At hypergraph level the models are UniGCN, UniGAT, UniGIN
+and UniSAGE. At graph level they are GCN and GPS on expansions.
+
+| family | definition |
+|---|---|
+| H-k-RWPE | return probabilities after 1..k steps of a hypergraph walk |
+| H-k-LAPE | eigenvectors of `B1^T B1` or `I - Dv^{-1/2} B1 De^{-1} B1^T Dv^{-1/2}` |
+| HCP | per node, min, max, mean, median and sd of curvature over incident hyperedges |
+| H-LDP | degree profile |
+
+The walk comes in three kinds: equal-node, weighted-edge and equal-edge. The
+equal-edge walk picks an incident hyperedge uniformly, then a co-member
+uniformly: `P(i -> j) = 1/|{e : i in e}| * sum_{e containing i and j}
+1/(|e| - 1)`. HCP uses Forman-Ricci, `F(e) = sum_{k in e} (2 - d_k)`, or
+Ollivier-Ricci (Coupette, Dalleiger & Rieck 2023, ORCHID).
+
+The main result: graph-level models on hypergraph expansions beat hypergraph
+architectures. The encodings help the graph-level models and not the
+hypergraph ones. Section 3 already counts the paper as evidence against or
+neutral.
+
+Verdict: do not adopt the code. The definitions are one page of sparse
+products on an incidence matrix. The `members` table of `gene_cliques` is
+that matrix (shape B, `clique-table-shape.md`).
+
+### 9.2 Forman curvature of the clique-lifted hypergraph
+
+Each hyperedge is one maximal gene clique. `d_k` is the number of cliques
+holding gene k. One `tabulate()` and one grouped sum over `members` give
+`F(e)`.
+
+| measure | value |
+|---|---|
+| cliques with F > 0 (every member in at most two cliques) | 0.27 %; 2,898 of 3,742 hogs have at least one |
+| HOG:0025026 | 1,400,795 cliques (96 % of all), median F about -1.3 million |
+| multi-copy (hog, species) cells where copies differ in mean F | 1,460 of 2,653 (55 %) |
+
+Here F is minus the clique multiplicity. A copy in fewer cliques is either
+diverged or more specific. Without edge weights the sign cannot be read.
+Keep F as a probe column, not a tier rule. In several hog cells, copies had
+exactly the same clique count and mean F. That led to 9.3.
+
+### 9.3 False twins: what no encoding can resolve
+
+Every topological encoding gives identical values to nodes with identical
+neighbourhoods. Same-species paralogs with the same cross-species
+co-expressolog partners in the gene graph at `alpha_graph` are false twins.
+They are never adjacent and share one neighbour set. They multiply the
+cliques. Twin class = hash of the sorted neighbour set per gene. Cliques are
+compared as multisets of twin classes.
+
+| measure | value |
+|---|---|
+| multi-copy (hog, species) cells | 5,657; 17,263 copies -> 15,420 twin classes |
+| cells where all copies are twins | 1,233 (22 %) |
+| cells with at least one twin pair | 1,620 |
+| cliques | 1,452,683 -> 145,476 distinct up to twin substitution (10x) |
+| HOG:0025026 | 1,400,795 -> 120,383; copies per species 8,9,8,6,10,15,13; twin classes 8,4,7,5,5,14,10 |
+| HOG:0024976 | 11,178 -> 604 |
+| HOG:0031783 | 6,383 -> 108 |
+
+The reduction is lossless. A quotient clique stands for every choice of one
+representative per twin class. Its multiplicity is the product of the class
+sizes. Two consequences:
+
+1. The network cannot resolve twins, so do not enumerate them. Collapse each
+   class to one node before `igraph::max_cliques()`. Report `n_copies` per
+   member.
+2. Non-twin copies differ in topology. They are the real resolution targets.
+   There, curvature, random-walk encodings or plain edge scores apply.
+
+Any hypergraph community method in WP15 inherits the same degeneracy.
+
+### 9.4 Two ideas under probe
+
+Results will follow in 9.5.
+
+1. **Equal-edge walk on the mixed hypergraph.** Hyperedges are hogs across
+   species plus within-species co-expression edges. The 4-step return is
+   gene -> co-expressed neighbour -> that neighbour's hog -> ortholog's
+   neighbour -> own hog -> gene. It is a per-copy co-expressolog statistic.
+   The `1/(|e| - 1)` factor normalises it by copy number. It is a soft,
+   multi-step form of the hypergeometric overlap. Test: does it separate
+   gene-graph false twins? Their within-species neighbourhoods differ even
+   when their cross-species partners do not.
+2. **Ollivier-Ricci curvature of a hog hyperedge.** Use a 0/1 ground metric
+   (same hog = 0). On hog-projected neighbourhood measures,
+   `W1(mu_g, mu_g') = 1 - sum_h min(nu_g(h), nu_g'(h))` in closed form. Then
+   `kappa(hog) = 1 - mean pairwise W1` across species. The transport plan
+   between two species' copy sets is a soft copy map. It is an alternative
+   to the single-layer rule in `resolve_ortholog_map()`.
+
+### 9.5 Recommendation
+
+WP-c: twin reduction inside `gene_clique_graph()`, the next shape step
+(issue #72). Curvature and the transport copy map go to `dev/probes/` behind
+this note. Do not adopt the repository.
+
 ## Reading list
 
 | rank | citation | DOI / arXiv | why |
@@ -435,6 +545,8 @@ papers. Read beyond the title:
 | 8 | Veldt, Benson & Kleinberg 2022, SIAM Rev | 10.1137/20M1321048 | splitting functions: star, clique, AON, tau in one frame |
 | 9 | Ni, Deng & Mu 2025, arXiv | arXiv:2505.04967 | SBM over several hypergraphs joined by inter-hypergraph edges (gene-protein) |
 | 10 | Kaminski, Poulin, Pralat, Szufel & Theberge 2019, PLOS ONE | 10.1371/journal.pone.0224307 | Chung-Lu hypergraph null, strict modularity |
+| 11 | Pellegrin, Fesser & Weber 2025, NeurIPS | arXiv:2502.09570 | node encodings from hypergraphs; graph-level models on expansions win; section 9 |
+| 12 | Coupette, Dalleiger & Rieck 2023, ICLR | arXiv:2210.12048 | ORCHID: Ollivier-Ricci curvature for hyperedges; basis for the hog-curvature probe |
 
 Dropped from the top 10, still cited in the text: Bazzi 2016, Chodrow 2020
 and Mucha 2010.
