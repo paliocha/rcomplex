@@ -506,9 +506,16 @@ sizes. Two consequences:
 
 Any hypergraph community method in WP15 inherits the same degeneracy.
 
+The probe in 9.6 shows twins are twins only in the gene graph. Within their
+own species the two copies' co-expression neighbourhoods differ (hog-projected
+W1 median 0.52; 6 of 2,082 twin pairs below 0.01). So a twin class is an
+enumeration identity, not a biological class. The copies pass the same
+cross-species calls, nothing more. The reduction in cliques stays exact. The
+reading "twins = redundant copies" does not hold.
+
 ### 9.4 Two ideas under probe
 
-Results will follow in 9.5.
+Results are in 9.6.
 
 1. **Equal-edge walk on the mixed hypergraph.** Hyperedges are hogs across
    species plus within-species co-expression edges. The 4-step return is
@@ -528,8 +535,87 @@ Results will follow in 9.5.
 ### 9.5 Recommendation
 
 WP-c: twin reduction inside `gene_clique_graph()`, the next shape step
-(issue #72). Curvature and the transport copy map go to `dev/probes/` behind
-this note. Do not adopt the repository.
+(issue #72). Curvature and the transport copy map stay in `dev/probes/`; 9.6
+shows neither earns a package column. Do not adopt the repository.
+
+### 9.6 Probe results (2026-10-12)
+
+Scripts: `dev/probes/encodings-common.R`, `encodings-rw.R`, `encodings-orc.R`.
+
+Setup: 8 species x 12,000 genes = 96,000 nodes. 15,796 hog hyperedges (max
+581). 17.3 M co-expression edges at density 0.03 (degree 360 everywhere).
+P has 36.1 M non-zeros. 2,082 twin pairs; 66,049 non-twin paralog pairs.
+Tiers at 12k: complete_conserved 4, partial_present 19, trait_specific 65,
+unclassified 3,647. With n = 4, AUROCs against complete_conserved are noise.
+
+**Equal-edge walk.** A gene's one hog edge competes with 360 co-expression
+edges. The hog step has weight 1/361. The hog-mediated share of the 4-step
+return is about 0.1 %.
+
+| Q1: abs(dlog p4) | twin | non-twin paralog | random |
+|---|---|---|---|
+| all paths, median | 0.130 | 0.317 | 0.307 |
+| hog part, median | 0.048 | 0.239 | 0.540 |
+| degree gap, median | 0.116 | 0.297 | 0.258 |
+
+| Q2: agreement with the most-called copy | h4 | p4 | highest degree | baseline |
+|---|---|---|---|---|
+| 9,745 cells | 0.442 | 0.554 | 0.560 | 0.410 |
+
+p4 is degree. h4 is at baseline. Run time 93 s, 5.8 GB.
+
+**Hog-projected Ollivier-Ricci.** kappa median 0.040 (IQR 0.032-0.054).
+Neighbourhoods of different species overlap about 4 %.
+
+| Q4: tier | n | 1 - mean W1 | 1 - max W1 | hog size |
+|---|---|---|---|---|
+| complete_conserved | 4 | 0.056 | 0.001 | 57 |
+| partial_present | 19 | 0.129 | 0.033 | 13 |
+| trait_specific | 65 | 0.061 | 0.016 | 8 |
+| unclassified | 3,647 | 0.063 | 0.022 | 6 |
+
+AUROC, any tier vs unclassified: 0.532 (mean), 0.403 (max). The max version
+is a size effect: a big hog always holds one distant pair. Per copy, the
+lowest mean cross-species W1 picks the most-called copy in 0.760 of 9,745
+cells (baseline 0.410). Run time 341 s, 12.9 GB.
+
+| Q5: within-species W1 | n | hog-projected median | share < 0.01 |
+|---|---|---|---|
+| twin | 2,082 | 0.519 | 0.003 |
+| non-twin paralog | 20,000 | 0.955 | 0 |
+| random | 20,000 | 0.968 | 0 |
+
+**Copy map.** 51,562 (hog, A, B) triples have a multi-copy side. Optimal
+transport (OT) by `lpSolve`, uniform marginals.
+
+| Best-q called pair vs the plan | n | heaviest cell | argmin C | base | in OT support | base | RBP | base |
+|---|---|---|---|---|---|---|---|---|
+| both multi | 8,448 | 0.730 | 0.797 | 0.124 | 0.897 | 0.446 | 0.849 | 0.166 |
+| one side 1 | 9,370 | 0.919 | 0.919 | 0.461 | 1 | 1 | 0.919 | 0.461 |
+
+| `resolve_ortholog_map()` pairs vs the plan | pairs | in OT support | base | RBP on C | base |
+|---|---|---|---|---|---|
+| both multi | 12,056 | 0.880 | 0.446 | 0.735 | 0.166 |
+| one side 1 | 9,370 | 1 | 1 | 0.898 | 0.461 |
+
+The LP returns a vertex, so plans are sparse by construction. Argmin C
+beats the heaviest OT cell (0.797 vs 0.730). OT adds nothing over
+reciprocal best pairs (RBP).
+
+**What separates copies.** Hog-projected W1 to the other species does
+(argmin C, RBP, lowest mean W1: 0.76-0.85 against baselines of 0.17-0.41).
+But W1 re-scores the neighbourhood overlap the hypergeometric test already
+uses. It confirms the calls. It is not new evidence.
+
+**What does not.** The equal-edge walk: one hog edge drowns among 360
+co-expression edges. Curvature: kappa is about 0.04 in every tier and tracks
+hog size. OT over reciprocal best pairs. Twin classes as biology: twins
+differ within their species.
+
+**Worth a package probe.** None of the scores. At most, use the lowest mean
+cross-species W1 as a tie-breaker for `source == "unresolved"` copies in
+`resolve_ortholog_map()`, after a held-out test. A walk first needs a weight
+on the hog layer.
 
 ## Reading list
 
