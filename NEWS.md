@@ -16,7 +16,8 @@
   of 28.3 M rows in 6 min at 15.0 GB. At 12,000 genes it gives 186,032 rows
   in 4 s instead of 11 s.
 - `rcomplex()` stores `twins`, and `write_rcomplex()` writes `twins.tsv`.
-  `print()` adds the clique count with paralog copies. The `summary()` tier
+  `print()` shows the distinct cliques, with the count including paralog
+  copies in brackets. The `summary()` tier
   table gains `multiplicity`.
 
 # rcomplex 0.4.0

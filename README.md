@@ -65,7 +65,7 @@ res
 #>   HVUL  1,925 genes  20 samples  density 0.03  r >= 0.29
 #>   HJUB  3,983 genes  20 samples  density 0.03  r >= 0.28
 #>   edges 33,575 tested, 10,387 called at q < 0.1
-#>   cliques 3,146 (14,047 with paralog copies): complete_conserved 1,995, partial_present    69, unclassified 1,082
+#>   cliques 3,146 distinct (14,047 with paralog copies): complete_conserved 1,995, partial_present    69, unclassified 1,082
 ```
 
 Use `summary(res)` for the tier table, `write_rcomplex(res, "out/")` to

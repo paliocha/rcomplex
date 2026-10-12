@@ -73,8 +73,8 @@ a correlation of 0.3 is weak evidence. Read this value first.
 The last line counts the cliques by tier. A clique is a set of genes,
 one per species, that are all co-expressed. A hog with paralogs gives
 one clique per gene combination. Paralogs with the same partners are
-twins. One clique stands for all their combinations, and the count in
-brackets includes them.
+twins. One clique stands for all their combinations. The line counts
+distinct cliques, and the count in brackets includes the combinations.
 
 The message about dropped genes is on purpose. The clique search keeps at
 most 10 copies of a hog per species, because gene combinations explode.

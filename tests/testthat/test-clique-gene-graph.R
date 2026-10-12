@@ -2047,3 +2047,27 @@ test_that("a result without twin columns still classifies", {
   runs <- classify_gene_cliques(list(g, g), e, gcg_six)
   expect_true(all(runs$multiplicity == 1L & runs$variant == 1L))
 })
+
+
+test_that("twin-collapsed runs in a list keep their own variants", {
+  e <- gcg_twin_fixture()
+  runs <- lapply(c(0.1, 0.9), function(a) {
+    suppressMessages(gene_clique_graph(e, min_size = 2L, alpha_graph = a))
+  })
+  both <- classify_gene_cliques(runs, e, gcg_four, clades = gcg_four_clades)
+  for (i in 1:2) {
+    one <- classify_gene_cliques(runs[[i]], e, gcg_four,
+      clades = gcg_four_clades
+    )
+    got <- both[both$run == i, ]
+    expect_identical(got$clique_id, one$clique_id)
+    for (nm in c("classification", "multiplicity", "variant")) {
+      expect_identical(got[[nm]], one[[nm]], info = nm)
+    }
+    expect_equal(got$mean_q, one$mean_q)
+  }
+  expect_gt(max(both$variant), 1L)
+  expect_identical(both$run, rep(1:2, c(
+    sum(both$run == 1L), sum(both$run == 2L)
+  )))
+})

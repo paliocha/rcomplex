@@ -261,7 +261,7 @@ print.rcomplex <- function(x, ...) {
   cat("  cliques ", big(nrow(cls)), sep = "")
   n_all <- sum(as.numeric(cls$multiplicity))
   if (n_all > nrow(cls)) {
-    cat(" (", big(n_all), " with paralog copies)", sep = "")
+    cat(" distinct (", big(n_all), " with paralog copies)", sep = "")
   }
   if (length(tiers) > 0L) {
     cat(":", paste(names(tiers), big(as.vector(tiers)), collapse = ", "))
