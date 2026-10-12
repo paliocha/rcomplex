@@ -36,8 +36,9 @@
 #'     \item{networks}{The network objects, by species.}
 #'     \item{edges}{The edge table from [find_coexpressologs()], plus a
 #'       `sign` column: the sign of every network.}
-#'     \item{cliques, members}{The two tables of [gene_clique_graph()]:
-#'       one row per clique, and one row per clique member.}
+#'     \item{cliques, members, twins}{The three tables of
+#'       [gene_clique_graph()]: one row per clique, one row per clique
+#'       member, and one row per collapsed twin gene.}
 #'     \item{classification}{One row per clique, from
 #'       [classify_gene_cliques()].}
 #'     \item{modules, preservation}{With `modules = TRUE`: the
@@ -61,7 +62,9 @@
 #' `summary()` counts each tier in `cliques`, in `hogs` and in
 #' `patterns`. A pattern is one HOG with one clique species set. The
 #' paralog copies of a large HOG can form millions of cliques, but they
-#' share a few patterns.
+#' share a few patterns. Paralogs with the same partners are twins: one
+#' clique stands for all their combinations. The `multiplicity` column
+#' counts those combinations, and `twins` lists the collapsed genes.
 #'
 #' With `null = TRUE`, `summary()` reports `calls` and `calls_null` per
 #' species pair at `q_value < alpha`. Their ratio is the empirical
@@ -129,7 +132,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   )
   res <- list(
     networks = networks, edges = edges, cliques = g$cliques,
-    members = g$members,
+    members = g$members, twins = g$twins,
     classification = classify_gene_cliques(g, edges, sp,
       clades = clades, alpha_call = alpha,
       min_power = if (method == "rank") 0.9 else 0.8
@@ -256,6 +259,10 @@ print.rcomplex <- function(x, ...) {
     sep = ""
   )
   cat("  cliques ", big(nrow(cls)), sep = "")
+  n_all <- sum(as.numeric(cls$multiplicity))
+  if (n_all > nrow(cls)) {
+    cat(" distinct (", big(n_all), " with paralog copies)", sep = "")
+  }
   if (length(tiers) > 0L) {
     cat(":", paste(names(tiers), big(as.vector(tiers)), collapse = ", "))
   }
@@ -277,8 +284,12 @@ summary.rcomplex <- function(object, ...) {
     }, 1L)
     unname(n[names(tab)])
   }
+  mult <- vapply(split(as.numeric(cls$multiplicity), cls$classification),
+    sum, 1
+  )
   tiers <- data.frame(
     tier = as.character(names(tab)), cliques = as.vector(tab),
+    multiplicity = unname(mult[names(tab)]),
     hogs = n_distinct(cls$hog), patterns = n_distinct(pattern)
   )
   null_tab <- NULL
@@ -317,8 +328,8 @@ as.data.frame.rcomplex <- function(x, ...) x$classification
 #'
 #' `write_rcomplex()` writes each table of the result to its own file.
 #' Each file takes the name of its element: `edges.tsv`, `cliques.tsv`,
-#' `members.tsv`, `classification.tsv` and, with `null = TRUE`,
-#' `edges_null.tsv`.
+#' `members.tsv`, `twins.tsv`, `classification.tsv` and, with
+#' `null = TRUE`, `edges_null.tsv`.
 #'
 #' @param x A result of [rcomplex()].
 #' @param dir Output directory. It is created when it does not exist.

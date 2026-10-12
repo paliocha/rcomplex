@@ -34,7 +34,7 @@ at one threshold need not be maximal at another. Pass the runs to
 it as a list.}
 }
 \value{
-A list of class \code{gene_cliques} with two tables.
+A list of class \code{gene_cliques} with three tables.
 \code{cliques} has one row per clique:
 \describe{
 \item{clique_id}{Integer clique id, 1 to the number of cliques}
@@ -43,13 +43,20 @@ A list of class \code{gene_cliques} with two tables.
 \item{n_species}{Distinct species in the clique (equal to
 \code{n_members} for cross-species edge tables)}
 \item{n_edges}{Graph edges inside the clique}
-\item{mean_q, max_q}{q-value summaries over those edges}
+\item{mean_q, max_q}{q-value summaries over those edges. Twin
+classes are joined by all their gene pairs. A clique edge
+carries the mean q of those pairs, so \code{mean_q} is the mean over
+the clique's expansions. \code{max_q} is the largest q of any
+expansion}
 \item{mean_effect_size}{Present only when \code{edges} carries
 \code{effect_size}. Prefer it over \code{mean_q} for ranking: q-values
 saturate at the permutation floor and cannot separate cliques
 once they get there}
 \item{score}{Present only when \code{edges} carries \code{score}. The sum
-of the clique edges' \code{score}, in bits}
+of the clique edges' \code{score}, in bits. With twins, the mean
+over the clique's expansions, as for \code{mean_effect_size}}
+\item{multiplicity}{Cliques this row stands for: the product of
+the members' \code{n_copies}. 1 without twins}
 \item{mean_q_floor, n_cliques_at_q_floor}{Smallest clique
 \code{mean_q} in the run and how many cliques are tied there. A
 large tie count means \code{mean_q} cannot rank those cliques at
@@ -57,7 +64,11 @@ all}
 }
 \code{members} has one row per clique member: \code{clique_id}, \code{species}
 (a factor; its levels are the species of \code{edges} in order of first
-appearance) and \code{gene}.
+appearance), \code{gene} (the representative of its twin class) and
+\code{n_copies} (the genes with the same called partners, itself
+included).
+\code{twins} has one row per collapsed gene: \code{hog}, \code{species}, \code{gene}
+and \code{representative}. It has no rows when no two genes are twins.
 The two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
 \code{q_floor} (smallest edge q-value in the graph), are also attributes
 of \code{cliques}. Both are always set, empty results included.
@@ -85,6 +96,16 @@ up as \code{n_species < n_members}.
 The clique \code{score} adds the edge scores. Log-odds add, so the sum is
 the log-likelihood ratio of the conserved subnetwork (NetworkBLAST),
 and it grows with clique size on purpose.
+
+Two genes of one species are twins when they have the same partners
+in the graph. Twins are never adjacent, and a clique holds at most one
+of them. Swapping one twin for another gives another maximal clique,
+so the twins of a class collapse to one gene before the cliques are
+listed. Each clique stands for every choice of one gene per class.
+The collapse is exact: expanding the cliques gives the full set. The
+representative is the first gene of its class in radix (C-locale)
+order. The copy cap applies first, so the genes are those of an
+unreduced run.
 
 A hog of 40 or more genes is enumerated one start gene at a time.
 The pieces are disjoint, so the cliques are the same. Only the peak
