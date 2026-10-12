@@ -37,14 +37,18 @@ rng_fx <- local({
   list(
     td = td,
     nets = nets,
-    cmp = compare_neighborhoods(td$net1, td$net2, td$ortho),
+    cmp = rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho),
     sparse_nets = lapply(nets, sparse_net),
     mf = rng_module_fixture(),
-    cf = make_clique_fixture(),
     mx = rng_matrix_classification(),
-    tf = rng_tag_fixture(),
     null_x = null_x,
-    null_net = compute_network(null_x, density = 0.1)
+    null_net = compute_network(null_x, density = 0.1),
+    drv_expr = list(A = null_x, B = `rownames<-`(null_x, paste0("h", 1:40))),
+    drv_ortho = data.frame(
+      species = rep(c("A", "B"), each = 40L),
+      gene = c(rownames(null_x), paste0("h", 1:40)),
+      hog = rep(seq_len(40L), 2L)
+    )
   )
 })
 
@@ -53,8 +57,10 @@ test_that("the contract table covers every seeded entry point", {
   # Fails the moment a new exported function grows a seed argument without
   # joining the table, which is what makes the checks below a contract
   # rather than a sample of one.
+  cases <- rng_contract_cases(rng_fx)
   covered <- vapply(
-    rng_contract_cases(rng_fx), function(x) x$name, character(1)
+    Filter(function(x) !isTRUE(x$internal), cases),
+    function(x) x$name, character(1)
   )
   expect_setequal(covered, rng_seeded_exports())
 })

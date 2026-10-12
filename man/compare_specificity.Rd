@@ -17,8 +17,8 @@ compare_specificity(
 
 \item{net2}{Network object for species 2 (output of \code{\link[=compute_network]{compute_network()}}).}
 
-\item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, and
-\code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
+\item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, and
+\code{hog} (output of \code{\link[=prepare_orthologs]{prepare_orthologs()}}).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
 
@@ -26,42 +26,41 @@ compare_specificity(
 or \code{"2to1"}.}
 }
 \value{
-A data frame with \code{Species1}, \code{Species2}, \code{hog} and, per
-requested direction (\code{Species1.} for 1 to 2, \code{Species2.} for 2 to
+A data frame with \code{gene1}, \code{gene2}, \code{hog} and, per
+requested direction (\code{species1.} for 1 to 2, \code{species2.} for 2 to
 1):
 \describe{
 \item{neigh}{Anchor degree.}
 \item{mapped}{Size of the translated set \eqn{T}.}
 \item{auroc}{AUROC of \eqn{T} in the paired ortholog's ranking.}
-\item{p.val}{Rank p-value of the paired ortholog, as above.}
+\item{p_value}{Rank p-value of the paired ortholog, as above.}
 \item{jaccard}{As in \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}.}
 \item{n.cand}{Number of candidate genes in the partner network.}
-\item{effect.size}{Equal to \code{auroc}.}
+\item{effect_size}{Equal to \code{auroc}.}
 \item{auroc.grid}{Matrix, one row per pair and one column per
 raw-p fraction f (1e-5 to 1, the column names): the
 \code{ceiling(f * n.cand)}-th largest candidate AUROC for the anchor,
 i.e. the AUROC the ortholog needs to reach raw p of about f.
 \code{\link[=summarize_specificity]{summarize_specificity()}} reads it for the edge \code{power}. It is
 computed on every call; a comparison against a \code{\link[=null_network]{null_network()}}
-partner, which only needs \code{p.val}, pays for it too (the package's
+partner, which only needs \code{p_value}, pays for it too (the package's
 own null runs skip it).}
 }
-\code{auroc} and \code{p.val} are \code{NA} when \eqn{T} is empty or spans every
+\code{auroc} and \code{p_value} are \code{NA} when \eqn{T} is empty or spans every
 other partner gene.
 }
 \description{
-Pair-level co-expressolog test that ranks each ortholog pair against
-every other gene of the partner species. The anchor's co-expression
-partners are translated to the partner species, and the paired
-ortholog is scored by how well its own co-expression ranking
-recognises that translated list compared with how well every other
-partner-species gene recognises it. It follows the co-expression
-conservation score of Suresh et al. (2023). It is the engine of
-\code{method = "rank"} in \code{\link[=find_coexpressologs]{find_coexpressologs()}} and
-\code{\link[=density_sweep]{density_sweep()}}; \code{\link[=summarize_specificity]{summarize_specificity()}} turns its p-values into
-q-values.
+Ranks each ortholog pair against every other gene of the partner
+species. This is the engine of \code{method = "rank"} in
+\code{\link[=find_coexpressologs]{find_coexpressologs()}} and \code{\link[=density_sweep]{density_sweep()}}.
+\code{\link[=summarize_specificity]{summarize_specificity()}} turns its p-values into q-values.
 }
 \details{
+The anchor's co-expression partners are translated to the partner
+species. The paired ortholog is scored by how well its own
+co-expression ranking recognises that translated list, compared with how
+well every other partner-species gene recognises it. The score follows
+the co-expression conservation score of Suresh et al. (2023).
 For anchor gene \eqn{i} in species 1 and direction 1 to 2:
 \enumerate{
 \item \eqn{T} is the set of species-2 genes orthologous, through
@@ -97,3 +96,4 @@ analysis of primate brains highlights human-specific regulatory
 evolution. \emph{Nature Ecology & Evolution}, 7(11), 1930--1943.
 \doi{10.1038/s41559-023-02186-7}
 }
+\keyword{internal}

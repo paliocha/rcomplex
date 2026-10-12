@@ -38,7 +38,7 @@ compare_neighborhoods_cpp(
 \value{
 DataFrame with comparison results for each ortholog pair. The
 hypergeometric urn excludes the anchor gene (population n - 1, anchor
-dropped from the ortholog-mapped set); \verb{*.p.val.gt} / \verb{*.p.val.eq}
+dropped from the ortholog-mapped set); \verb{*.p_value_gt} / \verb{*.p_value_eq}
 are the ungated upper tail P(X > x) and point mass P(X = x).
 }
 \description{

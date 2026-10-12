@@ -18,7 +18,8 @@ NOTES_*.md
 PLAN_*.md
 
 # agent tooling (local only)
-.claude/
+.claude/*
+!.claude/agents/
 .agents/
 skills-lock.json
 .roborev.toml

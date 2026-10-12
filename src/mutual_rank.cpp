@@ -134,8 +134,8 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
 //' In-place mutual rank transformation
 //'
 //' Overwrites `sim` with its mutual rank transform without allocating any
-//' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally takes
-//' absolute values, and replaces the column by its average ranks. Pass 2
+//' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally
+//' negates it, and replaces the column by its average ranks. Pass 2
 //' replaces each pair (i, j) by sqrt(R_ij * R_ji) (log-normalized when
 //' `log_transform`) and sets the diagonal to 0. Same formulas and tie
 //' handling as [mutual_rank_transform_cached_cpp()], which is kept as the
@@ -150,14 +150,15 @@ arma::mat mutual_rank_transform_cached_cpp(const arma::mat& sim,
 //' @param log_transform If FALSE, raw mutual rank with ascending ranks
 //'   (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
 //'   log-normalized formula with descending ranks (values in 0 to 1 range).
-//' @param abs_cor If TRUE, take absolute values before ranking.
+//' @param negate If TRUE, negate every value but the diagonal before
+//'   ranking, so the strongest anticorrelation ranks first.
 //' @param n_cores Number of OpenMP threads
 //' @return Invisible `NULL`; `sim` is modified in place.
 //'
 //' @keywords internal
 // [[Rcpp::export]]
 void mutual_rank_inplace_cpp(SEXP sim, bool log_transform,
-                             bool abs_cor, int n_cores) {
+                             bool negate, int n_cores) {
     // In-place contract: NumericMatrix would coerce a non-double input to a
     // fresh copy and the mutation would be lost silently.
     if (TYPEOF(sim) != REALSXP) {
@@ -188,7 +189,7 @@ void mutual_rank_inplace_cpp(SEXP sim, bool log_transform,
     // ordering), so a NaN column is left unranked and reported afterwards.
     std::vector<char> nan_seen(max_threads, 0);
 
-    // Pass 1: clamp, abs, rank each column in place. Column ranks depend
+    // Pass 1: clamp, negate, rank each column in place. Column ranks depend
     // only on that column, so columns are independent.
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) num_threads(n_cores) if(n_cores > 1)
@@ -206,7 +207,7 @@ void mutual_rank_inplace_cpp(SEXP sim, bool log_transform,
                 break;
             }
             const double v = std::clamp(col[r], -1.0, 1.0);
-            col[r] = abs_cor ? std::fabs(v) : v;
+            col[r] = (negate && r != c) ? -v : v;
         }
         if (col_has_nan) {
             nan_seen[tid] = 1;

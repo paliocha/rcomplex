@@ -57,32 +57,6 @@ torch_device_dtype <- function() {
 
 # ---- Correlation backends ------------------------------------------------
 
-#' Compute gene-gene correlation matrix via torch
-#'
-#' Uses GPU (CUDA/MPS) when available, otherwise torch on CPU.
-#' Pearson: center rows, L2-normalize, GEMM.
-#' Spearman: rank rows first, then Pearson on ranks.
-#'
-#' @param x Numeric matrix (genes x samples).
-#' @param method `"pearson"` or `"spearman"`.
-#' @return Correlation matrix (genes x genes) as a base R matrix.
-#' @noRd
-cor_torch <- function(x, method = "pearson") {
-  dd <- torch_device_dtype()
-
-  if (method == "spearman") {
-    x <- t(apply(x, 1, rank))
-  }
-
-  x <- torch::torch_tensor(x, dtype = dd$dtype, device = dd$device)
-  x <- x - x$mean(dim = 2L, keepdim = TRUE)
-  norms <- x$norm(dim = 2L, keepdim = TRUE)$clamp(min = 1e-30)
-  x <- x / norms
-  cor_mat <- x$mm(x$t())
-
-  as.matrix(cor_mat$cpu()$to(dtype = torch::torch_float64()))
-}
-
 #' Compute gene-gene correlation matrix via Rfast
 #'
 #' @param x Numeric matrix (genes x samples).
@@ -105,6 +79,40 @@ cor_rfast <- function(x, method = "pearson") {
   t(mat / sqrt(Rfast::rowsums(mat^2)))
 }
 
+# Weakest correlation among the gene pairs at or above `thr` in `net`:
+# the minimum for sign = "positive", the maximum for "negative". With
+# `levels` (the kept partition levels) it is the rectified mean over the
+# levels, as compute_network() averages it, with the sign put back.
+# Correlations are recomputed for the passing pairs only, in chunks of
+# about 2^24 doubles, so dense and blockwise builds report the same value.
+.r_threshold <- function(x, net, thr, cor_method, sign, partition = NULL,
+                         levels = NULL) {
+  e <- .adj_edges(net, thr)
+  up <- e$rows < e$cols
+  i <- e$rows[up]
+  j <- e$cols[up]
+  if (length(i) == 0L) {
+    return(NA_real_)
+  }
+  s <- if (sign == "negative") -1 else 1
+  groups <- if (is.null(partition)) {
+    list(seq_len(ncol(x)))
+  } else {
+    lapply(levels, function(lv) which(partition == lv))
+  }
+  r <- 0
+  for (g in groups) {
+    zt <- .standardise_for_cor(x[, g, drop = FALSE], cor_method)
+    chunk <- max(1L, 2^24 %/% nrow(zt))
+    rg <- unlist(lapply(
+      split(seq_along(i), (seq_along(i) - 1L) %/% chunk),
+      function(k) colSums(zt[, i[k], drop = FALSE] * zt[, j[k], drop = FALSE])
+    ), use.names = FALSE)
+    r <- r + if (is.null(partition)) s * rg else pmax(s * rg, 0, na.rm = TRUE)
+  }
+  s * min(r / length(groups))
+}
+
 #' Compute co-expression network
 #'
 #' Calculates correlation, applies normalization (Mutual Rank or CLR),
@@ -120,16 +128,14 @@ cor_rfast <- function(x, method = "pearson") {
 #' @param norm_method Normalization method: `"MR"` (Mutual Rank, default) or
 #'   `"CLR"` (Context Likelihood Ratio).
 #' @param density Fraction of top edges to keep (default 0.03 = 3%).
-#' @param abs_cor If `TRUE`, take absolute value of correlations before
-#'   normalization (default `FALSE`).
+#' @param sign `"positive"` (default) ranks the strongest positive
+#'   correlations first. `"negative"` negates every correlation between
+#'   two genes before normalization, so the strongest anticorrelations
+#'   rank first. With `partition`, the function negates the correlation
+#'   of each level before it sets negative values to zero.
 #' @param mr_log_transform If `FALSE` (default), use the raw MR formula
 #'   matching the original RComPlEx R Markdown. If `TRUE`, use Obayashi &
 #'   Kinoshita (2009) log-normalized formula (values in \[0,1\]).
-#' @param min_var Minimum row variance threshold. Genes with variance below
-#'   this value are removed before computing correlations. Default `0` removes
-#'   only constant genes (zero variance). Set to a positive value (e.g. `1e-3`)
-#'   to also remove near-invariant genes that produce noisy correlations.
-#'   Set to `NULL` to disable filtering entirely.
 #' @param sparse If `TRUE` (default), return the network as a sparse
 #'   `Matrix::dgCMatrix` holding both triangles of the thresholded
 #'   co-expression matrix (entries below `store_threshold` are discarded;
@@ -138,18 +144,9 @@ cor_rfast <- function(x, method = "pearson") {
 #' @param store_density Fraction of top edges to keep in the sparse store
 #'   (default `NULL` = `max(density, 0.05)`). Must satisfy
 #'   `density <= store_density < 1`; the margin above `density` lets
-#'   downstream sweeps loosen the threshold (e.g. [density_sweep()])
+#'   downstream sweeps loosen the threshold (e.g. `density_sweep()`)
 #'   without recomputing the network. Only valid with `sparse = TRUE`.
 #' @param n_cores Number of threads for parallel computation (default 1).
-#' @param use_torch If `TRUE`, use torch for GPU-accelerated correlation
-#'   (CUDA, MPS, or CPU fallback). Requires the
-#'   \href{https://torch.mlverse.org/}{torch} package. Default `FALSE`.
-#'   On Apple Silicon (MPS), torch uses float32 because Metal does not support
-#'   float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
-#'   normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
-#'   MPS, keep `use_torch = FALSE` here and use
-#'   \code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
-#'   speedup instead. On CUDA, float64 is used with no precision tradeoff.
 #' @param block_size `NULL` (default) builds the dense n x n matrix first.
 #'   A positive whole number builds the network a block of genes at a
 #'   time and never forms the n x n matrix (each block holds
@@ -168,8 +165,8 @@ cor_rfast <- function(x, method = "pearson") {
 #'   value. With `cor_method = "spearman"` and few samples, correlations
 #'   that are equal as rationals are common and may round apart, so the
 #'   result can then differ from the dense build in many entries and
-#'   between block sizes. Requires `sparse = TRUE`, `norm_method = "MR"` and
-#'   `use_torch = FALSE`. With `mr_log_transform = TRUE` a pair is kept
+#'   between block sizes. Requires `sparse = TRUE` and `norm_method = "MR"`.
+#'   With `mr_log_transform = TRUE` a pair is kept
 #'   when either gene ranks the other in its top 10% (twice
 #'   `store_density`) and a second correlation pass reads the other rank;
 #'   on the same data peak memory was 1.7 GB against 5.1 GB dense in
@@ -177,6 +174,13 @@ cor_rfast <- function(x, method = "pearson") {
 #'   pairs complete the fraction widens and a message says so; peak memory
 #'   grows with it (for log MR it can exceed the dense build), and at all
 #'   pairs the build saves no memory.
+#' @param partition `NULL` (default), or a per-sample factor of length
+#'   `ncol(x)` without `NA`, such as tissue or study. The function
+#'   computes the correlation within each level. It sets negative
+#'   correlations to zero and takes the mean over the levels. Then it
+#'   normalises the result. The function drops levels with fewer than 5
+#'   samples and tells you which. At least two levels must remain.
+#'   Use the dense build: `block_size` must be `NULL`.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -188,14 +192,27 @@ cor_rfast <- function(x, method = "pearson") {
 #'     \item{threshold}{The co-expression threshold at the given density,
 #'       equal to that of the full dense matrix in every mode.}
 #'     \item{n_genes}{Number of genes in the network.}
-#'     \item{n_removed}{Number of genes removed by variance filter (0 if
-#'       `min_var` is `NULL`).}
-#'     \item{params}{List of parameters used.}
+#'     \item{n_removed}{Number of constant genes removed before computing
+#'       correlations.}
+#'     \item{params}{List of parameters used. It holds `partition` when
+#'       you give one. `r_threshold` is the weakest correlation of an edge:
+#'       the smallest for `sign = "positive"`, the largest for
+#'       `"negative"`. With `partition` it is the rectified mean over the
+#'       levels, negated for `"negative"`. It is `NA` when no pair passes.}
 #'     \item{store_density, store_threshold}{Sparse networks only: the
 #'       stored edge fraction and the value cutoff of the store. Analyses
 #'       at thresholds below `store_threshold` are refused (see
 #'       [as_sparse_network()]).}
 #'   }
+#'
+#' @details
+#' With `sign = "negative"` a gene keeps its own correlation of 1, so it
+#' ranks itself first in both signs. Negative correlations are rarer and
+#' weaker than positive ones in RNA-seq data. The density threshold still
+#' keeps the top fraction of pairs, so a negative network exists at any
+#' sample size even when it holds only noise: at n = 20 samples, r >= -0.3
+#' is noise. Check the weakest correlation that passed the threshold
+#' before you read a negative network.
 #'
 #' @section Gene universe:
 #' Networks are built on all supplied genes and downstream tests use the
@@ -204,7 +221,7 @@ cor_rfast <- function(x, method = "pearson") {
 #' genes with an ortholog before building the networks, which changes
 #' neighbourhoods, thresholds and calls; rcomplex reproduces them only when
 #' the expression matrices are restricted the same way first (see
-#' [compare_neighborhoods()]).
+#' `compare_neighborhoods()`).
 #'
 #' @section Reconstructing sub-threshold values:
 #' A sparse network (`sparse = TRUE`) discards values below
@@ -240,16 +257,16 @@ setMethod("compute_network", "matrix", function(
   cor_method = c("pearson", "spearman"),
   norm_method = c("MR", "CLR"),
   density = 0.03,
-  abs_cor = FALSE,
+  sign = c("positive", "negative"),
   mr_log_transform = FALSE,
-  min_var = 0,
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE,
-  block_size = NULL) {
+  block_size = NULL,
+  partition = NULL) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
+  sign <- match.arg(sign)
   if (is.null(rownames(x))) {
     stop("x must have row names (gene identifiers)")
   }
@@ -278,33 +295,52 @@ setMethod("compute_network", "matrix", function(
     }
     if (!sparse) stop("block_size requires sparse = TRUE")
     if (norm_method != "MR") stop("block_size requires norm_method = \"MR\"")
-    if (use_torch) stop("block_size requires use_torch = FALSE")
   }
-  if (use_torch && !requireNamespace("torch", quietly = TRUE)) {
-    stop(
-      "use_torch = TRUE requires the torch package ",
-      "(install.packages('torch'); torch::install_torch())"
-    )
-  }
-
-  # Filter low-variance genes
-  n_removed <- 0L
-  if (!is.null(min_var)) {
-    row_var <- rowSums((x - rowMeans(x))^2) /
-      (ncol(x) - 1L)
-    # A constant row can come out at ~1e-30 instead of 0 in floating point
-    # and pass `> 0`; its correlations are then NaN. Test constancy exactly.
-    keep <- row_var > min_var & rowSums(x != x[, 1L]) > 0L
-    n_removed <- sum(!keep)
-    if (n_removed > 0L) {
-      x <- x[keep, , drop = FALSE]
+  levels_kept <- NULL
+  if (!is.null(partition)) {
+    if (!is.null(block_size)) {
+      stop("partition needs the dense build; set block_size = NULL")
     }
-    if (nrow(x) < 3L) {
+    if (length(partition) != ncol(x)) {
       stop(
-        "Fewer than 3 genes remain after variance filtering (min_var = ",
-        min_var, ")"
+        "partition must have one entry per sample (ncol(x) = ", ncol(x), ")"
       )
     }
+    if (anyNA(partition)) stop("partition must not contain NA")
+    partition <- droplevels(as.factor(partition))
+    min_partition_n <- 5L
+    sizes <- table(partition)
+    small <- names(sizes)[sizes < min_partition_n]
+    if (length(small) > 0L) {
+      message(
+        "Dropped partition levels with fewer than ", min_partition_n,
+        " samples: ", paste(small, collapse = ", ")
+      )
+    }
+    levels_kept <- setdiff(names(sizes), small)
+    if (length(levels_kept) < 2L) {
+      stop(
+        "partition needs at least two levels with ", min_partition_n,
+        " or more samples"
+      )
+    }
+  }
+
+  # Filter constant genes
+  row_var <- rowSums((x - rowMeans(x))^2) /
+    (ncol(x) - 1L)
+  # A constant row can come out at ~1e-30 instead of 0 in floating point
+  # and pass `> 0`; its correlations are then NaN. Test constancy exactly.
+  keep <- row_var > 0 & rowSums(x != x[, 1L]) > 0L
+  n_removed <- sum(!keep)
+  if (n_removed > 0L) {
+    x <- x[keep, , drop = FALSE]
+  }
+  if (nrow(x) < 3L) {
+    stop(
+      "`x` has fewer than 3 genes after the variance filter; ",
+      "it needs at least 3."
+    )
   }
 
   gene_names <- rownames(x)
@@ -314,10 +350,12 @@ setMethod("compute_network", "matrix", function(
     cor_method = cor_method,
     norm_method = norm_method,
     density = density,
-    abs_cor = abs_cor,
-    mr_log_transform = mr_log_transform,
-    min_var = min_var
+    sign = sign,
+    mr_log_transform = mr_log_transform
   )
+  # partition applies the sign per level, before the rectification
+  negate <- sign == "negative" && is.null(partition)
+  params$partition <- partition
 
   if (!is.null(block_size)) {
     if (block_size >= n_genes) {
@@ -327,7 +365,7 @@ setMethod("compute_network", "matrix", function(
       )
     }
     slots <- mr_block_network_cpp(
-      .standardise_for_cor(x, cor_method), mr_log_transform, abs_cor,
+      .standardise_for_cor(x, cor_method), mr_log_transform, negate,
       density, store_density, as.integer(min(block_size, n_genes)), n_cores
     )
     # log MR holds a reverse index and its values, so a wide fraction can
@@ -348,13 +386,17 @@ setMethod("compute_network", "matrix", function(
         slots$start_fraction, slots$fraction, more
       ))
     }
+    network <- methods::new(
+      "dgCMatrix",
+      i = slots$i, p = slots$p, x = slots$x,
+      Dim = c(n_genes, n_genes),
+      Dimnames = list(gene_names, gene_names)
+    )
+    params$r_threshold <- .r_threshold(
+      x, network, slots$threshold, cor_method, sign
+    )
     return(list(
-      network = methods::new(
-        "dgCMatrix",
-        i = slots$i, p = slots$p, x = slots$x,
-        Dim = c(n_genes, n_genes),
-        Dimnames = list(gene_names, gene_names)
-      ),
+      network = network,
       threshold = slots$threshold,
       n_genes = n_genes,
       n_removed = n_removed,
@@ -365,23 +407,35 @@ setMethod("compute_network", "matrix", function(
   }
 
   # Correlation
-  cor_fn <- if (use_torch) cor_torch else cor_rfast
-  net <- cor_fn(x, method = cor_method)
-  if (use_torch) .gpu_gc()
+  if (is.null(partition)) {
+    net <- cor_rfast(x, method = cor_method)
+  } else {
+    # Rectified average over levels (TEA-GCN): negative correlations count
+    # as zero, and so do the NaN correlations of a gene constant in a level.
+    net <- 0
+    for (lv in levels_kept) {
+      r <- cor_rfast(x[, partition == lv, drop = FALSE], method = cor_method)
+      if (sign == "negative") r <- -r
+      net <- net + pmax(r, 0, na.rm = TRUE)
+    }
+    net <- net / length(levels_kept)
+    diag(net) <- 1
+  }
 
   # Normalization
   if (norm_method == "MR") {
-    # Clip to [-1, 1], abs() (if abs_cor), MR ranks and zero diagonal are all
-    # done in C++ directly on `net`, which is freshly allocated by cor_fn
+    # Clip to [-1, 1], negation (if negate), MR ranks and zero diagonal are
+    # all done in C++ directly on `net`, which is freshly allocated by cor_fn
     # (refcount 1): in-place mutation is intentional (no n x n temporaries).
-    mutual_rank_inplace_cpp(net, mr_log_transform, abs_cor, n_cores)
+    mutual_rank_inplace_cpp(net, mr_log_transform, negate, n_cores)
   } else {
     # Clip to [-1, 1]
     net[net > 1] <- 1
     net[net < -1] <- -1
 
-    if (abs_cor) {
-      net <- abs(net)
+    if (negate) {
+      net <- -net
+      diag(net) <- -diag(net)
     }
 
     net <- apply_clr_to_cor_cpp(net, n_cores = n_cores)
@@ -396,7 +450,11 @@ setMethod("compute_network", "matrix", function(
   # Compute density threshold (always from the full dense matrix)
   thr <- density_threshold_cpp(net, density)
 
+  r_thr <- function(m) {
+    .r_threshold(x, m, thr, cor_method, sign, partition, levels_kept)
+  }
   if (!sparse) {
+    params$r_threshold <- r_thr(net)
     return(list(
       network = net,
       threshold = thr,
@@ -418,6 +476,7 @@ setMethod("compute_network", "matrix", function(
     Dim = c(n_genes, n_genes),
     Dimnames = list(gene_names, gene_names)
   )
+  params$r_threshold <- r_thr(spnet)
   list(
     network = spnet,
     threshold = thr,

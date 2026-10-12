@@ -25,7 +25,6 @@ ari <- function(a, b) {
 test_that("CPM resolution is read on the unit weight scale", {
   fx <- cpm_scale_fixture()
   res <- detect_modules(fx$net,
-    method = "leiden",
     objective_function = "CPM", resolution = 0.5, seed = 1
   )
   expect_gte(res$n_modules, 2L)
@@ -38,24 +37,12 @@ test_that("modularity partitions do not depend on the weight scale", {
   unit$network <- unit$network / max(unit$network)
   unit$threshold <- fx$net$threshold / max(fx$net$network)
   a <- detect_modules(fx$net,
-    method = "leiden",
     objective_function = "modularity", seed = 3
   )
   b <- detect_modules(unit,
-    method = "leiden",
     objective_function = "modularity", seed = 3
   )
   expect_equal(ari(a$modules, b$modules), 1)
-})
-
-test_that("the K = 1 test runs under CPM", {
-  fx <- cpm_scale_fixture()
-  res <- detect_modules(fx$net,
-    method = "leiden", objective_function = "CPM",
-    resolution = c(0.3, 0.6), test_k1 = TRUE, n_perm_k1 = 5L, seed = 2
-  )
-  expect_false(is.null(res$k1_test))
-  expect_length(res$modules, 45L)
 })
 
 test_that("the default is modularity at 1; CPM defaults to the density", {

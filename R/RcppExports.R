@@ -58,21 +58,6 @@ build_sparse_coclassification_cpp <- function(memberships, n_genes, edges, n_cor
     .Call(`_rcomplex_build_sparse_coclassification_cpp`, memberships, n_genes, edges, n_cores)
 }
 
-#' Leading eigenvalue of sparse excess co-classification matrix
-#'
-#' Computes the spectral norm (largest eigenvalue) of the excess
-#' co-classification matrix restricted to the original edge set.
-#' Used for the K = 1 community structure test.
-#'
-#' @param memberships List of K IntegerVectors (1-based module IDs)
-#' @param n_genes Number of genes (N)
-#' @param edges |E| x 2 IntegerMatrix of 0-based vertex indices
-#' @return Leading eigenvalue (non-negative scalar)
-#' @keywords internal
-sparse_excess_spectral_norm_cpp <- function(memberships, n_genes, edges, n_cores = 1L) {
-    .Call(`_rcomplex_sparse_excess_spectral_norm_cpp`, memberships, n_genes, edges, n_cores)
-}
-
 #' Compute density threshold from a symmetric matrix
 #'
 #' Extracts the upper triangle (excluding diagonal) and finds the value at
@@ -110,8 +95,8 @@ fe_hog_permutation_test_cpp <- function(combined, hog_sp1_list, hog_sp2_list, te
 #' @param edge_hog 0-based HOG index per edge
 #' @param edge_g1  0-based gene index for gene 1
 #' @param edge_g2  0-based gene index for gene 2
-#' @param edge_sp1 0-based species index for gene 1
-#' @param edge_sp2 0-based species index for gene 2
+#' @param edge_species1 0-based species index for gene 1
+#' @param edge_species2 0-based species index for gene 2
 #' @param edge_qval q-value per edge
 #' @param edge_eff Effect size per edge
 #' @param n_target_species Number of target species
@@ -125,13 +110,13 @@ fe_hog_permutation_test_cpp <- function(combined, hog_sp1_list, hog_sp2_list, te
 #' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
 #'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing
 #' @keywords internal
-find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp = 10L, max_missing_edges = 0L, w_q = 1.0, w_eff = 0.0) {
-    .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges, w_q, w_eff)
+find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp = 10L, max_missing_edges = 0L, w_q = 1.0, w_eff = 0.0) {
+    .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges, w_q, w_eff)
 }
 
 #' Leave-k-out jackknife structural stability for cliques
 #'
-#' @param edge_hog,edge_g1,edge_g2,edge_sp1,edge_sp2 0-based edge vectors
+#' @param edge_hog,edge_g1,edge_g2,edge_species1,edge_species2 0-based edge vectors
 #' @param edge_qval,edge_eff per-edge q-value and effect size
 #' @param n_all_species total species in the analysis universe
 #' @param n_hogs,n_genes total HOGs and genes
@@ -142,8 +127,8 @@ find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edg
 #' @param w_eff Weight for mean effect size in composite cost (default 0.0)
 #' @return List with stability, clique_disruption, stability_class, novel_cliques
 #' @keywords internal
-find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L, w_q = 1.0, w_eff = 0.0) {
-    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores, w_q, w_eff)
+find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L, w_q = 1.0, w_eff = 0.0) {
+    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores, w_q, w_eff)
 }
 
 #' Permutation-based HOG-level conservation test
@@ -201,10 +186,6 @@ hog_permutation_test_cpp <- function(net1, net2, thr1, thr2, ortho_sp1_idx, orth
 #' @keywords internal
 hog_permutation_test_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode = FALSE) {
     .Call(`_rcomplex_hog_permutation_test_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, ortho_sp1_idx, ortho_sp2_idx, hog_sp1_list, hog_sp2_list, test_greater, min_exceedances, max_permutations, n_cores, force_flag_mode)
-}
-
-module_auroc_cpp <- function(p, i, set_ptr, set_gene, set_fold, n_fold, n_cores) {
-    .Call(`_rcomplex_module_auroc_cpp`, p, i, set_ptr, set_gene, set_fold, n_fold, n_cores)
 }
 
 #' Module preservation permutation engine (dense)
@@ -308,8 +289,8 @@ mutual_rank_transform_cached_cpp <- function(sim, log_transform = FALSE, n_cores
 #' In-place mutual rank transformation
 #'
 #' Overwrites `sim` with its mutual rank transform without allocating any
-#' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally takes
-#' absolute values, and replaces the column by its average ranks. Pass 2
+#' n x n temporaries. Pass 1 clamps each column to \[-1, 1\], optionally
+#' negates it, and replaces the column by its average ranks. Pass 2
 #' replaces each pair (i, j) by sqrt(R_ij * R_ji) (log-normalized when
 #' `log_transform`) and sets the diagonal to 0. Same formulas and tie
 #' handling as [mutual_rank_transform_cached_cpp()], which is kept as the
@@ -324,13 +305,14 @@ mutual_rank_transform_cached_cpp <- function(sim, log_transform = FALSE, n_cores
 #' @param log_transform If FALSE, raw mutual rank with ascending ranks
 #'   (original Rmd formula). If TRUE, Obayashi & Kinoshita (2009)
 #'   log-normalized formula with descending ranks (values in 0 to 1 range).
-#' @param abs_cor If TRUE, take absolute values before ranking.
+#' @param negate If TRUE, negate every value but the diagonal before
+#'   ranking, so the strongest anticorrelation ranks first.
 #' @param n_cores Number of OpenMP threads
 #' @return Invisible `NULL`; `sim` is modified in place.
 #'
 #' @keywords internal
-mutual_rank_inplace_cpp <- function(sim, log_transform, abs_cor, n_cores) {
-    invisible(.Call(`_rcomplex_mutual_rank_inplace_cpp`, sim, log_transform, abs_cor, n_cores))
+mutual_rank_inplace_cpp <- function(sim, log_transform, negate, n_cores) {
+    invisible(.Call(`_rcomplex_mutual_rank_inplace_cpp`, sim, log_transform, negate, n_cores))
 }
 
 #' Compare co-expression neighborhoods across species (integer-indexed)
@@ -350,7 +332,7 @@ mutual_rank_inplace_cpp <- function(sim, log_transform, abs_cor, n_cores) {
 #' @param n_cores Number of OpenMP threads (default: 1)
 #' @return DataFrame with comparison results for each ortholog pair. The
 #'   hypergeometric urn excludes the anchor gene (population n - 1, anchor
-#'   dropped from the ortholog-mapped set); `*.p.val.gt` / `*.p.val.eq`
+#'   dropped from the ortholog-mapped set); `*.p_value_gt` / `*.p_value_eq`
 #'   are the ungated upper tail P(X > x) and point mass P(X = x).
 #'
 #' @keywords internal
@@ -388,7 +370,7 @@ compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2,
 #'
 #' @param zt Standardised expression (samples x genes) such that
 #'   `crossprod(zt)` is the correlation matrix.
-#' @param log_transform,abs_cor As in [mutual_rank_inplace_cpp()].
+#' @param log_transform,negate As in [mutual_rank_inplace_cpp()].
 #' @param density,store_density Analysis and store densities.
 #' @param block_size Columns per correlation block.
 #' @param n_cores Number of OpenMP threads.
@@ -398,8 +380,8 @@ compare_neighborhoods_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2,
 #'   `start_fraction` the build began with.
 #'
 #' @keywords internal
-mr_block_network_cpp <- function(zt, log_transform, abs_cor, density, store_density, block_size, n_cores) {
-    .Call(`_rcomplex_mr_block_network_cpp`, zt, log_transform, abs_cor, density, store_density, block_size, n_cores)
+mr_block_network_cpp <- function(zt, log_transform, negate, density, store_density, block_size, n_cores) {
+    .Call(`_rcomplex_mr_block_network_cpp`, zt, log_transform, negate, density, store_density, block_size, n_cores)
 }
 
 #' Reduce orthogroups by merging correlated paralogs
@@ -456,18 +438,14 @@ extract_sparse_cpp <- function(m, thr, n_cores = 1L) {
 #' @param grid_frac Ascending fractions f in (0, 1]; for each, the AUROC
 #'   grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
 #'   Empty skips the grid.
-#' @return List with, per requested direction, `Species1.neigh`,
-#'   `Species1.mapped`, `Species1.auroc`, `Species1.p.val`,
-#'   `Species1.jaccard`, `Species1.n.cand` (one element per pair) and the
-#'   matrix `Species1.auroc.grid` (pairs x fractions), and the `Species2.*`
+#' @return List with, per requested direction, `species1.neigh`,
+#'   `species1.mapped`, `species1.auroc`, `species1.p_value`,
+#'   `species1.jaccard`, `species1.n.cand` (one element per pair) and the
+#'   matrix `species1.auroc.grid` (pairs x fractions), and the `species2.*`
 #'   set.
 #'
 #' @keywords internal
 specificity_sparse_cpp <- function(p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac) {
     .Call(`_rcomplex_specificity_sparse_cpp`, p1, i1, x1, thr1, p2, i2, x2, thr2, pair_sp1_idx, pair_sp2_idx, ortho_sp1_idx, ortho_sp2_idx, do_12, do_21, n_cores, grid_frac)
-}
-
-top_eigs_sym_cpp <- function(p, i, x, n, k) {
-    .Call(`_rcomplex_top_eigs_sym_cpp`, p, i, x, n, k)
 }
 

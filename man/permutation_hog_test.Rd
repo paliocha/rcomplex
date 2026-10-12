@@ -47,7 +47,7 @@ region, so a seed reproduces the run at \code{n_cores = 1} only: above that
 the OpenMP guided schedule decides which thread takes which HOG, and
 the pairing of thread streams to HOGs still moves between runs. A
 seeded call restores the caller's stream on exit --- the package-wide
-contract, see \code{\link[=detect_modules]{detect_modules()}}.}
+contract, see \code{detect_modules()}.}
 }
 \value{
 A data frame with one row per HOG, ordered by p-value, with columns:
@@ -61,15 +61,14 @@ A data frame with one row per HOG, ordered by p-value, with columns:
 due to adaptive stopping)}
 \item{n_exceed}{Number of permutation statistics exceeding T_obs}
 \item{mean_eff}{Mean geometric-mean effect size across pairs}
-\item{p.value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
-\item{q.value}{Discrete q-value (Liang, 2016) accounting for
+\item{p_value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
+\item{q_value}{Discrete q-value (Liang, 2016) accounting for
 Besag-Clifford support}
 }
 }
 \description{
-Tests each Hierarchical Ortholog Group (HOG) for co-expression conservation
-(or divergence) using a gene-identity permutation null with adaptive stopping
-(Besag & Clifford, 1991).
+Tests each hog for co-expression conservation or divergence. Permutes
+gene identities and stops adaptively (Besag & Clifford, 1991).
 }
 \section{Statistical method}{
 
@@ -146,7 +145,7 @@ is correctly calibrated (pi0 = 1 on null simulations).
 hog_results <- permutation_hog_test(net1, net2, comparison,
   n_cores = 8L, use_torch = TRUE
 )
-significant <- hog_results[hog_results$q.value < 0.1, ]
+significant <- hog_results[hog_results$q_value < 0.1, ]
 }
 
 }
@@ -158,3 +157,4 @@ Liang, K. (2016). False discovery rate estimation for large-scale
 homogeneous discrete p-values. \emph{Biometrics}, 72(2), 639--648.
 \doi{10.1111/biom.12429}
 }
+\keyword{internal}

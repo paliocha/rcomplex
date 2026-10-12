@@ -1,10 +1,9 @@
 #' Build a module assignment from any gene partition
 #'
-#' Turns gene sets from any source -- anchored regulons, curated pathways,
-#' clusters from another tool -- into the module assignment that
+#' Turns any gene sets into a module assignment. The sets can be
+#' regulons, curated pathways or clusters from another tool.
 #' [module_preservation()], [module_correspondence()] and
-#' [preservation_paired()] take, so they can be tested without
-#' [detect_modules()].
+#' [preservation_paired()] accept the result without [detect_modules()].
 #'
 #' The preservation tests give every gene one module label, so the sets must
 #' not overlap. Split overlapping sets (for example regulons that share genes)
@@ -21,8 +20,6 @@
 #'   unassigned gene); a named list mapping module label to a character
 #'   vector of genes; or an existing module assignment (a [detect_modules()]
 #'   or `as_modules()` result), which is returned unchanged.
-#' @param min_size Modules with fewer genes than this become unassigned and
-#'   are dropped from `module_genes`.
 #'
 #' @return A list with `modules` (named character vector, gene -> module
 #'   label, unassigned genes omitted), `module_genes` (named list, module
@@ -37,12 +34,7 @@
 #'   ribosome = c("g4", "g5", "g6")
 #' ))
 #' mods$modules
-as_modules <- function(x, min_size = 1L) {
-  ok_size <- is.numeric(min_size) && length(min_size) == 1L &&
-    !is.na(min_size) && min_size >= 1
-  if (!ok_size) {
-    stop("min_size must be a single number >= 1")
-  }
+as_modules <- function(x) {
   if (is.data.frame(x)) {
     stop(
       "pass a named vector, e.g. setNames(df$module, df$gene), ",
@@ -50,10 +42,6 @@ as_modules <- function(x, min_size = 1L) {
     )
   }
   if (is.list(x) && !is.null(x$modules) && is.list(x$module_genes)) {
-    if (min_size != 1) {
-      stop("min_size applies to a vector or list of gene sets, ",
-           "not to an existing module object")
-    }
     return(x)
   }
   if (is.list(x)) {
@@ -103,15 +91,13 @@ as_modules <- function(x, min_size = 1L) {
       stop("empty module label for gene ", names(modules)[!nzchar(modules)][1])
     }
   }
-  size <- table(factor(modules, levels = levels))
-  levels <- levels[size >= min_size]
-  modules <- modules[modules %in% levels]
+  levels <- levels[levels %in% modules]
   module_genes <- split(names(modules), factor(modules, levels = levels))
   list(
     modules = modules,
     module_genes = module_genes,
     n_modules = length(module_genes),
     method = "external",
-    params = list(min_size = min_size)
+    params = list()
   )
 }

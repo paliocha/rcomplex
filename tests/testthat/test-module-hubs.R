@@ -51,7 +51,6 @@ make_hub_test_data <- function() {
     net <- list(network = mat, threshold = 0.5)
     nets[[sp]] <- net
     mods[[sp]] <- detect_modules(net,
-      method = "leiden",
       objective_function = "modularity",
       seed = 42
     )
@@ -62,13 +61,13 @@ make_hub_test_data <- function() {
   ortho_list <- list()
   sp_pairs <- combn(species, 2, simplify = FALSE)
   for (pair in sp_pairs) {
-    sp1 <- pair[1]
-    sp2 <- pair[2]
-    px1 <- prefixes[sp1]
-    px2 <- prefixes[sp2]
-    ortho_list[[paste(sp1, sp2, sep = ".")]] <- data.frame(
-      Species1 = paste0(px1, seq_len(n)),
-      Species2 = paste0(px2, seq_len(n)),
+    species1 <- pair[1]
+    species2 <- pair[2]
+    px1 <- prefixes[species1]
+    px2 <- prefixes[species2]
+    ortho_list[[paste(species1, species2, sep = ".")]] <- data.frame(
+      gene1 = paste0(px1, seq_len(n)),
+      gene2 = paste0(px2, seq_len(n)),
       hog = paste0("HOG", seq_len(n)),
       stringsAsFactors = FALSE
     )
@@ -115,29 +114,6 @@ test_that("identify_module_hubs assigns all genes", {
 })
 
 
-test_that("identify_module_hubs top_n controls hub count", {
-  td <- make_hub_test_data()
-  result <- identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]],
-    top_n = 2L
-  )
-  # Each module should have at most 2 hubs
-  hub_counts <- tapply(result$is_hub, result$module, sum)
-  expect_true(all(hub_counts <= 2L))
-  expect_true(all(hub_counts >= 1L)) # at least 1 if module >= min_module_size
-})
-
-
-test_that("identify_module_hubs top_fraction controls hub count", {
-  td <- make_hub_test_data()
-  result <- identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]],
-    top_fraction = 0.2
-  )
-  # 10-gene modules: 0.2 * 10 = 2 hubs each
-  hub_counts <- tapply(result$is_hub, result$module, sum)
-  expect_true(all(hub_counts == 2L))
-})
-
-
 test_that(
   "identify_module_hubs rank 1 has highest centrality (default degree)",
   {
@@ -151,37 +127,6 @@ test_that(
     }
   }
 )
-
-
-test_that("identify_module_hubs rank reflects non-default centrality", {
-  # Use the bridge-gene network where degree and betweenness disagree
-  n <- 10L
-  gnames <- paste0("H", seq_len(n))
-  mat <- matrix(0, n, n, dimnames = list(gnames, gnames))
-  mat[1:5, 1:5] <- 0.8
-  mat[c(1, 6:10), c(1, 6:10)] <- 0.8
-  diag(mat) <- 1
-
-  net <- list(network = mat, threshold = 0.5)
-  m <- detect_modules(net,
-    method = "leiden",
-    objective_function = "modularity", seed = 42
-  )
-
-  result_btw <- identify_module_hubs(m, net, centrality = "betweenness")
-
-  # Rank should reflect betweenness, not degree.
-  # All rank-1 genes should have max betweenness (ties.method = "min").
-  for (mod in unique(result_btw$module)) {
-    mod_df <- result_btw[result_btw$module == mod, ]
-    if (all(is.na(mod_df$betweenness))) next
-    top <- mod_df[mod_df$rank == 1L, ]
-    expect_true(all(top$betweenness == max(mod_df$betweenness)))
-  }
-
-  # Attribute should record the primary centrality
-  expect_equal(attr(result_btw, "primary_centrality"), "betweenness")
-})
 
 
 test_that("identify_module_hubs maps HOGs correctly", {
@@ -205,21 +150,6 @@ test_that("identify_module_hubs works without orthologs", {
 })
 
 
-test_that("identify_module_hubs supports all centrality methods", {
-  td <- make_hub_test_data()
-  for (method in c("degree", "betweenness", "eigenvector")) {
-    result <- identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]],
-      centrality = method
-    )
-    expect_true(is.data.frame(result))
-    expect_equal(nrow(result), 20L)
-    # Centrality should be non-NA for modules >= min_module_size
-    non_tiny <- result[!is.na(result$degree), ]
-    expect_true(nrow(non_tiny) > 0)
-  }
-})
-
-
 test_that("identify_module_hubs validates inputs", {
   td <- make_hub_test_data()
 
@@ -231,26 +161,12 @@ test_that("identify_module_hubs validates inputs", {
     identify_module_hubs(td$mods[["SP_A"]], list()),
     "must be output from compute_network"
   )
-  expect_error(
-    identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]],
-      top_n = 0L
-    ),
-    "top_n must be >= 1"
-  )
-  expect_error(
-    identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]],
-      top_fraction = 0
-    ),
-    "top_fraction must be in"
-  )
 })
 
 
 test_that("identify_module_hubs gene 1 is top hub in module 1 (annual)", {
   td <- make_hub_test_data()
-  result <- identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]],
-    top_n = 1L
-  )
+  result <- identify_module_hubs(td$mods[["SP_A"]], td$nets[["SP_A"]])
 
   # Find which module A1 is in
   a1_mod <- result$module[result$gene == "A1"]
@@ -298,13 +214,12 @@ test_that(
 
     net <- list(network = mat, threshold = 0.5)
     m <- detect_modules(net,
-      method = "leiden",
       objective_function = "modularity", seed = 42
     )
 
     # G1-G4 should have identical within-module degree in module 1
     # G5 has higher global degree due to cross-module edges
-    result <- identify_module_hubs(m, net, centrality = "degree", top_n = 1L)
+    result <- identify_module_hubs(m, net)
 
     # G5 should be selected as hub (global degree breaks the tie)
     g5_mod <- result$module[result$gene == "G5"]
@@ -322,7 +237,7 @@ test_that(
 make_hub_results <- function(td, top_n = 1L) {
   hub_list <- list()
   for (sp in td$species) {
-    # Find an ortholog table that has this species in Species1
+    # Find an ortholog table that has this species in gene1
     ortho_key <- grep(paste0("^", sp, "\\."), names(td$orthologs), value = TRUE)
     if (length(ortho_key) == 0L) {
       ortho_key <- grep(paste0("\\.", sp, "$"), names(td$orthologs),
@@ -330,10 +245,10 @@ make_hub_results <- function(td, top_n = 1L) {
       )
     }
     ortho <- td$orthologs[[ortho_key[1]]]
-    hub_list[[sp]] <- identify_module_hubs(
-      td$mods[[sp]], td$nets[[sp]], ortho,
-      top_n = top_n
-    )
+    hub_list[[sp]] <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
+    # designed hub pattern: the top_n ranked genes of each module
+    hub_list[[sp]]$is_hub <- !is.na(hub_list[[sp]]$rank) &
+      hub_list[[sp]]$rank <= top_n
   }
   hub_list
 }
@@ -343,7 +258,7 @@ test_that("classify_hub_conservation returns correct structure", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td)
 
-  result <- classify_hub_conservation(hubs, td$trait)
+  result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
   expect_true(is.data.frame(result))
   expected_cols <- c(
@@ -360,7 +275,7 @@ test_that("classify_hub_conservation identifies trait-specific hubs", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 2L)
 
-  result <- classify_hub_conservation(hubs, td$trait)
+  result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
   # Check for at least one trait-specific hub
   trait_specific <- result[grepl("_specific_hub$", result$classification), ]
@@ -372,7 +287,7 @@ test_that("classify_hub_conservation classifies non_hub HOGs", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 1L)
 
-  result <- classify_hub_conservation(hubs, td$trait)
+  result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
   # With only 1 hub per module, most HOGs are non_hub
   non_hubs <- result[result$classification == "non_hub", ]
@@ -389,7 +304,7 @@ test_that(
     # Use top_n = 5 so gene 1 (shared hub) qualifies in both traits
     hubs <- make_hub_results(td, top_n = 5L)
 
-    result <- classify_hub_conservation(hubs, td$trait)
+    result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
     # HOG1 should be hub in multiple species / both traits
     hog1 <- result[result$hog == "HOG1", ]
@@ -424,24 +339,24 @@ test_that(
       c("SP_B", "SP_C"), c("SP_B", "SP_D")
     )
     for (pair in cross_pairs) {
-      sp1 <- pair[1]
-      sp2 <- pair[2]
-      key <- paste(sort(c(sp1, sp2)), collapse = ".")
-      ortho_key <- paste(sp1, sp2, sep = ".")
+      species1 <- pair[1]
+      species2 <- pair[2]
+      key <- paste(sort(c(species1, species2)), collapse = ".")
+      ortho_key <- paste(species1, species2, sep = ".")
       if (!ortho_key %in% names(td$orthologs)) {
-        ortho_key <- paste(sp2, sp1, sep = ".")
+        ortho_key <- paste(species2, species1, sep = ".")
       }
       map <- resolve_ortholog_map(
         td$orthologs[[ortho_key]],
-        rownames(td$nets[[sp1]]$network),
-        rownames(td$nets[[sp2]]$network)
+        rownames(td$nets[[species1]]$network),
+        rownames(td$nets[[species2]]$network)
       )
       mod_comps[[key]] <- module_correspondence(
-        td$mods[[sp1]], td$mods[[sp2]], map
+        td$mods[[species1]], td$mods[[species2]], map
       )
     }
 
-    result <- classify_hub_conservation(hubs, td$trait,
+    result <- classify_hub_conservation(hubs, as_clades(td$trait),
       module_comparisons = mod_comps
     )
 
@@ -468,77 +383,27 @@ test_that("a species with no HOG-mapped genes is called out", {
   hubs[["SP_B"]]$hog <- NA_character_
 
   expect_warning(
-    classify_hub_conservation(hubs, td$trait),
-    "no HOG-mapped genes"
+    classify_hub_conservation(hubs, as_clades(td$trait)),
+    "no hog-mapped gene"
   )
 })
 
 
-test_that("min_trait_fraction denominator is the trait group, not presence", {
+test_that("absent species count against the trait group", {
   td <- make_hub_test_data()
   hubs <- make_hub_results(td, top_n = 1L)
 
-  # Two annual patterns that differ only in whether the HOG is also present
-  # in the second annual species. Both are a hub in one annual out of two,
-  # so both must score the same fraction; dividing by the species carrying
-  # the HOG scores the second one 1.0 and promotes it to a trait-specific
-  # hub on a single observation.
-  for (sp in names(hubs)) hubs[[sp]]$is_hub <- FALSE
-  hubs[["SP_A"]]$is_hub[hubs[["SP_A"]]$hog %in% c("HOG5", "HOG10")] <- TRUE
-  hubs[["SP_B"]] <- hubs[["SP_B"]][hubs[["SP_B"]]$hog != "HOG10", ]
-
-  res <- classify_hub_conservation(hubs, td$trait, min_trait_fraction = 0.75)
-  cls <- stats::setNames(res$classification, res$hog)
-
-  expect_equal(unname(cls[["HOG10"]]), unname(cls[["HOG5"]]))
-  expect_equal(unname(cls[["HOG10"]]), "sporadic_hub")
-  expect_true(is.na(res$hub_trait_groups[res$hog == "HOG10"]))
-  # The presence count still reports what it always did.
-  expect_equal(res$n_species_present[res$hog == "HOG10"], 3L)
-})
-
-
-test_that("min_trait_fraction counts absent species against the group", {
-  td <- make_hub_test_data()
-  hubs <- make_hub_results(td, top_n = 1L)
-
-  # Hub in the only annual that carries the HOG. Under the group-size
-  # denominator that is 1 of 2 annuals, which clears the 0.5 default but
-  # not 0.75; under the old presence denominator it was 1.0 either way.
+  # Hub in the only annual that carries the HOG: 1 of 2 annuals, which
+  # clears the 0.5 cut.
   for (sp in names(hubs)) hubs[[sp]]$is_hub <- FALSE
   hubs[["SP_A"]]$is_hub[hubs[["SP_A"]]$hog == "HOG10"] <- TRUE
   hubs[["SP_B"]] <- hubs[["SP_B"]][hubs[["SP_B"]]$hog != "HOG10", ]
 
-  lax <- classify_hub_conservation(hubs, td$trait, min_trait_fraction = 0.5)
+  res <- classify_hub_conservation(hubs, as_clades(td$trait))
   expect_equal(
-    lax$classification[lax$hog == "HOG10"],
+    res$classification[res$hog == "HOG10"],
     "annual_specific_hub"
   )
-  strict <- classify_hub_conservation(hubs, td$trait,
-    min_trait_fraction = 0.6
-  )
-  expect_equal(strict$classification[strict$hog == "HOG10"], "sporadic_hub")
-})
-
-
-test_that("classify_hub_conservation min_trait_fraction works", {
-  td <- make_hub_test_data()
-  hubs <- make_hub_results(td, top_n = 1L)
-
-  # Strict: hub must be in ALL species within trait group
-  strict <- classify_hub_conservation(hubs, td$trait,
-    min_trait_fraction = 1.0
-  )
-  # Lenient: hub in any species counts
-  lenient <- classify_hub_conservation(hubs, td$trait,
-    min_trait_fraction = 0.01
-  )
-
-  # Lenient should have more specific/multi-trait hubs than strict
-  n_hub_strict <- sum(!strict$classification %in% c("non_hub", "sporadic_hub"))
-  n_hub_lenient <- sum(!lenient$classification %in%
-                         c("non_hub", "sporadic_hub"))
-  expect_true(n_hub_lenient >= n_hub_strict)
 })
 
 
@@ -547,22 +412,15 @@ test_that("classify_hub_conservation validates inputs", {
   hubs <- make_hub_results(td)
 
   expect_error(
-    classify_hub_conservation(list(1, 2), td$trait),
+    classify_hub_conservation(list(1, 2), as_clades(td$trait)),
     "must be a named list"
   )
   expect_error(
     classify_hub_conservation(hubs, c("a", "b")),
-    "must be a named vector"
+    "clades must be a named list"
   )
   expect_error(
-    classify_hub_conservation(
-      hubs,
-      c(SP_A = "annual", SP_B = "annual")
-    ),
-    "missing entries"
-  )
-  expect_error(
-    classify_hub_conservation(hubs, td$trait,
+    classify_hub_conservation(hubs, as_clades(td$trait),
       module_comparisons = list(SP_A.SP_C = list(raw = 1))
     ),
     "must be a module_correspondence\\(\\) result"
@@ -581,7 +439,7 @@ test_that("classify_hub_conservation handles empty hub_results", {
     stringsAsFactors = FALSE
   )
   result <- classify_hub_conservation(
-    list(SP_A = empty_hub, SP_B = empty_hub), trait
+    list(SP_A = empty_hub, SP_B = empty_hub), as_clades(trait)
   )
   expect_equal(nrow(result), 0L)
   expect_true(all(c("hog", "classification") %in% names(result)))
@@ -594,8 +452,8 @@ test_that("identify_module_hubs handles multi-copy HOGs correctly", {
   td <- make_hub_test_data()
   # Create orthologs where one gene maps to two HOGs (duplicate gene entry)
   ortho <- data.frame(
-    Species1 = c(paste0("A", 1:20), "A1"),
-    Species2 = c(paste0("B", 1:20), "B1"),
+    gene1 = c(paste0("A", 1:20), "A1"),
+    gene2 = c(paste0("B", 1:20), "B1"),
     hog = c(paste0("HOG", 1:20), "HOG_ALT"),
     stringsAsFactors = FALSE
   )
@@ -609,103 +467,13 @@ test_that("identify_module_hubs handles multi-copy HOGs correctly", {
 })
 
 
-test_that("identify_module_hubs min_module_size filters tiny modules", {
-  # Create a network with one tiny module
-  n <- 12L
-  gnames <- paste0("X", seq_len(n))
-  mat <- matrix(0, n, n, dimnames = list(gnames, gnames))
-  # Module 1: genes 1-10 (large)
-  mat[1:10, 1:10] <- 0.9
-  # Module 2: genes 11-12 (tiny, size 2)
-  mat[11:12, 11:12] <- 0.9
-  diag(mat) <- 1
-
-  net <- list(network = mat, threshold = 0.5)
-  m <- detect_modules(net,
-    method = "leiden",
-    objective_function = "modularity", seed = 42
-  )
-
-  # Default min_module_size = 3: tiny module genes should not be hubs
-  result <- identify_module_hubs(m, net, min_module_size = 3L)
-
-  # Find the tiny module (size <= 2)
-  mod_sizes <- tapply(result$gene, result$module, length)
-  tiny_mods <- as.integer(names(mod_sizes[mod_sizes <= 2L]))
-
-  if (length(tiny_mods) > 0) {
-    tiny_rows <- result[result$module %in% tiny_mods, ]
-    expect_true(all(!tiny_rows$is_hub))
-    expect_true(all(is.na(tiny_rows$degree)))
-  }
-})
-
-
-test_that("identify_module_hubs betweenness ranks bridge genes higher", {
-  # Create a module where gene 1 bridges two sub-clusters
-  n <- 10L
-  gnames <- paste0("G", seq_len(n))
-  mat <- matrix(0, n, n, dimnames = list(gnames, gnames))
-
-  # Sub-cluster A: genes 1-5 all connected
-  mat[1:5, 1:5] <- 0.8
-  # Sub-cluster B: genes 1,6-10 all connected (gene 1 bridges A and B)
-  mat[c(1, 6:10), c(1, 6:10)] <- 0.8
-  diag(mat) <- 1
-
-  net <- list(network = mat, threshold = 0.5)
-  m <- detect_modules(net,
-    method = "leiden",
-    objective_function = "modularity", seed = 42
-  )
-
-  result_deg <- identify_module_hubs(m, net, centrality = "degree", top_n = 1L)
-  result_btw <- identify_module_hubs(m, net,
-    centrality = "betweenness",
-    top_n = 1L
-  )
-
-  # Gene 1 should have highest betweenness (bridges both sub-clusters)
-  g1_mod <- result_btw$module[result_btw$gene == "G1"]
-  g1_btw <- result_btw[result_btw$gene == "G1", ]
-  expect_equal(g1_btw$rank, 1L)
-})
-
-
-test_that("classify_hub_conservation identifies sporadic_hub", {
-  td <- make_hub_test_data()
-  # top_n = 1: each module has 1 hub, so most HOGs are non_hub
-  hubs <- make_hub_results(td, top_n = 1L)
-
-  # Manually make HOG10 a hub in only 1 of 2 annual species
-  # by editing the hub results directly
-  for (sp in names(hubs)) {
-    idx <- which(hubs[[sp]]$hog == "HOG10")
-    if (length(idx) > 0) hubs[[sp]]$is_hub[idx] <- FALSE
-  }
-  # Make HOG10 a hub only in SP_A
-  idx_a <- which(hubs[["SP_A"]]$hog == "HOG10")
-  if (length(idx_a) > 0) hubs[["SP_A"]]$is_hub[idx_a] <- TRUE
-
-  # With min_trait_fraction = 1.0 (strict), HOG10 is hub in 1/2 annuals
-  # which is below threshold -> sporadic_hub
-  result <- classify_hub_conservation(hubs, td$trait,
-    min_trait_fraction = 1.0
-  )
-  hog10 <- result[result$hog == "HOG10", ]
-  if (nrow(hog10) > 0 && hog10$n_species_hub > 0) {
-    expect_equal(hog10$classification, "sporadic_hub")
-  }
-})
-
-
 test_that(
   "classify_hub_conservation multi_trait_hub without module_comparisons",
   {
     td <- make_hub_test_data()
     hubs <- make_hub_results(td, top_n = 5L)
 
-    result <- classify_hub_conservation(hubs, td$trait)
+    result <- classify_hub_conservation(hubs, as_clades(td$trait))
 
     # HOGs that are hubs in both traits should be multi_trait_hub
     multi <- result[result$classification == "multi_trait_hub", ]
@@ -722,252 +490,14 @@ test_that(
 )
 
 
-test_that(
-  "identify_module_hubs comparison parameter enables conservation tie-breaking",
-  {
-    # Build a network where two genes have identical within-module degree
-    # but different conservation effect sizes
-    n <- 10L
-    gnames <- paste0("G", seq_len(n))
-    mat <- matrix(0, n, n, dimnames = list(gnames, gnames))
-    # All genes fully connected (identical within-module degree)
-    mat[1:n, 1:n] <- 0.8
-    diag(mat) <- 1
-
-    net <- list(network = mat, threshold = 0.5)
-    m <- detect_modules(net,
-      method = "leiden",
-      objective_function = "modularity", seed = 42
-    )
-
-    # Orthologs: 1:1 mapping to partner species
-    ortho <- data.frame(
-      Species1 = gnames,
-      Species2 = paste0("P", seq_len(n)),
-      hog = paste0("HOG", seq_len(n)),
-      stringsAsFactors = FALSE
-    )
-
-    # Mock comparison: G10 (last in input order) has highest conservation
-    # effect.
-    # Without comparison, G10 has no advantage; with comparison, it wins
-    # tier 5.
-    mock_comparison <- data.frame(
-      Species1 = gnames,
-      Species2 = paste0("P", seq_len(n)),
-      hog = paste0("HOG", seq_len(n)),
-      Species1.effect.size = c(rep(1, n - 1), 10),
-      Species2.effect.size = c(rep(1, n - 1), 10),
-      Species1.q.val.con = c(rep(0.5, n - 1), 0.001),
-      Species2.q.val.con = c(rep(0.5, n - 1), 0.001),
-      stringsAsFactors = FALSE
-    )
-
-    # Without comparison: all tiers 1-4 are equal; input order picks first gene
-    result_no_comp <- identify_module_hubs(m, net, ortho, top_n = 1L)
-
-    # With comparison: G10 should win the tie (highest conservation effect)
-    result_with_comp <- identify_module_hubs(m, net, ortho,
-      comparison = mock_comparison,
-      top_n = 1L
-    )
-
-    g10_mod <- result_with_comp$module[result_with_comp$gene == "G10"]
-    hub_with <- result_with_comp[result_with_comp$module == g10_mod &
-                                   result_with_comp$is_hub, ]
-    expect_true("G10" %in% hub_with$gene)
-
-    # The comparison must have actually changed the result: without it,
-    # G10 (last in input order) would not be selected
-    hub_no <- result_no_comp[result_no_comp$module == g10_mod &
-                               result_no_comp$is_hub, ]
-    expect_false("G10" %in% hub_no$gene)
-  }
-)
-
-
-# ---- characterize_hubs() tests ----
-
-test_that("characterize_hubs returns correct structure", {
-  td <- make_hub_test_data()
-  sp <- "SP_A"
-  ortho <- do.call(rbind, td$orthologs)
-  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
-  result <- characterize_hubs(hubs, td$mods[[sp]])
-
-  expect_true(all(names(hubs) %in% names(result)))
-  expect_true("bridge_fraction" %in% names(result))
-  expect_true("bt_degree_ratio" %in% names(result))
-  expect_equal(nrow(result), nrow(hubs))
-  expect_false("cv" %in% names(result))
-})
-
-
-test_that("bridge_fraction in [0, 1]", {
-  td <- make_hub_test_data()
-  sp <- "SP_A"
-  ortho <- do.call(rbind, td$orthologs)
-  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
-  result <- characterize_hubs(hubs, td$mods[[sp]])
-
-  bf <- result$bridge_fraction[!is.na(result$bridge_fraction)]
-  expect_true(all(bf >= 0 & bf <= 1))
-})
-
-
-test_that("bridge_fraction distinguishes intra- vs inter-module genes", {
-  td <- make_hub_test_data()
-  sp <- "SP_A"
-  ortho <- do.call(rbind, td$orthologs)
-  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
-  result <- characterize_hubs(hubs, td$mods[[sp]])
-
-  # Gene A1 is a super-hub within module 1 (0.95 edges to module-mates)
-  # It should have lower bridge_fraction than a gene with cross-module edges
-  bf_a1 <- result$bridge_fraction[result$gene == "A1"]
-  expect_true(!is.na(bf_a1))
-  # In the test fixture, A1 has strong intra-module connections,
-  # so bridge_fraction should be moderate (not 0, because threshold
-  # lets some cross-module edges through)
-  expect_true(bf_a1 < 0.8)
-})
-
-
-test_that("bt_degree_ratio is non-negative", {
-  td <- make_hub_test_data()
-  sp <- "SP_A"
-  ortho <- do.call(rbind, td$orthologs)
-  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
-  result <- characterize_hubs(hubs, td$mods[[sp]])
-
-  btr <- result$bt_degree_ratio[!is.na(result$bt_degree_ratio)]
-  expect_true(all(btr >= 0))
-})
-
-
-test_that("characterize_hubs computes cv when expr provided", {
-  td <- make_hub_test_data()
-  sp <- "SP_A"
-  ortho <- do.call(rbind, td$orthologs)
-  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
-
-  # Synthetic expression matrix: 20 genes x 5 samples
-  genes <- paste0("A", 1:20)
-  expr <- matrix(rnorm(100, mean = 10, sd = 2),
-    nrow = 20,
-    dimnames = list(genes, paste0("S", 1:5))
-  )
-
-  result <- characterize_hubs(hubs, td$mods[[sp]], expr = expr)
-  expect_true("cv" %in% names(result))
-  cv_vals <- result$cv[!is.na(result$cv)]
-  expect_true(length(cv_vals) > 0)
-  expect_true(all(cv_vals >= 0))
-})
-
-
-test_that("characterize_hubs joins annotations", {
-  td <- make_hub_test_data()
-  sp <- "SP_A"
-  ortho <- do.call(rbind, td$orthologs)
-  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
-
-  annot <- data.frame(
-    gene = c("A1", "A5"),
-    is_tf = c(TRUE, FALSE),
-    family = c("MYB", NA),
-    stringsAsFactors = FALSE
-  )
-  result <- characterize_hubs(hubs, td$mods[[sp]], annotations = annot)
-
-  expect_true("is_tf" %in% names(result))
-  expect_true("family" %in% names(result))
-  expect_true(result$is_tf[result$gene == "A1"])
-  expect_true(is.na(result$is_tf[result$gene == "A2"]))
-  expect_equal(nrow(result), nrow(hubs))
-})
-
-
-test_that("characterize_hubs validates inputs", {
-  td <- make_hub_test_data()
-  sp <- "SP_A"
-  ortho <- do.call(rbind, td$orthologs)
-  hubs <- identify_module_hubs(td$mods[[sp]], td$nets[[sp]], ortho)
-
-  expect_error(
-    characterize_hubs(hubs[, -1], td$mods[[sp]]),
-    "missing required columns"
-  )
-  expect_error(
-    characterize_hubs(hubs, list(no_modules = TRUE)),
-    "detect_modules"
-  )
-  expect_error(
-    characterize_hubs(hubs, td$mods[[sp]], expr = "not_a_matrix"),
-    "matrix"
-  )
-  expect_error(
-    characterize_hubs(hubs, td$mods[[sp]], annotations = data.frame(x = 1)),
-    "gene"
-  )
-})
-
-
-test_that("classify_hub_conservation rejects unusable comparison keys", {
-  td <- make_hub_test_data()
-  hubs <- make_hub_results(td)
-  map <- resolve_ortholog_map(
-    td$orthologs[["SP_A.SP_C"]],
-    rownames(td$nets$SP_A$network), rownames(td$nets$SP_C$network)
-  )
-  corr <- module_correspondence(td$mods$SP_A, td$mods$SP_C, map)
-
-  # An unnamed list makes the lookup loop iterate over NULL, leaving every HOG
-  # at NA -- the same silent degradation as supplying nothing.
-  expect_error(
-    classify_hub_conservation(hubs, td$trait, module_comparisons = list(corr)),
-    "must be a named list"
-  )
-  # A reversed key passes the shape check but never matches the sorted lookup.
-  expect_error(
-    classify_hub_conservation(hubs, td$trait,
-      module_comparisons = list(SP_C.SP_A = corr)
-    ),
-    "alphabetically sorted species"
-  )
-  # Worse than a bad key: transposed arguments under a VALID key pass every
-  # other check and then match lookups with module_sp1/module_sp2 swapped,
-  # giving wrong verdicts instead of a detectable NA.
-  flipped <- corr
-  flipped$sp_ref <- "SP_C"
-  flipped$sp_test <- "SP_A"
-  expect_error(
-    classify_hub_conservation(hubs, td$trait,
-      module_comparisons = list(SP_A.SP_C = flipped)
-    ),
-    "arguments or the key are wrong"
-  )
-  # A sp_test naming a third species is the same class of silent wrong
-  # verdict, and a first-element check would pass it.
-  third <- corr
-  third$sp_ref <- "SP_A"
-  third$sp_test <- "SP_D"
-  expect_error(
-    classify_hub_conservation(hubs, td$trait,
-      module_comparisons = list(SP_A.SP_C = third)
-    ),
-    "arguments or the key are wrong"
-  )
-})
-
 test_that("orientation check survives species names containing a dot", {
   # Splitting the key on "." would make "A.thaliana.O.sativa" look transposed
   # and reject a correctly oriented table.
   trait <- c(A.thaliana = "annual", O.sativa = "perennial")
   corr <- list(pairs = data.frame(
-    module_sp1 = "1", module_sp2 = "1", jaccard = 0.5, q.value = 0.01,
+    module1 = "1", module2 = "1", jaccard = 0.5, q_value = 0.01,
     stringsAsFactors = FALSE
-  ), sp_ref = "A.thaliana", sp_test = "O.sativa")
+  ), species_ref = "A.thaliana", species_test = "O.sativa")
   hubs <- list(
     A.thaliana = data.frame(
       gene = "a1", module = 1L, is_hub = TRUE,
@@ -979,7 +509,7 @@ test_that("orientation check survives species names containing a dot", {
     )
   )
   expect_no_error(
-    classify_hub_conservation(hubs, trait,
+    classify_hub_conservation(hubs, as_clades(trait),
       module_comparisons = list("A.thaliana.O.sativa" = corr)
     )
   )

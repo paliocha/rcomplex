@@ -1,5 +1,5 @@
 # Regression test: consensus module detection must be bit-reproducible,
-# and identical across core counts (see R/modules.R .task_seed()).
+# and identical across core counts (see R/rng.R .task_seed()).
 
 # Deliberately AMBIGUOUS fixture: 24 small blocks nested in 6 super-blocks
 # plus a dense background, so Leiden has no unique optimum. A clean planted
@@ -43,8 +43,7 @@ test_that("consensus modules are bit-reproducible across core counts", {
   run <- function(nc) {
     detect_modules(net,
       resolution = res, objective_function = "modularity",
-      seed = 42L, n_cores = nc, max_consensus_iter = 10L,
-      test_k1 = TRUE, n_perm_k1 = 100L, alpha_k1 = 0.05
+      seed = 42L, n_cores = nc, max_consensus_iter = 10L
     )
   }
 
@@ -58,54 +57,25 @@ test_that("consensus modules are bit-reproducible across core counts", {
   # (b) core-count invariance of the partition
   expect_identical(r1$modules, r2a$modules)
   expect_identical(r1$modules, r3$modules)
-  # (c) core-count invariance of the K = 1 test, including the stopping grid
-  expect_identical(r1$k1_test$n_perm_completed, r3$k1_test$n_perm_completed)
-  expect_identical(r1$k1_test$p_value, r3$k1_test$p_value)
-  expect_identical(r1$k1_test$lambda_null, r3$k1_test$lambda_null)
 })
 
-test_that("forked K = 1 workers survive the parent's OpenMP threads", {
+test_that("forked consensus workers survive the parent's OpenMP threads", {
   skip_on_cran()
   skip_on_os("windows") # mclapply falls back to serial
   # Regression for a Linux-only deadlock. The parent runs the
   # co-classification scan with n_cores = 2, which starts a libgomp thread
-  # pool; the K = 1 test then forks workers, and a worker that enters any
+  # pool; the next Leiden sweep forks workers, and a worker that enters any
   # OpenMP region inherits that pool without its threads and blocks for
-  # good. The package's own kernels skip OpenMP at n_cores = 1, but
-  # Armadillo parallelised the dense x sparse product inside eigs_sym()
-  # on its own, until src/Makevars set ARMA_DONT_USE_OPENMP. macOS (LLVM
-  # libomp) never hung, so only Linux CI can fail this. Unlike the
-  # core-count test above, n_cores = 2 stays inside the limit
-  # R CMD check --as-cran imposes, so R-CMD-check runs it too. These are
-  # that test's run(2L) arguments, the call that hung on ubuntu CI.
+  # good. macOS (LLVM libomp) never hung, so only Linux CI can fail this.
+  # Unlike the core-count test above, n_cores = 2 stays inside the limit
+  # R CMD check --as-cran imposes, so R-CMD-check runs it too.
   net <- make_ambiguous_net()
   res <- detect_modules(net,
     resolution = seq(0.25, 2.5, by = 0.25),
     objective_function = "modularity",
-    seed = 42L, n_cores = 2L, max_consensus_iter = 10L,
-    test_k1 = TRUE, n_perm_k1 = 100L, alpha_k1 = 0.05
+    seed = 42L, n_cores = 2L, max_consensus_iter = 10L
   )
-  expect_gt(res$k1_test$n_perm_completed, 0L)
-})
-
-test_that("the K = 1 test gives the serial result at n_cores = 2", {
-  skip_on_cran()
-  skip_on_os("windows") # mclapply falls back to serial
-  # Under R's Accelerate BLAS without VECLIB_MAXIMUM_THREADS=1 at start-up
-  # the K = 1 permutations run serially (.blas_fork_safe()), so this
-  # compares serial with serial there; it exercises the fork on Linux CI.
-  # n_cores = 2 stays inside R CMD check --as-cran's core limit.
-  net <- make_ambiguous_net(n = 200L)
-  run <- function(nc) {
-    detect_modules(net,
-      resolution = c(0.5, 1, 2), seed = 1L, n_cores = nc,
-      test_k1 = TRUE, n_perm_k1 = 20L
-    )$k1_test
-  }
-  serial <- run(1L)
-  two <- run(2L)
-  expect_identical(two$lambda_null, serial$lambda_null)
-  expect_identical(two$p_value, serial$p_value)
+  expect_gt(res$n_modules, 0L)
 })
 
 test_that("detect_modules leaves the ambient RNG stream core-count invariant", {
@@ -118,7 +88,7 @@ test_that("detect_modules leaves the ambient RNG stream core-count invariant", {
     set.seed(99L)
     detect_modules(net,
       resolution = res, objective_function = "modularity",
-      seed = 42L, n_cores = nc, test_k1 = FALSE
+      seed = 42L, n_cores = nc
     )
     runif(1L)
   }
@@ -156,8 +126,7 @@ test_that("a seeded call restores the caller's stream", {
   expect_true(restored(function() {
     detect_modules(net,
       resolution = c(0.8, 1.0), seed = 42,
-      objective_function = "modularity",
-      n_iterations = 1L, max_consensus_iter = 1L
+      objective_function = "modularity", max_consensus_iter = 1L
     )
   }))
 
@@ -170,99 +139,6 @@ test_that("a seeded call restores the caller's stream", {
     objective_function = "modularity"
   ))
   expect_false(identical(before, get(".Random.seed", envir = globalenv())))
-})
-
-
-# ---- K = 1 stopping rule ------------------------------------------------
-# The rule these replace stopped after the first batch in every run: with
-# ceiling(1 / alpha) permutations done, zero exceedances ended the test and
-# so did one, for any alpha < 0.5. n_perm_k1 above that grid point changed
-# nothing, and one early exceedance sank a network that the full budget
-# would have called structured.
-
-test_that("a stop needs the outstanding permutations to be irrelevant", {
-  settled <- rcomplex:::.k1_settled
-
-  # one exceedance out of the first 20 still leaves p = 2/101 in reach
-  expect_false(settled(1L, 20L, 100L, 0.05))
-  expect_false(settled(4L, 20L, 100L, 0.05))
-  # five cannot: even a perfect remaining run finishes at 6/101 > 0.05
-  expect_true(settled(5L, 20L, 100L, 0.05))
-  # a clean first batch is not yet a decision either
-  expect_false(settled(0L, 20L, 100L, 0.05))
-  expect_true(settled(0L, 100L, 100L, 0.05))
-  # the decision the rule protects is the one the full budget would make
-  expect_true(settled(2L, 60L, 100L, 0.02))
-  expect_false(settled(0L, 60L, 100L, 0.02))
-})
-
-
-test_that("n_perm_k1 sets the resolution of the K = 1 p-value", {
-  skip_on_cran()
-
-  net <- make_ambiguous_net(n = 200L)
-  run <- function(np) {
-    detect_modules(net,
-      resolution = c(0.5, 1.0, 1.5, 2.0),
-      objective_function = "modularity", seed = 42L,
-      test_k1 = TRUE, n_perm_k1 = np, alpha_k1 = 0.05,
-      max_consensus_iter = 5L
-    )$k1_test
-  }
-  k20 <- run(20L)
-  k100 <- run(100L)
-
-  expect_identical(k20$n_perm_completed, 20L)
-  expect_identical(k100$n_perm_completed, 100L)
-  expect_equal(k20$p_value, 1 / 21)
-  expect_equal(k100$p_value, 1 / 101)
-  expect_true(k100$has_structure)
-})
-
-
-test_that("the K = 1 null is optimised as hard as the observed sweep", {
-  skip_on_cran()
-
-  # A null partition found with fewer Leiden iterations than the observed
-  # one carries less structure for the same graph, so lambda_null lands
-  # low and the test leans toward calling structure that is not there.
-  seen <- new.env(parent = emptyenv())
-  seen$n_iterations <- integer(0)
-  real_leiden <- igraph::cluster_leiden
-  recorder <- function(graph, ..., n_iterations = 2L) {
-    seen$n_iterations <- c(seen$n_iterations, as.integer(n_iterations))
-    real_leiden(graph, ..., n_iterations = n_iterations)
-  }
-
-  g <- withr::with_seed(3L, igraph::sample_gnp(60L, 0.15))
-  igraph::V(g)$name <- paste0("G", seq_len(60L))
-  igraph::E(g)$weight <- withr::with_seed(
-    4L, stats::runif(igraph::ecount(g), 0.3, 1.0)
-  )
-  edge_list_0 <- igraph::as_edgelist(g, names = FALSE) - 1L
-  storage.mode(edge_list_0) <- "integer"
-  resolutions <- c(0.5, 1.0)
-  memberships <- lapply(resolutions, function(r) {
-    mem <- igraph::membership(igraph::cluster_leiden(
-      g,
-      resolution = r, objective_function = "modularity",
-      n_iterations = 3L
-    ))
-    names(mem) <- igraph::V(g)$name
-    mem
-  })
-
-  testthat::with_mocked_bindings(
-    rcomplex:::test_community_structure(
-      g, igraph::V(g)$name, resolutions, "modularity", 3L, memberships,
-      edge_list_0,
-      n_perm = 4L, n_cores = 1L, alpha = 0.05, seed_root = 1L
-    ),
-    cluster_leiden = recorder, .package = "igraph"
-  )
-
-  expect_gt(length(seen$n_iterations), 0L)
-  expect_identical(unique(seen$n_iterations), 3L)
 })
 
 
@@ -281,7 +157,7 @@ test_that("consensus iteration stops at a fixed point", {
     detect_modules(net,
       resolution = res,
       objective_function = "modularity", seed = 42L,
-      max_consensus_iter = cap, test_k1 = FALSE
+      max_consensus_iter = cap
     )
   }
   r_short <- run(40L)

@@ -6,7 +6,7 @@ gcg_pairs <- function(sp, genes, hog, q, effect = 1) {
   data.frame(
     gene1 = genes[cmb[1L, ]], gene2 = genes[cmb[2L, ]],
     species1 = sp[cmb[1L, ]], species2 = sp[cmb[2L, ]],
-    hog = hog, q.value = q, effect_size = effect,
+    hog = hog, q_value = q, effect_size = effect,
     stringsAsFactors = FALSE
   )
 }
@@ -16,6 +16,7 @@ gcg_lin <- c(
   SP_A = "L1", SP_B = "L1", SP_C = "L1",
   SP_D = "L2", SP_E = "L2", SP_F = "L2"
 )
+gcg_clades <- split(names(gcg_lin), gcg_lin)
 
 # Six-species fixture, one HOG per tier. Lineages L1 = A,B,C and
 # L2 = D,E,F, so S = 6, P = 15, W = 6, X = 9 and the generalised
@@ -54,7 +55,7 @@ make_gcg_fixture <- function() {
   h4_f <- data.frame(
     gene1 = paste0(c("a", "b", "c", "d", "e"), 4), gene2 = "f4",
     species1 = five, species2 = "SP_F", hog = "HOG4",
-    q.value = 0.95, effect_size = 1, stringsAsFactors = FALSE
+    q_value = 0.95, effect_size = 1, stringsAsFactors = FALSE
   )
 
   # HOG5: both lineages fully significant within, all nine cross pairs
@@ -82,7 +83,7 @@ make_gcg_fixture <- function() {
   )
   h7_f <- data.frame(
     gene1 = "a7b", gene2 = "f7", species1 = "SP_A",
-    species2 = "SP_F", hog = "HOG7", q.value = 0.02,
+    species2 = "SP_F", hog = "HOG7", q_value = 0.02,
     effect_size = 1, stringsAsFactors = FALSE
   )
 
@@ -90,25 +91,28 @@ make_gcg_fixture <- function() {
 }
 
 
-test_that("gene_clique_graph returns one row per clique member", {
+test_that("gene_clique_graph returns a clique and a member table", {
   e <- data.frame(
     gene1 = c("a1", "a1", "b1"), gene2 = c("b1", "c1", "c1"),
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = "HOG1", q.value = c(0.01, 0.02, 0.03),
+    hog = "HOG1", q_value = c(0.01, 0.02, 0.03),
     effect_size = c(3, 2, 4), stringsAsFactors = FALSE
   )
-  cl <- gene_clique_graph(e)
-  expect_equal(nrow(cl), 3L)
-  expect_equal(length(unique(cl$clique_id)), 1L)
-  expect_setequal(cl$species, c("SP_A", "SP_B", "SP_C"))
-  expect_setequal(cl$gene, c("a1", "b1", "c1"))
-  expect_true(all(cl$n_members == 3L))
-  expect_true(all(cl$n_species == 3L))
-  expect_true(all(cl$n_edges == 3L))
-  expect_equal(unique(cl$mean_q), mean(c(0.01, 0.02, 0.03)))
-  expect_equal(unique(cl$max_q), 0.03)
-  expect_equal(unique(cl$mean_effect_size), 3)
+  g <- gene_clique_graph(e)
+  expect_s3_class(g, "gene_cliques")
+  cl <- g$cliques
+  expect_identical(cl$clique_id, 1L)
+  expect_identical(g$members$clique_id, rep(1L, 3L))
+  expect_identical(levels(g$members$species), c("SP_A", "SP_B", "SP_C"))
+  expect_setequal(as.character(g$members$species), c("SP_A", "SP_B", "SP_C"))
+  expect_setequal(g$members$gene, c("a1", "b1", "c1"))
+  expect_equal(cl$n_members, 3L)
+  expect_equal(cl$n_species, 3L)
+  expect_equal(cl$n_edges, 3L)
+  expect_equal(cl$mean_q, mean(c(0.01, 0.02, 0.03)))
+  expect_equal(cl$max_q, 0.03)
+  expect_equal(cl$mean_effect_size, 3)
 })
 
 
@@ -120,15 +124,121 @@ test_that("gene_clique_graph reports every paralog combination", {
     gene2 = c("b1", "c1", "b1", "c1", "c1"),
     species1 = c("SP_A", "SP_A", "SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_B", "SP_C", "SP_C"),
-    hog = "HOG1", q.value = 0.01, stringsAsFactors = FALSE
+    hog = "HOG1", q_value = 0.01, stringsAsFactors = FALSE
   )
   cl <- gene_clique_graph(e)
-  expect_equal(length(unique(cl$clique_id)), 2L)
-  by_id <- split(cl$gene, cl$clique_id)
+  expect_equal(nrow(cl$cliques), 2L)
+  by_id <- split(cl$members$gene, cl$members$clique_id)
   expect_setequal(vapply(by_id, function(g) {
     intersect(g, c("a1", "a2"))
   }, character(1)), c("a1", "a2"))
-  expect_true(all(cl$n_members == 3L))
+  expect_true(all(cl$cliques$n_members == 3L))
+})
+
+
+# Paralogs of every species in `sp`, each pair across species joined;
+# every 4th pair is dropped so the cliques differ in size.
+gcg_paralogs <- function(sp, n_copy, hog) {
+  sp_g <- rep(sp, each = n_copy)
+  gn <- paste0(tolower(sp_g), rep(seq_len(n_copy), length(sp)), hog)
+  cmb <- utils::combn(length(gn), 2L)
+  cmb <- cmb[, sp_g[cmb[1L, ]] != sp_g[cmb[2L, ]], drop = FALSE]
+  cmb <- cmb[, seq_len(ncol(cmb)) %% 4L != 0L, drop = FALSE]
+  n <- ncol(cmb)
+  data.frame(
+    gene1 = gn[cmb[1L, ]], gene2 = gn[cmb[2L, ]],
+    species1 = sp_g[cmb[1L, ]], species2 = sp_g[cmb[2L, ]],
+    hog = hog, q_value = (seq_len(n) %% 7L + 1) / 100,
+    effect_size = seq_len(n) / 3, score = (n - seq_len(n)) / 7,
+    stringsAsFactors = FALSE
+  )
+}
+
+# Reference: the edge scan per clique that gene_clique_graph() ran
+# before issue #66, one igraph call per HOG. The fixtures have no
+# duplicate rows and no copy above the cap. Nodes keep their input
+# order; edges take the order of the duplicate collapse, the "i-j"
+# node-pair key. One row per clique; `key` is its sorted genes.
+gcg_scan_ref <- function(e) {
+  ref <- lapply(split(e, e$hog), function(d) {
+    k1 <- paste(d$species1, d$gene1)
+    k2 <- paste(d$species2, d$gene2)
+    nodes <- unique(c(k1, k2))
+    sp <- c(d$species1, d$species2)[match(nodes, c(k1, k2))]
+    gn <- c(d$gene1, d$gene2)[match(nodes, c(k1, k2))]
+    i1 <- match(k1, nodes)
+    i2 <- match(k2, nodes)
+    o <- order(paste(pmin(i1, i2), pmax(i1, i2), sep = "-"))
+    d <- d[o, ]
+    i1 <- i1[o]
+    i2 <- i2[o]
+    g <- igraph::make_graph(as.vector(rbind(i1, i2)),
+      n = length(nodes), directed = FALSE
+    )
+    cl <- igraph::max_cliques(g, min = 3L)
+    do.call(rbind, lapply(cl, function(cc) {
+      cc <- as.integer(cc)
+      hit <- i1 %in% cc & i2 %in% cc
+      data.frame(
+        hog = d$hog[1L], key = paste(sort(gn[cc]), collapse = ","),
+        genes = I(list(gn[cc])), n_members = length(cc),
+        n_species = length(unique(sp[cc])), n_edges = sum(hit),
+        mean_q = mean(d$q_value[hit]), max_q = max(d$q_value[hit]),
+        mean_effect_size = mean(d$effect_size[hit]),
+        score = sum(d$score[hit]), stringsAsFactors = FALSE
+      )
+    }))
+  })
+  do.call(rbind, unname(ref))
+}
+
+gcg_stats <- c(
+  "n_members", "n_species", "n_edges", "mean_q", "max_q",
+  "mean_effect_size", "score"
+)
+
+
+test_that("clique statistics match a per-clique edge scan", {
+  # Paralogs in three and four species: many cliques per HOG share
+  # edges.
+  e <- rbind(
+    gcg_paralogs(c("SP_A", "SP_B", "SP_C"), 3L, "H1"),
+    gcg_paralogs(c("SP_A", "SP_B", "SP_C", "SP_D"), 3L, "H2")
+  )
+  ref <- gcg_scan_ref(e)
+  res <- gene_clique_graph(e)
+  expect_gt(nrow(ref), 20L)
+  # Below 40 genes a HOG is one igraph call, so the order is the same.
+  expect_identical(res$cliques$clique_id, seq_len(nrow(ref)))
+  expect_identical(res$cliques$hog, ref$hog)
+  expect_identical(
+    unname(split(res$members$gene, res$members$clique_id)),
+    unclass(unname(ref$genes))
+  )
+  # Bitwise where long double is double; mean.default sums in long
+  # double elsewhere.
+  expect_equal(as.list(res$cliques[gcg_stats]), as.list(ref[gcg_stats]))
+})
+
+
+test_that("a large HOG enumerated piecewise gives the same cliques", {
+  # 5 species x 9 copies = 45 genes: at or above 40, so one igraph call
+  # per start gene. The cliques must be those of one call, no more.
+  e <- gcg_paralogs(paste0("SP_", LETTERS[1:5]), 9L, "H1")
+  ref <- gcg_scan_ref(e)
+  res <- gene_clique_graph(e)
+  key <- vapply(split(res$members$gene, res$members$clique_id),
+    function(g) paste(sort(g), collapse = ","), character(1),
+    USE.NAMES = FALSE
+  )
+  expect_gt(nrow(ref), 1000L)
+  expect_identical(anyDuplicated(key), 0L)
+  m <- match(ref$key, key)
+  expect_false(anyNA(m))
+  expect_identical(length(key), nrow(ref))
+  expect_equal(
+    as.list(res$cliques[m, gcg_stats]), as.list(ref[gcg_stats])
+  )
 })
 
 
@@ -137,15 +247,15 @@ test_that("gene_clique_graph honours min_size and alpha_graph", {
     gene1 = c("a1", "a1", "b1"), gene2 = c("b1", "c1", "c1"),
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = "HOG1", q.value = c(0.01, 0.02, 0.5),
+    hog = "HOG1", q_value = c(0.01, 0.02, 0.5),
     stringsAsFactors = FALSE
   )
   # b1-c1 drops out at 0.1, leaving a star with no 3-clique.
-  expect_equal(nrow(gene_clique_graph(e, alpha_graph = 0.1)), 0L)
-  expect_equal(nrow(gene_clique_graph(e, alpha_graph = 0.9)), 3L)
+  expect_equal(nrow(gene_clique_graph(e, alpha_graph = 0.1)$cliques), 0L)
+  expect_equal(nrow(gene_clique_graph(e, alpha_graph = 0.9)$members), 3L)
   # At min_size 2 the star yields two 2-cliques.
   cl2 <- gene_clique_graph(e, min_size = 2L, alpha_graph = 0.1)
-  expect_equal(length(unique(cl2$clique_id)), 2L)
+  expect_equal(nrow(cl2$cliques), 2L)
 })
 
 
@@ -155,20 +265,20 @@ test_that("gene_clique_graph collapses reversed duplicate rows", {
     gene2 = c("b1", "c1", "c1", "a1"),
     species1 = c("SP_A", "SP_A", "SP_B", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C", "SP_A"),
-    hog = "HOG1", q.value = c(0.04, 0.02, 0.03, 0.01),
+    hog = "HOG1", q_value = c(0.04, 0.02, 0.03, 0.01),
     stringsAsFactors = FALSE
   )
-  cl <- gene_clique_graph(e)
-  expect_true(all(cl$n_edges == 3L))
+  cl <- gene_clique_graph(e)$cliques
+  expect_equal(cl$n_edges, 3L)
   # The duplicated A-B pair keeps its most significant copy.
-  expect_equal(unique(cl$max_q), 0.03)
+  expect_equal(cl$max_q, 0.03)
 })
 
 
 test_that("gene_clique_graph validates its inputs", {
   e <- data.frame(
     gene1 = "a", gene2 = "b", species1 = "SP_A",
-    species2 = "SP_B", hog = "H", q.value = 0.01
+    species2 = "SP_B", hog = "H", q_value = 0.01
   )
   expect_error(gene_clique_graph(e[, 1:3]), "missing required columns")
   expect_error(gene_clique_graph(e, min_size = 1L), "min_size")
@@ -176,8 +286,6 @@ test_that("gene_clique_graph validates its inputs", {
   bad <- e
   bad$gene1 <- "a\x01b"
   expect_error(gene_clique_graph(bad), "must not contain")
-  expect_error(gene_clique_graph(e, max_genes_per_sp = 0), "max_genes")
-  expect_error(gene_clique_graph(e, max_genes_per_sp = NA), "max_genes")
 })
 
 
@@ -198,79 +306,74 @@ gcg_twelve <- function() {
       species2 = c("SP_D", "SP_D", "SP_D", "SP_C", "SP_D", "SP_D"),
       stringsAsFactors = FALSE
     )
-  ) |> transform(hog = "HOG1", q.value = 0.01)
+  ) |> transform(hog = "HOG1", q_value = 0.01)
 }
-
-
-test_that("max_genes_per_sp keeps the most-connected paralog copies", {
-  e <- gcg_twelve()
-  expect_message(
-    cl <- gene_clique_graph(e, max_genes_per_sp = 3L),
-    "1 ortholog groups exceeded max_genes_per_sp = 3.*9 genes dropped"
-  )
-  expect_equal(length(unique(cl$clique_id)), 3L)
-  expect_setequal(cl$gene[cl$species == "SP_A"], c("a1", "a2", "a3"))
-  expect_true(all(cl$n_members == 4L))
-  # a1..a3 tie on degree: the cap keeps the ones that entered first.
-  cl2 <- suppressMessages(gene_clique_graph(e, max_genes_per_sp = 2L))
-  expect_setequal(cl2$gene[cl2$species == "SP_A"], c("a1", "a2"))
-  # Only the capped species loses genes.
-  expect_setequal(cl$gene[cl$species != "SP_A"], c("b1", "c1", "d1"))
-})
-
-
-test_that("max_genes_per_sp = Inf reproduces the uncapped result", {
-  e <- gcg_twelve()
-  cl_inf <- gene_clique_graph(e, max_genes_per_sp = Inf)
-  expect_equal(length(unique(cl_inf$clique_id)), 12L)
-  expect_equal(gene_clique_graph(e, max_genes_per_sp = NULL), cl_inf)
-  expect_equal(gene_clique_graph(e, max_genes_per_sp = 100L), cl_inf)
-  # One copy per species on the fixture: the default cap changes nothing.
-  f <- make_gcg_fixture()
-  expect_equal(
-    gene_clique_graph(f, alpha_graph = 0.9),
-    gene_clique_graph(f, alpha_graph = 0.9, max_genes_per_sp = Inf)
-  )
-})
 
 
 test_that("the copy-cap message fires only when a group is truncated", {
   expect_silent(gene_clique_graph(make_gcg_fixture(), alpha_graph = 0.9))
-  expect_silent(gene_clique_graph(gcg_twelve(), max_genes_per_sp = 12L))
-  expect_message(gene_clique_graph(gcg_twelve(), max_genes_per_sp = 11L))
   # Twelve copies exceed the default of 10.
   expect_message(gene_clique_graph(gcg_twelve()), "2 genes dropped")
 })
 
 
-test_that("gene_clique_graph returns a typed empty frame", {
+test_that("gene_clique_graph returns typed empty tables", {
   e <- data.frame(
     gene1 = "a", gene2 = "b", species1 = "SP_A",
-    species2 = "SP_B", hog = "H", q.value = 0.5,
+    species2 = "SP_B", hog = "H", q_value = 0.5,
     effect_size = 1
   )
   out <- gene_clique_graph(e, alpha_graph = 0.1)
-  expect_equal(nrow(out), 0L)
+  expect_s3_class(out, "gene_cliques")
+  expect_equal(nrow(out$cliques), 0L)
   expect_true(all(c(
-    "clique_id", "hog", "species", "gene",
-    "n_members", "n_edges", "mean_effect_size"
+    "clique_id", "hog", "n_members", "n_edges", "mean_effect_size"
   ) %in%
-    names(out)))
+    names(out$cliques)))
+  expect_identical(names(out$members), c("clique_id", "species", "gene"))
+  expect_identical(levels(out$members$species), c("SP_A", "SP_B"))
 })
 
 
-test_that("id_prefix keeps clique ids distinct across graph runs", {
+test_that("a list of runs keeps the cliques of each run apart", {
   e <- make_gcg_fixture()
-  a <- gene_clique_graph(e, alpha_graph = 0.1, id_prefix = "call_")
-  b <- gene_clique_graph(e, alpha_graph = 0.9, id_prefix = "loose_")
-  expect_length(intersect(a$clique_id, b$clique_id), 0L)
-  expect_true(all(grepl("^call_", a$clique_id)))
+  a <- gene_clique_graph(e, alpha_graph = 0.1)
+  b <- gene_clique_graph(e, alpha_graph = 0.9)
+  res <- classify_gene_cliques(list(a, b), e, gcg_six)
+  expect_identical(names(res)[1:2], c("run", "clique_id"))
+  expect_identical(
+    res$run, rep(1:2, c(nrow(a$cliques), nrow(b$cliques)))
+  )
+  expect_identical(res$clique_id, c(a$cliques$clique_id, b$cliques$clique_id))
+  expect_identical(res$n_members, c(a$cliques$n_members, b$cliques$n_members))
+  one <- classify_gene_cliques(b, e, gcg_six)
+  expect_false("run" %in% names(one))
+  expect_identical(one$clique_id, b$cliques$clique_id)
+
+  # A run on a species subset has other factor levels: SP_B is level 2
+  # in `a` and level 1 in `d`. Its cliques must read the same species.
+  sub <- e$species1 != "SP_A" & e$species2 != "SP_A"
+  d <- gene_clique_graph(e[sub, ], alpha_graph = 0.9)
+  expect_identical(levels(a$members$species), gcg_six)
+  expect_identical(levels(d$members$species), gcg_six[-1])
+  mix <- classify_gene_cliques(list(a, d), e, gcg_six)
+  expect_identical(
+    mix$run, rep(1:2, c(nrow(a$cliques), nrow(d$cliques)))
+  )
+  expect_identical(mix$clique_id, c(a$cliques$clique_id, d$cliques$clique_id))
+  alone <- classify_gene_cliques(d, e, gcg_six)
+  run2 <- mix[mix$run == 2L, names(alone)]
+  rownames(run2) <- NULL
+  # hog_class and the floor columns span both runs by design.
+  own <- c("hog_class", "mean_q_floor", "n_cliques_at_q_floor")
+  keep <- setdiff(names(alone), own)
+  expect_identical(as.list(run2[keep]), as.list(alone[keep]))
 })
 
 
 test_that("floor diagnostics report the available q resolution", {
   e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)$cliques
   expect_equal(attr(cl, "q_floor"), 0.01)
   expect_equal(attr(cl, "mean_q_floor"), 0.01)
   # Several HOGs sit at mean_q 0.01: the floor is not a unique rank.
@@ -281,7 +384,7 @@ test_that("floor diagnostics report the available q resolution", {
 test_that("the five tiers are recovered on the six-species fixture", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   cls <- stats::setNames(res$classification, res$hog)
   expect_equal(cls[["HOG1"]], "complete_conserved")
   expect_equal(cls[["HOG2"]], "partial_significant")
@@ -295,7 +398,7 @@ test_that("the five tiers are recovered on the six-species fixture", {
 test_that("the gap tier refuses a species that was tested and failed", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   h4 <- res[res$hog == "HOG4", ]
   expect_equal(h4$classification, "unclassified")
   expect_equal(h4$missing_species, "SP_F")
@@ -312,7 +415,7 @@ test_that("the gap tier refuses a species that was tested and failed", {
 test_that("a species present but never compared reads as untested", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   h7 <- res[res$hog == "HOG7", ]
   expect_equal(h7$missing_reason, "untested")
   expect_equal(h7$classification, "partial_present")
@@ -328,7 +431,7 @@ test_that("a joinable species is flagged extendable, not a gap", {
     species1 = c("SP_A", "SP_A", "SP_A", "SP_B", "SP_B", "SP_C"),
     species2 = c("SP_B", "SP_C", "SP_D", "SP_C", "SP_D", "SP_D"),
     hog = "HOG1",
-    q.value = c(0.001, 0.01, 0.001, 0.01, 0.001, 0.01),
+    q_value = c(0.001, 0.01, 0.001, 0.01, 0.001, 0.01),
     stringsAsFactors = FALSE
   )
   cl <- gene_clique_graph(e, alpha_graph = 0.005)
@@ -339,28 +442,6 @@ test_that("a joinable species is flagged extendable, not a gap", {
   expect_equal(res$missing_species, "SP_C")
   expect_equal(res$missing_reason, "extendable")
   expect_equal(res$classification, "unclassified")
-})
-
-
-test_that("lineage_specific outranks partial_present", {
-  e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  # With max_gap 3 the HOG6 clique satisfies partial_present as well;
-  # the waterfall must still call it lineage_specific.
-  res <- classify_gene_cliques(cl, e, gcg_six,
-    lineage = gcg_lin,
-    max_gap = 3L
-  )
-  expect_equal(
-    res$classification[res$hog == "HOG6"],
-    "lineage_specific"
-  )
-  # Without lineages the same clique falls through to the gap tier.
-  res0 <- classify_gene_cliques(cl, e, gcg_six, max_gap = 3L)
-  expect_equal(
-    res0$classification[res0$hog == "HOG6"],
-    "partial_present"
-  )
 })
 
 
@@ -375,20 +456,20 @@ test_that("a tested, rejected outside lineage is trait_specific", {
   cross <- do.call(rbind, lapply(gcg_six[4:6], function(s) {
     data.frame(
       gene1 = c("a1", "b1", "c1"), gene2 = paste0(s, "_g"),
-      species1 = l1, species2 = s, hog = "HOG1", q.value = 0.95,
+      species1 = l1, species2 = s, hog = "HOG1", q_value = 0.95,
       effect_size = 1, stringsAsFactors = FALSE
     )
   }))
   e <- rbind(h, cross)
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   expect_equal(res$missing_reason, "tested_ns,tested_ns,tested_ns")
   expect_equal(res$classification, "trait_specific")
   expect_equal(res$hog_class, "trait_specific")
   # A rejected outside species next to an absent one is still a boundary.
   e1 <- e[!(e$species2 == "SP_F"), ]
   cl1 <- gene_clique_graph(e1, alpha_graph = 0.9)
-  res1 <- classify_gene_cliques(cl1, e1, gcg_six, lineage = gcg_lin)
+  res1 <- classify_gene_cliques(cl1, e1, gcg_six, clades = gcg_clades)
   expect_equal(res1$missing_reason, "tested_ns,tested_ns,absent")
   expect_equal(res1$classification, "trait_specific")
 
@@ -401,17 +482,17 @@ test_that("a tested, rejected outside lineage is trait_specific", {
     gcg_six, paste0(c("a", "b", "c", "d", "e", "f"), 1),
     "HOG1", ifelse(same, 0.01, 0.95)
   )
-  cl2s <- gene_clique_graph(e2, alpha_graph = 0.1, id_prefix = "s_")
-  res2s <- classify_gene_cliques(cl2s, e2, gcg_six, lineage = gcg_lin)
+  cl2s <- gene_clique_graph(e2, alpha_graph = 0.1)
+  res2s <- classify_gene_cliques(cl2s, e2, gcg_six, clades = gcg_clades)
   expect_equal(sort(res2s$n_members), c(3L, 3L))
   expect_equal(res2s$classification, c("unclassified", "unclassified"))
   cl2 <- gene_clique_graph(e2, alpha_graph = Inf)
-  res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
+  res2 <- classify_gene_cliques(cl2, e2, gcg_six, clades = gcg_clades)
   expect_equal(res2$n_members, 6L)
   expect_equal(res2$classification, "differentiated")
-  # Row-bound, the HOG is differentiated and the triangles stay put.
-  res2b <- classify_gene_cliques(rbind(cl2s, cl2), e2, gcg_six,
-    lineage = gcg_lin
+  # As two runs, the HOG is differentiated and the triangles stay put.
+  res2b <- classify_gene_cliques(list(cl2s, cl2), e2, gcg_six,
+    clades = gcg_clades
   )
   expect_true(all(res2b$hog_class == "differentiated"))
   expect_setequal(
@@ -432,39 +513,10 @@ test_that("lineage tiers are skipped when no lineage is supplied", {
 })
 
 
-test_that("cross_max bounds the differentiated tier", {
-  e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six,
-    lineage = gcg_lin,
-    cross_max = 0
-  )
-  expect_equal(res$classification[res$hog == "HOG5"], "differentiated")
-  expect_equal(attr(res, "cross_max"), 0)
-
-  # One significant cross-lineage pair now exceeds cross_max = 0.
-  e2 <- e
-  hit <- e2$hog == "HOG5" & e2$species1 == "SP_A" &
-    e2$species2 == "SP_D"
-  expect_equal(sum(hit), 1L)
-  e2$q.value[hit] <- 0.01
-  cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
-  res2 <- classify_gene_cliques(cl2, e2, gcg_six,
-    lineage = gcg_lin,
-    cross_max = 0
-  )
-  expect_equal(
-    res2$classification[res2$hog == "HOG5"],
-    "unclassified"
-  )
-  expect_equal(res2$n_sig_cross[res2$hog == "HOG5"], 1L)
-})
-
-
 test_that("the derived constants match the published six-species run", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   expect_equal(attr(res, "n_pairs_total"), 15)
   expect_equal(attr(res, "n_within_pairs"), 6)
   expect_equal(attr(res, "n_cross_pairs"), 9)
@@ -490,7 +542,7 @@ test_that("no threshold is tied to six species", {
     gcg_pairs(sp, paste0(c("a", "b", "c", "d"), 2), "HOG2", q)
   )
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, sp, lineage = lin)
+  res <- classify_gene_cliques(cl, e, sp, clades = split(names(lin), lin))
   cls <- stats::setNames(res$classification, res$hog)
   expect_equal(cls[["HOG1"]], "complete_conserved")
   expect_equal(cls[["HOG2"]], "partial_significant")
@@ -510,7 +562,7 @@ test_that("hog_class applies the published HOG-level precedence", {
       gene1 = c("a2", "a2", "b1"), gene2 = c("b1", "c1", "c1"),
       species1 = c("SP_A", "SP_A", "SP_B"),
       species2 = c("SP_B", "SP_C", "SP_C"), hog = "HOG1",
-      q.value = c(0.5, 0.5, 0.01), effect_size = 1,
+      q_value = c(0.5, 0.5, 0.01), effect_size = 1,
       stringsAsFactors = FALSE
     )
   )
@@ -528,7 +580,7 @@ test_that("hog_class applies the published HOG-level precedence", {
 test_that("classify_gene_cliques recomputes q from the edge table", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   h2 <- res[res$hog == "HOG2", ]
   expect_equal(h2$n_present, 15L)
   expect_equal(h2$mean_q, mean(c(rep(0.5, 4), rep(0.01, 11))))
@@ -544,7 +596,7 @@ test_that("classify_gene_cliques validates its inputs", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
   expect_error(
-    classify_gene_cliques(cl[, 1:2], e, gcg_six),
+    classify_gene_cliques(cl$members[, 1:2], e, gcg_six),
     "cliques missing required columns"
   )
   expect_error(
@@ -557,34 +609,20 @@ test_that("classify_gene_cliques validates its inputs", {
     "at least 2"
   )
   expect_error(
-    classify_gene_cliques(cl, e, gcg_six, max_gap = -1L),
-    "max_gap"
-  )
-  expect_error(
     classify_gene_cliques(cl, e, gcg_six,
-      lineage = gcg_lin,
-      cross_max = -1
+      clades = unname(gcg_clades)
     ),
-    "cross_max"
-  )
-  expect_error(
-    classify_gene_cliques(cl, e, gcg_six,
-      lineage = unname(gcg_lin)
-    ),
-    "named vector"
-  )
-  expect_error(
-    classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin[1:3]),
-    "lineage missing entries"
+    "named list"
   )
 })
 
 
 test_that("classify_gene_cliques handles an empty clique table", {
   e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  out <- classify_gene_cliques(cl[0, ], e, gcg_six)
+  cl <- gene_clique_graph(e, alpha_graph = 0.001)
+  out <- classify_gene_cliques(cl, e, gcg_six)
   expect_equal(nrow(out), 0L)
+  expect_identical(out$clique_id, integer(0))
   expect_true(all(c(
     "classification", "missing_reason",
     "hog_class"
@@ -597,9 +635,9 @@ test_that("gene cliques carry at most one gene per species", {
   # clique cannot pair two genes of the same species.
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  expect_true(all(cl$n_members == cl$n_species))
+  expect_true(all(cl$cliques$n_members == cl$cliques$n_species))
   per <- tapply(
-    cl$species, cl$clique_id,
+    cl$members$species, cl$members$clique_id,
     function(s) anyDuplicated(s) == 0L
   )
   expect_true(all(per))
@@ -615,11 +653,11 @@ test_that("a one-member clique is never scored as conserved", {
   )
   e <- data.frame(
     gene1 = "a9", gene2 = "b9", species1 = "SP_A",
-    species2 = "SP_B", hog = "HOG9", q.value = 0.5,
+    species2 = "SP_B", hog = "HOG9", q_value = 0.5,
     stringsAsFactors = FALSE
   )
   res <- classify_gene_cliques(cl, e, c("SP_A", "SP_B"),
-    lineage = c(SP_A = "L1", SP_B = "L2")
+    clades = list(L1 = "SP_A", L2 = "SP_B")
   )
   expect_equal(res$classification, "unclassified")
   expect_equal(res$n_pairs, 0L)
@@ -638,7 +676,7 @@ test_that("a within-species edge refuses species-pair scoring", {
     gene1 = c("a1", "a1", "a2"), gene2 = c("a2", "b1", "b1"),
     species1 = c("SP_A", "SP_A", "SP_A"),
     species2 = c("SP_A", "SP_B", "SP_B"), hog = "HOG9",
-    q.value = 0.01, stringsAsFactors = FALSE
+    q_value = 0.01, stringsAsFactors = FALSE
   )
   res <- classify_gene_cliques(cl, e, c("SP_A", "SP_B"))
   expect_equal(res$n_members, 3L)
@@ -662,93 +700,39 @@ test_that("a clique species outside `species` is refused", {
 })
 
 
-test_that("repeated clique ids are refused, not silently merged", {
-  e <- make_gcg_fixture()
-  cl <- rbind(
-    gene_clique_graph(e, alpha_graph = 0.1),
-    gene_clique_graph(e, alpha_graph = 0.9)
-  )
-  expect_error(
-    classify_gene_cliques(cl, e, gcg_six),
-    "distinct id_prefix"
-  )
-})
-
-
-test_that("colliding cliques with no shared member are still refused", {
-  # The (clique_id, species, gene) triple only collides when the two
-  # cliques share a member. Two runs whose same-numbered cliques are
-  # disjoint used to merge silently into one six-member "clique" with
-  # n_pairs 15, six of them scored and nine invented.
+test_that("two runs with same-numbered disjoint cliques stay apart", {
+  # Row-bound under one id, the two triangles below merged into one
+  # six-member "clique" with n_pairs 15, six scored and nine invented.
+  # As a list of runs they cannot share an id.
   sp <- c("SP_A", "SP_B", "SP_C")
   tri <- function(genes, q) {
     data.frame(
       gene1 = genes[c(1L, 1L, 2L)], gene2 = genes[c(2L, 3L, 3L)],
       species1 = c("SP_A", "SP_A", "SP_B"),
       species2 = c("SP_B", "SP_C", "SP_C"),
-      hog = "HOG1", q.value = q, stringsAsFactors = FALSE
+      hog = "HOG1", q_value = q, stringsAsFactors = FALSE
     )
   }
   e <- rbind(tri(c("a", "b", "c"), 0.5), tri(c("d", "ee", "f"), 0.01))
   tight <- gene_clique_graph(e, alpha_graph = 0.1)
   loose <- gene_clique_graph(e, alpha_graph = 0.9)
-  # Pick the loose clique that shares no gene with the tight one rather
-  # than assuming it is numbered HOG1_1. That numbering is
-  # igraph::max_cliques()'s enumeration order, which is not part of its
-  # contract, and the test would silently stop exercising the collision
-  # if it flipped.
-  tight_genes <- tight$gene
-  share <- vapply(
-    split(loose$gene, loose$clique_id),
-    function(g) any(g %in% tight_genes), logical(1)
-  )
-  disjoint_id <- names(share)[!share][1L]
-  expect_false(is.na(disjoint_id))
-  # Overwrite the id rather than selecting on it. Selecting still needed
-  # the disjoint loose clique to happen to carry the same number as the
-  # tight one, which is the enumeration-order assumption in a different
-  # spelling; if the order flipped, the fixture would build no collision
-  # and the test would fail while exercising nothing.
-  dis <- loose[loose$clique_id == disjoint_id, , drop = FALSE]
-  dis$clique_id <- tight$clique_id[1L]
-  both <- rbind(tight, dis)
-  expect_equal(length(unique(both$clique_id)), 1L)
-  expect_equal(anyDuplicated(paste(
-    both$clique_id, both$species, both$gene
-  )), 0L)
-  expect_error(
-    classify_gene_cliques(both, e, sp),
-    "more member rows than n_members declares"
-  )
+  expect_identical(tight$cliques$clique_id, 1L)
+  res <- classify_gene_cliques(list(tight, loose), e, sp)
+  expect_identical(nrow(res), 3L)
+  expect_true(all(res$n_members == 3L))
+  expect_true(all(res$n_pairs == 3L))
 })
 
 
-test_that("one clique id may not span two hogs", {
-  # The row-count signature needs n_members; a hand-built table without
-  # it is caught by the id-to-hog check instead.
-  sp <- c("SP_A", "SP_B", "SP_C")
-  e <- rbind(
-    gcg_pairs(sp, c("a1", "b1", "c1"), "HOG1", 0.01),
-    gcg_pairs(sp, c("a2", "b2", "c2"), "HOG2", 0.01)
-  )
-  cl <- data.frame(
-    clique_id = "C1", hog = rep(c("HOG1", "HOG2"), each = 3L),
-    species = rep(sp, 2L),
-    gene = c("a1", "b1", "c1", "a2", "b2", "c2"),
-    stringsAsFactors = FALSE
-  )
-  expect_error(
-    classify_gene_cliques(cl, e, sp),
-    "spanning several hogs"
-  )
-})
-
-
-test_that("a clique table without n_members is still accepted", {
+test_that("a hand-built member table is still accepted", {
   sp <- c("SP_A", "SP_B", "SP_C")
   e <- gcg_pairs(sp, c("a1", "b1", "c1"), "HOG1", 0.01)
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  bare <- cl[, c("clique_id", "hog", "species", "gene")]
+  m <- cl$members
+  bare <- data.frame(
+    clique_id = m$clique_id, hog = cl$cliques$hog[m$clique_id],
+    species = as.character(m$species), gene = m$gene
+  )
   res <- classify_gene_cliques(bare, e, sp)
   expect_equal(res$classification, "complete_conserved")
 })
@@ -762,7 +746,7 @@ test_that("all-singleton lineages cannot make differentiated vacuous", {
   lin <- stats::setNames(paste0("L", 1:6), sp)
   e <- gcg_pairs(sp, paste0("g", 1:6), "HOG1", 0.5)
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, sp, lineage = lin)
+  res <- classify_gene_cliques(cl, e, sp, clades = split(names(lin), lin))
   expect_equal(res$n_sig, 0L)
   expect_equal(res$n_sig_within, 0L)
   expect_equal(res$classification, "unclassified")
@@ -782,7 +766,7 @@ test_that("differentiated needs every member pair tested", {
     clique_id = "HOG1_1", hog = "HOG1", species = sp,
     gene = c("a1", "b1", "c1", "d1"), stringsAsFactors = FALSE
   )
-  res <- classify_gene_cliques(cl, e, sp, lineage = lin)
+  res <- classify_gene_cliques(cl, e, sp, clades = split(names(lin), lin))
   expect_equal(res$n_pairs, 6L)
   expect_equal(res$n_present, 2L)
   expect_equal(res$n_sig_cross, 0L)
@@ -804,8 +788,8 @@ test_that("duplicate rows break their q tie on effect size", {
   e_lo <- rbind(lo, hi, base[2:3, ])
   m_hi <- gene_clique_graph(e_hi, alpha_graph = 0.9)
   m_lo <- gene_clique_graph(e_lo, alpha_graph = 0.9)
-  expect_equal(unique(m_hi$mean_effect_size), mean(c(50, 1, 1)))
-  expect_equal(unique(m_lo$mean_effect_size), mean(c(50, 1, 1)))
+  expect_equal(m_hi$cliques$mean_effect_size, mean(c(50, 1, 1)))
+  expect_equal(m_lo$cliques$mean_effect_size, mean(c(50, 1, 1)))
   # classify() recomputes from `edges` and must resolve the tie the
   # same way.
   res <- classify_gene_cliques(m_lo, e_lo, c("SP_A", "SP_B", "SP_C"))
@@ -822,7 +806,7 @@ test_that("duplicate rows cannot fake an extendable species", {
     gene1 = c("d1", "a1", "d1"), gene2 = c("a1", "d1", "a1"),
     species1 = c("SP_D", "SP_A", "SP_D"),
     species2 = c("SP_A", "SP_D", "SP_A"), hog = "HOG1",
-    q.value = 0.01, effect_size = 1, stringsAsFactors = FALSE
+    q_value = 0.01, effect_size = 1, stringsAsFactors = FALSE
   )
   e <- rbind(core, dup)
   cl <- gene_clique_graph(e, alpha_graph = 0.005)
@@ -835,7 +819,7 @@ test_that("duplicate rows cannot fake an extendable species", {
 test_that("floor diagnostics survive subsetting and empty results", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   # subset() drops attributes; only the columns survive it.
   keep <- subset(res, res$n_sig > 0)
   expect_equal(unique(keep$mean_q_floor), attr(res, "mean_q_floor"))
@@ -843,14 +827,16 @@ test_that("floor diagnostics survive subsetting and empty results", {
     unique(keep$n_cliques_at_q_floor),
     attr(res, "n_cliques_at_q_floor")
   )
-  expect_equal(unique(cl$mean_q_floor), attr(cl, "mean_q_floor"))
+  expect_equal(
+    unique(cl$cliques$mean_q_floor), attr(cl$cliques, "mean_q_floor")
+  )
   # An empty result still carries the documented attributes.
   empty_cl <- gene_clique_graph(e, alpha_graph = 0.001)
-  expect_equal(nrow(empty_cl), 0L)
-  expect_equal(attr(empty_cl, "alpha_graph"), 0.001)
-  expect_true(is.na(attr(empty_cl, "mean_q_floor")))
-  expect_equal(attr(empty_cl, "n_cliques_at_q_floor"), 0L)
-  empty_res <- classify_gene_cliques(cl[0, ], e, gcg_six)
+  expect_equal(nrow(empty_cl$cliques), 0L)
+  expect_equal(attr(empty_cl$cliques, "alpha_graph"), 0.001)
+  expect_true(is.na(attr(empty_cl$cliques, "mean_q_floor")))
+  expect_equal(attr(empty_cl$cliques, "n_cliques_at_q_floor"), 0L)
+  empty_res <- classify_gene_cliques(empty_cl, e, gcg_six)
   expect_equal(attr(empty_res, "n_pairs_total"), 15)
   expect_true(is.na(attr(empty_res, "mean_q_floor")))
   expect_equal(attr(empty_res, "n_cliques_at_q_floor"), 0L)
@@ -864,17 +850,17 @@ test_that("a within-species paralog edge is kept, not read as a loop", {
   e <- data.frame(
     gene1 = c("a1", "a1", "a2"), gene2 = c("a2", "b1", "b1"),
     species1 = "SP_A", species2 = c("SP_A", "SP_B", "SP_B"),
-    hog = "HOG1", q.value = 0.01, stringsAsFactors = FALSE
+    hog = "HOG1", q_value = 0.01, stringsAsFactors = FALSE
   )
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  expect_equal(unique(cl$n_members), 3L)
-  expect_equal(unique(cl$n_species), 2L)
-  expect_equal(unique(cl$n_edges), 3L)
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)$cliques
+  expect_equal(cl$n_members, 3L)
+  expect_equal(cl$n_species, 2L)
+  expect_equal(cl$n_edges, 3L)
   loop <- rbind(e, data.frame(
     gene1 = "a1", gene2 = "a1", species1 = "SP_A", species2 = "SP_A",
-    hog = "HOG1", q.value = 0.01, stringsAsFactors = FALSE
+    hog = "HOG1", q_value = 0.01, stringsAsFactors = FALSE
   ))
-  expect_equal(unique(gene_clique_graph(loop, alpha_graph = 0.9)$n_edges), 3L)
+  expect_equal(gene_clique_graph(loop, alpha_graph = 0.9)$cliques$n_edges, 3L)
 })
 
 
@@ -911,7 +897,7 @@ test_that("partial_significant needs every pair tested", {
     gcg_pairs(sp[1:3], c("a1", "b1", "c1"), "HOG1", 0.01),
     data.frame(
       gene1 = "a1", gene2 = "d1", species1 = "SP_A",
-      species2 = "SP_D", hog = "HOG1", q.value = 0.01,
+      species2 = "SP_D", hog = "HOG1", q_value = 0.01,
       effect_size = 1, stringsAsFactors = FALSE
     )
   )
@@ -941,18 +927,6 @@ test_that("partial_significant needs every edge under alpha_graph", {
 })
 
 
-test_that("max_gap bounds how many species may be absent", {
-  sp <- paste0("SP_", LETTERS[1:5])
-  e <- gcg_pairs(sp[1:3], c("a1", "b1", "c1"), "HOG1", 0.01)
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res1 <- classify_gene_cliques(cl, e, sp, max_gap = 1L)
-  expect_equal(res1$n_missing, 2L)
-  expect_equal(res1$classification, "unclassified")
-  res2 <- classify_gene_cliques(cl, e, sp, max_gap = 2L)
-  expect_equal(res2$classification, "partial_present")
-})
-
-
 test_that("a paralog inside a clique blocks the pair arithmetic", {
   # Four members over three species: the three cross-species pairs are
   # significant, so without the one-gene-per-species guard n_sig would
@@ -963,11 +937,11 @@ test_that("a paralog inside a clique blocks the pair arithmetic", {
     gene2 = c("b1", "c1", "c1", "a2", "b1", "c1"),
     species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_A", "SP_A"),
     species2 = c("SP_B", "SP_C", "SP_C", "SP_A", "SP_B", "SP_C"),
-    hog = "HOG1", q.value = c(0.01, 0.01, 0.01, 0.5, 0.5, 0.5),
+    hog = "HOG1", q_value = c(0.01, 0.01, 0.01, 0.5, 0.5, 0.5),
     stringsAsFactors = FALSE
   )
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  expect_equal(unique(cl$n_members), 4L)
+  expect_equal(cl$cliques$n_members, 4L)
   res <- classify_gene_cliques(cl, e, sp)
   expect_equal(res$n_species, 3L)
   expect_equal(res$n_pairs, 6L)
@@ -987,15 +961,15 @@ test_that("clique summaries use only the edges inside the clique", {
     ),
     data.frame(
       gene1 = "a1", gene2 = "e1", species1 = "SP_A",
-      species2 = "SP_E", hog = "HOG1", q.value = 0.5,
+      species2 = "SP_E", hog = "HOG1", q_value = 0.5,
       effect_size = 1, stringsAsFactors = FALSE
     )
   )
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  expect_equal(unique(cl$n_members), 4L)
-  expect_equal(unique(cl$n_edges), 6L)
-  expect_equal(unique(cl$mean_q), mean(q4))
-  expect_equal(unique(cl$max_q), max(q4))
+  cl <- gene_clique_graph(e, alpha_graph = 0.9)$cliques
+  expect_equal(cl$n_members, 4L)
+  expect_equal(cl$n_edges, 6L)
+  expect_equal(cl$mean_q, mean(q4))
+  expect_equal(cl$max_q, max(q4))
   # mean, not median: the two differ on this fixture.
   expect_false(isTRUE(all.equal(mean(q4), stats::median(q4))))
 })
@@ -1004,9 +978,9 @@ test_that("clique summaries use only the edges inside the clique", {
 test_that("within and cross lineage counts are kept apart", {
   e <- make_gcg_fixture()
   hit <- e$hog == "HOG5" & e$species1 == "SP_A" & e$species2 == "SP_D"
-  e$q.value[hit] <- 0.01
+  e$q_value[hit] <- 0.01
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   h5 <- res[res$hog == "HOG5", ]
   expect_equal(h5$n_species, 6L)
   expect_equal(h5$n_present, 15L)
@@ -1020,7 +994,7 @@ test_that("both thresholds are strict at q == alpha", {
   sp <- c("SP_A", "SP_B", "SP_C")
   e <- gcg_pairs(sp, c("a1", "b1", "c1"), "HOG1", c(0.01, 0.02, 0.1))
   # An edge exactly at alpha_graph is out of the graph.
-  expect_equal(nrow(gene_clique_graph(e, alpha_graph = 0.1)), 0L)
+  expect_equal(nrow(gene_clique_graph(e, alpha_graph = 0.1)$cliques), 0L)
   # A pair exactly at alpha_call is not a significant pair.
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
   res <- classify_gene_cliques(cl, e, sp, alpha_call = 0.1)
@@ -1045,14 +1019,10 @@ test_that("classification cost is not multiplied by unrelated edges", {
   core <- data.frame(
     gene1 = paste0("g", h, "_", i1), gene2 = paste0("g", h, "_", i2),
     species1 = sp[i1], species2 = sp[i2], hog = paste0("HOG", h),
-    q.value = 0.01, stringsAsFactors = FALSE
+    q_value = 0.01, stringsAsFactors = FALSE
   )
   one <- gene_clique_graph(core, alpha_graph = 0.9)
-  cl <- do.call(rbind, lapply(1:5, function(k) {
-    x <- one
-    x$clique_id <- paste0("r", k, "_", x$clique_id)
-    x
-  }))
+  cl <- rep(list(one), 5L)
   pad <- rbind(core, do.call(rbind, lapply(1:7, function(k) {
     x <- core
     x$hog <- paste0(x$hog, "_p", k)
@@ -1077,7 +1047,7 @@ test_that("classification cost is not multiplied by unrelated edges", {
     res <- f(cliques, edges, species)
     list(res = res, scanned = n)
   }
-  n_cl <- length(unique(cl$clique_id))
+  n_cl <- 5L * nrow(one$cliques)
   a <- scanned(cl, core, sp)
   b <- scanned(cl, pad, sp)
   expect_equal(a$res$classification, b$res$classification)
@@ -1103,7 +1073,7 @@ test_that("alpha_call and alpha_graph are validated", {
     gene1 = c("a1", "a1", "b1"), gene2 = c("b1", "c1", "c1"),
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = "H1", q.value = 0.01, stringsAsFactors = FALSE
+    hog = "H1", q_value = 0.01, stringsAsFactors = FALSE
   )
   cl <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
   sp <- c("SP_A", "SP_B", "SP_C")
@@ -1149,15 +1119,16 @@ test_that("near-tied mean_q is counted as tied at both call sites", {
       gene1 = c("a", "a", "b"), gene2 = c("b", "c", "c"),
       species1 = c("SP_A", "SP_A", "SP_B"),
       species2 = c("SP_B", "SP_C", "SP_C"),
-      hog = tag, q.value = qs, stringsAsFactors = FALSE
+      hog = tag, q_value = qs, stringsAsFactors = FALSE
     )
   }
   e <- rbind(mk("H1", q1), mk("H2", q2))
   e$gene1 <- paste0(e$hog, "_", e$gene1)
   e$gene2 <- paste0(e$hog, "_", e$gene2)
 
-  cl <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
-  expect_equal(length(unique(cl$clique_id)), 2L)
+  g <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
+  cl <- g$cliques
+  expect_equal(nrow(cl), 2L)
   # The test only discriminates if the two mean_q really are a near-tie:
   # distinct as doubles, but within the tolerance. Assert that rather
   # than trusting the last-bit arithmetic to have come out that way.
@@ -1169,39 +1140,30 @@ test_that("near-tied mean_q is counted as tied at both call sites", {
   # bits, so both cliques sit at the floor.
   expect_equal(attr(cl, "n_cliques_at_q_floor"), 2L)
 
-  res <- classify_gene_cliques(cl, e, c("SP_A", "SP_B", "SP_C"),
+  res <- classify_gene_cliques(g, e, c("SP_A", "SP_B", "SP_C"),
     alpha_call = 0.9, alpha_graph = 0.9
   )
   expect_equal(unique(res$n_cliques_at_q_floor), 2L)
 })
 
 
-test_that("a row-filtered clique table is accepted, not called a merge", {
-  # The duplicate-id guard checked the row count in both directions, but
-  # a merge can only ADD rows. Refusing a table with FEWER rows than
-  # n_members declares rejected the legitimate case -- a caller who has
-  # subset the member rows -- and told them to set id_prefix, which is
-  # not the problem.
+test_that("a row-filtered member table is accepted", {
+  # A caller who has subset the member rows hands over fewer rows than
+  # the clique had. n_members must be recomputed from the surviving rows
+  # (2), not carried over from the untrimmed clique (3).
   e <- data.frame(
     gene1 = c("a", "a", "b"), gene2 = c("b", "c", "c"),
     species1 = c("SP_A", "SP_A", "SP_B"),
     species2 = c("SP_B", "SP_C", "SP_C"),
-    hog = "H1", q.value = 0.01, stringsAsFactors = FALSE
+    hog = "H1", q_value = 0.01, stringsAsFactors = FALSE
   )
   cl <- gene_clique_graph(e, min_size = 3L, alpha_graph = 0.9)
-  expect_equal(nrow(cl), 3L)
-
-  trimmed <- cl[cl$species != "SP_C", , drop = FALSE]
-  expect_lt(nrow(trimmed), unique(trimmed$n_members))
-  expect_silent(rcomplex:::.gcg_check_clique_ids(
-    trimmed$clique_id, paste(trimmed$species, trimmed$gene),
-    trimmed$hog, trimmed$n_members
-  ))
-
-  # The regression was reported through classify_gene_cliques(), so pin
-  # that path too and not only the internal check. n_members must be
-  # recomputed from the surviving rows (2), not carried over from the
-  # stale declared value on the untrimmed table (3).
+  m <- cl$members
+  rows <- data.frame(
+    clique_id = m$clique_id, hog = cl$cliques$hog[m$clique_id],
+    species = as.character(m$species), gene = m$gene
+  )
+  trimmed <- rows[rows$species != "SP_C", , drop = FALSE]
   e_sub <- e[e$species1 != "SP_C" & e$species2 != "SP_C", , drop = FALSE]
   res <- suppressMessages(classify_gene_cliques(
     trimmed, e_sub, c("SP_A", "SP_B"),
@@ -1209,17 +1171,6 @@ test_that("a row-filtered clique table is accepted, not called a merge", {
     alpha_graph = 0.9
   ))
   expect_identical(unique(res$n_members), 2L)
-
-  # More rows than declared is still refused: that is a real merge.
-  doubled <- rbind(cl, cl)
-  doubled$gene <- paste0(doubled$gene, rep(c("", "_x"), each = nrow(cl)))
-  expect_error(
-    rcomplex:::.gcg_check_clique_ids(
-      doubled$clique_id, paste(doubled$species, doubled$gene),
-      doubled$hog, doubled$n_members
-    ),
-    "more member rows than n_members declares"
-  )
 })
 
 
@@ -1234,7 +1185,7 @@ gcg_up_lineage <- function(power) {
   cross <- do.call(rbind, lapply(gcg_six[4:6], function(s) {
     data.frame(
       gene1 = c("a1", "b1", "c1"), gene2 = paste0(s, "_g"),
-      species1 = l1, species2 = s, hog = "HOG1", q.value = 0.95,
+      species1 = l1, species2 = s, hog = "HOG1", q_value = 0.95,
       effect_size = 1, power = power, stringsAsFactors = FALSE
     )
   }))
@@ -1259,7 +1210,7 @@ gcg_up_diff <- function(cross_power, cross_q = 0.95) {
 test_that("an outside species tested without power reads underpowered", {
   e <- gcg_up_lineage(0.1)
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   expect_equal(
     res$missing_reason, "underpowered,underpowered,underpowered"
   )
@@ -1269,7 +1220,7 @@ test_that("an outside species tested without power reads underpowered", {
   # One species underpowered, the others absent from the orthogroup.
   e1 <- e[e$species2 %in% gcg_six[1:4], ]
   cl1 <- gene_clique_graph(e1, alpha_graph = 0.9)
-  res1 <- classify_gene_cliques(cl1, e1, gcg_six, lineage = gcg_lin)
+  res1 <- classify_gene_cliques(cl1, e1, gcg_six, clades = gcg_clades)
   expect_equal(res1$missing_reason, "underpowered,absent,absent")
   expect_equal(res1$classification, "underpowered")
 })
@@ -1279,7 +1230,7 @@ test_that("a powered or unmeasured failed test is a rejection", {
   for (pw in list(0.95, NA_real_)) {
     e <- gcg_up_lineage(pw)
     cl <- gene_clique_graph(e, alpha_graph = 0.9)
-    res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+    res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
     expect_equal(res$missing_reason, "tested_ns,tested_ns,tested_ns")
     expect_equal(res$classification, "trait_specific")
   }
@@ -1288,7 +1239,7 @@ test_that("a powered or unmeasured failed test is a rejection", {
   e <- gcg_up_lineage(0.1)
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
   res <- classify_gene_cliques(cl, e, gcg_six,
-    lineage = gcg_lin,
+    clades = gcg_clades,
     min_power = 0.1
   )
   expect_equal(res$classification, "trait_specific")
@@ -1299,7 +1250,7 @@ test_that("a powered or unmeasured failed test is a rejection", {
   e2 <- gcg_up_lineage(0.1)
   e2$power[e2$species2 == "SP_D"][1] <- 0.95
   cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
-  res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
+  res2 <- classify_gene_cliques(cl2, e2, gcg_six, clades = gcg_clades)
   expect_equal(
     res2$missing_reason, "tested_ns,underpowered,underpowered"
   )
@@ -1314,9 +1265,9 @@ test_that("a significant test does not excuse underpowered failures", {
   # sit in the `else` of "no significant test", so one significant edge
   # was enough to report tested_ns and hide the underpowered failures.
   e <- gcg_up_lineage(0.1)
-  e$q.value[which(e$species2 == "SP_D")[1]] <- 0.01
+  e$q_value[which(e$species2 == "SP_D")[1]] <- 0.01
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   # The new significant edge also forms its own two-node maximal clique;
   # the three-member one is the clique under test.
   res3 <- res[res$n_members == 3L, ]
@@ -1328,9 +1279,9 @@ test_that("a significant test does not excuse underpowered failures", {
   # Power those same two failures and the species is rejected, not
   # uninformative, so it reads tested_ns again.
   e2 <- e
-  e2$power[e2$species2 == "SP_D" & e2$q.value > 0.05] <- 0.95
+  e2$power[e2$species2 == "SP_D" & e2$q_value > 0.05] <- 0.95
   cl2 <- gene_clique_graph(e2, alpha_graph = 0.9)
-  res2 <- classify_gene_cliques(cl2, e2, gcg_six, lineage = gcg_lin)
+  res2 <- classify_gene_cliques(cl2, e2, gcg_six, clades = gcg_clades)
   res2 <- res2[res2$n_members == 3L, ]
   expect_equal(
     res2$missing_reason, "tested_ns,underpowered,underpowered"
@@ -1341,9 +1292,9 @@ test_that("a significant test does not excuse underpowered failures", {
 test_that("power moves only the calls it is meant to", {
   e <- make_gcg_fixture()
   cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  res0 <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res0 <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   e$power <- 0.1
-  res1 <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
+  res1 <- classify_gene_cliques(cl, e, gcg_six, clades = gcg_clades)
   want <- res0$classification
   # HOG5's nine non-significant cross pairs now count against cross_max.
   want[res0$hog == "HOG5"] <- "underpowered"
@@ -1362,7 +1313,7 @@ test_that("differentiated must survive underpowered cross pairs", {
   sp <- gcg_six
   run <- function(e) {
     cl <- gene_clique_graph(e, alpha_graph = Inf)
-    classify_gene_cliques(cl, e, sp, lineage = gcg_lin)
+    classify_gene_cliques(cl, e, sp, clades = gcg_clades)
   }
   # cross_max is 4: five underpowered pairs could hold a fifth
   # significant one, four cannot.
@@ -1378,7 +1329,7 @@ test_that("differentiated must survive underpowered cross pairs", {
   # One significant cross pair plus four underpowered ones exceeds it.
   e <- gcg_up_diff(c(rep(0.1, 4), rep(0.95, 5)))
   cross <- which(e$power == 0.95)[1]
-  e$q.value[cross] <- 0.01
+  e$q_value[cross] <- 0.01
   mixed <- run(e)
   expect_equal(mixed$n_sig_cross, 1L)
   expect_equal(mixed$classification, "underpowered")
@@ -1405,7 +1356,7 @@ test_that("an underpowered missing species is a gap for partial_present", {
     miss <- data.frame(
       gene1 = paste0(c("a", "b", "c", "d", "e"), 1), gene2 = "f_g",
       species1 = gcg_six[1:5], species2 = gcg_six[6], hog = "HOG1",
-      q.value = 0.95, effect_size = 1, power = pw,
+      q_value = 0.95, effect_size = 1, power = pw,
       stringsAsFactors = FALSE
     )
     rbind(h, miss)
@@ -1437,112 +1388,420 @@ test_that("min_power is validated", {
       "min_power must be a single number in \\[0, 1\\]"
     )
   }
-  empty <- classify_gene_cliques(cl[0, ], e, gcg_six)
+  empty <- classify_gene_cliques(
+    gene_clique_graph(e, alpha_graph = 0.001), e, gcg_six
+  )
   expect_true("n_underpowered_cross" %in% names(empty))
 })
 
 
-# --- Conservation patterns, lattice and BiCM (WP 7) ---
-
-test_that("pattern table reproduces the species-level tiers", {
-  e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  pt <- conservation_pattern_table(cl, e, gcg_six, lineage = gcg_lin)
-  res <- classify_gene_cliques(cl, e, gcg_six, lineage = gcg_lin)
-  expect_equal(pt$classification, res$classification)
-  pat <- stats::setNames(pt$pattern, pt$hog)
-  expect_equal(pat[["HOG1"]], "++++++")
-  expect_equal(pat[["HOG6"]], "+++???")
-  expect_equal(pat[["HOG4"]], "+++++-")
-  expect_equal(pat[["HOG7"]], "+++++?")
+test_that("a clique specific to an inner clade reports that clade", {
+  clades <- list(
+    outer = gcg_six[1:4], mid = gcg_six[1:3], inner = gcg_six[1:2],
+    other = gcg_six[5:6]
+  )
+  rejected <- data.frame(
+    gene1 = c("a3", "b3"), gene2 = "c3", species1 = c("SP_A", "SP_B"),
+    species2 = "SP_C", hog = "HOG3", q_value = 0.95, effect_size = 1,
+    stringsAsFactors = FALSE
+  )
+  e <- rbind(
+    # HOG1: an A-B clique, nothing else in the HOG.
+    gcg_pairs(gcg_six[1:2], c("a1", "b1"), "HOG1", 0.01),
+    # HOG2: an A-B-C clique, nothing else in the HOG.
+    gcg_pairs(gcg_six[1:3], c("a2", "b2", "c2"), "HOG2", 0.01),
+    # HOG3: an A-B clique; C was tested against both and rejected.
+    gcg_pairs(gcg_six[1:2], c("a3", "b3"), "HOG3", 0.01),
+    rejected
+  )
+  cl <- gene_clique_graph(e, min_size = 2L, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, gcg_six, clades = clades)
+  # Top-level groups set the within and cross counts.
+  expect_equal(attr(res, "n_within_pairs"), choose(4, 2) + 1)
+  got <- stats::setNames(res$classification, res$hog)
   expect_equal(
-    pt$pairs_sig + pt$pairs_ns + pt$pairs_untested, res$n_pairs
+    got[c("HOG1", "HOG2", "HOG3")],
+    c(
+      HOG1 = "lineage_specific", HOG2 = "lineage_specific",
+      HOG3 = "trait_specific"
+    )
   )
-  is_cc <- pt$classification == "complete_conserved"
-  expect_true(all(pt$pattern[is_cc] == "++++++"))
-
-  # trait_specific: the outside lineage is "-", not "?".
-  ts <- gcg_up_lineage(0.99)
-  clt <- gene_clique_graph(ts, alpha_graph = 0.9)
-  ptt <- conservation_pattern_table(clt, ts, gcg_six, lineage = gcg_lin)
-  expect_equal(ptt$classification, "trait_specific")
-  expect_equal(ptt$pattern, "+++---")
-
-  lat <- conservation_lattice(rbind(pt, ptt), trait = gcg_lin)$intents
-  lab <- stats::setNames(lat$label, lat$intent)
-  expect_equal(lab[["SP_A,SP_B,SP_C,SP_D,SP_E,SP_F"]], "complete")
-  l1 <- lat[lat$intent == "SP_A,SP_B,SP_C", ]
-  expect_equal(l1$label, "L1")
-  # HOG6 (lineage_specific, all "?") and the trait_specific clique.
-  expect_equal(l1$support_exact, 2L)
-  expect_equal(l1$n_minus_outside, 1L)
-})
-
-test_that("pattern table gates on min_power like classify_gene_cliques", {
-  e <- gcg_up_lineage(0.5)
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  pt <- conservation_pattern_table(cl, e, gcg_six, lineage = gcg_lin)
-  expect_equal(pt$pattern, "+++???")
-  pt <- conservation_pattern_table(cl, e, gcg_six,
-    min_power = 0.4, lineage = gcg_lin
+  expect_equal(
+    stats::setNames(res$clade, res$hog)[c("HOG1", "HOG2", "HOG3")],
+    c(HOG1 = "inner", HOG2 = "mid", HOG3 = "inner")
   )
-  expect_equal(pt$pattern, "+++---")
 })
 
-test_that("lattice supports are monotone and closed", {
-  e <- make_gcg_fixture()
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
-  pt <- conservation_pattern_table(cl, e, gcg_six, lineage = gcg_lin)
-  lat <- conservation_lattice(pt)
-  s <- stats::setNames(lat$intents$support, lat$intents$intent)
-  cn <- lat$containment
-  expect_gt(nrow(cn), 0L)
-  # Closed: a strict superset has strictly smaller support.
-  expect_true(all(s[cn$superset] < s[cn$subset]))
-  expect_equal(sum(lat$intents$support_exact), nrow(pt))
-  hi <- conservation_lattice(pt, min_support = 3L)$intents
-  expect_true(all(hi$support >= 3L))
-})
 
-bicm_table <- function(m) {
-  st <- ifelse(m, "+", "?")
-  colnames(st) <- paste0("S", seq_len(ncol(m)))
-  cbind(
+test_that("gene-graph tiers read home clades, not top-level ones", {
+  sp <- gcg_six
+  clades <- list(
+    outer = sp[1:5], mid = sp[1:4], inner = sp[1:2], sib = sp[3:4],
+    other = sp[6]
+  )
+  mid <- function(hog, q) {
+    gcg_pairs(sp[1:4], paste0(c("a", "b", "c", "d"), hog), hog, q)
+  }
+  # Pair order in gcg_pairs: AB AC AD BC BD CD.
+  e <- rbind(
+    # HOG1: an A-B clique; C was tested against both and rejected.
+    gcg_pairs(sp[1:2], c("a1", "b1"), "HOG1", 0.01),
     data.frame(
-      clique_id = paste0("c", seq_len(nrow(m))), hog = "H",
-      classification = "x", pattern = "", n_plus = rowSums(m),
-      n_minus = 0, pairs_sig = 0, pairs_ns = 0, pairs_untested = 0
+      gene1 = c("a1", "b1"), gene2 = "c1", species1 = sp[1:2],
+      species2 = sp[3], hog = "HOG1", q_value = 0.95, effect_size = 1,
+      stringsAsFactors = FALSE
     ),
-    as.data.frame(st)
+    # HOG2: inner and sib each fully significant, no cross pair.
+    mid("HOG2", c(0.01, 0.5, 0.5, 0.5, 0.5, 0.01)),
+    # HOG3: A-B and B-C significant; sib is not conserved within.
+    mid("HOG3", c(0.01, 0.5, 0.5, 0.01, 0.5, 0.5))
+  )
+  cl <- gene_clique_graph(e, min_size = 2L, alpha_graph = 0.9)
+  res <- classify_gene_cliques(cl, e, sp, clades = clades)
+  got <- stats::setNames(res$classification, res$hog)
+  expect_equal(got[["HOG1"]], "trait_specific")
+  expect_equal(got[["HOG2"]], "differentiated")
+  expect_false(got[["HOG3"]] == "differentiated")
+  h <- stats::setNames(res$clade, res$hog)
+  expect_equal(
+    h[c("HOG1", "HOG2", "HOG3")],
+    c(HOG1 = "inner", HOG2 = "mid", HOG3 = "mid")
+  )
+  h2 <- res[res$hog == "HOG2", ]
+  expect_equal(c(h2$n_sig_within, h2$n_sig_cross), c(2L, 0L))
+})
+
+
+# --- The per-clique classifier of 0.4.0 before WP-b, as a reference ---
+
+gcg_ref_reason <- function(s, rows, edges, key1, key2, mk, m,
+                           alpha_call, power, min_power) {
+  if (length(rows) == 0L) {
+    return("absent")
+  }
+  species1 <- edges$species1[rows]
+  species2 <- edges$species2[rows]
+  if (!any(species1 == s) && !any(species2 == s)) {
+    return("absent")
+  }
+  k1 <- key1[rows]
+  k2 <- key2[rows]
+  hit1 <- species1 == s & k2 %in% mk
+  hit2 <- species2 == s & k1 %in% mk
+  if (!any(hit1) && !any(hit2)) {
+    return("untested")
+  }
+  cand <- c(k1[hit1], k2[hit2])
+  partner <- c(k2[hit1], k1[hit2])
+  qs <- c(edges$q_value[rows][hit1], edges$q_value[rows][hit2])
+  sig <- !is.na(qs) & qs < alpha_call
+  if (any(sig)) {
+    seen <- paste(cand[sig], partner[sig], sep = .gcg_sep)
+    if (max(table(cand[sig][!duplicated(seen)])) >= m) {
+      return("extendable")
+    }
+  }
+  pw <- c(power[rows][hit1], power[rows][hit2])[!sig]
+  if (length(pw) > 0L && all(!is.na(pw) & pw < min_power)) {
+    return("underpowered")
+  }
+  "tested_ns"
+}
+
+gcg_ref_one <- function(rr, cmb, hit, cl_hog, cl_sp, mk_all, edges,
+                        species, parts, clades, alpha_call, alpha_graph,
+                        lut_q, lut_e, lut_p, ekey1, ekey2, rows_by_hog,
+                        power, min_power) {
+  hog <- cl_hog[rr[1L]]
+  msp <- cl_sp[rr]
+  mk <- mk_all[rr]
+  m <- length(rr)
+  m_sp <- length(unique(msp))
+  n_sp <- length(species)
+  qp <- lut_q[hit]
+  ep <- lut_e[hit]
+  pp <- lut_p[hit]
+  home <- if (is.null(clades)) NA_character_ else .clade_home(clades, msp)
+  lin <- if (is.null(parts)) NULL else parts[[if (is.na(home)) 1L else home]]
+  if (!is.null(lin)) {
+    lin_sizes <- table(lin)
+    cross_max <- max(0, choose(length(lin) - 1L, 2) -
+                       sum(choose(lin_sizes, 2)))
+  }
+  if (m >= 2L && !is.null(lin)) {
+    l1 <- lin[msp[cmb[1L, ]]]
+    l2 <- lin[msp[cmb[2L, ]]]
+    within <- unname(l1 == l2)
+    pair_lin <- ifelse(within, unname(l1), NA_character_)
+  } else {
+    within <- rep(NA, length(qp))
+    pair_lin <- rep(NA_character_, length(qp))
+  }
+  sig <- !is.na(qp) & qp < alpha_call
+  n_pairs <- length(qp)
+  n_present <- sum(!is.na(qp))
+  n_sig <- sum(sig)
+  n_sig_w <- if (is.null(lin)) NA_integer_ else sum(sig & within)
+  n_sig_x <- if (is.null(lin)) NA_integer_ else sum(sig & !within)
+  n_up_x <- if (is.null(lin)) {
+    NA_integer_
+  } else {
+    sum(!is.na(qp) & !sig & !within & !is.na(pp) & pp < min_power)
+  }
+  max_q <- if (n_present == 0L) NA_real_ else max(qp, na.rm = TRUE)
+  mean_q <- if (n_present == 0L) NA_real_ else mean(qp, na.rm = TRUE)
+  mean_e <- if (all(is.na(ep))) NA_real_ else mean(ep, na.rm = TRUE)
+  gone <- setdiff(species, msp)
+  rows <- rows_by_hog[[hog]]
+  if (is.null(rows)) rows <- integer(0)
+  reason <- vapply(gone, gcg_ref_reason, character(1),
+    rows = rows, edges = edges, key1 = ekey1, key2 = ekey2, mk = mk,
+    m = m, alpha_call = alpha_call, power = power,
+    min_power = min_power, USE.NAMES = FALSE
+  )
+  gap_only <- length(gone) == 0L ||
+    all(reason %in% c("absent", "untested"))
+  up_only <- length(gone) > 0L && any(reason == "underpowered") &&
+    all(reason %in% c("absent", "untested", "underpowered", "tested_ns"))
+  ts_ok <- length(gone) > 0L && any(reason == "tested_ns") &&
+    all(reason %in% c("absent", "untested", "tested_ns"))
+  gap_pp <- length(gone) == 0L ||
+    all(reason %in% c("absent", "untested", "underpowered"))
+  cls <- "unclassified"
+  core_lin <- NA_character_
+  if (m_sp == m && m_sp >= 2L) {
+    n_l <- if (is.na(home)) NA_integer_ else length(clades[[home]])
+    diff_ok <- FALSE
+    if (!is.null(lin) && m_sp == length(lin) && n_present == n_pairs) {
+      big <- names(lin_sizes)[lin_sizes >= 2L]
+      full <- vapply(big, function(g) {
+        sum(sig & !is.na(pair_lin) & pair_lin == g) ==
+          choose(as.integer(lin_sizes[[g]]), 2L)
+      }, logical(1))
+      diff_ok <- length(big) >= 1L && all(full) && n_sig_x <= cross_max
+    }
+    gap <- n_sp - m_sp
+    lin_core <- !is.na(n_l) && m_sp == n_l && n_sig == choose(n_l, 2)
+    if (lin_core) core_lin <- home
+    is_part_sig <- m_sp == n_sp && n_present == choose(n_sp, 2) &&
+      !is.na(max_q) && max_q < alpha_graph &&
+      n_sig >= choose(n_sp - 1L, 2) + 1
+    is_part_pres <- gap >= 1L && gap <= 1L &&
+      n_sig == choose(m_sp, 2) && gap_pp
+    if (m_sp == n_sp && n_sig == choose(n_sp, 2)) {
+      cls <- "complete_conserved"
+    } else if (lin_core && gap_only) {
+      cls <- "lineage_specific"
+    } else if (lin_core && up_only) {
+      cls <- "underpowered"
+    } else if (is_part_sig) {
+      cls <- "partial_significant"
+    } else if (is_part_pres) {
+      cls <- "partial_present"
+    } else if (diff_ok) {
+      cls <- if (n_sig_x + n_up_x > cross_max) {
+        "underpowered"
+      } else {
+        "differentiated"
+      }
+    } else if (lin_core && ts_ok) {
+      cls <- "trait_specific"
+    }
+  }
+  list(
+    hog = hog, cls = cls, m = m, m_sp = m_sp, n_pairs = n_pairs,
+    n_present = n_present, n_sig = n_sig, n_sig_w = n_sig_w,
+    n_sig_x = n_sig_x, n_up_x = n_up_x, n_missing = length(gone),
+    missing_species = paste(gone, collapse = ","),
+    missing_reason = paste(reason, collapse = ","),
+    mean_q = mean_q, max_q = max_q, mean_e = mean_e,
+    core_lin = core_lin, home = home
   )
 }
 
-test_that("BiCM matches degrees and z centres on its own model", {
-  set.seed(1)
-  rate <- rep(seq(0.2, 0.8, length.out = 6), each = 200)
-  m <- matrix(stats::runif(200 * 6) < rate, 200, 6)
-  m[1:5, ] <- TRUE # complete cliques are forced cells
-  m[6:8, ] <- FALSE
-  bz <- bicm_species_z(bicm_table(m))
-  expect_equal(unname(rowSums(bz$p)), rowSums(m), tolerance = 1e-6)
-  expect_equal(unname(colSums(bz$p)), colSums(m), tolerance = 1e-6)
-  expect_true(all(bz$p[1:5, ] == 1))
-  expect_true(isSymmetric(unname(bz$z)))
-
-  # Matrices drawn from the fitted model: V averages to its BiCM mean.
-  a <- utils::combn(6L, 2L)
-  zs <- replicate(500, {
-    d <- matrix(stats::runif(length(bz$p)) < bz$p, nrow(bz$p))
-    v <- colSums(d[, a[1L, ]] & d[, a[2L, ]])
-    (v - bz$pairs$mean) / bz$pairs$sd
+# Member-row table in, classification columns out; no validation.
+gcg_ref_classify <- function(cliques, edges, species, clades = NULL,
+                             alpha_call = 0.1, alpha_graph = 0.9,
+                             min_power = 0.8) {
+  parts <- NULL
+  if (!is.null(clades)) {
+    clades <- suppressMessages(.check_clades(clades, species))
+    parts <- lapply(c(list(species), clades), function(h) {
+      inner <- vapply(clades, function(v) {
+        length(v) < length(h) && all(v %in% h)
+      }, logical(1))
+      .clade_groups(clades[inner], h)
+    })
+    names(parts) <- c("", names(clades))
+  }
+  has_effect <- "effect_size" %in% names(edges)
+  ids <- unique(cliques$clique_id)
+  ekey1 <- paste(edges$species1, edges$gene1, sep = .gcg_sep)
+  ekey2 <- paste(edges$species2, edges$gene2, sep = .gcg_sep)
+  ehog <- as.character(edges$hog)
+  pkey <- paste(ehog, pmin(ekey1, ekey2), pmax(ekey1, ekey2),
+    sep = .gcg_sep
+  )
+  na <- rep(NA_real_, nrow(edges))
+  ev <- if (has_effect) as.numeric(edges$effect_size) else na
+  pw <- if ("power" %in% names(edges)) as.numeric(edges$power) else na
+  ord <- order(pkey, edges$q_value, -ev, na.last = TRUE)
+  uniq <- ord[!duplicated(pkey[ord])]
+  cl_hog <- as.character(cliques$hog)
+  cl_sp <- as.character(cliques$species)
+  mk_all <- paste(cl_sp, as.character(cliques$gene), sep = .gcg_sep)
+  cl_by_id <- split(
+    seq_len(nrow(cliques)),
+    factor(as.character(cliques$clique_id), levels = ids)
+  )
+  res <- lapply(cl_by_id, function(rr) {
+    cmb <- if (length(rr) < 2L) {
+      matrix(integer(0), nrow = 2L)
+    } else {
+      utils::combn(length(rr), 2L)
+    }
+    a <- mk_all[rr[cmb[1L, ]]]
+    b <- mk_all[rr[cmb[2L, ]]]
+    key <- paste(cl_hog[rr[1L]], pmin(a, b), pmax(a, b), sep = .gcg_sep)
+    if (ncol(cmb) == 0L) key <- character(0)
+    gcg_ref_one(
+      rr, cmb, match(key, pkey[uniq]), cl_hog, cl_sp, mk_all, edges,
+      species, parts, clades, alpha_call, alpha_graph,
+      as.numeric(edges$q_value[uniq]), ev[uniq], pw[uniq], ekey1, ekey2,
+      split(seq_len(nrow(edges)), ehog), pw, min_power
+    )
   })
-  expect_lt(max(abs(rowMeans(zs))), 0.15)
+  pick <- function(f, what) unname(vapply(res, function(z) z[[f]], what))
+  out <- data.frame(
+    clique_id = ids, hog = pick("hog", ""),
+    classification = pick("cls", ""), clade = pick("home", ""),
+    n_members = pick("m", 1L), n_species = pick("m_sp", 1L),
+    n_pairs = pick("n_pairs", 1L), n_present = pick("n_present", 1L),
+    n_sig = pick("n_sig", 1L), n_sig_within = pick("n_sig_w", 1L),
+    n_sig_cross = pick("n_sig_x", 1L),
+    n_underpowered_cross = pick("n_up_x", 1L),
+    n_missing = pick("n_missing", 1L),
+    missing_species = pick("missing_species", ""),
+    missing_reason = pick("missing_reason", ""),
+    mean_q = pick("mean_q", 1), max_q = pick("max_q", 1),
+    stringsAsFactors = FALSE
+  )
+  if (has_effect) out$mean_effect_size <- pick("mean_e", 1)
+  if (!is.null(clades)) {
+    core_lin <- pick("core_lin", "")
+    ts <- which(out$classification == "trait_specific")
+    has_core <- !is.na(core_lin)
+    cores <- split(core_lin[has_core], out$hog[has_core])
+    other <- vapply(ts, function(i) {
+      mine <- clades[[core_lin[i]]]
+      any(vapply(cores[[out$hog[i]]], function(k) {
+        !any(clades[[k]] %in% mine)
+      }, logical(1)))
+    }, logical(1))
+    out$classification[ts[other]] <- "unclassified"
+  }
+  rank <- match(out$classification, .gcg_tiers)
+  best <- vapply(split(rank, out$hog), min, numeric(1))
+  out$hog_class <- .gcg_tiers[best[out$hog]]
+  out
+}
 
-  # The pairs table is a preservation_matrix_test() input once z is
-  # named as its statistic.
-  expect_warning(pmt <- preservation_matrix_test(
-    transform(bz$pairs, Zsummary_std = z),
-    group = c(S1 = "a", S2 = "a", S3 = "a", S4 = "b", S5 = "b", S6 = "b")
-  ), "smallest attainable")
-  expect_true(is.finite(pmt$observed))
+
+test_that("the incidence classifier matches the per-clique reference", {
+  # Dyadic q-values keep every mean exact under any long double.
+  rows <- function(g1, g2, s1, s2, hog, q, power = 0.99) {
+    data.frame(
+      gene1 = g1, gene2 = g2, species1 = s1, species2 = s2, hog = hog,
+      q_value = q, effect_size = 1 - q, power = power,
+      stringsAsFactors = FALSE
+    )
+  }
+  # Every cross-species pair of a gene set, q drawn from four levels.
+  hog <- function(sp, gene, h) {
+    cmb <- utils::combn(length(sp), 2L)
+    cmb <- cmb[, sp[cmb[1L, ]] != sp[cmb[2L, ]], drop = FALSE]
+    q <- sample(c(0.03125, 0.0625, 0.5, 0.75), ncol(cmb),
+      replace = TRUE, prob = c(5, 3, 1, 1)
+    )
+    rows(gene[cmb[1L, ]], gene[cmb[2L, ]], sp[cmb[1L, ]], sp[cmb[2L, ]],
+      h, q,
+      power = ifelse(q > 0.1, 0.3, 0.99)
+    )
+  }
+  set.seed(7)
+  e <- rbind(
+    # Two copies in SP_A and SP_D; SP_F tested against three genes,
+    # one failed test powered, two not.
+    hog(gcg_six[c(1, 1, 2, 3, 4, 4, 5)],
+      c("a1", "a2", "b1", "c1", "d1", "d2", "e1"), "HOG1"
+    ),
+    rows(c("a1", "b1", "c1"), "f1", gcg_six[1:3], "SP_F", "HOG1",
+      c(0.75, 0.75, 0.0625),
+      power = c(0.3, 0.5, 0.99)
+    ),
+    # An L1 core with a paralog in SP_B; SP_D and SP_E tested and
+    # mostly rejected; SP_F absent.
+    hog(gcg_six[c(1, 2, 2, 3, 4, 5)],
+      c("a3", "b3", "b4", "c3", "d3", "e3"), "HOG2"
+    ),
+    # Five species; SP_F joined only to a gene outside the cliques.
+    hog(gcg_six[1:5], c("a5", "b5", "c5", "d5", "e5"), "HOG3"),
+    rows("a6", "f6", "SP_A", "SP_F", "HOG3", 0.03125),
+    # A reversed duplicate row with a worse q.
+    rows("b1", "a1", "SP_B", "SP_A", "HOG1", 0.75)
+  )
+  clades <- list(
+    L1 = gcg_six[1:3], inner = gcg_six[1:2], L2 = gcg_six[4:6]
+  )
+  # alpha_graph 0.05 leaves out edges significant at alpha_call 0.1,
+  # which makes extendable species.
+  same <- function(e, clades) {
+    tiers <- character(0)
+    for (a in c(0.05, 0.1, 0.9)) {
+      g <- gene_clique_graph(e, min_size = 2L, alpha_graph = a)
+      m <- g$members
+      tab <- data.frame(
+        clique_id = m$clique_id, hog = g$cliques$hog[m$clique_id],
+        species = as.character(m$species), gene = m$gene
+      )
+      for (cl in list(NULL, clades)) {
+        ref <- gcg_ref_classify(tab, e, gcg_six, clades = cl)
+        new <- suppressMessages(
+          classify_gene_cliques(g, e, gcg_six, clades = cl)
+        )
+        expect_identical(names(new)[seq_along(ref)], names(ref))
+        # mean() sums in long double on x86_64, so means can differ in
+        # the last bit.
+        for (nm in names(ref)) {
+          if (is.double(ref[[nm]])) {
+            expect_equal(new[[nm]], ref[[nm]])
+          } else {
+            expect_identical(new[[nm]], ref[[nm]])
+          }
+        }
+        tiers <- c(tiers, new$classification)
+      }
+    }
+    unique(tiers)
+  }
+  tiers <- c(
+    same(e, clades), same(make_gcg_fixture(), gcg_clades),
+    same(gcg_up_lineage(0.3), gcg_clades),
+    same(gcg_up_lineage(0.99), gcg_clades),
+    same(gcg_up_diff(c(0.3, 0.99, 0.99)), gcg_clades)
+  )
+  expect_setequal(tiers, .gcg_tiers)
+  runs <- lapply(c(0.05, 0.1, 0.9), function(a) {
+    gene_clique_graph(e, min_size = 2L, alpha_graph = a)
+  })
+  # The fixture reaches every state the incidence has to get right.
+  all_cls <- suppressMessages(
+    classify_gene_cliques(runs, e, gcg_six, clades = clades)
+  )
+  reasons <- unlist(strsplit(all_cls$missing_reason, ","))
+  expect_setequal(
+    unique(reasons),
+    c("absent", "untested", "tested_ns", "underpowered", "extendable")
+  )
+  expect_true(any(all_cls$n_members > 3L & all_cls$hog == "HOG1"))
 })

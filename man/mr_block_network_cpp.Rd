@@ -7,7 +7,7 @@
 mr_block_network_cpp(
   zt,
   log_transform,
-  abs_cor,
+  negate,
   density,
   store_density,
   block_size,
@@ -18,7 +18,7 @@ mr_block_network_cpp(
 \item{zt}{Standardised expression (samples x genes) such that
 \code{crossprod(zt)} is the correlation matrix.}
 
-\item{log_transform, abs_cor}{As in \code{\link[=mutual_rank_inplace_cpp]{mutual_rank_inplace_cpp()}}.}
+\item{log_transform, negate}{As in \code{\link[=mutual_rank_inplace_cpp]{mutual_rank_inplace_cpp()}}.}
 
 \item{density, store_density}{Analysis and store densities.}
 

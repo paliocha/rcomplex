@@ -5,61 +5,79 @@
 \alias{rcomplex-package}
 \title{rcomplex: Comparative Co-Expression Network Analysis Across Species}
 \description{
-Compares gene co-expression networks across species by mapping orthologous
-genes, building co-expression networks independently per species, then
-testing conservation at gene, module, and clique levels.
+Compares gene co-expression networks across species. Maps orthologous
+genes, builds one network per species, and tests conservation. The tests
+work at the gene, hog, module and clique levels.
 }
-\section{Main functions}{
+\details{
+Start with \code{\link[=rcomplex]{rcomplex()}}, which runs the whole analysis. The building
+blocks below run the same steps one at a time.
 
-\describe{
-\item{\code{\link[=parse_orthologs]{parse_orthologs()}}}{Parse ortholog group files}
-\item{\code{\link[=reduce_orthogroups]{reduce_orthogroups()}}}{Merge correlated paralogs within HOGs}
-\item{\code{\link[=extract_orthologs]{extract_orthologs()}}}{Derive ortholog pairs from
-SummarizedExperiment objects}
-\item{\code{\link[=compute_network]{compute_network()}}}{Build co-expression network (matrix or
-SummarizedExperiment)}
-\item{\code{\link[=compare_neighborhoods]{compare_neighborhoods()}}}{Pair-level hypergeometric tests}
-\item{\code{\link[=summarize_comparison]{summarize_comparison()}}}{Q-value correction and summary}
-\item{\code{\link[=comparison_to_edges]{comparison_to_edges()}}}{Convert comparison results to clique
-edge format}
-\item{\code{\link[=compare_specificity]{compare_specificity()}}}{Pair-level specificity score (opt-in
-\code{method = "rank"})}
-\item{\code{\link[=null_network]{null_network()}}}{Shuffled-partner null network}
-\item{\code{\link[=summarize_specificity]{summarize_specificity()}}}{Empirical calibration and q-values
-for the specificity score}
-\item{\code{\link[=run_pairwise_comparisons]{run_pairwise_comparisons()}}}{Batch pairwise comparison pipeline}
-\item{\code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}}{Query co-expression partners of a
-candidate HOG}
-\item{\code{\link[=permutation_hog_test]{permutation_hog_test()}}}{HOG-level permutation test}
-\item{\code{\link[=detect_modules]{detect_modules()}}}{Community detection with consensus}
-\item{\code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}}{Paralog-resolved ortholog map}
-\item{\code{\link[=module_preservation]{module_preservation()}}}{Cross-species module topology
-preservation}
-\item{\code{\link[=classify_preservation]{classify_preservation()}}}{Module preservation classification}
-\item{\code{\link[=module_correspondence]{module_correspondence()}}}{Cross-species module matching}
-\item{\code{\link[=preservation_paired]{preservation_paired()}}}{Module preservation over species pairs}
-\item{\code{\link[=identify_module_hubs]{identify_module_hubs()}}}{Within-module hub gene identification}
-\item{\code{\link[=classify_hub_conservation]{classify_hub_conservation()}}}{Hub conservation across traits}
-\item{\code{\link[=find_cliques]{find_cliques()}}}{C++ clique detection (Bron-Kerbosch)}
-\item{\code{\link[=clique_stability]{clique_stability()}}}{Leave-k-out jackknife stability}
-\item{\code{\link[=clique_persistence]{clique_persistence()}}}{Co-expressolog persistence scores}
-\item{\code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}}{Threshold sweep (convenience wrapper)}
-\item{\code{\link[=classify_cliques]{classify_cliques()}}}{HOG classification on the species graph
-(convenience wrapper): one row per HOG, trait-aware, and the input
-the stability and sweep rankings consume}
-\item{\code{\link[=gene_clique_graph]{gene_clique_graph()}}}{Maximal cliques of the per-orthogroup
-gene graph, one row per clique member}
-\item{\code{\link[=classify_gene_cliques]{classify_gene_cliques()}}}{Six-tier gene-clique taxonomy
-(Rodriguez et al. 2026): copy-level rather than HOG-level, so use
-it when which paralog sits in the conserved core matters, or when
-that published taxonomy has to be reported. Neither it nor
-\code{\link[=classify_cliques]{classify_cliques()}} replaces the other}
-\item{\code{\link[=characterize_hubs]{characterize_hubs()}}}{Regulatory potential metrics for hub genes}
-\item{\code{\link[=tag_permutation]{tag_permutation()}}}{Permutation test for trait-specific module
-recurrence}
-}
+\strong{Run}
+\itemize{
+\item \code{\link[=rcomplex]{rcomplex()}}: the driver, from expression and orthologs to cliques.
+\item \code{\link[=write_rcomplex]{write_rcomplex()}}: write the result as tab-separated files.
 }
 
+\strong{Inputs}
+\itemize{
+\item \code{\link[=read_orthologs]{read_orthologs()}}: read an ortholog group file.
+\item \code{\link[=prepare_orthologs]{prepare_orthologs()}}: pair orthologs for every species pair.
+\item \code{\link[=reduce_orthogroups]{reduce_orthogroups()}}: merge correlated paralogs.
+\item \code{\link[=as_network]{as_network()}}: import a network built outside rcomplex.
+\item \code{\link[=clades_from_tree]{clades_from_tree()}}: derive clades from a species tree.
+}
+
+\strong{Harmonise}
+\itemize{
+\item \code{\link[=split_layers]{split_layers()}}: split expression into wiring and deployment layers.
+}
+
+\strong{Networks}
+\itemize{
+\item \code{\link[=compute_network]{compute_network()}}: build a mutual-rank co-expression network.
+}
+
+\strong{Co-expressologs}
+\itemize{
+\item \code{\link[=find_coexpressologs]{find_coexpressologs()}}: test every ortholog pair across species pairs.
+\item \code{\link[=density_sweep]{density_sweep()}}: repeat the test at several density thresholds.
+}
+
+\strong{Cliques}
+\itemize{
+\item \code{\link[=gene_clique_graph]{gene_clique_graph()}}: every maximal clique of the gene graph.
+\item \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}: conservation tiers for gene cliques.
+\item \code{\link[=find_cliques]{find_cliques()}}: cliques of the species graph.
+\item \code{\link[=clique_stability]{clique_stability()}}, \code{\link[=clique_threshold_sweep]{clique_threshold_sweep()}}: robustness checks.
+\item \code{\link[=classify_cliques]{classify_cliques()}}: conservation pattern per hog.
+}
+
+\strong{Modules}
+\itemize{
+\item \code{\link[=detect_modules]{detect_modules()}}: find modules with Leiden.
+\item \code{\link[=as_modules]{as_modules()}}: import modules from any gene partition.
+\item \code{\link[=resolve_ortholog_map]{resolve_ortholog_map()}}: pick one paralog copy per gene.
+\item \code{\link[=module_preservation]{module_preservation()}}, \code{\link[=classify_preservation]{classify_preservation()}}: test and call
+whether modules are preserved.
+\item \code{\link[=module_correspondence]{module_correspondence()}}: match modules across species.
+\item \code{\link[=identify_module_hubs]{identify_module_hubs()}}, \code{\link[=classify_hub_conservation]{classify_hub_conservation()}}: hub genes.
+\item \code{\link[=get_coexpressed_hogs]{get_coexpressed_hogs()}}: query the partners of a candidate hog.
+}
+
+\strong{Traits}
+\itemize{
+\item \code{\link[=preservation_paired]{preservation_paired()}}: preservation over many species pairs.
+\item \code{\link[=preservation_matrix_test]{preservation_matrix_test()}}: relabelling test on all species pairs.
+}
+
+\strong{Nulls and diagnostics}
+\itemize{
+\item \code{\link[=null_network]{null_network()}}: shuffled-partner null network.
+\item \code{\link[=coexpressolog_null]{coexpressolog_null()}}: degree-preserving edge-swap null.
+\item \code{\link[=pvalue_resolution]{pvalue_resolution()}}: how many distinct p-values a test can give.
+}
+}
 \seealso{
 Useful links:
 \itemize{

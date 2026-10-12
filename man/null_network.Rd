@@ -9,7 +9,6 @@ null_network(
   net,
   seed = NULL,
   n_cores = 1L,
-  use_torch = FALSE,
   block_size = NULL,
   block = NULL
 )
@@ -20,17 +19,17 @@ identifiers) or a \code{SummarizedExperiment}, whose first assay is used.
 The same object \code{net} was built from.}
 
 \item{net}{Network object from \code{\link[=compute_network]{compute_network()}} built from \code{x}; its
-\code{params} and \code{store_density} are reused so the null is built the same
-way.}
+\code{params} (with \code{partition}) and \code{store_density} are reused so the null
+is built the same way.}
 
 \item{seed}{Integer seed for the permutation, or \code{NULL} (default)
 to draw from the global RNG. A seeded call draws from a private
 stream and restores the caller's on exit, so it does not displace the
 caller by however many draws the permutation consumed; with
 \code{seed = NULL} the draws come from the ambient stream and leave
-it advanced. Same contract as \code{\link{summarize_comparison}}.}
+it advanced. Same contract as \code{summarize_comparison}.}
 
-\item{n_cores, use_torch, block_size}{Passed to \code{\link[=compute_network]{compute_network()}};
+\item{n_cores, block_size}{Passed to \code{\link[=compute_network]{compute_network()}};
 pass the \code{block_size} \code{net} was built with to keep the null build
 blockwise (it is not recorded in \code{params}).}
 
@@ -46,15 +45,16 @@ full shuffle, the sum over blocks otherwise); with \code{block},
 \code{params$block} holds the block sizes, named by level.
 }
 \description{
-Rebuilds a network with the parameters recorded in \code{net} after
-permuting every gene's expression values across samples independently,
-which keeps each gene's marginal distribution and the gene universe
-but destroys all co-expression. It is the partner network for the
-empirical calibration of \code{method = "rank"}: p-values from a
-comparison against it are the null draws that
-\code{\link[=summarize_specificity]{summarize_specificity()}} turns into empirical p-values.
+Rebuilds a network after permuting each gene's expression values across
+samples. Keeps each gene's marginal distribution and the gene universe.
+Destroys all co-expression.
 }
 \details{
+It is the partner network for the empirical calibration of
+\code{method = "rank"}. P-values from a comparison against it are the null
+draws that \code{summarize_specificity()} turns into empirical p-values.
+The rebuild uses the parameters recorded in \code{net}.
+
 With \code{block}, each gene's samples are permuted independently \emph{within}
 each block (one permutation per gene per block). The permutations
 must differ between genes: one permutation applied to every gene only

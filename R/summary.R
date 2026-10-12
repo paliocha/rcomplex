@@ -20,8 +20,8 @@
 #' its own: seeding is the caller's, one level up, which is what
 #' `summarize_comparison(seed = )` and `module_preservation(seed = )` do.
 #' A seed here instead of there would have to be reused across the two
-#' directional calls `summarize_comparison()` makes, giving Species1 and
-#' Species2 the same `U` draw, or be perturbed per call by some ad hoc
+#' directional calls `summarize_comparison()` makes, giving gene1 and
+#' gene2 the same `U` draw, or be perturbed per call by some ad hoc
 #' offset. Seeding the caller keeps one seed covering every draw in the
 #' call while leaving the draws independent.
 #'
@@ -55,7 +55,7 @@ compute_qvalues <- function(pvals, p_rand_fn = NULL,
     }
     B <- as.integer(B)  # nolint
     if (length(B) != 1L || is.na(B) || B < 1L) {
-      stop("B must be a positive integer")
+      stop("`B` must be a positive whole number.")
     }
     pi0_draws <- vapply(seq_len(B), function(b) {
       p_rand <- pmin(1, pmax(0, p_rand_fn()))
@@ -113,8 +113,8 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #' unconditionally, so pi0 refers to the full ortholog-pair set
 #' (conditioning the draw on overlap > 0 truncates the null distribution
 #' and deflates pi0), while the q-values themselves are computed on the
-#' filtered rows. The columns `Species*.p.val.gt` /
-#' `.p.val.eq` from [compare_neighborhoods()] supply the two terms.
+#' filtered rows. The columns `Species*.p_value_gt` /
+#' `.p_value_eq` from [compare_neighborhoods()] supply the two terms.
 #' `"storey"` estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
 #' `"none"` fixes pi0 = 1 (BH). The randomized estimate is the only one
 #' that draws: pass `seed` to make the q-values a property of the call.
@@ -124,16 +124,17 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'
 #' @param comparison Data frame from [compare_neighborhoods()].
 #' @param alternative Which tail to test: `"greater"` (default) for
-#'   conservation (upper-tail, uses `.p.val.con` columns) or `"less"` for
-#'   divergence (lower-tail, uses `.p.val.div` columns).
+#'   conservation (upper-tail, uses `.p_value_con` columns) or `"less"` for
+#'   divergence (lower-tail, uses `.p_value_div` columns).
 #' @param alpha Significance threshold applied to q-values (default 0.1).
 #' @param filter_zero If `TRUE` (default for `"greater"`), remove rows where
 #'   both overlap values are zero. Defaults to `FALSE` for `"less"`.
-#' @param sp1,sp2 Optional species abbreviations. When both are provided,
-#'   \code{\link{comparison_to_edges}} is called internally and the result
+#' @param species1,species2 Optional species abbreviations. When both are
+#'   provided,
+#'   \code{comparison_to_edges()} is called internally and the result
 #'   is returned as a third list element \code{$edges}. This avoids a
 #'   separate \code{comparison_to_edges()} call when preparing input for
-#'   \code{\link{find_cliques}}.
+#'   \code{find_cliques}.
 #' @param pi0_method How pi0 is estimated for the Storey q-values:
 #'   `"randomized"` (default; from randomized p-values, see the section
 #'   above), `"storey"` (from the exact p-values) or `"none"` (pi0 = 1,
@@ -149,29 +150,29 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   A seeded call draws from a private stream and restores the caller's
 #'   on exit, so it does not displace the caller by however many draws
 #'   \code{B} consumed and anything drawn afterwards continues from the
-#'   caller's own seed. Same contract as \code{\link{detect_modules}}.
-#' @param pval_combine Passed to \code{\link{comparison_to_edges}} when
-#'   \code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+#'   caller's own seed. Same contract as \code{detect_modules}.
+#' @param pval_combine Passed to \code{comparison_to_edges()} when
+#'   \code{species1} and \code{species2} are given: \code{"max"} (default; both
 #'   directions significant -- the reciprocal criterion of Netotea et
 #'   al. (2014)) or \code{"min"} (either direction).
 #'
 #' @param rho0 Reference fold enrichment for the \code{power} column of
-#'   \code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
-#'   when \code{sp1} and \code{sp2} are provided. \code{NULL} (default)
-#'   takes the median effect size of the called pairs.
+#'   \code{$edges}, passed to \code{comparison_to_edges()}; only used
+#'   when \code{species1} and \code{species2} are provided. \code{NULL}
+#'   (default) takes the median effect size of the called pairs.
 #' @return A list with components:
 #'   \describe{
 #'     \item{results}{Data frame with the original p-values preserved and new
-#'       q-value columns (`.q.val.con` or `.q.val.div`) added.
+#'       q-value columns (`.q_value_con` or `.q_value_div`) added.
 #'       Rows are filtered according to `filter_zero`.}
 #'     \item{summary}{List of summary statistics at gene-pair, gene, and
 #'       ortholog-group levels, thresholded on q-values, plus `pi0`, the
-#'       estimated null proportion per direction (`c(sp1 = , sp2 = )`;
+#'       estimated null proportion per direction (`c(species1 = , species2 = )`;
 #'       for `pi0_method = "randomized"` it is estimated from the
 #'       unfiltered comparison rows, i.e. the full ortholog-pair set;
 #'       `NA` when fewer than 2 rows remain).}
-#'     \item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
-#'       Edge-format data frame from \code{comparison_to_edges()}.}
+#'     \item{edges}{(Only when \code{species1} and \code{species2} are
+#'       provided.) Edge-format data frame from \code{comparison_to_edges()}.}
 #'   }
 #'
 #' @references
@@ -192,17 +193,17 @@ bc_pvalue_support <- function(min_exceedances, max_permutations) {
 #'   alternative = "greater",
 #'   seed = 1
 #' )
-#' sig <- summary$results[summary$results$Species1.q.val.con < 0.05, ]
+#' sig <- summary$results[summary$results$species1.q_value_con < 0.05, ]
 #' summary$summary$gene_pairs$reciprocal
 #' summary$summary$pi0
 #' }
 #'
-#' @export
+#' @keywords internal
 summarize_comparison <- function(comparison,
                                  alternative = c("greater", "less"),
                                  alpha = 0.1,
                                  filter_zero = NULL,
-                                 sp1 = NULL, sp2 = NULL,
+                                 species1 = NULL, species2 = NULL,
                                  pi0_method = c(
                                    "randomized", "storey",
                                    "none"
@@ -215,13 +216,13 @@ summarize_comparison <- function(comparison,
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
 
-  if (xor(is.null(sp1), is.null(sp2))) {
-    stop("Both sp1 and sp2 must be provided, or neither.")
+  if (xor(is.null(species1), is.null(species2))) {
+    stop("`species1` and `species2`: give both or neither.")
   }
   .check_rho0(rho0)
 
   # One seed covers both directional compute_qvalues() calls below, so
-  # Species1 and Species2 keep independent U draws. See .seed_scope() in
+  # gene1 and gene2 keep independent U draws. See .seed_scope() in
   # R/rng.R for the package-wide contract.
   .seed_scope(seed)
 
@@ -230,24 +231,24 @@ summarize_comparison <- function(comparison,
   }
 
   if (!all(c(
-    "Species1", "Species2", "hog",
-    "Species1.p.val.con", "Species2.p.val.con",
-    "Species1.p.val.div", "Species2.p.val.div",
-    "Species1.neigh.overlap",
-    "Species2.neigh.overlap"
+    "gene1", "gene2", "hog",
+    "species1.p_value_con", "species2.p_value_con",
+    "species1.p_value_div", "species2.p_value_div",
+    "species1.neigh.overlap",
+    "species2.neigh.overlap"
   ) %in%
     names(comparison))) {
     stop("comparison must be output from compare_neighborhoods()")
   }
   if (pi0_method == "randomized" &&
     !all(c(
-      "Species1.p.val.gt", "Species1.p.val.eq",
-      "Species2.p.val.gt", "Species2.p.val.eq"
+      "species1.p_value_gt", "species1.p_value_eq",
+      "species2.p_value_gt", "species2.p_value_eq"
     ) %in%
       names(comparison))) {
     stop(
-      "pi0_method = 'randomized' needs the Species1/Species2.p.val.gt ",
-      "and .p.val.eq columns written by compare_neighborhoods() in ",
+      "pi0_method = 'randomized' needs the gene1/species2.p_value_gt ",
+      "and .p_value_eq columns written by compare_neighborhoods() in ",
       "rcomplex >= 0.2.0; rerun compare_neighborhoods() or use ",
       "pi0_method = 'storey' or 'none'"
     )
@@ -255,48 +256,48 @@ summarize_comparison <- function(comparison,
 
   # Select p-value columns based on alternative
   suffix <- if (alternative == "greater") "con" else "div"
-  sp1_col <- paste0("Species1.p.val.", suffix)
-  sp2_col <- paste0("Species2.p.val.", suffix)
+  sp1_col <- paste0("species1.p_value_", suffix)
+  sp2_col <- paste0("species2.p_value_", suffix)
 
   res <- comparison
 
   # Filter zero-overlap rows
   if (filter_zero) {
     res <- res[
-      res$Species1.neigh.overlap > 0 &
-        res$Species2.neigh.overlap > 0, ,
+      res$species1.neigh.overlap > 0 &
+        res$species2.neigh.overlap > 0, ,
       drop = FALSE
     ]
   }
 
   if (nrow(res) == 0) {
-    return(.summary_empty(res, sp1, sp2))
+    return(.summary_empty(res, species1, species2))
   }
 
   # Compute q-values on selected p-value columns. Randomized p-value for
   # pi0: upper tail P(X > x) + U * P(X = x), or lower tail
-  # P(X < x) + U * P(X = x) = (p.val.div - p.val.eq) + U * p.val.eq.  # nolint
+  # P(X < x) + U * P(X = x) = (p_value_div - p_value_eq) + U * p_value_eq.  # nolint
   # The draw runs over the UNFILTERED comparison rows: uniformity under
   # H0 holds only unconditionally, and conditioning on overlap > 0
   # (filter_zero) truncates the null to [0, P(X > 0)) and deflates pi0
   # (anti-conservative q-values). pi0 therefore refers to the full
   # ortholog-pair set; the q-values are computed on the filtered rows.
-  q1_col <- sub("p\\.val", "q.val", sp1_col)
-  q2_col <- sub("p\\.val", "q.val", sp2_col)
+  q1_col <- sub("p_value", "q_value", sp1_col)
+  q2_col <- sub("p_value", "q_value", sp2_col)
   rand_fn <- function(sp) {
     if (pi0_method != "randomized") {
       return(NULL)
     }
-    eq <- comparison[[paste0(sp, ".p.val.eq")]]
+    eq <- comparison[[paste0(sp, ".p_value_eq")]]
     base <- if (alternative == "greater") {
-      comparison[[paste0(sp, ".p.val.gt")]]
+      comparison[[paste0(sp, ".p_value_gt")]]
     } else {
-      comparison[[paste0(sp, ".p.val.div")]] - eq
+      comparison[[paste0(sp, ".p_value_div")]] - eq
     }
     function() base + stats::runif(length(base)) * eq
   }
-  qv1 <- compute_qvalues(res[[sp1_col]], rand_fn("Species1"), pi0_method, B)
-  qv2 <- compute_qvalues(res[[sp2_col]], rand_fn("Species2"), pi0_method, B)
+  qv1 <- compute_qvalues(res[[sp1_col]], rand_fn("species1"), pi0_method, B)
+  qv2 <- compute_qvalues(res[[sp2_col]], rand_fn("species2"), pi0_method, B)
   res[[q1_col]] <- qv1$qvalues
   res[[q2_col]] <- qv2$qvalues
 
@@ -304,12 +305,13 @@ summarize_comparison <- function(comparison,
     results = res,
     summary = c(
       .summary_counts(res, q1_col, q2_col, alpha),
-      list(pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0))
+      list(pi0 = c(species1 = qv1$pi0, species2 = qv2$pi0))
     )
   )
 
-  if (!is.null(sp1) && !is.null(sp2)) {
-    out$edges <- comparison_to_edges(res, sp1, sp2, alternative, alpha,
+  if (!is.null(species1) && !is.null(species2)) {
+    out$edges <- comparison_to_edges(
+      res, species1, species2, alternative, alpha,
       pval_combine = pval_combine, rho0 = rho0
     )
   }
@@ -326,7 +328,7 @@ summarize_comparison <- function(comparison,
 #' directions.
 #'
 #' @param res Results frame carrying the two q-value columns.
-#' @param q1_col,q2_col Names of the Species1 / Species2 q-value columns.
+#' @param q1_col,q2_col Names of the gene1 / gene2 q-value columns.
 #' @param alpha Significance threshold on q-values.
 #' @return `list(gene_pairs = , genes = , orthogroups = )`.
 #' @noRd
@@ -339,20 +341,20 @@ summarize_comparison <- function(comparison,
   max_q <- pmax(q1, q2)
   list(
     gene_pairs = list(
-      sp1 = sum(q1 < alpha),
-      sp2 = sum(q2 < alpha),
+      species1 = sum(q1 < alpha),
+      species2 = sum(q2 < alpha),
       reciprocal = sum(q1 < alpha & q2 < alpha),
       total = nrow(res)
     ),
     genes = list(
-      sp1 = count_sig(q1, res$Species1),
-      sp2 = count_sig(q2, res$Species2),
-      reciprocal_sp1 = count_sig(max_q, res$Species1),
-      reciprocal_sp2 = count_sig(max_q, res$Species2)
+      species1 = count_sig(q1, res$gene1),
+      species2 = count_sig(q2, res$gene2),
+      reciprocal_sp1 = count_sig(max_q, res$gene1),
+      reciprocal_sp2 = count_sig(max_q, res$gene2)
     ),
     orthogroups = list(
-      sp1 = count_sig(q1, res$hog),
-      sp2 = count_sig(q2, res$hog),
+      species1 = count_sig(q1, res$hog),
+      species2 = count_sig(q2, res$hog),
       reciprocal = count_sig(max_q, res$hog),
       total = length(unique(res$hog))
     )
@@ -362,34 +364,32 @@ summarize_comparison <- function(comparison,
 
 #' The summary of a comparison with no testable rows
 #'
-#' Zero counts, undefined pi0, and an empty edge frame when `sp1` and
-#' `sp2` are given.
+#' Zero counts, undefined pi0, and an empty edge frame when `species1` and
+#' `species2` are given.
 #'
 #' @param res The (empty) results frame.
-#' @param sp1,sp2 Species abbreviations or `NULL`.
+#' @param species1,species2 Species abbreviations or `NULL`.
 #' @return `list(results = , summary = )`, plus `edges` when named.
 #' @noRd
-.summary_empty <- function(res, sp1, sp2) {
+.summary_empty <- function(res, species1, species2) {
   out <- list(
     results = res,
     summary = list(
-      gene_pairs = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
+      gene_pairs = list(
+        species1 = 0L, species2 = 0L, reciprocal = 0L, total = 0L
+      ),
       genes = list(
-        sp1 = 0L, sp2 = 0L,
+        species1 = 0L, species2 = 0L,
         reciprocal_sp1 = 0L, reciprocal_sp2 = 0L
       ),
-      orthogroups = list(sp1 = 0L, sp2 = 0L, reciprocal = 0L, total = 0L),
-      pi0 = c(sp1 = NA_real_, sp2 = NA_real_)
+      orthogroups = list(
+        species1 = 0L, species2 = 0L, reciprocal = 0L, total = 0L
+      ),
+      pi0 = c(species1 = NA_real_, species2 = NA_real_)
     )
   )
-  if (!is.null(sp1) && !is.null(sp2)) {
-    out$edges <- data.frame(
-      gene1 = character(0), gene2 = character(0),
-      species1 = character(0), species2 = character(0),
-      hog = character(0), q.value = numeric(0),
-      effect_size = numeric(0), jaccard = numeric(0),
-      power = numeric(0), type = character(0)
-    )
+  if (!is.null(species1) && !is.null(species2)) {
+    out$edges <- .edge_frame()
   }
   out
 }
@@ -414,10 +414,12 @@ summarize_comparison <- function(comparison,
 #' Summarize a specificity comparison
 #'
 #' Computes q-values for the per-direction specificity p-values from
-#' [compare_specificity()], optionally calibrated against a shuffled
-#' partner null, and the same gene-pair, gene and orthogroup counts as
-#' [summarize_comparison()]. Rows where either direction is `NA` (an
-#' anchor gene with no mapped neighbours) are dropped before testing.
+#' [compare_specificity()]. Optionally calibrates them against a shuffled
+#' partner null. Returns the same gene-pair, gene and hog counts as
+#' [summarize_comparison()].
+#'
+#' Rows where either direction is `NA` (an anchor gene with no mapped
+#' neighbours) are dropped before testing.
 #'
 #' @section Multiple testing correction:
 #' With `null_p`, each direction's p-values are first made empirical
@@ -438,8 +440,8 @@ summarize_comparison <- function(comparison,
 #' the shuffled partner calibrates them before Storey is applied.
 #'
 #' @param comparison Data frame from [compare_specificity()].
-#' @param null_p `NULL`, or `list(sp1 = , sp2 = )` of null p-values for
-#'   the 1 -> 2 and 2 -> 1 directions from the shuffled partner. `NA`
+#' @param null_p `NULL`, or `list(species1 = , species2 = )` of null p-values
+#'   for the 1 -> 2 and 2 -> 1 directions from the shuffled partner. `NA`
 #'   entries are dropped.
 #' @param alpha Significance threshold applied to q-values (default 0.1).
 #' @param pi0_method `"storey"` (default) estimates pi0 from the p-values;
@@ -454,13 +456,13 @@ summarize_comparison <- function(comparison,
 #' @return A list with components:
 #'   \describe{
 #'     \item{results}{The complete rows of `comparison` with
-#'       `Species1.p.emp` / `Species2.p.emp` (when `null_p` is given) and
-#'       `Species1.q.val.con` / `Species2.q.val.con` added.}
+#'       `species1.p.emp` / `species2.p.emp` (when `null_p` is given) and
+#'       `species1.q_value_con` / `species2.q_value_con` added.}
 #'     \item{summary}{The counts of [summarize_comparison()], `pi0` per
 #'       direction, `n_null` (null draws used per direction, 0 without
 #'       `null_p`) and `n_dropped` (rows with an `NA` p-value).}
-#'     \item{edges}{(Only when `sp1` and `sp2` are provided.) Edge frame
-#'       from [comparison_to_edges()]. `power` is the probability that
+#'     \item{edges}{(Only when `species1` and `species2` are provided.) Edge
+#'       frame from [comparison_to_edges()]. `power` is the probability that
 #'       the pair would have been called had the ortholog ranked at raw p
 #'       `p0` among its candidates: per direction, the anchor's
 #'       `auroc.grid` (log-linear interpolation) gives the AUROC at `p0`
@@ -493,70 +495,73 @@ summarize_comparison <- function(comparison,
 #' genomewide studies. \emph{Proceedings of the National Academy of
 #' Sciences}, 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
 #'
-#' @export
+#' @keywords internal
 summarize_specificity <- function(comparison, null_p = NULL, alpha = 0.1,
                                   pi0_method = c("storey", "none"),
-                                  sp1 = NULL, sp2 = NULL,
+                                  species1 = NULL, species2 = NULL,
                                   pval_combine = c("max", "min"),
                                   p0 = NULL) {
   pi0_method <- match.arg(pi0_method)
   pval_combine <- match.arg(pval_combine)
   .check_p0(p0)
-  if (xor(is.null(sp1), is.null(sp2))) {
-    stop("Both sp1 and sp2 must be provided, or neither.")
+  if (xor(is.null(species1), is.null(species2))) {
+    stop("`species1` and `species2`: give both or neither.")
   }
-  p_cols <- c("Species1.p.val", "Species2.p.val")
-  if (!all(c("Species1", "Species2", "hog", p_cols) %in% names(comparison))) {
+  p_cols <- c("species1.p_value", "species2.p_value")
+  if (!all(c("gene1", "gene2", "hog", p_cols) %in% names(comparison))) {
     stop("comparison must be output from compare_specificity()")
   }
   if (!is.null(null_p)) {
-    if (!is.list(null_p) || !all(c("sp1", "sp2") %in% names(null_p))) {
-      stop("null_p must be NULL or list(sp1 = , sp2 = )")
+    sp_keys <- c("species1", "species2")
+    if (!is.list(null_p) || !all(sp_keys %in% names(null_p))) {
+      stop("null_p must be NULL or list(species1 = , species2 = )")
     }
-    null_p <- lapply(null_p[c("sp1", "sp2")], function(p) p[!is.na(p)])
+    null_p <- lapply(null_p[sp_keys], function(p) p[!is.na(p)])
   }
 
   keep <- stats::complete.cases(comparison[p_cols])
   res <- comparison[keep, , drop = FALSE]
   n_dropped <- sum(!keep)
-  n_null <- c(sp1 = length(null_p$sp1), sp2 = length(null_p$sp2))
+  n_null <- c(
+    species1 = length(null_p$species1), species2 = length(null_p$species2)
+  )
 
   if (nrow(res) == 0L) {
-    out <- .summary_empty(res, sp1, sp2)
+    out <- .summary_empty(res, species1, species2)
     out$summary$n_null <- n_null
     out$summary$n_dropped <- n_dropped
     return(out)
   }
 
-  p1 <- res$Species1.p.val
-  p2 <- res$Species2.p.val
+  p1 <- res$species1.p_value
+  p2 <- res$species2.p_value
   if (!is.null(null_p)) {
-    p1 <- res$Species1.p.emp <- .p_empirical(p1, null_p$sp1)
-    p2 <- res$Species2.p.emp <- .p_empirical(p2, null_p$sp2)
+    p1 <- res$species1.p.emp <- .p_empirical(p1, null_p$species1)
+    p2 <- res$species2.p.emp <- .p_empirical(p2, null_p$species2)
   }
   qv1 <- compute_qvalues(p1, pi0_method = pi0_method)
   qv2 <- compute_qvalues(p2, pi0_method = pi0_method)
-  res$Species1.q.val.con <- qv1$qvalues
-  res$Species2.q.val.con <- qv2$qvalues
+  res$species1.q_value_con <- qv1$qvalues
+  res$species2.q_value_con <- qv2$qvalues
 
   out <- list(
     results = res,
     summary = c(
       .summary_counts(
-        res, "Species1.q.val.con", "Species2.q.val.con",
+        res, "species1.q_value_con", "species2.q_value_con",
         alpha
       ),
       list(
-        pi0 = c(sp1 = qv1$pi0, sp2 = qv2$pi0),
+        pi0 = c(species1 = qv1$pi0, species2 = qv2$pi0),
         n_null = n_null,
         n_dropped = n_dropped
       )
     )
   )
-  if (!is.null(sp1) && !is.null(sp2)) {
-    has_grid <- all(c("Species1.auroc.grid", "Species2.auroc.grid") %in%
+  if (!is.null(species1) && !is.null(species2)) {
+    has_grid <- all(c("species1.auroc.grid", "species2.auroc.grid") %in%
                       names(res))
-    out$edges <- comparison_to_edges(res, sp1, sp2,
+    out$edges <- comparison_to_edges(res, species1, species2,
       alternative = "greater", alpha = alpha, pval_combine = pval_combine,
       p0 = if (has_grid) p0 else NULL
     )
@@ -750,9 +755,8 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 
 #' Permutation-based HOG-level conservation/divergence test
 #'
-#' Tests each Hierarchical Ortholog Group (HOG) for co-expression conservation
-#' (or divergence) using a gene-identity permutation null with adaptive stopping
-#' (Besag & Clifford, 1991).
+#' Tests each hog for co-expression conservation or divergence. Permutes
+#' gene identities and stops adaptively (Besag & Clifford, 1991).
 #'
 #' @section Statistical method:
 #' The null hypothesis is that the specific gene identities in a HOG carry no
@@ -840,7 +844,7 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #'   the OpenMP guided schedule decides which thread takes which HOG, and
 #'   the pairing of thread streams to HOGs still moves between runs. A
 #'   seeded call restores the caller's stream on exit --- the package-wide
-#'   contract, see [detect_modules()].
+#'   contract, see `detect_modules()`.
 #'
 #' @return A data frame with one row per HOG, ordered by p-value, with columns:
 #'   \describe{
@@ -853,8 +857,8 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #'       due to adaptive stopping)}
 #'     \item{n_exceed}{Number of permutation statistics exceeding T_obs}
 #'     \item{mean_eff}{Mean geometric-mean effect size across pairs}
-#'     \item{p.value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
-#'     \item{q.value}{Discrete q-value (Liang, 2016) accounting for
+#'     \item{p_value}{Permutation p-value: (n_exceed + 1) / (n_perm + 1)}
+#'     \item{q_value}{Discrete q-value (Liang, 2016) accounting for
 #'       Besag-Clifford support}
 #'   }
 #'
@@ -871,10 +875,10 @@ build_combined_fe_torch <- function(net1_mat, net2_mat, thr1, thr2,
 #' hog_results <- permutation_hog_test(net1, net2, comparison,
 #'   n_cores = 8L, use_torch = TRUE
 #' )
-#' significant <- hog_results[hog_results$q.value < 0.1, ]
+#' significant <- hog_results[hog_results$q_value < 0.1, ]
 #' }
 #'
-#' @export
+#' @keywords internal
 permutation_hog_test <- function(net1, net2, comparison,
                                  alternative = c("greater", "less"),
                                  min_exceedances = 50L,
@@ -897,8 +901,8 @@ permutation_hog_test <- function(net1, net2, comparison,
     stop("net2 must be a network object from compute_network()")
   }
   required <- c(
-    "Species1", "Species2", "hog",
-    "Species1.effect.size", "Species2.effect.size"
+    "gene1", "gene2", "hog",
+    "species1.effect_size", "species2.effect_size"
   )
   missing_cols <- setdiff(required, names(comparison))
   if (length(missing_cols) > 0) {
@@ -936,7 +940,7 @@ permutation_hog_test <- function(net1, net2, comparison,
       n_sp1 = integer(0), n_sp2 = integer(0),
       T_obs = numeric(0), n_perm = integer(0),
       n_exceed = integer(0), mean_eff = numeric(0),
-      p.value = numeric(0), q.value = numeric(0)
+      p_value = numeric(0), q_value = numeric(0)
     ))
   }
 
@@ -960,8 +964,8 @@ permutation_hog_test <- function(net1, net2, comparison,
   # not match after upstream merging/reduction of multi-copy orthologs.
   # NA indices from missing genes would cause index_put_ failures in torch
   # and undefined behavior in C++.
-  in_net <- comparison$Species1 %in% net1_genes &
-    comparison$Species2 %in% net2_genes
+  in_net <- comparison$gene1 %in% net1_genes &
+    comparison$gene2 %in% net2_genes
   if (!all(in_net)) {
     n_dropped <- sum(!in_net)
     message("Dropped ", n_dropped, " ortholog pairs with genes not in networks")
@@ -969,19 +973,19 @@ permutation_hog_test <- function(net1, net2, comparison,
   }
 
   # Deduplicated ortholog mapping for reachable-set construction
-  ortho_pairs <- unique(comparison[, c("Species1", "Species2")])
-  ortho_sp1_idx <- as.integer(idx1[ortho_pairs$Species1])
-  ortho_sp2_idx <- as.integer(idx2[ortho_pairs$Species2])
+  ortho_pairs <- unique(comparison[, c("gene1", "gene2")])
+  ortho_sp1_idx <- as.integer(idx1[ortho_pairs$gene1])
+  ortho_sp2_idx <- as.integer(idx2[ortho_pairs$gene2])
 
   # Per-HOG unique gene indices
   hog_groups <- split(seq_len(nrow(comparison)), comparison$hog)
   hog_names <- names(hog_groups)
 
   hog_sp1_list <- lapply(hog_groups, function(rows) {
-    as.integer(unique(idx1[comparison$Species1[rows]]))
+    as.integer(unique(idx1[comparison$gene1[rows]]))
   })
   hog_sp2_list <- lapply(hog_groups, function(rows) {
-    as.integer(unique(idx2[comparison$Species2[rows]]))
+    as.integer(unique(idx2[comparison$gene2[rows]]))
   })
 
   # Internal testing hook: force the flag-vector intersection mode of the
@@ -1042,7 +1046,7 @@ permutation_hog_test <- function(net1, net2, comparison,
     )
   }
 
-  eff <- sqrt(comparison$Species1.effect.size * comparison$Species2.effect.size)
+  eff <- sqrt(comparison$species1.effect_size * comparison$species2.effect_size)
 
   result <- data.frame(
     hog = hog_names,
@@ -1053,17 +1057,17 @@ permutation_hog_test <- function(net1, net2, comparison,
     n_perm = perm_result$n_perm,
     n_exceed = perm_result$n_exceed,
     mean_eff = vapply(hog_groups, function(i) mean(eff[i]), double(1)),
-    p.value = perm_result$p_value
+    p_value = perm_result$p_value
   )
   bc_support <- bc_pvalue_support(min_exceedances, max_permutations)
 
-  result$q.value <- if (nrow(result) < 2L) {
-    result$p.value
+  result$q_value <- if (nrow(result) < 2L) {
+    result$p_value
   } else {
     DiscreteQvalue::DQ(
-      result$p.value,
+      result$p_value,
       ss = bc_support, method = "Liang"
     )$q.values
   }
-  result[order(result$p.value), ]
+  result[order(result$p_value), ]
 }

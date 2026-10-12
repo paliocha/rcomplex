@@ -57,10 +57,10 @@ grid holds the ceil(f * n_b)-th largest candidate AUROC of the anchor.
 Empty skips the grid.}
 }
 \value{
-List with, per requested direction, \code{Species1.neigh},
-\code{Species1.mapped}, \code{Species1.auroc}, \code{Species1.p.val},
-\code{Species1.jaccard}, \code{Species1.n.cand} (one element per pair) and the
-matrix \code{Species1.auroc.grid} (pairs x fractions), and the \verb{Species2.*}
+List with, per requested direction, \code{species1.neigh},
+\code{species1.mapped}, \code{species1.auroc}, \code{species1.p_value},
+\code{species1.jaccard}, \code{species1.n.cand} (one element per pair) and the
+matrix \code{species1.auroc.grid} (pairs x fractions), and the \verb{species2.*}
 set.
 }
 \description{

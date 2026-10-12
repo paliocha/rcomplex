@@ -1,4 +1,4 @@
-# Tests for .task_seed() (R/modules.R): the shared per-task RNG seed used
+# Tests for .task_seed() (R/rng.R): the shared per-task RNG seed used
 # by coexpressolog_null() and the module-detection sweeps. The property
 # under test is the one the roborev history flagged: a direct
 # root + k1 * stream + k2 * index combination is affine in root and index,

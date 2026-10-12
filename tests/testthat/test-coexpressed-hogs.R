@@ -50,12 +50,12 @@ make_coexpr_test_data <- function() {
 
   # Orthologs: all pairwise species, one gene per HOG per species
   orthologs <- data.frame(
-    Species1 = c(
+    gene1 = c(
       "A1", "A2", "A3", "A4", "A5", "A6",
       "A1", "A2", "A3", "A4", "A5", "A6",
       "B1", "B2", "B3", "B4", "B5", "B6"
     ),
-    Species2 = c(
+    gene2 = c(
       "B1", "B2", "B3", "B4", "B5", "B6",
       "C1", "C2", "C3", "C4", "C5", "C6",
       "C1", "C2", "C3", "C4", "C5", "C6"
@@ -77,7 +77,7 @@ make_coexpr_test_data <- function() {
     species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_A"),
     species2 = c("SP_B", "SP_C", "SP_C", "SP_B", "SP_B"),
     hog = c("HOG2", "HOG2", "HOG2", "HOG3", "HOG5"),
-    q.value = c(0.01, 0.02, 0.03, 0.04, 0.80),
+    q_value = c(0.01, 0.02, 0.03, 0.04, 0.80),
     effect_size = c(3.0, 2.5, 2.0, 1.5, 0.5),
     type = c("conserved", "conserved", "conserved", "conserved", "ns"),
     stringsAsFactors = FALSE
@@ -92,7 +92,7 @@ test_that(
   {
     d <- make_coexpr_test_data()
     result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-      species_trait = d$trait
+      clades = as_clades(d$trait)
     )
     expect_true(is.data.frame(result))
     expected_cols <- c(
@@ -149,25 +149,10 @@ test_that("HOG5 never appears (not co-expressed)", {
 })
 
 
-test_that("species parameter filters correctly", {
-  d <- make_coexpr_test_data()
-  # Only look at SP_A and SP_B
-  result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-    species = c("SP_A", "SP_B"),
-    min_species = 1L
-  )
-  # HOG2: 2 species, HOG3: 2, HOG4: 1
-  hog2 <- result[result$partner_hog == "HOG2", ]
-  expect_equal(hog2$n_species, 2L)
-  # No SP_C in coexpressed_species
-  expect_false(grepl("SP_C", hog2$coexpressed_species))
-})
-
-
 test_that("coexpressed_traits reflects trait groups correctly", {
   d <- make_coexpr_test_data()
   result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-    species_trait = d$trait,
+    clades = as_clades(d$trait),
     min_species = 1L
   )
 
@@ -185,7 +170,7 @@ test_that("coexpressed_traits reflects trait groups correctly", {
 })
 
 
-test_that("species_trait = NULL produces NA coexpressed_traits", {
+test_that("clades = NULL produces NA coexpressed_traits", {
   d <- make_coexpr_test_data()
   result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
     min_species = 1L
@@ -233,8 +218,8 @@ test_that("multi-copy HOG: union of neighbors", {
 
   # Add A1b to orthologs as HOG1
   extra_ortho <- data.frame(
-    Species1 = c("A1b", "A1b"),
-    Species2 = c("B1", "C1"),
+    gene1 = c("A1b", "A1b"),
+    gene2 = c("B1", "C1"),
     hog = "HOG1",
     stringsAsFactors = FALSE
   )
@@ -258,10 +243,10 @@ test_that("multi-copy HOG: union of neighbors", {
 test_that("candidate HOG not in a species is skipped gracefully", {
   d <- make_coexpr_test_data()
   # Remove HOG1 genes from SP_C by removing C1 from orthologs
-  d$orthologs <- d$orthologs[!(d$orthologs$Species1 == "A1" &
-                                 d$orthologs$Species2 == "C1"), ]
-  d$orthologs <- d$orthologs[!(d$orthologs$Species1 == "B1" &
-                                 d$orthologs$Species2 == "C1"), ]
+  d$orthologs <- d$orthologs[!(d$orthologs$gene1 == "A1" &
+                                 d$orthologs$gene2 == "C1"), ]
+  d$orthologs <- d$orthologs[!(d$orthologs$gene1 == "B1" &
+                                 d$orthologs$gene2 == "C1"), ]
 
   result <- get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
     min_species = 1L
@@ -290,15 +275,9 @@ test_that("input validation errors", {
   )
   expect_error(
     get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-      species = "NOPE"
+      clades = c(SP_A = "annual")
     ),
-    "not found in networks"
-  )
-  expect_error(
-    get_coexpressed_hogs("HOG1", d$networks, d$orthologs,
-      species_trait = c(SP_A = "annual")
-    ),
-    "missing entries"
+    "clades must be a named list"
   )
 })
 

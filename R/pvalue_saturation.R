@@ -11,10 +11,9 @@
 
 #' How much resolution is left in a set of p-values
 #'
-#' Reports how many distinct values a set of p-values (or q-values) actually
-#' takes, how many are tied at the smallest one and at 1, and -- when
-#' `n_perm` is supplied -- whether that smallest value is the permutation
-#' floor `1 / (n_perm + 1)` rather than a statement about the evidence.
+#' Counts the distinct values in a set of p-values or q-values. Counts how
+#' many are tied at the smallest value and at 1. Given `n_perm`, reports
+#' whether the smallest value is the permutation floor `1 / (n_perm + 1)`.
 #'
 #' @details
 #' A permutation p-value cannot go below `1 / (n_perm + 1)`, because the
@@ -41,9 +40,9 @@
 #'
 #' Either way the consequence for a tied block is the same, and it is the
 #' point of this function: **among tied values the p-value carries no
-#' ordering at all**, so ranking, weighting or thresholding on `p.value`,
-#' `q.value` or `-log10(q)` is arbitrary inside that block. Rank on a
-#' continuous effect size instead. For [module_preservation()] that is
+#' ordering at all**, so ranking, weighting or thresholding on `p_value`,
+#' `q_value` or `-log10(q)` is arbitrary inside that block. Rank on a
+#' continuous effect size instead. For `module_preservation()` that is
 #' `Zsummary_std`, which is standardised to unit null variance and keeps
 #' separating modules long after the p-value has saturated: on the
 #' eight-species Pooideae run, the 35 module-directions tied at the q-value
@@ -113,8 +112,9 @@
 #' pvalue_resolution(p, n_perm = 2000)
 #'
 #' @seealso [module_preservation()] for `Zsummary_std`, the continuous
-#'   effect size to rank on; [tag_permutation()], whose label space puts a
-#'   floor under its p-value that no amount of sampling can lower.
+#'   effect size to rank on; [preservation_matrix_test()], whose label
+#'   space puts a floor under its p-value that no amount of sampling can
+#'   lower.
 #' @export
 pvalue_resolution <- function(p, n_perm = NULL) {
   if (!is.numeric(p) || length(p) == 0L) {

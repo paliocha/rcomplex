@@ -32,10 +32,13 @@ load_complex_py <- function() {
   skip_if_no_fixture()
   ortho <- read.delim(fx("ortho_pairs.tsv"), stringsAsFactors = FALSE)
   expected <- read.delim(fx("expected_calls.tsv"), stringsAsFactors = FALSE)
+  # fixture columns predate gene1/gene2
+  names(ortho)[1:2] <- c("gene1", "gene2")
+  names(expected)[2:3] <- c("gene1", "gene2")
   x1 <- read_expr(fx("sp1_expr.tsv"))
   x2 <- read_expr(fx("sp2_expr.tsv"))
-  x1 <- x1[rownames(x1) %in% ortho$Species1, ]
-  x2 <- x2[rownames(x2) %in% ortho$Species2, ]
+  x1 <- x1[rownames(x1) %in% ortho$gene1, ]
+  x2 <- x2[rownames(x2) %in% ortho$gene2, ]
   list(
     ortho = ortho, expected = expected,
     n1 = compute_network(x1, density = 0.03, sparse = FALSE),
@@ -60,16 +63,16 @@ test_that("density thresholds are stable and match pure-R reference", {
 
 test_that("co-expressolog calls match canonical ComPlEx", {
   d <- load_complex_py()
-  cmp <- compare_neighborhoods(d$n1, d$n2, d$ortho)
-  pool <- cmp$Species1.neigh.overlap > 0 & cmp$Species2.neigh.overlap > 0
+  cmp <- rcomplex:::compare_neighborhoods(d$n1, d$n2, d$ortho)
+  pool <- cmp$species1.neigh.overlap > 0 & cmp$species2.neigh.overlap > 0
   cmp <- cmp[pool, ]
-  bh1 <- p.adjust(cmp$Species1.p.val.con, method = "BH")
-  bh2 <- p.adjust(cmp$Species2.p.val.con, method = "BH")
+  bh1 <- p.adjust(cmp$species1.p_value_con, method = "BH")
+  bh2 <- p.adjust(cmp$species2.p_value_con, method = "BH")
   maxbh <- pmax(bh1, bh2)
 
   expected <- d$expected
-  key <- paste(cmp$Species1, cmp$Species2)
-  key_expected <- paste(expected$Species1, expected$Species2)
+  key <- paste(cmp$gene1, cmp$gene2)
+  key_expected <- paste(expected$gene1, expected$gene2)
   expect_equal(nrow(expected), 149L)
 
   idx <- match(key_expected, key)
@@ -92,8 +95,8 @@ test_that("co-expressolog calls match canonical ComPlEx", {
   # absolute guard next to the relative tolerance: measured max |diff| is
   # 2.7e-3, so 5e-3 leaves headroom without letting large shifts through
   expect_lt(max(abs(maxbh[idx] - expected$Max.p.val)), 5e-3)
-  expect_equal(cmp$Species1.neigh.overlap[idx], expected$Species1.neigh.overlap)
-  expect_equal(cmp$Species2.neigh.overlap[idx], expected$Species2.neigh.overlap)
+  expect_equal(cmp$species1.neigh.overlap[idx], expected$Species1.neigh.overlap)
+  expect_equal(cmp$species2.neigh.overlap[idx], expected$Species2.neigh.overlap)
 })
 
 test_that("make_fixture.R reproduces the committed fixture inputs", {
@@ -118,88 +121,3 @@ test_that("make_fixture.R reproduces the committed fixture inputs", {
     readLines(fx("ortho_pairs.tsv"))
   )
 })
-
-test_that(
-  paste(
-    "find_coexpressologs(pval_combine = 'max', pi0_method = 'none')",
-    "reproduces the canonical calls"
-  ),
-  {
-    d <- load_complex_py()
-    nets <- list(sp1 = d$n1, sp2 = d$n2)
-    # filter_zero = TRUE: canonical ComPlEx drops the zero-overlap pairs
-    # before its BH correction, so reproducing its q-values means
-    # correcting over the same multiple-testing set. The package default
-    # (FALSE) keeps those rows for the power column and raises every
-    # q-value, which is a deliberate departure from canonical, not a
-    # regression -- so it must not be tested against canonical numbers.
-    e_max <- find_coexpressologs(nets, d$ortho,
-      alpha = 0.05,
-      pval_combine = "max", pi0_method = "none", filter_zero = TRUE
-    )
-    e_min <- find_coexpressologs(nets, d$ortho,
-      alpha = 0.05,
-      pval_combine = "min", pi0_method = "none", filter_zero = TRUE
-    )
-
-    key_expected <- paste(d$expected$Species1, d$expected$Species2)
-    key_max <- paste(e_max$gene1, e_max$gene2)
-    called <- key_max[e_max$type == "conserved"]
-
-    # same boundary rule as the canonical-calls test above
-    flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
-    if (length(flipped) > 0L) {
-      p_rc <- e_max$q.value[match(flipped, key_max)]
-      p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
-      expect_true(all(abs(p_rc - 0.05) < 1e-3))
-      expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
-    }
-    idx <- match(key_expected, key_max)
-    expect_false(anyNA(idx))
-    expect_equal(e_max$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
-
-    # "min" (permissive) calls are a superset of "max" calls
-    called_min <- paste(e_min$gene1, e_min$gene2)[e_min$type == "conserved"]
-    expect_true(all(called %in% called_min))
-    expect_gte(length(called_min), length(called))
-  }
-)
-
-
-test_that(
-  paste(
-    "find_coexpressologs default pval_combine reproduces the canonical",
-    "calls (D2)"
-  ),
-  {
-    d <- load_complex_py()
-    nets <- list(sp1 = d$n1, sp2 = d$n2)
-    # filter_zero = TRUE on both: see the note in the test above. What is
-    # under test here is that the *default* pval_combine is "max", so both
-    # calls must differ in nothing else.
-    e_def <- find_coexpressologs(nets, d$ortho,
-      alpha = 0.05,
-      pi0_method = "none", filter_zero = TRUE
-    )
-    e_max <- find_coexpressologs(nets, d$ortho,
-      alpha = 0.05,
-      pval_combine = "max", pi0_method = "none", filter_zero = TRUE
-    )
-    expect_identical(e_def, e_max)
-
-    # default = BH + pmax: the fixture's Max.p.val criterion holds by default
-    key_expected <- paste(d$expected$Species1, d$expected$Species2)
-    key_def <- paste(e_def$gene1, e_def$gene2)
-    called <- key_def[e_def$type == "conserved"]
-    flipped <- c(setdiff(called, key_expected), setdiff(key_expected, called))
-    if (length(flipped) > 0L) {
-      p_rc <- e_def$q.value[match(flipped, key_def)]
-      p_py <- d$expected$Max.p.val[match(flipped, key_expected)]
-      expect_true(all(abs(p_rc - 0.05) < 1e-3))
-      expect_true(all(abs(p_py[!is.na(p_py)] - 0.05) < 1e-3))
-    }
-    idx <- match(key_expected, key_def)
-    expect_false(anyNA(idx))
-    expect_equal(e_def$q.value[idx], d$expected$Max.p.val, tolerance = 1e-2)
-  }
-)

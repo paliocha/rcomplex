@@ -11,53 +11,53 @@ compare_neighborhoods(net1, net2, orthologs, n_cores = 1L)
 
 \item{net2}{Network object for species 2 (output of \code{\link[=compute_network]{compute_network()}}).}
 
-\item{orthologs}{Data frame with columns \code{Species1}, \code{Species2}, and
-\code{hog} (output of \code{\link[=parse_orthologs]{parse_orthologs()}}).}
+\item{orthologs}{Data frame with columns \code{gene1}, \code{gene2}, and
+\code{hog} (output of \code{\link[=prepare_orthologs]{prepare_orthologs()}}).}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
 }
 \value{
 A data frame with columns:
 \describe{
-\item{Species1}{Gene identifier for species 1}
-\item{Species2}{Gene identifier for species 2}
+\item{gene1}{Gene identifier for species 1}
+\item{gene2}{Gene identifier for species 2}
 \item{hog}{Ortholog group identifier}
-\item{Species1.neigh}{Number of neighbors of Species1 gene in net1}
-\item{Species1.ortho.neigh}{Number of ortholog-mapped neighbors
-from net2, excluding the Species1 gene itself}
-\item{Species1.neigh.overlap}{Intersection size}
-\item{Species1.p.val.con}{Upper-tail hypergeometric p-value for
+\item{species1.neigh}{Number of neighbors of gene1 gene in net1}
+\item{species1.ortho.neigh}{Number of ortholog-mapped neighbors
+from net2, excluding the gene1 gene itself}
+\item{species1.neigh.overlap}{Intersection size}
+\item{species1.p_value_con}{Upper-tail hypergeometric p-value for
 conservation (direction 1); 1 when the overlap is 0 or 1}
-\item{Species1.p.val.div}{Lower-tail hypergeometric p-value for
+\item{species1.p_value_div}{Lower-tail hypergeometric p-value for
 divergence (direction 1)}
-\item{Species1.p.val.gt}{\eqn{P(X > x)}, ungated (direction 1)}
-\item{Species1.p.val.eq}{\eqn{P(X = x)} (direction 1)}
-\item{Species1.effect.size}{Fold enrichment (direction 1). Values > 1
+\item{species1.p_value_gt}{\eqn{P(X > x)}, ungated (direction 1)}
+\item{species1.p_value_eq}{\eqn{P(X = x)} (direction 1)}
+\item{species1.effect_size}{Fold enrichment (direction 1). Values > 1
 indicate conservation, < 1 indicate divergence.}
-\item{Species2.neigh}{Number of neighbors of Species2 gene in net2}
-\item{Species2.ortho.neigh}{Number of ortholog-mapped neighbors
-from net1, excluding the Species2 gene itself}
-\item{Species2.neigh.overlap}{Intersection size}
-\item{Species2.p.val.con}{Upper-tail hypergeometric p-value for
+\item{species2.neigh}{Number of neighbors of gene2 gene in net2}
+\item{species2.ortho.neigh}{Number of ortholog-mapped neighbors
+from net1, excluding the gene2 gene itself}
+\item{species2.neigh.overlap}{Intersection size}
+\item{species2.p_value_con}{Upper-tail hypergeometric p-value for
 conservation (direction 2); 1 when the overlap is 0 or 1}
-\item{Species2.p.val.div}{Lower-tail hypergeometric p-value for
+\item{species2.p_value_div}{Lower-tail hypergeometric p-value for
 divergence (direction 2)}
-\item{Species2.p.val.gt}{\eqn{P(X > x)}, ungated (direction 2)}
-\item{Species2.p.val.eq}{\eqn{P(X = x)} (direction 2)}
-\item{Species2.effect.size}{Fold enrichment (direction 2). Values > 1
+\item{species2.p_value_gt}{\eqn{P(X > x)}, ungated (direction 2)}
+\item{species2.p_value_eq}{\eqn{P(X = x)} (direction 2)}
+\item{species2.effect_size}{Fold enrichment (direction 2). Values > 1
 indicate conservation, < 1 indicate divergence.}
-\item{Species1.jaccard}{Jaccard index of neighborhood overlap
+\item{species1.jaccard}{Jaccard index of neighborhood overlap
 (direction 1): intersection / union of anchor and ortholog-mapped
 neighbors. Range \eqn{[0, 1]}.}
-\item{Species2.jaccard}{Jaccard index of neighborhood overlap
+\item{species2.jaccard}{Jaccard index of neighborhood overlap
 (direction 2).}
-\item{Species1.urn}{Hypergeometric population for direction 1:
+\item{species1.urn}{Hypergeometric population for direction 1:
 the number of genes in net1 less the anchor gene itself. Constant
 within a call. Downstream \code{power} uses it directly rather
 than reconstructing it from the effect sizes.}
-\item{Species2.urn}{Hypergeometric population for direction 2
+\item{species2.urn}{Hypergeometric population for direction 2
 (genes in net2 less the anchor). Differs from
-\code{Species1.urn} whenever the two networks differ in size.}
+\code{species1.urn} whenever the two networks differ in size.}
 }
 }
 \description{
@@ -71,11 +71,11 @@ against the set of species-1 orthologs of B's neighbours in net2 (size
 \eqn{k}); \eqn{x} is their intersection. The urn excludes the anchor
 gene: A is never its own neighbour, it is dropped from the mapped set,
 and the hypergeometric population is the other \eqn{N - 1} network
-genes. \code{Species1.p.val.con} is \eqn{P(X \ge x)} and keeps the gate of
+genes. \code{species1.p_value_con} is \eqn{P(X \ge x)} and keeps the gate of
 the original RComPlEx R Markdown (not the paper): it is reported as 1
-when \eqn{x \le 1}. \code{Species1.p.val.gt} (\eqn{P(X > x)}) and
-\code{Species1.p.val.eq} (\eqn{P(X = x)}) are ungated so that
-\code{p.val.gt + U * p.val.eq} is a randomized p-value, exactly uniform under
+when \eqn{x \le 1}. \code{species1.p_value_gt} (\eqn{P(X > x)}) and
+\code{species1.p_value_eq} (\eqn{P(X = x)}) are ungated so that
+\code{p_value_gt + U * p_value_eq} is a randomized p-value, exactly uniform under
 the null (used by \code{\link[=summarize_comparison]{summarize_comparison()}} to estimate pi0). The effect
 size \eqn{(x / k) / (m / (N - 1))} is computed for every \eqn{x}
 (1 when \eqn{m = 0} or \eqn{k = 0}). Direction 2 is symmetric.
@@ -116,9 +116,10 @@ expression matrices are restricted the same way before
 \dontrun{
 comparison <- compare_neighborhoods(net_A, net_B, orthologs)
 head(comparison[, c(
-  "Species1", "Species2", "hog",
-  "Species1.effect.size"
+  "gene1", "gene2", "hog",
+  "species1.effect_size"
 )])
 }
 
 }
+\keyword{internal}

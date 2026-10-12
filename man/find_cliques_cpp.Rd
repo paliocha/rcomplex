@@ -8,8 +8,8 @@ find_cliques_cpp(
   edge_hog,
   edge_g1,
   edge_g2,
-  edge_sp1,
-  edge_sp2,
+  edge_species1,
+  edge_species2,
   edge_qval,
   edge_eff,
   n_target_species,
@@ -29,9 +29,9 @@ find_cliques_cpp(
 
 \item{edge_g2}{0-based gene index for gene 2}
 
-\item{edge_sp1}{0-based species index for gene 1}
+\item{edge_species1}{0-based species index for gene 1}
 
-\item{edge_sp2}{0-based species index for gene 2}
+\item{edge_species2}{0-based species index for gene 2}
 
 \item{edge_qval}{q-value per edge}
 

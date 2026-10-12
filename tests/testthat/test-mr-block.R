@@ -23,7 +23,7 @@ test_that("mr_block matches the dense block for raw MR", {
   x <- make_mr_block_expr()
   net <- compute_network(x, density = 0.05, sparse = FALSE)
 
-  blk <- mr_block(x, mr_block_genes, net)
+  blk <- rcomplex:::mr_block(x, mr_block_genes, net)
   expect_equal(blk, as.matrix(net$network[mr_block_genes, mr_block_genes]),
     tolerance = 1e-8
   )
@@ -38,18 +38,20 @@ test_that("mr_block matches the dense block for log MR", {
     sparse = FALSE
   )
 
-  expect_equal(mr_block(x, mr_block_genes, net),
+  expect_equal(rcomplex:::mr_block(x, mr_block_genes, net),
     as.matrix(net$network[mr_block_genes, mr_block_genes]),
     tolerance = 1e-8
   )
 })
 
 
-test_that("mr_block matches the dense block with abs_cor", {
+test_that("mr_block matches the dense block for sign = \"negative\"", {
   x <- make_mr_block_expr()
-  net <- compute_network(x, density = 0.05, abs_cor = TRUE, sparse = FALSE)
+  net <- compute_network(x,
+    density = 0.05, sign = "negative", sparse = FALSE
+  )
 
-  expect_equal(mr_block(x, mr_block_genes, net),
+  expect_equal(rcomplex:::mr_block(x, mr_block_genes, net),
     as.matrix(net$network[mr_block_genes, mr_block_genes]),
     tolerance = 1e-8
   )
@@ -63,7 +65,7 @@ test_that("mr_block matches the dense block for Spearman", {
     sparse = FALSE
   )
 
-  expect_equal(mr_block(x, mr_block_genes, net),
+  expect_equal(rcomplex:::mr_block(x, mr_block_genes, net),
     as.matrix(net$network[mr_block_genes, mr_block_genes]),
     tolerance = 1e-8
   )
@@ -76,7 +78,7 @@ test_that("mr_block reconstructs sub-threshold values from a sparse network", {
   sp <- compute_network(x, density = 0.05)
   expect_s4_class(sp$network, "dgCMatrix")
 
-  blk <- mr_block(x, mr_block_genes, sp)
+  blk <- rcomplex:::mr_block(x, mr_block_genes, sp)
   expect_equal(blk, as.matrix(dense$network[mr_block_genes, mr_block_genes]),
     tolerance = 1e-8
   )
@@ -89,14 +91,14 @@ test_that("mr_block reconstructs sub-threshold values from a sparse network", {
 
 test_that("mr_block uses the network's gene universe, not x's rows", {
   x <- make_mr_block_expr()
-  # a constant gene is removed by the min_var filter -> the network's
+  # a constant gene is removed by the variance filter -> the network's
   # universe is smaller than x's rows; ranks must span network genes only
   x2 <- rbind(x, gz = rep(1, ncol(x)))
   net <- compute_network(x2, density = 0.05, sparse = FALSE)
   expect_equal(net$n_removed, 1L)
   expect_false("gz" %in% rownames(net$network))
 
-  expect_equal(mr_block(x2, mr_block_genes, net),
+  expect_equal(rcomplex:::mr_block(x2, mr_block_genes, net),
     as.matrix(net$network[mr_block_genes, mr_block_genes]),
     tolerance = 1e-8
   )
@@ -107,7 +109,7 @@ test_that("mr_block handles a single gene", {
   x <- make_mr_block_expr()
   net <- compute_network(x, density = 0.05, sparse = FALSE)
 
-  blk <- mr_block(x, "g05", net)
+  blk <- rcomplex:::mr_block(x, "g05", net)
   expect_equal(blk, matrix(0, 1, 1, dimnames = list("g05", "g05")))
 })
 
@@ -117,25 +119,32 @@ test_that("mr_block validates its inputs", {
   net <- compute_network(x, density = 0.05, sparse = FALSE)
 
   # gene not in the network
-  expect_error(mr_block(x, c("g03", "nope"), net), "nope")
+  expect_error(rcomplex:::mr_block(x, c("g03", "nope"), net), "nope")
 
   # duplicated genes
-  expect_error(mr_block(x, c("g03", "g03"), net), "duplicate")
+  expect_error(rcomplex:::mr_block(x, c("g03", "g03"), net), "duplicate")
 
   # x lacks a network gene (g01 is in the universe, not in the subset)
   expect_error(
-    mr_block(x[-1, , drop = FALSE], mr_block_genes, net),
+    rcomplex:::mr_block(x[-1, , drop = FALSE], mr_block_genes, net),
     "network gene"
   )
 
   # hand-built network without params
   bare <- list(network = net$network, threshold = net$threshold)
-  expect_error(mr_block(x, mr_block_genes, bare), "params")
+  expect_error(rcomplex:::mr_block(x, mr_block_genes, bare), "params")
 
   # CLR networks cannot be reconstructed by mutual ranks
   clr <- compute_network(x,
     density = 0.05, norm_method = "CLR",
     sparse = FALSE
   )
-  expect_error(mr_block(x, mr_block_genes, clr), "MR")
+  expect_error(rcomplex:::mr_block(x, mr_block_genes, clr), "MR")
+})
+
+test_that("mr_block refuses a partitioned network", {
+  x <- withr::with_seed(1L, matrix(stats::rnorm(120L), 12L))
+  rownames(x) <- paste0("g", seq_len(12L))
+  net <- compute_network(x, density = 0.1, partition = rep(1:2, each = 5L))
+  expect_error(rcomplex:::mr_block(x, c("g1", "g2"), net), "partition")
 })

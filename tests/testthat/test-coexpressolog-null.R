@@ -1,9 +1,7 @@
 # coexpressolog_null(): degree-preserving edge-swap null (P6).
 #
 # Uses the complex_py fixture data (sparse networks, ortholog-restricted
-# gene universe) with n_perm = 19 and fixed seeds. Settings passed through
-# `...` (pval_combine = "max", pi0_method = "none") are deterministic and
-# reproduce the canonical fixture calls in the observed run.
+# gene universe) with 100 permutations and fixed seeds.
 
 null_fx <- function(...) testthat::test_path("fixtures", "complex_py", ...)
 
@@ -24,13 +22,14 @@ load_null_fixture <- local({
       x
     }
     ortho <- read.delim(null_fx("ortho_pairs.tsv"), stringsAsFactors = FALSE)
+    names(ortho)[1:2] <- c("gene1", "gene2")  # fixture predates gene1/gene2
     x1 <- read_expr(null_fx("sp1_expr.tsv"))
     x2 <- read_expr(null_fx("sp2_expr.tsv"))
-    x1 <- x1[rownames(x1) %in% ortho$Species1, ]
-    x2 <- x2[rownames(x2) %in% ortho$Species2, ]
+    x1 <- x1[rownames(x1) %in% ortho$gene1, ]
+    x2 <- x2[rownames(x2) %in% ortho$gene2, ]
     networks <- list(
-      sp1 = compute_network(x1, density = 0.03, sparse = TRUE),
-      sp2 = compute_network(x2, density = 0.03, sparse = TRUE)
+      species1 = compute_network(x1, density = 0.03, sparse = TRUE),
+      species2 = compute_network(x2, density = 0.03, sparse = TRUE)
     )
     cache <<- list(networks = networks, ortho = ortho)
     cache
@@ -41,14 +40,14 @@ test_that("coexpressolog_null requires sparse networks", {
   d <- make_cmp_nets()
   nets_dense <- list(A = d$net1, B = d$net2)
   expect_error(
-    coexpressolog_null(nets_dense, d$ortho, n_perm = 2L),
-    "as_sparse_network"
+    coexpressolog_null(nets_dense, d$ortho),
+    "compute_network"
   )
   # mixed dense/sparse is rejected too
   nets_mixed <- list(A = sparse_net(d$net1), B = d$net2)
   expect_error(
-    coexpressolog_null(nets_mixed, d$ortho, n_perm = 2L),
-    "as_sparse_network"
+    coexpressolog_null(nets_mixed, d$ortho),
+    "compute_network"
   )
 })
 
@@ -59,14 +58,14 @@ test_that("swap_factor must be a finite positive number", {
   # its own null, silently.
   for (sf in list(NA_real_, NaN, -5, 0, Inf, c(1, 2), "10")) {
     expect_error(
-      coexpressolog_null(nets, d$ortho, n_perm = 2L, swap_factor = sf,
+      coexpressolog_null(nets, d$ortho, swap_factor = sf,
                          seed = 1L),
       "swap_factor must be a single finite number > 0"
     )
   }
 })
 
-test_that("every network is validated, even one outside species_pairs", {
+test_that("every network is validated", {
   d <- make_cmp_nets()
   nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
   wide <- nets$B
@@ -75,10 +74,7 @@ test_that("every network is validated, even one outside species_pairs", {
   # it, but the null still rewires it: a wide matrix would index past the
   # kernel's nrow x nrow bit matrix.
   expect_error(
-    coexpressolog_null(c(nets, list(C = wide)), d$ortho,
-      n_perm = 2L, seed = 1L, pi0_method = "none",
-      species_pairs = list(c("A", "B"))
-    ),
+    coexpressolog_null(c(nets, list(C = wide)), d$ortho, seed = 1L),
     "square"
   )
 })
@@ -95,8 +91,7 @@ test_that("the seed is validated up front, and only where it must be", {
   # permutation b derives its seed modulo 2^31 - 1, so nothing overflows.
   run_seed <- function(s) {
     suppressWarnings(coexpressolog_null(nets, d$ortho,
-      n_perm = 5L, seed = s,
-      pi0_method = "none", pval_combine = "max"
+      seed = s, pval_combine = "max"
     ))
   }
   expect_s3_class(run_seed(.Machine$integer.max), "data.frame")
@@ -118,17 +113,14 @@ test_that("the seed is validated up front, and only where it must be", {
 
 test_that("observed conserved calls exceed the rewired null", {
   d <- load_null_fixture()
-  # n_perm = 19 is the fixture's standard permutation count; the floor
-  # warning it triggers is covered by its own test, not this one
   res <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 19L, seed = 1L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = 1L,
+    pval_combine = "max"
   ))
 
   expect_s3_class(res, "data.frame")
   # one row per species pair plus the total
-  expect_identical(res$statistic, c("sp1~sp2", "total"))
+  expect_identical(res$statistic, c("species1~species2", "total"))
   expect_identical(
     names(res),
     c(
@@ -139,14 +131,14 @@ test_that("observed conserved calls exceed the rewired null", {
 
   total <- res[res$statistic == "total", ]
   expect_gt(total$observed, total$null_max)
-  expect_equal(total$p_emp, 1 / 20)
+  expect_equal(total$p_emp, 1 / 101)
   # two-species fixture: the pair row equals the total row
   expect_equal(res$observed[1], total$observed)
-  expect_equal(res$p_emp[1], 1 / 20)
+  expect_equal(res$p_emp[1], 1 / 101)
 
   null_mat <- attr(res, "null")
-  expect_identical(dim(null_mat), c(19L, 2L))
-  expect_identical(colnames(null_mat), c("sp1~sp2", "total"))
+  expect_identical(dim(null_mat), c(100L, 2L))
+  expect_identical(colnames(null_mat), c("species1~species2", "total"))
   expect_equal(res$null_mean, vapply(
     1:2, function(j) mean(null_mat[, j]),
     numeric(1)
@@ -161,13 +153,10 @@ test_that("shuffled orthologs give a non-significant null", {
   d <- load_null_fixture()
   ortho_shuf <- d$ortho
   set.seed(99)
-  ortho_shuf$Species2 <- sample(ortho_shuf$Species2)
-  # n_perm = 19 is the fixture's standard permutation count; the floor
-  # warning it triggers is covered by its own test, not this one
+  ortho_shuf$gene2 <- sample(ortho_shuf$gene2)
   res <- suppressWarnings(coexpressolog_null(
-    d$networks, ortho_shuf,
-    n_perm = 19L, seed = 1L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, ortho_shuf, seed = 1L,
+    pval_combine = "max"
   ))
   expect_gt(res$p_emp[res$statistic == "total"], 0.05)
 })
@@ -175,17 +164,13 @@ test_that("shuffled orthologs give a non-significant null", {
 test_that("n_cores = 2 reproduces the serial result", {
   skip_if(.Platform$OS.type != "unix")
   d <- load_null_fixture()
-  # n_perm = 5 is below the 19 the p < 0.05 floor needs; that warning is
-  # not what this test is about
   res1 <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 5L, seed = 7L, n_cores = 1L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = 7L, n_cores = 1L,
+    pval_combine = "max"
   ))
   res2 <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 5L, seed = 7L, n_cores = 2L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = 7L, n_cores = 2L,
+    pval_combine = "max"
   ))
   expect_equal(res1, res2)
 })
@@ -193,12 +178,9 @@ test_that("n_cores = 2 reproduces the serial result", {
 
 test_that("the effective seed is recorded, and it replays the run", {
   d <- load_null_fixture()
-  # n_perm = 19 is the fixture's standard permutation count; the floor
-  # warning it triggers is covered by its own test, not this one
   seeded <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 19L, seed = 4L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = 4L,
+    pval_combine = "max"
   ))
   expect_identical(attr(seeded, "seed"), 4L)
 
@@ -208,8 +190,7 @@ test_that("the effective seed is recorded, and it replays the run", {
   msgs <- capture_messages(
     unseeded <- suppressWarnings(coexpressolog_null(
       d$networks, d$ortho,
-      n_perm = 19L,
-      pval_combine = "max", pi0_method = "none"
+      pval_combine = "max"
     ))
   )
   drawn <- attr(unseeded, "seed")
@@ -219,9 +200,8 @@ test_that("the effective seed is recorded, and it replays the run", {
   expect_match(paste(msgs, collapse = ""), paste0("\\b", drawn, "\\b"))
 
   replay <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 19L, seed = drawn,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = drawn,
+    pval_combine = "max"
   ))
   expect_equal(replay, unseeded)
 })
@@ -229,12 +209,9 @@ test_that("the effective seed is recorded, and it replays the run", {
 
 test_that("the Monte Carlo columns are what they claim", {
   d <- load_null_fixture()
-  # n_perm = 19 is the fixture's standard permutation count; the floor
-  # warning it triggers is covered by its own test, not this one
   res <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 19L, seed = 1L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = 1L,
+    pval_combine = "max"
   ))
   null_mat <- attr(res, "null")
   n_ge <- vapply(
@@ -242,73 +219,15 @@ test_that("the Monte Carlo columns are what they claim", {
     function(j) sum(null_mat[, j] >= res$observed[j]), integer(1)
   )
   expect_identical(res$n_ge, n_ge)
-  expect_equal(res$p_emp, (res$n_ge + 1) / 20)
-  expect_equal(res$null_se, res$null_sd / sqrt(19))
+  expect_equal(res$p_emp, (res$n_ge + 1) / 101)
+  expect_equal(res$null_se, res$null_sd / sqrt(100))
   # no null draw reaches the observed value here, so the lower endpoint is
   # 0 by definition rather than by qbeta(), whose first shape would be 0
   expect_identical(res$n_ge, c(0L, 0L))
   expect_equal(res$p_emp_lo, c(0, 0))
-  expect_equal(res$p_emp_hi, rep(stats::qbeta(0.975, 1, 19), 2))
+  expect_equal(res$p_emp_hi, rep(stats::qbeta(0.975, 1, 100), 2))
 })
 
-
-
-test_that("a p_emp whose interval still covers 0.05 is flagged", {
-  d <- load_null_fixture()
-  # n_perm = 20 puts p_emp = 1/21 = 0.0476 just under 0.05 while the exact
-  # interval on the exceedance probability reaches 0.168, so the call
-  # rests on the seed rather than on the data
-  expect_warning(
-    coexpressolog_null(
-      d$networks, d$ortho,
-      n_perm = 20L, seed = 1L,
-      pval_combine = "max", pi0_method = "none"
-    ),
-    "cannot be separated from non-significance"
-  )
-  # at n_perm = 19 the same run gives p_emp = 1/20 = 0.05 exactly, which
-  # is not below 0.05 -- the smallest attainable p_emp can never satisfy
-  # p < 0.05, so this falls into the "unreachable" warning, not "flagged"
-  expect_warning(
-    coexpressolog_null(
-      d$networks, d$ortho,
-      n_perm = 19L, seed = 1L,
-      pval_combine = "max", pi0_method = "none"
-    ),
-    "unreachable for any signal \\(use n_perm >= 20\\)"
-  )
-})
-
-
-test_that("neighbouring seeds do not share rewirings", {
-  d <- make_cmp_nets()
-  nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
-  # The conserved count is 0 in nearly every rewiring of these networks,
-  # which is far too coarse to tell one rewiring from another. Summing the
-  # Jaccard column gives a continuous statistic instead, so two runs
-  # agreeing on it means they really did rewire the same way.
-  total_jaccard <- function(edges) {
-    if (is.null(edges) || nrow(edges) == 0L) {
-      return(c(total = 0))
-    }
-    c(total = sum(edges$jaccard))
-  }
-  run <- function(s) {
-    attr(suppressWarnings(coexpressolog_null(
-      nets, d$ortho,
-      statistic = total_jaccard, n_perm = 6L, seed = s,
-      pval_combine = "max", pi0_method = "none"
-    )), "null")
-  }
-  n1 <- run(1L)
-  n2 <- run(2L)
-  # set.seed(seed + b) made the null at seed 2 the null at seed 1 shifted
-  # by one permutation, so "try another seed" reused all but one rewiring:
-  # measured identical() TRUE on this fixture under that scheme, and equal
-  # in 0 of 5 shifted rows under the per-task derivation
-  expect_false(identical(n1[2:6, ], n2[1:5, ]))
-  expect_false(any(n1[2:6, ] == n2[1:5, ]))
-})
 
 
 # Tiny matched-networks fixture for the missing-pair and RNG-state tests:
@@ -329,8 +248,8 @@ make_match_nets <- function() {
   list(
     networks = list(A = sparse_net(mk("A")), B = sparse_net(mk("B"))), # nolint
     ortho = data.frame(
-      Species1 = paste0("A", 1:8),
-      Species2 = paste0("B", 1:8),
+      gene1 = paste0("A", 1:8),
+      gene2 = paste0("B", 1:8),
       hog = paste0("H", 1:8),
       stringsAsFactors = FALSE
     )
@@ -343,27 +262,13 @@ test_that("the interval endpoints hold when every draw exceeds", {
   # matched networks give 0 conserved calls observed and in every
   # permutation, so n_ge == n_perm and the upper endpoint is 1
   res <- suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 6L, seed = 1L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = 1L,
+    pval_combine = "max"
   ))
-  expect_identical(res$n_ge, c(6L, 6L))
+  expect_identical(res$n_ge, c(100L, 100L))
   expect_equal(res$p_emp, rep(1, 2))
   expect_equal(res$p_emp_hi, rep(1, 2))
-  expect_equal(res$p_emp_lo, rep(stats::qbeta(0.025, 6, 1), 2))
-})
-
-
-test_that("n_perm below 19 warns that p < 0.05 is unreachable", {
-  d <- make_match_nets()
-  expect_warning(
-    coexpressolog_null(
-      d$networks, d$ortho,
-      n_perm = 6L, seed = 1L,
-      pval_combine = "max", pi0_method = "none"
-    ),
-    "smallest attainable p-value of 0.143"
-  )
+  expect_equal(res$p_emp_lo, rep(stats::qbeta(0.025, 100, 1), 2))
 })
 
 
@@ -372,9 +277,8 @@ test_that(
   {
     d <- make_match_nets()
     res <- suppressWarnings(coexpressolog_null(
-      d$networks, d$ortho,
-      n_perm = 6L, seed = 1L,
-      pval_combine = "max", pi0_method = "none"
+      d$networks, d$ortho, seed = 1L,
+      pval_combine = "max"
     ))
     expect_identical(res$statistic, c("A~B", "total"))
     null_mat <- attr(res, "null")
@@ -385,79 +289,19 @@ test_that(
 )
 
 
-test_that("a user statistic missing a name still errors", {
-  d <- make_match_nets()
-  per_pair <- function(edges) {
-    if (is.null(edges) || nrow(edges) == 0L) {
-      return(c(total = 0))
-    }
-    pair <- paste(edges$species1, edges$species2, sep = "~")
-    counts <- vapply(
-      split(edges$type == "conserved", pair), sum,
-      numeric(1)
-    )
-    c(counts, total = sum(counts))
-  }
-  expect_error(
-    coexpressolog_null(d$networks, d$ortho,
-      statistic = per_pair,
-      n_perm = 6L, seed = 1L,
-      pval_combine = "max", pi0_method = "none"
-    ),
-    "statistic is missing"
-  )
-})
-
-
 test_that("the serial path restores the caller's RNG state", {
   d <- make_match_nets()
   set.seed(11)
   before <- runif(5)
   set.seed(11)
   invisible(suppressWarnings(coexpressolog_null(
-    d$networks, d$ortho,
-    n_perm = 2L, seed = 3L,
-    pval_combine = "max", pi0_method = "none"
+    d$networks, d$ortho, seed = 3L,
+    pval_combine = "max"
   )))
   after <- runif(5)
   # the per-permutation set.seed() inside the serial loop must not leak:
   # the caller's stream continues exactly where the observed run left it
   expect_equal(after, before)
-})
-
-
-test_that("an NA null statistic reports NA instead of aborting the run", {
-  # A user statistic may be undefined on some permutation -- mean() over a
-  # rewiring that called nothing conserved is NaN. The Monte Carlo
-  # diagnostics must carry that through as NA; before they were NA-safe,
-  # `if (any(weak))` saw NA and the whole run died with
-  # "missing value where TRUE/FALSE needed".
-  d <- make_cmp_nets()
-  nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
-  stat_na <- function(edges) {
-    keep <- edges$type == "conserved"
-    c(total = mean(edges$jaccard[keep]))
-  }
-  res <- expect_silent(
-    suppressWarnings(
-      coexpressolog_null(nets, d$ortho,
-        n_perm = 19L, statistic = stat_na, seed = 11L
-      )
-    )
-  )
-  expect_s3_class(res, "data.frame")
-  expect_true(all(c("n_ge", "null_se", "p_emp_lo", "p_emp_hi") %in%
-                    names(res)))
-  # This fixture must actually exercise the NA path -- otherwise the
-  # assertions below pass vacuously and the regression they guard against
-  # (NA reaching `if (any(weak))`) goes unexercised.
-  na_rows <- is.na(res$n_ge)
-  expect_true(any(na_rows))
-  # An NA row must stay NA on every derived column rather than being
-  # scored as significant.
-  expect_true(all(is.na(res$p_emp[na_rows])))
-  expect_true(all(is.na(res$p_emp_lo[na_rows])))
-  expect_true(all(is.na(res$p_emp_hi[na_rows])))
 })
 
 
@@ -615,16 +459,16 @@ test_that("the rewiring kernel validates the dgCMatrix slots it reads", {
   bad <- a
   bad@i[1L] <- 100L # row index outside 6 x 6; slot assignment skips validity
   expect_error(.rewire_degseq(bad, 10), "row indices must be strictly")
-  # ... and through coexpressolog_null(), for a network that species_pairs
-  # keeps out of the observed run, which .net_check() alone let through
+  # ... and through coexpressolog_null(), for a network that .net_check()
+  # alone lets through
   d <- make_cmp_nets()
   nets <- lapply(list(A = d$net1, B = d$net2), sparse_net)
   broken <- nets$B
   broken$network@i[which(broken$network@i > 0L)[1L]] <- 100000L
+  # the observed run now includes C and warns that its pairs fail
   expect_error(
-    coexpressolog_null(c(nets, list(C = broken)), d$ortho,
-      n_perm = 2L, seed = 1L, pi0_method = "none",
-      species_pairs = list(c("A", "B"))
+    suppressWarnings(
+      coexpressolog_null(c(nets, list(C = broken)), d$ortho, seed = 1L)
     ),
     "row indices must be strictly"
   )

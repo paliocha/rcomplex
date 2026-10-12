@@ -13,14 +13,13 @@ compute_network(x, ...)
   cor_method = c("pearson", "spearman"),
   norm_method = c("MR", "CLR"),
   density = 0.03,
-  abs_cor = FALSE,
+  sign = c("positive", "negative"),
   mr_log_transform = FALSE,
-  min_var = 0,
   sparse = TRUE,
   store_density = NULL,
   n_cores = 1L,
-  use_torch = FALSE,
-  block_size = NULL
+  block_size = NULL,
+  partition = NULL
 )
 
 \S4method{compute_network}{SummarizedExperiment}(x, assay = 1L, ...)
@@ -39,18 +38,15 @@ names as gene identifiers, or a
 
 \item{density}{Fraction of top edges to keep (default 0.03 = 3\%).}
 
-\item{abs_cor}{If \code{TRUE}, take absolute value of correlations before
-normalization (default \code{FALSE}).}
+\item{sign}{\code{"positive"} (default) ranks the strongest positive
+correlations first. \code{"negative"} negates every correlation between
+two genes before normalization, so the strongest anticorrelations
+rank first. With \code{partition}, the function negates the correlation
+of each level before it sets negative values to zero.}
 
 \item{mr_log_transform}{If \code{FALSE} (default), use the raw MR formula
 matching the original RComPlEx R Markdown. If \code{TRUE}, use Obayashi &
 Kinoshita (2009) log-normalized formula (values in [0,1]).}
-
-\item{min_var}{Minimum row variance threshold. Genes with variance below
-this value are removed before computing correlations. Default \code{0} removes
-only constant genes (zero variance). Set to a positive value (e.g. \code{1e-3})
-to also remove near-invariant genes that produce noisy correlations.
-Set to \code{NULL} to disable filtering entirely.}
 
 \item{sparse}{If \code{TRUE} (default), return the network as a sparse
 \code{Matrix::dgCMatrix} holding both triangles of the thresholded
@@ -61,20 +57,10 @@ return the dense matrix as in rcomplex < 0.2.0.}
 \item{store_density}{Fraction of top edges to keep in the sparse store
 (default \code{NULL} = \code{max(density, 0.05)}). Must satisfy
 \verb{density <= store_density < 1}; the margin above \code{density} lets
-downstream sweeps loosen the threshold (e.g. \code{\link[=density_sweep]{density_sweep()}})
+downstream sweeps loosen the threshold (e.g. \code{density_sweep()})
 without recomputing the network. Only valid with \code{sparse = TRUE}.}
 
 \item{n_cores}{Number of threads for parallel computation (default 1).}
-
-\item{use_torch}{If \code{TRUE}, use torch for GPU-accelerated correlation
-(CUDA, MPS, or CPU fallback). Requires the
-\href{https://torch.mlverse.org/}{torch} package. Default \code{FALSE}.
-On Apple Silicon (MPS), torch uses float32 because Metal does not support
-float64. Pearson correlation is accurate to ~1e-7, but Spearman + MR
-normalization can exhibit rank-swap artifacts. For exact Spearman + MR on
-MPS, keep \code{use_torch = FALSE} here and use
-\code{\link{permutation_hog_test}(use_torch = TRUE)} for the permutation
-speedup instead. On CUDA, float64 is used with no precision tradeoff.}
 
 \item{block_size}{\code{NULL} (default) builds the dense n x n matrix first.
 A positive whole number builds the network a block of genes at a
@@ -94,8 +80,8 @@ only in the last bits can be ranked in the other order, shifting an MR
 value. With \code{cor_method = "spearman"} and few samples, correlations
 that are equal as rationals are common and may round apart, so the
 result can then differ from the dense build in many entries and
-between block sizes. Requires \code{sparse = TRUE}, \code{norm_method = "MR"} and
-\code{use_torch = FALSE}. With \code{mr_log_transform = TRUE} a pair is kept
+between block sizes. Requires \code{sparse = TRUE} and \code{norm_method = "MR"}.
+With \code{mr_log_transform = TRUE} a pair is kept
 when either gene ranks the other in its top 10\% (twice
 \code{store_density}) and a second correlation pass reads the other rank;
 on the same data peak memory was 1.7 GB against 5.1 GB dense in
@@ -103,6 +89,14 @@ on the same data peak memory was 1.7 GB against 5.1 GB dense in
 pairs complete the fraction widens and a message says so; peak memory
 grows with it (for log MR it can exceed the dense build), and at all
 pairs the build saves no memory.}
+
+\item{partition}{\code{NULL} (default), or a per-sample factor of length
+\code{ncol(x)} without \code{NA}, such as tissue or study. The function
+computes the correlation within each level. It sets negative
+correlations to zero and takes the mean over the levels. Then it
+normalises the result. The function drops levels with fewer than 5
+samples and tells you which. At least two levels must remain.
+Use the dense build: \code{block_size} must be \code{NULL}.}
 
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
@@ -119,9 +113,13 @@ entries at or above \code{store_threshold} (diagonal absent) when
 \item{threshold}{The co-expression threshold at the given density,
 equal to that of the full dense matrix in every mode.}
 \item{n_genes}{Number of genes in the network.}
-\item{n_removed}{Number of genes removed by variance filter (0 if
-\code{min_var} is \code{NULL}).}
-\item{params}{List of parameters used.}
+\item{n_removed}{Number of constant genes removed before computing
+correlations.}
+\item{params}{List of parameters used. It holds \code{partition} when
+you give one. \code{r_threshold} is the weakest correlation of an edge:
+the smallest for \code{sign = "positive"}, the largest for
+\code{"negative"}. With \code{partition} it is the rectified mean over the
+levels, negated for \code{"negative"}. It is \code{NA} when no pair passes.}
 \item{store_density, store_threshold}{Sparse networks only: the
 stored edge fraction and the value cutoff of the store. Analyses
 at thresholds below \code{store_threshold} are refused (see
@@ -134,6 +132,15 @@ and determines a density-based co-expression threshold. Accepts either
 a numeric matrix or a
 \code{\link[SummarizedExperiment]{SummarizedExperiment}}.
 }
+\details{
+With \code{sign = "negative"} a gene keeps its own correlation of 1, so it
+ranks itself first in both signs. Negative correlations are rarer and
+weaker than positive ones in RNA-seq data. The density threshold still
+keeps the top fraction of pairs, so a negative network exists at any
+sample size even when it holds only noise: at n = 20 samples, r >= -0.3
+is noise. Check the weakest correlation that passed the threshold
+before you read a negative network.
+}
 \section{Gene universe}{
 
 Networks are built on all supplied genes and downstream tests use the
@@ -142,7 +149,7 @@ The canonical ComPlEx implementations restrict the expression tables to
 genes with an ortholog before building the networks, which changes
 neighbourhoods, thresholds and calls; rcomplex reproduces them only when
 the expression matrices are restricted the same way first (see
-\code{\link[=compare_neighborhoods]{compare_neighborhoods()}}).
+\code{compare_neighborhoods()}).
 }
 
 \section{Reconstructing sub-threshold values}{

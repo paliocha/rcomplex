@@ -1,4 +1,4 @@
-# Tests for detect_modules() (single, consensus, K = 1)
+# Tests for detect_modules() (single, consensus)
 
 # Helper: build two test networks with clear module structure and orthologs
 make_module_test_data <- function() {
@@ -14,10 +14,10 @@ make_module_test_data <- function() {
   # Module 2 (genes 11-20): conserved in both species
   mat1[11:20, 11:20] <- mat2[11:20, 11:20] <- 0.9
 
-  # Module 3 in sp1 only (genes 21-25)
+  # Module 3 in species1 only (genes 21-25)
   mat1[21:25, 21:25] <- 0.9
 
-  # Module 3 in sp2 is different genes (26-30)
+  # Module 3 in species2 is different genes (26-30)
   mat2[26:30, 26:30] <- 0.9
 
   diag(mat1) <- diag(mat2) <- 1
@@ -27,8 +27,8 @@ make_module_test_data <- function() {
 
   # 1:1 orthologs for genes 1-20; no orthologs for 21-30
   orthologs <- data.frame(
-    Species1 = paste0("A", 1:20),
-    Species2 = paste0("B", 1:20),
+    gene1 = paste0("A", 1:20),
+    gene2 = paste0("B", 1:20),
     hog = paste0("HOG", 1:20),
     stringsAsFactors = FALSE
   )
@@ -41,7 +41,6 @@ make_module_test_data <- function() {
 test_that("detect_modules returns correct structure", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     objective_function = "modularity", seed = 42
   )
 
@@ -59,7 +58,6 @@ test_that("detect_modules returns correct structure", {
 test_that("detect_modules assigns all genes", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     objective_function = "modularity", seed = 42
   )
 
@@ -74,7 +72,6 @@ test_that("detect_modules assigns all genes", {
 test_that("detect_modules module_genes is consistent with modules", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     objective_function = "modularity", seed = 42
   )
 
@@ -91,7 +88,6 @@ test_that("detect_modules module_genes is consistent with modules", {
 test_that("detect_modules finds expected modules", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     objective_function = "modularity", seed = 42
   )
 
@@ -102,71 +98,6 @@ test_that("detect_modules finds expected modules", {
   expect_equal(length(unique(mods_11_20)), 1)
 
   expect_true(unique(mods_1_10) != unique(mods_11_20))
-})
-
-
-test_that("detect_modules works with infomap", {
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1, method = "infomap", seed = 42)
-
-  expect_equal(result$method, "infomap")
-  expect_true(result$n_modules >= 2)
-  expect_equal(length(result$modules), nrow(td$net1$network))
-})
-
-
-test_that("detect_modules infomap finds expected modules", {
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1, method = "infomap", seed = 42)
-
-  mods_1_10 <- result$modules[paste0("A", 1:10)]
-  expect_equal(length(unique(mods_1_10)), 1)
-
-  mods_11_20 <- result$modules[paste0("A", 11:20)]
-  expect_equal(length(unique(mods_11_20)), 1)
-
-  expect_true(unique(mods_1_10) != unique(mods_11_20))
-})
-
-
-test_that("detect_modules works with sbm", {
-  skip_if_not_installed("sbm")
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1, method = "sbm", seed = 42)
-
-  expect_equal(result$method, "sbm")
-  expect_true(result$n_modules >= 2)
-  expect_equal(length(result$modules), nrow(td$net1$network))
-  expect_true(igraph::is_igraph(result$graph))
-  expect_true(!is.null(result$params$ICL))
-})
-
-
-test_that("detect_modules sbm finds expected modules", {
-  skip_if_not_installed("sbm")
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1, method = "sbm", seed = 42)
-
-  mods_1_10 <- result$modules[paste0("A", 1:10)]
-  expect_equal(length(unique(mods_1_10)), 1)
-
-  mods_11_20 <- result$modules[paste0("A", 11:20)]
-  expect_equal(length(unique(mods_11_20)), 1)
-
-  expect_true(unique(mods_1_10) != unique(mods_11_20))
-})
-
-
-test_that("detect_modules sbm requires sbm package", {
-  skip_if(
-    requireNamespace("sbm", quietly = TRUE),
-    "sbm is installed; cannot test missing-package error"
-  )
-  td <- make_module_test_data()
-  expect_error(
-    detect_modules(td$net1, method = "sbm"),
-    "Package 'sbm' is required"
-  )
 })
 
 
@@ -188,14 +119,13 @@ test_that("detect_modules errors on no edges", {
   diag(mat) <- 1
   net <- list(network = mat, threshold = 0.5)
 
-  expect_error(detect_modules(net), "No edges above threshold")
+  expect_error(detect_modules(net), "no edge above its threshold")
 })
 
 
 test_that("detect_modules modularity is numeric", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     objective_function = "modularity", seed = 42
   )
   expect_true(is.numeric(result$modularity))
@@ -205,11 +135,9 @@ test_that("detect_modules modularity is numeric", {
 test_that("detect_modules seed produces reproducible results", {
   td <- make_module_test_data()
   r1 <- detect_modules(td$net1,
-    method = "leiden",
     objective_function = "modularity", seed = 123
   )
   r2 <- detect_modules(td$net1,
-    method = "leiden",
     objective_function = "modularity", seed = 123
   )
   expect_identical(r1$modules, r2$modules)
@@ -223,10 +151,8 @@ test_that(
   {
     td <- make_module_test_data()
     result <- detect_modules(td$net1,
-      method = "leiden",
       resolution = seq(0.5, 2.0, by = 0.5),
-      objective_function = "modularity", seed = 42,
-      test_k1 = FALSE
+      objective_function = "modularity", seed = 42
     )
 
     expect_type(result, "list")
@@ -251,10 +177,8 @@ test_that(
 test_that("consensus detect_modules finds correct partition", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   # Genes 1-10 should be in the same module
@@ -274,10 +198,8 @@ test_that("consensus resolution_scan has correct dimensions and columns", {
   td <- make_module_test_data()
   resolutions <- seq(0.5, 2.0, by = 0.5)
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = resolutions,
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   expect_s3_class(result$resolution_scan, "data.frame")
@@ -295,10 +217,8 @@ test_that("consensus resolution_scan has correct dimensions and columns", {
 test_that("consensus resolution_scan ari_next values are valid", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   ari_vals <- result$resolution_scan$ari_next
@@ -313,7 +233,6 @@ test_that(
   {
     td <- make_module_test_data()
     result <- detect_modules(td$net1,
-      method = "leiden",
       resolution = 1.0,
       objective_function = "modularity", seed = 42
     )
@@ -328,38 +247,23 @@ test_that(
 test_that("consensus detect_modules returns method leiden_consensus", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   expect_equal(result$method, "leiden_consensus")
 })
 
 
-test_that("consensus mode errors for non-leiden methods", {
-  td <- make_module_test_data()
-  expect_error(
-    detect_modules(td$net1, method = "infomap", resolution = c(0.5, 1.0)),
-    "Consensus mode"
-  )
-})
-
-
 test_that("consensus detect_modules is reproducible with same seed", {
   td <- make_module_test_data()
   r1 <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
   r2 <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   expect_identical(r1$modules, r2$modules)
@@ -369,7 +273,6 @@ test_that("consensus detect_modules is reproducible with same seed", {
 test_that("single-element vector resolution behaves like scalar", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = c(1.0),
     objective_function = "modularity", seed = 42
   )
@@ -380,43 +283,11 @@ test_that("single-element vector resolution behaves like scalar", {
 })
 
 
-test_that("consensus_threshold validation rejects 0 and 1", {
-  td <- make_module_test_data()
-  expect_error(
-    detect_modules(td$net1,
-      resolution = c(0.5, 1.0),
-      consensus_threshold = 0
-    ),
-    "(0, 1)",
-    fixed = TRUE
-  )
-  expect_error(
-    detect_modules(td$net1,
-      resolution = c(0.5, 1.0),
-      consensus_threshold = 1
-    ),
-    "(0, 1)",
-    fixed = TRUE
-  )
-  # NULL (adaptive) should NOT error
-  expect_no_error(
-    detect_modules(td$net1,
-      resolution = c(0.5, 1.0),
-      consensus_threshold = NULL,
-      objective_function = "modularity", seed = 42,
-      test_k1 = FALSE
-    )
-  )
-})
-
-
 test_that("consensus graph is original network not co-classification graph", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   expect_true(igraph::is_igraph(result$graph))
@@ -429,10 +300,8 @@ test_that("consensus graph is original network not co-classification graph", {
 test_that("consensus diagnostics in resolution_scan and params", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   # resolution_scan has expected_coclassification column
@@ -463,10 +332,8 @@ test_that("adaptive threshold avoids single-module collapse", {
   # Broad resolution range that would collapse to 1 module with fixed 0.5
 
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.1, 5, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   # Adaptive threshold should preserve module structure
@@ -474,63 +341,11 @@ test_that("adaptive threshold avoids single-module collapse", {
 })
 
 
-test_that("fixed consensus_threshold still works", {
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1,
-    method = "leiden",
-    resolution = seq(0.5, 2.0, by = 0.5),
-    consensus_threshold = 0.3,
-    objective_function = "modularity", seed = 42
-  )
-
-  # Returns a valid partition
-  expect_true(result$n_modules >= 1)
-  expect_equal(length(result$modules), nrow(td$net1$network))
-  expect_equal(result$method, "leiden_consensus")
-
-  # Fixed threshold: n_consensus_iterations should be 0
-  expect_equal(result$params$n_consensus_iterations, 0L)
-})
-
-
-test_that("adaptive and fixed threshold can produce different results", {
-  td <- make_module_test_data()
-  resolutions <- seq(0.1, 5, by = 0.5)
-
-  # Adaptive (default NULL)
-  adaptive <- detect_modules(td$net1,
-    method = "leiden",
-    resolution = resolutions,
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
-  )
-
-  # Fixed 0.5
-  fixed <- detect_modules(td$net1,
-    method = "leiden",
-    resolution = resolutions,
-    consensus_threshold = 0.5,
-    objective_function = "modularity", seed = 42
-  )
-
-  # Both return valid structures
-  expect_equal(length(adaptive$modules), nrow(td$net1$network))
-  expect_equal(length(fixed$modules), nrow(td$net1$network))
-  expect_true(adaptive$n_modules >= 1)
-  expect_true(fixed$n_modules >= 1)
-
-  # Adaptive should generally find more modules than fixed 0.5 on broad range
-  expect_true(adaptive$n_modules >= fixed$n_modules)
-})
-
-
 test_that("expected_coclassification relates to module granularity", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 3.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   scan <- result$resolution_scan
@@ -553,10 +368,8 @@ test_that("expected_coclassification relates to module granularity", {
 test_that("iterative consensus converges in few iterations", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   # Should converge (n_consensus_iterations >= 1)
@@ -570,10 +383,9 @@ test_that("max_consensus_iter parameter is respected", {
   td <- make_module_test_data()
   # With max_consensus_iter = 1, only one iteration
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
     objective_function = "modularity", seed = 42,
-    max_consensus_iter = 1L, test_k1 = FALSE
+    max_consensus_iter = 1L
   )
 
   expect_equal(result$params$n_consensus_iterations, 1L)
@@ -600,10 +412,8 @@ test_that("consensus iteration recovers planted partition", {
 
   # Run consensus with broad CPM resolution range
   result <- detect_modules(net,
-    method = "leiden",
     resolution = seq(0.1, 3.0, by = 0.3),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   # Should find approximately 5 modules
@@ -669,125 +479,12 @@ test_that("build_sparse_coclassification_cpp matches dense on original edges", {
 test_that("sparse consensus produces modules", {
   td <- make_module_test_data()
   result <- detect_modules(td$net1,
-    method = "leiden",
     resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
+    objective_function = "modularity", seed = 42
   )
 
   expect_true(result$n_modules > 1)
   expect_equal(result$method, "leiden_consensus")
   expect_equal(length(result$modules), nrow(td$net1$network))
   expect_true(all(names(td$net1$network[, 1]) %in% names(result$modules)))
-})
-
-
-test_that("sparse_excess_spectral_norm_cpp returns non-negative scalar", {
-  set.seed(42)
-  n <- 20
-  mat <- matrix(0, n, n)
-  rownames(mat) <- colnames(mat) <- paste0("G", seq_len(n))
-  mat[1:10, 1:10] <- 0.8
-  mat[11:20, 11:20] <- 0.8
-  diag(mat) <- 1
-
-  adj <- mat
-  adj[adj < 0.3] <- 0
-  g <- igraph::graph_from_adjacency_matrix(
-    adj,
-    mode = "upper", weighted = TRUE, diag = FALSE
-  )
-
-  memberships <- lapply(c(0.5, 1.0, 1.5), function(res) {
-    comm <- igraph::cluster_leiden(g,
-      resolution = res,
-      objective_function = "modularity",
-      n_iterations = 2L
-    )
-    mem <- igraph::membership(comm)
-    names(mem) <- igraph::V(g)$name
-    mem
-  })
-
-  el_0 <- igraph::as_edgelist(g, names = FALSE) - 1L
-  storage.mode(el_0) <- "integer"
-  lambda <- sparse_excess_spectral_norm_cpp(memberships, n, el_0)
-
-  expect_true(is.numeric(lambda))
-  expect_equal(length(lambda), 1L)
-  expect_true(lambda >= 0)
-})
-
-
-# ---- K = 1 community structure tests ----
-
-test_that("K = 1 test rejects structure on Erdos-Renyi graph", {
-  skip_on_cran()
-
-  set.seed(123)
-  n <- 50
-  g_er <- igraph::sample_gnp(n, p = 0.1, directed = FALSE)
-  igraph::V(g_er)$name <- paste0("G", seq_len(n))
-  igraph::E(g_er)$weight <- stats::runif(igraph::ecount(g_er), 0.3, 1.0)
-
-  adj <- igraph::as_adjacency_matrix(g_er, attr = "weight", sparse = FALSE)
-  net <- list(network = adj, threshold = 0.01)
-
-  result <- detect_modules(net,
-    method = "leiden",
-    resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = TRUE, n_perm_k1 = 100L
-  )
-
-  expect_equal(result$n_modules, 1L)
-  expect_true(!is.null(result$k1_test))
-  expect_true(result$k1_test$p_value > 0.05)
-  # No-structure early stop: should stop before 100 perms
-  expect_true(result$k1_test$n_perm_completed < 100L)
-  expect_equal(
-    length(result$k1_test$lambda_null),
-    result$k1_test$n_perm_completed
-  )
-})
-
-
-test_that("K = 1 test accepts structure on planted partition", {
-  skip_on_cran()
-
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1,
-    method = "leiden",
-    resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = TRUE, n_perm_k1 = 100L
-  )
-
-  expect_true(result$n_modules > 1)
-  expect_true(!is.null(result$k1_test))
-  expect_true(result$k1_test$p_value < 0.05)
-  # A significant call spends the whole budget: any one permutation still
-  # owed could exceed lambda_obs, so only an exhausted budget settles it
-  # (R/modules.R .k1_settled()). Early stopping is for the other direction.
-  expect_identical(result$k1_test$n_perm_completed, 100L)
-  expect_equal(
-    length(result$k1_test$lambda_null),
-    result$k1_test$n_perm_completed
-  )
-})
-
-
-test_that("test_k1 = FALSE skips the K = 1 test", {
-  td <- make_module_test_data()
-  result <- detect_modules(td$net1,
-    method = "leiden",
-    resolution = seq(0.5, 2.0, by = 0.5),
-    objective_function = "modularity", seed = 42,
-    test_k1 = FALSE
-  )
-
-  expect_null(result$k1_test)
-  expect_equal(length(result), 8L)
-  expect_true(result$n_modules >= 1)
-  expect_equal(result$method, "leiden_consensus")
 })

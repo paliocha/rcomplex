@@ -50,8 +50,8 @@ pres_fixture <- function() {
       store_density = 0.03
     ),
     ortho = data.frame(
-      Species1 = paste0("A", sprintf("%04d", seq_len(n_map))),
-      Species2 = paste0("B", sprintf("%04d", seq_len(n_map))),
+      gene1 = paste0("A", sprintf("%04d", seq_len(n_map))),
+      gene2 = paste0("B", sprintf("%04d", seq_len(n_map))),
       hog = paste0("H", seq_len(n_map)),
       stringsAsFactors = FALSE
     ),

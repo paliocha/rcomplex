@@ -9,8 +9,8 @@ summarize_comparison(
   alternative = c("greater", "less"),
   alpha = 0.1,
   filter_zero = NULL,
-  sp1 = NULL,
-  sp2 = NULL,
+  species1 = NULL,
+  species2 = NULL,
   pi0_method = c("randomized", "storey", "none"),
   B = 20L,
   pval_combine = c("max", "min"),
@@ -22,19 +22,20 @@ summarize_comparison(
 \item{comparison}{Data frame from \code{\link[=compare_neighborhoods]{compare_neighborhoods()}}.}
 
 \item{alternative}{Which tail to test: \code{"greater"} (default) for
-conservation (upper-tail, uses \code{.p.val.con} columns) or \code{"less"} for
-divergence (lower-tail, uses \code{.p.val.div} columns).}
+conservation (upper-tail, uses \code{.p_value_con} columns) or \code{"less"} for
+divergence (lower-tail, uses \code{.p_value_div} columns).}
 
 \item{alpha}{Significance threshold applied to q-values (default 0.1).}
 
 \item{filter_zero}{If \code{TRUE} (default for \code{"greater"}), remove rows where
 both overlap values are zero. Defaults to \code{FALSE} for \code{"less"}.}
 
-\item{sp1, sp2}{Optional species abbreviations. When both are provided,
-\code{\link{comparison_to_edges}} is called internally and the result
+\item{species1, species2}{Optional species abbreviations. When both are
+provided,
+\code{comparison_to_edges()} is called internally and the result
 is returned as a third list element \code{$edges}. This avoids a
 separate \code{comparison_to_edges()} call when preparing input for
-\code{\link{find_cliques}}.}
+\code{find_cliques}.}
 
 \item{pi0_method}{How pi0 is estimated for the Storey q-values:
 \code{"randomized"} (default; from randomized p-values, see the section
@@ -43,8 +44,8 @@ Benjamini-Hochberg).}
 
 \item{B}{Number of randomized-p draws averaged for pi0 (default 20).}
 
-\item{pval_combine}{Passed to \code{\link{comparison_to_edges}} when
-\code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+\item{pval_combine}{Passed to \code{comparison_to_edges()} when
+\code{species1} and \code{species2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
 
@@ -58,27 +59,27 @@ draw nothing, so a seed only pins the stream for them.
 A seeded call draws from a private stream and restores the caller's
 on exit, so it does not displace the caller by however many draws
 \code{B} consumed and anything drawn afterwards continues from the
-caller's own seed. Same contract as \code{\link{detect_modules}}.}
+caller's own seed. Same contract as \code{detect_modules}.}
 
 \item{rho0}{Reference fold enrichment for the \code{power} column of
-\code{$edges}, passed to \code{\link{comparison_to_edges}}; only used
-when \code{sp1} and \code{sp2} are provided. \code{NULL} (default)
-takes the median effect size of the called pairs.}
+\code{$edges}, passed to \code{comparison_to_edges()}; only used
+when \code{species1} and \code{species2} are provided. \code{NULL}
+(default) takes the median effect size of the called pairs.}
 }
 \value{
 A list with components:
 \describe{
 \item{results}{Data frame with the original p-values preserved and new
-q-value columns (\code{.q.val.con} or \code{.q.val.div}) added.
+q-value columns (\code{.q_value_con} or \code{.q_value_div}) added.
 Rows are filtered according to \code{filter_zero}.}
 \item{summary}{List of summary statistics at gene-pair, gene, and
 ortholog-group levels, thresholded on q-values, plus \code{pi0}, the
-estimated null proportion per direction (\code{c(sp1 = , sp2 = )};
+estimated null proportion per direction (\code{c(species1 = , species2 = )};
 for \code{pi0_method = "randomized"} it is estimated from the
 unfiltered comparison rows, i.e. the full ortholog-pair set;
 \code{NA} when fewer than 2 rows remain).}
-\item{edges}{(Only when \code{sp1} and \code{sp2} are provided.)
-Edge-format data frame from \code{comparison_to_edges()}.}
+\item{edges}{(Only when \code{species1} and \code{species2} are
+provided.) Edge-format data frame from \code{comparison_to_edges()}.}
 }
 }
 \description{
@@ -104,8 +105,8 @@ of \code{comparison}, before the \code{filter_zero} filter: uniformity holds onl
 unconditionally, so pi0 refers to the full ortholog-pair set
 (conditioning the draw on overlap > 0 truncates the null distribution
 and deflates pi0), while the q-values themselves are computed on the
-filtered rows. The columns \code{Species*.p.val.gt} /
-\code{.p.val.eq} from \code{\link[=compare_neighborhoods]{compare_neighborhoods()}} supply the two terms.
+filtered rows. The columns \code{Species*.p_value_gt} /
+\code{.p_value_eq} from \code{\link[=compare_neighborhoods]{compare_neighborhoods()}} supply the two terms.
 \code{"storey"} estimates pi0 on the exact p-values (pre-0.2.0 behaviour);
 \code{"none"} fixes pi0 = 1 (BH). The randomized estimate is the only one
 that draws: pass \code{seed} to make the q-values a property of the call.
@@ -121,7 +122,7 @@ summary <- summarize_comparison(comparison,
   alternative = "greater",
   seed = 1
 )
-sig <- summary$results[summary$results$Species1.q.val.con < 0.05, ]
+sig <- summary$results[summary$results$species1.q_value_con < 0.05, ]
 summary$summary$gene_pairs$reciprocal
 summary$summary$pi0
 }
@@ -138,3 +139,4 @@ simultaneously in genetic association studies. \emph{Statistical
 Applications in Genetics and Molecular Biology}, 11(4), Article 12.
 \doi{10.1515/1544-6115.1776}
 }
+\keyword{internal}

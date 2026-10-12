@@ -59,7 +59,7 @@ double find_rank(const List_t& l, int i) {
 //'
 //' @param zt Standardised expression (samples x genes) such that
 //'   `crossprod(zt)` is the correlation matrix.
-//' @param log_transform,abs_cor As in [mutual_rank_inplace_cpp()].
+//' @param log_transform,negate As in [mutual_rank_inplace_cpp()].
 //' @param density,store_density Analysis and store densities.
 //' @param block_size Columns per correlation block.
 //' @param n_cores Number of OpenMP threads.
@@ -71,7 +71,7 @@ double find_rank(const List_t& l, int i) {
 //' @keywords internal
 // [[Rcpp::export]]
 List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
-                          bool abs_cor, double density,
+                          bool negate, double density,
                           double store_density, int block_size,
                           int n_cores) {
     const R_xlen_t n = zt.n_cols;
@@ -118,9 +118,10 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
     };
     double t_s = 0.0, t_d = 0.0;
 
-    // Correlation blocks; each column is clamped, abs'd and ranked exactly
-    // as mutual_rank_inplace_cpp() does, then visit(i, col) reads gene i's
-    // ranks. Columns are independent, so visit may run in parallel.
+    // Correlation blocks; each column is clamped, negated (if negate) and
+    // ranked exactly as mutual_rank_inplace_cpp() does, then visit(i, col)
+    // reads gene i's ranks. Columns are independent, so visit may run in
+    // parallel.
     auto sweep = [&](auto&& visit) {
         for (R_xlen_t c0 = 0; c0 < n; c0 += block_size) {
             Rcpp::checkUserInterrupt();
@@ -142,7 +143,7 @@ List mr_block_network_cpp(const arma::mat& zt, bool log_transform,
                         break;
                     }
                     const double v = std::clamp(col[r], -1.0, 1.0);
-                    col[r] = abs_cor ? std::fabs(v) : v;
+                    col[r] = (negate && r != c0 + b) ? -v : v;
                 }
                 if (bad) {
                     nan_seen[tid] = 1;

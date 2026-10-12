@@ -9,8 +9,8 @@ summarize_specificity(
   null_p = NULL,
   alpha = 0.1,
   pi0_method = c("storey", "none"),
-  sp1 = NULL,
-  sp2 = NULL,
+  species1 = NULL,
+  species2 = NULL,
   pval_combine = c("max", "min"),
   p0 = NULL
 )
@@ -18,8 +18,8 @@ summarize_specificity(
 \arguments{
 \item{comparison}{Data frame from \code{\link[=compare_specificity]{compare_specificity()}}.}
 
-\item{null_p}{\code{NULL}, or \code{list(sp1 = , sp2 = )} of null p-values for
-the 1 -> 2 and 2 -> 1 directions from the shuffled partner. \code{NA}
+\item{null_p}{\code{NULL}, or \code{list(species1 = , species2 = )} of null p-values
+for the 1 -> 2 and 2 -> 1 directions from the shuffled partner. \code{NA}
 entries are dropped.}
 
 \item{alpha}{Significance threshold applied to q-values (default 0.1).}
@@ -27,14 +27,15 @@ entries are dropped.}
 \item{pi0_method}{\code{"storey"} (default) estimates pi0 from the p-values;
 \code{"none"} fixes pi0 = 1 (Benjamini-Hochberg).}
 
-\item{sp1, sp2}{Optional species abbreviations. When both are provided,
-\code{\link{comparison_to_edges}} is called internally and the result
+\item{species1, species2}{Optional species abbreviations. When both are
+provided,
+\code{comparison_to_edges()} is called internally and the result
 is returned as a third list element \code{$edges}. This avoids a
 separate \code{comparison_to_edges()} call when preparing input for
-\code{\link{find_cliques}}.}
+\code{find_cliques}.}
 
-\item{pval_combine}{Passed to \code{\link{comparison_to_edges}} when
-\code{sp1} and \code{sp2} are given: \code{"max"} (default; both
+\item{pval_combine}{Passed to \code{comparison_to_edges()} when
+\code{species1} and \code{species2} are given: \code{"max"} (default; both
 directions significant -- the reciprocal criterion of Netotea et
 al. (2014)) or \code{"min"} (either direction).}
 
@@ -49,13 +50,13 @@ the rank-test counterpart of \code{rho0}.}
 A list with components:
 \describe{
 \item{results}{The complete rows of \code{comparison} with
-\code{Species1.p.emp} / \code{Species2.p.emp} (when \code{null_p} is given) and
-\code{Species1.q.val.con} / \code{Species2.q.val.con} added.}
+\code{species1.p.emp} / \code{species2.p.emp} (when \code{null_p} is given) and
+\code{species1.q_value_con} / \code{species2.q_value_con} added.}
 \item{summary}{The counts of \code{\link[=summarize_comparison]{summarize_comparison()}}, \code{pi0} per
 direction, \code{n_null} (null draws used per direction, 0 without
 \code{null_p}) and \code{n_dropped} (rows with an \code{NA} p-value).}
-\item{edges}{(Only when \code{sp1} and \code{sp2} are provided.) Edge frame
-from \code{\link[=comparison_to_edges]{comparison_to_edges()}}. \code{power} is the probability that
+\item{edges}{(Only when \code{species1} and \code{species2} are provided.) Edge
+frame from \code{\link[=comparison_to_edges]{comparison_to_edges()}}. \code{power} is the probability that
 the pair would have been called had the ortholog ranked at raw p
 \code{p0} among its candidates: per direction, the anchor's
 \code{auroc.grid} (log-linear interpolation) gives the AUROC at \code{p0}
@@ -75,10 +76,13 @@ classifiers read it through \code{min_power}.}
 }
 \description{
 Computes q-values for the per-direction specificity p-values from
-\code{\link[=compare_specificity]{compare_specificity()}}, optionally calibrated against a shuffled
-partner null, and the same gene-pair, gene and orthogroup counts as
-\code{\link[=summarize_comparison]{summarize_comparison()}}. Rows where either direction is \code{NA} (an
-anchor gene with no mapped neighbours) are dropped before testing.
+\code{\link[=compare_specificity]{compare_specificity()}}. Optionally calibrates them against a shuffled
+partner null. Returns the same gene-pair, gene and hog counts as
+\code{\link[=summarize_comparison]{summarize_comparison()}}.
+}
+\details{
+Rows where either direction is \code{NA} (an anchor gene with no mapped
+neighbours) are dropped before testing.
 }
 \section{Multiple testing correction}{
 
@@ -115,3 +119,4 @@ Storey, J. D. & Tibshirani, R. (2003). Statistical significance for
 genomewide studies. \emph{Proceedings of the National Academy of
 Sciences}, 100(16), 9440--9445. \doi{10.1073/pnas.1530509100}
 }
+\keyword{internal}

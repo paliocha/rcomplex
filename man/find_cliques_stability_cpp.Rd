@@ -8,8 +8,8 @@ find_cliques_stability_cpp(
   edge_hog,
   edge_g1,
   edge_g2,
-  edge_sp1,
-  edge_sp2,
+  edge_species1,
+  edge_species2,
   edge_qval,
   edge_eff,
   n_all_species,
@@ -26,7 +26,7 @@ find_cliques_stability_cpp(
 )
 }
 \arguments{
-\item{edge_hog, edge_g1, edge_g2, edge_sp1, edge_sp2}{0-based edge vectors}
+\item{edge_hog, edge_g1, edge_g2, edge_species1, edge_species2}{0-based edge vectors}
 
 \item{edge_qval, edge_eff}{per-edge q-value and effect size}
 
