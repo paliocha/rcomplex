@@ -86,7 +86,7 @@ classify_gene_cliques(
 
 ## Value
 
-A data frame with one row per clique:
+A data frame with one row per clique variant:
 
 - run:
 
@@ -153,10 +153,23 @@ A data frame with one row per clique:
   Smallest `mean_q` over the classified cliques and how many are tied
   there – the resolution `mean_q` actually has as a ranking key
 
-The two floor diagnostics are also attributes, alongside
-`n_species_total`, `n_pairs_total`, `n_within_pairs`, `n_cross_pairs`,
-`cross_max`, `alpha_call`, `alpha_graph` and `max_gap`. All are set even
-when the result is empty.
+- variant, multiplicity:
+
+  Variant of the clique, and the paralog combinations it stands for (see
+  below)
+
+Twin genes share their partners in the graph, but their own tests can
+differ at `alpha_call`, `alpha_graph` or `min_power`. The classifier
+splits each twin class into copies with the same test status. A clique
+gives one row per choice of split, numbered by `variant`. Every
+combination a row stands for gets its tier, so tiers are exact.
+`multiplicity` counts those combinations; `mean_q`, `max_q` and
+`mean_effect_size` summarise them as in
+[`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md).
+Most cliques have one variant. The two floor diagnostics are also
+attributes, alongside `n_species_total`, `n_pairs_total`,
+`n_within_pairs`, `n_cross_pairs`, `cross_max`, `alpha_call`,
+`alpha_graph` and `max_gap`. All are set even when the result is empty.
 
 ## Details
 
@@ -282,8 +295,8 @@ classify_gene_cliques(cl, edges, c("SP_A", "SP_B", "SP_C"))
 #> 1         1 HOG1 complete_conserved  <NA>         3         3       3         3
 #>   n_sig n_sig_within n_sig_cross n_underpowered_cross n_missing missing_species
 #> 1     3           NA          NA                   NA         0                
-#>   missing_reason mean_q max_q          hog_class mean_q_floor
-#> 1                  0.02  0.03 complete_conserved         0.02
-#>   n_cliques_at_q_floor
-#> 1                    1
+#>   missing_reason mean_q max_q          hog_class variant multiplicity
+#> 1                  0.02  0.03 complete_conserved       1            1
+#>   mean_q_floor n_cliques_at_q_floor
+#> 1         0.02                    1
 ```

@@ -708,28 +708,31 @@ rests on edges with low power.</p>
 <h3 id="gene-graph">Gene graph<a class="anchor" aria-label="anchor" href="#gene-graph"></a>
 </h3>
 <p><code><a href="../reference/gene_clique_graph.html">gene_clique_graph()</a></code> cliques the graph of genes. A hog
-with paralogs gives one clique per gene combination. It returns two
+with paralogs gives one clique per gene combination. It returns three
 tables: <code>cliques</code> has one row per clique,
-<code>members</code> one row per clique member.
-<code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> applies the six-tier taxonomy of
-Rodriguez <em>et al.</em> (2026): <code>complete_conserved</code>,
-<code>lineage_specific</code>, <code>partial_significant</code>,
-<code>partial_present</code>, <code>differentiated</code> and
-<code>trait_specific</code>. A clique that fits none is
-<code>unclassified</code>. A tier that rests on low power becomes
-<code>underpowered</code>.</p>
+<code>members</code> one row per clique member, and <code>twins</code>
+one row per collapsed twin. Twins are paralogs with the same partners;
+one clique stands for all their combinations
+(<code>multiplicity</code>). <code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code>
+applies the six-tier taxonomy of Rodriguez <em>et al.</em> (2026):
+<code>complete_conserved</code>, <code>lineage_specific</code>,
+<code>partial_significant</code>, <code>partial_present</code>,
+<code>differentiated</code> and <code>trait_specific</code>. A clique
+that fits none is <code>unclassified</code>. A tier that rests on low
+power becomes <code>underpowered</code>.</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gene_cliques</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gene_clique_graph.html">gene_clique_graph</a></span><span class="op">(</span><span class="va">edges</span><span class="op">)</span></span>
 <span><span class="co">#&gt; gene_clique_graph: 3 ortholog groups exceeded 10 genes in some species; 16 genes dropped</span></span>
+<span><span class="co">#&gt; gene_clique_graph: 145 genes collapsed into 71 twin classes; cliques carry multiplicity</span></span>
 <span><span class="va">gene_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/classify_gene_cliques.html">classify_gene_cliques</a></span><span class="op">(</span><span class="va">gene_cliques</span>, <span class="va">edges</span>, <span class="va">species</span>,</span>
 <span>  clades <span class="op">=</span> <span class="va">clades</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">gene_class</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; complete_conserved    partial_present     trait_specific       unclassified </span></span>
-<span><span class="co">#&gt;                321                 37                 16               7477 </span></span>
+<span><span class="co">#&gt;                271                 34                 16               7461 </span></span>
 <span><span class="co">#&gt;       underpowered </span></span>
-<span><span class="co">#&gt;                 14</span></span></code></pre></div>
+<span><span class="co">#&gt;                 13</span></span></code></pre></div>
 <p>Pass the unfiltered edge table. The gap tiers need the pairs that
 were tested and failed, so they can refuse them.</p>
 <p>Use the species graph for stability and for one clique per hog. Use

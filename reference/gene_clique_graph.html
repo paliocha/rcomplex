@@ -89,7 +89,7 @@ it as a list.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list of class <code>gene_cliques</code> with two tables.
+    <p>A list of class <code>gene_cliques</code> with three tables.
 <code>cliques</code> has one row per clique:</p><dl><dt>clique_id</dt>
 <dd><p>Integer clique id, 1 to the number of cliques</p></dd>
 
@@ -107,7 +107,11 @@ it as a list.</p></dd>
 <dd><p>Graph edges inside the clique</p></dd>
 
 <dt>mean_q, max_q</dt>
-<dd><p>q-value summaries over those edges</p></dd>
+<dd><p>q-value summaries over those edges. Twin
+classes are joined by all their gene pairs. A clique edge
+carries the mean q of those pairs, so <code>mean_q</code> is the mean over
+the clique's expansions. <code>max_q</code> is the largest q of any
+expansion</p></dd>
 
 <dt>mean_effect_size</dt>
 <dd><p>Present only when <code>edges</code> carries
@@ -117,7 +121,12 @@ once they get there</p></dd>
 
 <dt>score</dt>
 <dd><p>Present only when <code>edges</code> carries <code>score</code>. The sum
-of the clique edges' <code>score</code>, in bits</p></dd>
+of the clique edges' <code>score</code>, in bits. With twins, the mean
+over the clique's expansions, as for <code>mean_effect_size</code></p></dd>
+
+<dt>multiplicity</dt>
+<dd><p>Cliques this row stands for: the product of
+the members' <code>n_copies</code>. 1 without twins</p></dd>
 
 <dt>mean_q_floor, n_cliques_at_q_floor</dt>
 <dd><p>Smallest clique
@@ -128,7 +137,11 @@ all</p></dd>
 
 </dl><p><code>members</code> has one row per clique member: <code>clique_id</code>, <code>species</code>
 (a factor; its levels are the species of <code>edges</code> in order of first
-appearance) and <code>gene</code>.
+appearance), <code>gene</code> (the representative of its twin class) and
+<code>n_copies</code> (the genes with the same called partners, itself
+included).
+<code>twins</code> has one row per collapsed gene: <code>hog</code>, <code>species</code>, <code>gene</code>
+and <code>representative</code>. It has no rows when no two genes are twins.
 The two floor diagnostics, plus <code>alpha_graph</code>, <code>min_size</code> and
 <code>q_floor</code> (smallest edge q-value in the graph), are also attributes
 of <code>cliques</code>. Both are always set, empty results included.</p>
@@ -150,6 +163,15 @@ up as <code>n_species &lt; n_members</code>.</p>
 <p>The clique <code>score</code> adds the edge scores. Log-odds add, so the sum is
 the log-likelihood ratio of the conserved subnetwork (NetworkBLAST),
 and it grows with clique size on purpose.</p>
+<p>Two genes of one species are twins when they have the same partners
+in the graph. Twins are never adjacent, and a clique holds at most one
+of them. Swapping one twin for another gives another maximal clique,
+so the twins of a class collapse to one gene before the cliques are
+listed. Each clique stands for every choice of one gene per class.
+The collapse is exact: expanding the cliques gives the full set. The
+representative is the first gene of its class in radix (C-locale)
+order. The copy cap applies first, so the genes are those of an
+unreduced run.</p>
 <p>A hog of 40 or more genes is enumerated one start gene at a time.
 The pieces are disjoint, so the cliques are the same. Only the peak
 memory drops.</p>
@@ -192,15 +214,15 @@ conifer trees. <em>Nature Communications</em> 17(1).
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">gene_clique_graph</span><span class="op">(</span><span class="va">edges</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">g</span><span class="op">$</span><span class="va">cliques</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   clique_id  hog n_members n_species n_edges mean_q max_q mean_q_floor</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1 HOG1         3         3       3   0.02  0.03         0.02</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_cliques_at_q_floor</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                    1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   clique_id  hog n_members n_species n_edges mean_q max_q multiplicity</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1 HOG1         3         3       3   0.02  0.03            1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   mean_q_floor n_cliques_at_q_floor</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         0.02                    1</span>
 <span class="r-in"><span><span class="va">g</span><span class="op">$</span><span class="va">members</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   clique_id species gene</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1    SP_A   a1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2         1    SP_B   b1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3         1    SP_C   c1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   clique_id species gene n_copies</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1    SP_A   a1        1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2         1    SP_B   b1        1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3         1    SP_C   c1        1</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

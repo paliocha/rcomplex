@@ -60,6 +60,7 @@ res <- rcomplex(leaf, hogs,
   null = TRUE, seed = 1
 )
 #> gene_clique_graph: 9 ortholog groups exceeded 10 genes in some species; 68 genes dropped
+#> gene_clique_graph: 1251 genes collapsed into 570 twin classes; cliques carry multiplicity
 res
 #> rcomplex: 4 species, 1,500 hogs, 3 tiers
 #>   BDIS  1,935 genes  20 samples  density 0.03  r >= 0.35
@@ -67,7 +68,7 @@ res
 #>   HVUL  1,925 genes  20 samples  density 0.03  r >= 0.29
 #>   HJUB  3,983 genes  20 samples  density 0.03  r >= 0.28
 #>   edges 33,575 tested, 10,387 called at q < 0.1
-#>   cliques 14,047: complete_conserved 12,592, partial_present    114, unclassified  1,341
+#>   cliques 3,146 distinct (14,047 with paralog copies): complete_conserved 1,995, partial_present    69, unclassified 1,082
 ```
 
 The header lists, per species, the genes, the samples and the density.
@@ -77,7 +78,9 @@ first.
 
 The last line counts the cliques by tier. A clique is a set of genes,
 one per species, that are all co-expressed. A hog with paralogs gives
-one clique per gene combination.
+one clique per gene combination. Paralogs with the same partners are
+twins. One clique stands for all their combinations. The line counts
+distinct cliques, and the count in brackets includes the combinations.
 
 The message about dropped genes is on purpose. The clique search keeps
 at most 10 copies of a hog per species, because gene combinations
@@ -90,10 +93,10 @@ With `null = TRUE` it also gives the calls on shuffled networks.
 
 ``` r
 summary(res)
-#>                tier cliques hogs patterns
-#>  complete_conserved   12592  290      290
-#>     partial_present     114   57       65
-#>        unclassified    1341  426      603
+#>                tier cliques multiplicity hogs patterns
+#>  complete_conserved    1995        12592  290      290
+#>     partial_present      69          114   57       65
+#>        unclassified    1082         1341  426      603
 #> null: calls at q < 0.1 
 #>  species1 species2 calls calls_null false_call_rate
 #>      BDIS     BSYL  1340          0               0
@@ -142,13 +145,13 @@ returns the same table.
 table(as.data.frame(res)$classification)
 #> 
 #> complete_conserved    partial_present       unclassified 
-#>              12592                114               1341
+#>               1995                 69               1082
 ```
 
 ## Save
 
 [`write_rcomplex()`](https://paliocha.github.io/rcomplex/reference/write_rcomplex.md)
-writes `edges.tsv`, `cliques.tsv`, `members.tsv` and
+writes `edges.tsv`, `cliques.tsv`, `members.tsv`, `twins.tsv` and
 `classification.tsv`. After a null run it adds `edges_null.tsv`.
 
 ``` r
@@ -156,7 +159,7 @@ out <- file.path(tempdir(), "rcomplex-out")
 write_rcomplex(res, out)
 list.files(out)
 #> [1] "classification.tsv" "cliques.tsv"        "edges_null.tsv"    
-#> [4] "edges.tsv"          "members.tsv"
+#> [4] "edges.tsv"          "members.tsv"        "twins.tsv"
 ```
 
 ## Check the p-value floor

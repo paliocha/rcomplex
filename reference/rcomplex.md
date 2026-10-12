@@ -111,11 +111,12 @@ A list of class `rcomplex`:
   [`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.md),
   plus a `sign` column: the sign of every network.
 
-- cliques, members:
+- cliques, members, twins:
 
-  The two tables of
+  The three tables of
   [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md):
-  one row per clique, and one row per clique member.
+  one row per clique, one row per clique member, and one row per
+  collapsed twin gene.
 
 - classification:
 
@@ -156,7 +157,10 @@ within each block.
 [`summary()`](https://rdrr.io/r/base/summary.html) counts each tier in
 `cliques`, in `hogs` and in `patterns`. A pattern is one HOG with one
 clique species set. The paralog copies of a large HOG can form millions
-of cliques, but they share a few patterns.
+of cliques, but they share a few patterns. Paralogs with the same
+partners are twins: one clique stands for all their combinations. The
+`multiplicity` column counts those combinations, and `twins` lists the
+collapsed genes.
 
 With `null = TRUE`, [`summary()`](https://rdrr.io/r/base/summary.html)
 reports `calls` and `calls_null` per species pair at `q_value < alpha`.
@@ -187,7 +191,7 @@ res
 #>   edges 12 tested, 0 called at q < 0.1
 #>   cliques 0
 summary(res)
-#> [1] tier     cliques  hogs     patterns
+#> [1] tier         cliques      multiplicity hogs         patterns    
 #> <0 rows> (or 0-length row.names)
 #> null: not run
 write_rcomplex(res, tempfile())

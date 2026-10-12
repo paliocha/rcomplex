@@ -156,7 +156,9 @@ exported functions as `[fn()]`. Write internals as `\code{fn()}`. -
   returns one gene assignment per species clique; stability and sweeps
   need that.
   [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
-  returns every maximal clique, one per paralog combination.
+  returns every maximal clique, one per paralog combination. Twin
+  paralogs (same species, same partners) collapse first, so a clique
+  carries `multiplicity` and the classifier splits classes by status.
   [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   runs a tier waterfall with thresholds from `length(species)`; `clades`
   and home clades set the specificity and divergence tiers. It takes the

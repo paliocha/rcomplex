@@ -1,5 +1,30 @@
 # Changelog
 
+## rcomplex (development version)
+
+- [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
+  collapses twin paralogs before it lists the cliques. Twins are genes
+  of one species with the same partners. A clique stands for every
+  choice of one twin per class, so the collapse is exact. `cliques`
+  gains `multiplicity`, `members` gains `n_copies`, and a new table
+  `twins` lists the collapsed genes. On the full 8-species leaf data,
+  28,343,526 cliques become 3,555,837. The build takes 24 s instead of
+  100 s, and 2.9 GB instead of 8.9 GB (max RSS). At 12,000 genes per
+  species, 1,452,683 cliques become 42,709.
+- [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
+  splits each twin class into copies with the same test status. A clique
+  gives one row per choice, with `variant` and `multiplicity`. Every
+  combination gets its exact tier. On the full leaf data it classifies
+  8,464,243 rows in 169 s at 10.2 GB, instead of 28.3 M rows in 6 min at
+  15.0 GB. At 12,000 genes it gives 186,032 rows in 4 s instead of 11 s.
+- [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  stores `twins`, and
+  [`write_rcomplex()`](https://paliocha.github.io/rcomplex/reference/write_rcomplex.md)
+  writes `twins.tsv`. [`print()`](https://rdrr.io/r/base/print.html)
+  shows the distinct cliques, with the count including paralog copies in
+  brackets. The [`summary()`](https://rdrr.io/r/base/summary.html) tier
+  table gains `multiplicity`.
+
 ## rcomplex 0.4.0
 
 rcomplex 0.4.0 is a rewrite of the user surface. The package has 31

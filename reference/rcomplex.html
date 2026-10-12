@@ -143,9 +143,10 @@ A seed makes the run reproducible and leaves your stream unchanged.</p></dd>
 <dd><p>The edge table from <code><a href="find_coexpressologs.html">find_coexpressologs()</a></code>, plus a
 <code>sign</code> column: the sign of every network.</p></dd>
 
-<dt>cliques, members</dt>
-<dd><p>The two tables of <code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>:
-one row per clique, and one row per clique member.</p></dd>
+<dt>cliques, members, twins</dt>
+<dd><p>The three tables of
+<code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>: one row per clique, one row per clique
+member, and one row per collapsed twin gene.</p></dd>
 
 <dt>classification</dt>
 <dd><p>One row per clique, from
@@ -177,7 +178,9 @@ shuffled networks come from <code><a href="null_network.html">null_network()</a>
 <p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> counts each tier in <code>cliques</code>, in <code>hogs</code> and in
 <code>patterns</code>. A pattern is one HOG with one clique species set. The
 paralog copies of a large HOG can form millions of cliques, but they
-share a few patterns.</p>
+share a few patterns. Paralogs with the same partners are twins: one
+clique stands for all their combinations. The <code>multiplicity</code> column
+counts those combinations, and <code>twins</code> lists the collapsed genes.</p>
 <p>With <code>null = TRUE</code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports <code>calls</code> and <code>calls_null</code> per
 species pair at <code>q_value &lt; alpha</code>. Their ratio is the empirical
 false-call rate.
@@ -205,7 +208,7 @@ correlation and shows <code>r ?</code>, as does a network without edges.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   edges 12 tested, 0 called at q &lt; 0.1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   cliques 0</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] tier     cliques  hogs     patterns</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] tier         cliques      multiplicity hogs         patterns    </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;0 rows&gt; (or 0-length row.names)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> null: not run</span>
 <span class="r-in"><span><span class="fu"><a href="write_rcomplex.html">write_rcomplex</a></span><span class="op">(</span><span class="va">res</span>, <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></span>

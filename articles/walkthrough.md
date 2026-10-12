@@ -495,8 +495,10 @@ table(result$classification)
 
 [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
 cliques the graph of genes. A hog with paralogs gives one clique per
-gene combination. It returns two tables: `cliques` has one row per
-clique, `members` one row per clique member.
+gene combination. It returns three tables: `cliques` has one row per
+clique, `members` one row per clique member, and `twins` one row per
+collapsed twin. Twins are paralogs with the same partners; one clique
+stands for all their combinations (`multiplicity`).
 [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
 applies the six-tier taxonomy of Rodriguez *et al.* (2026):
 `complete_conserved`, `lineage_specific`, `partial_significant`,
@@ -507,15 +509,16 @@ fits none is `unclassified`. A tier that rests on low power becomes
 ``` r
 gene_cliques <- gene_clique_graph(edges)
 #> gene_clique_graph: 3 ortholog groups exceeded 10 genes in some species; 16 genes dropped
+#> gene_clique_graph: 145 genes collapsed into 71 twin classes; cliques carry multiplicity
 gene_class <- classify_gene_cliques(gene_cliques, edges, species,
   clades = clades
 )
 table(gene_class$classification)
 #> 
 #> complete_conserved    partial_present     trait_specific       unclassified 
-#>                321                 37                 16               7477 
+#>                271                 34                 16               7461 
 #>       underpowered 
-#>                 14
+#>                 13
 ```
 
 Pass the unfiltered edge table. The gap tiers need the pairs that were

@@ -34,7 +34,7 @@ Every threshold follows from the number of species supplied."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Classify gene-graph cliques into conservation tiers</h1>
-      <small class="dont-index">Source: <a href="https://github.com/paliocha/rcomplex/blob/main/R/clique_gene_graph.R" class="external-link"><code>R/clique_gene_graph.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/paliocha/rcomplex/blob/main/R/clique_gene_classify.R" class="external-link"><code>R/clique_gene_classify.R</code></a></small>
       <div class="d-none name"><code>classify_gene_cliques.Rd</code></div>
     </div>
 
@@ -126,7 +126,7 @@ overstates detection.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with one row per clique:</p><dl><dt>run</dt>
+    <p>A data frame with one row per clique variant:</p><dl><dt>run</dt>
 <dd><p>Only for a list of runs: the run of the clique</p></dd>
 
 <dt>clique_id, hog</dt>
@@ -186,8 +186,20 @@ saturates</p></dd>
 the classified cliques and how many are tied there – the
 resolution <code>mean_q</code> actually has as a ranking key</p></dd>
 
+<dt>variant, multiplicity</dt>
+<dd><p>Variant of the clique, and the
+paralog combinations it stands for (see below)</p></dd>
 
-</dl><p>The two floor diagnostics are also attributes, alongside
+
+</dl><p>Twin genes share their partners in the graph, but their own tests
+can differ at <code>alpha_call</code>, <code>alpha_graph</code> or <code>min_power</code>. The
+classifier splits each twin class into copies with the same test
+status. A clique gives one row per choice of split, numbered by
+<code>variant</code>. Every combination a row stands for gets its tier, so
+tiers are exact. <code>multiplicity</code> counts those combinations; <code>mean_q</code>,
+<code>max_q</code> and <code>mean_effect_size</code> summarise them as in
+<code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>. Most cliques have one variant.
+The two floor diagnostics are also attributes, alongside
 <code>n_species_total</code>, <code>n_pairs_total</code>, <code>n_within_pairs</code>,
 <code>n_cross_pairs</code>, <code>cross_max</code>, <code>alpha_call</code>, <code>alpha_graph</code> and
 <code>max_gap</code>. All are set even when the result is empty.</p>
@@ -307,10 +319,10 @@ conifer trees. <em>Nature Communications</em> 17(1).
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1         1 HOG1 complete_conserved  &lt;NA&gt;         3         3       3         3</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   n_sig n_sig_within n_sig_cross n_underpowered_cross n_missing missing_species</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1     3           NA          NA                   NA         0                </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   missing_reason mean_q max_q          hog_class mean_q_floor</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                  0.02  0.03 complete_conserved         0.02</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_cliques_at_q_floor</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                    1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   missing_reason mean_q max_q          hog_class variant multiplicity</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                  0.02  0.03 complete_conserved       1            1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   mean_q_floor n_cliques_at_q_floor</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         0.02                    1</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

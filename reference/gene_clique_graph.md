@@ -47,7 +47,7 @@ gene_clique_graph(edges, min_size = 3L, alpha_graph = 0.1, ...)
 
 ## Value
 
-A list of class `gene_cliques` with two tables. `cliques` has one row
+A list of class `gene_cliques` with three tables. `cliques` has one row
 per clique:
 
 - clique_id:
@@ -73,7 +73,10 @@ per clique:
 
 - mean_q, max_q:
 
-  q-value summaries over those edges
+  q-value summaries over those edges. Twin classes are joined by all
+  their gene pairs. A clique edge carries the mean q of those pairs, so
+  `mean_q` is the mean over the clique's expansions. `max_q` is the
+  largest q of any expansion
 
 - mean_effect_size:
 
@@ -84,7 +87,13 @@ per clique:
 - score:
 
   Present only when `edges` carries `score`. The sum of the clique
-  edges' `score`, in bits
+  edges' `score`, in bits. With twins, the mean over the clique's
+  expansions, as for `mean_effect_size`
+
+- multiplicity:
+
+  Cliques this row stands for: the product of the members' `n_copies`. 1
+  without twins
 
 - mean_q_floor, n_cliques_at_q_floor:
 
@@ -94,9 +103,13 @@ per clique:
 
 `members` has one row per clique member: `clique_id`, `species` (a
 factor; its levels are the species of `edges` in order of first
-appearance) and `gene`. The two floor diagnostics, plus `alpha_graph`,
-`min_size` and `q_floor` (smallest edge q-value in the graph), are also
-attributes of `cliques`. Both are always set, empty results included.
+appearance), `gene` (the representative of its twin class) and
+`n_copies` (the genes with the same called partners, itself included).
+`twins` has one row per collapsed gene: `hog`, `species`, `gene` and
+`representative`. It has no rows when no two genes are twins. The two
+floor diagnostics, plus `alpha_graph`, `min_size` and `q_floor`
+(smallest edge q-value in the graph), are also attributes of `cliques`.
+Both are always set, empty results included.
 
 ## Details
 
@@ -118,6 +131,15 @@ between two distinct paralogs is kept, and shows up as
 The clique `score` adds the edge scores. Log-odds add, so the sum is the
 log-likelihood ratio of the conserved subnetwork (NetworkBLAST), and it
 grows with clique size on purpose.
+
+Two genes of one species are twins when they have the same partners in
+the graph. Twins are never adjacent, and a clique holds at most one of
+them. Swapping one twin for another gives another maximal clique, so the
+twins of a class collapse to one gene before the cliques are listed.
+Each clique stands for every choice of one gene per class. The collapse
+is exact: expanding the cliques gives the full set. The representative
+is the first gene of its class in radix (C-locale) order. The copy cap
+applies first, so the genes are those of an unreduced run.
 
 A hog of 40 or more genes is enumerated one start gene at a time. The
 pieces are disjoint, so the cliques are the same. Only the peak memory
@@ -160,13 +182,13 @@ edges <- data.frame(
 )
 g <- gene_clique_graph(edges)
 g$cliques
-#>   clique_id  hog n_members n_species n_edges mean_q max_q mean_q_floor
-#> 1         1 HOG1         3         3       3   0.02  0.03         0.02
-#>   n_cliques_at_q_floor
-#> 1                    1
+#>   clique_id  hog n_members n_species n_edges mean_q max_q multiplicity
+#> 1         1 HOG1         3         3       3   0.02  0.03            1
+#>   mean_q_floor n_cliques_at_q_floor
+#> 1         0.02                    1
 g$members
-#>   clique_id species gene
-#> 1         1    SP_A   a1
-#> 2         1    SP_B   b1
-#> 3         1    SP_C   c1
+#>   clique_id species gene n_copies
+#> 1         1    SP_A   a1        1
+#> 2         1    SP_B   b1        1
+#> 3         1    SP_C   c1        1
 ```
