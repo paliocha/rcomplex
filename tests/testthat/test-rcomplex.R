@@ -35,7 +35,8 @@ test_that("rcomplex() runs the pipeline and counts tiers", {
   res <- rcomplex(drv_expr(), drv_ortho, density = 0.1, seed = 1L)
   expect_s3_class(res, "rcomplex")
   expect_named(res, c(
-    "networks", "edges", "cliques", "members", "classification", "call"
+    "networks", "edges", "cliques", "members", "twins", "classification",
+    "call"
   ))
   expect_identical(names(res$networks), c("SpA", "SpB"))
   expect_identical(
@@ -174,11 +175,14 @@ test_that("null = TRUE reports calls beside null calls", {
   expect_identical(nrow(s$null), 3L)
   expect_true(all(s$null$calls > 0L))
   expect_identical(s$tiers$cliques, 3L)
+  expect_identical(s$tiers$multiplicity, 3)
   expect_identical(s$tiers$hogs, 3L)
   expect_identical(s$tiers$patterns, 3L)
   off <- rcomplex(drv_expr(), drv_ortho, density = 0.1, seed = 1L)
   expect_output(s_off <- summary(off), "null: not run")
-  expect_named(s_off$tiers, c("tier", "cliques", "hogs", "patterns"))
+  expect_named(
+    s_off$tiers, c("tier", "cliques", "multiplicity", "hogs", "patterns")
+  )
 })
 
 
@@ -224,9 +228,12 @@ test_that("write_rcomplex() writes one TSV per table", {
   expect_true(dir.exists(dir))
   expect_identical(
     basename(paths),
-    c("edges.tsv", "cliques.tsv", "members.tsv", "classification.tsv")
+    c(
+      "edges.tsv", "cliques.tsv", "members.tsv", "twins.tsv",
+      "classification.tsv"
+    )
   )
-  back <- read.delim(paths[[4L]])
+  back <- read.delim(paths[[5L]])
   expect_identical(nrow(back), nrow(res$classification))
 })
 

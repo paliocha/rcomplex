@@ -114,7 +114,9 @@ Applies to everything a user reads: roxygen, README, quickstart, messages.
   `Zsummary_std`. `resolve_ortholog_map()` picks the paralog copy.
 - **Two clique backends.** `find_cliques()` returns one gene assignment
   per species clique; stability and sweeps need that. `gene_clique_graph()`
-  returns every maximal clique, one per paralog combination.
+  returns every maximal clique, one per paralog combination. Twin
+  paralogs (same species, same partners) collapse first, so a clique
+  carries `multiplicity` and the classifier splits classes by status.
   `classify_gene_cliques()` runs a tier waterfall with thresholds from
   `length(species)`; `clades` and home clades set the specificity and
   divergence tiers. It takes the unfiltered edge table, because a failed

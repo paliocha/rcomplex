@@ -65,8 +65,9 @@ A list of class \code{rcomplex}:
 \item{networks}{The network objects, by species.}
 \item{edges}{The edge table from \code{\link[=find_coexpressologs]{find_coexpressologs()}}, plus a
 \code{sign} column: the sign of every network.}
-\item{cliques, members}{The two tables of \code{\link[=gene_clique_graph]{gene_clique_graph()}}:
-one row per clique, and one row per clique member.}
+\item{cliques, members, twins}{The three tables of
+\code{\link[=gene_clique_graph]{gene_clique_graph()}}: one row per clique, one row per clique
+member, and one row per collapsed twin gene.}
 \item{classification}{One row per clique, from
 \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}.}
 \item{modules, preservation}{With \code{modules = TRUE}: the
@@ -96,7 +97,9 @@ shuffled networks come from \code{\link[=null_network]{null_network()}}, within 
 \code{summary()} counts each tier in \code{cliques}, in \code{hogs} and in
 \code{patterns}. A pattern is one HOG with one clique species set. The
 paralog copies of a large HOG can form millions of cliques, but they
-share a few patterns.
+share a few patterns. Paralogs with the same partners are twins: one
+clique stands for all their combinations. The \code{multiplicity} column
+counts those combinations, and \code{twins} lists the collapsed genes.
 
 With \code{null = TRUE}, \code{summary()} reports \code{calls} and \code{calls_null} per
 species pair at \code{q_value < alpha}. Their ratio is the empirical

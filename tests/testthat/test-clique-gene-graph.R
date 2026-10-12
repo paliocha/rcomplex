@@ -118,7 +118,8 @@ test_that("gene_clique_graph returns a clique and a member table", {
 
 test_that("gene_clique_graph reports every paralog combination", {
   # Two SP_A copies both clique with b1 and c1: find_cliques() would
-  # pick one assignment, the gene graph keeps both.
+  # pick one assignment, the gene graph keeps both. They are twins, so
+  # one clique stands for both.
   e <- data.frame(
     gene1 = c("a1", "a1", "a2", "a2", "b1"),
     gene2 = c("b1", "c1", "b1", "c1", "c1"),
@@ -126,13 +127,15 @@ test_that("gene_clique_graph reports every paralog combination", {
     species2 = c("SP_B", "SP_C", "SP_B", "SP_C", "SP_C"),
     hog = "HOG1", q_value = 0.01, stringsAsFactors = FALSE
   )
-  cl <- gene_clique_graph(e)
-  expect_equal(nrow(cl$cliques), 2L)
-  by_id <- split(cl$members$gene, cl$members$clique_id)
+  cl <- suppressMessages(gene_clique_graph(e))
+  expect_equal(cl$cliques$multiplicity, 2L)
+  x <- .gcg_expand(cl, e)
+  expect_equal(nrow(x$cliques), 2L)
+  by_id <- split(x$members$gene, x$members$clique_id)
   expect_setequal(vapply(by_id, function(g) {
     intersect(g, c("a1", "a2"))
   }, character(1)), c("a1", "a2"))
-  expect_true(all(cl$cliques$n_members == 3L))
+  expect_true(all(x$cliques$n_members == 3L))
 })
 
 
@@ -206,18 +209,19 @@ test_that("clique statistics match a per-clique edge scan", {
     gcg_paralogs(c("SP_A", "SP_B", "SP_C", "SP_D"), 3L, "H2")
   )
   ref <- gcg_scan_ref(e)
-  res <- gene_clique_graph(e)
+  res <- .gcg_expand(suppressMessages(gene_clique_graph(e)), e)
   expect_gt(nrow(ref), 20L)
-  # Below 40 genes a HOG is one igraph call, so the order is the same.
-  expect_identical(res$cliques$clique_id, seq_len(nrow(ref)))
-  expect_identical(res$cliques$hog, ref$hog)
-  expect_identical(
-    unname(split(res$members$gene, res$members$clique_id)),
-    unclass(unname(ref$genes))
+  key <- vapply(split(res$members$gene, res$members$clique_id),
+    function(g) paste(sort(g), collapse = ","), character(1),
+    USE.NAMES = FALSE
   )
-  # Bitwise where long double is double; mean.default sums in long
-  # double elsewhere.
-  expect_equal(as.list(res$cliques[gcg_stats]), as.list(ref[gcg_stats]))
+  m <- match(ref$key, key)
+  expect_false(anyNA(m))
+  expect_identical(length(key), nrow(ref))
+  expect_identical(res$cliques$hog[m], ref$hog)
+  expect_equal(
+    as.list(res$cliques[m, gcg_stats]), as.list(ref[gcg_stats])
+  )
 })
 
 
@@ -226,7 +230,7 @@ test_that("a large HOG enumerated piecewise gives the same cliques", {
   # per start gene. The cliques must be those of one call, no more.
   e <- gcg_paralogs(paste0("SP_", LETTERS[1:5]), 9L, "H1")
   ref <- gcg_scan_ref(e)
-  res <- gene_clique_graph(e)
+  res <- .gcg_expand(suppressMessages(gene_clique_graph(e)), e)
   key <- vapply(split(res$members$gene, res$members$clique_id),
     function(g) paste(sort(g), collapse = ","), character(1),
     USE.NAMES = FALSE
@@ -313,7 +317,10 @@ gcg_twelve <- function() {
 test_that("the copy-cap message fires only when a group is truncated", {
   expect_silent(gene_clique_graph(make_gcg_fixture(), alpha_graph = 0.9))
   # Twelve copies exceed the default of 10.
-  expect_message(gene_clique_graph(gcg_twelve()), "2 genes dropped")
+  expect_message(
+    expect_message(gene_clique_graph(gcg_twelve()), "2 genes dropped"),
+    "twin classes"
+  )
 })
 
 
@@ -330,8 +337,14 @@ test_that("gene_clique_graph returns typed empty tables", {
     "clique_id", "hog", "n_members", "n_edges", "mean_effect_size"
   ) %in%
     names(out$cliques)))
-  expect_identical(names(out$members), c("clique_id", "species", "gene"))
+  expect_identical(
+    names(out$members), c("clique_id", "species", "gene", "n_copies")
+  )
   expect_identical(levels(out$members$species), c("SP_A", "SP_B"))
+  expect_identical(
+    names(out$twins), c("hog", "species", "gene", "representative")
+  )
+  expect_identical(levels(out$twins$species), c("SP_A", "SP_B"))
 })
 
 
@@ -566,9 +579,13 @@ test_that("hog_class applies the published HOG-level precedence", {
       stringsAsFactors = FALSE
     )
   )
-  cl <- gene_clique_graph(e, alpha_graph = 0.9)
+  # a1 and a2 are twins in the 0.9 graph but differ at alpha_call, so
+  # their one clique splits into two variants.
+  cl <- suppressMessages(gene_clique_graph(e, alpha_graph = 0.9))
   res <- classify_gene_cliques(cl, e, sp)
-  expect_equal(length(unique(res$clique_id)), 2L)
+  expect_identical(res$clique_id, c(1L, 1L))
+  expect_identical(res$variant, 1:2)
+  expect_identical(res$multiplicity, c(1L, 1L))
   expect_setequal(
     res$classification,
     c("complete_conserved", "unclassified")
@@ -1758,7 +1775,10 @@ test_that("the incidence classifier matches the per-clique reference", {
   same <- function(e, clades) {
     tiers <- character(0)
     for (a in c(0.05, 0.1, 0.9)) {
-      g <- gene_clique_graph(e, min_size = 2L, alpha_graph = a)
+      g <- .gcg_expand(
+        suppressMessages(gene_clique_graph(e, min_size = 2L, alpha_graph = a)),
+        e
+      )
       m <- g$members
       tab <- data.frame(
         clique_id = m$clique_id, hog = g$cliques$hog[m$clique_id],
@@ -1792,7 +1812,7 @@ test_that("the incidence classifier matches the per-clique reference", {
   )
   expect_setequal(tiers, .gcg_tiers)
   runs <- lapply(c(0.05, 0.1, 0.9), function(a) {
-    gene_clique_graph(e, min_size = 2L, alpha_graph = a)
+    suppressMessages(gene_clique_graph(e, min_size = 2L, alpha_graph = a))
   })
   # The fixture reaches every state the incidence has to get right.
   all_cls <- suppressMessages(
@@ -1804,4 +1824,226 @@ test_that("the incidence classifier matches the per-clique reference", {
     c("absent", "untested", "tested_ns", "underpowered", "extendable")
   )
   expect_true(any(all_cls$n_members > 3L & all_cls$hog == "HOG1"))
+})
+
+
+# --- Twin classes (#72) ---
+
+# One HOG. SP_A: a1 and a2 are twins, a3 misses c1. SP_B: b1 and B9 are
+# twins; B9 comes first in radix order. SP_C: c1. SP_D: d1 is in the HOG
+# but no graph edge reaches it: a1 failed against it with power, B9
+# without, a2 and b1 were never compared.
+gcg_twin_fixture <- function() {
+  rows <- function(g1, g2, s1, s2, q, power = 0.99) {
+    data.frame(
+      gene1 = g1, gene2 = g2, species1 = s1, species2 = s2, hog = "HOG1",
+      q_value = q, effect_size = 1 - q, score = -log2(q), power = power,
+      stringsAsFactors = FALSE
+    )
+  }
+  rbind(
+    rows(
+      c("a1", "a1", "a2", "a2"), c("b1", "B9", "b1", "B9"), "SP_A",
+      "SP_B", c(0.01, 0.02, 0.03, 0.04)
+    ),
+    rows(c("a1", "a2"), "c1", "SP_A", "SP_C", c(0.005, 0.0625)),
+    rows(c("b1", "B9"), "c1", "SP_B", "SP_C", c(0.015, 0.025)),
+    rows("a3", c("b1", "B9"), "SP_A", "SP_B", c(0.03125, 0.04)),
+    rows(
+      c("a1", "B9"), "d1", c("SP_A", "SP_B"), "SP_D", 0.95,
+      power = c(0.99, 0.3)
+    )
+  )
+}
+gcg_four <- c("SP_A", "SP_B", "SP_C", "SP_D")
+gcg_four_clades <- list(L1 = gcg_four[1:3], L2 = gcg_four[4])
+
+# Sorted member key of every clique; `hog` is per clique.
+gcg_keys <- function(hog, id, sp, gene) {
+  k <- paste(as.character(sp), gene)
+  o <- order(id, k)
+  paste(hog, vapply(split(k[o], id[o]), paste, "", collapse = ","))
+}
+
+# Classification rows of `g` per expansion of `.gcg_expand(g, e)`.
+gcg_by_expansion <- function(g, e, cls, species, alpha_call = 0.1,
+                             alpha_graph = 0.9, min_power = 0.8) {
+  mem <- .gcg_members(g)
+  ix <- .gcg_edge_index(
+    e, species, mem$hog, alpha_call, min_power, alpha_graph, TRUE
+  )
+  v <- if (is.null(mem$tc)) {
+    c(mem, list(sc = rep(NA_integer_, length(mem$id))))
+  } else {
+    .gcg_variants(mem, ix)
+  }
+  gene_of <- function(nd) {
+    ix$gn_u[((ix$nodes[nd] - 1) %% length(ix$gn_u)) + 1]
+  }
+  keys <- character(0)
+  row <- integer(0)
+  for (k in seq_along(v$ids)) {
+    r <- which(v$id == k)
+    alt <- lapply(r, function(i) {
+      if (is.na(v$sc[i])) v$gene[i] else gene_of(v$copies[[v$sc[i]]])
+    })
+    grid <- as.matrix(expand.grid(alt, stringsAsFactors = FALSE))
+    keys <- c(keys, gcg_keys(
+      v$hog[k], rep(seq_len(nrow(grid)), each = length(r)),
+      rep(v$sp[r], nrow(grid)), as.vector(t(grid))
+    ))
+    row <- c(row, rep(k, nrow(grid)))
+  }
+  x <- .gcg_expand(g, e)
+  kx <- gcg_keys(
+    x$cliques$hog, x$members$clique_id,
+    x$members$species, x$members$gene
+  )
+  # NA rows when an expansion has no variant; duplicated keys fail too.
+  if (anyDuplicated(keys) > 0L || !setequal(kx, keys)) {
+    return(cls[NA_integer_, ])
+  }
+  cls[row[match(kx, keys)], ]
+}
+
+
+test_that("twin classes collapse to one representative", {
+  e <- gcg_twin_fixture()
+  expect_message(
+    g <- gene_clique_graph(e),
+    "4 genes collapsed into 2 twin classes"
+  )
+  expect_identical(nrow(g$cliques), 1L)
+  expect_identical(g$cliques$multiplicity, 4L)
+  m <- g$members
+  expect_identical(sort(m$gene), sort(c("a1", "B9", "c1")))
+  expect_identical(
+    m$n_copies[match(c("a1", "B9", "c1"), m$gene)], c(2L, 2L, 1L)
+  )
+  tw <- g$twins
+  expect_identical(tw$gene[order(tw$gene)], c("a2", "b1"))
+  expect_identical(tw$representative[order(tw$gene)], c("a1", "B9"))
+  expect_identical(levels(tw$species), levels(m$species))
+  expect_identical(as.character(tw$species[order(tw$gene)]), c("SP_A", "SP_B"))
+
+  # The expansion is the clique set of the unreduced graph.
+  x <- .gcg_expand(g, e)
+  ref <- gcg_scan_ref(e[e$q_value < 0.1, ])
+  key <- gcg_keys(
+    x$cliques$hog, x$members$clique_id,
+    x$members$species, x$members$gene
+  )
+  srt <- function(z) paste(sort(z), collapse = ",")
+  mm <- match(
+    vapply(ref$genes, srt, ""),
+    vapply(split(x$members$gene, x$members$clique_id), srt, "")
+  )
+  expect_false(anyNA(mm))
+  expect_identical(nrow(x$cliques), nrow(ref))
+  expect_identical(anyDuplicated(key), 0L)
+  expect_equal(as.list(x$cliques[mm, gcg_stats]), as.list(ref[gcg_stats]))
+  # Quotient statistics average the expansions; max_q is their largest.
+  expect_equal(g$cliques$mean_q, mean(x$cliques$mean_q))
+  expect_equal(g$cliques$mean_effect_size, mean(x$cliques$mean_effect_size))
+  expect_equal(g$cliques$score, mean(x$cliques$score))
+  expect_identical(g$cliques$max_q, max(x$cliques$max_q))
+
+  # At min_size 2 the a3 edges form a clique of their own.
+  g2 <- suppressMessages(gene_clique_graph(e, min_size = 2L))
+  expect_identical(sort(g2$cliques$multiplicity), c(2L, 4L))
+  expect_identical(nrow(.gcg_expand(g2, e)$cliques), 6L)
+})
+
+
+test_that("twin variants give every expansion its own tier", {
+  e <- gcg_twin_fixture()
+  tiers <- character(0)
+  n_var <- integer(0)
+  for (a in c(0.05, 0.1, 0.9, Inf)) {
+    g <- suppressMessages(
+      gene_clique_graph(e, min_size = 2L, alpha_graph = a)
+    )
+    x <- .gcg_expand(g, e)
+    for (cl in list(NULL, gcg_four_clades)) {
+      new <- classify_gene_cliques(g, e, gcg_four, clades = cl)
+      ref <- classify_gene_cliques(x, e, gcg_four, clades = cl)
+      expect_identical(sum(new$multiplicity), nrow(x$cliques))
+      got <- gcg_by_expansion(g, e, new, gcg_four)
+      own <- c(
+        "clique_id", "variant", "multiplicity", "n_cliques_at_q_floor"
+      )
+      for (nm in setdiff(names(ref), own)) {
+        if (is.double(ref[[nm]])) next
+        expect_identical(got[[nm]], ref[[nm]], info = nm)
+      }
+      # Expansion means average to the variant means.
+      w <- tapply(ref$mean_q, paste(got$clique_id, got$variant), mean)
+      expect_equal(
+        as.vector(w[paste(new$clique_id, new$variant)]), new$mean_q
+      )
+      tiers <- c(tiers, new$classification)
+      n_var <- c(n_var, max(new$variant))
+    }
+  }
+  # The status split ran and gave the copies different tiers.
+  expect_gt(max(n_var), 1L)
+  want <- c("lineage_specific", "trait_specific", "underpowered")
+  expect_true(all(want %in% tiers))
+  new <- classify_gene_cliques(
+    suppressMessages(gene_clique_graph(e)), e, gcg_four,
+    clades = gcg_four_clades
+  )
+  # Four variants: SP_D reads tested_ns, untested or underpowered
+  # depending on the copies.
+  expect_identical(new$variant, 1:4)
+  expect_identical(new$multiplicity, rep(1L, 4L))
+  expect_identical(
+    table(paste(new$missing_reason, new$classification)),
+    table(c(
+      "tested_ns trait_specific", "tested_ns trait_specific",
+      "untested lineage_specific", "underpowered underpowered"
+    ))
+  )
+})
+
+
+test_that("a run without twins is unchanged", {
+  ref <- readRDS(test_path("fixtures", "gcg_unreduced.rds"))
+  fx <- list(
+    base = make_gcg_fixture(), lin = gcg_up_lineage(0.3),
+    diff = gcg_up_diff(c(0.3, 0.99, 0.99))
+  )
+  for (nm in names(ref)) {
+    f <- fx[[sub(" .*", "", nm)]]
+    a <- as.numeric(sub(".* ", "", nm))
+    g <- gene_clique_graph(f, min_size = 2L, alpha_graph = a)
+    expect_identical(nrow(g$twins), 0L)
+    expect_true(all(g$cliques$multiplicity == 1L))
+    expect_true(all(g$members$n_copies == 1L))
+    cls <- classify_gene_cliques(g, f, gcg_six, clades = gcg_clades)
+    expect_true(all(cls$variant == 1L & cls$multiplicity == 1L))
+    g$cliques$multiplicity <- NULL
+    g$members$n_copies <- NULL
+    cls$variant <- NULL
+    cls$multiplicity <- NULL
+    expect_identical(g$cliques, ref[[nm]]$g$cliques, info = nm)
+    expect_identical(g$members, ref[[nm]]$g$members, info = nm)
+    expect_identical(cls, ref[[nm]]$cls, info = nm)
+  }
+})
+
+
+test_that("a result without twin columns still classifies", {
+  e <- make_gcg_fixture()
+  g <- gene_clique_graph(e, alpha_graph = 0.9)
+  new <- classify_gene_cliques(g, e, gcg_six, clades = gcg_clades)
+  g$twins <- NULL
+  g$members$n_copies <- NULL
+  g$cliques$multiplicity <- NULL
+  old <- classify_gene_cliques(g, e, gcg_six, clades = gcg_clades)
+  expect_identical(old, new)
+  expect_true(all(old$multiplicity == 1L))
+  # A list of runs and a member table take the same path.
+  runs <- classify_gene_cliques(list(g, g), e, gcg_six)
+  expect_true(all(runs$multiplicity == 1L & runs$variant == 1L))
 })

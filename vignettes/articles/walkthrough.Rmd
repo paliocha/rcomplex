@@ -398,8 +398,10 @@ table(result$classification)
 ### Gene graph
 
 `gene_clique_graph()` cliques the graph of genes. A hog with paralogs
-gives one clique per gene combination. It returns two tables: `cliques`
-has one row per clique, `members` one row per clique member.
+gives one clique per gene combination. It returns three tables:
+`cliques` has one row per clique, `members` one row per clique member,
+and `twins` one row per collapsed twin. Twins are paralogs with the same
+partners; one clique stands for all their combinations (`multiplicity`).
 `classify_gene_cliques()` applies the six-tier taxonomy of Rodriguez
 *et al.* (2026): `complete_conserved`,
 `lineage_specific`, `partial_significant`, `partial_present`,
