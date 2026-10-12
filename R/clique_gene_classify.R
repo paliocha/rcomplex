@@ -172,13 +172,13 @@
 #'       paralog combinations it stands for (see below)}
 #'   }
 #'   Twin genes share their partners in the graph, but their own tests
-#'   can differ at `alpha_call`, `alpha_graph` or `min_power`. The
-#'   classifier splits each twin class into copies with the same test
-#'   status. A clique gives one row per choice of split, numbered by
-#'   `variant`. Every combination a row stands for gets its tier, so
-#'   tiers are exact. `multiplicity` counts those combinations; `mean_q`,
-#'   `max_q` and `mean_effect_size` summarise them as in
-#'   [gene_clique_graph()]. Most cliques have one variant.
+#'   can differ at `alpha_call`, `alpha_graph` or `min_power`. A class
+#'   splits only where its copies differ in what that clique reads: the
+#'   species it misses and its other members. A clique gives one row per
+#'   choice of split, numbered by `variant`. Every combination a row
+#'   stands for gets its tier, so tiers are exact. `multiplicity` counts
+#'   those combinations; `mean_q`, `max_q` and `mean_effect_size`
+#'   summarise them as in [gene_clique_graph()]. Most cliques have one variant.
 #'   The two floor diagnostics are also attributes, alongside
 #'   `n_species_total`, `n_pairs_total`, `n_within_pairs`,
 #'   `n_cross_pairs`, `cross_max`, `alpha_call`, `alpha_graph` and
@@ -713,8 +713,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #'   appearance. For a list of runs also `run` and `local`, the run and
 #'   its own id of each offset id. With twin classes also `tc`, the
 #'   class of each member (`NA` for a single gene), and `tgenes`,
-#'   `thog`, `tsp`, `tag`: the genes, HOG, species and run
-#'   `alpha_graph` of each class.
+#'   `thog`, `tsp`: the genes, HOG and species of each class.
 #' @noRd
 .gcg_members <- function(x) {
   if (is.data.frame(x)) {
@@ -775,7 +774,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     out$tc <- unlist(Map(`+`, lapply(cp, `[[`, "tc"), cumsum(c(0L, n_cls))[
       seq_along(cp)
     ]))
-    for (f in c("genes", "hog", "sp", "ag")) {
+    for (f in c("genes", "hog", "sp")) {
       out[[paste0("t", f)]] <- unlist(lapply(cp, `[[`, f),
         recursive = FALSE, use.names = FALSE
       )
@@ -791,16 +790,14 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #' @param m Its member rows to classify.
 #' @return A list: `tc`, the class of each member row (`NA` for a single
 #'   gene); `genes`, the genes of each class with the representative
-#'   first; `hog` and `sp`, the HOG and species of each class; `ag`, the
-#'   run's `alpha_graph`.
+#'   first; `hog` and `sp`, the HOG and species of each class.
 #' @noRd
 .gcg_copies <- function(run, m) {
   tc <- rep(NA_integer_, nrow(m))
   r <- which(m$n_copies > 1L)
   if (length(r) == 0L) {
     return(list(
-      tc = tc, genes = list(), hog = character(0), sp = character(0),
-      ag = numeric(0)
+      tc = tc, genes = list(), hog = character(0), sp = character(0)
     ))
   }
   cl <- run$cliques
@@ -815,24 +812,23 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   )
   by <- split(tw$gene, factor(tk, levels = u))
   first <- match(u, key)
-  genes <- Map(function(g0, t) c(g0, sort(t, method = "radix")),
+  genes <- Map(
+    function(g0, t) c(g0, sort(t, method = "radix")),
     m$gene[r][first], by
   )
-  list(
-    tc = tc, genes = unname(genes), hog = hog[first], sp = sp[first],
-    ag = rep(attr(cl, "alpha_graph") %||% Inf, length(u))
-  )
+  list(tc = tc, genes = unname(genes), hog = hog[first], sp = sp[first])
 }
 
 
-#' Split twin classes by status and expand cliques into variants
+#' Split twin classes per clique and expand cliques into variants
 #'
 #' Copies of one class share their partners at the builder's
-#' `alpha_graph`, but may differ in how their rows read at `alpha_call`,
-#' `alpha_graph` and `min_power`. A class splits into sub-classes of
-#' copies with one status signature. A clique becomes one variant per
-#' choice of sub-class in each member; a variant's genes are the
-#' sub-classes' first genes in radix order.
+#' `alpha_graph`, but their own rows may differ. A clique reads only the
+#' rows to the species it misses and the pairs with its other members.
+#' In each clique, a class splits into sub-classes of copies that agree
+#' on those items, and stays whole where its copies agree. A clique
+#' becomes one variant per choice of sub-class in each member; a
+#' sub-class's gene is its first copy in radix order.
 #'
 #' @param mem Members from `.gcg_members()`, with twin classes.
 #' @param ix Context from `.gcg_edge_index(rows = TRUE)`.
@@ -843,22 +839,88 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #' @noRd
 .gcg_variants <- function(mem, ix) {
   cn <- lengths(mem$tgenes)
-  cls <- rep.int(seq_along(cn), cn)
+  n_c <- length(cn)
+  cls <- rep.int(seq_len(n_c), cn)
+  cs <- cumsum(c(0L, cn))
+  genes <- unlist(mem$tgenes, use.names = FALSE)
   nd <- match(ix$key(
     match(mem$thog, ix$hog_u)[cls], match(mem$tsp, ix$species)[cls],
-    match(unlist(mem$tgenes, use.names = FALSE), ix$gn_u)
+    match(genes, ix$gn_u)
   ), ix$nodes)
-  sk <- paste(cls, .gcg_copy_sig(ix, nd, mem$tag[cls]))
-  sub <- match(sk, unique(sk))
-  copies <- unname(split(nd, sub))
-  sub_cls <- cls[!duplicated(sub)]
-  sub_gene <- unlist(mem$tgenes, use.names = FALSE)[!duplicated(sub)]
-  n_sub <- tabulate(sub_cls, nbins = length(cn))
-  first_sub <- match(seq_along(cn), sub_cls)
+  dis <- .gcg_discord(ix, cls, nd, cn)
 
+  # A member is one unit: its node, or its whole twin class.
+  n_sp <- length(ix$species)
   tc <- mem$tc
   k <- match(mem$id, mem$ids)
-  n_alt <- ifelse(is.na(tc), 1L, n_sub[tc])
+  sb <- if (is.factor(mem$sp)) {
+    match(levels(mem$sp), ix$species)[as.integer(mem$sp)]
+  } else {
+    match(as.character(mem$sp), ix$species)
+  }
+  m_nd <- match(ix$key(
+    match(mem$hog, ix$hog_u)[k], sb, match(as.character(mem$gene), ix$gn_u)
+  ), ix$nodes)
+  n_u <- ix$n_nd + n_c + 1
+  u_key <- k * n_u + ifelse(is.na(tc), m_nd, ix$n_nd + tc)
+  s_key <- k * (n_sp + 1) + sb
+
+  # Discordant items of each twin row's class that its clique reads: a
+  # species it misses, or another member.
+  tw <- which(!is.na(tc))
+  it_n <- tabulate(dis$cls, nbins = n_c)
+  it_at <- cumsum(c(0L, it_n))
+  r <- rep.int(tw, it_n[tc[tw]])
+  i <- it_at[tc[r]] + sequence(it_n[tc[tw]])
+  y <- dis$item[i]
+  rel <- y < 0
+  rel[rel] <- is.na(collapse::fmatch(k[r[rel]] * (n_sp + 1) - y[rel], s_key))
+  g <- which(y > 0)
+  rel[g] <- !is.na(collapse::fmatch(k[r[g]] * n_u + y[g], u_key))
+  # A gene is also a member when it is a copy of another member class.
+  o <- order(nd)
+  len <- tabulate(nd, ix$n_nd)[y[g]]
+  gi <- rep.int(g, len)
+  cc <- cls[o][rep.int(match(y[g], nd[o]), len) + sequence(len) - 1L]
+  hit <- cc != tc[r[gi]] &
+    !is.na(collapse::fmatch(k[r[gi]] * n_u + ix$n_nd + cc, u_key))
+  rel[gi[hit]] <- TRUE
+
+  # Copies of a split row with equal values on its items form one part.
+  ri <- r[rel]
+  sz <- cn[tc[ri]]
+  rr <- rep.int(ri, sz)
+  pp <- sequence(sz)
+  iv <- rep.int(i[rel], sz)
+  o <- order(rr, pp, iv, method = "radix")
+  rr <- rr[o]
+  pp <- pp[o]
+  gp <- collapse::group(rr, pp)
+  sig <- vapply(split(dis$vals[dis$off[iv[o]] + pp], gp), paste, "",
+    collapse = ","
+  )
+  f <- which(!duplicated(gp))
+  rr <- rr[f]
+  pp <- pp[f]
+  part <- collapse::group(rr, sig)
+  pos <- unname(split(pp, part))
+  p_row <- rr[!duplicated(part)]
+  pk <- paste(tc[p_row], vapply(pos, paste, "", collapse = ","))
+  u <- !duplicated(pk)
+  # Sub-classes: each whole class, then each distinct part.
+  p_sub <- n_c + match(pk, pk[u])
+  u_cls <- tc[p_row[u]]
+  copies <- c(
+    unname(split(nd, cls)), Map(function(c0, p) nd[cs[c0] + p], u_cls, pos[u])
+  )
+  sub_gene <- c(
+    genes[cs[seq_len(n_c)] + 1L],
+    genes[cs[u_cls] + vapply(pos[u], `[`, 1L, 1L)]
+  )
+
+  n_alt <- rep(1L, length(tc))
+  n_alt[unique(p_row)] <- tabulate(match(p_row, unique(p_row)))
+  at <- match(seq_along(tc), p_row) - 1L
   nv <- as.integer(collapse::fprod(as.numeric(n_alt),
     structure(k, N.groups = length(mem$ids), class = "qG"),
     use.g.names = FALSE
@@ -866,18 +928,18 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   off <- cumsum(c(0L, nv))
   one <- which(nv[k] == 1L)
   src <- list(one)
-  sc <- list(first_sub[tc[one]])
+  sc <- list(tc[one])
   vid <- list(off[k[one]] + 1L)
   # Few cliques hold a split class; each lists its variants.
-  for (rr in split(which(nv[k] > 1L), k[nv[k] > 1L])) {
-    alt <- lapply(tc[rr], function(t) {
-      if (is.na(t)) NA_integer_ else first_sub[t] - 1L + seq_len(n_sub[t])
+  for (rs in split(which(nv[k] > 1L), k[nv[k] > 1L])) {
+    alt <- lapply(rs, function(x) {
+      if (n_alt[x] == 1L) tc[x] else p_sub[at[x] + seq_len(n_alt[x])]
     })
     grid <- as.matrix(expand.grid(alt, KEEP.OUT.ATTRS = FALSE))
-    src[[length(src) + 1L]] <- rep(rr, nrow(grid))
+    src[[length(src) + 1L]] <- rep(rs, nrow(grid))
     sc[[length(sc) + 1L]] <- as.vector(t(grid))
-    vid[[length(vid) + 1L]] <- off[k[rr[1L]]] +
-      rep(seq_len(nrow(grid)), each = length(rr))
+    vid[[length(vid) + 1L]] <- off[k[rs[1L]]] +
+      rep(seq_len(nrow(grid)), each = length(rs))
   }
   vid <- unlist(vid)
   o <- order(vid, method = "radix")
@@ -906,47 +968,80 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 }
 
 
-#' Status signature of each copy
+#' Items on which the copies of each twin class differ
 #'
-#' Two copies with one signature give every clique the same tier. Per
-#' other species: tested, any failed row, any failed row with power.
-#' Per gene: any significant row. Per graph neighbour (q under the run's
-#' `alpha_graph`): the status of the most significant row.
+#' A clique reads two things of a copy. Per species it misses: tested,
+#' any failed row, any failed row with power, and the significant genes.
+#' Per other member: the pair's presence, significance, q under
+#' `alpha_graph`, and low power. An item on which every copy of a class
+#' agrees never splits it, so only the other items are kept.
 #'
 #' @param ix Context from `.gcg_edge_index(rows = TRUE)`.
-#' @param nd Nodes of the copies.
-#' @param ag The run `alpha_graph` of each copy.
-#' @return One string per copy.
+#' @param cls,nd Class and node of each copy, sorted by class.
+#' @param cn Copies per class.
+#' @return A list sorted by class: `cls`; `item`, minus a species index
+#'   or a gene node; `off`, so that copy `p` of the class has the value
+#'   `vals[off + p]` on the item.
 #' @noRd
-.gcg_copy_sig <- function(ix, nd, ag) {
-  out <- character(length(nd))
+.gcg_discord <- function(ix, cls, nd, cn) {
   a <- c(ix$row_i, ix$row_j)
-  for (a0 in unique(ag)) {
-    xs <- unique(nd[ag == a0])
-    hit <- which(a %in% xs)
-    x <- a[hit]
-    y <- c(ix$row_j, ix$row_i)[hit]
-    sig <- rep(ix$row_sig, 2L)[hit]
-    up <- rep(ix$row_up, 2L)[hit]
-    t <- ix$node_s[y]
-    h <- match(pmin(x, y) * (ix$n_nd + 1) + pmax(x, y), ix$lut_k)
-    nb <- !is.na(ix$lut_q[h]) & ix$lut_q[h] < a0
-    # Species flags are negative, gene entries positive.
-    v <- c(
-      -(t * 8 + 1), -(t * 8 + 2)[!sig], -(t * 8 + 4)[!sig & !up],
-      y[sig] * 16 + 1, y[nb] * 16 + 2 + ix$lut_code[h][nb]
-    )
-    xv <- c(x, x[!sig], x[!sig & !up], x[sig], x[nb])
-    d <- !duplicated(cbind(xv, v))
-    xv <- xv[d]
-    v <- v[d]
-    o <- order(xv, v)
-    sig_x <- vapply(split(v[o], factor(xv[o], levels = xs)), paste, "",
-      collapse = ","
-    )
-    out[ag == a0] <- sig_x[match(nd[ag == a0], xs)]
-  }
-  out
+  hit <- which(a %in% nd)
+  y <- c(ix$row_j, ix$row_i)[hit]
+  t <- ix$node_s[y]
+  hit <- hit[t <= length(ix$species)]
+  x <- a[hit]
+  y <- c(ix$row_j, ix$row_i)[hit]
+  t <- ix$node_s[y]
+  sig <- rep(ix$row_sig, 2L)[hit]
+  nup <- !sig & !rep(ix$row_up, 2L)[hit]
+  # Species value: flags negative, significant genes positive.
+  sx <- c(x, x[!sig], x[nup], x[sig])
+  st <- c(t, t[!sig], t[nup], t[sig])
+  sv <- c(
+    rep(-1, length(x)), rep(-2, sum(!sig)), rep(-4, sum(nup)), y[sig]
+  )
+  o <- order(sx, st, sv, method = "radix")
+  key <- (sx * (length(ix$species) + 1) + st) * (ix$n_nd + 8) + sv
+  o <- o[!duplicated(key[o])]
+  gs <- collapse::group(sx[o], st[o])
+  s_val <- vapply(split(sv[o], gs), paste, "", collapse = ",")
+  f <- o[!duplicated(gs)]
+  # Pair value: 1 + significant + 2 * (2 * below alpha_graph + low power).
+  h <- match(pmin(x, y) * (ix$n_nd + 1) + pmax(x, y), ix$lut_k)
+  ok <- which(!is.na(ix$lut_q[h]) & !duplicated(x * (ix$n_nd + 1) + y))
+  nx <- c(sx[f], x[ok])
+  item <- c(-st[f], y[ok])
+  val <- c(
+    match(s_val, unique(s_val)),
+    1L + (ix$lut_q[h[ok]] < ix$alpha_call) + 2L * ix$lut_code[h[ok]]
+  )
+
+  # Each copy takes the items of its node.
+  o <- order(nx)
+  len <- tabulate(nx, ix$n_nd)[nd]
+  len[is.na(len)] <- 0L
+  j <- o[rep.int(match(nd, nx[o]), len) + sequence(len) - 1L]
+  cc <- rep.int(cls, len)
+  pp <- rep.int(sequence(cn), len)
+  item <- item[j]
+  val <- val[j]
+  g <- collapse::group(cc, item)
+  n_g <- attr(g, "N.groups")
+  n_v <- collapse::fndistinct(val, g, use.g.names = FALSE)
+  f <- which(!duplicated(g))
+  g_cls <- cc[f]
+  g_item <- item[f]
+  bad <- which(tabulate(g, n_g) < cn[g_cls] | n_v > 1L)
+  bad <- bad[order(g_cls[bad], g_item[bad])]
+  off <- cumsum(c(0, cn[g_cls[bad]]))
+  vals <- integer(off[length(off)])
+  w <- match(g, bad)
+  k <- which(!is.na(w))
+  vals[off[w[k]] + pp[k]] <- val[k]
+  list(
+    cls = g_cls[bad], item = g_item[bad], off = off[seq_along(bad)],
+    vals = vals
+  )
 }
 
 

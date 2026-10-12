@@ -103,13 +103,13 @@ resolution \code{mean_q} actually has as a ranking key}
 paralog combinations it stands for (see below)}
 }
 Twin genes share their partners in the graph, but their own tests
-can differ at \code{alpha_call}, \code{alpha_graph} or \code{min_power}. The
-classifier splits each twin class into copies with the same test
-status. A clique gives one row per choice of split, numbered by
-\code{variant}. Every combination a row stands for gets its tier, so
-tiers are exact. \code{multiplicity} counts those combinations; \code{mean_q},
-\code{max_q} and \code{mean_effect_size} summarise them as in
-\code{\link[=gene_clique_graph]{gene_clique_graph()}}. Most cliques have one variant.
+can differ at \code{alpha_call}, \code{alpha_graph} or \code{min_power}. A class
+splits only where its copies differ in what that clique reads: the
+species it misses and its other members. A clique gives one row per
+choice of split, numbered by \code{variant}. Every combination a row
+stands for gets its tier, so tiers are exact. \code{multiplicity} counts
+those combinations; \code{mean_q}, \code{max_q} and \code{mean_effect_size}
+summarise them as in \code{\link[=gene_clique_graph]{gene_clique_graph()}}. Most cliques have one variant.
 The two floor diagnostics are also attributes, alongside
 \code{n_species_total}, \code{n_pairs_total}, \code{n_within_pairs},
 \code{n_cross_pairs}, \code{cross_max}, \code{alpha_call}, \code{alpha_graph} and
