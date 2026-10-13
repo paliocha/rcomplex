@@ -15,6 +15,11 @@
   full leaf data it classifies 8,464,243 rows in 169 s at 10.2 GB, instead
   of 28.3 M rows in 6 min at 15.0 GB. At 12,000 genes it gives 186,032 rows
   in 4 s instead of 11 s.
+- `classify_gene_cliques()` splits a twin class per clique, and only
+  where its copies differ in what that clique reads: the species it
+  misses and its other members. On the full leaf data, 8,464,243 rows
+  become 3,582,532, in 61 s at 7.8 GB instead of 169 s at 10.2 GB. At
+  12,000 genes, 186,032 rows become 43,039.
 - `rcomplex()` stores `twins`, and `write_rcomplex()` writes `twins.tsv`.
   `print()` shows the distinct cliques, with the count including paralog
   copies in brackets. The `summary()` tier

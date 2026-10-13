@@ -2071,3 +2071,91 @@ test_that("twin-collapsed runs in a list keep their own variants", {
     sum(both$run == 1L), sum(both$run == 2L)
   )))
 })
+
+
+# Twins a1 and a2 differ only against x1 of SP_X, which no clique holds:
+# a1 failed it with power, a2 without. One clique holds x2 of SP_X, the
+# other misses SP_X.
+gcg_twin_x_fixture <- function() {
+  rows <- function(g1, g2, s1, s2, q, power = 0.99) {
+    data.frame(
+      gene1 = g1, gene2 = g2, species1 = s1, species2 = s2, hog = "HOG1",
+      q_value = q, effect_size = 1 - q, power = power
+    )
+  }
+  rbind(
+    rows(c("a1", "a2"), "b1", "SP_A", "SP_B", c(0.01, 0.02)),
+    rows(c("a1", "a2", "b1"), c("c1", "c1", "c1", "x2", "x2", "x2"),
+      rep(c("SP_A", "SP_A", "SP_B"), 2), rep(c("SP_C", "SP_X"), each = 3),
+      c(0.03, 0.04, 0.05, 0.015, 0.025, 0.035)
+    ),
+    rows(c("a1", "a2"), "x1", "SP_A", "SP_X", 0.95, power = c(0.99, 0.3))
+  )
+}
+
+# Twins a1 and a2 differ only against c1: both under alpha_graph, only a1
+# under alpha_call. c2 has its own partner x1, so it is no twin of c1.
+gcg_twin_member_fixture <- function() {
+  e <- gcg_twin_x_fixture()
+  e <- e[e$gene2 != "x1", ]
+  e$q_value[e$gene1 == "a2" & e$gene2 == "c1"] <- 0.3
+  e$gene2[e$gene2 == "x2"] <- "c2"
+  e$species2[e$gene2 == "c2"] <- "SP_C"
+  rbind(e, data.frame(
+    gene1 = "c2", gene2 = "x1", species1 = "SP_C", species2 = "SP_X",
+    hog = "HOG1", q_value = 0.02, effect_size = 0.98, power = 0.99
+  ))
+}
+
+# Variants match their expansions, and there are no more of them than
+# distinct tier-defining outcomes among a quotient clique's expansions.
+gcg_check_minimal <- function(g, e, cls, species, alpha_call) {
+  x <- .gcg_expand(g, e)
+  ref <- classify_gene_cliques(x, e, species, alpha_call = alpha_call)
+  got <- gcg_by_expansion(g, e, cls, species, alpha_call = alpha_call)
+  for (nm in c(
+    "classification", "missing_reason", "n_sig_within", "n_sig_cross",
+    "n_underpowered_cross", "clade", "hog_class"
+  )) {
+    testthat::expect_identical(got[[nm]], ref[[nm]], info = nm)
+  }
+  testthat::expect_identical(sum(cls$multiplicity), nrow(x$cliques))
+  key <- do.call(paste, ref[c(
+    "classification", "missing_reason", "n_sig_within", "n_sig_cross",
+    "n_underpowered_cross", "clade"
+  )])
+  n_out <- tapply(key, x$cliques$quotient_id[ref$clique_id], function(k) {
+    length(unique(k))
+  })
+  testthat::expect_identical(as.vector(n_out), as.vector(table(cls$clique_id)))
+}
+
+
+test_that("a twin class splits only where a clique reads the difference", {
+  sp <- c("SP_A", "SP_B", "SP_C", "SP_X")
+  e <- gcg_twin_x_fixture()
+  g <- suppressMessages(gene_clique_graph(e, alpha_graph = 0.9))
+  at <- function(gene) g$members$clique_id[g$members$gene == gene]
+  for (ac in c(0.9, 0.1)) {
+    cls <- classify_gene_cliques(g, e, sp, alpha_call = ac)
+    # The clique holding SP_X never reads x1.
+    expect_identical(cls$multiplicity[cls$clique_id == at("x2")], 2L)
+    out <- cls[cls$clique_id == at("c1"), ]
+    expect_identical(out$multiplicity, c(1L, 1L))
+    expect_identical(
+      sort(paste(out$missing_reason, out$classification)),
+      c("tested_ns unclassified", "underpowered partial_present")
+    )
+    gcg_check_minimal(g, e, cls, sp, ac)
+  }
+
+  e <- gcg_twin_member_fixture()
+  g <- suppressMessages(gene_clique_graph(e, alpha_graph = 0.9))
+  cls <- classify_gene_cliques(g, e, sp)
+  # Only the clique holding c1 reads a2's failure against it.
+  expect_identical(cls$multiplicity[cls$clique_id == at("c2")], 2L)
+  out <- cls[cls$clique_id == at("c1"), ]
+  expect_identical(out$n_sig, c(3L, 2L))
+  expect_identical(out$multiplicity, c(1L, 1L))
+  gcg_check_minimal(g, e, cls, sp, 0.1)
+})
