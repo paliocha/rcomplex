@@ -49,7 +49,13 @@ Nodes are (species, gene) pairs. Lists every maximal clique of at least
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">gene_clique_graph</span><span class="op">(</span><span class="va">edges</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Default S3 method</span></span>
-<span><span class="fu">gene_clique_graph</span><span class="op">(</span><span class="va">edges</span>, min_size <span class="op">=</span> <span class="fl">3L</span>, alpha_graph <span class="op">=</span> <span class="fl">0.1</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">gene_clique_graph</span><span class="op">(</span></span>
+<span>  <span class="va">edges</span>,</span>
+<span>  min_size <span class="op">=</span> <span class="fl">3L</span>,</span>
+<span>  alpha_graph <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>  max_cliques <span class="op">=</span> <span class="fl">1e+05</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -86,10 +92,16 @@ the results is the intended way to feed
 at one threshold need not be maximal at another. Pass the runs to
 it as a list.</p></dd>
 
+
+<dt id="arg-max-cliques">max_cliques<a class="anchor" aria-label="anchor" href="#arg-max-cliques"></a></dt>
+<dd><p>Largest number of maximal cliques one hog may
+produce. A hog above it keeps its wiring classes with the strongest
+edges until it fits. Default 1e5; <code>Inf</code> keeps every clique.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list of class <code>gene_cliques</code> with three tables.
+    <p>A list of class <code>gene_cliques</code> with four tables.
 <code>cliques</code> has one row per clique:</p><dl><dt>clique_id</dt>
 <dd><p>Integer clique id, 1 to the number of cliques</p></dd>
 
@@ -142,6 +154,10 @@ appearance), <code>gene</code> (the representative of its twin class) and
 included).
 <code>twins</code> has one row per collapsed gene: <code>hog</code>, <code>species</code>, <code>gene</code>
 and <code>representative</code>. It has no rows when no two genes are twins.
+<code>dropped</code> has one row per gene that the clique budget dropped:
+<code>hog</code>, <code>species</code>, <code>gene</code>, <code>n_cliques_full</code> (the hog's maximal
+cliques before the drop), <code>n_classes</code> (its twin classes) and
+<code>n_classes_kept</code>. It has no rows when no hog is over the budget.
 The two floor diagnostics, plus <code>alpha_graph</code>, <code>min_size</code> and
 <code>q_floor</code> (smallest edge q-value in the graph), are also attributes
 of <code>cliques</code>. Both are always set, empty results included.</p>
@@ -170,8 +186,16 @@ so the twins of a class collapse to one gene before the cliques are
 listed. Each clique stands for every choice of one gene per class.
 The collapse is exact: expanding the cliques gives the full set. The
 representative is the first gene of its class in radix (C-locale)
-order. The copy cap applies first, so the genes are those of an
-unreduced run.</p>
+order.</p>
+<p>Paralogs multiply cliques, so a hog may produce millions of them. A
+cap on genes per species does not bound that count. One hog with 76
+twin classes, fewer than 10 per species, gave 2.4 million. The budget
+counts cliques per hog, after the twin collapse. A hog over
+<code>max_cliques</code> ranks its twin classes by the sum of their edge scores.
+It keeps the top class of each species. It then keeps the most
+classes, in rank order, that fit the budget. The genes of the other
+classes go to <code>dropped</code>. Ties go to the gene id, so row order does not
+matter.</p>
 <p>A hog of 40 or more genes is enumerated one start gene at a time.
 The pieces are disjoint, so the cliques are the same. Only the peak
 memory drops.</p>

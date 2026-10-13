@@ -2,6 +2,20 @@
 
 ## rcomplex (development version)
 
+- [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
+  replaces the 10-copies-per-species cap by a clique budget,
+  `max_cliques = 1e5` per hog. Twins collapse first. A hog over the
+  budget keeps the wiring classes with the strongest edges. Evidence
+  decides, never row order
+  ([\#79](https://github.com/paliocha/rcomplex/issues/79)). The result
+  gains `dropped`, one row per dropped gene with the hog’s full clique
+  count;
+  [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
+  flags those hogs’ cliques with `capped`;
+  [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  stores `dropped`. On the wood data nothing is dropped any more (2,057
+  genes were). On the 8-species leaf data fourteen families are reduced
+  instead of 214.
 - `rcomplex(null = TRUE)` now shuffles hog labels among genes of the
   same expression level and reruns edges, cliques and tiers on the
   shuffled table. `calls_null` counts the calls that abundance and

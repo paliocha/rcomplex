@@ -10,7 +10,13 @@ are (species, gene) pairs. Lists every maximal clique of at least
 gene_clique_graph(edges, ...)
 
 # Default S3 method
-gene_clique_graph(edges, min_size = 3L, alpha_graph = 0.1, ...)
+gene_clique_graph(
+  edges,
+  min_size = 3L,
+  alpha_graph = 0.1,
+  max_cliques = 1e+05,
+  ...
+)
 ```
 
 ## Arguments
@@ -45,9 +51,15 @@ gene_clique_graph(edges, min_size = 3L, alpha_graph = 0.1, ...)
   since a clique that is maximal at one threshold need not be maximal at
   another. Pass the runs to it as a list.
 
+- max_cliques:
+
+  Largest number of maximal cliques one hog may produce. A hog above it
+  keeps its wiring classes with the strongest edges until it fits.
+  Default 1e5; `Inf` keeps every clique.
+
 ## Value
 
-A list of class `gene_cliques` with three tables. `cliques` has one row
+A list of class `gene_cliques` with four tables. `cliques` has one row
 per clique:
 
 - clique_id:
@@ -106,10 +118,14 @@ factor; its levels are the species of `edges` in order of first
 appearance), `gene` (the representative of its twin class) and
 `n_copies` (the genes with the same called partners, itself included).
 `twins` has one row per collapsed gene: `hog`, `species`, `gene` and
-`representative`. It has no rows when no two genes are twins. The two
-floor diagnostics, plus `alpha_graph`, `min_size` and `q_floor`
-(smallest edge q-value in the graph), are also attributes of `cliques`.
-Both are always set, empty results included.
+`representative`. It has no rows when no two genes are twins. `dropped`
+has one row per gene that the clique budget dropped: `hog`, `species`,
+`gene`, `n_cliques_full` (the hog's maximal cliques before the drop),
+`n_classes` (its twin classes) and `n_classes_kept`. It has no rows when
+no hog is over the budget. The two floor diagnostics, plus
+`alpha_graph`, `min_size` and `q_floor` (smallest edge q-value in the
+graph), are also attributes of `cliques`. Both are always set, empty
+results included.
 
 ## Details
 
@@ -138,8 +154,16 @@ them. Swapping one twin for another gives another maximal clique, so the
 twins of a class collapse to one gene before the cliques are listed.
 Each clique stands for every choice of one gene per class. The collapse
 is exact: expanding the cliques gives the full set. The representative
-is the first gene of its class in radix (C-locale) order. The copy cap
-applies first, so the genes are those of an unreduced run.
+is the first gene of its class in radix (C-locale) order.
+
+Paralogs multiply cliques, so a hog may produce millions of them. A cap
+on genes per species does not bound that count. One hog with 76 twin
+classes, fewer than 10 per species, gave 2.4 million. The budget counts
+cliques per hog, after the twin collapse. A hog over `max_cliques` ranks
+its twin classes by the sum of their edge scores. It keeps the top class
+of each species. It then keeps the most classes, in rank order, that fit
+the budget. The genes of the other classes go to `dropped`. Ties go to
+the gene id, so row order does not matter.
 
 A hog of 40 or more genes is enumerated one start gene at a time. The
 pieces are disjoint, so the cliques are the same. Only the peak memory

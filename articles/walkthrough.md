@@ -508,15 +508,14 @@ fits none is `unclassified`. A tier that rests on low power becomes
 
 ``` r
 gene_cliques <- gene_clique_graph(edges)
-#> gene_clique_graph: 3 ortholog groups exceeded 10 genes in some species; 16 genes dropped
-#> gene_clique_graph: 145 genes collapsed into 71 twin classes; cliques carry multiplicity
+#> gene_clique_graph: 143 genes collapsed into 70 twin classes; cliques carry multiplicity
 gene_class <- classify_gene_cliques(gene_cliques, edges, species,
   clades = clades
 )
 table(gene_class$classification)
 #> 
 #> complete_conserved    partial_present     trait_specific       unclassified 
-#>                265                 32                 16               6790 
+#>                265                 32                 16               7524 
 #>       underpowered 
 #>                 13
 ```

@@ -112,8 +112,7 @@ expression level. The run takes about 10 seconds.</p>
 <span>  <span class="op">)</span>,</span>
 <span>  null <span class="op">=</span> <span class="cn">TRUE</span>, seed <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; gene_clique_graph: 9 ortholog groups exceeded 10 genes in some species; 68 genes dropped</span></span>
-<span><span class="co">#&gt; gene_clique_graph: 1251 genes collapsed into 570 twin classes; cliques carry multiplicity</span></span>
+<span><span class="co">#&gt; gene_clique_graph: 1245 genes collapsed into 577 twin classes; cliques carry multiplicity</span></span>
 <span><span class="va">res</span></span>
 <span><span class="co">#&gt; rcomplex: 4 species, 1,500 hogs, 3 tiers</span></span>
 <span><span class="co">#&gt;   BDIS  1,935 genes  20 samples  density 0.03  r &gt;= 0.35</span></span>
@@ -121,7 +120,7 @@ expression level. The run takes about 10 seconds.</p>
 <span><span class="co">#&gt;   HVUL  1,925 genes  20 samples  density 0.03  r &gt;= 0.29</span></span>
 <span><span class="co">#&gt;   HJUB  3,983 genes  20 samples  density 0.03  r &gt;= 0.28</span></span>
 <span><span class="co">#&gt;   edges 33,575 tested, 10,387 called at q &lt; 0.1</span></span>
-<span><span class="co">#&gt;   cliques 1,959 distinct (14,047 with paralog copies): complete_conserved   817, partial_present    68, unclassified 1,074</span></span></code></pre></div>
+<span><span class="co">#&gt;   cliques 3,125 distinct (17,653 with paralog copies): complete_conserved 1,977, partial_present    68, unclassified 1,080</span></span></code></pre></div>
 <p>The header lists, per species, the genes, the samples and the
 density. The value after “r &gt;=” is the weakest correlation that
 became an edge. At 20 samples, a correlation of 0.3 is weak evidence.
@@ -132,9 +131,10 @@ one clique per gene combination. Paralogs with the same partners are
 twins. One clique stands for all their combinations. The line counts
 distinct cliques, and the count in brackets includes the
 combinations.</p>
-<p>The message about dropped genes is on purpose. The clique search
-keeps at most 10 copies of a hog per species, because gene combinations
-explode.</p>
+<p>Gene combinations can explode in a large hog. The clique search keeps
+at most <code>max_cliques</code> cliques per hog (default 100,000). A
+hog over it drops the genes with the weakest edges.
+<code>res$dropped</code> lists them.</p>
 </div>
 <div class="section level2">
 <h2 id="read-the-results">Read the results<a class="anchor" aria-label="anchor" href="#read-the-results"></a>
@@ -145,9 +145,9 @@ shuffled hog labels.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                tier cliques cliques_null multiplicity hogs patterns</span></span>
-<span><span class="co">#&gt;  complete_conserved     817            0        12592  290      290</span></span>
+<span><span class="co">#&gt;  complete_conserved    1977            0        16201  290      290</span></span>
 <span><span class="co">#&gt;     partial_present      68            0          114   57       65</span></span>
-<span><span class="co">#&gt;        unclassified    1074            0         1341  426      603</span></span>
+<span><span class="co">#&gt;        unclassified    1080            0         1338  427      605</span></span>
 <span><span class="co">#&gt; null: calls at q &lt; 0.1 </span></span>
 <span><span class="co">#&gt;  species1 species2 calls calls_null false_call_rate</span></span>
 <span><span class="co">#&gt;      BDIS     BSYL  1340          0     0.000000000</span></span>
@@ -200,7 +200,7 @@ evidence of divergence.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; complete_conserved    partial_present       unclassified </span></span>
-<span><span class="co">#&gt;                817                 68               1074</span></span></code></pre></div>
+<span><span class="co">#&gt;               1977                 68               1080</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="save">Save<a class="anchor" aria-label="anchor" href="#save"></a>
@@ -215,9 +215,9 @@ run it adds <code>edges_null.tsv</code> and
 <span><span class="fu"><a href="../reference/write_rcomplex.html">write_rcomplex</a></span><span class="op">(</span><span class="va">res</span>, <span class="va">out</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">out</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "classification_null.tsv" "classification.tsv"     </span></span>
-<span><span class="co">#&gt; [3] "cliques.tsv"             "edges_null.tsv"         </span></span>
-<span><span class="co">#&gt; [5] "edges.tsv"               "members.tsv"            </span></span>
-<span><span class="co">#&gt; [7] "twins.tsv"</span></span></code></pre></div>
+<span><span class="co">#&gt; [3] "cliques.tsv"             "dropped.tsv"            </span></span>
+<span><span class="co">#&gt; [5] "edges_null.tsv"          "edges.tsv"              </span></span>
+<span><span class="co">#&gt; [7] "members.tsv"             "twins.tsv"</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="check-the-p-value-floor">Check the p-value floor<a class="anchor" aria-label="anchor" href="#check-the-p-value-floor"></a>

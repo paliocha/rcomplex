@@ -51,9 +51,7 @@ Then run the driver:
 ``` r
 clades <- list(annual = c("BDIS", "HVUL"), perennial = c("BSYL", "HJUB"))
 res <- rcomplex(leaf, hogs, clades = clades, seed = 1)
-#> gene_clique_graph: 9 ortholog groups exceeded 10 genes in some species;
-#>   68 genes dropped
-#> gene_clique_graph: 1251 genes collapsed into 570 twin classes; cliques
+#> gene_clique_graph: 1245 genes collapsed into 577 twin classes; cliques
 #>   carry multiplicity
 res
 #> rcomplex: 4 species, 1,500 hogs, 3 tiers
@@ -62,7 +60,7 @@ res
 #>   HVUL  1,925 genes  20 samples  density 0.03  r >= 0.29
 #>   HJUB  3,983 genes  20 samples  density 0.03  r >= 0.28
 #>   edges 33,575 tested, 10,387 called at q < 0.1
-#>   cliques 3,146 distinct (14,047 with paralog copies): complete_conserved 1,995, partial_present    69, unclassified 1,082
+#>   cliques 3,125 distinct (17,653 with paralog copies): complete_conserved 1,977, partial_present    68, unclassified 1,080
 ```
 
 Use `summary(res)` for the tier table, `write_rcomplex(res, "out/")` to

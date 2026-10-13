@@ -158,7 +158,9 @@ exported functions as `[fn()]`. Write internals as `\code{fn()}`. -
   [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
   returns every maximal clique, one per paralog combination. Twin
   paralogs (same species, same partners) collapse first, so a clique
-  carries `multiplicity` and the classifier splits classes by status.
+  carries `multiplicity` and the classifier splits classes by status. A
+  hog over `max_cliques` (default 1e5 cliques) keeps the wiring classes
+  with the strongest edges; `dropped` lists the rest.
   [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   runs a tier waterfall with thresholds from `length(species)`; `clades`
   and home clades set the specificity and divergence tiers. It takes the

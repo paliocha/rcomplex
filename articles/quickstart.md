@@ -60,8 +60,7 @@ res <- rcomplex(leaf, hogs,
   ),
   null = TRUE, seed = 1
 )
-#> gene_clique_graph: 9 ortholog groups exceeded 10 genes in some species; 68 genes dropped
-#> gene_clique_graph: 1251 genes collapsed into 570 twin classes; cliques carry multiplicity
+#> gene_clique_graph: 1245 genes collapsed into 577 twin classes; cliques carry multiplicity
 res
 #> rcomplex: 4 species, 1,500 hogs, 3 tiers
 #>   BDIS  1,935 genes  20 samples  density 0.03  r >= 0.35
@@ -69,7 +68,7 @@ res
 #>   HVUL  1,925 genes  20 samples  density 0.03  r >= 0.29
 #>   HJUB  3,983 genes  20 samples  density 0.03  r >= 0.28
 #>   edges 33,575 tested, 10,387 called at q < 0.1
-#>   cliques 1,959 distinct (14,047 with paralog copies): complete_conserved   817, partial_present    68, unclassified 1,074
+#>   cliques 3,125 distinct (17,653 with paralog copies): complete_conserved 1,977, partial_present    68, unclassified 1,080
 ```
 
 The header lists, per species, the genes, the samples and the density.
@@ -83,9 +82,9 @@ one clique per gene combination. Paralogs with the same partners are
 twins. One clique stands for all their combinations. The line counts
 distinct cliques, and the count in brackets includes the combinations.
 
-The message about dropped genes is on purpose. The clique search keeps
-at most 10 copies of a hog per species, because gene combinations
-explode.
+Gene combinations can explode in a large hog. The clique search keeps at
+most `max_cliques` cliques per hog (default 100,000). A hog over it
+drops the genes with the weakest edges. `res$dropped` lists them.
 
 ## Read the results
 
@@ -96,9 +95,9 @@ hog labels.
 ``` r
 summary(res)
 #>                tier cliques cliques_null multiplicity hogs patterns
-#>  complete_conserved     817            0        12592  290      290
+#>  complete_conserved    1977            0        16201  290      290
 #>     partial_present      68            0          114   57       65
-#>        unclassified    1074            0         1341  426      603
+#>        unclassified    1080            0         1338  427      605
 #> null: calls at q < 0.1 
 #>  species1 species2 calls calls_null false_call_rate
 #>      BDIS     BSYL  1340          0     0.000000000
@@ -147,7 +146,7 @@ returns the same table.
 table(as.data.frame(res)$classification)
 #> 
 #> complete_conserved    partial_present       unclassified 
-#>                817                 68               1074
+#>               1977                 68               1080
 ```
 
 ## Save
@@ -162,9 +161,9 @@ out <- file.path(tempdir(), "rcomplex-out")
 write_rcomplex(res, out)
 list.files(out)
 #> [1] "classification_null.tsv" "classification.tsv"     
-#> [3] "cliques.tsv"             "edges_null.tsv"         
-#> [5] "edges.tsv"               "members.tsv"            
-#> [7] "twins.tsv"
+#> [3] "cliques.tsv"             "dropped.tsv"            
+#> [5] "edges_null.tsv"          "edges.tsv"              
+#> [7] "members.tsv"             "twins.tsv"
 ```
 
 ## Check the p-value floor
