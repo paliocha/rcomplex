@@ -5,17 +5,35 @@
 - [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
   replaces the 10-copies-per-species cap by a clique budget,
   `max_cliques = 1e5` per hog. Twins collapse first. A hog over the
-  budget keeps the wiring classes with the strongest edges. Evidence
-  decides, never row order
+  budget is reported as species blocks: one row per group of species
+  wired together, with the best copy per species. Gene ids break ties,
+  never row order
   ([\#79](https://github.com/paliocha/rcomplex/issues/79)). The result
-  gains `dropped`, one row per dropped gene with the hog’s full clique
-  count;
+  gains `capped`, one row per such hog with its full clique count.
   [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   flags those hogs’ cliques with `capped`;
   [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
-  stores `dropped`. On the wood data nothing is dropped any more (2,057
-  genes were). On the 8-species leaf data fourteen families are reduced
-  instead of 214.
+  stores `capped`. On the wood data no hog is over the budget (2,057
+  genes were capped). On the 8-species leaf data fourteen families are
+  blocks instead of 214 capped families.
+- A group of species wired pairwise need not share one set of copies.
+  [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md),
+  [`clique_stability()`](https://paliocha.github.io/rcomplex/reference/clique_stability.md)
+  and the species blocks of
+  [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
+  now report its largest species subsets that do. Before, such a group
+  gave no row. A hog gets at most 4,096 subset searches. Ties in mean q
+  go to the larger effect size, then to the gene id. On the wood data,
+  [`classify_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_cliques.md)
+  moves 347 hogs: unclassified 2,335 to 2,035, partial 5,423 to 5,689,
+  trait_specific 7,832 to 7,862, differentiated 413 to 417.
+- [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md)
+  and
+  [`clique_stability()`](https://paliocha.github.io/rcomplex/reference/clique_stability.md)
+  drop the 10-copies-per-species cap. The best-gene search order is
+  deterministic: gene ids break ties, never row order.
+  [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md)
+  gains `exhaustive`, `FALSE` when the search hit its step budget.
 - `rcomplex(null = TRUE)` now shuffles hog labels among genes of the
   same expression level and reruns edges, cliques and tiers on the
   shuffled table. `calls_null` counts the calls that abundance and

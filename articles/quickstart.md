@@ -84,7 +84,8 @@ distinct cliques, and the count in brackets includes the combinations.
 
 Gene combinations can explode in a large hog. The clique search keeps at
 most `max_cliques` cliques per hog (default 100,000). A hog over it
-drops the genes with the weakest edges. `res$dropped` lists them.
+gives one row per group of wired species, with the best copy of each.
+`res$capped` lists these hogs.
 
 ## Read the results
 
@@ -160,8 +161,8 @@ writes `edges.tsv`, `cliques.tsv`, `members.tsv`, `twins.tsv` and
 out <- file.path(tempdir(), "rcomplex-out")
 write_rcomplex(res, out)
 list.files(out)
-#> [1] "classification_null.tsv" "classification.tsv"     
-#> [3] "cliques.tsv"             "dropped.tsv"            
+#> [1] "capped.tsv"              "classification_null.tsv"
+#> [3] "classification.tsv"      "cliques.tsv"            
 #> [5] "edges_null.tsv"          "edges.tsv"              
 #> [7] "members.tsv"             "twins.tsv"
 ```

@@ -160,10 +160,9 @@ A data frame with one row per clique variant:
 
 - capped:
 
-  `TRUE` when the clique budget of
-  [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
-  dropped genes from the clique's HOG. For a list of runs, any run
-  counts
+  `TRUE` when the clique is a species block of a hog over the clique
+  budget: one representative copy per species. For a list of runs, any
+  run counts
 
 Twin genes share their partners in the graph, but their own tests can
 differ at `alpha_call`, `alpha_graph` or `min_power`. A class splits

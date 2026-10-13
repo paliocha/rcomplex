@@ -147,7 +147,9 @@ annotations are added after the test if <code>clades</code> is provided.</p><div
 
 <p>For each combination of k species removed from <code>all_species</code>
 (k = 1, ..., max_k):</p><ol><li><p>All edges involving the removed species are dropped</p></li>
-<li><p>Clique detection re-runs among remaining target species</p></li>
+<li><p>Clique detection re-runs among remaining target species. It
+uses the subset fallback of <code><a href="find_cliques.html">find_cliques()</a></code>, so a fallback clique
+is matched against the same kind of search.</p></li>
 <li><p>Reduced cliques are matched to full-dataset cliques by Jaccard
 similarity of gene assignments (considering only non-removed species)</p></li>
 </ol><p>A clique is <em>testable</em> in a subset if at least 2 of its species

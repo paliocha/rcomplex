@@ -19,7 +19,6 @@ find_cliques_stability_cpp(
   is_target,
   full_cliques,
   max_k = 3L,
-  max_genes_per_sp = 10L,
   jaccard_threshold = 0.8,
   n_cores = 1L,
   w_q = 1,
@@ -53,7 +52,7 @@ find_cliques_stability_cpp(
 
   output of find_cliques_cpp on the full dataset
 
-- max_k, max_genes_per_sp, jaccard_threshold, n_cores:
+- max_k, jaccard_threshold, n_cores:
 
   tuning parameters
 

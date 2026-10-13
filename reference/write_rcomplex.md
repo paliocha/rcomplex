@@ -2,8 +2,8 @@
 
 `write_rcomplex()` writes each table of the result to its own file. Each
 file takes the name of its element: `edges.tsv`, `cliques.tsv`,
-`members.tsv`, `twins.tsv`, `dropped.tsv`, `classification.tsv` and,
-with `null = TRUE`, `edges_null.tsv` and `classification_null.tsv`.
+`members.tsv`, `twins.tsv`, `capped.tsv`, `classification.tsv` and, with
+`null = TRUE`, `edges_null.tsv` and `classification_null.tsv`.
 
 ## Usage
 

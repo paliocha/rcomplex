@@ -119,11 +119,11 @@ A list of class `rcomplex`:
   one row per clique, one row per clique member, and one row per
   collapsed twin gene.
 
-- dropped:
+- capped:
 
-  One row per gene that the clique budget of
-  [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
-  dropped. Usually empty.
+  One row per hog over the clique budget of
+  [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md).
+  Its cliques are species blocks. Usually empty.
 
 - classification:
 

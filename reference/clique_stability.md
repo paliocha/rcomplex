@@ -106,7 +106,10 @@ For each combination of k species removed from `all_species` (k = 1,
 
 1.  All edges involving the removed species are dropped
 
-2.  Clique detection re-runs among remaining target species
+2.  Clique detection re-runs among remaining target species. It uses the
+    subset fallback of
+    [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md),
+    so a fallback clique is matched against the same kind of search.
 
 3.  Reduced cliques are matched to full-dataset cliques by Jaccard
     similarity of gene assignments (considering only non-removed

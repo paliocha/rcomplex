@@ -140,6 +140,10 @@ the original mean-q-only ranking.</p></dd>
 <dt>n_missing</dt>
 <dd><p>Number of missing edges (always 0)</p></dd>
 
+<dt>exhaustive</dt>
+<dd><p><code>TRUE</code> when the best-gene search finished
+within its step budget</p></dd>
+
 <dt>intensity</dt>
 <dd><p>Onnela intensity: geometric mean, across present
 edges, of each edge's ensemble connection probability (in
@@ -174,6 +178,15 @@ minimises the mean q-value across all present edges.</p>
 <p>The clique <code>score</code> adds the edge scores. Log-odds add,
 so the sum is the log-likelihood ratio of the conserved subnetwork
 (NetworkBLAST), and it grows with clique size on purpose.</p>
+<p>The best-gene search stops after 2 million steps per species clique.
+A cut search keeps its best assignment so far and sets
+<code>exhaustive = FALSE</code>. Ties at the q floor go to the larger effect
+size, then to the gene ids first in radix order. Row order does not
+matter.</p>
+<p>A group of species wired pairwise need not share one set of copies.
+Then it reports the largest species subsets that share one set of
+copies. A hog gets at most 4,096 subset searches; past that its rows
+have <code>exhaustive = FALSE</code>.</p>
     </div>
 
     <div class="section level2">

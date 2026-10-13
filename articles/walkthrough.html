@@ -673,7 +673,7 @@ intensity scale uses every tested pair.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">cliques</span><span class="op">$</span><span class="va">n_species</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;    2    3    4    5    6    7    8 </span></span>
-<span><span class="co">#&gt; 2542 1213  523  303  214  127   90</span></span></code></pre></div>
+<span><span class="co">#&gt; 2968 1556  699  378  262  139   90</span></span></code></pre></div>
 <p>A clique of two species is a single conserved edge. Cliques that span
 three or more species need conservation across independent lineages.</p>
 <p><code><a href="../reference/clique_stability.html">clique_stability()</a></code> removes k species at a time and
@@ -687,7 +687,7 @@ of any one species does not depend on a single lineage.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">stab</span><span class="op">$</span><span class="va">stability_class</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;    0    1    2 </span></span>
-<span><span class="co">#&gt; 1558  322 3132</span></span></code></pre></div>
+<span><span class="co">#&gt; 2101  388 3603</span></span></code></pre></div>
 <p><code><a href="../reference/classify_cliques.html">classify_cliques()</a></code> assigns each hog to one class:
 <code>complete</code> (all species), <code>partial</code> (both clades,
 not all species), <code>differentiated</code> (a clique in each clade
@@ -702,7 +702,7 @@ rests on edges with low power.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;       complete differentiated        partial trait_specific   unclassified </span></span>
-<span><span class="co">#&gt;             90              6           1315             41             48</span></span></code></pre></div>
+<span><span class="co">#&gt;             90              6           1365             27             12</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="gene-graph">Gene graph<a class="anchor" aria-label="anchor" href="#gene-graph"></a>

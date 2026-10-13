@@ -154,13 +154,15 @@ exported functions as `[fn()]`. Write internals as `\code{fn()}`. -
 - **Two clique backends.**
   [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md)
   returns one gene assignment per species clique; stability and sweeps
-  need that.
+  need that. A species clique with no shared copy set falls back to its
+  largest subsets that have one. No copy cap; ties go to effect size,
+  then gene id.
   [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
   returns every maximal clique, one per paralog combination. Twin
   paralogs (same species, same partners) collapse first, so a clique
   carries `multiplicity` and the classifier splits classes by status. A
-  hog over `max_cliques` (default 1e5 cliques) keeps the wiring classes
-  with the strongest edges; `dropped` lists the rest.
+  hog over `max_cliques` (default 1e5 cliques) is reported as species
+  blocks: one best copy per species; `capped` lists those hogs.
   [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   runs a tier waterfall with thresholds from `length(species)`; `clades`
   and home clades set the specificity and divergence tiers. It takes the

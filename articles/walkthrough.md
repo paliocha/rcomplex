@@ -452,7 +452,7 @@ cliques <- find_cliques(edges, species, min_species = 2L)
 table(cliques$n_species)
 #> 
 #>    2    3    4    5    6    7    8 
-#> 2542 1213  523  303  214  127   90
+#> 2968 1556  699  378  262  139   90
 ```
 
 A clique of two species is a single conserved edge. Cliques that span
@@ -471,7 +471,7 @@ stab <- clique_stability(edges, species,
 table(stab$stability_class)
 #> 
 #>    0    1    2 
-#> 1558  322 3132
+#> 2101  388 3603
 ```
 
 [`classify_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_cliques.md)
@@ -488,7 +488,7 @@ result <- classify_cliques(edges, species, clades,
 table(result$classification)
 #> 
 #>       complete differentiated        partial trait_specific   unclassified 
-#>             90              6           1315             41             48
+#>             90              6           1365             27             12
 ```
 
 ### Gene graph
