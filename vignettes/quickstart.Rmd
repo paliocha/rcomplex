@@ -77,8 +77,9 @@ one clique per gene combination. Paralogs with the same partners are
 twins. One clique stands for all their combinations. The line counts
 distinct cliques, and the count in brackets includes the combinations.
 
-The message about dropped genes is on purpose. The clique search keeps at
-most 10 copies of a hog per species, because gene combinations explode.
+Gene combinations can explode in a large hog. The clique search keeps
+at most `max_cliques` cliques per hog (default 100,000). A hog over it
+drops the genes with the weakest edges. `res$dropped` lists them.
 
 ## Read the results
 

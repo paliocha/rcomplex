@@ -293,34 +293,144 @@ test_that("gene_clique_graph validates its inputs", {
 })
 
 
-# Twelve SP_A copies, every one adjacent to b1 and c1; a1..a3 also reach
-# d1. Uncapped that is 3 four-cliques plus 9 three-cliques.
-gcg_twelve <- function() {
-  a <- paste0("a", 1:12)
+# Complete tripartite graph on A, B and C, five genes each: 125
+# three-cliques. Each gene also has a private SP_X partner, so no two
+# genes are twins. An edge scores the sum of its genes' weights: A is
+# strong, B close behind, C weak. Scores and q-values are dyadic, so
+# every sum is exact in any order.
+gcg_tri <- function(hog = "H1") {
+  w <- c(100, 90, 80, 70, 60, 95, 85, 75, 65, 55, 5, 4, 3, 2, 1)
+  sp <- rep(c("SP_A", "SP_B", "SP_C"), each = 5L)
+  gn <- paste0(rep(c("a", "b", "c"), each = 5L), 1:5)
+  cmb <- utils::combn(15L, 2L)
+  cmb <- cmb[, sp[cmb[1L, ]] != sp[cmb[2L, ]]]
   rbind(
     data.frame(
-      gene1 = rep(a, 2L), gene2 = rep(c("b1", "c1"), each = 12L),
-      species1 = "SP_A", species2 = rep(c("SP_B", "SP_C"), each = 12L),
-      stringsAsFactors = FALSE
+      gene1 = gn[cmb[1L, ]], gene2 = gn[cmb[2L, ]],
+      species1 = sp[cmb[1L, ]], species2 = sp[cmb[2L, ]],
+      score = w[cmb[1L, ]] + w[cmb[2L, ]]
     ),
     data.frame(
-      gene1 = c(a[1:3], "b1", "b1", "c1"),
-      gene2 = c("d1", "d1", "d1", "c1", "d1", "d1"),
-      species1 = c("SP_A", "SP_A", "SP_A", "SP_B", "SP_B", "SP_C"),
-      species2 = c("SP_D", "SP_D", "SP_D", "SP_C", "SP_D", "SP_D"),
-      stringsAsFactors = FALSE
+      gene1 = gn, gene2 = paste0("x", gn), species1 = sp,
+      species2 = "SP_X", score = 1
     )
-  ) |> transform(hog = "HOG1", q_value = 0.01)
+  ) |> transform(hog = hog, q_value = 1 / 64, effect_size = 1)
+}
+
+# Cliques sorted by hog and member set, without ids; dropped rows with
+# species as text, since species levels follow row order.
+gcg_canon <- function(g) {
+  m <- g$members
+  k <- paste(as.character(m$species), m$gene)
+  o <- order(m$clique_id, k)
+  key <- vapply(split(k[o], m$clique_id[o]), paste, "", collapse = ",")
+  cl <- g$cliques
+  key <- paste(cl$hog, key[as.character(cl$clique_id)])
+  cl <- cl[order(key), setdiff(names(cl), "clique_id")]
+  rownames(cl) <- NULL
+  d <- g$dropped
+  d$species <- as.character(d$species)
+  list(key = sort(key), cliques = cl, dropped = d)
 }
 
 
-test_that("the copy-cap message fires only when a group is truncated", {
-  expect_silent(gene_clique_graph(make_gcg_fixture(), alpha_graph = 0.9))
-  # Twelve copies exceed the default of 10.
+test_that("a hog over the budget keeps its strongest classes", {
+  e <- gcg_tri()
+  g <- gene_clique_graph(e)
+  expect_identical(nrow(g$cliques), 125L)
+  expect_identical(nrow(g$dropped), 0L)
+  expect_named(g$dropped, c(
+    "hog", "species", "gene", "n_cliques_full", "n_classes",
+    "n_classes_kept"
+  ))
+
   expect_message(
-    expect_message(gene_clique_graph(gcg_twelve()), "2 genes dropped"),
-    "twin classes"
+    g50 <- gene_clique_graph(e, max_cliques = 50),
+    "1 hogs exceeded `max_cliques` = 50 maximal cliques; 17"
   )
+  # The ranking keeps a1-a5 and b1-b5, then c1 and c2: 5 x 5 x 2 = 50.
+  # c3 would give 75. The first SP_X gene stays as its species' top.
+  expect_identical(nrow(g50$cliques), 50L)
+  kept <- unique(g50$members$gene)
+  expect_setequal(kept, c(paste0("a", 1:5), paste0("b", 1:5), "c1", "c2"))
+  d <- g50$dropped
+  x_all <- e$gene2[e$species2 == "SP_X"]
+  expect_setequal(d$gene, c(paste0("c", 3:5), setdiff(x_all, "xa1")))
+  expect_true(all(d$n_cliques_full == 125 & d$n_classes == 30L))
+  expect_true(all(d$n_classes_kept == 13L))
+  expect_true(all(g50$cliques$n_members == 3L))
+
+  # Issue #79: the same edges in another row order give the same result.
+  shuf <- e[withr::with_seed(7L, sample(nrow(e))), ]
+  g_s <- suppressMessages(gene_clique_graph(shuf, max_cliques = 50))
+  expect_identical(gcg_canon(g_s), gcg_canon(g50))
+})
+
+
+test_that("the top class of every species survives the budget", {
+  # Budget 1: only the first class of each species is left, though C's
+  # classes rank below every class of A and B.
+  g <- suppressMessages(gene_clique_graph(gcg_tri(), max_cliques = 1))
+  expect_identical(nrow(g$cliques), 1L)
+  expect_setequal(g$members$gene, c("a1", "b1", "c1"))
+  expect_true(all(g$dropped$n_classes_kept == 4L))
+  expect_false(any(c("a1", "b1", "c1", "xa1") %in% g$dropped$gene))
+})
+
+
+test_that("max_cliques = Inf changes nothing below the budget", {
+  for (e in list(gcg_tri(), make_gcg_fixture())) {
+    expect_identical(
+      gene_clique_graph(e, alpha_graph = 0.9, max_cliques = Inf),
+      gene_clique_graph(e, alpha_graph = 0.9)
+    )
+  }
+  e <- gcg_tri()
+  expect_error(gene_clique_graph(e, max_cliques = 0), "max_cliques")
+  expect_error(gene_clique_graph(e, max_cliques = NA), "max_cliques")
+})
+
+
+test_that("twins collapse before the budget counts", {
+  # Twelve SP_E twins join every A, B and C gene: 125 cliques after the
+  # collapse, 1,500 before it.
+  e <- gcg_tri()
+  abc <- e[e$species2 != "SP_X", ]
+  g_abc <- unique(abc[c("gene1", "species1")])
+  g_abc <- rbind(g_abc, setNames(
+    unique(abc[c("gene2", "species2")]),
+    names(g_abc)
+  ))
+  tw <- merge(g_abc, data.frame(gene2 = paste0("e", 1:12)))
+  tw <- transform(tw,
+    species2 = "SP_E", score = 1, hog = "H1", q_value = 1 / 64,
+    effect_size = 1
+  )
+  e <- rbind(e, tw[names(e)])
+  g <- suppressMessages(gene_clique_graph(e, max_cliques = 1e3))
+  expect_identical(nrow(g$dropped), 0L)
+  expect_identical(nrow(g$cliques), 125L)
+  expect_identical(sum(g$cliques$multiplicity), 1500L)
+  expect_identical(nrow(g$twins), 11L)
+})
+
+
+test_that("classify_gene_cliques flags the cliques of a capped hog", {
+  e2 <- gcg_tri("H2")
+  e2 <- e2[e2$gene1 %in% c("a1", "b1") & e2$gene2 %in% c("b1", "c1"), ]
+  e <- rbind(gcg_tri("H1"), e2)
+  sp <- c("SP_A", "SP_B", "SP_C", "SP_X")
+  g50 <- suppressMessages(gene_clique_graph(e, max_cliques = 50))
+  g <- gene_clique_graph(e)
+  cls <- classify_gene_cliques(g50, e, sp)
+  expect_identical(cls$capped, cls$hog == "H1")
+  expect_true(any(!cls$capped))
+  expect_false(any(classify_gene_cliques(g, e, sp)$capped))
+  # A list of runs: a hog is capped when any run dropped from it.
+  both <- classify_gene_cliques(list(g, g50), e, sp)
+  expect_identical(both$capped, both$hog == "H1")
+  tab <- transform(g$members, hog = "H1")
+  expect_false(any(classify_gene_cliques(tab, e, sp)$capped))
 })
 
 
@@ -345,6 +455,8 @@ test_that("gene_clique_graph returns typed empty tables", {
     names(out$twins), c("hog", "species", "gene", "representative")
   )
   expect_identical(levels(out$twins$species), c("SP_A", "SP_B"))
+  expect_identical(nrow(out$dropped), 0L)
+  expect_identical(levels(out$dropped$species), c("SP_A", "SP_B"))
 })
 
 
@@ -2024,8 +2136,10 @@ test_that("a run without twins is unchanged", {
     expect_true(all(cls$variant == 1L & cls$multiplicity == 1L))
     g$cliques$multiplicity <- NULL
     g$members$n_copies <- NULL
+    expect_false(any(cls$capped))
     cls$variant <- NULL
     cls$multiplicity <- NULL
+    cls$capped <- NULL
     expect_identical(g$cliques, ref[[nm]]$g$cliques, info = nm)
     expect_identical(g$members, ref[[nm]]$g$members, info = nm)
     expect_identical(cls, ref[[nm]]$cls, info = nm)

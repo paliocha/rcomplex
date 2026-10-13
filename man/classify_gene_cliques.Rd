@@ -101,6 +101,9 @@ the classified cliques and how many are tied there -- the
 resolution \code{mean_q} actually has as a ranking key}
 \item{variant, multiplicity}{Variant of the clique, and the
 paralog combinations it stands for (see below)}
+\item{capped}{\code{TRUE} when the clique budget of
+\code{\link[=gene_clique_graph]{gene_clique_graph()}} dropped genes from the clique's HOG. For a
+list of runs, any run counts}
 }
 Twin genes share their partners in the graph, but their own tests
 can differ at \code{alpha_call}, \code{alpha_graph} or \code{min_power}. A class
