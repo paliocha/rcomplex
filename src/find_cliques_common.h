@@ -360,8 +360,14 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     int n_edges_raw = static_cast<int>(qval_pairs.size());
     std::vector<int> order(n_edges_raw);
     std::iota(order.begin(), order.end(), 0);
+    // Ties on key sort by q ascending, then effect descending, so the
+    // kept entry never depends on row order.
     std::sort(order.begin(), order.end(), [&](int a, int b) {
-        return qval_pairs[a].first < qval_pairs[b].first;
+        if (qval_pairs[a].first != qval_pairs[b].first)
+            return qval_pairs[a].first < qval_pairs[b].first;
+        if (qval_pairs[a].second != qval_pairs[b].second)
+            return qval_pairs[a].second < qval_pairs[b].second;
+        return eff_pairs[a].second > eff_pairs[b].second;
     });
 
     // Build deduplicated sorted vectors: keep entry with lowest composite cost
@@ -545,13 +551,19 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
 
     // Species wired pairwise need not share one set of copies. For a
     // species clique without an assignment, search its subsets, largest
-    // first. A subset inside a set already emitted is not maximal.
+    // first. A subset inside a set already emitted is not maximal. At
+    // most max_subset_searches searches per hog; past that the hog is
+    // flagged incomplete.
+    static constexpr int max_subset_searches = 4096;
+    int n_subset_searches = 0;
+    bool out_of_searches = false;
     if (!failed.empty()) {
         int k_max = 0;
         for (auto& f : failed) k_max = std::max(k_max, static_cast<int>(f.size()));
         std::vector<uint64_t> tried;
-        for (int m = k_max - 1; m >= min_species; m--) {
+        for (int m = k_max - 1; m >= min_species && !out_of_searches; m--) {
             for (auto& f : failed) {
+                if (out_of_searches) break;
                 int k = static_cast<int>(f.size());
                 if (m >= k) continue;
                 for (uint64_t pos : generate_subsets(k, m)) {
@@ -569,6 +581,11 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
                         if ((mask & ~e) == 0) { skip = true; break; }
                     }
                     if (skip) continue;
+                    if (++n_subset_searches > max_subset_searches) {
+                        out_of_searches = true;
+                        hog_complete = false;
+                        break;
+                    }
                     tried.push_back(mask);
                     if (search(sub)) emitted.push_back(mask);
                 }

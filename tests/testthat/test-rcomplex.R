@@ -193,8 +193,7 @@ test_that("null = TRUE reports calls beside null calls", {
   expect_identical(
     s$tiers$cliques_null,
     as.integer(table(factor(
-      res$classification_null$classification,
-      levels = s$tiers$tier
+      res$classification_null$classification, levels = s$tiers$tier
     )))
   )
   again <- rcomplex(syn$expr, syn$ortho, null = TRUE, seed = 1L)

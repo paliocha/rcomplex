@@ -206,6 +206,11 @@ test_that("equal q goes to the copy with the larger effect", {
     res <- find_cliques(edges[o, ], c("SP_A", "SP_B"))
     expect_identical(res$SP_A, "A2")
   }
+  # q within 1e-12 of relative difference ties; a wider gap does not.
+  edges$q_value[2L] <- 0.01 * (1 + 1e-13)
+  expect_identical(find_cliques(edges, c("SP_A", "SP_B"))$SP_A, "A2")
+  edges$q_value[2L] <- 0.01 * (1 + 1e-9)
+  expect_identical(find_cliques(edges, c("SP_A", "SP_B"))$SP_A, "A1")
 })
 
 
@@ -234,11 +239,37 @@ test_that("a species clique without copies falls back to its subsets", {
   r2 <- find_cliques(fc_k4, sp, min_species = 2L)
   expect_setequal(set(r2), c("SP_A,SP_B,SP_C", "SP_A,SP_B,SP_D", "SP_C,SP_D"))
   expect_identical(r2$SP_D[set(r2) == "SP_C,SP_D"], "d2")
+  expect_false(any(c("SP_A,SP_B", "SP_A,SP_C", "SP_B,SP_D") %in% set(r2)))
 
   g <- suppressMessages(gene_clique_graph(fc_k4, max_cliques = 1))
   expect_identical(g$capped$n_blocks, 2L)
   expect_identical(nrow(g$cliques), 2L)
   expect_setequal(g$members$gene, c("a1", "b1", "c1", "d1"))
+  expect_identical(
+    gene_clique_graph(fc_k4, max_cliques = Inf), gene_clique_graph(fc_k4)
+  )
+
+  # Row order changes nothing.
+  for (o in list(rev(seq_len(6L)), c(4L, 6L, 1L, 5L, 3L, 2L))) {
+    expect_identical(find_cliques(fc_k4[o, ], sp, min_species = 2L), r2)
+    g_o <- suppressMessages(gene_clique_graph(fc_k4[o, ], max_cliques = 1))
+    expect_identical(g_o$cliques, g$cliques)
+    expect_identical(
+      as.character(g_o$members$species), as.character(g$members$species)
+    )
+    expect_identical(g_o$members$gene, g$members$gene)
+  }
+})
+
+
+test_that("clique_stability searches the same subsets", {
+  # Without B or without A, the other three species share no copy set;
+  # the fallback still finds the pair left of each triple.
+  sp <- c("SP_A", "SP_B", "SP_C", "SP_D")
+  full <- find_cliques(fc_k4, sp, min_species = 3L)
+  st <- clique_stability(fc_k4, sp, full_cliques = full, max_k = 1L)$stability
+  expect_identical(st$n_subsets, c(4L, 4L))
+  expect_identical(st$n_stable, c(3L, 3L))
 })
 
 
@@ -524,8 +555,7 @@ test_that("effect_size is required, and an all-NA column gives NA", {
   empty <- make_percentile_edges()
   empty$effect_size <- NA_real_
   expect_warning(result <- find_cliques(empty, sp),
-    class = "rcomplex_missing_effect_size"
-  )
+                 class = "rcomplex_missing_effect_size")
   expect_equal(nrow(result), 1L)
   expect_true(is.na(result$intensity))
 })

@@ -81,7 +81,9 @@ For each combination of k species removed from \code{all_species}
 (k = 1, ..., max_k):
 \enumerate{
 \item All edges involving the removed species are dropped
-\item Clique detection re-runs among remaining target species
+\item Clique detection re-runs among remaining target species. It
+uses the subset fallback of \code{\link[=find_cliques]{find_cliques()}}, so a fallback clique
+is matched against the same kind of search.
 \item Reduced cliques are matched to full-dataset cliques by Jaccard
 similarity of gene assignments (considering only non-removed species)
 }

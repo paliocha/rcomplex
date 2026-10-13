@@ -102,7 +102,9 @@ size, then to the gene ids first in radix order. Row order does not
 matter.
 
 A group of species wired pairwise need not share one set of copies.
-Then the largest subsets that do are reported.
+Then it reports the largest species subsets that share one set of
+copies. A hog gets at most 4,096 subset searches; past that its rows
+have \code{exhaustive = FALSE}.
 }
 \examples{
 \dontrun{

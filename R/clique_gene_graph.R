@@ -578,8 +578,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     )
     message(
       "gene_clique_graph: ", nrow(cp_tab), " hogs exceeded ",
-      "`max_cliques` = ", format(max_cliques,
-        big.mark = ",",
+      "`max_cliques` = ", format(max_cliques, big.mark = ",",
         scientific = FALSE
       ), " maximal cliques. Each is reported as species blocks; ",
       "see `$capped`."
@@ -697,8 +696,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       sep = .gcg_sep
     ))
     key <- paste(hog_m[r], sp_m[r], m$gene[r], sep = .gcg_sep)
-    cp[r] <- Map(
-      function(g0, t) c(g0, sort(t, method = "radix")),
+    cp[r] <- Map(function(g0, t) c(g0, sort(t, method = "radix")),
       m$gene[r], by[key]
     )
   }
