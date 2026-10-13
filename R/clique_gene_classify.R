@@ -170,9 +170,9 @@
 #'       resolution `mean_q` actually has as a ranking key}
 #'     \item{variant, multiplicity}{Variant of the clique, and the
 #'       paralog combinations it stands for (see below)}
-#'     \item{capped}{`TRUE` when the clique budget of
-#'       [gene_clique_graph()] dropped genes from the clique's HOG. For a
-#'       list of runs, any run counts}
+#'     \item{capped}{`TRUE` when the clique is a species block of a hog
+#'       over the clique budget: one representative copy per species. For
+#'       a list of runs, any run counts}
 #'   }
 #'   Twin genes share their partners in the graph, but their own tests
 #'   can differ at `alpha_call`, `alpha_graph` or `min_power`. A class
@@ -716,7 +716,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #'   HOGs; `out_ids`, the clique ids to report, in order of first
 #'   appearance. For a list of runs also `run` and `local`, the run and
 #'   its own id of each offset id. `capped`, the HOGs that any run
-#'   dropped genes from. With twin classes also `tc`, the
+#'   reported as species blocks. With twin classes also `tc`, the
 #'   class of each member (`NA` for a single gene), and `tgenes`,
 #'   `thog`, `tsp`: the genes, HOG and species of each class.
 #' @noRd
@@ -772,7 +772,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     hog = cl_hog[match(ids, cl_id)],
     run = if (!one) rep.int(seq_along(runs), top),
     local = if (!one) sequence(top),
-    capped = unlist(lapply(runs, function(r) as.character(r$dropped$hog)))
+    capped = unlist(lapply(runs, function(r) as.character(r$capped$hog)))
   )
   n_cls <- vapply(cp, function(z) length(z$genes), 1L)
   if (sum(n_cls) > 0L) {

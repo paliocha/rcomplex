@@ -60,6 +60,8 @@ A data frame with one row per clique:
 \item{mean_effect_size}{Mean effect size across present edges}
 \item{n_edges}{Number of present edges}
 \item{n_missing}{Number of missing edges (always 0)}
+\item{exhaustive}{\code{TRUE} when the best-gene search finished
+within its step budget}
 \item{intensity}{Onnela intensity: geometric mean, across present
 edges, of each edge's ensemble connection probability (in
 (0, 1); higher = stronger conservation). Each edge's
@@ -92,6 +94,17 @@ minimises the mean q-value across all present edges.
 The clique \code{score} adds the edge scores. Log-odds add,
 so the sum is the log-likelihood ratio of the conserved subnetwork
 (NetworkBLAST), and it grows with clique size on purpose.
+
+The best-gene search stops after 2 million steps per species clique.
+A cut search keeps its best assignment so far and sets
+\code{exhaustive = FALSE}. Ties at the q floor go to the larger effect
+size, then to the gene ids first in radix order. Row order does not
+matter.
+
+A group of species wired pairwise need not share one set of copies.
+Then it reports the largest species subsets that share one set of
+copies. A hog gets at most 4,096 subset searches; past that its rows
+have \code{exhaustive = FALSE}.
 }
 \examples{
 \dontrun{

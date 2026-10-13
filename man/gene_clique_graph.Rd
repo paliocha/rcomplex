@@ -40,8 +40,9 @@ at one threshold need not be maximal at another. Pass the runs to
 it as a list.}
 
 \item{max_cliques}{Largest number of maximal cliques one hog may
-produce. A hog above it keeps its wiring classes with the strongest
-edges until it fits. Default 1e5; \code{Inf} keeps every clique.}
+produce. A hog above it is reported as species blocks: one
+representative copy per species. Default 1e5; \code{Inf} keeps every
+clique.}
 }
 \value{
 A list of class \code{gene_cliques} with four tables.
@@ -79,10 +80,11 @@ appearance), \code{gene} (the representative of its twin class) and
 included).
 \code{twins} has one row per collapsed gene: \code{hog}, \code{species}, \code{gene}
 and \code{representative}. It has no rows when no two genes are twins.
-\code{dropped} has one row per gene that the clique budget dropped:
-\code{hog}, \code{species}, \code{gene}, \code{n_cliques_full} (the hog's maximal
-cliques before the drop), \code{n_classes} (its twin classes) and
-\code{n_classes_kept}. It has no rows when no hog is over the budget.
+\code{capped} has one row per hog over the clique budget: \code{hog},
+\code{n_genes}, \code{n_classes} (its twin classes), \code{n_cliques_full} (its
+maximal cliques), \code{n_blocks} (the rows it gives in \code{cliques}) and
+\code{search_complete} (\code{FALSE} when a block search hit its step
+budget). It has no rows when no hog is over the budget.
 The two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
 \code{q_floor} (smallest edge q-value in the graph), are also attributes
 of \code{cliques}. Both are always set, empty results included.
@@ -121,14 +123,12 @@ representative is the first gene of its class in radix (C-locale)
 order.
 
 Paralogs multiply cliques, so a hog may produce millions of them. A
-cap on genes per species does not bound that count. One hog with 76
-twin classes, fewer than 10 per species, gave 2.4 million. The budget
-counts cliques per hog, after the twin collapse. A hog over
-\code{max_cliques} ranks its twin classes by the sum of their edge scores.
-It keeps the top class of each species. It then keeps the most
-classes, in rank order, that fit the budget. The genes of the other
-classes go to \code{dropped}. Ties go to the gene id, so row order does not
-matter.
+cap on genes per species does not bound that count: one hog with 76
+twin classes gave 2.4 million. A hog over \code{max_cliques}, counted after
+the twin collapse, is conserved as a block. Which copy pairs with
+which stays unresolved. So the hog gives one row per maximal species
+clique, with the best copy of each species. EVOTREE listed every
+clique; the wood data never reach the budget.
 
 A hog of 40 or more genes is enumerated one start gene at a time.
 The pieces are disjoint, so the cliques are the same. Only the peak

@@ -18,7 +18,6 @@ find_cliques_stability_cpp(
   is_target,
   full_cliques,
   max_k = 3L,
-  max_genes_per_sp = 10L,
   jaccard_threshold = 0.8,
   n_cores = 1L,
   w_q = 1,
@@ -38,7 +37,7 @@ find_cliques_stability_cpp(
 
 \item{full_cliques}{output of find_cliques_cpp on the full dataset}
 
-\item{max_k, max_genes_per_sp, jaccard_threshold, n_cores}{tuning parameters}
+\item{max_k, jaccard_threshold, n_cores}{tuning parameters}
 
 \item{w_q}{Weight for mean q-value in composite cost (default 1.0)}
 

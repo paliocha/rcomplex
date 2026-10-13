@@ -2,13 +2,26 @@
 
 - `gene_clique_graph()` replaces the 10-copies-per-species cap by a
   clique budget, `max_cliques = 1e5` per hog. Twins collapse first. A
-  hog over the budget keeps the wiring classes with the strongest
-  edges. Evidence decides, never row order (#79). The result
-  gains `dropped`, one row per dropped gene with the hog's full clique
-  count; `classify_gene_cliques()` flags those hogs' cliques with
-  `capped`; `rcomplex()` stores `dropped`. On the wood data nothing is
-  dropped any more (2,057 genes were). On the 8-species leaf data
-  fourteen families are reduced instead of 214.
+  hog over the budget is reported as species blocks: one row per group
+  of species wired together, with the best copy per species. Gene ids
+  break ties, never row order (#79). The result gains `capped`, one row
+  per such hog with its full clique count. `classify_gene_cliques()`
+  flags those hogs' cliques with `capped`; `rcomplex()` stores `capped`.
+  On the wood data no hog is over the budget (2,057 genes were capped).
+  On the 8-species leaf data fourteen families are blocks instead of
+  214 capped families.
+- A group of species wired pairwise need not share one set of copies.
+  `find_cliques()`, `clique_stability()` and the species blocks of
+  `gene_clique_graph()` now report its largest species subsets that do.
+  Before, such a group gave no row. A hog gets at most 4,096 subset
+  searches. Ties in mean q go to the larger effect size, then to the
+  gene id. On the wood data, `classify_cliques()` moves 347 hogs:
+  unclassified 2,335 to 2,035, partial 5,423 to 5,689, trait_specific
+  7,832 to 7,862, differentiated 413 to 417.
+- `find_cliques()` and `clique_stability()` drop the
+  10-copies-per-species cap. The best-gene search order is
+  deterministic: gene ids break ties, never row order. `find_cliques()`
+  gains `exhaustive`, `FALSE` when the search hit its step budget.
 - `rcomplex(null = TRUE)` now shuffles hog labels among genes of the
   same expression level and reruns edges, cliques and tiers on the
   shuffled table. `calls_null` counts the calls that abundance and

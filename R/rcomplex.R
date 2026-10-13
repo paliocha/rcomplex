@@ -40,8 +40,9 @@
 #'     \item{cliques, members, twins}{The three tables of
 #'       [gene_clique_graph()]: one row per clique, one row per clique
 #'       member, and one row per collapsed twin gene.}
-#'     \item{dropped}{One row per gene that the clique budget of
-#'       [gene_clique_graph()] dropped. Usually empty.}
+#'     \item{capped}{One row per hog over the clique budget of
+#'       [gene_clique_graph()]. Its cliques are species blocks. Usually
+#'       empty.}
 #'     \item{classification}{One row per clique, from
 #'       [classify_gene_cliques()].}
 #'     \item{modules, preservation}{With `modules = TRUE`: the
@@ -160,7 +161,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   g <- cliques(edges)
   res <- list(
     networks = networks, edges = edges, cliques = g$cliques,
-    members = g$members, twins = g$twins, dropped = g$dropped,
+    members = g$members, twins = g$twins, capped = g$capped,
     classification = g$classification
   )
   if (modules) {
@@ -320,9 +321,11 @@ print.rcomplex <- function(x, ...) {
   if (length(tiers) > 0L) {
     cat(":", paste(names(tiers), big(as.vector(tiers)), collapse = ", "))
   }
-  n_cap <- length(unique(x$dropped$hog))
+  n_cap <- nrow(x$capped) %||% 0L
   if (n_cap > 0L) {
-    cat("; ", big(n_cap), " hogs over the clique budget", sep = "")
+    cat("; ", big(n_cap), " hogs over the clique budget, reported as blocks",
+      sep = ""
+    )
   }
   cat("\n")
   invisible(x)
@@ -392,7 +395,7 @@ as.data.frame.rcomplex <- function(x, ...) x$classification
 #'
 #' `write_rcomplex()` writes each table of the result to its own file.
 #' Each file takes the name of its element: `edges.tsv`, `cliques.tsv`,
-#' `members.tsv`, `twins.tsv`, `dropped.tsv`, `classification.tsv` and,
+#' `members.tsv`, `twins.tsv`, `capped.tsv`, `classification.tsv` and,
 #' with `null = TRUE`, `edges_null.tsv` and `classification_null.tsv`.
 #'
 #' @param x A result of [rcomplex()].

@@ -106,7 +106,7 @@ test_that("find_cliques empty input returns correct empty structure", {
   expect_equal(nrow(result), 0)
   expect_true(all(c(
     "hog", "SP_A", "SP_B", "n_species",
-    "mean_q"
+    "mean_q", "exhaustive"
   ) %in% names(result)))
 })
 
@@ -168,22 +168,124 @@ test_that("find_cliques min_species allows partial cliques", {
 })
 
 
-test_that("find_cliques caps genes per species at 10", {
-  # Many paralogs in SP_A, should be capped
-  genes_a <- paste0("A", 1:15)
-  edges_list <- lapply(genes_a, function(a) {
-    data.frame(
-      gene1 = a, gene2 = "B1",
-      species1 = "SP_A", species2 = "SP_B",
-      hog = "HOG1", type = "conserved",
-      q_value = 0.01, effect_size = 2.0,
-      stringsAsFactors = FALSE
-    )
-  })
-  edges <- do.call(rbind, edges_list)
+test_that("find_cliques keeps every copy and ignores row order", {
+  # Twelve SP_A copies join B1 and C1. A12 has the best edges and
+  # enters last; a ten-copy cap with ties by entry order dropped it.
+  a <- paste0("A", 1:12)
+  q <- c(rep(0.05, 11), 0.001)
+  sp <- c("SP_A", "SP_B", "SP_C")
+  edges <- data.frame(
+    gene1 = c(a, a, "B1"), gene2 = c(rep("B1", 12), rep("C1", 12), "C1"),
+    species1 = c(rep("SP_A", 24), "SP_B"),
+    species2 = c(rep("SP_B", 12), rep("SP_C", 13)),
+    hog = "HOG1", type = "conserved", q_value = c(q, q, 0.01),
+    effect_size = 2
+  )
+  res <- find_cliques(edges, sp)
+  expect_identical(res$SP_A, "A12")
+  expect_true(res$exhaustive)
+  shuf <- edges[withr::with_seed(3L, sample(nrow(edges))), ]
+  expect_identical(find_cliques(shuf, sp), res)
 
-  result <- find_cliques(edges, c("SP_A", "SP_B"))
-  expect_true(nrow(result) <= 10)
+  # Equal copies: the lowest gene id wins, whatever the row order.
+  tie <- edges
+  tie$q_value <- 0.01
+  for (o in list(seq_len(nrow(tie)), rev(seq_len(nrow(tie))))) {
+    expect_identical(find_cliques(tie[o, ], sp)$SP_A, "A1")
+  }
+})
+
+
+test_that("equal q goes to the copy with the larger effect", {
+  edges <- data.frame(
+    gene1 = c("A1", "A2"), gene2 = "B1", species1 = "SP_A",
+    species2 = "SP_B", hog = "HOG1", type = "conserved", q_value = 0.01,
+    effect_size = c(2, 3)
+  )
+  for (o in list(1:2, 2:1)) {
+    res <- find_cliques(edges[o, ], c("SP_A", "SP_B"))
+    expect_identical(res$SP_A, "A2")
+  }
+  # q within 1e-12 of relative difference ties; a wider gap does not.
+  edges$q_value[2L] <- 0.01 * (1 + 1e-13)
+  expect_identical(find_cliques(edges, c("SP_A", "SP_B"))$SP_A, "A2")
+  edges$q_value[2L] <- 0.01 * (1 + 1e-9)
+  expect_identical(find_cliques(edges, c("SP_A", "SP_B"))$SP_A, "A1")
+})
+
+
+# A, B, C and D are wired pairwise, but no copy set joins all four:
+# a1-b1-c1 and a1-b1-d1 are triangles, and c1 meets only d2 in SP_D.
+fc_k4 <- data.frame(
+  gene1 = c("a1", "a1", "b1", "a1", "b1", "c1"),
+  gene2 = c("b1", "c1", "c1", "d1", "d1", "d2"),
+  species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_B", "SP_C"),
+  species2 = c("SP_B", "SP_C", "SP_C", "SP_D", "SP_D", "SP_D"),
+  hog = "HOG1", type = "conserved", q_value = 0.01, effect_size = 2
+)
+
+
+test_that("a species clique without copies falls back to its subsets", {
+  sp <- c("SP_A", "SP_B", "SP_C", "SP_D")
+  set <- function(r) {
+    vapply(seq_len(nrow(r)), function(i) {
+      paste(sp[!is.na(unlist(r[i, sp]))], collapse = ",")
+    }, "")
+  }
+  r3 <- find_cliques(fc_k4, sp, min_species = 3L)
+  expect_setequal(set(r3), c("SP_A,SP_B,SP_C", "SP_A,SP_B,SP_D"))
+  expect_true(all(r3$exhaustive))
+  # At two species, only C + D is new: the other pairs sit in a triple.
+  r2 <- find_cliques(fc_k4, sp, min_species = 2L)
+  expect_setequal(set(r2), c("SP_A,SP_B,SP_C", "SP_A,SP_B,SP_D", "SP_C,SP_D"))
+  expect_identical(r2$SP_D[set(r2) == "SP_C,SP_D"], "d2")
+  expect_false(any(c("SP_A,SP_B", "SP_A,SP_C", "SP_B,SP_D") %in% set(r2)))
+
+  g <- suppressMessages(gene_clique_graph(fc_k4, max_cliques = 1))
+  expect_identical(g$capped$n_blocks, 2L)
+  expect_identical(nrow(g$cliques), 2L)
+  expect_setequal(g$members$gene, c("a1", "b1", "c1", "d1"))
+  expect_identical(
+    gene_clique_graph(fc_k4, max_cliques = Inf), gene_clique_graph(fc_k4)
+  )
+
+  # Row order changes nothing.
+  for (o in list(rev(seq_len(6L)), c(4L, 6L, 1L, 5L, 3L, 2L))) {
+    expect_identical(find_cliques(fc_k4[o, ], sp, min_species = 2L), r2)
+    g_o <- suppressMessages(gene_clique_graph(fc_k4[o, ], max_cliques = 1))
+    expect_identical(g_o$cliques, g$cliques)
+    expect_identical(
+      as.character(g_o$members$species), as.character(g$members$species)
+    )
+    expect_identical(g_o$members$gene, g$members$gene)
+  }
+})
+
+
+test_that("clique_stability searches the same subsets", {
+  # Without B or without A, the other three species share no copy set;
+  # the fallback still finds the pair left of each triple.
+  sp <- c("SP_A", "SP_B", "SP_C", "SP_D")
+  full <- find_cliques(fc_k4, sp, min_species = 3L)
+  st <- clique_stability(fc_k4, sp, full_cliques = full, max_k = 1L)$stability
+  expect_identical(st$n_subsets, c(4L, 4L))
+  expect_identical(st$n_stable, c(3L, 3L))
+})
+
+
+test_that("find_cliques reports a search cut by its step budget", {
+  # Six copies in each of four species, all wired: 6^4 assignments.
+  g <- expand.grid(i = 0:23, j = 0:23)
+  g <- g[g$i %/% 6L < g$j %/% 6L, ]
+  run <- function(it) {
+    find_cliques_cpp(
+      rep(0L, nrow(g)), g$i, g$j, g$i %/% 6L, g$j %/% 6L,
+      rep(0.01, nrow(g)), rep(1, nrow(g)), 4L, 4L, 1L, 24L,
+      max_iterations = it
+    )
+  }
+  expect_true(run(2000000L)$complete)
+  expect_false(run(10L)$complete)
 })
 
 

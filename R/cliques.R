@@ -20,9 +20,11 @@ encode_clique_edges <- function(edges, target_species) {
   # share a string into one graph vertex. `all_genes` stays a plain name
   # vector for display (`enc$all_genes[idx + 1]`); `gene_key_map` is the
   # species-scoped lookup used to build the integer index space itself.
+  # Ids follow radix order, so the best-gene search does not depend on
+  # row order: among equal-cost assignments the lowest ids win.
   gene_key1 <- paste(edges$species1, edges$gene1, sep = "\x02")
   gene_key2 <- paste(edges$species2, edges$gene2, sep = "\x02")
-  all_gene_keys <- unique(c(gene_key1, gene_key2))
+  all_gene_keys <- sort(unique(c(gene_key1, gene_key2)), method = "radix")
   gene_key_map <- stats::setNames(
     seq_along(all_gene_keys) - 1L, all_gene_keys
   )
@@ -341,6 +343,8 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #'     \item{mean_effect_size}{Mean effect size across present edges}
 #'     \item{n_edges}{Number of present edges}
 #'     \item{n_missing}{Number of missing edges (always 0)}
+#'     \item{exhaustive}{\code{TRUE} when the best-gene search finished
+#'       within its step budget}
 #'     \item{intensity}{Onnela intensity: geometric mean, across present
 #'       edges, of each edge's ensemble connection probability (in
 #'       (0, 1); higher = stronger conservation). Each edge's
@@ -364,6 +368,17 @@ compute_clique_edge_stats <- function(cliques, edges, target_species,
 #' @details The clique \code{score} adds the edge scores. Log-odds add,
 #' so the sum is the log-likelihood ratio of the conserved subnetwork
 #' (NetworkBLAST), and it grows with clique size on purpose.
+#'
+#' The best-gene search stops after 2 million steps per species clique.
+#' A cut search keeps its best assignment so far and sets
+#' \code{exhaustive = FALSE}. Ties at the q floor go to the larger effect
+#' size, then to the gene ids first in radix order. Row order does not
+#' matter.
+#'
+#' A group of species wired pairwise need not share one set of copies.
+#' Then it reports the largest species subsets that share one set of
+#' copies. A hog gets at most 4,096 subset searches; past that its rows
+#' have \code{exhaustive = FALSE}.
 #'
 #' @examples
 #' \dontrun{
@@ -421,7 +436,7 @@ find_cliques.default <- function(edges, target_species,
     list(
       n_species = integer(0), mean_q = numeric(0), max_q = numeric(0),
       mean_effect_size = numeric(0), n_edges = integer(0),
-      n_missing = integer(0),
+      n_missing = integer(0), exhaustive = logical(0),
       intensity = numeric(0), min_effect_size = numeric(0),
       score = numeric(0)
     )
@@ -456,8 +471,7 @@ find_cliques.default <- function(edges, target_species,
     enc$edge_qval, enc$edge_effect,
     length(target_species), min_species,
     length(enc$unique_hogs), length(enc$all_genes),
-    10L, 0L,
-    w_q, w_eff
+    0L, w_q, w_eff
   )
 
   # Map back to strings
@@ -490,6 +504,7 @@ find_cliques.default <- function(edges, target_species,
   out$mean_effect_size <- result$mean_effect_size
   out$n_edges <- as.integer(result$n_edges)
   out$n_missing <- as.integer(result$n_missing)
+  out$exhaustive <- result$complete
 
   # Compute Onnela intensity and min effect size
   stats <- compute_clique_edge_stats(out, edges, target_species,
