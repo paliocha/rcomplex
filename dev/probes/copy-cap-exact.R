@@ -6,6 +6,8 @@ f <- args[1]
 label <- args[2]
 e <- if (grepl("\\.rds$", f)) readRDS(f) else data.table::fread(f, data.table = FALSE)
 e <- e[!is.na(e$q_value) & e$q_value < 0.1, c("hog", "gene1", "gene2", "species1", "species2")]
+e$gene1 <- paste(e$species1, e$gene1) # species-qualified ids, as copy-cap.R
+e$gene2 <- paste(e$species2, e$gene2)
 cc <- readRDS(file.path(dirname(f), paste0("copycap_", label, ".rds")))
 big <- cc$exact$hog[is.na(cc$exact$cliques_uncapped)]
 collapse_graph <- function(d, cap = NULL) {

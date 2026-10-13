@@ -19,6 +19,9 @@ e <- e[
   !is.na(e$q_value) & e$q_value < alpha,
   c("hog", "gene1", "gene2", "species1", "species2")
 ]
+# Vertex ids carry the species: two data sets on one genome share gene ids.
+e$gene1 <- paste(e$species1, e$gene1)
+e$gene2 <- paste(e$species2, e$gene2)
 cat(label, ": ", nrow(e), " called edges, ", length(unique(e$hog)), " hogs\n", sep = "")
 
 per_hog <- function(d) {

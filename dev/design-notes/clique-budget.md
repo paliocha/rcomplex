@@ -11,8 +11,10 @@ leaf edge table (8 species, 2,664,155 rows, rebuilt into
 ## 0. Verdict
 
 - The cap is a tie-break bug (#79) and a crude rule, but some bound is
-  needed. On wood nothing needs it: the largest family gives 675
-  maximal cliques uncapped. On the full leaf data 14 families give more
+  needed. On wood nothing needs it: the largest family gives 10,496
+  maximal cliques uncapped, the 133 capped families together 92,000,
+  and the table grows from 51,775 to 126,159 cliques without moving a
+  hog's tier. On the full leaf data 14 families give more
   than 100,000 cliques each after twin collapse, the largest 6.7
   million, and together the 153 big families give 22.9 million against
   8.0 million with a 10-class cap. That is 6 times today's whole table
@@ -49,11 +51,14 @@ Called edges at q < 0.1. "Classes" are twin classes (same species, same
 partner set). The bound is the product over species of class counts
 plus one, minus one (every species in or out); it is loose by 4 to 10
 orders of magnitude and useless as a budget. Counts are exact
-(`count_max_cliques(min = 3)` on the twin-collapsed graph).
+(`count_max_cliques(min = 3)` on the twin-collapsed graph, vertices
+qualified by species: Scots and Lodge share gene ids, and a first pass
+that merged them undercounted wood by a factor of six). The package
+built without the cap agrees with these counts hog by hog.
 
 | data | hogs with edges | capped now | tie at cut | > 10 classes after collapse | uncapped cliques over capped hogs | largest family |
 |---|---|---|---|---|---|---|
-| wood | 14,906 | 125 | 73 | 78 | 14,768 | 675 (72 classes) |
+| wood | 14,906 | 133 | 98 | 83 | 92,064 | 10,496 (81 classes) |
 | leaf 12k | 6,492 | 15 | 11 | 12 | 16,476 | 1,692 (231 classes) |
 | leaf full | 15,101 | 214 | 122 | 191 | 22,922,249 + 10,525 | 6,681,084 (618 classes, 21,355 edges) |
 
