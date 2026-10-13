@@ -103,15 +103,16 @@ fe_hog_permutation_test_cpp <- function(combined, hog_sp1_list, hog_sp2_list, te
 #' @param min_species Minimum species for a valid clique
 #' @param n_hogs Total number of distinct HOGs
 #' @param n_genes Total number of distinct genes
-#' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
 #' @param max_missing_edges Maximum missing edges tolerated (default 0)
 #' @param w_q Weight for mean q-value in composite cost (default 1.0)
 #' @param w_eff Weight for mean effect size in composite cost (default 0.0)
+#' @param max_iterations Step budget of each best-gene search
 #' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-#'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing
+#'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing,
+#'   complete (the search finished within its step budget)
 #' @keywords internal
-find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp = 10L, max_missing_edges = 0L, w_q = 1.0, w_eff = 0.0) {
-    .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_genes_per_sp, max_missing_edges, w_q, w_eff)
+find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_missing_edges = 0L, w_q = 1.0, w_eff = 0.0, max_iterations = 2000000L) {
+    .Call(`_rcomplex_find_cliques_cpp`, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_target_species, min_species, n_hogs, n_genes, max_missing_edges, w_q, w_eff, max_iterations)
 }
 
 #' Leave-k-out jackknife structural stability for cliques
@@ -122,13 +123,13 @@ find_cliques_cpp <- function(edge_hog, edge_g1, edge_g2, edge_species1, edge_spe
 #' @param n_hogs,n_genes total HOGs and genes
 #' @param is_target 1/0 per species (length n_all_species): target membership
 #' @param full_cliques output of find_cliques_cpp on the full dataset
-#' @param max_k,max_genes_per_sp,jaccard_threshold,n_cores tuning parameters
+#' @param max_k,jaccard_threshold,n_cores tuning parameters
 #' @param w_q Weight for mean q-value in composite cost (default 1.0)
 #' @param w_eff Weight for mean effect size in composite cost (default 0.0)
 #' @return List with stability, clique_disruption, stability_class, novel_cliques
 #' @keywords internal
-find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k = 3L, max_genes_per_sp = 10L, jaccard_threshold = 0.8, n_cores = 1L, w_q = 1.0, w_eff = 0.0) {
-    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, max_genes_per_sp, jaccard_threshold, n_cores, w_q, w_eff)
+find_cliques_stability_cpp <- function(edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k = 3L, jaccard_threshold = 0.8, n_cores = 1L, w_q = 1.0, w_eff = 0.0) {
+    .Call(`_rcomplex_find_cliques_stability_cpp`, edge_hog, edge_g1, edge_g2, edge_species1, edge_species2, edge_qval, edge_eff, n_all_species, n_hogs, n_genes, is_target, full_cliques, max_k, jaccard_threshold, n_cores, w_q, w_eff)
 }
 
 #' Permutation-based HOG-level conservation test

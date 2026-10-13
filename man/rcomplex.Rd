@@ -69,8 +69,9 @@ A list of class \code{rcomplex}:
 \item{cliques, members, twins}{The three tables of
 \code{\link[=gene_clique_graph]{gene_clique_graph()}}: one row per clique, one row per clique
 member, and one row per collapsed twin gene.}
-\item{dropped}{One row per gene that the clique budget of
-\code{\link[=gene_clique_graph]{gene_clique_graph()}} dropped. Usually empty.}
+\item{capped}{One row per hog over the clique budget of
+\code{\link[=gene_clique_graph]{gene_clique_graph()}}. Its cliques are species blocks. Usually
+empty.}
 \item{classification}{One row per clique, from
 \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}.}
 \item{modules, preservation}{With \code{modules = TRUE}: the

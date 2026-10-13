@@ -216,6 +216,7 @@ struct CliqueResult {
     double mean_q, max_q, mean_effect;
     int n_edges;
     int n_missing;            // number of missing edges (0 when max_missing_edges=0)
+    bool complete;            // search finished within max_iterations
 };
 
 // ---------------------------------------------------------------------------
@@ -224,7 +225,7 @@ struct CliqueResult {
 // Encapsulates the entire two-level decomposition for one HOG:
 //   1. Collect genes per species from edges, filtering by species_mask
 //   2. Build species adjacency matrix (bool)
-//   3. Cap genes per species (keep most-connected)
+//   3. Sort each species' genes by id (deterministic search order)
 //   4. Run Bron-Kerbosch on species graph -> species-level cliques
 //   5. For each species clique: sort by gene count, run assign_bt
 //   6. Return vector of CliqueResult
@@ -244,7 +245,6 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     uint64_t species_mask,
     int n_target_species,
     int min_species,
-    int max_genes_per_sp,
     int max_missing_edges,
     std::vector<bool>& seen_genes,   // caller-provided, size n_genes
     int max_iterations = 2000000,
@@ -348,56 +348,10 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     int n_present = static_cast<int>(present_sp.size());
     if (n_present < min_species) return results;
 
-    // --- 3. Cap genes per species (keep most-connected) ---
-    for (int s = 0; s < n_target_species; s++) {
-        if (static_cast<int>(sp_genes[s].size()) <= max_genes_per_sp) continue;
-
-        auto& genes = sp_genes[s];
-
-        // Count cross-species edges per gene; keep most-connected
-        // Mark genes of this species in seen_genes for fast lookup
-        for (int g : genes) {
-            seen_genes[g] = true;
-        }
-
-        // Linear scan of qval_sorted to count edges per gene.
-        // genes.size() <= max_genes_per_sp (small), so inner scan is bounded.
-        std::vector<int> counts(genes.size(), 0);
-
-        for (const auto& kv : qval_sorted) {
-            int ga = static_cast<int>(kv.first >> 32);
-            int gb = static_cast<int>(kv.first & 0xFFFFFFFF);
-            if (seen_genes[ga]) {
-                for (int i = 0; i < static_cast<int>(genes.size()); ++i) {
-                    if (genes[i] == ga) { counts[i]++; break; }
-                }
-            }
-            if (seen_genes[gb]) {
-                for (int i = 0; i < static_cast<int>(genes.size()); ++i) {
-                    if (genes[i] == gb) { counts[i]++; break; }
-                }
-            }
-        }
-
-        // Clear seen_genes
-        for (int g : genes) {
-            seen_genes[g] = false;
-        }
-
-        // Sort genes by descending edge count
-        std::vector<int> idx(genes.size());
-        std::iota(idx.begin(), idx.end(), 0);
-        std::sort(idx.begin(), idx.end(), [&](int a, int b) {
-            return counts[a] > counts[b];
-        });
-
-        std::vector<int> top_genes;
-        top_genes.reserve(max_genes_per_sp);
-        for (int i = 0; i < max_genes_per_sp; ++i) {
-            top_genes.push_back(genes[idx[i]]);
-        }
-        genes = std::move(top_genes);
-    }
+    // --- 3. Search order: ascending gene id within each species ---
+    // Ties among equal-cost assignments then go to the lowest ids,
+    // whatever the row order of the edges.
+    for (auto& genes : sp_genes) std::sort(genes.begin(), genes.end());
 
     // --- 4. Species-level clique/subset enumeration ---
     std::vector<std::vector<int>> sp_cliques;
@@ -518,6 +472,7 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
             cr.mean_q = (best.n_edges > 0) ? best.sum_q / best.n_edges : 1.0;
             cr.max_q = best.max_q;
             cr.mean_effect = (best.n_edges > 0) ? best.sum_effect / best.n_edges : 0.0;
+            cr.complete = iterations <= max_iterations;
             results.push_back(std::move(cr));
         }
     }

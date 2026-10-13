@@ -106,7 +106,7 @@ test_that("find_cliques empty input returns correct empty structure", {
   expect_equal(nrow(result), 0)
   expect_true(all(c(
     "hog", "SP_A", "SP_B", "n_species",
-    "mean_q"
+    "mean_q", "exhaustive"
   ) %in% names(result)))
 })
 
@@ -168,22 +168,47 @@ test_that("find_cliques min_species allows partial cliques", {
 })
 
 
-test_that("find_cliques caps genes per species at 10", {
-  # Many paralogs in SP_A, should be capped
-  genes_a <- paste0("A", 1:15)
-  edges_list <- lapply(genes_a, function(a) {
-    data.frame(
-      gene1 = a, gene2 = "B1",
-      species1 = "SP_A", species2 = "SP_B",
-      hog = "HOG1", type = "conserved",
-      q_value = 0.01, effect_size = 2.0,
-      stringsAsFactors = FALSE
-    )
-  })
-  edges <- do.call(rbind, edges_list)
+test_that("find_cliques keeps every copy and ignores row order", {
+  # Twelve SP_A copies join B1 and C1. A12 has the best edges and
+  # enters last; a ten-copy cap with ties by entry order dropped it.
+  a <- paste0("A", 1:12)
+  q <- c(rep(0.05, 11), 0.001)
+  sp <- c("SP_A", "SP_B", "SP_C")
+  edges <- data.frame(
+    gene1 = c(a, a, "B1"), gene2 = c(rep("B1", 12), rep("C1", 12), "C1"),
+    species1 = c(rep("SP_A", 24), "SP_B"),
+    species2 = c(rep("SP_B", 12), rep("SP_C", 13)),
+    hog = "HOG1", type = "conserved", q_value = c(q, q, 0.01),
+    effect_size = 2
+  )
+  res <- find_cliques(edges, sp)
+  expect_identical(res$SP_A, "A12")
+  expect_true(res$exhaustive)
+  shuf <- edges[withr::with_seed(3L, sample(nrow(edges))), ]
+  expect_identical(find_cliques(shuf, sp), res)
 
-  result <- find_cliques(edges, c("SP_A", "SP_B"))
-  expect_true(nrow(result) <= 10)
+  # Equal copies: the lowest gene id wins, whatever the row order.
+  tie <- edges
+  tie$q_value <- 0.01
+  for (o in list(seq_len(nrow(tie)), rev(seq_len(nrow(tie))))) {
+    expect_identical(find_cliques(tie[o, ], sp)$SP_A, "A1")
+  }
+})
+
+
+test_that("find_cliques reports a search cut by its step budget", {
+  # Six copies in each of four species, all wired: 6^4 assignments.
+  g <- expand.grid(i = 0:23, j = 0:23)
+  g <- g[g$i %/% 6L < g$j %/% 6L, ]
+  run <- function(it) {
+    find_cliques_cpp(
+      rep(0L, nrow(g)), g$i, g$j, g$i %/% 6L, g$j %/% 6L,
+      rep(0.01, nrow(g)), rep(1, nrow(g)), 4L, 4L, 1L, 24L,
+      max_iterations = it
+    )
+  }
+  expect_true(run(2000000L)$complete)
+  expect_false(run(10L)$complete)
 })
 
 
@@ -453,7 +478,8 @@ test_that("effect_size is required, and an all-NA column gives NA", {
   empty <- make_percentile_edges()
   empty$effect_size <- NA_real_
   expect_warning(result <- find_cliques(empty, sp),
-                 class = "rcomplex_missing_effect_size")
+    class = "rcomplex_missing_effect_size"
+  )
   expect_equal(nrow(result), 1L)
   expect_true(is.na(result$intensity))
 })

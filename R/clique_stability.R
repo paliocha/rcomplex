@@ -229,8 +229,7 @@ clique_stability.default <- function(
     length(all_species),
     length(enc$unique_hogs), length(enc$all_genes),
     is_target, raw_cliques,
-    as.integer(max_k), 10L,
-    0.8, n_cores,
+    as.integer(max_k), 0.8, n_cores,
     1, 0
   )
 

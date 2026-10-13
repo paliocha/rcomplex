@@ -79,7 +79,8 @@ distinct cliques, and the count in brackets includes the combinations.
 
 Gene combinations can explode in a large hog. The clique search keeps
 at most `max_cliques` cliques per hog (default 100,000). A hog over it
-drops the genes with the weakest edges. `res$dropped` lists them.
+gives one row per group of wired species, with the best copy of each.
+`res$capped` lists these hogs.
 
 ## Read the results
 

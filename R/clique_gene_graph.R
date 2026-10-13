@@ -44,7 +44,7 @@
   )
   list(
     cliques = cliques, members = members, twins = .gcg_no_twins(sp_lv),
-    dropped = .gcg_no_dropped(sp_lv)
+    capped = .gcg_no_capped()
   )
 }
 
@@ -59,62 +59,48 @@
 }
 
 
-#' Empty table of genes dropped by the clique budget
+#' Empty table of hogs over the clique budget
 #' @noRd
-.gcg_no_dropped <- function(sp_lv) {
+.gcg_no_capped <- function() {
   data.frame(
-    hog = character(0), species = factor(character(0), sp_lv),
-    gene = character(0), n_cliques_full = numeric(0),
-    n_classes = integer(0), n_classes_kept = integer(0)
+    hog = character(0), n_genes = integer(0), n_classes = integer(0),
+    n_cliques_full = numeric(0), n_blocks = integer(0),
+    search_complete = logical(0)
   )
 }
 
 
-#' Twin classes to keep in a hog over the clique budget
+#' Species blocks of a hog over the clique budget
 #'
-#' Classes rank by evidence: the sum of their collapsed edge scores, or
-#' their edge count without scores. Ties go to the representative gene
-#' in radix order, then the species name. The top class of each species
-#' always stays. A binary search finds the most classes, in rank order,
-#' whose graph has at most `budget` maximal cliques.
+#' One block per maximal species clique of at least `min_size` species.
+#' A block takes one twin class per species, all joined, with the lowest
+#' mean q. The best-gene search of [find_cliques()] does the work. Ties
+#' go to the representative genes first in radix order.
 #'
-#' @param g The hog's twin-collapsed graph.
-#' @param i1,i2,es Duplicate-collapsed edges before the twin collapse,
-#'   as node indices, and their scores.
-#' @param rep_v,nc Representative node and class size of each node.
+#' @param i1,i2,eq,ee Twin-collapsed edges as node indices, with their
+#'   mean q-value and effect size.
 #' @param sp,gene Species name and gene id of each node.
-#' @param budget,min_size Call parameters.
-#' @return A list: `keep`, a logical per node; `n_classes` and `n_kept`.
+#' @param min_size Call parameter.
+#' @return A list: `cl`, the blocks as vectors of node indices, and
+#'   `complete`, `FALSE` when a search hit its step budget.
 #' @noRd
-.gcg_budget <- function(g, i1, i2, es, rep_v, nc, sp, gene, budget,
-                        min_size) {
-  n_v <- length(rep_v)
-  # A collapsed edge carries the mean score of its gene pairs: each pair
-  # adds score / (pairs). Sorted sums do not depend on row order.
-  w <- if (all(is.na(es))) rep(1, length(i1)) else es
-  w <- w / (nc[i1] * nc[i2])
-  ev <- vapply(
-    split(c(w, w), factor(rep_v[c(i1, i2)], seq_len(n_v))),
-    function(x) sum(sort(x)), 0
+.gcg_blocks <- function(i1, i2, eq, ee, sp, gene, min_size) {
+  sp_u <- sort(unique(sp), method = "radix")
+  s <- match(sp, sp_u) - 1L
+  o <- order(sp, gene, method = "radix")
+  id <- integer(length(o))
+  id[o] <- seq_along(o) - 1L
+  # A missing effect size would turn every search cost into NaN.
+  ee[is.na(ee)] <- 0
+  r <- find_cliques_cpp(
+    rep(0L, length(i1)), id[i1], id[i2], s[i1], s[i2], eq, ee,
+    length(sp_u), min_size, 1L, length(o)
   )
-  cls <- which(rep_v == seq_len(n_v))
-  cls <- cls[order(-ev[cls], gene[cls], sp[cls], method = "radix")]
-  top <- !duplicated(sp[cls])
-  cls <- c(cls[top], cls[!top])
-  n_cls <- length(cls)
-  fits <- function(m) {
-    sub <- igraph::induced_subgraph(g, cls[seq_len(m)])
-    igraph::count_max_cliques(sub, min = min_size) <= budget
-  }
-  lo <- sum(top)
-  hi <- n_cls - 1L
-  while (lo < hi) {
-    mid <- (lo + hi + 1L) %/% 2L
-    if (fits(mid)) lo <- mid else hi <- mid - 1L
-  }
-  list(
-    keep = rep_v %in% cls[seq_len(lo)], n_classes = n_cls, n_kept = lo
-  )
+  cl <- lapply(seq_along(r$hog_idx), function(b) {
+    g <- r$genes[b, ]
+    o[g[!is.na(g)] + 1L]
+  })
+  list(cl = cl, complete = all(r$complete))
 }
 
 
@@ -290,14 +276,12 @@
 #' order.
 #'
 #' Paralogs multiply cliques, so a hog may produce millions of them. A
-#' cap on genes per species does not bound that count. One hog with 76
-#' twin classes, fewer than 10 per species, gave 2.4 million. The budget
-#' counts cliques per hog, after the twin collapse. A hog over
-#' `max_cliques` ranks its twin classes by the sum of their edge scores.
-#' It keeps the top class of each species. It then keeps the most
-#' classes, in rank order, that fit the budget. The genes of the other
-#' classes go to `dropped`. Ties go to the gene id, so row order does not
-#' matter.
+#' cap on genes per species does not bound that count: one hog with 76
+#' twin classes gave 2.4 million. A hog over `max_cliques`, counted after
+#' the twin collapse, is conserved as a block. Which copy pairs with
+#' which stays unresolved. So the hog gives one row per maximal species
+#' clique, with the best copy of each species. EVOTREE listed every
+#' clique; the wood data never reach the budget.
 #'
 #' A hog of 40 or more genes is enumerated one start gene at a time.
 #' The pieces are disjoint, so the cliques are the same. Only the peak
@@ -334,8 +318,9 @@
 #'   at one threshold need not be maximal at another. Pass the runs to
 #'   it as a list.
 #' @param max_cliques Largest number of maximal cliques one hog may
-#'   produce. A hog above it keeps its wiring classes with the strongest
-#'   edges until it fits. Default 1e5; `Inf` keeps every clique.
+#'   produce. A hog above it is reported as species blocks: one
+#'   representative copy per species. Default 1e5; `Inf` keeps every
+#'   clique.
 #'
 #' @return A list of class `gene_cliques` with four tables.
 #'   `cliques` has one row per clique:
@@ -372,10 +357,11 @@
 #'   included).
 #'   `twins` has one row per collapsed gene: `hog`, `species`, `gene`
 #'   and `representative`. It has no rows when no two genes are twins.
-#'   `dropped` has one row per gene that the clique budget dropped:
-#'   `hog`, `species`, `gene`, `n_cliques_full` (the hog's maximal
-#'   cliques before the drop), `n_classes` (its twin classes) and
-#'   `n_classes_kept`. It has no rows when no hog is over the budget.
+#'   `capped` has one row per hog over the clique budget: `hog`,
+#'   `n_genes`, `n_classes` (its twin classes), `n_cliques_full` (its
+#'   maximal cliques), `n_blocks` (the rows it gives in `cliques`) and
+#'   `search_complete` (`FALSE` when a block search hit its step
+#'   budget). It has no rows when no hog is over the budget.
 #'   The two floor diagnostics, plus `alpha_graph`, `min_size` and
 #'   `q_floor` (smallest edge q-value in the graph), are also attributes
 #'   of `cliques`. Both are always set, empty results included.
@@ -475,7 +461,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   old_opt <- igraph::igraph_options(return.vs.es = FALSE)
   on.exit(igraph::igraph_options(old_opt), add = TRUE)
   twins <- list()
-  dropped <- list()
+  capped <- list()
 
   for (k in seq_along(by_hog)) {
     h <- names(by_hog)[k]
@@ -513,9 +499,6 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     xq <- eq
     nc <- rep(1L, n_v)
     n_q <- n_v
-    j1 <- i1
-    j2 <- i2
-    s0 <- es
     tw <- .gcg_twins(i1, i2, node_sp, all_gn[nodes])
     if (!is.null(tw)) {
       r1 <- tw$rep[i1]
@@ -544,38 +527,30 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     g <- igraph::make_graph(as.vector(rbind(i1, i2)),
       n = n_v, directed = FALSE
     )
-    # Clique budget: a hog over it keeps its strongest twin classes. The
-    # genes of a dropped class stay as isolated vertices.
+    em <- matrix(0L, n_v, n_v)
+    em[cbind(i1, i2)] <- em[cbind(i2, i1)] <- seq_along(i1)
+    sp_h <- match(node_sp, unique(node_sp))
+    # Clique budget: a hog over it gives one block per species clique.
     n_full <- if (is.finite(max_cliques)) {
       igraph::count_max_cliques(g, min = min_size)
     } else {
       0
     }
     if (n_full > max_cliques) {
-      rep_v <- if (is.null(tw)) seq_len(n_v) else tw$rep
-      bd <- .gcg_budget(g, j1, j2, s0, rep_v, nc, sp_lv[node_sp],
-        all_gn[nodes], max_cliques, min_size
+      bk <- .gcg_blocks(
+        i1, i2, eq, ee, sp_lv[node_sp], all_gn[nodes], min_size
       )
-      v <- which(!bd$keep)
-      v <- v[order(sp_lv[node_sp[v]], all_gn[nodes[v]], method = "radix")]
-      dropped[[length(dropped) + 1L]] <- list(
-        hog = h, sp = node_sp[v], gene = all_gn[nodes[v]], n_full = n_full,
-        n_cls = bd$n_classes, n_kept = bd$n_kept
+      capped[[length(capped) + 1L]] <- list(
+        hog = h, n_genes = n_v, n_classes = n_q, n_full = n_full,
+        n_blocks = length(bk$cl), complete = bk$complete
       )
-      ke <- bd$keep[i1] & bd$keep[i2]
-      i1 <- i1[ke]
-      i2 <- i2[ke]
-      eq <- eq[ke]
-      ee <- ee[ke]
-      es <- es[ke]
-      xq <- xq[ke]
-      g <- igraph::make_graph(as.vector(rbind(i1, i2)),
-        n = n_v, directed = FALSE
-      )
+      if (length(bk$cl) > 0L) {
+        st <- .gcg_clique_stats(bk$cl, em, eq, ee, es, sp_h, nodes, xq, nc)
+        st$hog <- h
+        blk[[k]] <- list(st)
+      }
+      next
     }
-    em <- matrix(0L, n_v, n_v)
-    em[cbind(i1, i2)] <- em[cbind(i2, i1)] <- seq_along(i1)
-    sp_h <- match(node_sp, unique(node_sp))
     # A few hogs hold most cliques. One call per start vertex keeps one
     # piece in memory at a time; the pieces are disjoint and together
     # complete only when every vertex id starts one.
@@ -592,29 +567,23 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     blk[[k]] <- out_h
   }
 
-  dr_tab <- .gcg_no_dropped(sp_lv)
-  if (length(dropped) > 0L) {
-    n_g <- lengths(lapply(dropped, `[[`, "gene"))
-    per <- function(f) rep.int(vapply(dropped, `[[`, 1, f), n_g)
-    dr_tab <- data.frame(
-      hog = rep.int(vapply(dropped, `[[`, "", "hog"), n_g),
-      species = structure(
-        unlist(lapply(dropped, `[[`, "sp"), use.names = FALSE),
-        levels = sp_lv, class = "factor"
-      ),
-      gene = unlist(lapply(dropped, `[[`, "gene"), use.names = FALSE),
-      n_cliques_full = per("n_full"),
-      n_classes = as.integer(per("n_cls")),
-      n_classes_kept = as.integer(per("n_kept"))
+  cp_tab <- .gcg_no_capped()
+  if (length(capped) > 0L) {
+    per <- function(f, v) vapply(capped, `[[`, v, f)
+    cp_tab <- data.frame(
+      hog = per("hog", ""), n_genes = per("n_genes", 1L),
+      n_classes = per("n_classes", 1L), n_cliques_full = per("n_full", 1),
+      n_blocks = per("n_blocks", 1L), search_complete = per("complete", NA)
     )
     message(
-      "gene_clique_graph: ", length(dropped), " hogs exceeded ",
-      "`max_cliques` = ", format(max_cliques, big.mark = ",",
+      "gene_clique_graph: ", nrow(cp_tab), " hogs exceeded ",
+      "`max_cliques` = ", format(max_cliques,
+        big.mark = ",",
         scientific = FALSE
-      ), " maximal cliques; ", nrow(dr_tab),
-      " genes dropped, see `$dropped`."
+      ), " maximal cliques. Each is reported as species blocks; ",
+      "see `$capped`."
     )
-    rm(dropped)
+    rm(capped)
   }
   tw_tab <- .gcg_no_twins(sp_lv)
   if (length(twins) > 0L) {
@@ -643,7 +612,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   if (length(blk) == 0L) {
     out <- .gcg_empty(has_effect, has_score, sp_lv)
     out$twins <- tw_tab
-    out$dropped <- dr_tab
+    out$capped <- cp_tab
     return(.gcg_graph_attrs(out, alpha_graph, min_size, min(qv), NA_real_, 0L))
   }
   hog <- rep.int(
@@ -690,7 +659,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
   n_tied <- sum(cliques$mean_q <= mq_min + .tie_tol() * abs(mq_min))
   .gcg_graph_attrs(
     list(
-      cliques = cliques, members = members, twins = tw_tab, dropped = dr_tab
+      cliques = cliques, members = members, twins = tw_tab, capped = cp_tab
     ),
     alpha_graph, min_size, min(qv), mq_min, n_tied
   )
@@ -727,7 +696,8 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       sep = .gcg_sep
     ))
     key <- paste(hog_m[r], sp_m[r], m$gene[r], sep = .gcg_sep)
-    cp[r] <- Map(function(g0, t) c(g0, sort(t, method = "radix")),
+    cp[r] <- Map(
+      function(g0, t) c(g0, sort(t, method = "radix")),
       m$gene[r], by[key]
     )
   }

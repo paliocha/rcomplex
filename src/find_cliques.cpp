@@ -31,12 +31,13 @@ using namespace Rcpp;
 //' @param min_species Minimum species for a valid clique
 //' @param n_hogs Total number of distinct HOGs
 //' @param n_genes Total number of distinct genes
-//' @param max_genes_per_sp Maximum genes per species per HOG (default 10)
 //' @param max_missing_edges Maximum missing edges tolerated (default 0)
 //' @param w_q Weight for mean q-value in composite cost (default 1.0)
 //' @param w_eff Weight for mean effect size in composite cost (default 0.0)
+//' @param max_iterations Step budget of each best-gene search
 //' @return List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-//'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing
+//'   n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing,
+//'   complete (the search finished within its step budget)
 //' @keywords internal
 // [[Rcpp::export]]
 Rcpp::List find_cliques_cpp(
@@ -51,10 +52,10 @@ Rcpp::List find_cliques_cpp(
     int min_species,
     int n_hogs,
     int n_genes,
-    int max_genes_per_sp = 10,
     int max_missing_edges = 0,
     double w_q = 1.0,
-    double w_eff = 0.0)
+    double w_eff = 0.0,
+    int max_iterations = 2000000)
 {
     if (n_target_species > 64)
         Rcpp::stop("n_target_species must be <= 64");
@@ -89,6 +90,7 @@ Rcpp::List find_cliques_cpp(
     std::vector<double> res_mean_q, res_max_q, res_mean_eff;
     std::vector<int> res_n_edges;
     std::vector<int> res_n_missing;
+    std::vector<int> res_complete;
 
     for (int h = 0; h < n_hogs; h++) {
         if (hog_edges[h].empty()) continue;
@@ -100,8 +102,8 @@ Rcpp::List find_cliques_cpp(
         std::vector<CliqueResult> cliques = find_cliques_for_hog(
             h, hog_edges[h],
             g1_ptr, g2_ptr, sp1_ptr, sp2_ptr, qval_ptr, eff_ptr,
-            full_mask, n_target_species, min_species, max_genes_per_sp,
-            max_missing_edges, seen_genes, 2000000, w_q, w_eff);
+            full_mask, n_target_species, min_species,
+            max_missing_edges, seen_genes, max_iterations, w_q, w_eff);
 
         // Collect results
         for (auto& cr : cliques) {
@@ -113,6 +115,7 @@ Rcpp::List find_cliques_cpp(
             res_mean_eff.push_back(cr.mean_effect);
             res_n_edges.push_back(cr.n_edges);
             res_n_missing.push_back(cr.n_missing);
+            res_complete.push_back(cr.complete);
         }
     }
 
@@ -124,6 +127,7 @@ Rcpp::List find_cliques_cpp(
     NumericVector out_mean_q(nr), out_max_q(nr), out_mean_eff(nr);
     IntegerVector out_n_edges(nr);
     IntegerVector out_n_missing(nr);
+    LogicalVector out_complete(nr);
 
     std::fill(out_genes.begin(), out_genes.end(), NA_INTEGER);
 
@@ -140,6 +144,7 @@ Rcpp::List find_cliques_cpp(
         out_mean_eff[i] = res_mean_eff[i];
         out_n_edges[i] = res_n_edges[i];
         out_n_missing[i] = res_n_missing[i];
+        out_complete[i] = res_complete[i];
     }
 
     return List::create(
@@ -150,6 +155,7 @@ Rcpp::List find_cliques_cpp(
         Named("max_q") = out_max_q,
         Named("mean_effect_size") = out_mean_eff,
         Named("n_edges") = out_n_edges,
-        Named("n_missing") = out_n_missing
+        Named("n_missing") = out_n_missing,
+        Named("complete") = out_complete
     );
 }

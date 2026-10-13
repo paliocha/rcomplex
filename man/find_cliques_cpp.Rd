@@ -16,10 +16,10 @@ find_cliques_cpp(
   min_species,
   n_hogs,
   n_genes,
-  max_genes_per_sp = 10L,
   max_missing_edges = 0L,
   w_q = 1,
-  w_eff = 0
+  w_eff = 0,
+  max_iterations = 2000000L
 )
 }
 \arguments{
@@ -45,17 +45,18 @@ find_cliques_cpp(
 
 \item{n_genes}{Total number of distinct genes}
 
-\item{max_genes_per_sp}{Maximum genes per species per HOG (default 10)}
-
 \item{max_missing_edges}{Maximum missing edges tolerated (default 0)}
 
 \item{w_q}{Weight for mean q-value in composite cost (default 1.0)}
 
 \item{w_eff}{Weight for mean effect size in composite cost (default 0.0)}
+
+\item{max_iterations}{Step budget of each best-gene search}
 }
 \value{
 List with: hog_idx (0-based), genes (matrix, 0-based or NA),
-n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing
+n_species, mean_q, max_q, mean_effect_size, n_edges, n_missing,
+complete (the search finished within its step budget)
 }
 \description{
 Find co-expression cliques using two-level decomposition
