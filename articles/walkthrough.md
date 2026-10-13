@@ -516,7 +516,7 @@ gene_class <- classify_gene_cliques(gene_cliques, edges, species,
 table(gene_class$classification)
 #> 
 #> complete_conserved    partial_present     trait_specific       unclassified 
-#>                271                 34                 16               7461 
+#>                265                 32                 16               6790 
 #>       underpowered 
 #>                 13
 ```

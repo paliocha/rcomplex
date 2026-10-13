@@ -121,7 +121,7 @@ seconds.</p>
 <span><span class="co">#&gt;   HVUL  1,925 genes  20 samples  density 0.03  r &gt;= 0.29</span></span>
 <span><span class="co">#&gt;   HJUB  3,983 genes  20 samples  density 0.03  r &gt;= 0.28</span></span>
 <span><span class="co">#&gt;   edges 33,575 tested, 10,387 called at q &lt; 0.1</span></span>
-<span><span class="co">#&gt;   cliques 3,146 distinct (14,047 with paralog copies): complete_conserved 1,995, partial_present    69, unclassified 1,082</span></span></code></pre></div>
+<span><span class="co">#&gt;   cliques 1,959 distinct (14,047 with paralog copies): complete_conserved   817, partial_present    68, unclassified 1,074</span></span></code></pre></div>
 <p>The header lists, per species, the genes, the samples and the
 density. The value after “r &gt;=” is the weakest correlation that
 became an edge. At 20 samples, a correlation of 0.3 is weak evidence.
@@ -145,9 +145,9 @@ networks.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                tier cliques multiplicity hogs patterns</span></span>
-<span><span class="co">#&gt;  complete_conserved    1995        12592  290      290</span></span>
-<span><span class="co">#&gt;     partial_present      69          114   57       65</span></span>
-<span><span class="co">#&gt;        unclassified    1082         1341  426      603</span></span>
+<span><span class="co">#&gt;  complete_conserved     817        12592  290      290</span></span>
+<span><span class="co">#&gt;     partial_present      68          114   57       65</span></span>
+<span><span class="co">#&gt;        unclassified    1074         1341  426      603</span></span>
 <span><span class="co">#&gt; null: calls at q &lt; 0.1 </span></span>
 <span><span class="co">#&gt;  species1 species2 calls calls_null false_call_rate</span></span>
 <span><span class="co">#&gt;      BDIS     BSYL  1340          0               0</span></span>
@@ -200,7 +200,7 @@ evidence of divergence.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">$</span><span class="va">classification</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; complete_conserved    partial_present       unclassified </span></span>
-<span><span class="co">#&gt;               1995                 69               1082</span></span></code></pre></div>
+<span><span class="co">#&gt;                817                 68               1074</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="save">Save<a class="anchor" aria-label="anchor" href="#save"></a>

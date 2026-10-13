@@ -192,13 +192,13 @@ paralog combinations it stands for (see below)</p></dd>
 
 
 </dl><p>Twin genes share their partners in the graph, but their own tests
-can differ at <code>alpha_call</code>, <code>alpha_graph</code> or <code>min_power</code>. The
-classifier splits each twin class into copies with the same test
-status. A clique gives one row per choice of split, numbered by
-<code>variant</code>. Every combination a row stands for gets its tier, so
-tiers are exact. <code>multiplicity</code> counts those combinations; <code>mean_q</code>,
-<code>max_q</code> and <code>mean_effect_size</code> summarise them as in
-<code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>. Most cliques have one variant.
+can differ at <code>alpha_call</code>, <code>alpha_graph</code> or <code>min_power</code>. A class
+splits only where its copies differ in what that clique reads: the
+species it misses and its other members. A clique gives one row per
+choice of split, numbered by <code>variant</code>. Every combination a row
+stands for gets its tier, so tiers are exact. <code>multiplicity</code> counts
+those combinations; <code>mean_q</code>, <code>max_q</code> and <code>mean_effect_size</code>
+summarise them as in <code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>. Most cliques have one variant.
 The two floor diagnostics are also attributes, alongside
 <code>n_species_total</code>, <code>n_pairs_total</code>, <code>n_within_pairs</code>,
 <code>n_cross_pairs</code>, <code>cross_max</code>, <code>alpha_call</code>, <code>alpha_graph</code> and

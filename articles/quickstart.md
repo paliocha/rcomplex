@@ -68,7 +68,7 @@ res
 #>   HVUL  1,925 genes  20 samples  density 0.03  r >= 0.29
 #>   HJUB  3,983 genes  20 samples  density 0.03  r >= 0.28
 #>   edges 33,575 tested, 10,387 called at q < 0.1
-#>   cliques 3,146 distinct (14,047 with paralog copies): complete_conserved 1,995, partial_present    69, unclassified 1,082
+#>   cliques 1,959 distinct (14,047 with paralog copies): complete_conserved   817, partial_present    68, unclassified 1,074
 ```
 
 The header lists, per species, the genes, the samples and the density.
@@ -94,9 +94,9 @@ With `null = TRUE` it also gives the calls on shuffled networks.
 ``` r
 summary(res)
 #>                tier cliques multiplicity hogs patterns
-#>  complete_conserved    1995        12592  290      290
-#>     partial_present      69          114   57       65
-#>        unclassified    1082         1341  426      603
+#>  complete_conserved     817        12592  290      290
+#>     partial_present      68          114   57       65
+#>        unclassified    1074         1341  426      603
 #> null: calls at q < 0.1 
 #>  species1 species2 calls calls_null false_call_rate
 #>      BDIS     BSYL  1340          0               0
@@ -145,7 +145,7 @@ returns the same table.
 table(as.data.frame(res)$classification)
 #> 
 #> complete_conserved    partial_present       unclassified 
-#>               1995                 69               1082
+#>                817                 68               1074
 ```
 
 ## Save
