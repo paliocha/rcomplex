@@ -26,7 +26,11 @@ not in the repository. Expression is VST.
   9-16 % of cases (module structure), twice as often when both genes
   are in the top expression deciles (18-24 %) as when one is low
   (7-14 %). The driver's shuffled-expression null gives 0 calls in
-  every species pair and so measures none of this.
+  every species pair and so measures none of this. Those random pairs
+  were tested with the real mapping intact, so the 9-16 % is the
+  module resolution of the pair test (a random gene falls into the
+  conserved module of its partner's neighbours); the abundance part is
+  the doubling.
 - Decision: `rcomplex(null = TRUE)` shuffles the hog labels among genes
   of the same expression stratum, per species, and repeats the whole
   pipeline on that table: edges, cliques, tiers. `calls_null` then
@@ -131,6 +135,18 @@ permutation null (`find_coexpressologs(method = "permutation")`, H0:
 random genes from the same networks) is the right null for both; it
 draws uniformly over genes and so lacks the stratification.
 
+The two findings need two nulls. The probe relabelled the tested pair
+and kept every other hog's mapping, so a random gene still fell into
+the conserved module that its partner's neighbours map to: that is
+module resolution (neighbourhoods of about 700 genes in 20,000) and it
+belongs to the per-hog permutation null (alternative A). Shuffling the
+whole mapping, as this WP does, removes the conserved modules from the
+mapped neighbourhoods as well, and what remains is abundance plus
+generic structure. The first build measured it on wood: 0.5-4 % of the
+real calls in species pairs without shared gene ids, against 0 for the
+old null. Abundance makes false calls rare; it makes true calls hard to
+detect for low genes (section 2.1).
+
 ## 3. Alternatives
 
 - A. Stratified draws in the permutation engines. `sample_k_distinct()`
@@ -144,7 +160,8 @@ draws uniformly over genes and so lacks the stratification.
   pipeline (this WP). One `find_coexpressologs()` more per run (about
   5 s per species pair on wood), the same q-value machinery, a null
   tier table for free. A rate, not a per-hog p; one shuffle is enough
-  (30,000 pairs put the rate within 1 %).
+  (30,000 pairs put the rate within 1 %). It measures abundance and
+  generic structure; module resolution needs A.
 - C. Report only: per-hog expression on the result and a matched
   background helper. B needs the same primitive (`gene_mean`), so C's
   table can follow from it later without a new export.
@@ -194,6 +211,13 @@ draws uniformly over genes and so lacks the stratification.
   calls and tiers estimate what abundance and network structure alone
   produce." Replace every "shuffled networks" in the files above.
   `null_network()` keeps its own documentation.
+- Species routing: `prepare_orthologs()` labels each row with
+  `species1` and `species2`; `find_coexpressologs()` selects a pair's
+  rows by those labels when present. Two data sets on one reference
+  genome (Scots and Lodge, both on *P. sylvestris*) share gene ids;
+  without the labels the shuffled rows of one leak into the other's
+  pair (first build: Asp-Lodge 45,632 null rows against 24,066 real),
+  and the real run is right only because its duplicates are identical.
 - Tests: (1) on a fixture with a `gene_mean` gradient, every shuffled
   row keeps its gene's decile and every (hog, species) count is
   unchanged; (2) `edges_null` has the columns of `edges`;
@@ -210,9 +234,10 @@ draws uniformly over genes and so lacks the stratification.
 - Wood: `R_LIBS=<lib> Rscript prepare_data/evotree/e5_rcomplex_0.4.R`
   (local script, absolute data paths; skip if the data directory is
   missing and say so). Report `summary(res)$null` and the tier table.
-  Expected: `calls_null / calls` about 0.3-0.4 in every species pair
-  (it was 0.0), and a non-empty null tier table. Runtime within 2 min
-  of the 3.8 min run.
+  Expected: `calls_null / calls` of a few percent in every species pair
+  (it was 0.0; the probe's 0.3-0.4 belongs to the other null, section
+  2.3), null rows per pair within 5 % of the real rows, and a null
+  tier table. Runtime within 2 min of the 3.8 min run.
 
 ### NEWS (development version)
 
