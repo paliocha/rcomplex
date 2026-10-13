@@ -346,7 +346,7 @@ test_that("a hog over the budget keeps its strongest classes", {
 
   expect_message(
     g50 <- gene_clique_graph(e, max_cliques = 50),
-    "1 ortholog groups exceeded `max_cliques` = 50 maximal cliques; 17"
+    "1 hogs exceeded `max_cliques` = 50 maximal cliques; 17"
   )
   # The ranking keeps a1-a5 and b1-b5, then c1 and c2: 5 x 5 x 2 = 50.
   # c3 would give 75. The first SP_X gene stays as its species' top.

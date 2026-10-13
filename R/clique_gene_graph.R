@@ -290,8 +290,8 @@
 #' order.
 #'
 #' Paralogs multiply cliques, so a hog may produce millions of them. A
-#' cap on genes per species does not bound that count: 76 twin classes,
-#' fewer than 10 per species, gave 2.4 million cliques. The budget
+#' cap on genes per species does not bound that count. One hog with 76
+#' twin classes, fewer than 10 per species, gave 2.4 million. The budget
 #' counts cliques per hog, after the twin collapse. A hog over
 #' `max_cliques` ranks its twin classes by the sum of their edge scores.
 #' It keeps the top class of each species. It then keeps the most
@@ -608,7 +608,7 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
       n_classes_kept = as.integer(per("n_kept"))
     )
     message(
-      "gene_clique_graph: ", length(dropped), " ortholog groups exceeded ",
+      "gene_clique_graph: ", length(dropped), " hogs exceeded ",
       "`max_cliques` = ", format(max_cliques, big.mark = ",",
         scientific = FALSE
       ), " maximal cliques; ", nrow(dr_tab),
