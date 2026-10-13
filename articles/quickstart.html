@@ -102,8 +102,8 @@ OrthoFinder file, call <code><a href="../reference/read_orthologs.html">read_ort
 <h2 id="run">Run<a class="anchor" aria-label="anchor" href="#run"></a>
 </h2>
 <p><code>clades</code> names the species sets. <code>null = TRUE</code>
-repeats the comparison on shuffled networks. The run takes about 10
-seconds.</p>
+repeats the run with hog labels shuffled among genes of the same
+expression level. The run takes about 10 seconds.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/rcomplex.html">rcomplex</a></span><span class="op">(</span><span class="va">leaf</span>, <span class="va">hogs</span>,</span>
 <span>  clades <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -140,25 +140,25 @@ explode.</p>
 <h2 id="read-the-results">Read the results<a class="anchor" aria-label="anchor" href="#read-the-results"></a>
 </h2>
 <p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> gives the tier table. With
-<code>null = TRUE</code> it also gives the calls on shuffled
-networks.</p>
+<code>null = TRUE</code> it also gives the calls and cliques of the
+shuffled hog labels.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                tier cliques multiplicity hogs patterns</span></span>
-<span><span class="co">#&gt;  complete_conserved     817        12592  290      290</span></span>
-<span><span class="co">#&gt;     partial_present      68          114   57       65</span></span>
-<span><span class="co">#&gt;        unclassified    1074         1341  426      603</span></span>
+<span><span class="co">#&gt;                tier cliques cliques_null multiplicity hogs patterns</span></span>
+<span><span class="co">#&gt;  complete_conserved     817            0        12592  290      290</span></span>
+<span><span class="co">#&gt;     partial_present      68            0          114   57       65</span></span>
+<span><span class="co">#&gt;        unclassified    1074            0         1341  426      603</span></span>
 <span><span class="co">#&gt; null: calls at q &lt; 0.1 </span></span>
 <span><span class="co">#&gt;  species1 species2 calls calls_null false_call_rate</span></span>
-<span><span class="co">#&gt;      BDIS     BSYL  1340          0               0</span></span>
-<span><span class="co">#&gt;      BDIS     HVUL  1239          0               0</span></span>
-<span><span class="co">#&gt;      BDIS     HJUB  2090          0               0</span></span>
-<span><span class="co">#&gt;      BSYL     HVUL  1134          0               0</span></span>
-<span><span class="co">#&gt;      BSYL     HJUB  2056          0               0</span></span>
-<span><span class="co">#&gt;      HVUL     HJUB  2528          0               0</span></span></code></pre></div>
-<p><code>calls_null</code> counts the calls that survive on shuffled
-networks. Zero means the false-call rate at this <code>alpha</code> is
-low on this data.</p>
+<span><span class="co">#&gt;      BDIS     BSYL  1340          0     0.000000000</span></span>
+<span><span class="co">#&gt;      BDIS     HVUL  1239          2     0.001614205</span></span>
+<span><span class="co">#&gt;      BDIS     HJUB  2090          0     0.000000000</span></span>
+<span><span class="co">#&gt;      BSYL     HVUL  1134          8     0.007054674</span></span>
+<span><span class="co">#&gt;      BSYL     HJUB  2056          0     0.000000000</span></span>
+<span><span class="co">#&gt;      HVUL     HJUB  2528         22     0.008702532</span></span></code></pre></div>
+<p><code>calls_null</code> and <code>cliques_null</code> count what
+abundance and network structure alone produce. Compare them with
+<code>calls</code> and <code>cliques</code>.</p>
 <p><code>res$edges</code> has one row per ortholog pair and species
 pair.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
@@ -208,13 +208,16 @@ evidence of divergence.</p>
 <p><code><a href="../reference/write_rcomplex.html">write_rcomplex()</a></code> writes <code>edges.tsv</code>,
 <code>cliques.tsv</code>, <code>members.tsv</code>,
 <code>twins.tsv</code> and <code>classification.tsv</code>. After a null
-run it adds <code>edges_null.tsv</code>.</p>
+run it adds <code>edges_null.tsv</code> and
+<code>classification_null.tsv</code>.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"rcomplex-out"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/write_rcomplex.html">write_rcomplex</a></span><span class="op">(</span><span class="va">res</span>, <span class="va">out</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">out</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "classification.tsv" "cliques.tsv"        "edges_null.tsv"    </span></span>
-<span><span class="co">#&gt; [4] "edges.tsv"          "members.tsv"        "twins.tsv"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "classification_null.tsv" "classification.tsv"     </span></span>
+<span><span class="co">#&gt; [3] "cliques.tsv"             "edges_null.tsv"         </span></span>
+<span><span class="co">#&gt; [5] "edges.tsv"               "members.tsv"            </span></span>
+<span><span class="co">#&gt; [7] "twins.tsv"</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="check-the-p-value-floor">Check the p-value floor<a class="anchor" aria-label="anchor" href="#check-the-p-value-floor"></a>

@@ -76,17 +76,17 @@ head(long)
 #> 5     SpA GeneA_004 N0.HOG0000004
 #> 6     SpA GeneA_005 N0.HOG0000005
 prepare_orthologs(long)
-#>        gene1     gene2           hog
-#> 1  GeneA_001 GeneB_001 N0.HOG0000001
-#> 2  GeneA_001 GeneB_011 N0.HOG0000001
-#> 3  GeneA_002 GeneB_002 N0.HOG0000002
-#> 4  GeneA_012 GeneB_002 N0.HOG0000002
-#> 5  GeneA_003 GeneB_003 N0.HOG0000003
-#> 6  GeneA_004 GeneB_004 N0.HOG0000004
-#> 7  GeneA_005 GeneB_005 N0.HOG0000005
-#> 8  GeneA_006 GeneB_006 N0.HOG0000006
-#> 9  GeneA_007 GeneB_007 N0.HOG0000007
-#> 10 GeneA_008 GeneB_008 N0.HOG0000008
-#> 11 GeneA_009 GeneB_009 N0.HOG0000009
-#> 12 GeneA_010 GeneB_010 N0.HOG0000010
+#>        gene1     gene2           hog species1 species2
+#> 1  GeneA_001 GeneB_001 N0.HOG0000001      SpA      SpB
+#> 2  GeneA_001 GeneB_011 N0.HOG0000001      SpA      SpB
+#> 3  GeneA_002 GeneB_002 N0.HOG0000002      SpA      SpB
+#> 4  GeneA_012 GeneB_002 N0.HOG0000002      SpA      SpB
+#> 5  GeneA_003 GeneB_003 N0.HOG0000003      SpA      SpB
+#> 6  GeneA_004 GeneB_004 N0.HOG0000004      SpA      SpB
+#> 7  GeneA_005 GeneB_005 N0.HOG0000005      SpA      SpB
+#> 8  GeneA_006 GeneB_006 N0.HOG0000006      SpA      SpB
+#> 9  GeneA_007 GeneB_007 N0.HOG0000007      SpA      SpB
+#> 10 GeneA_008 GeneB_008 N0.HOG0000008      SpA      SpB
+#> 11 GeneA_009 GeneB_009 N0.HOG0000009      SpA      SpB
+#> 12 GeneA_010 GeneB_010 N0.HOG0000010      SpA      SpB
 ```

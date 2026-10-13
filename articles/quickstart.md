@@ -48,8 +48,9 @@ head(hogs, 3)
 
 ## Run
 
-`clades` names the species sets. `null = TRUE` repeats the comparison on
-shuffled networks. The run takes about 10 seconds.
+`clades` names the species sets. `null = TRUE` repeats the run with hog
+labels shuffled among genes of the same expression level. The run takes
+about 10 seconds.
 
 ``` r
 res <- rcomplex(leaf, hogs,
@@ -89,26 +90,27 @@ explode.
 ## Read the results
 
 [`summary()`](https://rdrr.io/r/base/summary.html) gives the tier table.
-With `null = TRUE` it also gives the calls on shuffled networks.
+With `null = TRUE` it also gives the calls and cliques of the shuffled
+hog labels.
 
 ``` r
 summary(res)
-#>                tier cliques multiplicity hogs patterns
-#>  complete_conserved     817        12592  290      290
-#>     partial_present      68          114   57       65
-#>        unclassified    1074         1341  426      603
+#>                tier cliques cliques_null multiplicity hogs patterns
+#>  complete_conserved     817            0        12592  290      290
+#>     partial_present      68            0          114   57       65
+#>        unclassified    1074            0         1341  426      603
 #> null: calls at q < 0.1 
 #>  species1 species2 calls calls_null false_call_rate
-#>      BDIS     BSYL  1340          0               0
-#>      BDIS     HVUL  1239          0               0
-#>      BDIS     HJUB  2090          0               0
-#>      BSYL     HVUL  1134          0               0
-#>      BSYL     HJUB  2056          0               0
-#>      HVUL     HJUB  2528          0               0
+#>      BDIS     BSYL  1340          0     0.000000000
+#>      BDIS     HVUL  1239          2     0.001614205
+#>      BDIS     HJUB  2090          0     0.000000000
+#>      BSYL     HVUL  1134          8     0.007054674
+#>      BSYL     HJUB  2056          0     0.000000000
+#>      HVUL     HJUB  2528         22     0.008702532
 ```
 
-`calls_null` counts the calls that survive on shuffled networks. Zero
-means the false-call rate at this `alpha` is low on this data.
+`calls_null` and `cliques_null` count what abundance and network
+structure alone produce. Compare them with `calls` and `cliques`.
 
 `res$edges` has one row per ortholog pair and species pair.
 
@@ -152,14 +154,17 @@ table(as.data.frame(res)$classification)
 
 [`write_rcomplex()`](https://paliocha.github.io/rcomplex/reference/write_rcomplex.md)
 writes `edges.tsv`, `cliques.tsv`, `members.tsv`, `twins.tsv` and
-`classification.tsv`. After a null run it adds `edges_null.tsv`.
+`classification.tsv`. After a null run it adds `edges_null.tsv` and
+`classification_null.tsv`.
 
 ``` r
 out <- file.path(tempdir(), "rcomplex-out")
 write_rcomplex(res, out)
 list.files(out)
-#> [1] "classification.tsv" "cliques.tsv"        "edges_null.tsv"    
-#> [4] "edges.tsv"          "members.tsv"        "twins.tsv"
+#> [1] "classification_null.tsv" "classification.tsv"     
+#> [3] "cliques.tsv"             "edges_null.tsv"         
+#> [5] "edges.tsv"               "members.tsv"            
+#> [7] "twins.tsv"
 ```
 
 ## Check the p-value floor

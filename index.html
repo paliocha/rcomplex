@@ -98,7 +98,7 @@
 <span><span class="co">#&gt;   HJUB  3,983 genes  20 samples  density 0.03  r &gt;= 0.28</span></span>
 <span><span class="co">#&gt;   edges 33,575 tested, 10,387 called at q &lt; 0.1</span></span>
 <span><span class="co">#&gt;   cliques 3,146 distinct (14,047 with paralog copies): complete_conserved 1,995, partial_present    69, unclassified 1,082</span></span></code></pre></div>
-<p>Use <code>summary(res)</code> for the tier table, <code>write_rcomplex(res, "out/")</code> to save the tables, and <code>rcomplex(networks = ...)</code> for networks built elsewhere. Pass <code>block</code> for a designed experiment. Pass <code>modules = TRUE</code> for modules. Pass <code>null = TRUE</code> to count calls on shuffled networks.</p>
+<p>Use <code>summary(res)</code> for the tier table, <code>write_rcomplex(res, "out/")</code> to save the tables, and <code>rcomplex(networks = ...)</code> for networks built elsewhere. Pass <code>block</code> for a designed experiment. Pass <code>modules = TRUE</code> for modules. Pass <code>null = TRUE</code> to rerun with hog labels shuffled among genes of the same expression level.</p>
 <p>The quickstart runs this example step by step.</p>
 </div>
 <div class="section level2">

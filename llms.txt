@@ -68,7 +68,8 @@ res
 Use `summary(res)` for the tier table, `write_rcomplex(res, "out/")` to
 save the tables, and `rcomplex(networks = ...)` for networks built
 elsewhere. Pass `block` for a designed experiment. Pass `modules = TRUE`
-for modules. Pass `null = TRUE` to count calls on shuffled networks.
+for modules. Pass `null = TRUE` to rerun with hog labels shuffled among
+genes of the same expression level.
 
 The quickstart runs this example step by step.
 

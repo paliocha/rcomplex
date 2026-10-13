@@ -121,8 +121,9 @@ their preservation in every species pair.</p></dd>
 
 
 <dt id="arg-null">null<a class="anchor" aria-label="anchor" href="#arg-null"></a></dt>
-<dd><p>If <code>TRUE</code>, repeat the comparison on shuffled networks.
-The null calls estimate the false-call rate.</p></dd>
+<dd><p>If <code>TRUE</code>, repeat the run with hog labels shuffled among
+genes of the same expression level. The null calls and tiers estimate
+what abundance and network structure alone produce.</p></dd>
 
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
@@ -157,9 +158,10 @@ member, and one row per collapsed twin gene.</p></dd>
 <code><a href="detect_modules.html">detect_modules()</a></code> results by species, and the
 <code><a href="preservation_paired.html">preservation_paired()</a></code> result.</p></dd>
 
-<dt>edges_null</dt>
-<dd><p>With <code>null = TRUE</code>: the edge table of the
-shuffled networks.</p></dd>
+<dt>edges_null, classification_null</dt>
+<dd><p>With <code>null = TRUE</code>: the
+edge table and the classification of the shuffled ortholog
+table.</p></dd>
 
 <dt>call</dt>
 <dd><p>The call.</p></dd>
@@ -173,20 +175,25 @@ shuffled networks.</p></dd>
 <code>min(3, number of species)</code> genes. Rank edges are classified at
 <code>min_power = 0.9</code>, hypergeometric edges at 0.8.</p>
 <p><code>density</code> and <code>sign</code> apply only to networks built from <code>expr</code>.
-<code>method = "rank"</code>, <code>null = TRUE</code> and <code>block</code> need <code>expr</code>: the
-shuffled networks come from <code><a href="null_network.html">null_network()</a></code>, within each block.</p>
+<code>method = "rank"</code> and <code>block</code> need <code>expr</code>. The rank test calibrates
+against <code><a href="null_network.html">null_network()</a></code> partners, built within each block.</p>
 <p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> counts each tier in <code>cliques</code>, in <code>hogs</code> and in
 <code>patterns</code>. A pattern is one HOG with one clique species set. The
 paralog copies of a large HOG can form millions of cliques, but they
 share a few patterns. Paralogs with the same partners are twins: one
 clique stands for all their combinations. The <code>multiplicity</code> column
 counts those combinations, and <code>twins</code> lists the collapsed genes.</p>
+<p>With <code>null = TRUE</code>, the driver shuffles the <code>gene</code> column of
+<code>orthologs</code> within each species. A gene moves only among genes of
+the same expression decile, by <code>gene_mean</code> from <code><a href="compute_network.html">compute_network()</a></code>.
+A network without <code>gene_mean</code>, such as one from <code><a href="as_network.html">as_network()</a></code>, forms
+one decile. The driver then reruns edges, cliques and tiers on the
+real networks. Both runs share the rank calibration networks.</p>
 <p>With <code>null = TRUE</code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports <code>calls</code> and <code>calls_null</code> per
 species pair at <code>q_value &lt; alpha</code>. Their ratio is the empirical
 false-call rate.
-The rate is <code>NA</code> for a species pair without calls. With
-<code>method = "rank"</code>, the null run calibrates its rank test against
-nulls of the null networks.</p>
+The rate is <code>NA</code> for a species pair without calls. The tier table
+gains <code>cliques_null</code>: the null cliques per tier.</p>
 <p><code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows, per species, the genes, the samples, the density and
 <code>r_threshold</code> from <code><a href="compute_network.html">compute_network()</a></code>: the weakest correlation that
 passed the density threshold. The same density needs a stronger
@@ -208,7 +215,8 @@ correlation and shows <code>r ?</code>, as does a network without edges.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   edges 12 tested, 0 called at q &lt; 0.1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   cliques 0</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] tier         cliques      multiplicity hogs         patterns    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] tier         cliques      cliques_null multiplicity hogs        </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [6] patterns    </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;0 rows&gt; (or 0-length row.names)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> null: not run</span>
 <span class="r-in"><span><span class="fu"><a href="write_rcomplex.html">write_rcomplex</a></span><span class="op">(</span><span class="va">res</span>, <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></span>

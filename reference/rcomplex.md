@@ -85,8 +85,9 @@ rcomplex(
 
 - null:
 
-  If `TRUE`, repeat the comparison on shuffled networks. The null calls
-  estimate the false-call rate.
+  If `TRUE`, repeat the run with hog labels shuffled among genes of the
+  same expression level. The null calls and tiers estimate what
+  abundance and network structure alone produce.
 
 - n_cores:
 
@@ -131,9 +132,10 @@ A list of class `rcomplex`:
   [`preservation_paired()`](https://paliocha.github.io/rcomplex/reference/preservation_paired.md)
   result.
 
-- edges_null:
+- edges_null, classification_null:
 
-  With `null = TRUE`: the edge table of the shuffled networks.
+  With `null = TRUE`: the edge table and the classification of the
+  shuffled ortholog table.
 
 - call:
 
@@ -149,10 +151,10 @@ Cliques use the edges with `q_value < alpha` and have at least
 `min_power = 0.9`, hypergeometric edges at 0.8.
 
 `density` and `sign` apply only to networks built from `expr`.
-`method = "rank"`, `null = TRUE` and `block` need `expr`: the shuffled
-networks come from
-[`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.md),
-within each block.
+`method = "rank"` and `block` need `expr`. The rank test calibrates
+against
+[`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.md)
+partners, built within each block.
 
 [`summary()`](https://rdrr.io/r/base/summary.html) counts each tier in
 `cliques`, in `hogs` and in `patterns`. A pattern is one HOG with one
@@ -162,11 +164,20 @@ partners are twins: one clique stands for all their combinations. The
 `multiplicity` column counts those combinations, and `twins` lists the
 collapsed genes.
 
+With `null = TRUE`, the driver shuffles the `gene` column of `orthologs`
+within each species. A gene moves only among genes of the same
+expression decile, by `gene_mean` from
+[`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md).
+A network without `gene_mean`, such as one from
+[`as_network()`](https://paliocha.github.io/rcomplex/reference/as_network.md),
+forms one decile. The driver then reruns edges, cliques and tiers on the
+real networks. Both runs share the rank calibration networks.
+
 With `null = TRUE`, [`summary()`](https://rdrr.io/r/base/summary.html)
 reports `calls` and `calls_null` per species pair at `q_value < alpha`.
 Their ratio is the empirical false-call rate. The rate is `NA` for a
-species pair without calls. With `method = "rank"`, the null run
-calibrates its rank test against nulls of the null networks.
+species pair without calls. The tier table gains `cliques_null`: the
+null cliques per tier.
 
 [`print()`](https://rdrr.io/r/base/print.html) shows, per species, the
 genes, the samples, the density and `r_threshold` from
@@ -191,7 +202,8 @@ res
 #>   edges 12 tested, 0 called at q < 0.1
 #>   cliques 0
 summary(res)
-#> [1] tier         cliques      multiplicity hogs         patterns    
+#> [1] tier         cliques      cliques_null multiplicity hogs        
+#> [6] patterns    
 #> <0 rows> (or 0-length row.names)
 #> null: not run
 write_rcomplex(res, tempfile())

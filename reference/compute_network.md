@@ -165,6 +165,12 @@ A list with components:
   is the rectified mean over the levels, negated for `"negative"`. It is
   `NA` when no pair passes.
 
+- gene_mean:
+
+  The mean expression of each kept gene, by name.
+  [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  uses it to stratify its null.
+
 - store_density, store_threshold:
 
   Sparse networks only: the stored edge fraction and the value cutoff of

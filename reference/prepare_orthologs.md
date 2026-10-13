@@ -29,9 +29,10 @@ prepare_orthologs(orthologs, reductions = NULL)
 
 ## Value
 
-A data frame with columns `gene1`, `gene2` and `hog`, one row per gene
-pair in a shared HOG. With `reductions`, gene names are the
-representatives and duplicate rows are removed.
+A data frame with columns `gene1`, `gene2`, `hog`, `species1` and
+`species2`, one row per gene pair in a shared HOG. `gene1` belongs to
+`species1`. With `reductions`, gene names are the representatives and
+duplicate rows are removed.
 
 ## Details
 
@@ -57,11 +58,11 @@ paralog reduction entirely and keep every gene at its original identity.
 f <- system.file("extdata", "N0.tsv", package = "rcomplex")
 ortho <- prepare_orthologs(read_orthologs(f))
 head(ortho)
-#>       gene1     gene2           hog
-#> 1 GeneA_001 GeneB_001 N0.HOG0000001
-#> 2 GeneA_001 GeneB_011 N0.HOG0000001
-#> 3 GeneA_002 GeneB_002 N0.HOG0000002
-#> 4 GeneA_012 GeneB_002 N0.HOG0000002
-#> 5 GeneA_003 GeneB_003 N0.HOG0000003
-#> 6 GeneA_004 GeneB_004 N0.HOG0000004
+#>       gene1     gene2           hog species1 species2
+#> 1 GeneA_001 GeneB_001 N0.HOG0000001      SpA      SpB
+#> 2 GeneA_001 GeneB_011 N0.HOG0000001      SpA      SpB
+#> 3 GeneA_002 GeneB_002 N0.HOG0000002      SpA      SpB
+#> 4 GeneA_012 GeneB_002 N0.HOG0000002      SpA      SpB
+#> 5 GeneA_003 GeneB_003 N0.HOG0000003      SpA      SpB
+#> 6 GeneA_004 GeneB_004 N0.HOG0000004      SpA      SpB
 ```

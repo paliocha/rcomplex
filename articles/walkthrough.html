@@ -358,9 +358,9 @@ degrees held fixed and repeats the test. It answers how many calls to
 expect from the degree sequence alone.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nul</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/coexpressolog_null.html">coexpressolog_null</a></span><span class="op">(</span><span class="va">networks</span>, <span class="va">orthologs</span>, n_cores <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<p><code>rcomplex(null = TRUE)</code> runs the cheaper
-shuffled-expression null and reports <code>calls_null</code> per species
-pair.</p>
+<p><code>rcomplex(null = TRUE)</code> shuffles hog labels among genes of
+the same expression level and reports <code>calls_null</code> per
+species pair.</p>
 </div>
 </div>
 <div class="section level2">

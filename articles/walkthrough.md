@@ -188,8 +188,8 @@ It answers how many calls to expect from the degree sequence alone.
 nul <- coexpressolog_null(networks, orthologs, n_cores = 2, seed = 1)
 ```
 
-`rcomplex(null = TRUE)` runs the cheaper shuffled-expression null and
-reports `calls_null` per species pair.
+`rcomplex(null = TRUE)` shuffles hog labels among genes of the same
+expression level and reports `calls_null` per species pair.
 
 ## 4. Density sweep
 
