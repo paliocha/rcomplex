@@ -1,6 +1,9 @@
 # Exact twin-collapsed maximal cliques for the families copy-cap.R could not
 # bound: uncapped against the 10 most connected classes per species.
 # Usage: Rscript copy-cap-exact.R <edges.(tsv|rds)> <label>  (after copy-cap.R)
+args <- commandArgs(TRUE)
+f <- args[1]
+label <- args[2]
 e <- if (grepl("\\.rds$", f)) readRDS(f) else data.table::fread(f, data.table = FALSE)
 e <- e[!is.na(e$q_value) & e$q_value < 0.1, c("hog", "gene1", "gene2", "species1", "species2")]
 cc <- readRDS(file.path(dirname(f), paste0("copycap_", label, ".rds")))
