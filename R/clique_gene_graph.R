@@ -74,8 +74,9 @@
 #'
 #' One block per maximal species clique of at least `min_size` species.
 #' A block takes one twin class per species, all joined, with the lowest
-#' mean q. The best-gene search of [find_cliques()] does the work. Ties
-#' go to the representative genes first in radix order.
+#' mean q. The best-gene search of [find_cliques()] does the work, with
+#' its subset fallback. Ties go to the larger effect size, then to the
+#' representative genes first in radix order.
 #'
 #' @param i1,i2,eq,ee Twin-collapsed edges as node indices, with their
 #'   mean q-value and effect size.

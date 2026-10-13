@@ -97,8 +97,12 @@ so the sum is the log-likelihood ratio of the conserved subnetwork
 
 The best-gene search stops after 2 million steps per species clique.
 A cut search keeps its best assignment so far and sets
-\code{exhaustive = FALSE}. Equal-cost assignments go to the gene ids
-first in radix order, so row order does not matter.
+\code{exhaustive = FALSE}. Ties at the q floor go to the larger effect
+size, then to the gene ids first in radix order. Row order does not
+matter.
+
+A group of species wired pairwise need not share one set of copies.
+Then the largest subsets that do are reported.
 }
 \examples{
 \dontrun{

@@ -196,6 +196,52 @@ test_that("find_cliques keeps every copy and ignores row order", {
 })
 
 
+test_that("equal q goes to the copy with the larger effect", {
+  edges <- data.frame(
+    gene1 = c("A1", "A2"), gene2 = "B1", species1 = "SP_A",
+    species2 = "SP_B", hog = "HOG1", type = "conserved", q_value = 0.01,
+    effect_size = c(2, 3)
+  )
+  for (o in list(1:2, 2:1)) {
+    res <- find_cliques(edges[o, ], c("SP_A", "SP_B"))
+    expect_identical(res$SP_A, "A2")
+  }
+})
+
+
+# A, B, C and D are wired pairwise, but no copy set joins all four:
+# a1-b1-c1 and a1-b1-d1 are triangles, and c1 meets only d2 in SP_D.
+fc_k4 <- data.frame(
+  gene1 = c("a1", "a1", "b1", "a1", "b1", "c1"),
+  gene2 = c("b1", "c1", "c1", "d1", "d1", "d2"),
+  species1 = c("SP_A", "SP_A", "SP_B", "SP_A", "SP_B", "SP_C"),
+  species2 = c("SP_B", "SP_C", "SP_C", "SP_D", "SP_D", "SP_D"),
+  hog = "HOG1", type = "conserved", q_value = 0.01, effect_size = 2
+)
+
+
+test_that("a species clique without copies falls back to its subsets", {
+  sp <- c("SP_A", "SP_B", "SP_C", "SP_D")
+  set <- function(r) {
+    vapply(seq_len(nrow(r)), function(i) {
+      paste(sp[!is.na(unlist(r[i, sp]))], collapse = ",")
+    }, "")
+  }
+  r3 <- find_cliques(fc_k4, sp, min_species = 3L)
+  expect_setequal(set(r3), c("SP_A,SP_B,SP_C", "SP_A,SP_B,SP_D"))
+  expect_true(all(r3$exhaustive))
+  # At two species, only C + D is new: the other pairs sit in a triple.
+  r2 <- find_cliques(fc_k4, sp, min_species = 2L)
+  expect_setequal(set(r2), c("SP_A,SP_B,SP_C", "SP_A,SP_B,SP_D", "SP_C,SP_D"))
+  expect_identical(r2$SP_D[set(r2) == "SP_C,SP_D"], "d2")
+
+  g <- suppressMessages(gene_clique_graph(fc_k4, max_cliques = 1))
+  expect_identical(g$capped$n_blocks, 2L)
+  expect_identical(nrow(g$cliques), 2L)
+  expect_setequal(g$members$gene, c("a1", "b1", "c1", "d1"))
+})
+
+
 test_that("find_cliques reports a search cut by its step budget", {
   # Six copies in each of four species, all wired: 6^4 assignments.
   g <- expand.grid(i = 0:23, j = 0:23)

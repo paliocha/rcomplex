@@ -15,6 +15,7 @@
 #define RCOMPLEX_FIND_CLIQUES_COMMON_H
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <numeric>
 #include <utility>
@@ -157,7 +158,15 @@ inline void assign_bt(
                          - w_eff * (cur_sum_eff / present_edges);
             double best_score = w_q * (best.sum_q / best.n_edges)
                               - w_eff * (best.sum_effect / best.n_edges);
-            is_better = (score < best_score);
+            // Costs tie at the q floor: the larger mean effect wins, then
+            // the first found (lowest gene ids).
+            double tol = 1e-12 * std::max(std::abs(score), std::abs(best_score));
+            if (score < best_score - tol) {
+                is_better = true;
+            } else if (score <= best_score + tol) {
+                is_better = cur_sum_eff / present_edges
+                          > best.sum_effect / best.n_edges;
+            }
         }
         if (is_better) {
             best.genes = current;
@@ -207,6 +216,48 @@ inline void assign_bt(
 }
 
 // ---------------------------------------------------------------------------
+// Generate all C(n,k) bitmasks with exactly k bits set (Gosper's hack)
+// ---------------------------------------------------------------------------
+// For n <= 64, k <= n.  Returns a vector of uint64_t bitmasks where each
+// has exactly k of the lowest n bits set.
+inline std::vector<uint64_t> generate_subsets(int n, int k) {
+    std::vector<uint64_t> result;
+    if (k == 0) {
+        result.push_back(0);
+        return result;
+    }
+    if (k > n) return result;
+
+    // Guard: 1ULL << 64 is undefined behavior
+    if (k == n) {
+        // Only one subset: all n bits set
+        result.push_back((n == 64) ? ~0ULL : (1ULL << n) - 1);
+        return result;
+    }
+    // Now k < n, so k <= 63 and (1ULL << k) is safe
+    uint64_t mask = (1ULL << k) - 1;
+    uint64_t limit = (n < 64) ? (1ULL << n) : 0ULL;  // 0 = unused for n==64
+
+    while (true) {
+        // For n < 64: standard termination on limit
+        if (n < 64 && mask >= limit) break;
+        result.push_back(mask);
+
+        // Gosper's hack: next k-subset in lexicographic order
+        uint64_t c = mask & (~mask + 1);      // lowest set bit
+        uint64_t r = mask + c;                 // carry into next higher bit
+        uint64_t diff = ((r ^ mask) >> 2) / c;
+        uint64_t next = diff | r;
+
+        // For n == 64: detect overflow wrap-around (next <= mask)
+        if (next <= mask) break;
+        mask = next;
+    }
+
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // CliqueResult: output of per-HOG clique detection
 // ---------------------------------------------------------------------------
 struct CliqueResult {
@@ -227,7 +278,8 @@ struct CliqueResult {
 //   2. Build species adjacency matrix (bool)
 //   3. Sort each species' genes by id (deterministic search order)
 //   4. Run Bron-Kerbosch on species graph -> species-level cliques
-//   5. For each species clique: sort by gene count, run assign_bt
+//   5. For each species clique: sort by gene count, run assign_bt;
+//      without an assignment, search its subsets, largest first
 //   6. Return vector of CliqueResult
 //
 // The seen_genes flag vector is caller-provided (size n_genes, all false on
@@ -431,12 +483,10 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
     if (sp_cliques.empty()) return results;
 
     // --- 5. Gene assignment for each species clique/subset ---
-    for (auto& sp_cl : sp_cliques) {
-        int k = static_cast<int>(sp_cl.size());
-
-        // Map local species indices back to global
-        std::vector<int> global_sp(k);
-        for (int i = 0; i < k; i++) global_sp[i] = present_sp[sp_cl[i]];
+    // Search one species set; emit its best assignment when there is one.
+    bool hog_complete = true;
+    auto search = [&](std::vector<int> global_sp) -> bool {
+        int k = static_cast<int>(global_sp.size());
 
         // Sort species by gene count (fewest first = better pruning)
         std::sort(global_sp.begin(), global_sp.end(),
@@ -458,25 +508,75 @@ inline std::vector<CliqueResult> find_cliques_for_hog(
         assign_bt(0, k, global_sp, sp_genes, qval_sorted, eff_sorted,
                   current, 0.0, 0.0, 0.0, 0, max_missing_edges,
                   best, iterations, max_iterations, w_q, w_eff);
+        if (iterations > max_iterations) hog_complete = false;
+        if (!best.found) return false;
 
-        if (best.found) {
-            CliqueResult cr;
-            cr.hog_idx = hog_idx;
-            cr.genes.assign(n_target_species, -1);
-            for (int i = 0; i < k; i++) {
-                cr.genes[global_sp[i]] = best.genes[i];
-            }
-            cr.n_species = k;
-            cr.n_edges = best.n_edges;
-            cr.n_missing = best.n_missing;
-            cr.mean_q = (best.n_edges > 0) ? best.sum_q / best.n_edges : 1.0;
-            cr.max_q = best.max_q;
-            cr.mean_effect = (best.n_edges > 0) ? best.sum_effect / best.n_edges : 0.0;
-            cr.complete = iterations <= max_iterations;
-            results.push_back(std::move(cr));
+        CliqueResult cr;
+        cr.hog_idx = hog_idx;
+        cr.genes.assign(n_target_species, -1);
+        for (int i = 0; i < k; i++) {
+            cr.genes[global_sp[i]] = best.genes[i];
+        }
+        cr.n_species = k;
+        cr.n_edges = best.n_edges;
+        cr.n_missing = best.n_missing;
+        cr.mean_q = (best.n_edges > 0) ? best.sum_q / best.n_edges : 1.0;
+        cr.max_q = best.max_q;
+        cr.mean_effect = (best.n_edges > 0) ? best.sum_effect / best.n_edges : 0.0;
+        results.push_back(std::move(cr));
+        return true;
+    };
+
+    std::vector<uint64_t> emitted;   // species sets with an assignment
+    std::vector<std::vector<int>> failed;
+    for (auto& sp_cl : sp_cliques) {
+        std::vector<int> global_sp(sp_cl.size());
+        uint64_t mask = 0;
+        for (size_t i = 0; i < sp_cl.size(); i++) {
+            global_sp[i] = present_sp[sp_cl[i]];
+            mask |= 1ULL << global_sp[i];
+        }
+        if (search(global_sp)) {
+            emitted.push_back(mask);
+        } else if (max_missing_edges == 0) {
+            failed.push_back(std::move(global_sp));
         }
     }
 
+    // Species wired pairwise need not share one set of copies. For a
+    // species clique without an assignment, search its subsets, largest
+    // first. A subset inside a set already emitted is not maximal.
+    if (!failed.empty()) {
+        int k_max = 0;
+        for (auto& f : failed) k_max = std::max(k_max, static_cast<int>(f.size()));
+        std::vector<uint64_t> tried;
+        for (int m = k_max - 1; m >= min_species; m--) {
+            for (auto& f : failed) {
+                int k = static_cast<int>(f.size());
+                if (m >= k) continue;
+                for (uint64_t pos : generate_subsets(k, m)) {
+                    std::vector<int> sub;
+                    uint64_t mask = 0;
+                    for (int i = 0; i < k; i++) {
+                        if ((pos >> i) & 1) {
+                            sub.push_back(f[i]);
+                            mask |= 1ULL << f[i];
+                        }
+                    }
+                    bool skip = std::find(tried.begin(), tried.end(), mask)
+                                != tried.end();
+                    for (uint64_t e : emitted) {
+                        if ((mask & ~e) == 0) { skip = true; break; }
+                    }
+                    if (skip) continue;
+                    tried.push_back(mask);
+                    if (search(sub)) emitted.push_back(mask);
+                }
+            }
+        }
+    }
+
+    for (auto& cr : results) cr.complete = hog_complete;
     return results;
 }
 
@@ -503,48 +603,6 @@ inline double jaccard_remaining(
         }
     }
     return (union_size > 0) ? static_cast<double>(intersect) / union_size : 0.0;
-}
-
-// ---------------------------------------------------------------------------
-// Generate all C(n,k) bitmasks with exactly k bits set (Gosper's hack)
-// ---------------------------------------------------------------------------
-// For n <= 64, k <= n.  Returns a vector of uint64_t bitmasks where each
-// has exactly k of the lowest n bits set.
-inline std::vector<uint64_t> generate_subsets(int n, int k) {
-    std::vector<uint64_t> result;
-    if (k == 0) {
-        result.push_back(0);
-        return result;
-    }
-    if (k > n) return result;
-
-    // Guard: 1ULL << 64 is undefined behavior
-    if (k == n) {
-        // Only one subset: all n bits set
-        result.push_back((n == 64) ? ~0ULL : (1ULL << n) - 1);
-        return result;
-    }
-    // Now k < n, so k <= 63 and (1ULL << k) is safe
-    uint64_t mask = (1ULL << k) - 1;
-    uint64_t limit = (n < 64) ? (1ULL << n) : 0ULL;  // 0 = unused for n==64
-
-    while (true) {
-        // For n < 64: standard termination on limit
-        if (n < 64 && mask >= limit) break;
-        result.push_back(mask);
-
-        // Gosper's hack: next k-subset in lexicographic order
-        uint64_t c = mask & (~mask + 1);      // lowest set bit
-        uint64_t r = mask + c;                 // carry into next higher bit
-        uint64_t diff = ((r ^ mask) >> 2) / c;
-        uint64_t next = diff | r;
-
-        // For n == 64: detect overflow wrap-around (next <= mask)
-        if (next <= mask) break;
-        mask = next;
-    }
-
-    return result;
 }
 
 #endif // RCOMPLEX_FIND_CLIQUES_COMMON_H
