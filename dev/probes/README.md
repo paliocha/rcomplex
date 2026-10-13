@@ -9,3 +9,7 @@ Recover history with `git show main:<path>` (main @ b245ac0).
 - `encodings-common.R`: shared 12k setup for the two probes below (section 9.6).
 - `encodings-rw.R`: equal-edge random walk on the mixed hypergraph (section 9.6).
 - `encodings-orc.R`: hog-projected Ollivier-Ricci curvature and OT copy map (section 9.6).
+
+- `copy-cap.R`, `copy-cap-exact.R`: is the 10-copy cap needed? Per-hog
+  clique bounds and exact counts, capped against uncapped, on wood and
+  leaf edge tables (`dev/design-notes/clique-budget.md`).
