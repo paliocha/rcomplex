@@ -16,8 +16,9 @@ needs a \code{gene_map} data frame with columns \code{original} and
 \code{representative}.}
 }
 \value{
-A data frame with columns \code{gene1}, \code{gene2} and \code{hog}, one row
-per gene pair in a shared HOG. With \code{reductions}, gene names are the
+A data frame with columns \code{gene1}, \code{gene2}, \code{hog}, \code{species1}
+and \code{species2}, one row per gene pair in a shared HOG. \code{gene1}
+belongs to \code{species1}. With \code{reductions}, gene names are the
 representatives and duplicate rows are removed.
 }
 \description{

@@ -315,3 +315,34 @@ test_that("null = TRUE runs on networks, with or without gene_mean", {
     "null: SpC has no gene_mean"
   )
 })
+
+
+# Two species on one reference genome share gene ids.
+test_that("shared gene ids stay in their own species pair", {
+  syn <- drv_syn()
+  ids <- rownames(syn$expr$SpB)
+  expr <- syn$expr
+  rownames(expr$SpC) <- ids
+  ortho <- syn$ortho
+  ortho$gene[ortho$species == "SpC"] <- ids
+  nets <- lapply(expr, compute_network)
+  nets_d <- nets
+  nets_d$SpC <- compute_network(syn$expr$SpC)
+  # SpC genes in other hogs than their SpB namesakes
+  rev_c <- function(o) {
+    o$hog[o$species == "SpC"] <- rev(o$hog[o$species == "SpC"])
+    prepare_orthologs(o)
+  }
+  shared <- find_coexpressologs(nets, rev_c(ortho))
+  distinct <- find_coexpressologs(nets_d, rev_c(syn$ortho))
+  n <- function(e) c(table(paste(e$species1, e$species2)))
+  expect_identical(n(shared), n(distinct))
+  ac <- function(e) as.list(e[e$species2 == "SpC", c("gene1", "hog")])
+  expect_identical(ac(shared), ac(distinct))
+
+  res <- rcomplex(expr, ortho, null = TRUE, seed = 1L)
+  real <- n(res$edges)
+  null <- n(res$edges_null)[names(real)]
+  expect_true(all(null <= real * 1.05))
+  expect_true(all(null >= real * 0.95))
+})
