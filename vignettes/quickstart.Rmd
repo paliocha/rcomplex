@@ -52,8 +52,9 @@ head(hogs, 3)
 
 ## Run
 
-`clades` names the species sets. `null = TRUE` repeats the comparison
-on shuffled networks. The run takes about 10 seconds.
+`clades` names the species sets. `null = TRUE` repeats the run with hog
+labels shuffled among genes of the same expression level. The run takes
+about 10 seconds.
 
 ```{r run}
 res <- rcomplex(leaf, hogs,
@@ -82,14 +83,14 @@ most 10 copies of a hog per species, because gene combinations explode.
 ## Read the results
 
 `summary()` gives the tier table. With `null = TRUE` it also gives the
-calls on shuffled networks.
+calls and cliques of the shuffled hog labels.
 
 ```{r summary}
 summary(res)
 ```
 
-`calls_null` counts the calls that survive on shuffled networks. Zero
-means the false-call rate at this `alpha` is low on this data.
+`calls_null` and `cliques_null` count what abundance and network
+structure alone produce. Compare them with `calls` and `cliques`.
 
 `res$edges` has one row per ortholog pair and species pair.
 
@@ -119,7 +120,8 @@ table(as.data.frame(res)$classification)
 ## Save
 
 `write_rcomplex()` writes `edges.tsv`, `cliques.tsv`, `members.tsv`,
-`twins.tsv` and `classification.tsv`. After a null run it adds `edges_null.tsv`.
+`twins.tsv` and `classification.tsv`. After a null run it adds `edges_null.tsv`
+and `classification_null.tsv`.
 
 ```{r save}
 out <- file.path(tempdir(), "rcomplex-out")

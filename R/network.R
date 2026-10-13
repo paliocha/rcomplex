@@ -199,6 +199,8 @@ cor_rfast <- function(x, method = "pearson") {
 #'       the smallest for `sign = "positive"`, the largest for
 #'       `"negative"`. With `partition` it is the rectified mean over the
 #'       levels, negated for `"negative"`. It is `NA` when no pair passes.}
+#'     \item{gene_mean}{The mean expression of each kept gene, by name.
+#'       [rcomplex()] uses it to stratify its null.}
 #'     \item{store_density, store_threshold}{Sparse networks only: the
 #'       stored edge fraction and the value cutoff of the store. Analyses
 #'       at thresholds below `store_threshold` are refused (see
@@ -345,6 +347,7 @@ setMethod("compute_network", "matrix", function(
 
   gene_names <- rownames(x)
   n_genes <- nrow(x)
+  gene_mean <- rowMeans(x)
 
   params <- list(
     cor_method = cor_method,
@@ -401,6 +404,7 @@ setMethod("compute_network", "matrix", function(
       n_genes = n_genes,
       n_removed = n_removed,
       params = c(params, list(store_density = store_density)),
+      gene_mean = gene_mean,
       store_density = store_density,
       store_threshold = slots$store_threshold
     ))
@@ -460,7 +464,8 @@ setMethod("compute_network", "matrix", function(
       threshold = thr,
       n_genes = n_genes,
       n_removed = n_removed,
-      params = params
+      params = params,
+      gene_mean = gene_mean
     ))
   }
 
@@ -483,6 +488,7 @@ setMethod("compute_network", "matrix", function(
     n_genes = n_genes,
     n_removed = n_removed,
     params = c(params, list(store_density = store_density)),
+    gene_mean = gene_mean,
     store_density = store_density,
     store_threshold = store_thr
   )

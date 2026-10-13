@@ -25,8 +25,9 @@
 #' @param alpha The q-value threshold for a call.
 #' @param modules If `TRUE`, detect modules in each species and test
 #'   their preservation in every species pair.
-#' @param null If `TRUE`, repeat the comparison on shuffled networks.
-#'   The null calls estimate the false-call rate.
+#' @param null If `TRUE`, repeat the run with hog labels shuffled among
+#'   genes of the same expression level. The null calls and tiers estimate
+#'   what abundance and network structure alone produce.
 #' @param n_cores Number of threads.
 #' @param seed Integer seed, or `NULL` to draw from the global stream.
 #'   A seed makes the run reproducible and leaves your stream unchanged.
@@ -44,8 +45,9 @@
 #'     \item{modules, preservation}{With `modules = TRUE`: the
 #'       [detect_modules()] results by species, and the
 #'       [preservation_paired()] result.}
-#'     \item{edges_null}{With `null = TRUE`: the edge table of the
-#'       shuffled networks.}
+#'     \item{edges_null, classification_null}{With `null = TRUE`: the
+#'       edge table and the classification of the shuffled ortholog
+#'       table.}
 #'     \item{call}{The call.}
 #'   }
 #'   `as.data.frame()` returns the classification.
@@ -56,8 +58,8 @@
 #' `min_power = 0.9`, hypergeometric edges at 0.8.
 #'
 #' `density` and `sign` apply only to networks built from `expr`.
-#' `method = "rank"`, `null = TRUE` and `block` need `expr`: the
-#' shuffled networks come from [null_network()], within each block.
+#' `method = "rank"` and `block` need `expr`. The rank test calibrates
+#' against [null_network()] partners, built within each block.
 #'
 #' `summary()` counts each tier in `cliques`, in `hogs` and in
 #' `patterns`. A pattern is one HOG with one clique species set. The
@@ -66,12 +68,18 @@
 #' clique stands for all their combinations. The `multiplicity` column
 #' counts those combinations, and `twins` lists the collapsed genes.
 #'
+#' With `null = TRUE`, the driver shuffles the `gene` column of
+#' `orthologs` within each species. A gene moves only among genes of
+#' the same expression decile, by `gene_mean` from [compute_network()].
+#' A network without `gene_mean`, such as one from [as_network()], forms
+#' one decile. The driver then reruns edges, cliques and tiers on the
+#' real networks. Both runs share the rank calibration networks.
+#'
 #' With `null = TRUE`, `summary()` reports `calls` and `calls_null` per
 #' species pair at `q_value < alpha`. Their ratio is the empirical
 #' false-call rate.
-#' The rate is `NA` for a species pair without calls. With
-#' `method = "rank"`, the null run calibrates its rank test against
-#' nulls of the null networks.
+#' The rate is `NA` for a species pair without calls. The tier table
+#' gains `cliques_null`: the null cliques per tier.
 #'
 #' `print()` shows, per species, the genes, the samples, the density and
 #' `r_threshold` from [compute_network()]: the weakest correlation that
@@ -106,10 +114,11 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   if (bad || any(sp == "")) {
     stop("`expr` or `networks` must be a named list of at least two species.")
   }
-  if (is.null(expr) && (null || method == "rank" || !is.null(block))) {
-    stop("null = TRUE, method = \"rank\" and block each needs expr")
+  if (is.null(expr) && (method == "rank" || !is.null(block))) {
+    stop("method = \"rank\" and block need expr; you gave networks")
   }
-  ortho <- .driver_orthologs(orthologs, sp)
+  long <- .driver_orthologs(orthologs, sp)
+  ortho <- prepare_orthologs(long)
   .seed_scope(seed)
 
   xs <- NULL
@@ -118,7 +127,15 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     networks <- lapply(xs, compute_network,
       density = density, sign = sign, n_cores = n_cores
     )
-    for (s in sp) networks[[s]]$params$n_samples <- ncol(expr[[s]])
+    for (s in sp) {
+      x <- expr[[s]]
+      if (methods::is(x, "SummarizedExperiment")) {
+        x <- SummarizedExperiment::assay(x, 1L)
+      }
+      networks[[s]]$params$n_samples <- ncol(x)
+      # with block the network is built from the centred wiring layer
+      networks[[s]]$gene_mean <- rowMeans(x)[rownames(networks[[s]]$network)]
+    }
   } else {
     signs <- vapply(networks, function(n) n$params$sign %||% "positive", "")
     if (length(unique(signs)) > 1L) {
@@ -126,17 +143,22 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     }
     sign <- signs[[1L]]
   }
-  edges <- .driver_edges(networks, xs, ortho, method, block, n_cores, sign)
-  g <- gene_clique_graph(edges,
-    min_size = min(3L, length(sp)), alpha_graph = alpha
-  )
-  res <- list(
-    networks = networks, edges = edges, cliques = g$cliques,
-    members = g$members, twins = g$twins,
-    classification = classify_gene_cliques(g, edges, sp,
+  nulls <- if (method == "rank") .driver_nulls(xs, networks, block, n_cores)
+  edges <- .driver_edges(networks, ortho, method, nulls, n_cores, sign)
+  cliques <- function(e) {
+    g <- gene_clique_graph(e,
+      min_size = min(3L, length(sp)), alpha_graph = alpha
+    )
+    g$classification <- classify_gene_cliques(g, e, sp,
       clades = clades, alpha_call = alpha,
       min_power = if (method == "rank") 0.9 else 0.8
     )
+    g
+  }
+  g <- cliques(edges)
+  res <- list(
+    networks = networks, edges = edges, cliques = g$cliques,
+    members = g$members, twins = g$twins, classification = g$classification
   )
   if (modules) {
     res$modules <- lapply(networks, detect_modules, n_cores = n_cores)
@@ -147,15 +169,18 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     )
   }
   if (null) {
-    nn <- .driver_nulls(xs, networks, block, n_cores)
-    res$edges_null <- .driver_edges(nn, xs, ortho, method, block, n_cores, sign)
+    ortho0 <- prepare_orthologs(.driver_shuffle(long, networks))
+    res$edges_null <- .driver_edges(networks, ortho0, method, nulls, n_cores,
+      sign
+    )
+    res$classification_null <- cliques(res$edges_null)$classification
   }
   res$call <- match.call()
   structure(res, class = "rcomplex")
 }
 
 
-#' Pairwise ortholog table for the driver's species, in their order
+#' Long ortholog table of the driver's species, sorted in their order
 #' @noRd
 .driver_orthologs <- function(orthologs, sp) {
   long <- if (is.character(orthologs)) read_orthologs(orthologs) else orthologs
@@ -169,7 +194,34 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   }
   long <- long[long$species %in% sp, , drop = FALSE]
   # gene1 must belong to the first species of each pair
-  prepare_orthologs(long[order(match(long$species, sp)), , drop = FALSE])
+  long[order(match(long$species, sp)), , drop = FALSE]
+}
+
+
+#' Shuffle each species' genes among rows of the same expression decile
+#'
+#' Rows whose gene is in the network swap genes within deciles of
+#' `gene_mean`. Hog sizes per species stay; orthology breaks.
+#' @noRd
+.driver_shuffle <- function(long, networks) {
+  for (s in names(networks)) {
+    net <- networks[[s]]
+    i <- which(long$species == s & long$gene %in% rownames(net$network))
+    strata <- 1L
+    if (is.null(net$gene_mean)) {
+      message(
+        "null: ", s, " has no gene_mean, so the shuffle ignores expression"
+      )
+    } else {
+      m <- net$gene_mean[long$gene[i]]
+      br <- unique(stats::quantile(m, 0:10 / 10, names = FALSE))
+      if (length(br) > 1L) strata <- cut(m, br, include.lowest = TRUE)
+    }
+    for (k in split(i, strata)) {
+      long$gene[k] <- long$gene[k][sample.int(length(k))]
+    }
+  }
+  long
 }
 
 
@@ -196,7 +248,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
 }
 
 
-#' Shuffled-expression null network per species
+#' Shuffled-expression null network per species, for the rank test
 #' @noRd
 .driver_nulls <- function(xs, networks, block, n_cores) {
   sapply(names(networks), function(s) {
@@ -205,10 +257,9 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
 }
 
 
-#' find_coexpressologs() with the rank nulls when needed, plus `sign`
+#' find_coexpressologs() with the rank nulls, plus `sign`
 #' @noRd
-.driver_edges <- function(networks, xs, ortho, method, block, n_cores, sign) {
-  nulls <- if (method == "rank") .driver_nulls(xs, networks, block, n_cores)
+.driver_edges <- function(networks, ortho, method, nulls, n_cores, sign) {
   e <- find_coexpressologs(networks, ortho,
     method = method, n_cores = n_cores, null_networks = nulls
   )
@@ -275,21 +326,27 @@ print.rcomplex <- function(x, ...) {
 summary.rcomplex <- function(object, ...) {
   cls <- object$classification
   alpha <- attr(cls, "alpha_call")
-  tab <- table(cls$classification)
+  cls0 <- object$classification_null
+  tier <- factor(cls$classification,
+    levels = sort(unique(as.character(
+      c(cls$classification, cls0$classification)
+    )))
+  )
   # A species pattern is a HOG with one clique species set.
   pattern <- collapse::group(list(cls$hog, cls$missing_species))
   n_distinct <- function(x) {
-    n <- vapply(split(x, cls$classification), function(v) {
-      length(unique(v))
-    }, 1L)
-    unname(n[names(tab)])
+    unname(vapply(split(x, tier), function(v) length(unique(v)), 1L))
   }
-  mult <- vapply(split(as.numeric(cls$multiplicity), cls$classification),
-    sum, 1
-  )
   tiers <- data.frame(
-    tier = as.character(names(tab)), cliques = as.vector(tab),
-    multiplicity = unname(mult[names(tab)]),
+    tier = levels(tier), cliques = as.vector(table(tier)),
+    cliques_null = if (is.null(cls0)) {
+      rep(NA_integer_, nlevels(tier))
+    } else {
+      as.vector(table(factor(cls0$classification, levels(tier))))
+    },
+    multiplicity = unname(vapply(
+      split(as.numeric(cls$multiplicity), tier), sum, 1
+    )),
     hogs = n_distinct(cls$hog), patterns = n_distinct(pattern)
   )
   null_tab <- NULL
@@ -329,7 +386,7 @@ as.data.frame.rcomplex <- function(x, ...) x$classification
 #' `write_rcomplex()` writes each table of the result to its own file.
 #' Each file takes the name of its element: `edges.tsv`, `cliques.tsv`,
 #' `members.tsv`, `twins.tsv`, `classification.tsv` and, with
-#' `null = TRUE`, `edges_null.tsv`.
+#' `null = TRUE`, `edges_null.tsv` and `classification_null.tsv`.
 #'
 #' @param x A result of [rcomplex()].
 #' @param dir Output directory. It is created when it does not exist.

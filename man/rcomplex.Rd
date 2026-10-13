@@ -51,8 +51,9 @@ ortholog pair. See \code{\link[=find_coexpressologs]{find_coexpressologs()}}.}
 \item{modules}{If \code{TRUE}, detect modules in each species and test
 their preservation in every species pair.}
 
-\item{null}{If \code{TRUE}, repeat the comparison on shuffled networks.
-The null calls estimate the false-call rate.}
+\item{null}{If \code{TRUE}, repeat the run with hog labels shuffled among
+genes of the same expression level. The null calls and tiers estimate
+what abundance and network structure alone produce.}
 
 \item{n_cores}{Number of threads.}
 
@@ -73,8 +74,9 @@ member, and one row per collapsed twin gene.}
 \item{modules, preservation}{With \code{modules = TRUE}: the
 \code{\link[=detect_modules]{detect_modules()}} results by species, and the
 \code{\link[=preservation_paired]{preservation_paired()}} result.}
-\item{edges_null}{With \code{null = TRUE}: the edge table of the
-shuffled networks.}
+\item{edges_null, classification_null}{With \code{null = TRUE}: the
+edge table and the classification of the shuffled ortholog
+table.}
 \item{call}{The call.}
 }
 \code{as.data.frame()} returns the classification.
@@ -91,8 +93,8 @@ Cliques use the edges with \code{q_value < alpha} and have at least
 \code{min_power = 0.9}, hypergeometric edges at 0.8.
 
 \code{density} and \code{sign} apply only to networks built from \code{expr}.
-\code{method = "rank"}, \code{null = TRUE} and \code{block} need \code{expr}: the
-shuffled networks come from \code{\link[=null_network]{null_network()}}, within each block.
+\code{method = "rank"} and \code{block} need \code{expr}. The rank test calibrates
+against \code{\link[=null_network]{null_network()}} partners, built within each block.
 
 \code{summary()} counts each tier in \code{cliques}, in \code{hogs} and in
 \code{patterns}. A pattern is one HOG with one clique species set. The
@@ -101,12 +103,18 @@ share a few patterns. Paralogs with the same partners are twins: one
 clique stands for all their combinations. The \code{multiplicity} column
 counts those combinations, and \code{twins} lists the collapsed genes.
 
+With \code{null = TRUE}, the driver shuffles the \code{gene} column of
+\code{orthologs} within each species. A gene moves only among genes of
+the same expression decile, by \code{gene_mean} from \code{\link[=compute_network]{compute_network()}}.
+A network without \code{gene_mean}, such as one from \code{\link[=as_network]{as_network()}}, forms
+one decile. The driver then reruns edges, cliques and tiers on the
+real networks. Both runs share the rank calibration networks.
+
 With \code{null = TRUE}, \code{summary()} reports \code{calls} and \code{calls_null} per
 species pair at \code{q_value < alpha}. Their ratio is the empirical
 false-call rate.
-The rate is \code{NA} for a species pair without calls. With
-\code{method = "rank"}, the null run calibrates its rank test against
-nulls of the null networks.
+The rate is \code{NA} for a species pair without calls. The tier table
+gains \code{cliques_null}: the null cliques per tier.
 
 \code{print()} shows, per species, the genes, the samples, the density and
 \code{r_threshold} from \code{\link[=compute_network]{compute_network()}}: the weakest correlation that
