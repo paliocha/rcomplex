@@ -7,7 +7,13 @@
 \usage{
 gene_clique_graph(edges, ...)
 
-\method{gene_clique_graph}{default}(edges, min_size = 3L, alpha_graph = 0.1, ...)
+\method{gene_clique_graph}{default}(
+  edges,
+  min_size = 3L,
+  alpha_graph = 0.1,
+  max_cliques = 1e+05,
+  ...
+)
 }
 \arguments{
 \item{edges}{Data frame of co-expressolog calls, as returned by
@@ -32,9 +38,13 @@ the results is the intended way to feed
 \code{\link[=classify_gene_cliques]{classify_gene_cliques()}}, since a clique that is maximal
 at one threshold need not be maximal at another. Pass the runs to
 it as a list.}
+
+\item{max_cliques}{Largest number of maximal cliques one hog may
+produce. A hog above it keeps its wiring classes with the strongest
+edges until it fits. Default 1e5; \code{Inf} keeps every clique.}
 }
 \value{
-A list of class \code{gene_cliques} with three tables.
+A list of class \code{gene_cliques} with four tables.
 \code{cliques} has one row per clique:
 \describe{
 \item{clique_id}{Integer clique id, 1 to the number of cliques}
@@ -69,6 +79,10 @@ appearance), \code{gene} (the representative of its twin class) and
 included).
 \code{twins} has one row per collapsed gene: \code{hog}, \code{species}, \code{gene}
 and \code{representative}. It has no rows when no two genes are twins.
+\code{dropped} has one row per gene that the clique budget dropped:
+\code{hog}, \code{species}, \code{gene}, \code{n_cliques_full} (the hog's maximal
+cliques before the drop), \code{n_classes} (its twin classes) and
+\code{n_classes_kept}. It has no rows when no hog is over the budget.
 The two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
 \code{q_floor} (smallest edge q-value in the graph), are also attributes
 of \code{cliques}. Both are always set, empty results included.
@@ -104,8 +118,17 @@ so the twins of a class collapse to one gene before the cliques are
 listed. Each clique stands for every choice of one gene per class.
 The collapse is exact: expanding the cliques gives the full set. The
 representative is the first gene of its class in radix (C-locale)
-order. The copy cap applies first, so the genes are those of an
-unreduced run.
+order.
+
+Paralogs multiply cliques, so a hog may produce millions of them. A
+cap on genes per species does not bound that count: 76 twin classes,
+fewer than 10 per species, gave 2.4 million cliques. The budget
+counts cliques per hog, after the twin collapse. A hog over
+\code{max_cliques} ranks its twin classes by the sum of their edge scores.
+It keeps the top class of each species. It then keeps the most
+classes, in rank order, that fit the budget. The genes of the other
+classes go to \code{dropped}. Ties go to the gene id, so row order does not
+matter.
 
 A hog of 40 or more genes is enumerated one start gene at a time.
 The pieces are disjoint, so the cliques are the same. Only the peak

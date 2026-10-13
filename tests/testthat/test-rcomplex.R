@@ -35,9 +35,10 @@ test_that("rcomplex() runs the pipeline and counts tiers", {
   res <- rcomplex(drv_expr(), drv_ortho, density = 0.1, seed = 1L)
   expect_s3_class(res, "rcomplex")
   expect_named(res, c(
-    "networks", "edges", "cliques", "members", "twins", "classification",
-    "call"
+    "networks", "edges", "cliques", "members", "twins", "dropped",
+    "classification", "call"
   ))
+  expect_identical(nrow(res$dropped), 0L)
   expect_identical(names(res$networks), c("SpA", "SpB"))
   expect_identical(
     names(res$edges)[1:8],
@@ -115,6 +116,9 @@ test_that("print() shows species, edges and tiers", {
   syn <- drv_syn()
   res <- rcomplex(syn$expr, syn$ortho, seed = 1L)
   expect_snapshot(print(res))
+  expect_false(any(res$classification$capped))
+  res$dropped <- data.frame(hog = c("H001", "H001", "H002"))
+  expect_output(print(res), "cliques 3[^\n]*; 2 hogs over the clique budget")
   nets <- lapply(syn$expr, function(x) as_network(compute_network(x)$network))
   expect_snapshot(print(rcomplex(networks = nets, orthologs = syn$ortho)))
 })
@@ -276,10 +280,10 @@ test_that("write_rcomplex() writes one TSV per table", {
     basename(paths),
     c(
       "edges.tsv", "cliques.tsv", "members.tsv", "twins.tsv",
-      "classification.tsv"
+      "dropped.tsv", "classification.tsv"
     )
   )
-  back <- read.delim(paths[[5L]])
+  back <- read.delim(paths[[6L]])
   expect_identical(nrow(back), nrow(res$classification))
 })
 

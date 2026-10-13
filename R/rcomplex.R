@@ -40,6 +40,8 @@
 #'     \item{cliques, members, twins}{The three tables of
 #'       [gene_clique_graph()]: one row per clique, one row per clique
 #'       member, and one row per collapsed twin gene.}
+#'     \item{dropped}{One row per gene that the clique budget of
+#'       [gene_clique_graph()] dropped. Usually empty.}
 #'     \item{classification}{One row per clique, from
 #'       [classify_gene_cliques()].}
 #'     \item{modules, preservation}{With `modules = TRUE`: the
@@ -158,7 +160,8 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   g <- cliques(edges)
   res <- list(
     networks = networks, edges = edges, cliques = g$cliques,
-    members = g$members, twins = g$twins, classification = g$classification
+    members = g$members, twins = g$twins, dropped = g$dropped,
+    classification = g$classification
   )
   if (modules) {
     res$modules <- lapply(networks, detect_modules, n_cores = n_cores)
@@ -317,6 +320,10 @@ print.rcomplex <- function(x, ...) {
   if (length(tiers) > 0L) {
     cat(":", paste(names(tiers), big(as.vector(tiers)), collapse = ", "))
   }
+  n_cap <- length(unique(x$dropped$hog))
+  if (n_cap > 0L) {
+    cat("; ", big(n_cap), " hogs over the clique budget", sep = "")
+  }
   cat("\n")
   invisible(x)
 }
@@ -385,8 +392,8 @@ as.data.frame.rcomplex <- function(x, ...) x$classification
 #'
 #' `write_rcomplex()` writes each table of the result to its own file.
 #' Each file takes the name of its element: `edges.tsv`, `cliques.tsv`,
-#' `members.tsv`, `twins.tsv`, `classification.tsv` and, with
-#' `null = TRUE`, `edges_null.tsv` and `classification_null.tsv`.
+#' `members.tsv`, `twins.tsv`, `dropped.tsv`, `classification.tsv` and,
+#' with `null = TRUE`, `edges_null.tsv` and `classification_null.tsv`.
 #'
 #' @param x A result of [rcomplex()].
 #' @param dir Output directory. It is created when it does not exist.

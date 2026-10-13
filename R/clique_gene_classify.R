@@ -170,6 +170,9 @@
 #'       resolution `mean_q` actually has as a ranking key}
 #'     \item{variant, multiplicity}{Variant of the clique, and the
 #'       paralog combinations it stands for (see below)}
+#'     \item{capped}{`TRUE` when the clique budget of
+#'       [gene_clique_graph()] dropped genes from the clique's HOG. For a
+#'       list of runs, any run counts}
 #'   }
 #'   Twin genes share their partners in the graph, but their own tests
 #'   can differ at `alpha_call`, `alpha_graph` or `min_power`. A class
@@ -379,6 +382,7 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   out$hog_class <- .gcg_tiers[best[hg]]
   out$variant <- mem$variant %||% rep(1L, n_k)
   out$multiplicity <- mem$mult %||% rep(1L, n_k)
+  out$capped <- out$hog %in% mem$capped
   .gcg_class_attrs(.gcg_runs(out, mem), const)
 }
 
@@ -711,7 +715,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #'   `ids`, the sorted clique ids that `id` holds, and `hog`, their
 #'   HOGs; `out_ids`, the clique ids to report, in order of first
 #'   appearance. For a list of runs also `run` and `local`, the run and
-#'   its own id of each offset id. With twin classes also `tc`, the
+#'   its own id of each offset id. `capped`, the HOGs that any run
+#'   dropped genes from. With twin classes also `tc`, the
 #'   class of each member (`NA` for a single gene), and `tgenes`,
 #'   `thog`, `tsp`: the genes, HOG and species of each class.
 #' @noRd
@@ -766,7 +771,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     id = id, sp = col("species"), gene = col("gene"), ids = ids,
     hog = cl_hog[match(ids, cl_id)],
     run = if (!one) rep.int(seq_along(runs), top),
-    local = if (!one) sequence(top)
+    local = if (!one) sequence(top),
+    capped = unlist(lapply(runs, function(r) as.character(r$dropped$hog)))
   )
   n_cls <- vapply(cp, function(z) length(z$genes), 1L)
   if (sum(n_cls) > 0L) {
@@ -1201,5 +1207,6 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   out$hog_class <- character(0)
   out$variant <- integer(0)
   out$multiplicity <- integer(0)
+  out$capped <- logical(0)
   out
 }
