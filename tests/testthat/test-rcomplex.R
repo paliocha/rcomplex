@@ -174,14 +174,58 @@ test_that("null = TRUE reports calls beside null calls", {
   ))
   expect_identical(nrow(s$null), 3L)
   expect_true(all(s$null$calls > 0L))
-  expect_identical(s$tiers$cliques, 3L)
-  expect_identical(s$tiers$multiplicity, 3)
-  expect_identical(s$tiers$hogs, 3L)
-  expect_identical(s$tiers$patterns, 3L)
+  expect_true(is.data.frame(res$classification_null))
+  expect_identical(
+    names(res$classification_null), names(res$classification)
+  )
+  real <- s$tiers$tier == "complete_conserved"
+  expect_identical(s$tiers$cliques[real], 3L)
+  expect_identical(s$tiers$multiplicity[real], 3)
+  expect_identical(s$tiers$hogs[real], 3L)
+  expect_identical(s$tiers$patterns[real], 3L)
+  expect_identical(
+    s$tiers$cliques_null,
+    as.integer(table(factor(
+      res$classification_null$classification, levels = s$tiers$tier
+    )))
+  )
+  again <- rcomplex(syn$expr, syn$ortho, null = TRUE, seed = 1L)
+  expect_identical(again$edges_null, res$edges_null)
+  other <- rcomplex(syn$expr, syn$ortho, null = TRUE, seed = 2L)
+  expect_false(identical(other$edges_null, res$edges_null))
   off <- rcomplex(drv_expr(), drv_ortho, density = 0.1, seed = 1L)
   expect_output(s_off <- summary(off), "null: not run")
-  expect_named(
-    s_off$tiers, c("tier", "cliques", "multiplicity", "hogs", "patterns")
+  expect_named(s_off$tiers, c(
+    "tier", "cliques", "cliques_null", "multiplicity", "hogs", "patterns"
+  ))
+})
+
+
+test_that("the null shuffle keeps each gene's expression decile", {
+  g <- sprintf("g%02d", 1:40)
+  net <- function(p) {
+    m <- matrix(0, 40L, 40L, dimnames = list(paste0(p, g), paste0(p, g)))
+    list(network = m, gene_mean = stats::setNames(1:40, paste0(p, g)))
+  }
+  nets <- list(A = net("A"), B = net("B"))
+  hog <- rep(sprintf("H%02d", 1:20), each = 2L)
+  long <- data.frame(
+    species = rep(c("A", "B", "B"), c(40L, 40L, 1L)),
+    gene = c(paste0("A", g), paste0("B", g), "Bout"),
+    hog = c(hog, hog, "H01")
+  )
+  shuf <- withr::with_seed(1L, rcomplex:::.driver_shuffle(long, nets))
+  expect_identical(shuf[, c("species", "hog")], long[, c("species", "hog")])
+  expect_identical(shuf$gene[81L], "Bout")
+  decile <- function(x) ceiling(as.integer(substring(x, 3L)) / 4)
+  expect_identical(decile(shuf$gene[1:80]), decile(long$gene[1:80]))
+  expect_false(identical(shuf$gene, long$gene))
+  expect_setequal(shuf$gene, long$gene)
+
+  nets$B$gene_mean <- NULL
+  expect_message(
+    withr::with_seed(1L, rcomplex:::.driver_shuffle(long, nets)),
+    "null: B has no gene_mean, so the shuffle ignores expression"
   )
 })
 
@@ -203,6 +247,8 @@ test_that("block runs each species on its wiring layer", {
   expect_output(s <- summary(res), "calls_null")
   expect_identical(s$null$calls, 0L)
   expect_identical(s$null$false_call_rate, NA_real_)
+  kept <- rownames(res$networks$SpB$network)
+  expect_identical(res$networks$SpB$gene_mean, rowMeans(expr$SpB)[kept])
   wiring <- split_layers(expr$SpB, block$SpB)$wiring
   expect_identical(
     res$networks$SpB$threshold,
@@ -249,7 +295,54 @@ test_that("rcomplex() refuses bad input", {
   names(expr) <- c("SpA", "SpX")
   expect_error(rcomplex(expr, drv_ortho), "SpX")
   expect_error(
-    rcomplex(networks = nets, orthologs = drv_ortho, null = TRUE),
-    "needs expr"
+    rcomplex(networks = nets, orthologs = drv_ortho, method = "rank"),
+    "need expr"
   )
+})
+
+
+test_that("null = TRUE runs on networks, with or without gene_mean", {
+  syn <- drv_syn()
+  nets <- lapply(syn$expr, compute_network)
+  expect_named(nets$SpA$gene_mean, rownames(nets$SpA$network))
+  expect_equal(nets$SpA$gene_mean, rowMeans(syn$expr$SpA))
+  a <- rcomplex(networks = nets, orthologs = syn$ortho, null = TRUE, seed = 1L)
+  b <- rcomplex(syn$expr, syn$ortho, null = TRUE, seed = 1L)
+  expect_identical(a$edges_null, b$edges_null)
+  nets$SpC <- as_network(nets$SpC$network)
+  expect_message(
+    rcomplex(networks = nets, orthologs = syn$ortho, null = TRUE, seed = 1L),
+    "null: SpC has no gene_mean"
+  )
+})
+
+
+# Two species on one reference genome share gene ids.
+test_that("shared gene ids stay in their own species pair", {
+  syn <- drv_syn()
+  ids <- rownames(syn$expr$SpB)
+  expr <- syn$expr
+  rownames(expr$SpC) <- ids
+  ortho <- syn$ortho
+  ortho$gene[ortho$species == "SpC"] <- ids
+  nets <- lapply(expr, compute_network)
+  nets_d <- nets
+  nets_d$SpC <- compute_network(syn$expr$SpC)
+  # SpC genes in other hogs than their SpB namesakes
+  rev_c <- function(o) {
+    o$hog[o$species == "SpC"] <- rev(o$hog[o$species == "SpC"])
+    prepare_orthologs(o)
+  }
+  shared <- find_coexpressologs(nets, rev_c(ortho))
+  distinct <- find_coexpressologs(nets_d, rev_c(syn$ortho))
+  n <- function(e) c(table(paste(e$species1, e$species2)))
+  expect_identical(n(shared), n(distinct))
+  ac <- function(e) as.list(e[e$species2 == "SpC", c("gene1", "hog")])
+  expect_identical(ac(shared), ac(distinct))
+
+  res <- rcomplex(expr, ortho, null = TRUE, seed = 1L)
+  real <- n(res$edges)
+  null <- n(res$edges_null)[names(real)]
+  expect_true(all(null <= real * 1.05))
+  expect_true(all(null >= real * 0.95))
 })

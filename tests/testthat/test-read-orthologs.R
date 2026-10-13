@@ -101,9 +101,22 @@ test_that("read_orthologs refuses unknown species, formats and files", {
 test_that("prepare_orthologs pairs genes within each HOG", {
   long <- read_orthologs(ext("N0.tsv"))
   pairs <- prepare_orthologs(long)
-  expect_named(pairs, c("gene1", "gene2", "hog"))
+  expect_named(pairs, c("gene1", "gene2", "hog", "species1", "species2"))
   is_ab <- startsWith(pairs$gene1, "GeneA") & startsWith(pairs$gene2, "GeneB")
   ab <- pairs[is_ab, ]
+  expect_setequal(
+    unique(paste(pairs$species1, pairs$species2)),
+    c("SpA SpB", "SpA SpC", "SpB SpC")
+  )
+  sp_of <- function(g) paste0("Sp", substr(g, 5L, 5L))
+  expect_identical(sp_of(pairs$gene1), pairs$species1)
+  expect_identical(sp_of(pairs$gene2), pairs$species2)
+  ba <- rcomplex:::.pair_orthologs(pairs, "SpB", "SpA")
+  expect_identical(nrow(ba), 12L)
+  expect_identical(sp_of(ba$gene1), rep("SpB", 12L))
+  expect_identical(ba$species1, rep("SpB", 12L))
+  bare <- pairs[, 1:3]
+  expect_identical(rcomplex:::.pair_orthologs(bare, "SpB", "SpA"), bare)
   # 10 HOGs, one extra paralog in each of the first two
   expect_identical(nrow(ab), 12L)
   expect_setequal(

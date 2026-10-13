@@ -21,12 +21,12 @@ test_that(
 
     expect_named(sp_default, c(
       "network", "threshold", "n_genes", "n_removed",
-      "params", "store_density", "store_threshold"
+      "params", "gene_mean", "store_density", "store_threshold"
     ))
     # dense object is exactly today's: no store_* fields
     expect_named(dense, c(
       "network", "threshold", "n_genes", "n_removed",
-      "params"
+      "params", "gene_mean"
     ))
     expect_true(is.matrix(dense$network))
 

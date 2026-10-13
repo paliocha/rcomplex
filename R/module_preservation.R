@@ -1026,7 +1026,8 @@ preservation_paired.default <- function(modules, networks, orthologs, pairs,
       pres <- module_preservation(
         modules[[ref]], networks[[ref]], networks[[test]],
         .orient_orthologs(
-          orthologs, rownames(networks[[ref]]$network),
+          .pair_orthologs(orthologs, ref, test),
+          rownames(networks[[ref]]$network),
           rownames(networks[[test]]$network)
         ),
         edges = edges,

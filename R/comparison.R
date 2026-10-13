@@ -803,12 +803,13 @@ find_coexpressologs.default <- function(
     if (!sp_b %in% names(networks)) {
       stop("species '", sp_b, "' not found in networks")
     }
+    pair_ortho <- .pair_orthologs(orthologs, sp_a, sp_b)
 
     if (method == "rank") {
       edges_df <- tryCatch(
         .specificity_pair_edges(
           networks[[sp_a]], networks[[sp_b]], nulls[[sp_a]], nulls[[sp_b]],
-          orthologs, sp_a, sp_b, n_cores, pval_combine
+          pair_ortho, sp_a, sp_b, n_cores, pval_combine
         ),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))
@@ -820,7 +821,7 @@ find_coexpressologs.default <- function(
       comparison <- tryCatch(
         compare_neighborhoods(
           networks[[sp_a]], networks[[sp_b]],
-          orthologs, n_cores
+          pair_ortho, n_cores
         ),
         error = function(e) {
           warning("Pair ", sp_a, "-", sp_b, " failed: ", conditionMessage(e))

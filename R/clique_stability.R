@@ -444,7 +444,7 @@ clique_threshold_sweep <- function(
       comparison <- tryCatch(
         compare_neighborhoods(
           tight_nets[[sp_a]], tight_nets[[sp_b]],
-          orthologs, n_cores
+          .pair_orthologs(orthologs, sp_a, sp_b), n_cores
         ),
         error = function(e) {
           warning(

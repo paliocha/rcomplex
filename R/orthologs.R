@@ -295,8 +295,9 @@ reduce_orthogroups <- function(expr_matrix, orthologs,
 #'   needs a `gene_map` data frame with columns `original` and
 #'   `representative`.
 #'
-#' @return A data frame with columns `gene1`, `gene2` and `hog`, one row
-#'   per gene pair in a shared HOG. With `reductions`, gene names are the
+#' @return A data frame with columns `gene1`, `gene2`, `hog`, `species1`
+#'   and `species2`, one row per gene pair in a shared HOG. `gene1`
+#'   belongs to `species1`. With `reductions`, gene names are the
 #'   representatives and duplicate rows are removed.
 #'
 #' @examples
@@ -344,7 +345,10 @@ prepare_orthologs <- function(orthologs, reductions = NULL) {
       orthologs[orthologs$species == species2, c("hog", "gene")],
       by = "hog", incomparables = NA
     )
-    ortho <- data.frame(gene1 = m$gene.x, gene2 = m$gene.y, hog = m$hog)
+    ortho <- data.frame(
+      gene1 = m$gene.x, gene2 = m$gene.y, hog = m$hog,
+      species1 = rep(species1, nrow(m)), species2 = rep(species2, nrow(m))
+    )
     if (nrow(ortho) == 0 || is.null(reductions)) {
       return(ortho)
     }
@@ -374,4 +378,25 @@ prepare_orthologs <- function(orthologs, reductions = NULL) {
   }
 
   unique(result)
+}
+
+
+#' Rows of a pairwise ortholog table for species `a` and `b`
+#'
+#' Tables with `species1` and `species2` give only the pair's rows, with
+#' `gene1` in `a`. Other tables come back unchanged. Two species on one
+#' reference genome share gene ids, so only the species columns tell
+#' their rows apart.
+#' @noRd
+.pair_orthologs <- function(orthologs, a, b) {
+  if (!all(c("species1", "species2") %in% names(orthologs))) {
+    return(orthologs)
+  }
+  fwd <- orthologs$species1 == a & orthologs$species2 == b
+  rev <- orthologs$species1 == b & orthologs$species2 == a
+  out <- orthologs[fwd | rev, , drop = FALSE]
+  sw <- rev[fwd | rev]
+  cols <- c("gene1", "gene2", "species1", "species2")
+  out[sw, cols] <- out[sw, c("gene2", "gene1", "species2", "species1")]
+  out
 }

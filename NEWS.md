@@ -1,5 +1,13 @@
 # rcomplex (development version)
 
+- `rcomplex(null = TRUE)` now shuffles hog labels among genes of the
+  same expression level and reruns edges, cliques and tiers on the
+  shuffled table. `calls_null` counts the calls that abundance and
+  network structure alone produce; the tier table gains `cliques_null`.
+  The shuffled-expression null gave 0 calls on every data set and is
+  gone from the driver; `null_network()` stays. `null = TRUE` no longer
+  needs `expr`.
+- `compute_network()` stores `gene_mean`.
 - `gene_clique_graph()` collapses twin paralogs before it lists the
   cliques. Twins are genes of one species with the same partners. A
   clique stands for every choice of one twin per class, so the

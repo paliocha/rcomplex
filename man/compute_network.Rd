@@ -120,6 +120,8 @@ you give one. \code{r_threshold} is the weakest correlation of an edge:
 the smallest for \code{sign = "positive"}, the largest for
 \code{"negative"}. With \code{partition} it is the rectified mean over the
 levels, negated for \code{"negative"}. It is \code{NA} when no pair passes.}
+\item{gene_mean}{The mean expression of each kept gene, by name.
+\code{\link[=rcomplex]{rcomplex()}} uses it to stratify its null.}
 \item{store_density, store_threshold}{Sparse networks only: the
 stored edge fraction and the value cutoff of the store. Analyses
 at thresholds below \code{store_threshold} are refused (see
