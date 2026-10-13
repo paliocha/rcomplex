@@ -828,7 +828,9 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #' In each clique, a class splits into sub-classes of copies that agree
 #' on those items, and stays whole where its copies agree. A clique
 #' becomes one variant per choice of sub-class in each member; a
-#' sub-class's gene is its first copy in radix order.
+#' sub-class's gene is its first copy in radix order. The split is per
+#' class, so where classes interact, the product can give more variants
+#' than distinct outcomes.
 #'
 #' @param mem Members from `.gcg_members()`, with twin classes.
 #' @param ix Context from `.gcg_edge_index(rows = TRUE)`.
