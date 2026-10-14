@@ -34,6 +34,11 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="rcomplex-development-version">rcomplex (development version)<a class="anchor" aria-label="anchor" href="#rcomplex-development-version"></a></h2>
+<ul><li>
+<code><a href="../reference/joint_modules.html">joint_modules()</a></code> finds modules across all species at once. It clusters the species networks and the hogs as one graph, so labels are shared. The hog table shows which hogs keep their copies in one module.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.1" id="rcomplex-041">rcomplex 0.4.1<a class="anchor" aria-label="anchor" href="#rcomplex-041"></a></h2>
 <p>rcomplex 0.4.1 changes the clique tables and the null. <code><a href="../reference/rcomplex.html">rcomplex()</a></code> runs three clique graphs and reports every tier. <code>gene_cliques</code> is <code>cliques</code> plus <code>members</code>; large hogs become species blocks. The null shuffles hog labels within expression deciles. 0.4.0 scripts that read the clique tables need an update.</p>
 <ul><li><p><code><a href="../reference/read_orthologs.html">read_orthologs()</a></code> reads OrthoFinder files whose hog column is <code>OrthoGroup</code>, <code>N1.HOG</code> or any other case of <code>HOG</code> or <code>Orthogroup</code>. The EVOTREE <code>Orthogroups_20240823_clean_N1.tsv.gz</code> needs no reshaping.</p></li>

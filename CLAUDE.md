@@ -76,7 +76,7 @@ at or under 80 characters. Only one `rcomplex` installs per library: use
 
 ## Surface budget
 
-Guard: `tests/testthat/test-surface.R`. - Exports: 31. - Named formals
+Guard: `tests/testthat/test-surface.R`. - Exports: 32. - Named formals
 per export: 8 or fewer. Exceptions:
 [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md),
 [`module_preservation()`](https://paliocha.github.io/rcomplex/reference/module_preservation.md),
