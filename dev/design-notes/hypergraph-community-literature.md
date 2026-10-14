@@ -22,6 +22,11 @@ changed. Method and failures are at the end.
    about 600 co-expression edges per gene. WP15b's port should wait on a
    three-engine probe (section 7). Peixoto, Peel & Gross 2026 put the burden
    of proof on the hypergraph (section 8).
+7. Probe outcome (sections 10-11): E1 fails on wood (no coupling window);
+   E2, the species-blocked objective, couples the species but ties the
+   two-step partition matched by hog overlap on planted data and on wood
+   split halves. Recommendation: withdraw WP15b, ship a matching step, do
+   not build E3.
 
 ## 1. Hypergraph modularity definitions, resolution, degeneracy, nulls
 
@@ -666,6 +671,116 @@ the probe must build E2 before WP15b can be judged, as section 7d said. WP15a
 stays as the alpha = 0 reference and as a working two-step module detector
 with shared labels at weight 0. The default `weight` stays the documented
 guess; the user docs say to sweep it.
+
+## 11. E2 probe: the species-blocked objective ties the matching step (2026-10-14)
+
+Engine E2 of section 7c, built as a probe (`dev/probes/joint_louvain.{cpp,R}`,
+`joint_louvain_check.R`, `joint_planted.R`, `joint_wood_halves.R`; outputs
+and `REPORT.md` under `prepare_data/cache/probe_e2/`, gitignored).
+
+**Objective.** Risk 1's form with risk 3's blocked null at tau = 2:
+
+```
+Q = sum_s (1 / 2m_s) sum_{i,j in s} (A_ij - gamma k_i k_j / 2m_s) delta(c_i, c_j)
+  + (lambda / 2m_bar) sum_{i in s, j in t, s != t} (w_ij - h_i^t h_j^s / H_st) delta(c_i, c_j)
+```
+
+Co-expression edges are `.joint_edges()` scaled per species; each species
+has its own `2m_s`; `2m_bar` is their mean. A hog contributes every
+cross-species pair of copies at weight `w_ij = 1 / (c_s c_t)` (one vote per
+hog per species pair); `h_i^t` is a gene's hog weight into species t and
+`H_st` the species-pair total, so the null is a configuration model blocked
+by species pair. Cross-species pairs carry no co-expression null and
+same-species pairs no hog null; `lambda` is in scaled-edge units, as E1's
+`weight`. Serial Louvain in Rcpp with one refinement pass on the base graph
+(Rotta & Noack 2011; plain Louvain could not release a defecting copy from
+its hog's supernode). Checks: C++ quality equals the R formula to 2e-16; no
+single move improves the returned partition on a toy; at `lambda = 0` the
+per-species terms equal igraph's modularity to 3e-15 and match Leiden within
+0.7 %; on `jm_fixture()` at `lambda = 4` ARI 1.00 per species, hog purity
+0.99, the planted defector outside `module_main`. Wood (121,385 genes,
+75.6 M co-expression entries): 30 s per run.
+
+**Control.** Two-step + match: `detect_modules()` per species, then the same
+kernel with genes frozen in their modules, so only whole modules move. It
+isolates the one thing E2 adds, letting hogs move single genes.
+
+**Planted.** Six species, 4,000 genes each, 12 modules of 2-5 % of a layer,
+hog copy profile from the wood table covering half the genes, each copy in
+its hog's module with probability `1 - delta`. Mean degree 60 (per-species
+Leiden AMI 0.90) and 10 (AMI 0.49). Each engine at its best lambda by AMI,
+three seeds (`planted_best.tsv`):
+
+| d | delta | engine | lambda | AMI | modules found (Jaccard > 0.5) | defector recall |
+|---|---|---|---|---|---|---|
+| 10 | 0.1 | match | 0.25 | 0.40 | 0.06 | 0.79 |
+| 10 | 0.1 | E2 | 0.25 | 0.38 | 0.11 | 0.77 |
+| 10 | 0.3 | match | 4 | 0.41 | 0.06 | 0.77 |
+| 10 | 0.3 | E2 | 0.25 | 0.37 | 0.06 | 0.76 |
+| 60 | 0.1 | match | 0.25 | 0.73 | 0.89 | 0.95 |
+| 60 | 0.1 | E2 | 0.25 | 0.72 | 0.86 | 0.93 |
+| 60 | 0.3 | match | 1 | 0.73 | 0.89 | 0.91 |
+| 60 | 0.3 | E2 | 0.25 | 0.74 | 0.75 | 0.88 |
+
+AMI is capped near 0.73 for every joint engine because the truth keeps
+each species' background apart and the hogs merge it. E2 never beats the
+match on defector recall at equal AMI. The one place E2 does something the
+match cannot is weak layers with near-complete conservation: at d = 10,
+delta 0 to 0.1, E2 at lambda 4-16 recovers 0.72-0.97 of the planted modules
+against 0.03-0.06 for the match, by pooling six weak signals through the
+hogs; the price is defector recall 0.05-0.20 (hogs drag defectors along),
+and at delta 0.3 the gain is gone. E1 at weight 4 keeps per-species
+modules (shared labels 0-0.08) and from 32 fragments (560-1,730 modules),
+as on wood.
+
+**Wood split halves.** Samples split per species (seed 1; 32-53 per half),
+networks at density 0.03 on all genes, modules of 20 or more genes, three
+seeds, held-out AUROC (`dev/probes/module_auroc.R`, 100 nulls, raw z) of
+half-A modules on half-B networks:
+
+| engine | lambda | joint modules | per-species split-half ARI | joint ARI | hog purity | hog pairs in one module | ARI vs two-step | z cross | z within |
+|---|---|---|---|---|---|---|---|---|---|
+| two-step | 0 | 43 per-species | 0.48 | 0.55 | 0 | 0 | 1.00 | 12.8 | 73.6 |
+| match | 0.25-16 | 8 | 0.48 | 0.37 | 0.10 | 0.25 | 1.00 | 12.8 | 73.7 |
+| match | 64 | 8 | 0.48 | 0.36 | 0.11 | 0.26 | 1.00 | 13.2 | 72.8 |
+| E2 | 0.25 | 9 | 0.49 | 0.38 | 0.10 | 0.24 | 0.88 | 12.9 | 73.4 |
+| E2 | 4 | 9 | 0.47 | 0.34 | 0.10 | 0.25 | 0.83 | 13.1 | 75.7 |
+| E2 | 16 | 8 | 0.51 | 0.33 | 0.12 | 0.27 | 0.86 | 13.4 | 73.6 |
+| E2 | 64 | 9 | 0.49 | 0.40 | 0.23 | 0.34 | 0.66 | 14.1 | 66.9 |
+| E1 | 32x | 46 per-species | 0.53 | 0.56 | 0.00 | 0.00 | 0.69 | 11.8 | 66.9 |
+
+Both species-blocked engines couple the species at every lambda (8-10 joint
+modules from 0.25 on), which E1 never did: a cross-species merge costs
+nothing in co-expression, so any positive hog term joins the modules. E2
+reshapes within-species modules (ARI 0.83-0.88 against two-step up to
+lambda 16; two-step against itself over seeds is 0.85-0.95) without gain:
+every E2 advantage over the match (per-species ARI +0.03, joint ARI +0.04,
+z cross +0.9) is inside the three-seed spread (0.07, 0.04, 1.4). On its own
+objective E2's Louvain finds no more than the match up to lambda 16 (Q 3.856
+against 3.855-3.897); at 64 it does (4.13 against 4.03) and pays with the
+within-species ceiling (z 66.9) and ARI 0.66 against two-step. Hog purity is
+0.10 for both engines: with 8-10 joint modules, one multi-species hog in ten
+has all copies in one module, and a quarter of ortholog pairs share a module
+(chance about 0.11). The wood data sit below the planted delta = 0.3 (pair
+agreement about 0.5) where even E2's pooling gain was gone.
+
+**Verdict.** E2 fails both halves of 7c's rule against the honest control:
+no defector-recall gain at equal AMI on planted data, no wood gain beyond
+seed noise. The species-blocked objective's optimum is the two-step
+partition with modules matched by hog overlap. Recommendation: withdraw
+WP15b (h-Leiden port, GPL-3 switch), since nothing a kernel adds on this
+data is worth a licence change, and make the product a matching step:
+per-species modules, then joint labels from hog overlap against the
+species-pair null, which the frozen kernel computes in one second. E3
+(species-blocked Bethe Hessian) would optimise the same blocked structure
+by another route; its one open question, minority modules in weak layers
+with near-complete conservation, is the d = 10 regime, which wood is not
+in at density 0.03. Recommendation: do not build it. Both are Martin's
+calls. Consequence for `compact-null.md` section 0: joint modules by matching are
+the per-species modules, so the compact-null rerun on them is the run
+already done (STOP stands). Open knob: `gamma` was 1 throughout; finer
+modules may hold more conserved families, but every engine would need the
+same sweep and the control would move with it.
 
 ## Reading list
 
