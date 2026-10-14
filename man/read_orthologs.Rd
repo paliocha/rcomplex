@@ -30,9 +30,12 @@ row per gene: \code{species}, \code{gene} and \code{hog}.
 Three formats are read:
 \describe{
 \item{orthofinder}{OrthoFinder \code{N0.tsv} (HOGs, column \code{HOG}) or
-\code{Orthogroups.tsv} (column \code{Orthogroup}). There is one column per
+\code{Orthogroups.tsv} (column \code{Orthogroup}). The column name may use
+any case, and \code{N1.HOG} is read too. There is one column per
 species, with genes separated by commas. The columns \code{OG} and
-\verb{Gene Tree Parent Clade} are skipped.}
+\verb{Gene Tree Parent Clade} are skipped. Empty and \code{NA} cells hold
+no gene. The reader keeps gene ids as written; map suffixes such
+as \code{.p1} to expression ids yourself.}
 \item{plaza}{PLAZA orthologs: columns \code{species}, \code{gene_id} and
 \code{gene_content}, where \code{gene_content} lists the orthologs of the
 anchor gene as \verb{code:gene1,gene2;code:gene3}. PLAZA lists pairwise
@@ -42,9 +45,9 @@ numbered by the smallest \code{species} and gene id they contain.}
 \item{long}{The output shape itself: columns \code{species}, \code{gene} and
 \code{hog}. Other columns are dropped.}
 }
-\code{"auto"} picks \code{orthofinder} when the header has \code{HOG} or \code{Orthogroup},
-\code{plaza} when it has \code{gene_content}, and \code{long} when it has \code{species},
-\code{gene} and \code{hog}. FastOMA and eggNOG output have no reader: write them
+\code{"auto"} picks \code{long} when the header has \code{species}, \code{gene} and \code{hog},
+\code{orthofinder} when it has \code{HOG} or \code{Orthogroup}, and \code{plaza} when it
+has \code{gene_content}. FastOMA and eggNOG output have no reader: write them
 as the long table, one row per gene and group.
 }
 \examples{

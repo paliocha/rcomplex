@@ -173,3 +173,22 @@ test_that("prepare_orthologs ignores genes without a HOG", {
   )
   expect_identical(nrow(prepare_orthologs(long)), 1L)
 })
+
+test_that("an OrthoGroup header with NA cells and ', ' reads as orthofinder", {
+  f <- ext("N1_variant.tsv")
+  long <- read_orthologs(f)
+  expect_named(long, c("species", "gene", "hog"))
+  expect_identical(nrow(long), 8L)
+  expect_identical(long$gene[long$hog == "OG2" & long$species == "SpC"],
+                   c("c1", "c2", "c3"))
+  expect_identical(read_orthologs(f, format = "orthofinder"), long)
+  expect_error(read_orthologs(f, format = "long"), "species, gene, hog")
+})
+
+test_that("HOG column names match without regard to case or prefix", {
+  f <- withr::local_tempfile(fileext = ".tsv")
+  writeLines(c("N2.HOG\tSpA", "h1\ta1"), f)
+  expect_identical(read_orthologs(f)$hog, "h1")
+  writeLines(c("hog\tSpA", "h1\ta1"), f)
+  expect_identical(read_orthologs(f)$gene, "a1")
+})

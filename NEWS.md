@@ -1,5 +1,9 @@
 # rcomplex (development version)
 
+- `read_orthologs()` reads OrthoFinder files whose hog column is
+  `OrthoGroup`, `N1.HOG` or any other case of `HOG` or `Orthogroup`.
+  The EVOTREE `Orthogroups_20240823_clean_N1.tsv.gz` needs no reshaping.
+
 - `gene_clique_graph()` budgets copy combinations as well as maximal
   cliques. A hog whose cliques stand for more than `max_cliques`
   combinations (summed `multiplicity`) is reported as species blocks.

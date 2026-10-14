@@ -1,0 +1,4 @@
+OrthoGroup	OG	Gene Tree Parent Clade	SpA	SpB	SpC
+OG1	OG1	n1	a1.p1, a2.p1	b1	NA
+OG2	OG2	n2	a3.p1	NA	c1, c2, c3
+OG3	OG3	n3	NA	b2	
