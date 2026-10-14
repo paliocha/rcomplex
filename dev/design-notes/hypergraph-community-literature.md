@@ -777,8 +777,8 @@ by another route; its one open question, minority modules in weak layers
 with near-complete conservation, is the d = 10 regime, which wood is not
 in at density 0.03. Recommendation: do not build it. Both are Martin's
 calls. Consequence for `compact-null.md` section 0: joint modules by
-matching are the per-species modules, so the compact-null rerun on them is the run
-already done (STOP stands). Open knob: `gamma` was 1 throughout; finer
+matching are the per-species modules, so the compact-null rerun on them
+is the run already done (STOP stands). Open knob: `gamma` was 1 throughout; finer
 modules may hold more conserved families, but every engine would need the
 same sweep and the control would move with it.
 
