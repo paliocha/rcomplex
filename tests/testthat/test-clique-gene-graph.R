@@ -2381,3 +2381,25 @@ test_that("a block is one combination for the classifier", {
   expect_identical(cls$multiplicity, 27L)
   expect_true(cls$capped)
 })
+
+
+test_that("a hog capped in one run is flagged in every run", {
+  # Copy 1 of each species forms the strict clique; the loose graph is
+  # the complete 3 x 3 x 3 hog, 27 combinations.
+  e <- gcg_copies(3L, function(g1, g2) {
+    ifelse(endsWith(g1, "1") & endsWith(g2, "1"), 0.01, 0.5)
+  })
+  sp <- c("SP_A", "SP_B", "SP_C")
+  runs <- suppressMessages(lapply(c(0.1, 0.9), function(a) {
+    gene_clique_graph(e, alpha_graph = a, max_cliques = 10)
+  }))
+  expect_identical(nrow(runs[[1L]]$capped), 0L)
+  expect_identical(runs[[2L]]$capped$n_combinations, 27)
+  cls <- classify_gene_cliques(runs, e, sp)
+  expect_true(all(cls$capped))
+  expect_identical(nrow(cls[cls$run == 1L, ]), 1L)
+  r2 <- cls[cls$run == 2L, ]
+  expect_identical(nrow(r2), nrow(runs[[2L]]$cliques))
+  expect_identical(r2$variant, rep(1L, nrow(r2)))
+  expect_identical(r2$multiplicity, runs[[2L]]$cliques$multiplicity)
+})

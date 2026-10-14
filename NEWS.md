@@ -22,11 +22,15 @@
   `(run, clique_id)` joins them to `classification`. `print()` counts
   the cliques of each graph. A clique maximal on two graphs appears
   once for each, so clique counts in `summary()` grow. On the wood data
-  (clades angiosperm, conifer, pinus), hogs per tier move from before to after: complete_conserved 938 to
-  938, partial_significant 0 to 517, partial_present 247 to 227,
-  differentiated 0 to 1,282, lineage_specific 2,973 to 2,973,
-  trait_specific 1,433 to 1,099, underpowered 511 to 551, unclassified
-  2,701 to 6,357.
+  (clades angiosperm, conifer, pinus), hogs per tier, before and after:
+  - complete_conserved: 938 and 938.
+  - partial_significant: 0 and 517.
+  - partial_present: 247 and 227.
+  - differentiated: 0 and 1,282.
+  - lineage_specific: 2,973 and 2,973.
+  - trait_specific: 1,433 and 1,099.
+  - underpowered: 511 and 551.
+  - unclassified: 2,701 and 6,357.
 - `gene_clique_graph()` replaces the 10-copies-per-species cap by a
   clique budget, `max_cliques = 1e5` per hog. Twins collapse first. A
   hog over the budget is reported as species blocks: one row per group

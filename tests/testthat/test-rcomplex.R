@@ -450,6 +450,10 @@ test_that("run and clique_id join the result tables", {
   ))
   expect_true(any(res3$cliques$run == 3L))
   expect_true(any(res3$classification$run == 3L))
+  expect_output(print(res3), "at q < 0.9, [0-9,]+ on all tested pairs")
+  cl <- NULL
+  res2 <- rcomplex(syn$expr, syn$ortho, clades = cl, seed = 1L)
+  expect_output(print(res2), "graphs: [^\n]*at q < 0.9\n")
   paths <- write_rcomplex(res, withr::local_tempdir())
   back <- read.delim(paths[basename(paths) == "classification.tsv"])
   expect_identical(back$run, cls$run)

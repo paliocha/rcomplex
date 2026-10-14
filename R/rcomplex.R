@@ -240,6 +240,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     out[[f]] <- stack(f)
     for (i in seq_along(runs)) runs[[i]][[f]] <- NULL
   }
+  attr(out$cliques, "alpha_graph") <- a_graph[seq_along(runs)]
   out
 }
 
@@ -373,14 +374,14 @@ print.rcomplex <- function(x, ...) {
     alpha, "\n",
     sep = ""
   )
-  n_run <- format(tabulate(x$cliques$run, 3L), big.mark = ",", trim = TRUE)
-  cat(
-    "  graphs: ", n_run[1L], " cliques at q < ", alpha, ", ", n_run[2L],
-    " at q < 0.9",
-    if (!is.null(x$call$clades)) c(", ", n_run[3L], " on all tested pairs"),
-    "\n",
-    sep = ""
+  ag <- attr(x$cliques, "alpha_graph") %||%
+    c(alpha, 0.9, Inf)[seq_len(max(2L, x$cliques$run))]
+  n_run <- format(tabulate(x$cliques$run, length(ag)),
+    big.mark = ",", trim = TRUE
   )
+  lab <- ifelse(is.finite(ag), paste("at q <", ag), "on all tested pairs")
+  lab[1L] <- paste("cliques", lab[1L])
+  cat("  graphs: ", paste(n_run, lab, collapse = ", "), "\n", sep = "")
   cat("  cliques ", big(nrow(cls)), sep = "")
   n_all <- sum(as.numeric(cls$multiplicity))
   if (n_all > nrow(cls)) {
