@@ -147,16 +147,21 @@ A seed makes the run reproducible and leaves your stream unchanged.</p></dd>
 <dt>cliques, members, twins</dt>
 <dd><p>The three tables of
 <code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>: one row per clique, one row per clique
-member, and one row per collapsed twin gene.</p></dd>
+member, and one row per collapsed twin gene. The tables of the
+three graphs are stacked. <code>run</code> numbers the graph: 1 strict, 2
+loose, 3 all tested pairs. <code>alpha_graph</code> holds its cut: <code>alpha</code>,
+0.9 or <code>Inf</code>. <code>clique_id</code> counts within a run, so <code>run</code> and
+<code>clique_id</code> together name a clique.</p></dd>
 
 <dt>capped</dt>
-<dd><p>One row per hog over the clique budget of
-<code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>. Its cliques are species blocks. Usually
-empty.</p></dd>
+<dd><p>One row per hog and run over the clique budget of
+<code><a href="gene_clique_graph.html">gene_clique_graph()</a></code>, with <code>run</code> and <code>alpha_graph</code>. Its cliques
+are species blocks. Usually empty.</p></dd>
 
 <dt>classification</dt>
 <dd><p>One row per clique, from
-<code><a href="classify_gene_cliques.html">classify_gene_cliques()</a></code>.</p></dd>
+<code><a href="classify_gene_cliques.html">classify_gene_cliques()</a></code>. Its <code>run</code> and <code>clique_id</code> join
+<code>cliques</code> and <code>members</code>.</p></dd>
 
 <dt>modules, preservation</dt>
 <dd><p>With <code>modules = TRUE</code>: the
@@ -176,9 +181,19 @@ table.</p></dd>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Cliques use the edges with <code>q_value &lt; alpha</code> and have at least
-<code>min(3, number of species)</code> genes. Rank edges are classified at
-<code>min_power = 0.9</code>, hypergeometric edges at 0.8.</p>
+    <p>The driver lists cliques on three gene graphs. The strict graph holds
+the edges with <code>q_value &lt; alpha</code>. It feeds <code>complete_conserved</code>,
+<code>lineage_specific</code>, <code>partial_present</code> and <code>trait_specific</code>. The loose
+graph holds the edges with <code>q_value &lt; 0.9</code>. It feeds
+<code>partial_significant</code>. The third graph holds every tested pair. It
+covers only the hogs with no complete or partial tier on the first two
+graphs. It feeds <code>differentiated</code>, as does the loose graph where every
+cross pair has <code>q_value &lt; 0.9</code>. <code><a href="classify_gene_cliques.html">classify_gene_cliques()</a></code> classifies
+the three graphs together, so <code>hog_class</code> reads all of them. A clique
+maximal on two graphs appears once for each. The third graph is built
+only with <code>clades</code>, since only the clade tiers read it.</p>
+<p>Every clique has at least <code>min(3, number of species)</code> genes. Rank
+edges are classified at <code>min_power = 0.9</code>, hypergeometric edges at 0.8.</p>
 <p><code>density</code> and <code>sign</code> apply only to networks built from <code>expr</code>.
 <code>method = "rank"</code> and <code>block</code> need <code>expr</code>. The rank test calibrates
 against <code><a href="null_network.html">null_network()</a></code> partners, built within each block.</p>
@@ -199,8 +214,9 @@ species pair at <code>q_value &lt; alpha</code>. Their ratio is the empirical
 false-call rate.
 The rate is <code>NA</code> for a species pair without calls. The tier table
 gains <code>cliques_null</code>: the null cliques per tier.</p>
-<p><code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows, per species, the genes, the samples, the density and
-<code>r_threshold</code> from <code><a href="compute_network.html">compute_network()</a></code>: the weakest correlation that
+<p><code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> counts the cliques of each graph. It shows, per species, the
+genes, the samples, the density and <code>r_threshold</code> from
+<code><a href="compute_network.html">compute_network()</a></code>: the weakest correlation that
 passed the density threshold. The same density needs a stronger
 correlation at few samples. A network from <code><a href="as_network.html">as_network()</a></code> has no
 correlation and shows <code>r ?</code>, as does a network without edges.</p>
@@ -218,6 +234,7 @@ correlation and shows <code>r ?</code>, as does a network without edges.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   SpA  50 genes  10 samples  density 0.1  r &gt;= 0.30</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   SpB  40 genes  10 samples  density 0.1  r &gt;= 0.23</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   edges 12 tested, 0 called at q &lt; 0.1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   graphs: 0 cliques at q &lt; 0.1, 0 at q &lt; 0.9</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   cliques 0</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] tier         cliques      cliques_null multiplicity hogs        </span>

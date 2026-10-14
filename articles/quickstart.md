@@ -61,20 +61,31 @@ res <- rcomplex(leaf, hogs,
   null = TRUE, seed = 1
 )
 #> gene_clique_graph: 1245 genes collapsed into 577 twin classes; cliques carry multiplicity
+#> gene_clique_graph: 2228 genes collapsed into 1029 twin classes; cliques carry multiplicity
+#> gene_clique_graph: 2998 genes collapsed into 1292 twin classes; cliques carry multiplicity
+#> gene_clique_graph: 32 genes collapsed into 16 twin classes; cliques carry multiplicity
+#> gene_clique_graph: 6041 genes collapsed into 2231 twin classes; cliques carry multiplicity
 res
-#> rcomplex: 4 species, 1,500 hogs, 3 tiers
+#> rcomplex: 4 species, 1,500 hogs, 6 tiers
 #>   BDIS  1,935 genes  20 samples  density 0.03  r >= 0.35
 #>   BSYL  1,967 genes  20 samples  density 0.03  r >= 0.33
 #>   HVUL  1,925 genes  20 samples  density 0.03  r >= 0.29
 #>   HJUB  3,983 genes  20 samples  density 0.03  r >= 0.28
 #>   edges 33,575 tested, 10,387 called at q < 0.1
-#>   cliques 3,125 distinct (17,653 with paralog copies): complete_conserved 1,977, partial_present    68, unclassified 1,080
+#>   graphs: 3,114 cliques at q < 0.1, 36,951 at q < 0.9, 967 on all tested pairs
+#>   cliques 53,755 distinct (91,941 with paralog copies): complete_conserved  5,290, differentiated    531, partial_present     91, partial_significant  3,842, unclassified 43,727, underpowered    274
 ```
 
 The header lists, per species, the genes, the samples and the density.
 The value after “r \>=” is the weakest correlation that became an edge.
 At 20 samples, a correlation of 0.3 is weak evidence. Read this value
 first.
+
+The “graphs” line counts the cliques on three gene graphs. The strict
+graph holds the calls at `q_value < 0.1`. The loose graph holds the
+edges at `q_value < 0.9`. The third graph holds every tested pair, for
+the hogs the first two leave without a complete or partial tier. It is
+built only with `clades`.
 
 The last line counts the cliques by tier. A clique is a set of genes,
 one per species, that are all co-expressed. A hog with paralogs gives
@@ -83,9 +94,9 @@ twins. One clique stands for all their combinations. The line counts
 distinct cliques, and the count in brackets includes the combinations.
 
 Gene combinations can explode in a large hog. The clique search keeps at
-most `max_cliques` cliques per hog (default 100,000). A hog over it
-gives one row per group of wired species, with the best copy of each.
-`res$capped` lists these hogs.
+most `max_cliques` cliques, or copy combinations, per hog (default
+100,000). A hog over it gives one row per group of wired species, with
+the best copy of each. `res$capped` lists these hogs.
 
 ## Read the results
 
@@ -95,10 +106,13 @@ hog labels.
 
 ``` r
 summary(res)
-#>                tier cliques cliques_null multiplicity hogs patterns
-#>  complete_conserved    1977            0        16201  290      290
-#>     partial_present      68            0          114   57       65
-#>        unclassified    1080            0         1338  427      605
+#>                 tier cliques cliques_null multiplicity hogs patterns
+#>   complete_conserved    5290            0        32402  290      290
+#>       differentiated     531            0          760   83       83
+#>      partial_present      91            0          171   57       65
+#>  partial_significant    3842            0         7912  355      355
+#>         unclassified   43727         3462        50329 1334     3054
+#>         underpowered     274            0          367   40       40
 #> null: calls at q < 0.1 
 #>  species1 species2 calls calls_null false_call_rate
 #>      BDIS     BSYL  1340          0     0.000000000
@@ -141,13 +155,17 @@ A low `power` means a non-significant pair is weak evidence of
 divergence.
 
 `res$classification` has one row per clique. `as.data.frame(res)`
-returns the same table.
+returns the same table. Its `run` column names the graph of the clique.
+`partial_significant` comes from the loose graph. `differentiated` comes
+mostly from the third graph and needs `clades`.
 
 ``` r
 table(as.data.frame(res)$classification)
 #> 
-#> complete_conserved    partial_present       unclassified 
-#>               1977                 68               1080
+#>  complete_conserved      differentiated     partial_present partial_significant 
+#>                5290                 531                  91                3842 
+#>        unclassified        underpowered 
+#>               43727                 274
 ```
 
 ## Save

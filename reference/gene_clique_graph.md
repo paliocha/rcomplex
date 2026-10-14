@@ -53,9 +53,10 @@ gene_clique_graph(
 
 - max_cliques:
 
-  Largest number of maximal cliques one hog may produce. A hog above it
-  is reported as species blocks: one representative copy per species.
-  Default 1e5; `Inf` keeps every clique.
+  Largest number of maximal cliques, and of copy combinations (summed
+  `multiplicity`), one hog may produce. A hog above it is reported as
+  species blocks: one representative copy per species. Default 1e5;
+  `Inf` keeps every clique.
 
 ## Value
 
@@ -120,13 +121,15 @@ appearance), `gene` (the representative of its twin class) and
 `twins` has one row per collapsed gene: `hog`, `species`, `gene` and
 `representative`. It has no rows when no two genes are twins. `capped`
 has one row per hog over the clique budget: `hog`, `n_genes`,
-`n_classes` (its twin classes), `n_cliques_full` (its maximal cliques),
-`n_blocks` (the rows it gives in `cliques`) and `search_complete`
-(`FALSE` when a block search hit its step budget). It has no rows when
-no hog is over the budget. The two floor diagnostics, plus
-`alpha_graph`, `min_size` and `q_floor` (smallest edge q-value in the
-graph), are also attributes of `cliques`. Both are always set, empty
-results included.
+`n_classes` (its twin classes), `n_cliques_full` (its maximal cliques;
+counting stops at ten times `max_cliques`; `Inf` means at least that
+many), `n_combinations` (the summed `multiplicity` of its cliques; `NA`
+when the count stopped first), `n_blocks` (the rows it gives in
+`cliques`) and `search_complete` (`FALSE` when a block search hit its
+step budget). It has no rows when no hog is over the budget. The two
+floor diagnostics, plus `alpha_graph`, `min_size` and `q_floor`
+(smallest edge q-value in the graph), are also attributes of `cliques`.
+Both are always set, empty results included.
 
 ## Details
 
@@ -160,10 +163,11 @@ is the first gene of its class in radix (C-locale) order.
 Paralogs multiply cliques, so a hog may produce millions of them. A cap
 on genes per species does not bound that count: one hog with 76 twin
 classes gave 2.4 million. A hog over `max_cliques`, counted after the
-twin collapse, is conserved as a block. Which copy pairs with which
-stays unresolved. So the hog gives one row per maximal species clique,
-with the best copy of each species. EVOTREE listed every clique; the
-wood data never reach the budget.
+twin collapse, is conserved as a block. So is a hog whose cliques stand
+for more than `max_cliques` copy combinations. Which copy pairs with
+which stays unresolved. So the hog gives one row per maximal species
+clique, with the best copy of each species. EVOTREE listed every clique;
+the wood data never reach the budget.
 
 A hog of 40 or more genes is enumerated one start gene at a time. The
 pieces are disjoint, so the cliques are the same. Only the peak memory

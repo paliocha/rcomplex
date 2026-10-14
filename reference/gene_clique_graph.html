@@ -94,10 +94,10 @@ it as a list.</p></dd>
 
 
 <dt id="arg-max-cliques">max_cliques<a class="anchor" aria-label="anchor" href="#arg-max-cliques"></a></dt>
-<dd><p>Largest number of maximal cliques one hog may
-produce. A hog above it is reported as species blocks: one
-representative copy per species. Default 1e5; <code>Inf</code> keeps every
-clique.</p></dd>
+<dd><p>Largest number of maximal cliques, and of copy
+combinations (summed <code>multiplicity</code>), one hog may produce. A hog
+above it is reported as species blocks: one representative copy per
+species. Default 1e5; <code>Inf</code> keeps every clique.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -157,7 +157,10 @@ included).
 and <code>representative</code>. It has no rows when no two genes are twins.
 <code>capped</code> has one row per hog over the clique budget: <code>hog</code>,
 <code>n_genes</code>, <code>n_classes</code> (its twin classes), <code>n_cliques_full</code> (its
-maximal cliques), <code>n_blocks</code> (the rows it gives in <code>cliques</code>) and
+maximal cliques; counting stops at ten times <code>max_cliques</code>; <code>Inf</code>
+means at least that many), <code>n_combinations</code> (the summed
+<code>multiplicity</code> of its cliques; <code>NA</code> when the count stopped first),
+<code>n_blocks</code> (the rows it gives in <code>cliques</code>) and
 <code>search_complete</code> (<code>FALSE</code> when a block search hit its step
 budget). It has no rows when no hog is over the budget.
 The two floor diagnostics, plus <code>alpha_graph</code>, <code>min_size</code> and
@@ -192,7 +195,8 @@ order.</p>
 <p>Paralogs multiply cliques, so a hog may produce millions of them. A
 cap on genes per species does not bound that count: one hog with 76
 twin classes gave 2.4 million. A hog over <code>max_cliques</code>, counted after
-the twin collapse, is conserved as a block. Which copy pairs with
+the twin collapse, is conserved as a block. So is a hog whose cliques
+stand for more than <code>max_cliques</code> copy combinations. Which copy pairs with
 which stays unresolved. So the hog gives one row per maximal species
 clique, with the best copy of each species. EVOTREE listed every
 clique; the wood data never reach the budget.</p>

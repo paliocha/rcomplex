@@ -161,13 +161,19 @@ exported functions as `[fn()]`. Write internals as `\code{fn()}`. -
   returns every maximal clique, one per paralog combination. Twin
   paralogs (same species, same partners) collapse first, so a clique
   carries `multiplicity` and the classifier splits classes by status. A
-  hog over `max_cliques` (default 1e5 cliques) is reported as species
-  blocks: one best copy per species; `capped` lists those hogs.
+  hog over `max_cliques` (default 1e5) maximal cliques or copy
+  combinations is reported as species blocks: one best copy per species;
+  `capped` lists those hogs. A block is one combination to the
+  classifier.
   [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   runs a tier waterfall with thresholds from `length(species)`; `clades`
   and home clades set the specificity and divergence tiers. It takes the
   unfiltered edge table, because a failed test is negative evidence only
   if it had `power`.
+  [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  runs three gene graphs (at `alpha`, at 0.9, and every tested pair of
+  the unclaimed hogs) and classifies them together; `run` names the
+  graph.
 - **Trait level.**
   [`preservation_matrix_test()`](https://paliocha.github.io/rcomplex/reference/preservation_matrix_test.md)
   reads `Zsummary_std` from every contrast of

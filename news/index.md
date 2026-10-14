@@ -3,6 +3,43 @@
 ## rcomplex (development version)
 
 - [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
+  budgets copy combinations as well as maximal cliques. A hog whose
+  cliques stand for more than `max_cliques` combinations (summed
+  `multiplicity`) is reported as species blocks. `capped` gains
+  `n_combinations`.
+  [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
+  reads a block as one combination: it never splits into variants. The
+  clique count stops at ten times `max_cliques`; `n_cliques_full` is
+  then `Inf`. Before, igraph counted every clique, and one dense hog of
+  the 8-species leaf data did not finish in 16 minutes. On that data,
+  the cliques and tiers of
+  [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  without `clades` now take 2.4 min and 7 GB, with 17 and 37 hogs as
+  blocks. The wood data have no block.
+- [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  now lists cliques on three gene graphs, as the published workflow did.
+  The strict graph holds edges at `q_value < alpha`, the loose graph
+  edges at `q_value < 0.9`. The third graph holds every tested pair of
+  the hogs with no complete or partial tier on the first two; it is
+  built only with `clades`, since only the clade tiers read it. One
+  classification covers all graphs, so `partial_significant` and
+  `differentiated` now appear. `cliques`, `members`, `twins` and
+  `capped` stack the three runs and gain `run` and `alpha_graph`;
+  `(run, clique_id)` joins them to `classification`.
+  [`print()`](https://rdrr.io/r/base/print.html) counts the cliques of
+  each graph. A clique maximal on two graphs appears once for each, so
+  clique counts in [`summary()`](https://rdrr.io/r/base/summary.html)
+  grow. On the wood data (clades angiosperm, conifer, pinus), hogs per
+  tier, before and after:
+  - complete_conserved: 938 and 938.
+  - partial_significant: 0 and 517.
+  - partial_present: 247 and 227.
+  - differentiated: 0 and 1,282.
+  - lineage_specific: 2,973 and 2,973.
+  - trait_specific: 1,433 and 1,099.
+  - underpowered: 511 and 551.
+  - unclassified: 2,701 and 6,357.
+- [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
   replaces the 10-copies-per-species cap by a clique budget,
   `max_cliques = 1e5` per hog. Twins collapse first. A hog over the
   budget is reported as species blocks: one row per group of species

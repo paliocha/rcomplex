@@ -172,10 +172,13 @@ split, numbered by `variant`. Every combination a row stands for gets
 its tier, so tiers are exact. `multiplicity` counts those combinations;
 `mean_q`, `max_q` and `mean_effect_size` summarise them as in
 [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md).
-Most cliques have one variant. The two floor diagnostics are also
-attributes, alongside `n_species_total`, `n_pairs_total`,
-`n_within_pairs`, `n_cross_pairs`, `cross_max`, `alpha_call`,
-`alpha_graph` and `max_gap`. All are set even when the result is empty.
+Most cliques have one variant. A species block is one combination. It
+never splits, so its `variant` is 1, and it keeps the `multiplicity` of
+[`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md).
+The two floor diagnostics are also attributes, alongside
+`n_species_total`, `n_pairs_total`, `n_within_pairs`, `n_cross_pairs`,
+`cross_max`, `alpha_call`, `alpha_graph` and `max_gap`. All are set even
+when the result is empty.
 
 ## Details
 

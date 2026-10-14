@@ -117,18 +117,23 @@ A list of class `rcomplex`:
   The three tables of
   [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md):
   one row per clique, one row per clique member, and one row per
-  collapsed twin gene.
+  collapsed twin gene. The tables of the three graphs are stacked. `run`
+  numbers the graph: 1 strict, 2 loose, 3 all tested pairs.
+  `alpha_graph` holds its cut: `alpha`, 0.9 or `Inf`. `clique_id` counts
+  within a run, so `run` and `clique_id` together name a clique.
 
 - capped:
 
-  One row per hog over the clique budget of
-  [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md).
-  Its cliques are species blocks. Usually empty.
+  One row per hog and run over the clique budget of
+  [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md),
+  with `run` and `alpha_graph`. Its cliques are species blocks. Usually
+  empty.
 
 - classification:
 
   One row per clique, from
   [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md).
+  Its `run` and `clique_id` join `cliques` and `members`.
 
 - modules, preservation:
 
@@ -152,9 +157,21 @@ the classification.
 
 ## Details
 
-Cliques use the edges with `q_value < alpha` and have at least
-`min(3, number of species)` genes. Rank edges are classified at
-`min_power = 0.9`, hypergeometric edges at 0.8.
+The driver lists cliques on three gene graphs. The strict graph holds
+the edges with `q_value < alpha`. It feeds `complete_conserved`,
+`lineage_specific`, `partial_present` and `trait_specific`. The loose
+graph holds the edges with `q_value < 0.9`. It feeds
+`partial_significant`. The third graph holds every tested pair. It
+covers only the hogs with no complete or partial tier on the first two
+graphs. It feeds `differentiated`, as does the loose graph where every
+cross pair has `q_value < 0.9`.
+[`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
+classifies the three graphs together, so `hog_class` reads all of them.
+A clique maximal on two graphs appears once for each. The third graph is
+built only with `clades`, since only the clade tiers read it.
+
+Every clique has at least `min(3, number of species)` genes. Rank edges
+are classified at `min_power = 0.9`, hypergeometric edges at 0.8.
 
 `density` and `sign` apply only to networks built from `expr`.
 `method = "rank"` and `block` need `expr`. The rank test calibrates
@@ -185,8 +202,9 @@ Their ratio is the empirical false-call rate. The rate is `NA` for a
 species pair without calls. The tier table gains `cliques_null`: the
 null cliques per tier.
 
-[`print()`](https://rdrr.io/r/base/print.html) shows, per species, the
-genes, the samples, the density and `r_threshold` from
+[`print()`](https://rdrr.io/r/base/print.html) counts the cliques of
+each graph. It shows, per species, the genes, the samples, the density
+and `r_threshold` from
 [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md):
 the weakest correlation that passed the density threshold. The same
 density needs a stronger correlation at few samples. A network from
@@ -206,6 +224,7 @@ res
 #>   SpA  50 genes  10 samples  density 0.1  r >= 0.30
 #>   SpB  40 genes  10 samples  density 0.1  r >= 0.23
 #>   edges 12 tested, 0 called at q < 0.1
+#>   graphs: 0 cliques at q < 0.1, 0 at q < 0.9
 #>   cliques 0
 summary(res)
 #> [1] tier         cliques      cliques_null multiplicity hogs        
