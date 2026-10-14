@@ -360,7 +360,8 @@
 #'   and `representative`. It has no rows when no two genes are twins.
 #'   `capped` has one row per hog over the clique budget: `hog`,
 #'   `n_genes`, `n_classes` (its twin classes), `n_cliques_full` (its
-#'   maximal cliques), `n_blocks` (the rows it gives in `cliques`) and
+#'   maximal cliques; counting stops at ten times `max_cliques`; `Inf`
+#'   means at least that many), `n_blocks` (the rows it gives in `cliques`) and
 #'   `search_complete` (`FALSE` when a block search hit its step
 #'   budget). It has no rows when no hog is over the budget.
 #'   The two floor diagnostics, plus `alpha_graph`, `min_size` and
@@ -532,10 +533,11 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     em[cbind(i1, i2)] <- em[cbind(i2, i1)] <- seq_along(i1)
     sp_h <- match(node_sp, unique(node_sp))
     # Clique budget: a hog over it gives one block per species clique.
-    n_full <- if (is.finite(max_cliques)) {
-      igraph::count_max_cliques(g, min = min_size)
-    } else {
-      0
+    # The count stops at ten times the budget; Inf means at least that.
+    n_full <- 0
+    if (is.finite(max_cliques)) {
+      n_full <- count_cliques_cpp(i1, i2, n_v, min_size, 10 * max_cliques)
+      if (n_full > 10 * max_cliques) n_full <- Inf
     }
     if (n_full > max_cliques) {
       bk <- .gcg_blocks(

@@ -2288,3 +2288,42 @@ test_that("a twin class splits only where a clique reads the difference", {
   expect_identical(out$multiplicity, c(1L, 1L))
   gcg_check_minimal(g, e, cls, sp, 0.1)
 })
+
+
+test_that("the clique counter matches igraph", {
+  count <- function(g, k, ceiling = 1e9) {
+    ed <- igraph::as_edgelist(g, names = FALSE)
+    rcomplex:::count_cliques_cpp(
+      ed[, 1L], ed[, 2L], igraph::vcount(g), k, ceiling
+    )
+  }
+  withr::local_seed(11L)
+  graphs <- lapply(1:20, function(i) {
+    igraph::sample_gnp(sample(25:40, 1L), stats::runif(1L, 0.3, 0.6))
+  })
+  # Isolated vertices, and a graph without edges.
+  graphs[[19L]] <- igraph::add_vertices(graphs[[19L]], 5L)
+  graphs[[20L]] <- igraph::make_empty_graph(10L, directed = FALSE)
+  for (i in seq_along(graphs)) {
+    k <- c(2L, 3L, 4L)[i %% 3L + 1L]
+    expect_identical(
+      count(graphs[[i]], k),
+      as.numeric(igraph::count_max_cliques(graphs[[i]], min = k))
+    )
+  }
+  # The count stops once it passes the ceiling.
+  g <- graphs[[1L]]
+  n <- igraph::count_max_cliques(g, min = 2L)
+  stopped <- count(g, 2L, ceiling = 10)
+  expect_gt(stopped, 10)
+  expect_lt(stopped, n)
+})
+
+
+test_that("a count past ten times the budget is Inf", {
+  # gcg_tri() has 125 cliques: over 10 * 5, under 10 * 50.
+  g <- suppressMessages(gene_clique_graph(gcg_tri(), max_cliques = 5))
+  expect_identical(g$capped$n_cliques_full, Inf)
+  expect_identical(g$capped$n_blocks, 1L)
+  expect_identical(nrow(g$cliques), 1L)
+})

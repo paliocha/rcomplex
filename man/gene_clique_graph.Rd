@@ -82,7 +82,8 @@ included).
 and \code{representative}. It has no rows when no two genes are twins.
 \code{capped} has one row per hog over the clique budget: \code{hog},
 \code{n_genes}, \code{n_classes} (its twin classes), \code{n_cliques_full} (its
-maximal cliques), \code{n_blocks} (the rows it gives in \code{cliques}) and
+maximal cliques; counting stops at ten times \code{max_cliques}; \code{Inf}
+means at least that many), \code{n_blocks} (the rows it gives in \code{cliques}) and
 \code{search_complete} (\code{FALSE} when a block search hit its step
 budget). It has no rows when no hog is over the budget.
 The two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
