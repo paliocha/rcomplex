@@ -43,7 +43,7 @@ R CMD INSTALL .
 NOT_CRAN=true Rscript -e 'devtools::test()'
 Rscript -e 'lintr::lint_package()'
 Rscript dev/sharpen-prose.R
-R CMD build . && R CMD check --no-manual rcomplex_0.4.0.tar.gz   # expect "Status: OK"
+R CMD build . && R CMD check --no-manual rcomplex_0.4.1.tar.gz   # expect "Status: OK"
 ```
 
 Check the built tarball, not the directory: `Authors@R` expands at build
