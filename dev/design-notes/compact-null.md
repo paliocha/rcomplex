@@ -37,6 +37,37 @@ stays.
   (WP-k3). The surface guard allows a 12th formal on
   `module_preservation()`; that is gate G-k2.
 
+### Probe outcome (2026-10-14): STOP, deferred to after WP15
+
+The probe (`prepare_data/evotree/e8_compact_null.R`; tables in
+`prepare_data/cache/compact_probe/`) ran on the six wood directions
+at the default module resolution and at resolution 8, 200 draws.
+Medians over directions, resolution 8 (39-55 modules per direction;
+the default resolution has 6-8 modules of about 19 % of the mappable
+genes each, too few and too large to test):
+
+| Condition (section 4)                  | Result                 | Gate       |
+|----------------------------------------|------------------------|------------|
+| Bias present: rho(size), rho(hubness)  | 0.358, 0.667           | pass       |
+| Removed by arm 3                       | 0.186, 0.214           | fail by 0.007 on size |
+| Ranking changed: rho, top-quartile     | 0.789, 0.757           | pass       |
+| Feasible: share cohesion_ratio >= 0.9  | 0.377                  | fail (0.75) |
+
+- The bias is real and the kernel nearly removes it, but matching is
+  infeasible: no degree-matched gene set outside a module is as
+  cohesive as the module, at any `beta` (checked to 1024; the 64 cap
+  is not the cause). Wood modules are about twelve times denser than
+  degree alone predicts. Only dropping degree matching reaches the
+  module's cohesion, which defeats the purpose.
+- `beta = 0` alone does not remove the bias. The expression stratum
+  is droppable (arm 4 within 0.09 of arm 3 on every rho).
+- WP-k1, WP-k2, WP-k3 are not built. Martin (2026-10-14): rerun the
+  probe after WP15a and WP15b land. Joint modules across species are a
+  different unit, built on the mapped genes and finer than one
+  species' Leiden modules, so section 4 should be rerun on them before
+  the verdict is revisited. The scoring kernel and spec in section 3
+  stand as written.
+
 ## 1. What the paper did
 
 ### 1.1 Setting
