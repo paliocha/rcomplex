@@ -119,13 +119,16 @@ Applies to everything a user reads: roxygen, README, quickstart, messages.
   `gene_clique_graph()` returns every maximal clique, one per paralog
   combination. Twin paralogs (same species, same partners) collapse
   first, so a clique carries `multiplicity` and the classifier splits
-  classes by status. A hog over `max_cliques` (default 1e5 cliques) is
-  reported as species blocks: one best copy per species; `capped` lists
-  those hogs.
+  classes by status. A hog over `max_cliques` (default 1e5) maximal
+  cliques or copy combinations is reported as species blocks: one best
+  copy per species; `capped` lists those hogs. A block is one
+  combination to the classifier.
   `classify_gene_cliques()` runs a tier waterfall with thresholds from
   `length(species)`; `clades` and home clades set the specificity and
   divergence tiers. It takes the unfiltered edge table, because a failed
-  test is negative evidence only if it had `power`.
+  test is negative evidence only if it had `power`. `rcomplex()` runs
+  three gene graphs (at `alpha`, at 0.9, and every tested pair of the
+  unclaimed hogs) and classifies them together; `run` names the graph.
 - **Trait level.** `preservation_matrix_test()` reads `Zsummary_std` from
   every contrast of `all_species_pairs()`. It reports `p_free` and
   `p_blocked`; their gap shows phylogenetic confounding.

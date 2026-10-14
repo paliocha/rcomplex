@@ -3,22 +3,24 @@
     Code
       print(res)
     Output
-      rcomplex: 3 species, 120 hogs, 1 tier
+      rcomplex: 3 species, 120 hogs, 3 tiers
         SpA  120 genes  20 samples  density 0.03  r >= 0.26
         SpB  120 genes  20 samples  density 0.03  r >= 0.31
         SpC  120 genes  20 samples  density 0.03  r >= 0.30
         edges 360 tested, 33 called at q < 0.1
-        cliques 3: complete_conserved 3
+        graphs: 3 cliques at q < 0.1, 120 at q < 0.9
+        cliques 123: complete_conserved   6, partial_significant   8, unclassified 109
 
 ---
 
     Code
       print(rcomplex(networks = nets, orthologs = syn$ortho))
     Output
-      rcomplex: 3 species, 120 hogs, 1 tier
+      rcomplex: 3 species, 120 hogs, 3 tiers
         SpA  120 genes  ? samples  density 0.03  r ?
         SpB  120 genes  ? samples  density 0.03  r ?
         SpC  120 genes  ? samples  density 0.03  r ?
         edges 360 tested, 31 called at q < 0.1
-        cliques 3: complete_conserved 3
+        graphs: 3 cliques at q < 0.1, 120 at q < 0.9
+        cliques 123: complete_conserved   6, partial_significant   6, unclassified 111
 

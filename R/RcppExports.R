@@ -58,6 +58,18 @@ build_sparse_coclassification_cpp <- function(memberships, n_genes, edges, n_cor
     .Call(`_rcomplex_build_sparse_coclassification_cpp`, memberships, n_genes, edges, n_cores)
 }
 
+#' Count maximal cliques of at least min_size vertices, up to a ceiling
+#'
+#' @param i1,i2 Edge end points, 1-based vertex indices.
+#' @param n_v Number of vertices.
+#' @param min_size Smallest clique counted.
+#' @param ceiling The count stops once it exceeds this value.
+#' @return The count; above `ceiling` when counting stopped early.
+#' @noRd
+count_cliques_cpp <- function(i1, i2, n_v, min_size, ceiling) {
+    .Call(`_rcomplex_count_cliques_cpp`, i1, i2, n_v, min_size, ceiling)
+}
+
 #' Compute density threshold from a symmetric matrix
 #'
 #' Extracts the upper triangle (excluding diagonal) and finds the value at

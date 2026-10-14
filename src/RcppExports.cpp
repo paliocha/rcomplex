@@ -50,6 +50,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// count_cliques_cpp
+double count_cliques_cpp(Rcpp::IntegerVector i1, Rcpp::IntegerVector i2, int n_v, int min_size, double ceiling);
+RcppExport SEXP _rcomplex_count_cliques_cpp(SEXP i1SEXP, SEXP i2SEXP, SEXP n_vSEXP, SEXP min_sizeSEXP, SEXP ceilingSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type i1(i1SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type i2(i2SEXP);
+    Rcpp::traits::input_parameter< int >::type n_v(n_vSEXP);
+    Rcpp::traits::input_parameter< int >::type min_size(min_sizeSEXP);
+    Rcpp::traits::input_parameter< double >::type ceiling(ceilingSEXP);
+    rcpp_result_gen = Rcpp::wrap(count_cliques_cpp(i1, i2, n_v, min_size, ceiling));
+    return rcpp_result_gen;
+END_RCPP
+}
 // density_threshold_cpp
 double density_threshold_cpp(const arma::mat& mat, double density);
 RcppExport SEXP _rcomplex_density_threshold_cpp(SEXP matSEXP, SEXP densitySEXP) {
@@ -414,6 +429,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rcomplex_apply_clr_to_cor_cpp", (DL_FUNC) &_rcomplex_apply_clr_to_cor_cpp, 2},
     {"_rcomplex_build_coclassification_cpp", (DL_FUNC) &_rcomplex_build_coclassification_cpp, 3},
     {"_rcomplex_build_sparse_coclassification_cpp", (DL_FUNC) &_rcomplex_build_sparse_coclassification_cpp, 4},
+    {"_rcomplex_count_cliques_cpp", (DL_FUNC) &_rcomplex_count_cliques_cpp, 5},
     {"_rcomplex_density_threshold_cpp", (DL_FUNC) &_rcomplex_density_threshold_cpp, 2},
     {"_rcomplex_fe_hog_permutation_test_cpp", (DL_FUNC) &_rcomplex_fe_hog_permutation_test_cpp, 7},
     {"_rcomplex_find_cliques_cpp", (DL_FUNC) &_rcomplex_find_cliques_cpp, 15},

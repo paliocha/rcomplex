@@ -47,13 +47,18 @@ test_that("rcomplex() runs the pipeline and counts tiers", {
       "effect_size", "power"
     )
   )
+  # No call and no clades: no graph gives a clique.
   expect_identical(nrow(res$classification), 0L)
   expect_identical(as.data.frame(res), res$classification)
 
   syn <- drv_syn()
   res <- rcomplex(syn$expr, syn$ortho, seed = 1L)
-  tiers <- table(res$classification$classification)
-  expect_identical(c(tiers), c(complete_conserved = 3L))
+  cls <- res$classification
+  hogs <- table(cls$hog_class[!duplicated(cls$hog)])
+  expect_identical(hogs[["complete_conserved"]], 3L)
+  expect_identical(
+    sort(unique(cls$run[cls$classification == "complete_conserved"])), 1:2
+  )
 })
 
 
@@ -120,7 +125,7 @@ test_that("print() shows species, edges and tiers", {
   res$capped <- data.frame(hog = c("H001", "H002"))
   expect_output(
     print(res),
-    "cliques 3[^\n]*; 2 hogs over the clique budget, reported as blocks"
+    "cliques [^\n]*; 2 hogs over the clique budget, reported as blocks"
   )
   nets <- lapply(syn$expr, function(x) as_network(compute_network(x)$network))
   expect_snapshot(print(rcomplex(networks = nets, orthologs = syn$ortho)))
@@ -186,8 +191,9 @@ test_that("null = TRUE reports calls beside null calls", {
     names(res$classification_null), names(res$classification)
   )
   real <- s$tiers$tier == "complete_conserved"
-  expect_identical(s$tiers$cliques[real], 3L)
-  expect_identical(s$tiers$multiplicity[real], 3)
+  # Each complete clique is maximal on the strict and the loose graph.
+  expect_identical(s$tiers$cliques[real], 6L)
+  expect_identical(s$tiers$multiplicity[real], 6)
   expect_identical(s$tiers$hogs[real], 3L)
   expect_identical(s$tiers$patterns[real], 3L)
   expect_identical(
@@ -352,4 +358,113 @@ test_that("shared gene ids stay in their own species pair", {
   null <- n(res$edges_null)[names(real)]
   expect_true(all(null <= real * 1.05))
   expect_true(all(null >= real * 0.95))
+})
+
+
+# The driver's three gene graphs: strict, loose, and all tested pairs.
+
+# One gene per species in each hog; q holds one value per species pair,
+# in combn() order.
+tier_edges <- function(hog, sp, q) {
+  p <- utils::combn(sp, 2L)
+  data.frame(
+    gene1 = paste0(p[1L, ], "_", hog), gene2 = paste0(p[2L, ], "_", hog),
+    species1 = p[1L, ], species2 = p[2L, ], hog = hog, q_value = q
+  )
+}
+
+tier_cliques <- function(e, sp, clades = NULL) {
+  rcomplex:::.driver_cliques(e, sp, clades, alpha = 0.1, min_power = 0.8)
+}
+
+
+test_that("the loose graph gives partial_significant cliques", {
+  sp <- c("A", "B", "C", "D")
+  # AB AC AD BC BD CD: D joins A at q < 0.1 and B, C at q = 0.5
+  e <- tier_edges("H1", sp, c(0.01, 0.01, 0.01, 0.01, 0.5, 0.5))
+  g <- tier_cliques(e, sp)
+  cls <- g$classification
+  expect_identical(cls$run, 1:2)
+  expect_identical(cls$classification, c("unclassified", "partial_significant"))
+  expect_identical(cls$n_species, 3:4)
+  expect_identical(unique(cls$hog_class), "partial_significant")
+  expect_identical(g$cliques$run, 1:2)
+  expect_identical(g$cliques$alpha_graph, c(0.1, 0.9))
+})
+
+
+# Two clades, each complete within, every cross pair tested at q = 1
+# (H1); and a hog complete over all six species (H2).
+tier_two_clades <- function() {
+  sp <- c("A", "B", "C", "D", "E", "F")
+  p <- utils::combn(sp, 2L)
+  within <- (p[1L, ] %in% sp[1:3]) == (p[2L, ] %in% sp[1:3])
+  e <- rbind(
+    tier_edges("H1", sp, ifelse(within, 0.01, 1)),
+    tier_edges("H2", sp, 0.01)
+  )
+  clades <- list(one = sp[1:3], two = sp[4:6])
+  list(sp = sp, g = tier_cliques(e, sp, clades))
+}
+
+
+test_that("the all-tested graph gives differentiated cliques", {
+  cls <- tier_two_clades()$g$classification
+  h1 <- cls[cls$hog == "H1", ]
+  expect_identical(unique(h1$hog_class), "differentiated")
+  expect_identical(h1$classification[h1$run == 3L], "differentiated")
+  expect_false(any(h1$n_species[h1$run < 3L] == 6L))
+})
+
+
+test_that("a claimed hog gets no clique on the all-tested graph", {
+  g <- tier_two_clades()$g
+  cls <- g$classification
+  expect_identical(
+    unique(cls$hog_class[cls$hog == "H2"]), "complete_conserved"
+  )
+  expect_false(any(cls$run == 3L & cls$hog == "H2"))
+  run3 <- g$cliques$run == 3L
+  expect_identical(unique(g$cliques$hog[run3]), "H1")
+  expect_identical(unique(g$cliques$alpha_graph[run3]), Inf)
+  expect_identical(nrow(g$capped), 0L)
+})
+
+
+test_that("run and clique_id join the result tables", {
+  syn <- drv_syn()
+  res <- rcomplex(syn$expr, syn$ortho, seed = 1L)
+  cls <- res$classification
+  key <- function(x) paste(x$run, x$clique_id)
+  expect_true(all(key(cls) %in% key(res$cliques)))
+  expect_true(all(key(cls) %in% key(res$members)))
+  expect_identical(
+    names(res$cliques)[1:3], c("run", "alpha_graph", "clique_id")
+  )
+  expect_identical(names(res$members)[1:2], c("run", "alpha_graph"))
+  # Without clades there is no all-tested graph.
+  expect_identical(sort(unique(res$cliques$alpha_graph)), c(0.1, 0.9))
+  expect_false(any(cls$run == 3L))
+  res3 <- suppressMessages(rcomplex(syn$expr, syn$ortho,
+    clades = list(ab = c("SpA", "SpB")), seed = 1L
+  ))
+  expect_true(any(res3$cliques$run == 3L))
+  expect_true(any(res3$classification$run == 3L))
+  expect_output(print(res3), "at q < 0.9, [0-9,]+ on all tested pairs")
+  cl <- NULL
+  res2 <- rcomplex(syn$expr, syn$ortho, clades = cl, seed = 1L)
+  expect_output(print(res2), "graphs: [^\n]*at q < 0.9\n")
+  paths <- write_rcomplex(res, withr::local_tempdir())
+  back <- read.delim(paths[basename(paths) == "classification.tsv"])
+  expect_identical(back$run, cls$run)
+  back <- read.delim(paths[basename(paths) == "cliques.tsv"])
+  expect_identical(back$run, res$cliques$run)
+})
+
+
+test_that("the null run classifies three graphs", {
+  res <- rcomplex(drv_expr(), drv_ortho,
+    density = 0.1, null = TRUE, seed = 1L
+  )
+  expect_identical(names(res$classification_null)[1L], "run")
 })
