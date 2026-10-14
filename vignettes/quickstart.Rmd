@@ -83,7 +83,8 @@ twins. One clique stands for all their combinations. The line counts
 distinct cliques, and the count in brackets includes the combinations.
 
 Gene combinations can explode in a large hog. The clique search keeps
-at most `max_cliques` cliques per hog (default 100,000). A hog over it
+at most `max_cliques` cliques, or copy combinations, per hog (default
+100,000). A hog over it
 gives one row per group of wired species, with the best copy of each.
 `res$capped` lists these hogs.
 

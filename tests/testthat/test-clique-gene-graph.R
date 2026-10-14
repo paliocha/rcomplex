@@ -339,15 +339,15 @@ test_that("a hog over the budget is reported as species blocks", {
   expect_identical(nrow(g$cliques), 125L)
   expect_identical(nrow(g$capped), 0L)
   expect_named(g$capped, c(
-    "hog", "n_genes", "n_classes", "n_cliques_full", "n_blocks",
-    "search_complete"
+    "hog", "n_genes", "n_classes", "n_cliques_full", "n_combinations",
+    "n_blocks", "search_complete"
   ))
 
   expect_message(
     g50 <- gene_clique_graph(e, max_cliques = 50),
     paste(
-      "1 hogs exceeded `max_cliques` = 50 maximal cliques. Each is",
-      "reported as species blocks; see `\\$capped`."
+      "1 hogs exceeded `max_cliques` = 50 maximal cliques or copy",
+      "combinations. Each is reported as species blocks; see `\\$capped`."
     )
   )
   # One block, A + B + C, with the lightest copy of each species.
@@ -358,7 +358,7 @@ test_that("a hog over the budget is reported as species blocks", {
   expect_identical(g50$cliques$multiplicity, 1L)
   expect_identical(g50$capped, data.frame(
     hog = "H1", n_genes = 30L, n_classes = 30L, n_cliques_full = 125,
-    n_blocks = 1L, search_complete = TRUE
+    n_combinations = NA_real_, n_blocks = 1L, search_complete = TRUE
   ))
 
   # Issue #79: the same edges in another row order give the same result.
@@ -403,7 +403,8 @@ test_that("max_cliques = Inf changes nothing below the budget", {
 
 test_that("twins collapse before the budget counts", {
   # Twelve SP_E twins join every A, B and C gene: 125 cliques after the
-  # collapse, 1,500 before it.
+  # collapse, 1,500 before it. The budget also bounds the 1,500 copy
+  # combinations.
   e <- gcg_tri()
   abc <- e[e$species2 %in% c("SP_A", "SP_B", "SP_C"), ]
   g_abc <- unique(abc[c("gene1", "species1")])
@@ -417,7 +418,7 @@ test_that("twins collapse before the budget counts", {
     effect_size = 1
   )
   e <- rbind(e, tw[names(e)])
-  g <- suppressMessages(gene_clique_graph(e, max_cliques = 1e3))
+  g <- suppressMessages(gene_clique_graph(e, max_cliques = 1500))
   expect_identical(nrow(g$capped), 0L)
   expect_identical(nrow(g$cliques), 125L)
   expect_identical(sum(g$cliques$multiplicity), 1500L)
@@ -2326,4 +2327,57 @@ test_that("a count past ten times the budget is Inf", {
   expect_identical(g$capped$n_cliques_full, Inf)
   expect_identical(g$capped$n_blocks, 1L)
   expect_identical(nrow(g$cliques), 1L)
+})
+
+
+# Complete tripartite hog: n copies in each of three species, all twins.
+gcg_copies <- function(n, q = function(g1, g2) 0.01) {
+  gn <- lapply(c(a = "a", b = "b", c = "c"), function(p) paste0(p, 1:n))
+  pair <- function(x, y, s1, s2) {
+    expand.grid(
+      gene1 = x, gene2 = y, species1 = s1, species2 = s2,
+      stringsAsFactors = FALSE
+    )
+  }
+  pr <- rbind(
+    pair(gn$a, gn$b, "SP_A", "SP_B"), pair(gn$a, gn$c, "SP_A", "SP_C"),
+    pair(gn$b, gn$c, "SP_B", "SP_C")
+  )
+  transform(pr, hog = "H1", q_value = q(pr$gene1, pr$gene2))
+}
+
+
+test_that("the budget bounds copy combinations", {
+  e <- gcg_copies(50L)
+  expect_message(
+    g <- gene_clique_graph(e),
+    "maximal cliques or copy combinations"
+  )
+  expect_identical(g$capped$n_cliques_full, 1)
+  expect_identical(g$capped$n_combinations, 125000)
+  expect_identical(g$capped$n_blocks, 1L)
+  expect_identical(g$cliques$multiplicity, 125000L)
+  # Under the budget the clique stays as it is.
+  g_all <- gene_clique_graph(e, max_cliques = 125000)
+  expect_identical(nrow(g_all$capped), 0L)
+  expect_identical(g_all$cliques$multiplicity, 125000L)
+})
+
+
+test_that("a block is one combination for the classifier", {
+  # a1 is significant against every partner, the other copies are not,
+  # so the twin class splits when the clique is enumerated.
+  e <- gcg_copies(3L, function(g1, g2) ifelse(g1 == "a1", 0.01, 0.5))
+  sp <- c("SP_A", "SP_B", "SP_C")
+  open <- gene_clique_graph(e, alpha_graph = 0.9)
+  expect_gt(nrow(classify_gene_cliques(open, e, sp)), 1L)
+  blk <- suppressMessages(
+    gene_clique_graph(e, alpha_graph = 0.9, max_cliques = 10)
+  )
+  expect_identical(blk$capped$n_combinations, 27)
+  cls <- classify_gene_cliques(blk, e, sp)
+  expect_identical(nrow(cls), nrow(blk$cliques))
+  expect_identical(cls$variant, 1L)
+  expect_identical(cls$multiplicity, 27L)
+  expect_true(cls$capped)
 })

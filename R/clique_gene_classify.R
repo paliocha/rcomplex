@@ -182,6 +182,9 @@
 #'   stands for gets its tier, so tiers are exact. `multiplicity` counts
 #'   those combinations; `mean_q`, `max_q` and `mean_effect_size`
 #'   summarise them as in [gene_clique_graph()]. Most cliques have one variant.
+#'   A species block is one combination. It never splits, so its
+#'   `variant` is 1, and it keeps the `multiplicity` of
+#'   [gene_clique_graph()].
 #'   The two floor diagnostics are also attributes, alongside
 #'   `n_species_total`, `n_pairs_total`, `n_within_pairs`,
 #'   `n_cross_pairs`, `cross_max`, `alpha_call`, `alpha_graph` and
@@ -382,6 +385,8 @@ classify_gene_cliques.default <- function(cliques, edges, species,
   out$hog_class <- .gcg_tiers[best[hg]]
   out$variant <- mem$variant %||% rep(1L, n_k)
   out$multiplicity <- mem$mult %||% rep(1L, n_k)
+  b <- match(mem$out_ids, mem$bk_id)
+  out$multiplicity[!is.na(b)] <- mem$bk_mult[b[!is.na(b)]]
   out$capped <- out$hog %in% mem$capped
   .gcg_class_attrs(.gcg_runs(out, mem), const)
 }
@@ -716,8 +721,9 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 #'   HOGs; `out_ids`, the clique ids to report, in order of first
 #'   appearance. For a list of runs also `run` and `local`, the run and
 #'   its own id of each offset id. `capped`, the HOGs that any run
-#'   reported as species blocks. With twin classes also `tc`, the
-#'   class of each member (`NA` for a single gene), and `tgenes`,
+#'   reported as species blocks; `bk_id` and `bk_mult`, the offset ids
+#'   and graph multiplicity of the block cliques. With twin classes also
+#'   `tc`, the class of each member (`NA` for a single gene), and `tgenes`,
 #'   `thog`, `tsp`: the genes, HOG and species of each class.
 #' @noRd
 .gcg_members <- function(x) {
@@ -774,6 +780,14 @@ classify_gene_cliques.default <- function(cliques, edges, species,
     local = if (!one) sequence(top),
     capped = unlist(lapply(runs, function(r) as.character(r$capped$hog)))
   )
+  # Blocks keep the multiplicity the graph reported.
+  bk <- lapply(seq_along(runs), function(i) {
+    cl <- runs[[i]]$cliques
+    b <- which(cl$hog %in% runs[[i]]$capped$hog)
+    list(id = cl$clique_id[b] + off[[i]], mult = cl$multiplicity[b])
+  })
+  out$bk_id <- unlist(lapply(bk, `[[`, "id"))
+  out$bk_mult <- unlist(lapply(bk, `[[`, "mult"))
   n_cls <- vapply(cp, function(z) length(z$genes), 1L)
   if (sum(n_cls) > 0L) {
     # Class ids of later runs are offset, so the runs stay apart.
@@ -801,13 +815,17 @@ classify_gene_cliques.default <- function(cliques, edges, species,
 .gcg_copies <- function(run, m) {
   tc <- rep(NA_integer_, nrow(m))
   r <- which(m$n_copies > 1L)
+  cl <- run$cliques
+  hog <- as.character(cl$hog)[match(m$clique_id[r], cl$clique_id)]
+  # A block is one combination: its members stand for themselves.
+  blk <- hog %in% run$capped$hog
+  r <- r[!blk]
+  hog <- hog[!blk]
   if (length(r) == 0L) {
     return(list(
       tc = tc, genes = list(), hog = character(0), sp = character(0)
     ))
   }
-  cl <- run$cliques
-  hog <- as.character(cl$hog)[match(m$clique_id[r], cl$clique_id)]
   sp <- as.character(m$species[r])
   key <- paste(hog, sp, m$gene[r], sep = .gcg_sep)
   u <- unique(key)

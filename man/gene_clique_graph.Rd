@@ -39,10 +39,10 @@ the results is the intended way to feed
 at one threshold need not be maximal at another. Pass the runs to
 it as a list.}
 
-\item{max_cliques}{Largest number of maximal cliques one hog may
-produce. A hog above it is reported as species blocks: one
-representative copy per species. Default 1e5; \code{Inf} keeps every
-clique.}
+\item{max_cliques}{Largest number of maximal cliques, and of copy
+combinations (summed \code{multiplicity}), one hog may produce. A hog
+above it is reported as species blocks: one representative copy per
+species. Default 1e5; \code{Inf} keeps every clique.}
 }
 \value{
 A list of class \code{gene_cliques} with four tables.
@@ -83,7 +83,9 @@ and \code{representative}. It has no rows when no two genes are twins.
 \code{capped} has one row per hog over the clique budget: \code{hog},
 \code{n_genes}, \code{n_classes} (its twin classes), \code{n_cliques_full} (its
 maximal cliques; counting stops at ten times \code{max_cliques}; \code{Inf}
-means at least that many), \code{n_blocks} (the rows it gives in \code{cliques}) and
+means at least that many), \code{n_combinations} (the summed
+\code{multiplicity} of its cliques; \code{NA} when the count stopped first),
+\code{n_blocks} (the rows it gives in \code{cliques}) and
 \code{search_complete} (\code{FALSE} when a block search hit its step
 budget). It has no rows when no hog is over the budget.
 The two floor diagnostics, plus \code{alpha_graph}, \code{min_size} and
@@ -126,7 +128,8 @@ order.
 Paralogs multiply cliques, so a hog may produce millions of them. A
 cap on genes per species does not bound that count: one hog with 76
 twin classes gave 2.4 million. A hog over \code{max_cliques}, counted after
-the twin collapse, is conserved as a block. Which copy pairs with
+the twin collapse, is conserved as a block. So is a hog whose cliques
+stand for more than \code{max_cliques} copy combinations. Which copy pairs with
 which stays unresolved. So the hog gives one row per maximal species
 clique, with the best copy of each species. EVOTREE listed every
 clique; the wood data never reach the budget.

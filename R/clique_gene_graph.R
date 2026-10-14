@@ -64,7 +64,8 @@
 .gcg_no_capped <- function() {
   data.frame(
     hog = character(0), n_genes = integer(0), n_classes = integer(0),
-    n_cliques_full = numeric(0), n_blocks = integer(0),
+    n_cliques_full = numeric(0), n_combinations = numeric(0),
+    n_blocks = integer(0),
     search_complete = logical(0)
   )
 }
@@ -279,7 +280,8 @@
 #' Paralogs multiply cliques, so a hog may produce millions of them. A
 #' cap on genes per species does not bound that count: one hog with 76
 #' twin classes gave 2.4 million. A hog over `max_cliques`, counted after
-#' the twin collapse, is conserved as a block. Which copy pairs with
+#' the twin collapse, is conserved as a block. So is a hog whose cliques
+#' stand for more than `max_cliques` copy combinations. Which copy pairs with
 #' which stays unresolved. So the hog gives one row per maximal species
 #' clique, with the best copy of each species. EVOTREE listed every
 #' clique; the wood data never reach the budget.
@@ -318,10 +320,10 @@
 #'   [classify_gene_cliques()], since a clique that is maximal
 #'   at one threshold need not be maximal at another. Pass the runs to
 #'   it as a list.
-#' @param max_cliques Largest number of maximal cliques one hog may
-#'   produce. A hog above it is reported as species blocks: one
-#'   representative copy per species. Default 1e5; `Inf` keeps every
-#'   clique.
+#' @param max_cliques Largest number of maximal cliques, and of copy
+#'   combinations (summed `multiplicity`), one hog may produce. A hog
+#'   above it is reported as species blocks: one representative copy per
+#'   species. Default 1e5; `Inf` keeps every clique.
 #'
 #' @return A list of class `gene_cliques` with four tables.
 #'   `cliques` has one row per clique:
@@ -361,7 +363,9 @@
 #'   `capped` has one row per hog over the clique budget: `hog`,
 #'   `n_genes`, `n_classes` (its twin classes), `n_cliques_full` (its
 #'   maximal cliques; counting stops at ten times `max_cliques`; `Inf`
-#'   means at least that many), `n_blocks` (the rows it gives in `cliques`) and
+#'   means at least that many), `n_combinations` (the summed
+#'   `multiplicity` of its cliques; `NA` when the count stopped first),
+#'   `n_blocks` (the rows it gives in `cliques`) and
 #'   `search_complete` (`FALSE` when a block search hit its step
 #'   budget). It has no rows when no hog is over the budget.
 #'   The two floor diagnostics, plus `alpha_graph`, `min_size` and
@@ -532,39 +536,50 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     em <- matrix(0L, n_v, n_v)
     em[cbind(i1, i2)] <- em[cbind(i2, i1)] <- seq_along(i1)
     sp_h <- match(node_sp, unique(node_sp))
-    # Clique budget: a hog over it gives one block per species clique.
-    # The count stops at ten times the budget; Inf means at least that.
+    # Clique budget: a hog over it, in maximal cliques or in copy
+    # combinations, gives one block per species clique. The count stops
+    # at ten times the budget; Inf means at least that.
     n_full <- 0
     if (is.finite(max_cliques)) {
       n_full <- count_cliques_cpp(i1, i2, n_v, min_size, 10 * max_cliques)
       if (n_full > 10 * max_cliques) n_full <- Inf
     }
-    if (n_full > max_cliques) {
+    n_comb <- NA_real_
+    out_h <- list()
+    if (n_full <= max_cliques) {
+      # A few hogs hold most cliques. One call per start vertex keeps one
+      # piece in memory at a time; the pieces are disjoint and together
+      # complete only when every vertex id starts one. Past the budget in
+      # combinations, the pieces are only summed.
+      n_comb <- 0
+      starts <- if (n_q >= 40L) seq_len(n_v) else list(NULL)
+      for (v in starts) {
+        cl <- igraph::max_cliques(g, min = min_size, subset = v)
+        for (b in split(seq_along(cl), ceiling(seq_along(cl) / 2e5))) {
+          st <- .gcg_clique_stats(cl[b], em, eq, ee, es, sp_h, nodes, xq, nc)
+          n_comb <- n_comb + sum(st$mu)
+          if (n_comb > max_cliques) {
+            out_h <- NULL
+          } else {
+            st$hog <- h
+            out_h[[length(out_h) + 1L]] <- st
+          }
+        }
+      }
+    }
+    if (n_full > max_cliques || n_comb > max_cliques) {
       bk <- .gcg_blocks(
         i1, i2, eq, ee, sp_lv[node_sp], all_gn[nodes], min_size
       )
       capped[[length(capped) + 1L]] <- list(
         hog = h, n_genes = n_v, n_classes = n_q, n_full = n_full,
-        n_blocks = length(bk$cl), complete = bk$complete
+        n_comb = n_comb, n_blocks = length(bk$cl), complete = bk$complete
       )
+      out_h <- NULL
       if (length(bk$cl) > 0L) {
         st <- .gcg_clique_stats(bk$cl, em, eq, ee, es, sp_h, nodes, xq, nc)
         st$hog <- h
-        blk[[k]] <- list(st)
-      }
-      next
-    }
-    # A few hogs hold most cliques. One call per start vertex keeps one
-    # piece in memory at a time; the pieces are disjoint and together
-    # complete only when every vertex id starts one.
-    starts <- if (n_q >= 40L) seq_len(n_v) else list(NULL)
-    out_h <- list()
-    for (v in starts) {
-      cl <- igraph::max_cliques(g, min = min_size, subset = v)
-      for (b in split(seq_along(cl), ceiling(seq_along(cl) / 2e5))) {
-        st <- .gcg_clique_stats(cl[b], em, eq, ee, es, sp_h, nodes, xq, nc)
-        st$hog <- h
-        out_h[[length(out_h) + 1L]] <- st
+        out_h <- list(st)
       }
     }
     blk[[k]] <- out_h
@@ -576,14 +591,15 @@ gene_clique_graph.default <- function(edges, min_size = 3L,
     cp_tab <- data.frame(
       hog = per("hog", ""), n_genes = per("n_genes", 1L),
       n_classes = per("n_classes", 1L), n_cliques_full = per("n_full", 1),
-      n_blocks = per("n_blocks", 1L), search_complete = per("complete", NA)
+      n_combinations = per("n_comb", 1), n_blocks = per("n_blocks", 1L),
+      search_complete = per("complete", NA)
     )
     message(
       "gene_clique_graph: ", nrow(cp_tab), " hogs exceeded ",
       "`max_cliques` = ", format(max_cliques, big.mark = ",",
         scientific = FALSE
-      ), " maximal cliques. Each is reported as species blocks; ",
-      "see `$capped`."
+      ), " maximal cliques or copy combinations. Each is reported as ",
+      "species blocks; see `$capped`."
     )
     rm(capped)
   }

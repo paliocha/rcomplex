@@ -1,9 +1,15 @@
 # rcomplex (development version)
 
-- `gene_clique_graph()` counts a hog's maximal cliques with its own
-  counter, which stops at ten times `max_cliques`. `n_cliques_full` is
-  then `Inf`. Before, igraph counted every clique, and one dense hog of
-  the 8-species leaf data did not finish in 16 minutes.
+- `gene_clique_graph()` budgets copy combinations as well as maximal
+  cliques. A hog whose cliques stand for more than `max_cliques`
+  combinations (summed `multiplicity`) is reported as species blocks.
+  `capped` gains `n_combinations`. `classify_gene_cliques()` reads a
+  block as one combination: it never splits into variants. The clique
+  count stops at ten times `max_cliques`; `n_cliques_full` is then
+  `Inf`. Before, igraph counted every clique, and one dense hog of the
+  8-species leaf data did not finish in 16 minutes. On that data,
+  `rcomplex()`'s three graphs now take 4.5 min and 11 GB, with 17, 37
+  and 150 hogs as blocks. The wood data have no block.
 - `rcomplex()` now lists cliques on three gene graphs, as the published
   workflow did. The strict graph holds edges at `q_value < alpha`, the
   loose graph edges at `q_value < 0.9`. The third graph holds every

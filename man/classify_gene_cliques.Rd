@@ -113,6 +113,9 @@ choice of split, numbered by \code{variant}. Every combination a row
 stands for gets its tier, so tiers are exact. \code{multiplicity} counts
 those combinations; \code{mean_q}, \code{max_q} and \code{mean_effect_size}
 summarise them as in \code{\link[=gene_clique_graph]{gene_clique_graph()}}. Most cliques have one variant.
+A species block is one combination. It never splits, so its
+\code{variant} is 1, and it keeps the \code{multiplicity} of
+\code{\link[=gene_clique_graph]{gene_clique_graph()}}.
 The two floor diagnostics are also attributes, alongside
 \code{n_species_total}, \code{n_pairs_total}, \code{n_within_pairs},
 \code{n_cross_pairs}, \code{cross_max}, \code{alpha_call}, \code{alpha_graph} and
