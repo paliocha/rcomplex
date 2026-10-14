@@ -68,12 +68,17 @@ A list of class \code{rcomplex}:
 \code{sign} column: the sign of every network.}
 \item{cliques, members, twins}{The three tables of
 \code{\link[=gene_clique_graph]{gene_clique_graph()}}: one row per clique, one row per clique
-member, and one row per collapsed twin gene.}
-\item{capped}{One row per hog over the clique budget of
-\code{\link[=gene_clique_graph]{gene_clique_graph()}}. Its cliques are species blocks. Usually
-empty.}
+member, and one row per collapsed twin gene. The tables of the
+three graphs are stacked. \code{run} numbers the graph: 1 strict, 2
+loose, 3 all tested pairs. \code{alpha_graph} holds its cut: \code{alpha},
+0.9 or \code{Inf}. \code{clique_id} counts within a run, so \code{run} and
+\code{clique_id} together name a clique.}
+\item{capped}{One row per hog and run over the clique budget of
+\code{\link[=gene_clique_graph]{gene_clique_graph()}}, with \code{run} and \code{alpha_graph}. Its cliques
+are species blocks. Usually empty.}
 \item{classification}{One row per clique, from
-\code{\link[=classify_gene_cliques]{classify_gene_cliques()}}.}
+\code{\link[=classify_gene_cliques]{classify_gene_cliques()}}. Its \code{run} and \code{clique_id} join
+\code{cliques} and \code{members}.}
 \item{modules, preservation}{With \code{modules = TRUE}: the
 \code{\link[=detect_modules]{detect_modules()}} results by species, and the
 \code{\link[=preservation_paired]{preservation_paired()}} result.}
@@ -91,9 +96,19 @@ classifies the gene cliques. Give it expression or networks, plus
 orthologs.
 }
 \details{
-Cliques use the edges with \code{q_value < alpha} and have at least
-\verb{min(3, number of species)} genes. Rank edges are classified at
-\code{min_power = 0.9}, hypergeometric edges at 0.8.
+The driver lists cliques on three gene graphs. The strict graph holds
+the edges with \code{q_value < alpha}. It feeds \code{complete_conserved},
+\code{lineage_specific}, \code{partial_present} and \code{trait_specific}. The loose
+graph holds the edges with \code{q_value < 0.9}. It feeds
+\code{partial_significant}. The third graph holds every tested pair. It
+covers only the hogs with no complete or partial tier on the first two
+graphs. It feeds \code{differentiated}, as does the loose graph where every
+cross pair has \code{q_value < 0.9}. \code{\link[=classify_gene_cliques]{classify_gene_cliques()}} classifies
+the three graphs together, so \code{hog_class} reads all of them. A clique
+maximal on two graphs appears once for each.
+
+Every clique has at least \verb{min(3, number of species)} genes. Rank
+edges are classified at \code{min_power = 0.9}, hypergeometric edges at 0.8.
 
 \code{density} and \code{sign} apply only to networks built from \code{expr}.
 \code{method = "rank"} and \code{block} need \code{expr}. The rank test calibrates
@@ -119,8 +134,9 @@ false-call rate.
 The rate is \code{NA} for a species pair without calls. The tier table
 gains \code{cliques_null}: the null cliques per tier.
 
-\code{print()} shows, per species, the genes, the samples, the density and
-\code{r_threshold} from \code{\link[=compute_network]{compute_network()}}: the weakest correlation that
+\code{print()} counts the cliques of each graph. It shows, per species, the
+genes, the samples, the density and \code{r_threshold} from
+\code{\link[=compute_network]{compute_network()}}: the weakest correlation that
 passed the density threshold. The same density needs a stronger
 correlation at few samples. A network from \code{\link[=as_network]{as_network()}} has no
 correlation and shows \verb{r ?}, as does a network without edges.

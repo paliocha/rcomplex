@@ -39,12 +39,17 @@
 #'       `sign` column: the sign of every network.}
 #'     \item{cliques, members, twins}{The three tables of
 #'       [gene_clique_graph()]: one row per clique, one row per clique
-#'       member, and one row per collapsed twin gene.}
-#'     \item{capped}{One row per hog over the clique budget of
-#'       [gene_clique_graph()]. Its cliques are species blocks. Usually
-#'       empty.}
+#'       member, and one row per collapsed twin gene. The tables of the
+#'       three graphs are stacked. `run` numbers the graph: 1 strict, 2
+#'       loose, 3 all tested pairs. `alpha_graph` holds its cut: `alpha`,
+#'       0.9 or `Inf`. `clique_id` counts within a run, so `run` and
+#'       `clique_id` together name a clique.}
+#'     \item{capped}{One row per hog and run over the clique budget of
+#'       [gene_clique_graph()], with `run` and `alpha_graph`. Its cliques
+#'       are species blocks. Usually empty.}
 #'     \item{classification}{One row per clique, from
-#'       [classify_gene_cliques()].}
+#'       [classify_gene_cliques()]. Its `run` and `clique_id` join
+#'       `cliques` and `members`.}
 #'     \item{modules, preservation}{With `modules = TRUE`: the
 #'       [detect_modules()] results by species, and the
 #'       [preservation_paired()] result.}
@@ -56,9 +61,19 @@
 #'   `as.data.frame()` returns the classification.
 #'
 #' @details
-#' Cliques use the edges with `q_value < alpha` and have at least
-#' `min(3, number of species)` genes. Rank edges are classified at
-#' `min_power = 0.9`, hypergeometric edges at 0.8.
+#' The driver lists cliques on three gene graphs. The strict graph holds
+#' the edges with `q_value < alpha`. It feeds `complete_conserved`,
+#' `lineage_specific`, `partial_present` and `trait_specific`. The loose
+#' graph holds the edges with `q_value < 0.9`. It feeds
+#' `partial_significant`. The third graph holds every tested pair. It
+#' covers only the hogs with no complete or partial tier on the first two
+#' graphs. It feeds `differentiated`, as does the loose graph where every
+#' cross pair has `q_value < 0.9`. [classify_gene_cliques()] classifies
+#' the three graphs together, so `hog_class` reads all of them. A clique
+#' maximal on two graphs appears once for each.
+#'
+#' Every clique has at least `min(3, number of species)` genes. Rank
+#' edges are classified at `min_power = 0.9`, hypergeometric edges at 0.8.
 #'
 #' `density` and `sign` apply only to networks built from `expr`.
 #' `method = "rank"` and `block` need `expr`. The rank test calibrates
@@ -84,8 +99,9 @@
 #' The rate is `NA` for a species pair without calls. The tier table
 #' gains `cliques_null`: the null cliques per tier.
 #'
-#' `print()` shows, per species, the genes, the samples, the density and
-#' `r_threshold` from [compute_network()]: the weakest correlation that
+#' `print()` counts the cliques of each graph. It shows, per species, the
+#' genes, the samples, the density and `r_threshold` from
+#' [compute_network()]: the weakest correlation that
 #' passed the density threshold. The same density needs a stronger
 #' correlation at few samples. A network from [as_network()] has no
 #' correlation and shows \verb{r ?}, as does a network without edges.
@@ -149,14 +165,9 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   nulls <- if (method == "rank") .driver_nulls(xs, networks, block, n_cores)
   edges <- .driver_edges(networks, ortho, method, nulls, n_cores, sign)
   cliques <- function(e) {
-    g <- gene_clique_graph(e,
-      min_size = min(3L, length(sp)), alpha_graph = alpha
-    )
-    g$classification <- classify_gene_cliques(g, e, sp,
-      clades = clades, alpha_call = alpha,
+    .driver_cliques(e, sp, clades, alpha,
       min_power = if (method == "rank") 0.9 else 0.8
     )
-    g
   }
   g <- cliques(edges)
   res <- list(
@@ -181,6 +192,51 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   }
   res$call <- match.call()
   structure(res, class = "rcomplex")
+}
+
+
+#' Cliques of three gene graphs and their classification
+#'
+#' The strict graph holds edges with `q_value < alpha`, the loose graph
+#' edges with `q_value < 0.9`. The third graph holds every tested pair,
+#' but only of hogs that the first two leave without a complete or
+#' partial tier. The tables of the three runs are stacked with `run` and
+#' `alpha_graph` columns.
+#' @noRd
+.driver_cliques <- function(e, sp, clades, alpha, min_power) {
+  k <- min(3L, length(sp))
+  classify <- function(runs) {
+    classify_gene_cliques(runs, e, sp,
+      clades = clades, alpha_call = alpha, min_power = min_power
+    )
+  }
+  runs <- list(
+    gene_clique_graph(e, min_size = k, alpha_graph = alpha),
+    gene_clique_graph(e, min_size = k, alpha_graph = 0.9)
+  )
+  first <- classify(runs)
+  claim <- c("complete_conserved", "partial_significant", "partial_present")
+  claimed <- first$hog[first$hog_class %in% claim]
+  rm(first)
+  runs[[3L]] <- gene_clique_graph(e[!e$hog %in% claimed, , drop = FALSE],
+    min_size = k, alpha_graph = Inf
+  )
+  a_graph <- c(alpha, 0.9, Inf)
+  stack <- function(f) {
+    do.call(rbind, lapply(1:3, function(i) {
+      t <- runs[[i]][[f]]
+      cbind(
+        run = rep(i, nrow(t)), alpha_graph = rep(a_graph[i], nrow(t)), t
+      )
+    }))
+  }
+  out <- list(classification = classify(runs))
+  # Each table leaves the runs as it is stacked, to bound the peak memory.
+  for (f in c("cliques", "members", "twins", "capped")) {
+    out[[f]] <- stack(f)
+    for (i in 1:3) runs[[i]][[f]] <- NULL
+  }
+  out
 }
 
 
@@ -313,6 +369,12 @@ print.rcomplex <- function(x, ...) {
     alpha, "\n",
     sep = ""
   )
+  n_run <- format(tabulate(x$cliques$run, 3L), big.mark = ",", trim = TRUE)
+  cat(
+    "  graphs: ", n_run[1L], " cliques at q < ", alpha, ", ", n_run[2L],
+    " at q < 0.9, ", n_run[3L], " on all tested pairs\n",
+    sep = ""
+  )
   cat("  cliques ", big(nrow(cls)), sep = "")
   n_all <- sum(as.numeric(cls$multiplicity))
   if (n_all > nrow(cls)) {
@@ -321,7 +383,7 @@ print.rcomplex <- function(x, ...) {
   if (length(tiers) > 0L) {
     cat(":", paste(names(tiers), big(as.vector(tiers)), collapse = ", "))
   }
-  n_cap <- nrow(x$capped) %||% 0L
+  n_cap <- length(unique(x$capped$hog))
   if (n_cap > 0L) {
     cat("; ", big(n_cap), " hogs over the clique budget, reported as blocks",
       sep = ""

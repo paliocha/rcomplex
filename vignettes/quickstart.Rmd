@@ -71,6 +71,11 @@ The header lists, per species, the genes, the samples and the density.
 The value after "r >=" is the weakest correlation that became an edge. At 20 samples,
 a correlation of 0.3 is weak evidence. Read this value first.
 
+The "graphs" line counts the cliques on three gene graphs. The strict
+graph holds the calls at `q_value < 0.1`. The loose graph holds the
+edges at `q_value < 0.9`. The third graph holds every tested pair, for
+the hogs the first two leave without a complete or partial tier.
+
 The last line counts the cliques by tier. A clique is a set of genes,
 one per species, that are all co-expressed. A hog with paralogs gives
 one clique per gene combination. Paralogs with the same partners are
@@ -113,7 +118,9 @@ A low `power` means a non-significant pair is weak evidence of
 divergence.
 
 `res$classification` has one row per clique. `as.data.frame(res)`
-returns the same table.
+returns the same table. Its `run` column names the graph of the clique.
+`partial_significant` comes from the loose graph. `differentiated`
+comes mostly from the third graph and needs `clades`.
 
 ```{r tiers}
 table(as.data.frame(res)$classification)

@@ -125,7 +125,9 @@ Applies to everything a user reads: roxygen, README, quickstart, messages.
   `classify_gene_cliques()` runs a tier waterfall with thresholds from
   `length(species)`; `clades` and home clades set the specificity and
   divergence tiers. It takes the unfiltered edge table, because a failed
-  test is negative evidence only if it had `power`.
+  test is negative evidence only if it had `power`. `rcomplex()` runs
+  three gene graphs (at `alpha`, at 0.9, and every tested pair of the
+  unclaimed hogs) and classifies them together; `run` names the graph.
 - **Trait level.** `preservation_matrix_test()` reads `Zsummary_std` from
   every contrast of `all_species_pairs()`. It reports `p_free` and
   `p_blocked`; their gap shows phylogenetic confounding.

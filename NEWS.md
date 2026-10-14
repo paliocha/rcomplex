@@ -1,5 +1,20 @@
 # rcomplex (development version)
 
+- `rcomplex()` now lists cliques on three gene graphs, as the published
+  workflow did. The strict graph holds edges at `q_value < alpha`, the
+  loose graph edges at `q_value < 0.9`. The third graph holds every
+  tested pair of the hogs with no complete or partial tier on the first
+  two. One classification covers all three, so `partial_significant`
+  and `differentiated` now appear. `cliques`, `members`, `twins` and
+  `capped` stack the three runs and gain `run` and `alpha_graph`;
+  `(run, clique_id)` joins them to `classification`. `print()` counts
+  the cliques of each graph. A clique maximal on two graphs appears
+  once for each, so clique counts in `summary()` grow. On the wood data
+  (clades angiosperm, conifer, pinus), hogs per tier move from before to after: complete_conserved 938 to
+  938, partial_significant 0 to 517, partial_present 247 to 227,
+  differentiated 0 to 1,282, lineage_specific 2,973 to 2,973,
+  trait_specific 1,433 to 1,099, underpowered 511 to 551, unclassified
+  2,701 to 6,357.
 - `gene_clique_graph()` replaces the 10-copies-per-species cap by a
   clique budget, `max_cliques = 1e5` per hog. Twins collapse first. A
   hog over the budget is reported as species blocks: one row per group
