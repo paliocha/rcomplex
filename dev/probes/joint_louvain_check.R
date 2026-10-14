@@ -142,7 +142,7 @@ stopifnot(
 )
 
 # ---- 4. Wood, full networks of the 0.4.1 run, one run at lambda = 1 ----
-if (identical(commandArgs(TRUE)[1], "wood")) {
+if ("wood" %in% commandArgs(TRUE)) {
   w <- readRDS(file.path(REPO, "prepare_data/cache/snr/data.rds"))
   t0 <- Sys.time()
   dw <- jl$jl_data(w$nets, w$ortho[, c("species", "gene", "hog")])
