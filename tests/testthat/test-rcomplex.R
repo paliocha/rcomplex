@@ -47,9 +47,8 @@ test_that("rcomplex() runs the pipeline and counts tiers", {
       "effect_size", "power"
     )
   )
-  # No call: only the all-tested graph gives cliques, all unclassified.
-  expect_identical(unique(res$classification$run), 3L)
-  expect_identical(unique(res$classification$classification), "unclassified")
+  # No call and no clades: no graph gives a clique.
+  expect_identical(nrow(res$classification), 0L)
   expect_identical(as.data.frame(res), res$classification)
 
   syn <- drv_syn()
@@ -443,7 +442,14 @@ test_that("run and clique_id join the result tables", {
     names(res$cliques)[1:3], c("run", "alpha_graph", "clique_id")
   )
   expect_identical(names(res$members)[1:2], c("run", "alpha_graph"))
-  expect_identical(sort(unique(res$cliques$alpha_graph)), c(0.1, 0.9, Inf))
+  # Without clades there is no all-tested graph.
+  expect_identical(sort(unique(res$cliques$alpha_graph)), c(0.1, 0.9))
+  expect_false(any(cls$run == 3L))
+  res3 <- suppressMessages(rcomplex(syn$expr, syn$ortho,
+    clades = list(ab = c("SpA", "SpB")), seed = 1L
+  ))
+  expect_true(any(res3$cliques$run == 3L))
+  expect_true(any(res3$classification$run == 3L))
   paths <- write_rcomplex(res, withr::local_tempdir())
   back <- read.delim(paths[basename(paths) == "classification.tsv"])
   expect_identical(back$run, cls$run)

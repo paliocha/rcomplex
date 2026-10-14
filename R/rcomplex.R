@@ -70,7 +70,8 @@
 #' graphs. It feeds `differentiated`, as does the loose graph where every
 #' cross pair has `q_value < 0.9`. [classify_gene_cliques()] classifies
 #' the three graphs together, so `hog_class` reads all of them. A clique
-#' maximal on two graphs appears once for each.
+#' maximal on two graphs appears once for each. The third graph is built
+#' only with `clades`, since only the clade tiers read it.
 #'
 #' Every clique has at least `min(3, number of species)` genes. Rank
 #' edges are classified at `min_power = 0.9`, hypergeometric edges at 0.8.
@@ -198,10 +199,10 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
 #' Cliques of three gene graphs and their classification
 #'
 #' The strict graph holds edges with `q_value < alpha`, the loose graph
-#' edges with `q_value < 0.9`. The third graph holds every tested pair,
-#' but only of hogs that the first two leave without a complete or
-#' partial tier. The tables of the three runs are stacked with `run` and
-#' `alpha_graph` columns.
+#' edges with `q_value < 0.9`. With `clades`, the third graph holds every
+#' tested pair, but only of hogs that the first two leave without a
+#' complete or partial tier. The tables of the runs are stacked with
+#' `run` and `alpha_graph` columns.
 #' @noRd
 .driver_cliques <- function(e, sp, clades, alpha, min_power) {
   k <- min(3L, length(sp))
@@ -214,16 +215,19 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     gene_clique_graph(e, min_size = k, alpha_graph = alpha),
     gene_clique_graph(e, min_size = k, alpha_graph = 0.9)
   )
-  first <- classify(runs)
-  claim <- c("complete_conserved", "partial_significant", "partial_present")
-  claimed <- first$hog[first$hog_class %in% claim]
-  rm(first)
-  runs[[3L]] <- gene_clique_graph(e[!e$hog %in% claimed, , drop = FALSE],
-    min_size = k, alpha_graph = Inf
-  )
+  # Without clades no tier reads the all-tested graph.
+  if (!is.null(clades)) {
+    first <- classify(runs)
+    claim <- c("complete_conserved", "partial_significant", "partial_present")
+    claimed <- first$hog[first$hog_class %in% claim]
+    rm(first)
+    runs[[3L]] <- gene_clique_graph(e[!e$hog %in% claimed, , drop = FALSE],
+      min_size = k, alpha_graph = Inf
+    )
+  }
   a_graph <- c(alpha, 0.9, Inf)
   stack <- function(f) {
-    do.call(rbind, lapply(1:3, function(i) {
+    do.call(rbind, lapply(seq_along(runs), function(i) {
       t <- runs[[i]][[f]]
       cbind(
         run = rep(i, nrow(t)), alpha_graph = rep(a_graph[i], nrow(t)), t
@@ -234,7 +238,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   # Each table leaves the runs as it is stacked, to bound the peak memory.
   for (f in c("cliques", "members", "twins", "capped")) {
     out[[f]] <- stack(f)
-    for (i in 1:3) runs[[i]][[f]] <- NULL
+    for (i in seq_along(runs)) runs[[i]][[f]] <- NULL
   }
   out
 }
@@ -372,7 +376,9 @@ print.rcomplex <- function(x, ...) {
   n_run <- format(tabulate(x$cliques$run, 3L), big.mark = ",", trim = TRUE)
   cat(
     "  graphs: ", n_run[1L], " cliques at q < ", alpha, ", ", n_run[2L],
-    " at q < 0.9, ", n_run[3L], " on all tested pairs\n",
+    " at q < 0.9",
+    if (!is.null(x$call$clades)) c(", ", n_run[3L], " on all tested pairs"),
+    "\n",
     sep = ""
   )
   cat("  cliques ", big(nrow(cls)), sep = "")

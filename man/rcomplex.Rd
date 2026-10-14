@@ -105,7 +105,8 @@ covers only the hogs with no complete or partial tier on the first two
 graphs. It feeds \code{differentiated}, as does the loose graph where every
 cross pair has \code{q_value < 0.9}. \code{\link[=classify_gene_cliques]{classify_gene_cliques()}} classifies
 the three graphs together, so \code{hog_class} reads all of them. A clique
-maximal on two graphs appears once for each.
+maximal on two graphs appears once for each. The third graph is built
+only with \code{clades}, since only the clade tiers read it.
 
 Every clique has at least \verb{min(3, number of species)} genes. Rank
 edges are classified at \code{min_power = 0.9}, hypergeometric edges at 0.8.

@@ -7,15 +7,17 @@
   block as one combination: it never splits into variants. The clique
   count stops at ten times `max_cliques`; `n_cliques_full` is then
   `Inf`. Before, igraph counted every clique, and one dense hog of the
-  8-species leaf data did not finish in 16 minutes. On that data,
-  `rcomplex()`'s three graphs now take 4.5 min and 11 GB, with 17, 37
-  and 150 hogs as blocks. The wood data have no block.
+  8-species leaf data did not finish in 16 minutes. On that data, the
+  cliques and tiers of `rcomplex()` without `clades` now take 2.4 min
+  and 7 GB, with 17 and 37 hogs as blocks. The wood data have no
+  block.
 - `rcomplex()` now lists cliques on three gene graphs, as the published
   workflow did. The strict graph holds edges at `q_value < alpha`, the
   loose graph edges at `q_value < 0.9`. The third graph holds every
   tested pair of the hogs with no complete or partial tier on the first
-  two. One classification covers all three, so `partial_significant`
-  and `differentiated` now appear. `cliques`, `members`, `twins` and
+  two; it is built only with `clades`, since only the clade tiers read
+  it. One classification covers all graphs, so `partial_significant` and
+  `differentiated` now appear. `cliques`, `members`, `twins` and
   `capped` stack the three runs and gain `run` and `alpha_graph`;
   `(run, clique_id)` joins them to `classification`. `print()` counts
   the cliques of each graph. A clique maximal on two graphs appears

@@ -74,7 +74,8 @@ a correlation of 0.3 is weak evidence. Read this value first.
 The "graphs" line counts the cliques on three gene graphs. The strict
 graph holds the calls at `q_value < 0.1`. The loose graph holds the
 edges at `q_value < 0.9`. The third graph holds every tested pair, for
-the hogs the first two leave without a complete or partial tier.
+the hogs the first two leave without a complete or partial tier. It is
+built only with `clades`.
 
 The last line counts the cliques by tier. A clique is a set of genes,
 one per species, that are all co-expressed. A hog with paralogs gives
