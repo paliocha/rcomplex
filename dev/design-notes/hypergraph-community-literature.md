@@ -617,6 +617,56 @@ cross-species W1 as a tie-breaker for `source == "unresolved"` copies in
 `resolve_ortholog_map()`, after a held-out test. A walk first needs a weight
 on the hog layer.
 
+## 10. WP15a built; star expansion fails on wood (2026-10-14)
+
+`joint_modules()` landed as PR #88 (engine E1 of section 7c). Two findings,
+both from the species-blind null of igraph's modularity (risk 3 of section 6).
+
+**Fixture.** On a two-species fixture with four planted modules of 40 genes
+(loading 0.7), the default weight (median scaled co-expression weight, about
+1) recovers each species (ARI 0.98 / 0.99) but gives no shared labels: the
+null term `k_i k_j / 2m` is charged on every cross-species gene pair, so a
+module of species A and its module in B only merge when the hog links pay
+that tax. Coupling starts between weight 1 and 2, holds at 2 to 8, breaks at
+16. At loading 0.5 the joint run is worse than `detect_modules()` on one
+species (ARI 0.29 against 0.61). Tests run at weight 4.
+
+**Wood (six species, `prepare_data/evotree/e9_snr.R`, cache
+`prepare_data/cache/snr/`).** The same null from the other side. At
+resolution 1 the joint `2m` is six times one species' `2m`, the null
+deflates, and Leiden returns species blobs (13 modules; Birch and Cherry one
+module each) at every weight. Resolution S = 6 restores the per-species null
+up to the spread in layer size (ARI 0.74 against per-species Leiden). The
+weight sweep at resolution 6, weight as a multiple of the median:
+
+| x median | 1 | 4 | 16 | 32 | 64 | 128 | 256 | 512 |
+|---|---|---|---|---|---|---|---|---|
+| joint modules | 43 | 46 | 71 | 114 | 157 | 311 | 2,242 | 6,319 |
+| hogs pure | .02 | .02 | .02 | .03 | .05 | .11 | .41 | 1.00 |
+| ARI vs two-step (median) | .74 | .73 | .72 | .72 | .66 | .54 | .27 | .03 |
+
+Up to 32x nothing couples. Beyond, modules split rather than join: the
+cross-species tax on merging two modules is `n_A n_B d^2 / 2m_s` (quadratic
+in module size), the hog gain is `n_h w` (linear), so Leiden shrinks modules
+to the size the weight can pay for. At 512x the hog link equals a gene's
+whole co-expression strength (about 540 scaled units) and every gene follows
+its hog. There is no weight at which per-species structure and shared labels
+coexist. Section 7b's SNR: hogs are 1.5 % of `sum_k (k-1) d^k` (9.4 of 632);
+under the per-species partitions they are mostly impure, so unweighted hogs
+subtract from the numerator. Leiden on the joint graph takes 25 s; the load
+and the edge extraction take the minutes.
+
+**What it means.** E1 is not a tie, it is a failure: star expansion on a
+global-null optimiser cannot give joint modules on this data, and section
+7c's rule ("if E1 ties both, stop at WP15a") does not apply. The only
+candidates left are objectives with a per-species co-expression null and a
+hog term with its own null (risk 1's `Q = sum_s modularity_s + lambda q_HOG`,
+E2) or the species-blocked spectral route (E3). Neither exists in igraph, so
+the probe must build E2 before WP15b can be judged, as section 7d said. WP15a
+stays as the alpha = 0 reference and as a working two-step module detector
+with shared labels at weight 0. The default `weight` stays the documented
+guess; the user docs say to sweep it.
+
 ## Reading list
 
 | rank | citation | DOI / arXiv | why |
