@@ -258,7 +258,8 @@ List jl_quality_cpp(IntegerVector lab, IntegerVector sp, int S,
 }
 
 // Louvain on the joint objective. With freeze, the first level is the
-// aggregate of init (0-based labels), so single genes never move. Returns 0-based compact labels and the number of levels.
+// aggregate of init (0-based labels), so single genes never move.
+// Returns 0-based compact labels and the number of levels.
 // [[Rcpp::export]]
 List jl_louvain_cpp(IntegerVector sp, int S, IntegerVector co_p,
                     IntegerVector co_i, NumericVector co_x,
