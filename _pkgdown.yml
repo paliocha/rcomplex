@@ -50,6 +50,7 @@ reference:
     contents:
       - detect_modules
       - as_modules
+      - joint_modules
       - resolve_ortholog_map
       - module_preservation
       - classify_preservation

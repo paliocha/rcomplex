@@ -196,6 +196,19 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "joint_modules",
+      call = function(seed) {
+        long <- data.frame(
+          species = rep(c("A", "B"), each = nrow(mf$ortho)),
+          gene = c(mf$ortho$gene1, mf$ortho$gene2),
+          hog = rep(mf$ortho$hog, 2L)
+        )
+        joint_modules(list(A = mf$net_a, B = mf$net_b), long,
+          seed = seed
+        )$modules
+      }
+    ),
+    list(
       name = "module_preservation",
       call = function(seed) {
         module_preservation(mf$mods_a, mf$net_a, mf$net_b, mf$ortho,

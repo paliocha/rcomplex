@@ -1,3 +1,9 @@
+# rcomplex (development version)
+
+- `joint_modules()` finds modules across all species at once. It clusters
+  the species networks and the hogs as one graph, so labels are shared.
+  The hog table shows which hogs keep their copies in one module.
+
 # rcomplex 0.4.1
 
 rcomplex 0.4.1 changes the clique tables and the null. `rcomplex()`
