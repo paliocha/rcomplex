@@ -55,7 +55,7 @@ is no `.lintr` file, so keep lines at or under 80 characters. Only one
 ## Surface budget
 
 Guard: `tests/testthat/test-surface.R`.
-- Exports: 31.
+- Exports: 32.
 - Named formals per export: 8 or fewer. Exceptions: `rcomplex()`,
   `module_preservation()`, `find_coexpressologs()`, `density_sweep()`, the
   matrix method of `compute_network()`.

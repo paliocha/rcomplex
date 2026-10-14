@@ -12,13 +12,13 @@
       [13] "detect_modules"            "find_cliques"             
       [15] "find_coexpressologs"       "gene_clique_graph"        
       [17] "get_coexpressed_hogs"      "identify_module_hubs"     
-      [19] "module_correspondence"     "module_preservation"      
-      [21] "null_network"              "prepare_orthologs"        
-      [23] "preservation_matrix_test"  "preservation_paired"      
-      [25] "pvalue_resolution"         "rcomplex"                 
-      [27] "read_orthologs"            "reduce_orthogroups"       
-      [29] "resolve_ortholog_map"      "split_layers"             
-      [31] "write_rcomplex"           
+      [19] "joint_modules"             "module_correspondence"    
+      [21] "module_preservation"       "null_network"             
+      [23] "prepare_orthologs"         "preservation_matrix_test" 
+      [25] "preservation_paired"       "pvalue_resolution"        
+      [27] "rcomplex"                  "read_orthologs"           
+      [29] "reduce_orthogroups"        "resolve_ortholog_map"     
+      [31] "split_layers"              "write_rcomplex"           
     Code
       n_formals
     Output
@@ -34,14 +34,14 @@
                               6                         4                        10 
               gene_clique_graph      get_coexpressed_hogs      identify_module_hubs 
                               4                         6                         3 
-          module_correspondence       module_preservation              null_network 
-                              6                        11                         6 
-              prepare_orthologs  preservation_matrix_test       preservation_paired 
-                              2                         4                         7 
-              pvalue_resolution                  rcomplex            read_orthologs 
-                              2                        13                         3 
-             reduce_orthogroups      resolve_ortholog_map              split_layers 
-                              4                         6                         2 
-                 write_rcomplex 
-                              2 
+                  joint_modules     module_correspondence       module_preservation 
+                              7                         6                        11 
+                   null_network         prepare_orthologs  preservation_matrix_test 
+                              6                         2                         4 
+            preservation_paired         pvalue_resolution                  rcomplex 
+                              7                         2                        13 
+                 read_orthologs        reduce_orthogroups      resolve_ortholog_map 
+                              3                         4                         6 
+                   split_layers            write_rcomplex 
+                              2                         2 
 
