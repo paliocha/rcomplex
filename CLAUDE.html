@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">rcomplex</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -56,7 +56,7 @@
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="va">NOT_CRAN</span><span class="op">=</span>true <span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'devtools::test()'</span></span>
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'lintr::lint_package()'</span></span>
 <span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="ex">Rscript</span> dev/sharpen-prose.R</span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="ex">R</span> CMD build . <span class="kw">&amp;&amp;</span> <span class="ex">R</span> CMD check <span class="at">--no-manual</span> rcomplex_0.4.0.tar.gz   <span class="co"># expect "Status: OK"</span></span></code></pre></div>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="ex">R</span> CMD build . <span class="kw">&amp;&amp;</span> <span class="ex">R</span> CMD check <span class="at">--no-manual</span> rcomplex_0.4.1.tar.gz   <span class="co"># expect "Status: OK"</span></span></code></pre></div>
 <p>Check the built tarball, not the directory: <code>Authors@R</code> expands at build time. CI runs <code><a href="https://lintr.r-lib.org/reference/lint.html" class="external-link">lintr::lint_package()</a></code> with <code>LINTR_ERROR_ON_LINT</code> and there is no <code>.lintr</code> file, so keep lines at or under 80 characters. Only one <code>rcomplex</code> installs per library: use <code>R CMD INSTALL -l &lt;lib&gt; .</code> and <code>R_LIBS=&lt;lib&gt;</code>.</p>
 </div>
 <div class="section level2">

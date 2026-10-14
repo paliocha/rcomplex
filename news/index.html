@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rcomplex</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,7 +34,8 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="development version" id="rcomplex-development-version">rcomplex (development version)<a class="anchor" aria-label="anchor" href="#rcomplex-development-version"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.4.1" id="rcomplex-041">rcomplex 0.4.1<a class="anchor" aria-label="anchor" href="#rcomplex-041"></a></h2>
+<p>rcomplex 0.4.1 changes the clique tables and the null. <code><a href="../reference/rcomplex.html">rcomplex()</a></code> runs three clique graphs and reports every tier. <code>gene_cliques</code> is <code>cliques</code> plus <code>members</code>; large hogs become species blocks. The null shuffles hog labels within expression deciles. 0.4.0 scripts that read the clique tables need an update.</p>
 <ul><li><p><code><a href="../reference/read_orthologs.html">read_orthologs()</a></code> reads OrthoFinder files whose hog column is <code>OrthoGroup</code>, <code>N1.HOG</code> or any other case of <code>HOG</code> or <code>Orthogroup</code>. The EVOTREE <code>Orthogroups_20240823_clean_N1.tsv.gz</code> needs no reshaping.</p></li>
 <li><p><code><a href="../reference/gene_clique_graph.html">gene_clique_graph()</a></code> budgets copy combinations as well as maximal cliques. A hog whose cliques stand for more than <code>max_cliques</code> combinations (summed <code>multiplicity</code>) is reported as species blocks. <code>capped</code> gains <code>n_combinations</code>. <code><a href="../reference/classify_gene_cliques.html">classify_gene_cliques()</a></code> reads a block as one combination: it never splits into variants. The clique count stops at ten times <code>max_cliques</code>; <code>n_cliques_full</code> is then <code>Inf</code>. Before, igraph counted every clique, and one dense hog of the 8-species leaf data did not finish in 16 minutes. On that data, the cliques and tiers of <code><a href="../reference/rcomplex.html">rcomplex()</a></code> without <code>clades</code> now take 2.4 min and 7 GB, with 17 and 37 hogs as blocks. The wood data have no block.</p></li>
 <li>

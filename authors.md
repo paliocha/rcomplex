@@ -10,13 +10,13 @@ Source:
 [`DESCRIPTION`](https://github.com/paliocha/rcomplex/blob/main/DESCRIPTION)
 
 Paliocha M (2026). *rcomplex: Comparative Co-Expression Network Analysis
-Across Species*. R package version 0.4.0,
+Across Species*. R package version 0.4.1,
 <https://paliocha.github.io/rcomplex/>.
 
     @Manual{,
       title = {rcomplex: Comparative Co-Expression Network Analysis Across Species},
       author = {Martin Paliocha},
       year = {2026},
-      note = {R package version 0.4.0},
+      note = {R package version 0.4.1},
       url = {https://paliocha.github.io/rcomplex/},
     }

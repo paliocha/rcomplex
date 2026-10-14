@@ -1,6 +1,13 @@
 # Changelog
 
-## rcomplex (development version)
+## rcomplex 0.4.1
+
+rcomplex 0.4.1 changes the clique tables and the null.
+[`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+runs three clique graphs and reports every tier. `gene_cliques` is
+`cliques` plus `members`; large hogs become species blocks. The null
+shuffles hog labels within expression deciles. 0.4.0 scripts that read
+the clique tables need an update.
 
 - [`read_orthologs()`](https://paliocha.github.io/rcomplex/reference/read_orthologs.md)
   reads OrthoFinder files whose hog column is `OrthoGroup`, `N1.HOG` or
