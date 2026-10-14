@@ -59,13 +59,15 @@ The graph is a star expansion. Each species adds its genes and
 the edges at or above its \code{threshold}. Edge weights are divided by
 that species' largest weight, so every species lies on the same
 scale. No edge crosses species. Each hog with two or more copies
-among the genes adds one hog node, linked to each copy with weight
-\code{weight}. Hog nodes carry no other edge. Leiden clusters this graph;
-the hog nodes are then dropped from the modules. \code{weight} is the
-coupling between the co-expression edges and the hogs. A small
-\code{weight} gives per-species modules; a large one pulls the copies of a
-hog together. The default, the median co-expression weight, is a
-guess until a sweep over \code{weight} tests it.
+among the genes adds one hog node. An edge of weight \code{weight} links
+the hog node to each copy. Hog nodes carry no other edge. Leiden
+clusters this graph; the modules then leave out the hog nodes.
+\code{weight} is the coupling between the co-expression edges and the
+hogs. A small \code{weight} gives per-species modules; a large one pulls
+the copies of a hog together. The default, the median co-expression
+weight, is a guess until a sweep over \code{weight} tests it. For CPM,
+\code{.leiden_weights()} scales every edge by the graph maximum, hog
+edges included; \code{params$weight} keeps the unscaled value.
 }
 \examples{
 \dontrun{

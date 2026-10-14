@@ -8,13 +8,15 @@
 #'   the edges at or above its `threshold`. Edge weights are divided by
 #'   that species' largest weight, so every species lies on the same
 #'   scale. No edge crosses species. Each hog with two or more copies
-#'   among the genes adds one hog node, linked to each copy with weight
-#'   `weight`. Hog nodes carry no other edge. Leiden clusters this graph;
-#'   the hog nodes are then dropped from the modules. `weight` is the
-#'   coupling between the co-expression edges and the hogs. A small
-#'   `weight` gives per-species modules; a large one pulls the copies of a
-#'   hog together. The default, the median co-expression weight, is a
-#'   guess until a sweep over `weight` tests it.
+#'   among the genes adds one hog node. An edge of weight `weight` links
+#'   the hog node to each copy. Hog nodes carry no other edge. Leiden
+#'   clusters this graph; the modules then leave out the hog nodes.
+#'   `weight` is the coupling between the co-expression edges and the
+#'   hogs. A small `weight` gives per-species modules; a large one pulls
+#'   the copies of a hog together. The default, the median co-expression
+#'   weight, is a guess until a sweep over `weight` tests it. For CPM,
+#'   \code{.leiden_weights()} scales every edge by the graph maximum, hog
+#'   edges included; `params$weight` keeps the unscaled value.
 #'
 #' @param nets Named list of at least two [compute_network()] results,
 #'   dense or sparse. The names are the species.

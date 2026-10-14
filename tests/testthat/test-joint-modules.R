@@ -87,6 +87,7 @@ test_that("joint modules recover the planted modules in both species", {
   expect_named(res, c("modules", "hogs", "params", "modularity"))
   expect_named(res$modules, c("A", "B"))
   expect_identical(res$params$weight, 4)
+  expect_true(is.finite(res$modularity) && res$modularity > 0)
 })
 
 test_that("a non-conserved copy falls outside module_main", {
@@ -112,7 +113,17 @@ test_that("a sparse store gives the same modules", {
   res <- joint_modules(list(A = f$netA, B = f$netB_sparse), jm_fx$long,
     weight = 4, seed = 1
   )
+  expect_identical(res$modules$B$modules, jm_fx$res$modules$B$modules)
   expect_gt(planted_ari(res, "B", f$netB, f$mods), 0.9)
+})
+
+test_that("the same seed gives the same result", {
+  f <- jm_fx$f
+  res <- joint_modules(list(A = f$netA, B = f$netB), jm_fx$long,
+    weight = 4, seed = 1
+  )
+  expect_identical(res$modules, jm_fx$res$modules)
+  expect_identical(res$hogs, jm_fx$res$hogs)
 })
 
 test_that("per-species modules feed module_preservation()", {
