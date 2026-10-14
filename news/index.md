@@ -2,6 +2,11 @@
 
 ## rcomplex (development version)
 
+- [`read_orthologs()`](https://paliocha.github.io/rcomplex/reference/read_orthologs.md)
+  reads OrthoFinder files whose hog column is `OrthoGroup`, `N1.HOG` or
+  any other case of `HOG` or `Orthogroup`. The EVOTREE
+  `Orthogroups_20240823_clean_N1.tsv.gz` needs no reshaping.
+
 - [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
   budgets copy combinations as well as maximal cliques. A hog whose
   cliques stand for more than `max_cliques` combinations (summed
@@ -16,6 +21,7 @@
   [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
   without `clades` now take 2.4 min and 7 GB, with 17 and 37 hogs as
   blocks. The wood data have no block.
+
 - [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
   now lists cliques on three gene graphs, as the published workflow did.
   The strict graph holds edges at `q_value < alpha`, the loose graph
@@ -31,6 +37,7 @@
   clique counts in [`summary()`](https://rdrr.io/r/base/summary.html)
   grow. On the wood data (clades angiosperm, conifer, pinus), hogs per
   tier, before and after:
+
   - complete_conserved: 938 and 938.
   - partial_significant: 0 and 517.
   - partial_present: 247 and 227.
@@ -39,6 +46,7 @@
   - trait_specific: 1,433 and 1,099.
   - underpowered: 511 and 551.
   - unclassified: 2,701 and 6,357.
+
 - [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
   replaces the 10-copies-per-species cap by a clique budget,
   `max_cliques = 1e5` per hog. Twins collapse first. A hog over the
@@ -53,6 +61,7 @@
   stores `capped`. On the wood data no hog is over the budget (2,057
   genes were capped). On the 8-species leaf data fourteen families are
   blocks instead of 214 capped families.
+
 - A group of species wired pairwise need not share one set of copies.
   [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md),
   [`clique_stability()`](https://paliocha.github.io/rcomplex/reference/clique_stability.md)
@@ -64,6 +73,7 @@
   [`classify_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_cliques.md)
   moves 347 hogs: unclassified 2,335 to 2,035, partial 5,423 to 5,689,
   trait_specific 7,832 to 7,862, differentiated 413 to 417.
+
 - [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md)
   and
   [`clique_stability()`](https://paliocha.github.io/rcomplex/reference/clique_stability.md)
@@ -71,6 +81,7 @@
   deterministic: gene ids break ties, never row order.
   [`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md)
   gains `exhaustive`, `FALSE` when the search hit its step budget.
+
 - `rcomplex(null = TRUE)` now shuffles hog labels among genes of the
   same expression level and reruns edges, cliques and tiers on the
   shuffled table. `calls_null` counts the calls that abundance and
@@ -79,8 +90,10 @@
   gone from the driver;
   [`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.md)
   stays. `null = TRUE` no longer needs `expr`.
+
 - [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md)
   stores `gene_mean`.
+
 - [`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
   collapses twin paralogs before it lists the cliques. Twins are genes
   of one species with the same partners. A clique stands for every
@@ -90,18 +103,21 @@
   28,343,526 cliques become 3,555,837. The build takes 24 s instead of
   100 s, and 2.9 GB instead of 8.9 GB (max RSS). At 12,000 genes per
   species, 1,452,683 cliques become 42,709.
+
 - [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   splits each twin class into copies with the same test status. A clique
   gives one row per choice, with `variant` and `multiplicity`. Every
   combination gets its exact tier. On the full leaf data it classifies
   8,464,243 rows in 169 s at 10.2 GB, instead of 28.3 M rows in 6 min at
   15.0 GB. At 12,000 genes it gives 186,032 rows in 4 s instead of 11 s.
+
 - [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   splits a twin class per clique, and only where its copies differ in
   what that clique reads: the species it misses and its other members.
   On the full leaf data, 8,464,243 rows become 3,582,532, in 61 s at 7.8
   GB instead of 169 s at 10.2 GB. At 12,000 genes, 186,032 rows become
   43,039.
+
 - [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
   stores `twins`, and
   [`write_rcomplex()`](https://paliocha.github.io/rcomplex/reference/write_rcomplex.md)

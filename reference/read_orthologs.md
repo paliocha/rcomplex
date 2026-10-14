@@ -40,8 +40,11 @@ Three formats are read:
 - orthofinder:
 
   OrthoFinder `N0.tsv` (HOGs, column `HOG`) or `Orthogroups.tsv` (column
-  `Orthogroup`). There is one column per species, with genes separated
-  by commas. The columns `OG` and `Gene Tree Parent Clade` are skipped.
+  `Orthogroup`). The column name may use any case, and `N1.HOG` is read
+  too. There is one column per species, with genes separated by commas.
+  The columns `OG` and `Gene Tree Parent Clade` are skipped. Empty and
+  `NA` cells hold no gene. The reader keeps gene ids as written; map
+  suffixes such as `.p1` to expression ids yourself.
 
 - plaza:
 
@@ -57,10 +60,10 @@ Three formats are read:
   The output shape itself: columns `species`, `gene` and `hog`. Other
   columns are dropped.
 
-`"auto"` picks `orthofinder` when the header has `HOG` or `Orthogroup`,
-`plaza` when it has `gene_content`, and `long` when it has `species`,
-`gene` and `hog`. FastOMA and eggNOG output have no reader: write them
-as the long table, one row per gene and group.
+`"auto"` picks `long` when the header has `species`, `gene` and `hog`,
+`orthofinder` when it has `HOG` or `Orthogroup`, and `plaza` when it has
+`gene_content`. FastOMA and eggNOG output have no reader: write them as
+the long table, one row per gene and group.
 
 ## Examples
 

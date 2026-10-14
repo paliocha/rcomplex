@@ -76,9 +76,12 @@ species in the file.</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Three formats are read:</p><dl><dt>orthofinder</dt>
 <dd><p>OrthoFinder <code>N0.tsv</code> (HOGs, column <code>HOG</code>) or
-<code>Orthogroups.tsv</code> (column <code>Orthogroup</code>). There is one column per
+<code>Orthogroups.tsv</code> (column <code>Orthogroup</code>). The column name may use
+any case, and <code>N1.HOG</code> is read too. There is one column per
 species, with genes separated by commas. The columns <code>OG</code> and
-<code>Gene Tree Parent Clade</code> are skipped.</p></dd>
+<code>Gene Tree Parent Clade</code> are skipped. Empty and <code>NA</code> cells hold
+no gene. The reader keeps gene ids as written; map suffixes such
+as <code>.p1</code> to expression ids yourself.</p></dd>
 
 <dt>plaza</dt>
 <dd><p>PLAZA orthologs: columns <code>species</code>, <code>gene_id</code> and
@@ -93,9 +96,9 @@ numbered by the smallest <code>species</code> and gene id they contain.</p></dd>
 <code>hog</code>. Other columns are dropped.</p></dd>
 
 
-</dl><p><code>"auto"</code> picks <code>orthofinder</code> when the header has <code>HOG</code> or <code>Orthogroup</code>,
-<code>plaza</code> when it has <code>gene_content</code>, and <code>long</code> when it has <code>species</code>,
-<code>gene</code> and <code>hog</code>. FastOMA and eggNOG output have no reader: write them
+</dl><p><code>"auto"</code> picks <code>long</code> when the header has <code>species</code>, <code>gene</code> and <code>hog</code>,
+<code>orthofinder</code> when it has <code>HOG</code> or <code>Orthogroup</code>, and <code>plaza</code> when it
+has <code>gene_content</code>. FastOMA and eggNOG output have no reader: write them
 as the long table, one row per gene and group.</p>
     </div>
 
