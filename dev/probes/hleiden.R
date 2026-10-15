@@ -123,3 +123,27 @@ hleiden <- function(nets, orthologs, lambda, gamma = 1, alpha = c(0, 0.5, 1),
     labels = lab
   )
 }
+
+# Hook for joint_halves.R: hleiden0 (alpha 0) and hleidenS (schedule).
+# HL_ENGINES (comma list) restricts the set, so the two can run as
+# separate processes.
+halves_engines <- lapply(
+  list(hleiden0 = 0, hleidenS = c(0, 0.5, 1)),
+  function(a) {
+    force(a)
+    list(
+      lambdas = c(0.25, 1, 4, 16, 64), seeds = 1:3,
+      run = function(ctx, lambda, seed) {
+        f <- hleiden(lambda = lambda, alpha = a, seed = seed,
+                     data = ctx$dat())
+        list(lab = f$labels, secs = f$params$secs, quality = f$quality,
+             quality_parts = f$quality_parts, params = f$params)
+      }
+    )
+  }
+)
+if (nzchar(Sys.getenv("HL_ENGINES"))) {
+  halves_engines <- halves_engines[
+    strsplit(Sys.getenv("HL_ENGINES"), ",", fixed = TRUE)[[1]]
+  ]
+}
