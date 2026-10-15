@@ -31,7 +31,8 @@ the order of \code{nets}. Each has the \code{\link[=as_modules]{as_modules()}} s
 \code{n_modules}, \code{method = "joint"} and \code{params}.}
 \item{members}{Data frame with one row per species module: \code{species},
 \code{module} (the label in \code{modules}), \code{label} (the shared label) and
-\code{n_genes}. Rows are sorted by \code{label}, species and \code{module}.}
+\code{n_genes}. Rows are sorted by \code{label}, species in \code{nets} order,
+then \code{module}.}
 \item{hogs}{Data frame with one row per hog with two or more copies
 among the network genes, sorted by \code{hog}: \code{hog}, \code{n_copies},
 \code{n_modules} (distinct shared labels among the copies),

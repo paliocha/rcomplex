@@ -41,7 +41,8 @@
 #'       `n_modules`, `method = "joint"` and `params`.}
 #'     \item{members}{Data frame with one row per species module: `species`,
 #'       `module` (the label in `modules`), `label` (the shared label) and
-#'       `n_genes`. Rows are sorted by `label`, species and `module`.}
+#'       `n_genes`. Rows are sorted by `label`, species in `nets` order,
+#'       then `module`.}
 #'     \item{hogs}{Data frame with one row per hog with two or more copies
 #'       among the network genes, sorted by `hog`: `hog`, `n_copies`,
 #'       `n_modules` (distinct shared labels among the copies),
@@ -79,13 +80,10 @@ joint_modules <- function(nets, orthologs, modules = NULL, lambda = 1,
   }
   given <- !is.null(modules)
   if (given && !(is.list(modules) && setequal(names(modules), sp))) {
+    got <- if (is.null(names(modules))) "no names" else names(modules)
     stop(
       "`modules` must be named by the species of `nets` (", toString(sp),
-      "); got ", if (is.null(names(modules))) {
-        "no names"
-      } else {
-        toString(names(modules))
-      }
+      "); got ", toString(got)
     )
   }
   long <- .driver_orthologs(orthologs, sp)
@@ -219,7 +217,7 @@ joint_modules <- function(nets, orthologs, modules = NULL, lambda = 1,
 
 
 #' Local moves: each node joins the part with the largest gain, an empty
-#' part counting 0. Passes repeat until none moves, at most 50.
+#' part counting 0. A move needs a gain above 1e-10. At most 50 passes.
 #' @noRd
 .joint_moves <- function(g, part) {
   n <- nrow(g)
@@ -236,7 +234,7 @@ joint_modules <- function(nets, orthologs, modules = NULL, lambda = 1,
       gain[d] <- gain[d] - g[v, v]
       gain[size == 0L] <- 0
       b <- which.max(gain)
-      if (gain[b] > gain[d]) {
+      if (gain[b] > gain[d] + 1e-10) {
         part[v] <- b
         np[, d] <- np[, d] - g[, v]
         np[, b] <- np[, b] + g[, v]
