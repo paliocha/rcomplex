@@ -20,5 +20,7 @@ Recover history with `git show main:<path>` (main @ b245ac0).
   igraph at lambda 0, planted fixture, one wood run).
 - `joint_planted.R`: E2 against two-step + match and E1 on a planted
   six-species model with defecting copies.
-- `joint_wood_halves.R`: the same engines on wood split halves
-  (split-half ARI, hog agreement, held-out AUROC z).
+- `joint_halves.R`: the same engines on split halves of wood or leaf
+  (split-half ARI, hog agreement, held-out AUROC z); per-run cache and an
+  engine registry with `hleiden` / `bethe` hooks. Replaces
+  `joint_wood_halves.R` (section 11 runs migrate into its cache).
