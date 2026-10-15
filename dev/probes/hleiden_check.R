@@ -2,6 +2,7 @@
 # Usage, from the worktree root:
 #   R_LIBS=~/.cache/rcomplex/lib-e2 Rscript dev/probes/hleiden_check.R
 #   ... hleiden_check.R planted   (checks 1-2, then the planted sweep)
+#   ... hleiden_check.R planted a0   (sweep at alpha 0 only)
 #   ... hleiden_check.R summary   (tables from planted_hleiden.tsv only)
 # Check 2 (every module connected in the 2-section) is asserted on every
 # fixture run and every planted run.
@@ -198,6 +199,8 @@ for (ex in parse("dev/probes/joint_planted.R")) {
 }
 TSV <- file.path(OUT, "planted_hleiden.tsv")
 ENG <- list(hleiden_a0 = 0, hleiden_sched = SCHED)
+# `a0`: alpha 0 only (the schedule arm failed check 2, see the log)
+if ("a0" %in% args) ENG <- ENG["hleiden_a0"]
 
 summarize <- function() {
   x <- utils::read.delim(TSV)
