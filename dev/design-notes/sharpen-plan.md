@@ -751,6 +751,19 @@ or Bioconductor package implements hypergraph modularity as of
   (the paper's grid says not both near 0 or 1, `p_b + p_c` about 1);
   no Bayesian optimisation, consensus sweeps.
 
+#### WP15 outcome (2026-10-15)
+
+- WP15a shipped in 0.4.1-dev (#88). WP15c replaces it: `joint_modules()`
+  now lines up per-species modules by hog overlap. The star engine is
+  gone.
+- WP15b is withdrawn (2026-10-15). The licence stays MIT. There is no
+  libleidenalg port.
+- Reason: family-steered clustering tied or lost against modules per
+  species lined up by hogs, on planted, wood and leaf data. See
+  `hypergraph-community-literature.md` sections 10-12 and the probe
+  reports in `prepare_data/cache/probe_e2/REPORT_{leaf,hleiden,bethe}.md`.
+- The WP15a and WP15b text below stays as the record.
+
 #### WP15a Star-expansion baseline
 
 - Files: new `R/joint_modules.R` (< 150 lines), tests, `man/`.

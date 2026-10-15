@@ -2,17 +2,9 @@
 % Please edit documentation in R/joint_modules.R
 \name{joint_modules}
 \alias{joint_modules}
-\title{Find modules jointly across species}
+\title{Line up per-species modules across species}
 \usage{
-joint_modules(
-  nets,
-  orthologs,
-  weight = NULL,
-  objective = c("modularity", "CPM"),
-  resolution = NULL,
-  seed = NULL,
-  engine = "star"
-)
+joint_modules(nets, orthologs, modules = NULL, lambda = 1, seed = NULL)
 }
 \arguments{
 \item{nets}{Named list of at least two \code{\link[=compute_network]{compute_network()}} results,
@@ -21,64 +13,69 @@ dense or sparse. The names are the species.}
 \item{orthologs}{Long table with columns \code{species}, \code{gene}, \code{hog}, or a
 file for \code{\link[=read_orthologs]{read_orthologs()}}.}
 
-\item{weight}{Weight of the edge from a copy to its hog. \code{NULL} uses the
-median of all scaled co-expression edge weights.}
+\item{modules}{Named list with one \code{\link[=detect_modules]{detect_modules()}} or \code{\link[=as_modules]{as_modules()}}
+result per species of \code{nets}, in any order. Each must label every gene
+of its network. \code{NULL} runs \code{\link[=detect_modules]{detect_modules()}} on each species.}
 
-\item{objective}{Leiden objective: \code{"modularity"} or \code{"CPM"}.}
-
-\item{resolution}{Leiden resolution. \code{NULL} uses 1 for modularity. For
-CPM it uses the edge density of the joint graph.}
+\item{lambda}{Weight of the hog term against the co-expression term.
+One number of 0 or more. At 0 no label spans two species.}
 
 \item{seed}{Integer seed, or \code{NULL} to use the current stream.}
-
-\item{engine}{Clustering engine. Only \code{"star"} exists.}
 }
 \value{
 A list with:
 \describe{
 \item{modules}{Named list with one module assignment per species, in
 the order of \code{nets}. Each has the \code{\link[=as_modules]{as_modules()}} shape: \code{modules}
-(named integer vector, gene -> label), \code{module_genes}, \code{n_modules},
-\code{method = "joint"} and \code{params}.}
-\item{hogs}{Data frame with one row per hog node, sorted by \code{hog}:
-\code{hog}, \code{n_copies} (genes linked), \code{n_modules} (distinct labels
-among the copies), \code{module_main} (the label with most copies; a tie
-goes to the smallest label) and \code{copies_main} (copies in it).}
-\item{params}{List of \code{weight} (the value used), \code{objective},
-\code{resolution}, \code{engine} and \code{seed}.}
-\item{modularity}{Modularity of the joint graph, hog nodes included.}
+(named integer vector, gene -> shared label), \code{module_genes},
+\code{n_modules}, \code{method = "joint"} and \code{params}.}
+\item{members}{Data frame with one row per species module: \code{species},
+\code{module} (the label in \code{modules}), \code{label} (the shared label) and
+\code{n_genes}. Rows are sorted by \code{label}, species and \code{module}.}
+\item{hogs}{Data frame with one row per hog with two or more copies
+among the network genes, sorted by \code{hog}: \code{hog}, \code{n_copies},
+\code{n_modules} (distinct shared labels among the copies),
+\code{module_main} (the label with most copies; a tie goes to the
+smallest label) and \code{copies_main} (copies in it).}
+\item{params}{List of \code{lambda}, \code{gamma} (1), \code{seed}, \code{modules_given}
+and \code{quality} (the objective of the final labels).}
 }
 }
 \description{
-Clusters the networks of all species and their hogs as one graph.
-Labels are shared: the same label in two species is the same module.
-The hog table shows which hogs keep their copies in one module.
+Lines up the modules of each species into shared labels. The same label
+in two species is the same module. Modules come from \code{\link[=detect_modules]{detect_modules()}},
+one species at a time.
 }
 \details{
-The graph is a star expansion. Each species adds its genes and
-the edges at or above its \code{threshold}. Edge weights are divided by
-that species' largest weight, so every species lies on the same
-scale. No edge crosses species. Each hog with two or more copies
-among the genes adds one hog node. An edge of weight \code{weight} links
-the hog node to each copy. Hog nodes carry no other edge. Leiden
-clusters this graph; the modules then leave out the hog nodes.
-\code{weight} is the coupling between the co-expression edges and the
-hogs. A small \code{weight} gives per-species modules; a large one pulls
-the copies of a hog together. The default, the median co-expression
-weight, is a guess until a sweep over \code{weight} tests it. For CPM,
-\code{.leiden_weights()} scales every edge by the graph maximum, hog
-edges included; \code{params$weight} keeps the unscaled value.
+Each module of each species is one node. Louvain joins these
+nodes into shared labels. It never moves a single gene, so labels are
+species modules lined up, never genes clustered again. A shared label
+may hold several modules of one species. It may hold modules of one
+species only, when nothing lines up.
+
+The objective has two terms. Within a species, it is modularity with
+that species' own null. Across species, it is the hog overlap of two
+modules against the overlap expected for that species pair. A hog with
+\code{c_s} copies in species s and \code{c_t} in species t gives each copy pair
+the weight \verb{1 / (c_s c_t)}. So hogs with many copies count less. The
+edges are those at or above each species' \code{threshold}. Each species'
+edge weights are divided by its largest weight.
+
+On wood and leaf, every \code{lambda} from 0.25 to 16 gave the same labels.
+For why family-steered clustering of genes was withdrawn, see
+\code{dev/design-notes/hypergraph-community-literature.md}, sections 10-12.
 }
 \examples{
 \dontrun{
 res <- joint_modules(list(A = net_a, B = net_b), "orthologs.tsv",
   seed = 1
 )
+res$members
 res$hogs[res$hogs$n_modules > 1, ]
-pres <- module_preservation(res$modules$A, net_a, net_b, ortho)
 }
 }
 \seealso{
 \code{\link[=detect_modules]{detect_modules()}} for one species,
+\code{\link[=module_correspondence]{module_correspondence()}} for pairs of species with p-values,
 \code{\link[=module_preservation]{module_preservation()}} to test a module in another species.
 }

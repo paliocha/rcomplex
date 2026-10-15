@@ -35,7 +35,7 @@
               gene_clique_graph      get_coexpressed_hogs      identify_module_hubs 
                               4                         6                         3 
                   joint_modules     module_correspondence       module_preservation 
-                              7                         6                        11 
+                              5                         6                        11 
                    null_network         prepare_orthologs  preservation_matrix_test 
                               6                         2                         4 
             preservation_paired         pvalue_resolution                  rcomplex 
