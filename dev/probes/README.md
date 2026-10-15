@@ -13,3 +13,12 @@ Recover history with `git show main:<path>` (main @ b245ac0).
 - `copy-cap.R`, `copy-cap-exact.R`: is the 10-copy cap needed? Per-hog
   clique bounds and exact counts, capped against uncapped, on wood and
   leaf edge tables (`dev/design-notes/clique-budget.md`).
+
+- `joint_louvain.cpp`, `joint_louvain.R`: probe E2 kernel; serial Louvain
+  on per-species modularity plus a hog term with a species-blocked null.
+- `joint_louvain_check.R`: E2 kernel acceptance (C++ against plain R,
+  igraph at lambda 0, planted fixture, one wood run).
+- `joint_planted.R`: E2 against two-step + match and E1 on a planted
+  six-species model with defecting copies.
+- `joint_wood_halves.R`: the same engines on wood split halves
+  (split-half ARI, hog agreement, held-out AUROC z).
