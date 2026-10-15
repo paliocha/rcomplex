@@ -317,6 +317,12 @@ get_run <- function(engine, lambda, seed, ctx) {
   }
   t0 <- Sys.time()
   r <- ENGINES[[engine]]$run(ctx, lambda, seed)
+  if (is.null(r)) {
+    return(log_t(
+      "%s half %s: %s lambda %g seed %d returned no labels",
+      DS, ctx$half, engine, lambda, seed
+    ))
+  }
   if (is.null(r$secs)) r$secs <- secs_since(t0)
   if (is.null(names(r$lab))) r$lab <- node_lab(ctx$dat(), r$lab)
   r$engine <- engine
