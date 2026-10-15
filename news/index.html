@@ -36,7 +36,7 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="rcomplex-development-version">rcomplex (development version)<a class="anchor" aria-label="anchor" href="#rcomplex-development-version"></a></h2>
 <ul><li>
-<code><a href="../reference/joint_modules.html">joint_modules()</a></code> finds modules across all species at once. It clusters the species networks and the hogs as one graph, so labels are shared. The hog table shows which hogs keep their copies in one module.</li>
+<code><a href="../reference/joint_modules.html">joint_modules()</a></code> lines up the modules of each species into shared labels. It takes one <code><a href="../reference/detect_modules.html">detect_modules()</a></code> result per species, or runs it. Modules join when their hogs overlap more than expected for that species pair. <code>members</code> lists the species modules behind each label. The hog table shows which hogs keep their copies in one label. The star-expansion engine of the unreleased first version is gone.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.1" id="rcomplex-041">rcomplex 0.4.1<a class="anchor" aria-label="anchor" href="#rcomplex-041"></a></h2>

@@ -96,6 +96,8 @@
 <li>
 <strong>Trait level.</strong> <code><a href="reference/preservation_matrix_test.html">preservation_matrix_test()</a></code> reads <code>Zsummary_std</code> from every contrast of <code><a href="reference/all_species_pairs.html">all_species_pairs()</a></code>. It reports <code>p_free</code> and <code>p_blocked</code>; their gap shows phylogenetic confounding.</li>
 <li>
+<strong>Joint modules are lined-up species modules.</strong> <code><a href="reference/joint_modules.html">joint_modules()</a></code> never re-clusters genes. It joins per-species modules by hog overlap against a species-pair null (probe: literature note sections 10-12). Family-steered clustering lost on planted, wood and leaf.</li>
+<li>
 <strong>P-values saturate.</strong> A relabelling p-value cannot go below the tail of a finite label space. Read <code>p_attainable</code> and <code><a href="reference/pvalue_resolution.html">pvalue_resolution()</a></code>. Rank on <code>Zsummary_std</code>; keep p and q for the call.</li>
 <li>
 <strong>Consensus modules.</strong> <code><a href="reference/detect_modules.html">detect_modules()</a></code> is Leiden only, with an iterative multi-resolution consensus (Jeub <em>et al.</em> 2018). Default objective: modularity. Few samples give modules that do not replicate.</li>

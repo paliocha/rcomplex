@@ -72,7 +72,7 @@ Aligned blocks and their hubs.
 - [`as_modules()`](https://paliocha.github.io/rcomplex/reference/as_modules.md)
   : Build a module assignment from any gene partition
 - [`joint_modules()`](https://paliocha.github.io/rcomplex/reference/joint_modules.md)
-  : Find modules jointly across species
+  : Line up per-species modules across species
 - [`resolve_ortholog_map()`](https://paliocha.github.io/rcomplex/reference/resolve_ortholog_map.md)
   : Resolve paralog copies in an ortholog map
 - [`module_preservation()`](https://paliocha.github.io/rcomplex/reference/module_preservation.md)

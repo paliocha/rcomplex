@@ -180,6 +180,11 @@ exported functions as `[fn()]`. Write internals as `\code{fn()}`. -
   [`all_species_pairs()`](https://paliocha.github.io/rcomplex/reference/all_species_pairs.md).
   It reports `p_free` and `p_blocked`; their gap shows phylogenetic
   confounding.
+- **Joint modules are lined-up species modules.**
+  [`joint_modules()`](https://paliocha.github.io/rcomplex/reference/joint_modules.md)
+  never re-clusters genes. It joins per-species modules by hog overlap
+  against a species-pair null (probe: literature note sections 10-12).
+  Family-steered clustering lost on planted, wood and leaf.
 - **P-values saturate.** A relabelling p-value cannot go below the tail
   of a finite label space. Read `p_attainable` and
   [`pvalue_resolution()`](https://paliocha.github.io/rcomplex/reference/pvalue_resolution.md).

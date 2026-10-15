@@ -3,9 +3,13 @@
 ## rcomplex (development version)
 
 - [`joint_modules()`](https://paliocha.github.io/rcomplex/reference/joint_modules.md)
-  finds modules across all species at once. It clusters the species
-  networks and the hogs as one graph, so labels are shared. The hog
-  table shows which hogs keep their copies in one module.
+  lines up the modules of each species into shared labels. It takes one
+  [`detect_modules()`](https://paliocha.github.io/rcomplex/reference/detect_modules.md)
+  result per species, or runs it. Modules join when their hogs overlap
+  more than expected for that species pair. `members` lists the species
+  modules behind each label. The hog table shows which hogs keep their
+  copies in one label. The star-expansion engine of the unreleased first
+  version is gone.
 
 ## rcomplex 0.4.1
 
