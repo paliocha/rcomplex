@@ -547,6 +547,12 @@ int move_nodes(const Model& M, const Graph& g, const ivec& mp,
 // Refinement (Traag 2019, RefinePartition / MergeNodesSubset). ref gets
 // refined labels (node ids); returns the number of merges. Well-connected
 // is judged on the 2-section at a = 0: e(X, S - X) >= null(X, S - X).
+// Merge gains are judged on q(0), not q(a): the strict term gives a lone
+// copy nothing until its whole hog shares a module, so refinement on q(a)
+// cannot grow a hog one node at a time; it stalls, and a complete hog
+// with no edge to its module stays there (check 2 failed on the planted
+// schedule). Local moves and aggregation still use q(a). The parameter a
+// is kept for the call site; refinement ignores it.
 int refine(const Model& M, const Graph& g, const ivec& mp, const ivec& mg,
            const ivec& node_of, const ivec& comm, ivec& ref, double a,
            double theta, Work& W, Comm& R) {
@@ -574,7 +580,8 @@ int refine(const Model& M, const Graph& g, const ivec& mp, const ivec& mg,
     }
   }
   dvec extR(ext);
-  const dvec coef0 = coef_at(M, 0.0), coef = coef_at(M, a);
+  const dvec coef0 = coef_at(M, 0.0);
+  (void)a;
   auto nullconn = [&](const double* uX, const double* uS) {
     double s = 0.0;
     for (int x = 0; x < D; ++x) {
@@ -584,7 +591,7 @@ int refine(const Model& M, const Graph& g, const ivec& mp, const ivec& mg,
     }
     return s;
   };
-  Eval ev(M, R, W, a);
+  Eval ev(M, R, W, 0.0);
   struct Cand {
     int r;
     double dh, ec;
@@ -600,7 +607,7 @@ int refine(const Model& M, const Graph& g, const ivec& mp, const ivec& mg,
       if (R.size[ref[v]] != 1) continue;
       const double* uv = &g.u[static_cast<size_t>(v) * D];
       if (ext[v] < nullconn(uv, uS)) continue;
-      ev.scan(g, mp, mg, node_of, ref, coef, v, &comm, c);
+      ev.scan(g, mp, mg, node_of, ref, coef0, v, &comm, c);
       const double ge = ev.gain(-1);
       cand.clear();
       cand.push_back({v, 0.0, 0.0});

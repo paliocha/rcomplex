@@ -3,6 +3,7 @@
 #   R_LIBS=~/.cache/rcomplex/lib-e2 Rscript dev/probes/hleiden_check.R
 #   ... hleiden_check.R planted   (checks 1-2, then the planted sweep)
 #   ... hleiden_check.R planted a0   (sweep at alpha 0 only)
+#   ... hleiden_check.R planted sched   (schedule only, appends)
 #   ... hleiden_check.R summary   (tables from planted_hleiden.tsv only)
 # Check 2 (every module connected in the 2-section) is asserted on every
 # fixture run and every planted run.
@@ -17,9 +18,15 @@ args <- commandArgs(TRUE)
 SCHED <- c(0, 0.5, 1)
 
 # Check 2 on one fit: every module connected in the 2-section
+# Output is always connected (hleiden() splits). At alpha 0 Leiden must
+# need no split: assert n_split == 0. At alpha > 0 n_split is reported.
 connected <- function(fit, d, what) {
   nd <- hl$hl_disconnected(fit$labels, d)
   if (nd > 0) stop(sprintf("check 2 FAILED: %s, %d disconnected", what, nd))
+  if (all(fit$params$alpha == 0) && fit$params$n_split > 0) {
+    stop(sprintf("check 2 FAILED: %s, alpha 0 split %d modules", what,
+                 fit$params$n_split))
+  }
   invisible(TRUE)
 }
 
@@ -201,6 +208,8 @@ TSV <- file.path(OUT, "planted_hleiden.tsv")
 ENG <- list(hleiden_a0 = 0, hleiden_sched = SCHED)
 # `a0`: alpha 0 only (the schedule arm failed check 2, see the log)
 if ("a0" %in% args) ENG <- ENG["hleiden_a0"]
+# `sched`: schedule only; rows of other engines in TSV are kept
+if ("sched" %in% args) ENG <- ENG["hleiden_sched"]
 
 summarize <- function() {
   x <- utils::read.delim(TSV)
@@ -237,6 +246,15 @@ if ("summary" %in% args) {
 if (!"planted" %in% args) quit(save = "no")
 
 rows <- list()
+if (file.exists(TSV) && length(ENG) == 1L) {
+  old <- utils::read.delim(TSV)
+  if ("disconnected" %in% names(old)) {  # alpha-0 rows before the split
+    names(old)[names(old) == "disconnected"] <- "n_split"
+    old$n_moved <- 0L
+  }
+  old <- old[old$engine != names(ENG), ]
+  rows <- split(old, seq_len(nrow(old)))
+}
 t_all <- Sys.time()
 for (dn in names(pe$DEG)) {
   for (delta in pe$DELTA) {
@@ -261,7 +279,7 @@ for (dn in names(pe$DEG)) {
             t(sc), secs = fit$params$secs,
             iterations = fit$params$iterations,
             converged = fit$params$converged, stalls = fit$params$stalls,
-            disconnected = 0L
+            n_split = fit$params$n_split, n_moved = fit$params$n_moved
           )
         }
       }

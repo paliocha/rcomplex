@@ -34,8 +34,9 @@ hl_quality <- function(lab, d, lambda, gamma = 1, alpha = 0) {
   r
 }
 
-# Modules not connected in the 2-section (co-expression plus hog edges)
-hl_disconnected <- function(lab, d) {
+# Connected component of every node in its module's 2-section subgraph
+# (co-expression plus hog edges inside the module)
+.hl_comp <- function(lab, d) {
   ij <- function(m) {
     j <- rep.int(seq_len(ncol(m)), diff(m@p))
     i <- m@i + 1L
@@ -44,13 +45,37 @@ hl_disconnected <- function(lab, d) {
   }
   e <- rbind(ij(d$co), ij(d$hog))
   g <- igraph::make_graph(as.vector(t(e)), n = d$n, directed = FALSE)
-  x <- unique(data.frame(lab = lab, comp = igraph::components(g)$membership))
+  igraph::components(g)$membership
+}
+
+# Modules not connected in the 2-section
+hl_disconnected <- function(lab, d) {
+  x <- unique(data.frame(lab = lab, comp = .hl_comp(lab, d)))
   length(unique(x$lab[duplicated(x$lab)]))
 }
 
+# Split every disconnected module into its components. The largest
+# component keeps the module; n_moved counts genes in the others.
+hl_split <- function(lab, d) {
+  comp <- .hl_comp(lab, d)
+  nc <- tapply(comp, lab, function(x) length(unique(x)))
+  size <- stats::ave(comp, comp, FUN = length)
+  keep <- tapply(seq_along(lab), lab, function(i) {
+    comp[i][which.max(size[i])]
+  })
+  moved <- comp != keep[as.character(lab)]
+  key <- ifelse(moved, paste0("c", comp), paste0("m", lab))
+  list(
+    labels = match(key, unique(key)), n_split = sum(nc > 1),
+    n_moved = sum(moved)
+  )
+}
+
 # alpha: one value (fixed) or a schedule by aggregation level, last value
-# held and used for every later iteration. Same return shape as
-# joint_louvain(); quality is q(last alpha).
+# held and used for every later iteration. Modules disconnected in the
+# 2-section are split afterwards (params n_split, n_moved); with the
+# strict term (alpha > 0) Leiden cannot guarantee connectivity. Same
+# return shape as joint_louvain(); quality is q(last alpha), after split.
 hleiden <- function(nets, orthologs, lambda, gamma = 1, alpha = c(0, 0.5, 1),
                     theta = 0.01, seed = NULL, max_iter = 20,
                     data = jl_data(nets, orthologs)) {
@@ -62,17 +87,19 @@ hleiden <- function(nets, orthologs, lambda, gamma = 1, alpha = c(0, 0.5, 1),
     theta = theta, max_iter = as.integer(max_iter)
   )))
   secs <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-  lab <- r$labels + 1L
+  sp0 <- hl_split(r$labels + 1L, d)
+  lab <- sp0$labels
   a <- alpha[length(alpha)]
   q <- hl_quality(lab, d, lambda, gamma, a)
   sp <- do.call(jl_quality_cpp, c(
-    list(lab = r$labels), .jl_args(d),
+    list(lab = lab - 1L), .jl_args(d),
     list(lambda = lambda, gamma = gamma)
   ))
   params <- list(
     lambda = lambda, gamma = gamma, alpha = alpha, theta = theta,
     seed = seed, iterations = r$iterations, converged = r$converged,
-    levels = r$levels, stalls = r$stalls, secs = secs
+    levels = r$levels, stalls = r$stalls, n_split = sp0$n_split,
+    n_moved = sp0$n_moved, secs = secs
   )
   modules <- lapply(
     stats::setNames(seq_along(d$species), d$species),
