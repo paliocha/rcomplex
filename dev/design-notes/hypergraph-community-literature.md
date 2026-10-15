@@ -27,6 +27,10 @@ changed. Method and failures are at the end.
    two-step partition matched by hog overlap on planted data and on wood
    split halves. Recommendation: withdraw WP15b, ship a matching step, do
    not build E3.
+8. Closing section 12: leaf and wood, h-Leiden and Bethe Hessian probes.
+   Nothing beats per-species modules lined up by hogs on both tissues.
+   WP15b withdrawn (licence stays MIT), E3 not built; `joint_modules()`
+   becomes the lining-up step (WP15c).
 
 ## 1. Hypergraph modularity definitions, resolution, degeneracy, nulls
 
@@ -781,6 +785,205 @@ matching are the per-species modules, so the compact-null rerun on them
 is the run already done (STOP stands). Open knob: `gamma` was 1
 throughout; finer modules may hold more conserved families, but every
 engine would need the same sweep and the control would move with it.
+
+## 12. Leaf and wood close the question (2026-10-15)
+
+Section 11 ran on wood only. Martin's rule: every real-data probe runs on
+leaf (8 Pooideae species, 20 samples each, split 10 v 10; VBRO 10 v 9)
+and wood (6 species). He asked for WP15b (species-blocked h-Leiden,
+written from the papers, not ported) and E3 (species-blocked Bethe
+Hessian) on both. Three arms, three builders, one afternoon.
+
+Files: `Rscript dev/probes/joint_halves.R <wood|leaf> <engines>` (one
+cache file per run); `hleiden.{cpp,R}`, `hleiden_check.R`,
+`hleiden_disc.R`; `bethe.R`, `bethe_check.R`. Reports `REPORT_leaf.md`,
+`REPORT_hleiden.md`, `REPORT_bethe.md` in `prepare_data/cache/probe_e2/`.
+
+### 12a. Leaf, all engines
+
+Scored as section 11: modules of 20 or more genes, three seeds, held-out
+AUROC z of half-A modules on half-B networks. Values are seed means;
+ARI ranges are over seeds; the pooled E2 row gives the range of its
+lambda means (`leaf_summary.tsv`).
+
+| engine | lambda | modules >= 20 | per-species ARI | joint ARI | hog purity | hog pairs in one module | z cross | z within | wall s |
+|---|---|---|---|---|---|---|---|---|---|
+| two-step | 0 | 60.8 | 0.13 (0.13-0.13) | 0.25 | 0 | 0 | 8.4 | 39.4 | 137 |
+| match | 0.25-16 | 9.5 | 0.13 (0.13-0.13) | 0.06 | 0.02 | 0.14 | 8.4 | 39.4 | 139 |
+| match | 64 | 9.3 | 0.13 (0.13-0.13) | 0.06 | 0.02 | 0.14 | 8.4 | 40.3 | 139 |
+| E2 | 0.25-16 | 9.5-10.8 | 0.13 (0.12-0.14) | 0.05-0.06 | 0.02-0.03 | 0.13-0.14 | 8.4-8.7 | 39.8-40.8 | 35-43 |
+| E2 | 64 | 16.7 | 0.15 (0.14-0.16) | 0.11 | 0.18 | 0.19 | 4.1 | 5.8 | 63 |
+| E1 | 32x | 38.5 | 0.13 (seed 1) | 0.32 | 0.00 | 0.00 | 11.3 | 49.5 | 48 |
+
+Wood, same engines (section 11 runs, rescored by the new harness):
+
+| engine | lambda | per-species ARI | joint ARI | hog purity | hog pairs in one module | z cross | z within |
+|---|---|---|---|---|---|---|---|
+| match | 0.25-16 | 0.48 | 0.37 | 0.10 | 0.25 | 12.8 | 73.7 |
+| match | 64 | 0.48 | 0.36 | 0.11 | 0.26 | 13.2 | 72.8 |
+| E2 | 0.25-16 | 0.47-0.51 | 0.33-0.38 | 0.09-0.12 | 0.24-0.27 | 12.9-13.4 | 73.4-75.7 |
+| E2 | 64 | 0.49 | 0.40 | 0.23 | 0.34 | 14.1 | 66.9 |
+
+E2 ties the match on leaf at every lambda up to 16; every gap sits inside
+the three-seed spread. At lambda 64 it raises agreement and hog purity,
+but its modules do not hold on held-out samples (z cross 4.1 against 8.4,
+z within 5.8 against 40). E1 on leaf (z cross 11.3, purity 0, 38
+modules) is the star artefact of section 10 again: per-species modules
+under a shared label. Leaf does not flip the wood verdict. The data
+message is plain: at 10 v 10 samples leaf modules replicate at ARI 0.13
+under every method, and no clustering rule fixes that.
+
+### 12b. WP15b probe: species-blocked h-Leiden
+
+What was built. Leiden search (fast local move, refinement with the
+`exp(delta / theta)` draw, aggregation) on `q(alpha)`. Alpha 0 is
+section 11's objective. Alpha 1 is the strict hyperedge term: paralogs
+collapse to weight `1 / c_s`, `w_h = |S_h| (|S_h| - 1)`, null
+`w_h prod_s H_s(C) / H_s`. hl0 runs at alpha 0; hlS runs the schedule 0,
+0.5, 1 by aggregation level. Written from Traag 2019 and Kaminski 2024,
+not ported.
+
+**Connectivity.** The strict term pays nothing for a lone copy until its
+whole hog shares a module. Refinement grows communities one node at a
+time, so it cannot assemble a hog: levels stall, and a module can come
+out disconnected (check 2). The gamma-connectivity in the 2-section
+sense that WP15b promised in its docs does not hold under q(1). The
+probe's workaround: judge refinement merges on q(0), then split any
+disconnected module into components. `n_split` was 0 in all 300 runs,
+so the split never fired; stalls stay frequent, under a 20-iteration
+cap. E2 itself left 1 disconnected module in 60 real-data runs (wood,
+lambda 64). On this data the guarantee is close to moot.
+
+**Planted** (`planted_hleiden_best.tsv`; each engine at its best lambda
+by AMI, three seeds; Jac = share of planted modules found at Jaccard >
+0.5):
+
+Each cell: lambda; AMI / Jac / defector precision / defector recall.
+
+| d | delta | hl0 | hlS | E2 | match |
+|---|---|---|---|---|---|
+| 10 | 0 | 4; .41 / .81 / - / - | 64; .47 / .97 / - / - | 4; .41 / .86 / - / - | 4; .40 / .03 / - / - |
+| 10 | 0.1 | .25; .40 / .06 / .17 / .78 | .25; .38 / .03 / .15 / .78 | .25; .38 / .11 / .16 / .77 | .25; .40 / .06 / .16 / .78 |
+| 10 | 0.3 | .25; .39 / .06 / .41 / .76 | .25; .34 / .00 / .36 / .75 | .25; .37 / .06 / .40 / .76 | 4; .41 / .06 / .42 / .77 |
+| 60 | 0 | 4; .74 / 1.00 / - / - | .25; .81 / .72 / - / - | .25; .72 / .92 / - / - | .25; .72 / .94 / - / - |
+| 60 | 0.1 | 1; .75 / .67 / .37 / .91 | .25; .80 / .72 / .32 / .91 | .25; .72 / .86 / .42 / .93 | .25; .73 / .89 / .48 / .95 |
+| 60 | 0.3 | 1; .75 / .75 / .63 / .88 | .25; .76 / .64 / .54 / .86 | .25; .74 / .75 / .68 / .88 | 1; .73 / .89 / .74 / .91 |
+
+In no cell with defectors does hl0 or hlS beat the match on defector
+recall; the match leads by 0.03-0.04 at d = 60. hlS reaches its top AMI
+by lumping: fewer planted modules found, lower defector precision. The
+first condition of section 7's rule fails at both alphas.
+
+**Leaf and wood halves** (pooled rows: range of lambda means; lambda 64
+rows: seed mean and seed range):
+
+| data | engine | lambda | ARI sp | ARI joint | z cross | z within |
+|---|---|---|---|---|---|---|
+| leaf | match | 0.25-16 | 0.13 (0.13-0.13) | 0.06 | 8.4 (8.3-8.5) | 39.4 |
+| leaf | match | 64 | 0.13 (0.13-0.13) | 0.06 | 8.4 (8.1-8.7) | 40.3 |
+| leaf | E2 | 0.25-16 | 0.13 | 0.05-0.06 | 8.4-8.7 | 39.8-40.8 |
+| leaf | E2 | 64 | 0.15 (0.14-0.16) | 0.11 | 4.1 (3.1-5.7) | 5.8 |
+| leaf | hl0 | 0.25-16 | 0.13 | 0.05-0.06 | 8.2-8.7 | 39.7-41.2 |
+| leaf | hl0 | 64 | 0.14 (0.14-0.15) | 0.10 | 5.8 (5.4-6.3) | 12.6 |
+| leaf | hlS | 0.25-16 | 0.12-0.13 | 0.03 | 8.3-8.5 | 39.6-40.7 |
+| leaf | hlS | 64 | 0.11 (0.11-0.11) | 0.04 | 5.8 (4.7-7.2) | 31.1 |
+| wood | match | 0.25-16 | 0.48 (0.44-0.51) | 0.37 | 12.8 (12.6-13.2) | 73.7 |
+| wood | match | 64 | 0.48 (0.44-0.51) | 0.36 (0.35-0.38) | 13.2 (13.0-13.3) | 72.8 |
+| wood | E2 | 0.25-16 | 0.47-0.51 | 0.33-0.38 | 12.9-13.4 | 73.4-75.7 |
+| wood | E2 | 64 | 0.49 (0.46-0.52) | 0.40 (0.39-0.43) | 14.1 (13.2-14.6) | 66.9 |
+| wood | hl0 | 0.25-16 | 0.46-0.50 | 0.33-0.35 | 13.0-13.4 | 73.3-75.3 |
+| wood | hl0 | 64 | 0.54 (0.53-0.56) | 0.49 (0.46-0.54) | 15.4 (14.7-15.9) | 70.5 |
+| wood | hlS | 0.25-16 | 0.47-0.50 | 0.21-0.24 | 13.0-13.1 | 71.8-73.5 |
+| wood | hlS | 64 | 0.49 (0.47-0.50) | 0.27 (0.21-0.34) | 12.6 (12.3-12.8) | 69.9 |
+
+One cell stands out: hl0 at lambda 64 on wood. It beats the match at the
+same lambda outside the seed range on all three scores (ARI sp 0.53-0.56
+against 0.44-0.51, ARI joint 0.46-0.54 against 0.35-0.38, z cross
+14.7-15.9 against 13.0-13.3). The brief quoted 12.6-13.2 for the match;
+that is its lambda 0.25-16 range, and `wood_summary.tsv` wins. It is the
+only real-data gain beyond seed spread in the whole probe. Three readings:
+
+1. It is search, not the hyperedge term. hl0 reaches a higher value of
+   E2's own objective than E2's Louvain (4.141 against 4.117). hlS at 64
+   gains nothing.
+2. The z-cross gain is partly circular. At hog purity 0.25 a quarter of
+   multi-species hogs sit whole in one module, so "conserved across
+   species on held-out data" partly scores each species' own module
+   coherence twice; z within (about 70) is its ceiling. The clean
+   within-species replication gain is +0.06 in ARI sp (seed ranges 0.02
+   apart, at the edge of three-seed noise), and z within drops (70.5
+   against 72.8).
+3. On leaf the same setting collapses (z cross 5.8 against 8.4, z within
+   12.6 against 40). No single lambda serves both tissues.
+
+Record it as the one lead if anyone reopens the question: Leiden search
+on the pairwise objective at high lambda, in the wood regime only, with
+a per-data lambda calibration nobody has.
+
+Wall times per run: leaf hl0 81-103 s (286 at 64), hlS 106-132 s (270),
+E2 35-63 s, match 139 s with its two-step; wood hl0 43-52 s (148), hlS
+48-61 s (151), E2 26-27 s, match 98 s. Leiden costs about 2x E2, 5x at
+lambda 64, where it hits the iteration cap.
+
+**Verdict.** WP15b fails the planted condition at both alphas and has no
+real-data gain that holds on both tissues. Withdrawn. The licence stays
+MIT; no libleidenalg port.
+
+### 12c. E3 probe: species-blocked Bethe Hessian
+
+What was built. `W = co + lambda * hog` from `jl_data()`, `H(r) = (r^2 -
+1) I - r W + D` with `r = sqrt(rho)`; the blocked variant uses `r_s` per
+species and `sqrt(r_s r_t)` between species. K is the number of negative
+eigenvalues; labels come from k-means on the row-normalised negative
+eigenvectors. True K on the planted fixture is 18 (13 with backgrounds
+joined). Global and blocked agree to the digit there.
+
+| d | lambda | K | AMI | minority Jaccard |
+|---|---|---|---|---|
+| 60 | 0.25, 1 | 78 | 0.78-0.79 | 0.20-0.22 |
+| 60 | 1.75 / 2 / 2.5-3 (seed 1) | 84 / 124 / >= 200 | - | - |
+| 60 | 4, 16, 64 | >= 640 (cap) | - | - |
+| 10 | 0.25 | 78 | 0.64 | 0.19-0.20 |
+| 10 | 1 | 159-171 | - | - |
+| 10 | 4, 16, 64 | >= 640 (cap) | - | - |
+
+K = 78 is 6 species x 13: the spectrum finds each species' modules and
+background and never joins the species, because co-expression edges
+never cross species. Above lambda 1.5 hog families appear as small
+communities and K explodes. No lambda gives 13 or 18; one spectrum
+cannot hold two scales. Leaf: K hit the 320 cap at every setting, both
+variants, both halves (`bethe_K.tsv`), so no labels exist. Wood was not
+run: the method failed on principle, leaf reproduced it, and Martin
+stopped it. A spectral method would need one Bethe Hessian per species,
+then alignment through the hogs: that is the matching step. **Verdict.**
+E3 earns no WP.
+
+### 12d. Decision (Martin, 2026-10-15)
+
+1. Modules are species-level objects. Conservation is tested after
+   clustering (`module_preservation()`, held-out AUROC), not imposed
+   during it. Every family-steered engine (E1 star, E2, h-Leiden, Bethe)
+   ties or loses against per-species modules lined up by hogs, on
+   planted data, wood and leaf.
+2. `joint_modules()` becomes the lining-up step: per-species modules
+   (given, or from `detect_modules()`), then Louvain on the module graph
+   under section 11's objective with genes frozen (the `match` control).
+   Lambda defaults to 1 (same partition from 0.25 to 16 on both
+   tissues). The star engine is deleted. WP15c, PR #91. On wood the
+   lining-up step reproduces the probe's objective (3.8573 against
+   3.8572) in under 4 s. Label agreement with the probe's run is ARI
+   0.62 because the landscape is flat (8-9 shared labels over seeds): a
+   few species modules sit between two shared labels. That is partial
+   conservation, not a bug; a shared label is not a hard call for every
+   module.
+3. WP15b withdrawn; licence stays MIT.
+4. E3 not built.
+5. The compact-null rerun (section 0 of `compact-null.md`) is moot:
+   lined-up modules are the per-species modules. STOP stands.
+6. Leaf at 10 v 10 samples: modules do not replicate under any rule
+   (ARI 0.13). Only more samples change that.
+7. Open lead, not scheduled: Leiden search on the pairwise objective at
+   high lambda in the strong-network regime (12b).
 
 ## Reading list
 

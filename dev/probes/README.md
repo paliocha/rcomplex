@@ -27,3 +27,7 @@ Recover history with `git show main:<path>` (main @ b245ac0).
 - `bethe.R`, `bethe_check.R`: probe E3, species-blocked Bethe Hessian
   (K from negative eigenvalues); `joint_halves.R` hook. Fails check 1:
   K stays per species (78 = 6 x 13) or explodes past the cap.
+- `hleiden.cpp`, `hleiden.R`, `hleiden_check.R`, `hleiden_disc.R`: WP15b
+  probe, species-blocked h-Leiden on q(alpha) (hl0, hlS);
+  `joint_halves.R` hook; disconnected-module count per cached run.
+  Withdrawn (note section 12b).
