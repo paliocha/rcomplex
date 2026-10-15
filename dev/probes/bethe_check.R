@@ -25,6 +25,23 @@ jl <- pe$jl
 sys.source("dev/probes/bethe.R", jl)
 K_TRUE <- c(classes = pe$K + pe$S, joint = pe$K + 1L)
 
+# `fine`: K on a fine lambda grid, d 60, delta 0, seed 1 (k up to 200)
+if ("fine" %in% commandArgs(TRUE)) {
+  pl <- pe$planted(1L, pe$DEG$d60[1], pe$DEG$d60[2], 0)
+  dat <- jl$jl_data(pl$nets, pl$ortho[, c("species", "gene", "hog")])
+  for (v in c("global", "blocked")) {
+    for (lam in c(0, 0.25, 0.5, 1, 1.5, 1.75, 2, 2.5, 3)) {
+      bh <- jl$bethe_hessian(dat$co + lam * dat$hog, dat$spi, v)
+      ev <- jl$bethe_negative(bh$H, k0 = 200L, k_max = 200L)
+      cat(sprintf(
+        "fine %s lambda %g: K %d%s\n", v, lam, ev$K,
+        if (ev$saturated) "+" else ""
+      ))
+    }
+  }
+  quit(save = "no")
+}
+
 rows <- list()
 for (dn in names(pe$DEG)) {
   for (seed in pe$SEEDS) {
