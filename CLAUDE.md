@@ -132,6 +132,10 @@ Applies to everything a user reads: roxygen, README, quickstart, messages.
 - **Trait level.** `preservation_matrix_test()` reads `Zsummary_std` from
   every contrast of `all_species_pairs()`. It reports `p_free` and
   `p_blocked`; their gap shows phylogenetic confounding.
+- **Joint modules are lined-up species modules.** `joint_modules()`
+  never re-clusters genes. It joins per-species modules by hog overlap
+  against a species-pair null (probe: literature note sections 10-12).
+  Family-steered clustering lost on planted, wood and leaf.
 - **P-values saturate.** A relabelling p-value cannot go below the tail
   of a finite label space. Read `p_attainable` and `pvalue_resolution()`.
   Rank on `Zsummary_std`; keep p and q for the call.
