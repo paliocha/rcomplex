@@ -899,9 +899,8 @@ rows: seed mean and seed range):
 One cell stands out: hl0 at lambda 64 on wood. It beats the match at the
 same lambda outside the seed range on all three scores (ARI sp 0.53-0.56
 against 0.44-0.51, ARI joint 0.46-0.54 against 0.35-0.38, z cross
-14.7-15.9 against 13.0-13.3). The brief quoted 12.6-13.2 for the match;
-that is its lambda 0.25-16 range, and `wood_summary.tsv` wins. It is the
-only real-data gain beyond seed spread in the whole probe. Three readings:
+14.7-15.9 against 13.0-13.3). It is the only real-data gain beyond seed
+spread in the whole probe. Three readings:
 
 1. It is search, not the hyperedge term. hl0 reaches a higher value of
    E2's own objective than E2's Louvain (4.141 against 4.117). hlS at 64
