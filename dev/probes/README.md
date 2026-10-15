@@ -24,3 +24,6 @@ Recover history with `git show main:<path>` (main @ b245ac0).
   (split-half ARI, hog agreement, held-out AUROC z); per-run cache and an
   engine registry with `hleiden` / `bethe` hooks. Replaces
   `joint_wood_halves.R` (section 11 runs migrate into its cache).
+- `bethe.R`, `bethe_check.R`: probe E3, species-blocked Bethe Hessian
+  (K from negative eigenvalues); `joint_halves.R` hook. Fails check 1:
+  K stays per species (78 = 6 x 13) or explodes past the cap.
