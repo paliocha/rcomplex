@@ -21,6 +21,7 @@ rcomplex(
   null = FALSE,
   n_cores = 1L,
   block_size = NULL,
+  r_min = NULL,
   seed = NULL
 )
 ```
@@ -99,6 +100,12 @@ rcomplex(
   `NULL` (default) builds each species network from the dense gene x
   gene matrix. A positive whole number builds it in blocks of that many
   genes. The full matrix then never forms.
+
+- r_min:
+
+  `NULL` (default), a number, or `"null"`: the correlation floor of each
+  species network. See
+  [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md).
 
 - seed:
 
@@ -223,6 +230,7 @@ the weakest correlation that passed the density threshold. The same
 density needs a stronger correlation at few samples. A network from
 [`as_network()`](https://paliocha.github.io/rcomplex/reference/as_network.md)
 has no correlation and shows `r ?`, as does a network without edges.
+With `r_min`, the line also shows the floor and the edges it removed.
 
 ## Examples
 

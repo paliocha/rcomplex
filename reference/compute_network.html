@@ -63,7 +63,9 @@ a numeric matrix or a
 <span>  store_density <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  block_size <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  partition <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  partition <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  r_min <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S4 method for class 'SummarizedExperiment'</span></span>
@@ -171,6 +173,17 @@ samples and tells you which. At least two levels must remain.
 Use the dense build: <code>block_size</code> must be <code>NULL</code>.</p></dd>
 
 
+<dt id="arg-r-min">r_min<a class="anchor" aria-label="anchor" href="#arg-r-min"></a></dt>
+<dd><p><code>NULL</code> (default) sets no floor. A number in [-1, 1)
+removes every edge with a weaker correlation. <code>"null"</code> sets the
+floor from shuffled expression. See Details.</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Integer seed, or <code>NULL</code> to draw from the global stream.
+Only <code>r_min = "null"</code> draws random numbers.</p></dd>
+
+
 <dt id="arg-assay">assay<a class="anchor" aria-label="anchor" href="#arg-assay"></a></dt>
 <dd><p>Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
@@ -202,7 +215,9 @@ correlations.</p></dd>
 you give one. <code>r_threshold</code> is the weakest correlation of an edge:
 the smallest for <code>sign = "positive"</code>, the largest for
 <code>"negative"</code>. With <code>partition</code> it is the rectified mean over the
-levels, negated for <code>"negative"</code>. It is <code>NA</code> when no pair passes.</p></dd>
+levels, negated for <code>"negative"</code>. It is <code>NA</code> when no pair passes.
+<code>r_min</code> is the floor used, <code>NA</code> without one. <code>n_floored</code> counts
+the edges the floor removed.</p></dd>
 
 <dt>gene_mean</dt>
 <dd><p>The mean expression of each kept gene, by name.
@@ -225,6 +240,20 @@ keeps the top fraction of pairs, so a negative network exists at any
 sample size even when it holds only noise: at n = 20 samples, r &gt;= -0.3
 is noise. Check the weakest correlation that passed the threshold
 before you read a negative network.</p>
+<p><code>r_min</code> sets every network value to 0 where the correlation is below
+the floor. This removes edges and weaker stored values alike. It
+reads the value of <code>r_threshold</code>, negated for <code>sign = "negative"</code>.
+<code>r_min = "null"</code> permutes each gene's samples, within <code>partition</code>
+levels, on at most 2,000 random genes. The floor is the correlation
+above which these chance pairs supply 1 % of the edges (Butte &amp; Kohane
+2000). On 11 grass leaf compendia it ranged from r = 0.09 (wheat, 1,436
+runs) to 0.59 (tef, 31 runs) and removed 0-3 % of the edges.</p>
+<p>A pooled compendium gives a global network and misses organ-restricted
+co-expression. Use <code>partition</code>, <code>block</code> in <code><a href="rcomplex.html">rcomplex()</a></code>, or one run
+per organ. Networks stabilise above about 100 samples (Aoki et al.
+2007), so fewer samples give stronger chance correlations. <code>block</code>
+does not align developmental stages across species (Li, Nakayama &amp;
+Sinha 2023).</p>
     </div>
     <div class="section level2">
     <h2 id="gene-universe">Gene universe<a class="anchor" aria-label="anchor" href="#gene-universe"></a></h2>

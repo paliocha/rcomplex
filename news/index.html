@@ -36,6 +36,8 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.3" id="rcomplex-043-development">rcomplex 0.4.3 (development)<a class="anchor" aria-label="anchor" href="#rcomplex-043-development"></a></h2>
 <ul><li>
+<code><a href="../reference/compute_network.html">compute_network()</a></code> takes <code>r_min</code>: a correlation floor under the density threshold. <code>r_min = "null"</code> sets the floor from shuffled expression and takes <code>seed</code>. <code>params</code> records <code>r_min</code> and <code>n_floored</code>. <code><a href="../reference/rcomplex.html">rcomplex()</a></code> forwards <code>r_min</code>, and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows the floor.</li>
+<li>
 <code><a href="../reference/clique_threshold_sweep.html">clique_threshold_sweep()</a></code> uses the randomized-p pi0 q-values of the main path and takes <code>seed</code>.</li>
 <li>Dense network kernels wrapped a 32-bit index above 65,536 genes. This crashed or corrupted <code><a href="../reference/compute_network.html">compute_network()</a></code> on hexaploid wheat. The package now builds Armadillo with 64-bit indices.</li>
 <li>

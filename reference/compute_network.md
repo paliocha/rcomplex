@@ -22,7 +22,9 @@ compute_network(
   store_density = NULL,
   n_cores = 1L,
   block_size = NULL,
-  partition = NULL
+  partition = NULL,
+  r_min = NULL,
+  seed = NULL
 )
 
 # S4 method for class 'SummarizedExperiment'
@@ -128,6 +130,17 @@ compute_network(x, assay = 1L, ...)
   two levels must remain. Use the dense build: `block_size` must be
   `NULL`.
 
+- r_min:
+
+  `NULL` (default) sets no floor. A number in \[-1, 1) removes every
+  edge with a weaker correlation. `"null"` sets the floor from shuffled
+  expression. See Details.
+
+- seed:
+
+  Integer seed, or `NULL` to draw from the global stream. Only
+  `r_min = "null"` draws random numbers.
+
 - assay:
 
   Assay name or index to extract from the SummarizedExperiment (default
@@ -163,7 +176,8 @@ A list with components:
   `r_threshold` is the weakest correlation of an edge: the smallest for
   `sign = "positive"`, the largest for `"negative"`. With `partition` it
   is the rectified mean over the levels, negated for `"negative"`. It is
-  `NA` when no pair passes.
+  `NA` when no pair passes. `r_min` is the floor used, `NA` without one.
+  `n_floored` counts the edges the floor removed.
 
 - gene_mean:
 
@@ -187,6 +201,23 @@ keeps the top fraction of pairs, so a negative network exists at any
 sample size even when it holds only noise: at n = 20 samples, r \>= -0.3
 is noise. Check the weakest correlation that passed the threshold before
 you read a negative network.
+
+`r_min` sets every network value to 0 where the correlation is below the
+floor. This removes edges and weaker stored values alike. It reads the
+value of `r_threshold`, negated for `sign = "negative"`.
+`r_min = "null"` permutes each gene's samples, within `partition`
+levels, on at most 2,000 random genes. The floor is the correlation
+above which these chance pairs supply 1 % of the edges (Butte & Kohane
+2000). On 11 grass leaf compendia it ranged from r = 0.09 (wheat, 1,436
+runs) to 0.59 (tef, 31 runs) and removed 0-3 % of the edges.
+
+A pooled compendium gives a global network and misses organ-restricted
+co-expression. Use `partition`, `block` in
+[`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md),
+or one run per organ. Networks stabilise above about 100 samples (Aoki
+et al. 2007), so fewer samples give stronger chance correlations.
+`block` does not align developmental stages across species (Li, Nakayama
+& Sinha 2023).
 
 ## Gene universe
 

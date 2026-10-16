@@ -63,6 +63,7 @@ orthologs.</p>
 <span>  null <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  block_size <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  r_min <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -135,6 +136,11 @@ what abundance and network structure alone produce.</p></dd>
 <dd><p><code>NULL</code> (default) builds each species network from the
 dense gene x gene matrix. A positive whole number builds it in blocks
 of that many genes. The full matrix then never forms.</p></dd>
+
+
+<dt id="arg-r-min">r_min<a class="anchor" aria-label="anchor" href="#arg-r-min"></a></dt>
+<dd><p><code>NULL</code> (default), a number, or <code>"null"</code>: the correlation
+floor of each species network. See <code><a href="compute_network.html">compute_network()</a></code>.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
@@ -230,7 +236,8 @@ genes, the samples, the density and <code>r_threshold</code> from
 <code><a href="compute_network.html">compute_network()</a></code>: the weakest correlation that
 passed the density threshold. The same density needs a stronger
 correlation at few samples. A network from <code><a href="as_network.html">as_network()</a></code> has no
-correlation and shows <code>r ?</code>, as does a network without edges.</p>
+correlation and shows <code>r ?</code>, as does a network without edges.
+With <code>r_min</code>, the line also shows the floor and the edges it removed.</p>
     </div>
 
     <div class="section level2">
