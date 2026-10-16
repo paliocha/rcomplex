@@ -14,9 +14,25 @@ Start with the driver `rcomplex()`. It takes `expr` (or `networks`) and
 shows `r_threshold` per species: the weakest correlation that passed the
 density threshold. `write_rcomplex()` writes the tables.
 
+- Inputs: `read_orthologs()` reads the long table (`species`, `gene`,
+  `hog`). `as_network()` imports a network. `as_modules()` imports modules.
 - `clades`: named list of species vectors. It may nest, never cross.
   `clades_from_tree()` derives it. A clique's home clade is the smallest
   clade holding all its species.
+- `partition`: per-sample factor for per-level correlation. `block`: a
+  designed sample factor (time point, tree, zone). `sign`: `"positive"`
+  or `"negative"` correlation.
+- Edge `score` is `-log2(p)` in bits. `evalue` is the expected count of
+  pairs this strong by chance.
+
+The four levels:
+- **Gene / hog**: hypergeometric q-values (`find_coexpressologs()`,
+  `density_sweep()`), hog permutation, rank specificity, edge-swap null.
+- **Module**: `detect_modules()`, `module_preservation()`,
+  `preservation_paired()`, `module_correspondence()`, hubs.
+- **Clique**: `find_cliques()` (species graph), `gene_clique_graph()`
+  (gene graph), `classify_cliques()`, `classify_gene_cliques()`.
+- **Trait**: `preservation_matrix_test()` on an all-pairs matrix.
 
 ## Build & Test
 
