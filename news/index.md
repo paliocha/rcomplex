@@ -1,5 +1,13 @@
 # Changelog
 
+## rcomplex 0.4.3 (development)
+
+- Dense network kernels wrapped a 32-bit index above 65,536 genes. This
+  crashed or corrupted
+  [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md)
+  on hexaploid wheat. The package now builds Armadillo with 64-bit
+  indices.
+
 ## rcomplex 0.4.2
 
 rcomplex 0.4.2 adds two functions and changes no existing output.
