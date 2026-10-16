@@ -42,6 +42,7 @@ Suggests:
     DT,
     dplyr,
     knitr,
+    phangorn,
     purrr (>= 1.0.0),
     rmarkdown,
     S4Vectors,

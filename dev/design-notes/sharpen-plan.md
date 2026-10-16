@@ -867,6 +867,12 @@ or Bioconductor package implements hypergraph modularity as of
   branch; a `?` tip never counts as a change; check OK with and
   without `phangorn`.
 - Deps: WP7. Blocks nothing.
+- Outcome (2026-10-16): built without `phangorn`. A binary Fitch pass
+  is sixty lines of R, and it gives the `n_mpr` count that `phangorn`
+  does not. Only `tested_ns` reads as 0; `absent`, `untested`,
+  `underpowered`, `extendable` and tips outside `species` are `?`. Gene
+  loss is its own character. The per-clique table names changes in two
+  columns, `gains` and `losses`, instead of one `branches` column.
 
 ### WP17 MUNK co-expressologs (gated G11, after 0.4.0)
 
