@@ -1117,12 +1117,105 @@ or Bioconductor package implements hypergraph modularity as of
 - Deps: WP22 (the floor changes which edges exist, so the null runs
   on the floored networks). Blocks nothing.
 
+### Design principle: run like BLAST (Martin, 2026-10-16)
+
+`rcomplex(expr, orthologs)` must work on whatever it is given: a
+designed experiment with twenty samples per species, or a database
+compendium with two thousand runs per species, or a mix. The program
+reads each species' matrix and sets itself up; it prints what it
+chose, stores it in `params`, and any argument the user gives wins
+over the choice. The edge `evalue` (WP13) already plays BLAST's
+E-value. What is missing is the layer that chooses, and the two
+knobs it needs that the driver does not expose yet (`partition`,
+`r_min`). Evidence so far: pooled public compendia run the hog
+shuffle hot (Shin 2021 set: 1,322 chance complete-conserved hogs
+against 2,870 real; grass leaves: 32 against 1,972), which is the
+global-network effect; TEA-GCN (Lim et al., Mutwil lab, PMC13338267)
+shows that correlating within sample groups and taking the rectified
+average, which is `compute_network(partition = )` to the letter,
+fixes it on public data and improves cross-species conservation.
+
+### WP24 Partition through the driver (serial, after WP22)
+
+- Files: `R/rcomplex.R` (one formal `partition`, forwarded;
+  formals 15 -> 16), `R/network.R` (an internal
+  `.partition_kmeans(x, k)`; the `partition` x `block_size` exclusion
+  lifted if the blockwise kernel can take per-level matrices, else
+  documented), `R/null_network.R` (`partition` honoured where the
+  rank null builds its shuffled network), tests, `man/`, `NEWS.md`.
+- Why: see the principle above. The mechanism exists; the door does
+  not. Organ labels (PEO carries Plant Ontology terms for most runs)
+  are the best partition; without labels, k-means on the samples is
+  TEA-GCN's default and needs only a rule for k.
+- Do: `rcomplex(partition = NULL)`: `NULL` changes nothing; a named
+  list of per-sample factors (one per species, as `block`) is
+  forwarded to `compute_network()`; the string `"kmeans"` runs
+  `.partition_kmeans()` per species with k = `max(2, min(20,
+  floor(n / 100)))` (groups of about one hundred samples, Aoki 2007
+  Fig. 4C), seeded under the RNG contract, and stores the group
+  labels in `params$partition`. A species with fewer than 200
+  samples gets no k-means split and a message saying so.
+  `partition` and `block` together are refused with a sentence
+  (block centres within a group; partition correlates within it;
+  one or the other).
+- Probe first (`dev/probes/peo/`, on Orion, dense path on the fixed
+  library): LeafvRoot gains `organ_partition` (all PO-labelled runs,
+  partition = organ for organs with >= 50 runs); Shin2021 gains
+  `kmeans_partition` (its compendia carry no organ labels). Read:
+  chance complete-conserved against real, tier separation, Shin's
+  reference sets by pattern type, the C4 anchors on a
+  `kmeans_partition` rerun of C3vC4. The WP goes ahead if the null
+  cools by at least a factor of three on the Shin set without
+  losing the conserved tiers.
+- Accept: `rcomplex(expr, ..., partition = p)` gives the same edges
+  as building the networks with `compute_network(partition = p)` and
+  passing `networks =`; `"kmeans"` on a 400-sample stub makes 4
+  groups, on a 150-sample stub none with the message; seeded runs
+  reproduce; `block` + `partition` errors; snapshots unchanged at
+  default; `test-surface.R` updated; check OK.
+- Deps: WP22. Blocks WP25.
+
+### WP25 Regimes: the choosing layer (serial, after WP24)
+
+- Files: `R/rcomplex.R` (one formal `regime`, one internal
+  `.regime(x, args)`), `print.rcomplex()` (one line per species),
+  `summary()`, tests, `man/`, quickstart (one paragraph), `NEWS.md`.
+- Why: the principle above. Without this layer every knob from
+  WP21, WP22 and WP24 is a thing the user must know about.
+- Do: `rcomplex(regime = c("auto", "experiment", "compendium"))`.
+  `"experiment"` = the present defaults (dense, no partition, no
+  floor). `"compendium"` = `partition = "kmeans"` (or the user's
+  partition), `r_min = "null"`, `block_size = 512` when a species
+  has more than 40,000 genes. `"auto"` decides per species from the
+  matrix alone: `n_samples >= 200` -> compendium; `n_samples < 60`
+  -> experiment; between, experiment unless the samples are strongly
+  grouped (silhouette of the k = 2 k-means split above 0.5, a cheap
+  one-liner), then compendium with that split. Explicit arguments
+  always win; the chosen values go to `params$regime` and print as
+  one line per species: `HVUL: 630 runs, 24,531 genes, compendium:
+  6 partitions, floor r = 0.21, blockwise`. The thresholds are the
+  two numbers from Aoki 2007 (stability above ~100 samples) and
+  the WP12 power floor; the probe of WP24 may move them.
+- Accept: on the twenty-sample fixture `"auto"` equals
+  `"experiment"` bit for bit; on a 600-sample stub with two planted
+  sample groups `"auto"` picks compendium with two partitions and
+  the print line says so; an explicit `partition = NULL` under
+  `"compendium"` disables the split; `params$regime` round-trips
+  through `write_rcomplex()`; quickstart paragraph passes the prose
+  check; `test-surface.R` updated (rcomplex formals 16 -> 17, the
+  exception list already covers it); check OK.
+- Deps: WP22, WP24. Blocks nothing. After it ships, CLAUDE.md gains
+  one Key Design Decision bullet, "Regimes", and the README's first
+  example stays `rcomplex(expr, orthologs)`.
+
 ### Order from 0.4.3 on (2026-10-16)
 
-WP22 probe, then WP22 -> WP18 -> WP19 -> WP23 (if its gate opens) ->
-WP20 (if a second user asks) -> WP17 (if the PEO underpowered counts
-say so). WP16's cost ratio stays a sentence unless the PEO
-`edge_history()` tables show many ties.
+WP22 probe -> WP22 -> WP24 probe -> WP24 -> WP25 -> WP18 -> WP19 ->
+WP23 (if its gate opens) -> WP20 (if a second user asks) -> WP17 (if
+the PEO underpowered counts say so). WP16's cost ratio stays a
+sentence unless the PEO `edge_history()` tables show many ties. The
+toy test (WP18) moves behind the regime work because the regime
+layer changes what the toy must exercise.
 
 ## 4. Gates (all answered by Martin, 2026-10-07: "defaults with G8 narrowed")
 
