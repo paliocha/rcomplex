@@ -1,5 +1,7 @@
 # rcomplex 0.4.3 (development)
 
+* `clique_threshold_sweep()` uses the randomized-p pi0 q-values of the main
+  path and takes `seed`.
 * Dense network kernels wrapped a 32-bit index above 65,536 genes. This
   crashed or corrupted `compute_network()` on hexaploid wheat. The package
   now builds Armadillo with 64-bit indices.

@@ -122,6 +122,15 @@ rng_contract_cases <- function(fx) {
       }
     ),
     list(
+      name = "clique_threshold_sweep",
+      call = function(seed) {
+        suppressMessages(clique_threshold_sweep(
+          fx$sweep_cl, names(nets), nets, td$ortho,
+          multipliers = 1.5, seed = seed
+        ))$sweep_edges
+      }
+    ),
+    list(
       name = "find_coexpressologs.default",
       call = function(seed) find_coexpressologs(nets, td$ortho, seed = seed)
     ),
