@@ -1027,6 +1027,102 @@ or Bioconductor package implements hypergraph modularity as of
   8-formal rule); check OK.
 - Deps: none. Blocks nothing; the PEO benchmark meanwhile uses
   `networks =` built with `block_size = 512`.
+- Outcome (2026-10-16): merged as PR #98.
+
+### WP22 Correlation floor under the density cut (serial, next)
+
+- Files: `R/network.R` (one formal `r_min` on the matrix method, the
+  floor applied after the density threshold, two `params` fields),
+  `R/rcomplex.R` (forward `r_min`; formals 14 -> 15), `R/rng.R` table
+  and `test-rng-contract.R` (the `"null"` floor draws), tests, `man/`,
+  `NEWS.md`.
+- Why: "keep the strongest 3 % of pairs" has no floor. On the PEO
+  barley leaf compendium (630 runs, 24,531 genes) the weakest edge
+  has r = -0.008; mutual rank admits pairs that are co-expressed with
+  nothing because every pair is weak. Two published rules say where
+  the floor sits: the density valley of Aoki, Ogata & Shibata 2007
+  (Plant Cell Physiol 48:381, Fig. 4B: network density against the
+  correlation cut-off has a minimum, PCC 0.55-0.66 on Arabidopsis
+  arrays, and modules live above it) and the permutation cut-off of
+  Butte & Kohane 2000 as listed by Serin et al. 2016 (Front Plant Sci
+  7:444, Box 1). The density default stays; the floor is a knob with
+  a data-driven setting.
+- Do: `compute_network(r_min = NULL)`: `NULL` changes nothing; a
+  number drops every edge whose raw correlation (the same value
+  `.r_threshold()` reads) is below it, after the density cut;
+  `"null"` sets the number from shuffled expression: permute each
+  gene's samples with `.shuffle_genes()` (block-aware), correlate a
+  random subset of at most 2,000 genes, and take the correlation at
+  which the shuffled pairs would supply 1 % of the real edge count
+  (expected chance edges = 1 % of `k`). Store `params$r_min` (the
+  number used) and `params$n_floored`; `r_threshold` then reports the
+  weakest surviving edge. `print()` adds one line when `n_floored >
+  0`. `rcomplex(r_min = )` forwards it. Docs in `@details` of
+  `compute_network()`: the two rules, their citations, and three
+  sentences on public compendia: a pooled compendium is a global
+  network and under-calls organ-restricted co-expression (use
+  `block` or separate runs); network properties stabilise above
+  about 100 samples (Aoki Fig. 4C), so species with fewer runs carry
+  higher chance correlations; `block` blocks by sample labels, it does
+  not align developmental stages across species (Li, Nakayama & Sinha
+  2023, Curr Opin Plant Biol 76:102474).
+- Probe first (`dev/probes/peo/`, no package change): per species of
+  C3vC4 leaf, the Aoki valley from the dense correlation matrix
+  (density among genes with at least one link, cut-offs 0 to 1 by
+  0.01, the minimum) next to the `"null"` floor; rerun the C3vC4
+  scoring with the floor and report edges removed per species and
+  tier counts before and after. If the valley and the null floor
+  disagree by more than 0.1 in r on most species, say so before the
+  WP is built; the WP then takes the rule the probe supports.
+- Accept: on the small fixture `r_min = 0.3` removes exactly the
+  edges with r < 0.3 and `r_threshold >= 0.3`; on shuffled-expression
+  input `r_min = "null"` removes at least 95 % of the density edges;
+  `r_min = NULL` leaves every existing snapshot untouched; the
+  `"null"` floor is reproducible under `seed` and the rng-contract
+  table has its entry; `test-surface.R` updated (compute_network
+  matrix method and rcomplex each gain one formal; both already on
+  the exception list); prose check clean; check OK.
+- Deps: WP21. Blocks nothing.
+
+### WP23 Stratified null: copies and age (gated: PEO tables)
+
+- Files: `R/rcomplex.R` (`.driver_shuffle()` strata), `R/orthologs.R`
+  (an optional `age` column accepted and carried), tests, `man/`,
+  `NEWS.md`.
+- Why: `null = TRUE` shuffles hog labels within expression deciles,
+  so chance cliques match the real ones in expression level and in
+  nothing else. Two confounders are known: old genes connect to old
+  genes (Ruprecht et al. 2017, Plant J 90:447: modules have birth
+  dates; age sorts the network), and genes with several paralogs have
+  fewer links (Wei et al. 2006, as read in Aoki et al. 2007). A clique
+  of old single-copy hogs is more often conserved for those reasons
+  alone, and the lineage and trait tiers inherit the bias.
+- Gate: the PEO scoring tables `tier_by_age` and `tier_by_copies`
+  (every experiment) show the null-to-real ratio of a tier differing
+  between strata by more than a factor of two. If they do not, this
+  WP stays closed and the docs say the null is expression-matched
+  only.
+- Do: strata = expression decile x copy class (copies of the hog in
+  that species: 1, 2, 3 or more) x age when `orthologs` carries an
+  `age` column (one label per hog, any factor; the species-tree node
+  of the root HOG is the intended use). Strata under five genes merge
+  into the neighbouring decile. One `message()` with the number of
+  strata. Without `age` and with every hog single-copy the shuffle
+  equals the current one under the same seed.
+- Accept: on a fixture with two copy classes and an `age` column
+  every gene keeps its decile, copy class and age after the shuffle
+  (joint table identical before and after); the seeded shuffle on
+  the existing fixture is unchanged; RNG contract untouched; check
+  OK.
+- Deps: WP22 (the floor changes which edges exist, so the null runs
+  on the floored networks). Blocks nothing.
+
+### Order from 0.4.3 on (2026-10-16)
+
+WP22 probe, then WP22 -> WP18 -> WP19 -> WP23 (if its gate opens) ->
+WP20 (if a second user asks) -> WP17 (if the PEO underpowered counts
+say so). WP16's cost ratio stays a sentence unless the PEO
+`edge_history()` tables show many ties.
 
 ## 4. Gates (all answered by Martin, 2026-10-07: "defaults with G8 narrowed")
 
