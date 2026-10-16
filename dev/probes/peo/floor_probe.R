@@ -38,7 +38,9 @@ floor_one <- function(s) {
   zt <- rcomplex:::.standardise_for_cor(x, "pearson")
   # (a) histogram of pair r in 0.01 bins and each gene's best partner
   blocks <- split(seq_len(n), (seq_len(n) - 1L) %/% BLOCK)
-  parts <- parallel::mclapply(blocks, function(b) {
+  # serial: forking after compute_network() has used OpenMP hangs the
+  # workers (libgomp is not fork-safe); BLAS threads do the work
+  parts <- lapply(blocks, function(b) {
     r <- crossprod(zt[, b, drop = FALSE], zt)
     r[cbind(seq_along(b), b)] <- -Inf
     up <- r[, -seq_len(max(b)), drop = FALSE]
@@ -49,9 +51,7 @@ floor_one <- function(s) {
       h = tabulate(pmin(floor(v * 100) + 1L, 100L), 100L),
       max = apply(r, 1L, max)
     )
-  }, mc.cores = N_CORES, mc.preschedule = FALSE)
-  bad <- vapply(parts, inherits, NA, "try-error")
-  if (any(bad)) stop(s, ": a block failed: ", parts[bad][[1L]])
+  })
   h <- Reduce(`+`, lapply(parts, `[[`, "h"))
   mx <- unlist(lapply(parts, `[[`, "max"))
   pairs <- rev(cumsum(rev(h)))
@@ -78,9 +78,9 @@ floor_one <- function(s) {
   j <- match(rownames(net$network)[e$cols[up]], rownames(x))
   rm(net, e)
   ch <- split(seq_along(i), (seq_along(i) - 1L) %/% (2^24 %/% nrow(zt)))
-  re <- unlist(parallel::mclapply(ch, function(k) {
+  re <- unlist(lapply(ch, function(k) {
     colSums(zt[, i[k], drop = FALSE] * zt[, j[k], drop = FALSE])
-  }, mc.cores = N_CORES), use.names = FALSE)
+  }), use.names = FALSE)
   cat(sprintf(
     "%s: %d genes, %.0f s\n", s, n,
     as.numeric(Sys.time() - t0, units = "secs")

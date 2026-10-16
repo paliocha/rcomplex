@@ -7,9 +7,9 @@
 #SBATCH --partition=orion
 #SBATCH --account=nmbu
 #SBATCH --job-name=peo-trait-null
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
-#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=200G
+#SBATCH --time=04:00:00
 #SBATCH --mail-type=FAIL
 set -euo pipefail
 ROOT=/mnt/project/FjellheimLab/martpali/rcomplex-testrun

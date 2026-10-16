@@ -36,6 +36,8 @@ runs <- intersect(
     "kmeans_partition"
   ), list.files(file.path(E, "runs"))
 )
+# only finished runs (a running job has made its dir but no res.rds yet)
+runs <- runs[file.exists(file.path(E, "runs", runs, "res.rds"))]
 ref <- function(f) {
   p <- file.path(REF, f)
   if (file.exists(p)) read.delim(p, colClasses = "character")
@@ -242,9 +244,24 @@ score_run <- function(run) {
   tested <- unique(e$hog)
   tier_all <- hogs$tier[match(tested, hogs$hog)]
   tier_all[is.na(tier_all)] <- "none"
+  # the null run's tier per tested hog (hog labels keep their genes'
+  # strata: the null shuffles genes, not hogs)
+  c0h <- c0[!duplicated(c0$hog), ]
+  tier_null <- c0h$hog_class[match(tested, c0h$hog)]
+  tier_null[is.na(tier_null)] <- "none"
+  # by_group() for the real and the null tiers side by side
+  by_group2 <- function(group, lv, name) {
+    a <- by_group(tier_all, group, lv, name)
+    b <- by_group(tier_null, group, lv, name)
+    key <- function(d) paste(d[[1L]], d$tier)
+    a$n_null <- b$n[match(key(a), key(b))]
+    a$n_null[is.na(a$n_null)] <- 0L
+    a$ratio <- round(a$n / pmax(a$n_null, 1L), 2)
+    a
+  }
   if (!is.null(hog_age)) {
     age <- hog_age$root_taxrange[match(tested, hog_age$hog)]
-    tsv(by_group(tier_all, age, age_order, "age"),
+    tsv(by_group2(age, age_order, "age"),
       paste0(run, "_tier_by_age.tsv")
     )
   }
@@ -256,14 +273,14 @@ score_run <- function(run) {
   q <- cut(lvl, quantile(lvl, 0:5 / 5, na.rm = TRUE),
     labels = paste0("Q", 1:5), include.lowest = TRUE
   )
-  tsv(by_group(tier_all, q, paste0("Q", 1:5), "expression_quintile"),
+  tsv(by_group2(q, paste0("Q", 1:5), "expression_quintile"),
     paste0(run, "_tier_by_expression.tsv")
   )
   cp <- table(mem_g$hog, mem_g$species)
   cp[cp == 0L] <- NA
   med <- apply(cp, 1L, stats::median, na.rm = TRUE)[tested]
   cb <- ifelse(med < 1.5, "1", ifelse(med < 2.5, "2", "3+"))
-  tsv(by_group(tier_all, cb, c("1", "2", "3+"), "median_copies"),
+  tsv(by_group2(cb, c("1", "2", "3+"), "median_copies"),
     paste0(run, "_tier_by_copies.tsv")
   )
   z <- zh[tested]
