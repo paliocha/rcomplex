@@ -17,6 +17,7 @@ rcomplex(
   modules = FALSE,
   null = FALSE,
   n_cores = 1L,
+  block_size = NULL,
   seed = NULL
 )
 }
@@ -56,6 +57,10 @@ genes of the same expression level. The null calls and tiers estimate
 what abundance and network structure alone produce.}
 
 \item{n_cores}{Number of threads.}
+
+\item{block_size}{\code{NULL} (default) builds each species network from the
+dense gene x gene matrix. A positive whole number builds it in blocks
+of that many genes. The full matrix then never forms.}
 
 \item{seed}{Integer seed, or \code{NULL} to draw from the global stream.
 A seed makes the run reproducible and leaves your stream unchanged.}
@@ -114,6 +119,11 @@ edges are classified at \code{min_power = 0.9}, hypergeometric edges at 0.8.
 \code{density} and \code{sign} apply only to networks built from \code{expr}.
 \code{method = "rank"} and \code{block} need \code{expr}. The rank test calibrates
 against \code{\link[=null_network]{null_network()}} partners, built within each block.
+
+\code{block_size} passes to \code{\link[=compute_network]{compute_network()}} and needs \code{expr}. The
+blockwise network equals the dense one except at floating-point
+near-ties at the density cut. 512 is a good value. A species with more
+than 40,000 genes gets a message that suggests it.
 
 \code{summary()} counts each tier in \code{cliques}, in \code{hogs} and in
 \code{patterns}. A pattern is one HOG with one clique species set. The

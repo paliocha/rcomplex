@@ -3,6 +3,8 @@
 * Dense network kernels wrapped a 32-bit index above 65,536 genes. This
   crashed or corrupted `compute_network()` on hexaploid wheat. The package
   now builds Armadillo with 64-bit indices.
+* `rcomplex()` takes `block_size` and passes it to `compute_network()`. A
+  species over 40,000 genes gets a message that suggests it.
 
 # rcomplex 0.4.2
 
