@@ -29,9 +29,27 @@ Solanum_tuberosum (`PGSC0003DMG400022701`), Zea_mays (AGPv4,
 `Zm00001d046467`). Tree, rooted on moss:
 `((((mtr,ath)Anc4,stu)Anc3,(osa,zma)Anc5)Anc2,ppa)Anc1;`; it matches
 their `SpeciesTree.txt`. Expression: the six Mendeley compendia
-(doi:10.17632/bwzdv623xn, version 2), genes x SRA experiments, used
-as published: no log, no level filter. Only genes with zero variance
-or absent from the proteome are dropped. Reference tables: supplements
+(doi:10.17632/bwzdv623xn, version 2), genes x SRA experiments. The
+paper calls them log-scale and zero-mean, but the published files are
+linear (job 1452324; quantiles 0 / 5 / 50 / 95 / 100 %, share of
+exact zeros):
+
+| code | genes | experiments | median | 95 % | max | zeros |
+|---|---|---|---|---|---|---|
+| ath | 34,211 | 403 | 1.65 | 91.7 | 467,400 | 0.33 |
+| mtr | 50,438 | 129 | 0.06 | 55.4 | 158,700 | 0.47 |
+| osa | 35,667 | 404 | 1.22 | 66.9 | 128,200 | 0.21 |
+| ppa | 32,265 | 38 | 0 | 65.4 | 454,300 | 0.56 |
+| stu | 39,005 | 274 | 0.67 | 80.8 | 394,500 | 0.37 |
+| zma | 39,604 | 169 | 1.06 | 79.0 | 197,700 | 0.31 |
+
+Minimum 0 everywhere, maximum in the hundreds of thousands: so
+`stage_shin.R` applies log2(x + 1). No level filter. Only genes with
+zero variance or absent from the proteome are dropped. The
+Arabidopsis compendium holds 6,673 genes with no protein (non-coding
+and transposon genes); 99.7 % of the proteome is in it.
+
+Reference tables: supplements
 S4 (Arboretum modules), S5 (gene sets and their patterns), S6
 (Muscari modules) and S8 (curated Medicago symbiosis genes), tidied
 by `shin_tables.R` into `inputs/ref/`.

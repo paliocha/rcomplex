@@ -1,8 +1,9 @@
 # Stage the Shin et al. 2021 compendia for rcomplex().
 # Usage: Rscript stage_shin.R
-# The compendia are used as published (quantile-normalised by the
-# authors): no log, no expression-level filter. Drops genes with zero
-# variance and genes absent from the FastOMA proteome. Writes
+# The published compendia are on a linear scale (maximum 1.3e5 to
+# 4.7e5, 21-56 % zeros), so they take log2(x + 1). No expression-level
+# filter. Drops genes with zero variance and genes absent from the
+# FastOMA proteome. Writes
 # inputs/all/<species>.rds (genes x experiments), inputs/species.tsv
 # (the columns run.R reads) and inputs/tree.nwk.
 ROOT <- Sys.getenv(
@@ -23,7 +24,7 @@ info <- do.call(rbind, lapply(names(SP), function(code) {
     file.path(D, "mendeley", paste0(code, "_compendium_matrix.txt")),
     data.table = FALSE
   )
-  m <- as.matrix(x[-1L])
+  m <- log2(as.matrix(x[-1L]) + 1)
   rownames(m) <- x[[1L]]
   fa <- readLines(file.path(
     E, "fastoma", "in_folder", "proteome",

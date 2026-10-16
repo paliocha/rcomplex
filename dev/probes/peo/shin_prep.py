@@ -52,10 +52,14 @@ def read_pep(path):
 def main(fdir, mdir):
     out = os.path.join(fdir, "in_folder", "proteome")
     os.makedirs(out, exist_ok=True)
-    # FastOMA stages both dirs even when empty: one protein per gene
-    # already, so no splice files and no precomputed hogmaps
-    for d in ("hogmap_in", "splice"):
-        os.makedirs(os.path.join(fdir, "in_folder", d), exist_ok=True)
+    # FastOMA stages hogmap_in (may be empty) and splice (must exist and
+    # hold a file of 2+ lines). One protein per gene already, so a dummy
+    # splice file maps two genes to themselves, as the PEO run did.
+    os.makedirs(os.path.join(fdir, "in_folder", "hogmap_in"), exist_ok=True)
+    sd = os.path.join(fdir, "in_folder", "splice")
+    os.makedirs(sd, exist_ok=True)
+    with open(os.path.join(sd, "Arabidopsis_thaliana.splice"), "w") as f:
+        f.write("AT1G01010;AT1G01010\nAT1G01020;AT1G01020\n")
     low = []
     for code, sp in SPECIES.items():
         dirname = sp.lower()
