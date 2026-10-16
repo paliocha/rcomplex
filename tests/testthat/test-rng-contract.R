@@ -77,9 +77,8 @@ test_that("the contract table covers every seeded entry point", {
 
 
 test_that("every seeded entry point routes its seed through .seed_scope", {
-  ns <- asNamespace("rcomplex")
   for (nm in rng_seeded_exports()) {
-    body_txt <- paste(deparse(body(get(nm, envir = ns))), collapse = " ")
+    body_txt <- paste(deparse(body(rng_entry_fun(nm))), collapse = " ")
     expect_true(grepl(".seed_scope(", body_txt, fixed = TRUE),
       label = paste0(nm, "() calls .seed_scope()")
     )

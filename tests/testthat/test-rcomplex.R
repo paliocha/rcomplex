@@ -507,3 +507,19 @@ test_that("the null run classifies three graphs", {
   )
   expect_identical(names(res$classification_null)[1L], "run")
 })
+
+
+test_that("rcomplex() forwards r_min and prints the floor", {
+  res <- rcomplex(drv_expr(), drv_ortho, density = 0.1, r_min = 0.5,
+    seed = 1L
+  )
+  expect_identical(res$networks$SpA$params$r_min, 0.5)
+  expect_gte(res$networks$SpA$params$r_threshold, 0.5)
+  expect_gt(res$networks$SpA$params$n_floored, 0L)
+  expect_output(print(res), "floor r >= 0.50: [0-9]+ edges removed")
+  nets <- lapply(drv_expr(), compute_network, density = 0.1)
+  expect_error(
+    rcomplex(networks = nets, orthologs = drv_ortho, r_min = 0.3),
+    "r_min needs expr; you gave networks"
+  )
+})

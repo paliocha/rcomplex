@@ -101,6 +101,10 @@ Applies to everything a user reads: roxygen, README, quickstart, messages.
   `compare_specificity()` (`src/specificity.cpp`) and calibrates against
   `null_network()` partners. Gate rank edges at `min_power = 0.9`.
   `"hypergeometric"` stays the default for ComPlEx equivalence.
+- **Correlation floor (opt-in).** `compute_network(r_min = )` removes
+  edges below a correlation floor after the density threshold, in the
+  sparse store too. `"null"` sets the floor where shuffled expression
+  supplies 1 % of the edges.
 - **`pval_combine = "max"`.** Both directions must be significant
   (Netotea *et al.* 2014). `"min"` is the either-direction option.
 - **Column-major, integer indices.** Hot loops use `colptr()`. C++ uses

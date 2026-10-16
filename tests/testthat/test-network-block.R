@@ -243,3 +243,15 @@ test_that("compute_network block_size reports the all-pairs fallback", {
   expect_silent(compute_network(x, block_size = 7))
   expect_silent(compute_network(x, mr_log_transform = TRUE, block_size = 7))
 })
+
+test_that("r_min floors dense and block builds alike", {
+  x <- block_fixture(60, 12, 1)
+  for (r_min in list(0.5, "null")) {
+    build <- function(bs) {
+      compute_network(x, r_min = r_min, block_size = bs, seed = 1L)
+    }
+    ref <- build(NULL)
+    expect_gt(ref$params$n_floored, 0L)
+    expect_identical(build(7L), ref)
+  }
+})

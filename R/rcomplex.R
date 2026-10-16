@@ -32,6 +32,8 @@
 #' @param block_size `NULL` (default) builds each species network from the
 #'   dense gene x gene matrix. A positive whole number builds it in blocks
 #'   of that many genes. The full matrix then never forms.
+#' @param r_min `NULL` (default), a number, or `"null"`: the correlation
+#'   floor of each species network. See [compute_network()].
 #' @param seed Integer seed, or `NULL` to draw from the global stream.
 #'   A seed makes the run reproducible and leaves your stream unchanged.
 #'
@@ -114,6 +116,7 @@
 #' passed the density threshold. The same density needs a stronger
 #' correlation at few samples. A network from [as_network()] has no
 #' correlation and shows \verb{r ?}, as does a network without edges.
+#' With `r_min`, the line also shows the floor and the edges it removed.
 #'
 #' @examples
 #' f <- function(x) system.file("extdata", x, package = "rcomplex")
@@ -130,7 +133,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
                      sign = c("positive", "negative"),
                      method = c("hypergeometric", "rank"), alpha = 0.1,
                      modules = FALSE, null = FALSE, n_cores = 1L,
-                     block_size = NULL, seed = NULL) {
+                     block_size = NULL, r_min = NULL, seed = NULL) {
   sign <- match.arg(sign)
   method <- match.arg(method)
   if (is.null(expr) == is.null(networks)) {
@@ -148,6 +151,9 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   if (is.null(expr) && !is.null(block_size)) {
     stop("block_size needs expr; you gave networks")
   }
+  if (is.null(expr) && !is.null(r_min)) {
+    stop("r_min needs expr; you gave networks")
+  }
   long <- .driver_orthologs(orthologs, sp)
   ortho <- prepare_orthologs(long)
   .seed_scope(seed)
@@ -158,7 +164,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     xs <- if (is.null(block)) expr else .driver_wiring(expr, block)
     networks <- lapply(xs, compute_network,
       density = density, sign = sign, n_cores = n_cores,
-      block_size = block_size
+      block_size = block_size, r_min = r_min
     )
     for (s in sp) {
       x <- expr[[s]]
@@ -371,7 +377,16 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     return("r ?")
   }
   neg <- identical(n$params$sign, "negative")
-  sprintf(if (neg) "r <= %.2f" else "r >= %.2f", r)
+  op <- if (neg) "<=" else ">="
+  out <- sprintf("r %s %.2f", op, r)
+  n_fl <- n$params$n_floored
+  if (!is.null(n_fl) && n_fl > 0L) {
+    out <- sprintf("%s  floor r %s %.2f: %s edges removed",
+      out, op, if (neg) -n$params$r_min else n$params$r_min,
+      format(n_fl, big.mark = ",")
+    )
+  }
+  out
 }
 
 

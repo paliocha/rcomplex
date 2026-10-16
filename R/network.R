@@ -79,21 +79,12 @@ cor_rfast <- function(x, method = "pearson") {
   t(mat / sqrt(Rfast::rowsums(mat^2)))
 }
 
-# Weakest correlation among the gene pairs at or above `thr` in `net`:
-# the minimum for sign = "positive", the maximum for "negative". With
-# `levels` (the kept partition levels) it is the rectified mean over the
-# levels, as compute_network() averages it, with the sign put back.
-# Correlations are recomputed for the passing pairs only, in chunks of
-# about 2^24 doubles, so dense and blockwise builds report the same value.
-.r_threshold <- function(x, net, thr, cor_method, sign, partition = NULL,
-                         levels = NULL) {
-  e <- .adj_edges(net, thr)
-  up <- e$rows < e$cols
-  i <- e$rows[up]
-  j <- e$cols[up]
-  if (length(i) == 0L) {
-    return(NA_real_)
-  }
+# Correlation of the gene pairs (i, j) of `x`, read the way the network
+# ranks it: negated for sign = "negative", and with `levels` (the kept
+# partition levels) the rectified mean over the levels. Computed in chunks
+# of about 2^24 doubles, so dense and blockwise builds read the same value.
+.edge_r <- function(x, i, j, cor_method, sign, partition = NULL,
+                    levels = NULL) {
   s <- if (sign == "negative") -1 else 1
   groups <- if (is.null(partition)) {
     list(seq_len(ncol(x)))
@@ -110,7 +101,58 @@ cor_rfast <- function(x, method = "pearson") {
     ), use.names = FALSE)
     r <- r + if (is.null(partition)) s * rg else pmax(s * rg, 0, na.rm = TRUE)
   }
-  s * min(r / length(groups))
+  r / length(groups)
+}
+
+# Weakest correlation among the gene pairs at or above `thr` in `net`:
+# the minimum for sign = "positive", the maximum for "negative". With
+# `levels` it is the rectified mean over the levels, with the sign put
+# back.
+.r_threshold <- function(x, net, thr, cor_method, sign, partition = NULL,
+                         levels = NULL) {
+  e <- .adj_edges(net, thr)
+  up <- e$rows < e$cols
+  i <- e$rows[up]
+  j <- e$cols[up]
+  if (length(i) == 0L) {
+    return(NA_real_)
+  }
+  s <- if (sign == "negative") -1 else 1
+  s * min(.edge_r(x, i, j, cor_method, sign, partition, levels))
+}
+
+# The "null" floor: the correlation above which shuffled expression gives
+# 1 % of the real edges. Each gene's samples are permuted within the
+# partition levels, on at most 2,000 random genes.
+.null_floor <- function(x, density, cor_method, sign, partition, levels) {
+  xp <- .shuffle_genes(
+    x[sample.int(nrow(x), min(2000L, nrow(x))), , drop = FALSE], partition
+  )
+  up <- which(upper.tri(diag(nrow(xp))), arr.ind = TRUE)
+  r <- .edge_r(xp, up[, 1L], up[, 2L], cor_method, sign, partition, levels)
+  stats::quantile(r, 1 - 0.01 * density, names = FALSE)
+}
+
+# Drop the entries at or above `cut` whose correlation (as .edge_r() reads
+# it) is below `r_min`, in both triangles. `n_floored` counts the removed
+# pairs at or above `thr`, the edges.
+.r_floor <- function(net, x, r_min, thr, cut, cor_method, sign, partition,
+                     levels) {
+  e <- .adj_edges(net, cut)
+  up <- e$rows < e$cols
+  i <- e$rows[up]
+  j <- e$cols[up]
+  low <- .edge_r(x, i, j, cor_method, sign, partition, levels) < r_min
+  i <- i[low]
+  j <- j[low]
+  n_floored <- sum(net[cbind(i, j)] >= thr)
+  if (inherits(net, "dgCMatrix")) {
+    f <- Matrix::sparseMatrix(c(i, j), c(j, i), x = 1, dims = dim(net))
+    net <- Matrix::drop0(net - net * f)
+  } else {
+    net[cbind(c(i, j), c(j, i))] <- 0
+  }
+  list(network = net, n_floored = n_floored)
 }
 
 #' Compute co-expression network
@@ -181,6 +223,11 @@ cor_rfast <- function(x, method = "pearson") {
 #'   normalises the result. The function drops levels with fewer than 5
 #'   samples and tells you which. At least two levels must remain.
 #'   Use the dense build: `block_size` must be `NULL`.
+#' @param r_min `NULL` (default) sets no floor. A number in \[-1, 1)
+#'   removes every edge with a weaker correlation. `"null"` sets the
+#'   floor from shuffled expression. See Details.
+#' @param seed Integer seed, or `NULL` to draw from the global stream.
+#'   Only `r_min = "null"` draws random numbers.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -198,7 +245,9 @@ cor_rfast <- function(x, method = "pearson") {
 #'       you give one. `r_threshold` is the weakest correlation of an edge:
 #'       the smallest for `sign = "positive"`, the largest for
 #'       `"negative"`. With `partition` it is the rectified mean over the
-#'       levels, negated for `"negative"`. It is `NA` when no pair passes.}
+#'       levels, negated for `"negative"`. It is `NA` when no pair passes.
+#'       `r_min` is the floor used, `NA` without one. `n_floored` counts
+#'       the edges the floor removed.}
 #'     \item{gene_mean}{The mean expression of each kept gene, by name.
 #'       [rcomplex()] uses it to stratify its null.}
 #'     \item{store_density, store_threshold}{Sparse networks only: the
@@ -215,6 +264,22 @@ cor_rfast <- function(x, method = "pearson") {
 #' sample size even when it holds only noise: at n = 20 samples, r >= -0.3
 #' is noise. Check the weakest correlation that passed the threshold
 #' before you read a negative network.
+#'
+#' `r_min` sets every network value to 0 where the correlation is below
+#' the floor. This removes edges and weaker stored values alike. It
+#' reads the value of `r_threshold`, negated for `sign = "negative"`.
+#' `r_min = "null"` permutes each gene's samples, within `partition`
+#' levels, on at most 2,000 random genes. The floor is the correlation
+#' above which these chance pairs supply 1 % of the edges (Butte & Kohane
+#' 2000). On 11 grass leaf compendia it ranged from r = 0.09 (wheat, 1,436
+#' runs) to 0.59 (tef, 31 runs) and removed 0-3 % of the edges.
+#'
+#' A pooled compendium gives a global network and misses organ-restricted
+#' co-expression. Use `partition`, `block` in [rcomplex()], or one run
+#' per organ. Networks stabilise above about 100 samples (Aoki et al.
+#' 2007), so fewer samples give stronger chance correlations. `block`
+#' does not align developmental stages across species (Li, Nakayama &
+#' Sinha 2023).
 #'
 #' @section Gene universe:
 #' Networks are built on all supplied genes and downstream tests use the
@@ -265,10 +330,20 @@ setMethod("compute_network", "matrix", function(
   store_density = NULL,
   n_cores = 1L,
   block_size = NULL,
-  partition = NULL) {
+  partition = NULL,
+  r_min = NULL,
+  seed = NULL) {
   cor_method <- match.arg(cor_method)
   norm_method <- match.arg(norm_method)
   sign <- match.arg(sign)
+  if (!is.null(r_min) && !identical(r_min, "null") &&
+        !(is.numeric(r_min) && length(r_min) == 1L && !is.na(r_min) &&
+            r_min >= -1 && r_min < 1)) {
+    stop(
+      "r_min must be NULL, a number in [-1, 1), or \"null\"; got ",
+      deparse1(r_min)
+    )
+  }
   if (is.null(rownames(x))) {
     stop("x must have row names (gene identifiers)")
   }
@@ -359,6 +434,19 @@ setMethod("compute_network", "matrix", function(
   # partition applies the sign per level, before the rectification
   negate <- sign == "negative" && is.null(partition)
   params$partition <- partition
+  .seed_scope(seed)
+  if (identical(r_min, "null")) {
+    r_min <- .null_floor(x, density, cor_method, sign, partition, levels_kept)
+  }
+  params$r_min <- if (is.null(r_min)) NA_real_ else r_min
+  floor_net <- function(net, thr, cut) {
+    if (is.null(r_min)) {
+      return(list(network = net, n_floored = 0L))
+    }
+    .r_floor(net, x, r_min, thr, cut, cor_method, sign, partition,
+      levels_kept
+    )
+  }
 
   if (!is.null(block_size)) {
     if (block_size >= n_genes) {
@@ -395,6 +483,9 @@ setMethod("compute_network", "matrix", function(
       Dim = c(n_genes, n_genes),
       Dimnames = list(gene_names, gene_names)
     )
+    fl <- floor_net(network, slots$threshold, slots$store_threshold)
+    network <- fl$network
+    params$n_floored <- fl$n_floored
     params$r_threshold <- .r_threshold(
       x, network, slots$threshold, cor_method, sign
     )
@@ -458,6 +549,10 @@ setMethod("compute_network", "matrix", function(
     .r_threshold(x, m, thr, cor_method, sign, partition, levels_kept)
   }
   if (!sparse) {
+    # every entry, so weight readers see no floored pair
+    fl <- floor_net(net, thr, -Inf)
+    net <- fl$network
+    params$n_floored <- fl$n_floored
     params$r_threshold <- r_thr(net)
     return(list(
       network = net,
@@ -481,6 +576,9 @@ setMethod("compute_network", "matrix", function(
     Dim = c(n_genes, n_genes),
     Dimnames = list(gene_names, gene_names)
   )
+  fl <- floor_net(spnet, thr, store_thr)
+  spnet <- fl$network
+  params$n_floored <- fl$n_floored
   params$r_threshold <- r_thr(spnet)
   list(
     network = spnet,
