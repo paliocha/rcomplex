@@ -52,6 +52,10 @@ def read_pep(path):
 def main(fdir, mdir):
     out = os.path.join(fdir, "in_folder", "proteome")
     os.makedirs(out, exist_ok=True)
+    # FastOMA stages both dirs even when empty: one protein per gene
+    # already, so no splice files and no precomputed hogmaps
+    for d in ("hogmap_in", "splice"):
+        os.makedirs(os.path.join(fdir, "in_folder", d), exist_ok=True)
     low = []
     for code, sp in SPECIES.items():
         dirname = sp.lower()
