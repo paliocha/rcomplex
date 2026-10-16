@@ -199,8 +199,7 @@ test_that("null = TRUE reports calls beside null calls", {
   expect_identical(
     s$tiers$cliques_null,
     as.integer(table(factor(
-      res$classification_null$classification,
-      levels = s$tiers$tier
+      res$classification_null$classification, levels = s$tiers$tier
     )))
   )
   again <- rcomplex(syn$expr, syn$ortho, null = TRUE, seed = 1L)
@@ -321,20 +320,25 @@ test_that("rcomplex() refuses bad input", {
 
 test_that("block_size gives the edges and tiers of the dense build", {
   syn <- drv_syn()
-  a <- rcomplex(syn$expr, syn$ortho, seed = 1L)
-  b <- rcomplex(syn$expr, syn$ortho, block_size = 32L, seed = 1L)
   key <- c("hog", "species1", "species2", "gene1", "gene2")
   srt <- function(e) {
     e <- e[do.call(order, e[key]), , drop = FALSE]
     rownames(e) <- NULL
     e
   }
-  ea <- srt(a$edges)
-  eb <- srt(b$edges)
-  expect_identical(ea[key], eb[key])
-  expect_equal(ea$q_value, eb$q_value, tolerance = 1e-8)
-  expect_gt(nrow(a$classification), 0L)
-  expect_identical(a$classification, b$classification)
+  two <- lapply(syn$expr, function(x) rep(c("t1", "t2"), ncol(x) / 2L))
+  for (block in list(NULL, two)) {
+    a <- rcomplex(syn$expr, syn$ortho, block = block, seed = 1L)
+    b <- rcomplex(syn$expr, syn$ortho,
+      block = block, block_size = 32L, seed = 1L
+    )
+    ea <- srt(a$edges)
+    eb <- srt(b$edges)
+    expect_identical(ea[key], eb[key])
+    expect_equal(ea$q_value, eb$q_value, tolerance = 1e-8)
+    expect_gt(nrow(a$classification), 0L)
+    expect_identical(a$classification, b$classification)
+  }
 })
 
 
