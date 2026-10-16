@@ -59,7 +59,8 @@ individual functions directly.</p>
 <span>  <span class="va">orthologs</span>,</span>
 <span>  multipliers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">5</span>, <span class="fl">10</span><span class="op">)</span>,</span>
 <span>  min_species <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">target_species</span><span class="op">)</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="fl">1L</span></span>
+<span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -100,6 +101,11 @@ Default <code>c(1.5, 2, 3, 5, 10)</code>.</p></dd>
 <dd><p>Cores for <code><a href="compare_neighborhoods.html">compare_neighborhoods()</a></code>
 (default 1).</p></dd>
 
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Integer seed for the pi0 draws, or <code>NULL</code> (default)
+to draw from the global RNG. A seed makes the sweep reproducible.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -131,10 +137,8 @@ is <code>NA</code>).</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>No permutations are involved – all tests are analytical
-(hypergeometric + Storey q-values; the pi0 method is pinned to
-<code>"storey"</code>, so the sweep is deterministic and does not consume
-the global RNG).</p>
+    <p>No permutations are involved. The sweep uses the same q-values as
+<code><a href="find_coexpressologs.html">find_coexpressologs()</a></code>, with randomized-p pi0.</p>
     </div>
 
     <div class="section level2">

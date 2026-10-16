@@ -21,7 +21,8 @@ clique_threshold_sweep(
   orthologs,
   multipliers = c(1.5, 2, 3, 5, 10),
   min_species = length(target_species),
-  n_cores = 1L
+  n_cores = 1L,
+  seed = NULL
 )
 ```
 
@@ -62,6 +63,11 @@ clique_threshold_sweep(
   [`compare_neighborhoods()`](https://paliocha.github.io/rcomplex/reference/compare_neighborhoods.md)
   (default 1).
 
+- seed:
+
+  Integer seed for the pi0 draws, or `NULL` (default) to draw from the
+  global RNG. A seed makes the sweep reproducible.
+
 ## Value
 
 A list with components:
@@ -93,10 +99,9 @@ A list with components:
 
 ## Details
 
-No permutations are involved – all tests are analytical
-(hypergeometric + Storey q-values; the pi0 method is pinned to
-`"storey"`, so the sweep is deterministic and does not consume the
-global RNG).
+No permutations are involved. The sweep uses the same q-values as
+[`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.md),
+with randomized-p pi0.
 
 ## Examples
 
