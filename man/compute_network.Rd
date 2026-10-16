@@ -154,7 +154,8 @@ sample size even when it holds only noise: at n = 20 samples, r >= -0.3
 is noise. Check the weakest correlation that passed the threshold
 before you read a negative network.
 
-\code{r_min} removes every edge whose correlation is below the floor. It
+\code{r_min} sets every network value to 0 where the correlation is below
+the floor. This removes edges and weaker stored values alike. It
 reads the value of \code{r_threshold}, negated for \code{sign = "negative"}.
 \code{r_min = "null"} permutes each gene's samples, within \code{partition}
 levels, on at most 2,000 random genes. The floor is the correlation

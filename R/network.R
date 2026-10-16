@@ -265,7 +265,8 @@ cor_rfast <- function(x, method = "pearson") {
 #' is noise. Check the weakest correlation that passed the threshold
 #' before you read a negative network.
 #'
-#' `r_min` removes every edge whose correlation is below the floor. It
+#' `r_min` sets every network value to 0 where the correlation is below
+#' the floor. This removes edges and weaker stored values alike. It
 #' reads the value of `r_threshold`, negated for `sign = "negative"`.
 #' `r_min = "null"` permutes each gene's samples, within `partition`
 #' levels, on at most 2,000 random genes. The floor is the correlation
@@ -548,7 +549,8 @@ setMethod("compute_network", "matrix", function(
     .r_threshold(x, m, thr, cor_method, sign, partition, levels_kept)
   }
   if (!sparse) {
-    fl <- floor_net(net, thr, thr)
+    # every entry, so weight readers see no floored pair
+    fl <- floor_net(net, thr, -Inf)
     net <- fl$network
     params$n_floored <- fl$n_floored
     params$r_threshold <- r_thr(net)

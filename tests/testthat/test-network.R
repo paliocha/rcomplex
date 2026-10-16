@@ -449,6 +449,23 @@ test_that("r_min drops exactly the edges below the floor", {
   expect_gt(neg$params$n_floored, 0L)
 })
 
+test_that("r_min zeroes every weaker dense entry, as the sparse store", {
+  x <- floor_fixture()
+  cm <- cor(t(x))
+  dense <- compute_network(x, density = 0.1, sparse = FALSE, r_min = 0.3)
+  off <- row(cm) != col(cm)
+  expect_true(all(dense$network[cm < 0.3 & off] == 0))
+  expect_true(all(dense$network[cm >= 0.3 & off] > 0))
+  sp <- compute_network(x, density = 0.1, r_min = 0.3)
+  # the weight sum of one gene set, over the values the store keeps
+  g <- rownames(x)[1:15]
+  d <- dense$network[g, g]
+  expect_equal(
+    sum(d[d >= sp$store_threshold]), sum(as.matrix(sp$network)[g, g])
+  )
+  expect_identical(dense$params$n_floored, sp$params$n_floored)
+})
+
 test_that("r_min reads the rectified correlation with partition", {
   p <- partition_fixture()
   r1 <- cor(t(p$x[, p$f == "leaf"]))
