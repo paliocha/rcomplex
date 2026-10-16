@@ -7,6 +7,10 @@
   [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md)
   on hexaploid wheat. The package now builds Armadillo with 64-bit
   indices.
+- [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md)
+  takes `block_size` and passes it to
+  [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md).
+  A species over 40,000 genes gets a message that suggests it.
 
 ## rcomplex 0.4.2
 

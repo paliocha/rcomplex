@@ -110,7 +110,8 @@ exported functions as `[fn()]`. Write internals as `\code{fn()}`. -
   matrix (`src/network_block.cpp`). It keeps top-fraction candidates per
   column and widens the fraction when it is not exact. The result
   matches the dense build except at floating-point near-ties. Default
-  stays dense.
+  stays dense. `rcomplex(block_size =)` forwards it to
+  [`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md).
 - **Membership-only consumers.** Null networks from
   [`coexpressolog_null()`](https://paliocha.github.io/rcomplex/reference/coexpressolog_null.md)
   are binary. Nothing that reads edge weights is valid on them.

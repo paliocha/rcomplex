@@ -62,6 +62,7 @@ orthologs.</p>
 <span>  modules <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  null <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  block_size <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -128,6 +129,12 @@ what abundance and network structure alone produce.</p></dd>
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
 <dd><p>Number of threads.</p></dd>
+
+
+<dt id="arg-block-size">block_size<a class="anchor" aria-label="anchor" href="#arg-block-size"></a></dt>
+<dd><p><code>NULL</code> (default) builds each species network from the
+dense gene x gene matrix. A positive whole number builds it in blocks
+of that many genes. The full matrix then never forms.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
@@ -197,6 +204,10 @@ edges are classified at <code>min_power = 0.9</code>, hypergeometric edges at 0.
 <p><code>density</code> and <code>sign</code> apply only to networks built from <code>expr</code>.
 <code>method = "rank"</code> and <code>block</code> need <code>expr</code>. The rank test calibrates
 against <code><a href="null_network.html">null_network()</a></code> partners, built within each block.</p>
+<p><code>block_size</code> passes to <code><a href="compute_network.html">compute_network()</a></code> and needs <code>expr</code>. The
+blockwise network equals the dense one except at floating-point
+near-ties at the density cut. 512 is a good value. A species with more
+than 40,000 genes gets a message that suggests it.</p>
 <p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> counts each tier in <code>cliques</code>, in <code>hogs</code> and in
 <code>patterns</code>. A pattern is one HOG with one clique species set. The
 paralog copies of a large HOG can form millions of cliques, but they

@@ -72,7 +72,7 @@
 <ul><li>
 <strong>Sparse network.</strong> <code>compute_network(sparse = TRUE)</code> stores a <code>dgCMatrix</code> at the <code>store_density</code> quantile; <code>threshold</code> still comes from the dense MR. <code>.net_check()</code> in <code>R/network-sparse.R</code> is the one choke point; a threshold below <code>store_threshold</code> errors. <code><a href="reference/mr_block.html">mr_block()</a></code> rebuilds sub-store values.</li>
 <li>
-<strong>Blockwise build (opt-in).</strong> <code>block_size = b</code> never forms the n x n matrix (<code>src/network_block.cpp</code>). It keeps top-fraction candidates per column and widens the fraction when it is not exact. The result matches the dense build except at floating-point near-ties. Default stays dense.</li>
+<strong>Blockwise build (opt-in).</strong> <code>block_size = b</code> never forms the n x n matrix (<code>src/network_block.cpp</code>). It keeps top-fraction candidates per column and widens the fraction when it is not exact. The result matches the dense build except at floating-point near-ties. Default stays dense. <code>rcomplex(block_size =)</code> forwards it to <code><a href="reference/compute_network.html">compute_network()</a></code>.</li>
 <li>
 <strong>Membership-only consumers.</strong> Null networks from <code><a href="reference/coexpressolog_null.html">coexpressolog_null()</a></code> are binary. Nothing that reads edge weights is valid on them.</li>
 <li>

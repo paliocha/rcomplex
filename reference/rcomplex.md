@@ -20,6 +20,7 @@ rcomplex(
   modules = FALSE,
   null = FALSE,
   n_cores = 1L,
+  block_size = NULL,
   seed = NULL
 )
 ```
@@ -92,6 +93,12 @@ rcomplex(
 - n_cores:
 
   Number of threads.
+
+- block_size:
+
+  `NULL` (default) builds each species network from the dense gene x
+  gene matrix. A positive whole number builds it in blocks of that many
+  genes. The full matrix then never forms.
 
 - seed:
 
@@ -178,6 +185,12 @@ are classified at `min_power = 0.9`, hypergeometric edges at 0.8.
 against
 [`null_network()`](https://paliocha.github.io/rcomplex/reference/null_network.md)
 partners, built within each block.
+
+`block_size` passes to
+[`compute_network()`](https://paliocha.github.io/rcomplex/reference/compute_network.md)
+and needs `expr`. The blockwise network equals the dense one except at
+floating-point near-ties at the density cut. 512 is a good value. A
+species with more than 40,000 genes gets a message that suggests it.
 
 [`summary()`](https://rdrr.io/r/base/summary.html) counts each tier in
 `cliques`, in `hogs` and in `patterns`. A pattern is one HOG with one

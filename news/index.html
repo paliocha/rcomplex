@@ -36,6 +36,8 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.3" id="rcomplex-043-development">rcomplex 0.4.3 (development)<a class="anchor" aria-label="anchor" href="#rcomplex-043-development"></a></h2>
 <ul><li>Dense network kernels wrapped a 32-bit index above 65,536 genes. This crashed or corrupted <code><a href="../reference/compute_network.html">compute_network()</a></code> on hexaploid wheat. The package now builds Armadillo with 64-bit indices.</li>
+<li>
+<code><a href="../reference/rcomplex.html">rcomplex()</a></code> takes <code>block_size</code> and passes it to <code><a href="../reference/compute_network.html">compute_network()</a></code>. A species over 40,000 genes gets a message that suggests it.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.2" id="rcomplex-042">rcomplex 0.4.2<a class="anchor" aria-label="anchor" href="#rcomplex-042"></a></h2>
