@@ -19,10 +19,41 @@ species: the weakest correlation that passed the density threshold.
 [`write_rcomplex()`](https://paliocha.github.io/rcomplex/reference/write_rcomplex.md)
 writes the tables.
 
+- Inputs:
+  [`read_orthologs()`](https://paliocha.github.io/rcomplex/reference/read_orthologs.md)
+  reads the long table (`species`, `gene`, `hog`).
+  [`as_network()`](https://paliocha.github.io/rcomplex/reference/as_network.md)
+  imports a network.
+  [`as_modules()`](https://paliocha.github.io/rcomplex/reference/as_modules.md)
+  imports modules.
 - `clades`: named list of species vectors. It may nest, never cross.
   [`clades_from_tree()`](https://paliocha.github.io/rcomplex/reference/clades_from_tree.md)
   derives it. A clique’s home clade is the smallest clade holding all
   its species.
+- `partition`: per-sample factor for per-level correlation. `block`: a
+  designed sample factor (time point, tree, zone). `sign`: `"positive"`
+  or `"negative"` correlation.
+- Edge `score` is `-log2(p)` in bits. `evalue` is the expected count of
+  pairs this strong by chance.
+
+The four levels: - **Gene / hog**: hypergeometric q-values
+([`find_coexpressologs()`](https://paliocha.github.io/rcomplex/reference/find_coexpressologs.md),
+[`density_sweep()`](https://paliocha.github.io/rcomplex/reference/density_sweep.md)),
+hog permutation, rank specificity, edge-swap null. - **Module**:
+[`detect_modules()`](https://paliocha.github.io/rcomplex/reference/detect_modules.md),
+[`module_preservation()`](https://paliocha.github.io/rcomplex/reference/module_preservation.md),
+[`preservation_paired()`](https://paliocha.github.io/rcomplex/reference/preservation_paired.md),
+[`module_correspondence()`](https://paliocha.github.io/rcomplex/reference/module_correspondence.md),
+hubs. - **Clique**:
+[`find_cliques()`](https://paliocha.github.io/rcomplex/reference/find_cliques.md)
+(species graph),
+[`gene_clique_graph()`](https://paliocha.github.io/rcomplex/reference/gene_clique_graph.md)
+(gene graph),
+[`classify_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_cliques.md),
+[`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md). -
+**Trait**:
+[`preservation_matrix_test()`](https://paliocha.github.io/rcomplex/reference/preservation_matrix_test.md)
+on an all-pairs matrix.
 
 ## Build & Test
 
