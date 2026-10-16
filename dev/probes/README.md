@@ -82,3 +82,7 @@ steps and `compute_network()` pass at 60,000 and fail at 71,330 in
 past the buffer. 46,000 and 47,000 both pass: not the 2^31 boundary.
 
 Score after they finish: `jobs.sh submit score <exp>`.
+
+Shin2021 jobs: fetch 1452292, prep 1452296, FastOMA 1452327 (39 min;
+1452300 and 1452307 failed on the hogmap_in and splice dirs), hogs
+1452453, stage 1452454, run 1452455 (32 cores, 100 GB, 12 h).
