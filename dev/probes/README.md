@@ -69,5 +69,10 @@ The first round crashed at wheat root (71,330 genes): `rcomplex(expr)`
 builds dense networks. `run.R` now builds each network with
 `block_size = 512` and passes `networks =`. Diag job 1452240
 (`diag.R`) runs the dense steps on the first n wheat genes.
+Result: `Rfast::cora()` passes at every n up to 71,330; the dense
+steps and `compute_network()` pass at 60,000 and fail at 71,330 in
+`density_threshold_cpp()`. Its `n * (n - 1) / 2` uses `arma::uword`,
+32-bit under RcppArmadillo, so it wraps above n = 65,536 and writes
+past the buffer. 46,000 and 47,000 both pass: not the 2^31 boundary.
 
 Score after they finish: `jobs.sh submit score <exp>`.
