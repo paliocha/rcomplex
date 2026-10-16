@@ -18,6 +18,7 @@ rcomplex(
   null = FALSE,
   n_cores = 1L,
   block_size = NULL,
+  r_min = NULL,
   seed = NULL
 )
 }
@@ -61,6 +62,9 @@ what abundance and network structure alone produce.}
 \item{block_size}{\code{NULL} (default) builds each species network from the
 dense gene x gene matrix. A positive whole number builds it in blocks
 of that many genes. The full matrix then never forms.}
+
+\item{r_min}{\code{NULL} (default), a number, or \code{"null"}: the correlation
+floor of each species network. See \code{\link[=compute_network]{compute_network()}}.}
 
 \item{seed}{Integer seed, or \code{NULL} to draw from the global stream.
 A seed makes the run reproducible and leaves your stream unchanged.}
@@ -151,6 +155,7 @@ genes, the samples, the density and \code{r_threshold} from
 passed the density threshold. The same density needs a stronger
 correlation at few samples. A network from \code{\link[=as_network]{as_network()}} has no
 correlation and shows \verb{r ?}, as does a network without edges.
+With \code{r_min}, the line also shows the floor and the edges it removed.
 }
 \examples{
 f <- function(x) system.file("extdata", x, package = "rcomplex")

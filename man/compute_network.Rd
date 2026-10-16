@@ -19,7 +19,9 @@ compute_network(x, ...)
   store_density = NULL,
   n_cores = 1L,
   block_size = NULL,
-  partition = NULL
+  partition = NULL,
+  r_min = NULL,
+  seed = NULL
 )
 
 \S4method{compute_network}{SummarizedExperiment}(x, assay = 1L, ...)
@@ -98,6 +100,13 @@ normalises the result. The function drops levels with fewer than 5
 samples and tells you which. At least two levels must remain.
 Use the dense build: \code{block_size} must be \code{NULL}.}
 
+\item{r_min}{\code{NULL} (default) sets no floor. A number in [-1, 1)
+removes every edge with a weaker correlation. \code{"null"} sets the
+floor from shuffled expression. See Details.}
+
+\item{seed}{Integer seed, or \code{NULL} to draw from the global stream.
+Only \code{r_min = "null"} draws random numbers.}
+
 \item{assay}{Assay name or index to extract from the
 SummarizedExperiment (default 1). Requires the
 \pkg{SummarizedExperiment} package.}
@@ -119,7 +128,9 @@ correlations.}
 you give one. \code{r_threshold} is the weakest correlation of an edge:
 the smallest for \code{sign = "positive"}, the largest for
 \code{"negative"}. With \code{partition} it is the rectified mean over the
-levels, negated for \code{"negative"}. It is \code{NA} when no pair passes.}
+levels, negated for \code{"negative"}. It is \code{NA} when no pair passes.
+\code{r_min} is the floor used, \code{NA} without one. \code{n_floored} counts
+the edges the floor removed.}
 \item{gene_mean}{The mean expression of each kept gene, by name.
 \code{\link[=rcomplex]{rcomplex()}} uses it to stratify its null.}
 \item{store_density, store_threshold}{Sparse networks only: the
@@ -142,6 +153,21 @@ keeps the top fraction of pairs, so a negative network exists at any
 sample size even when it holds only noise: at n = 20 samples, r >= -0.3
 is noise. Check the weakest correlation that passed the threshold
 before you read a negative network.
+
+\code{r_min} removes every edge whose correlation is below the floor. It
+reads the value of \code{r_threshold}, negated for \code{sign = "negative"}.
+\code{r_min = "null"} permutes each gene's samples, within \code{partition}
+levels, on at most 2,000 random genes. The floor is the correlation
+above which these chance pairs supply 1 \% of the edges (Butte & Kohane
+2000). On 11 grass leaf compendia it ranged from r = 0.09 (wheat, 1,436
+runs) to 0.59 (tef, 31 runs) and removed 0-3 \% of the edges.
+
+A pooled compendium gives a global network and misses organ-restricted
+co-expression. Use \code{partition}, \code{block} in \code{\link[=rcomplex]{rcomplex()}}, or one run
+per organ. Networks stabilise above about 100 samples (Aoki et al.
+2007), so fewer samples give stronger chance correlations. \code{block}
+does not align developmental stages across species (Li, Nakayama &
+Sinha 2023).
 }
 \section{Gene universe}{
 

@@ -72,16 +72,34 @@ rng_matrix_classification <- function() {
 }
 
 
+#' The function behind an exported name
+#'
+#' An S4 generic forwards through `...`, so the `seed` formal lives on a
+#' method; the first method with a `seed` stands for the generic.
+rng_entry_fun <- function(nm) {
+  ns <- asNamespace("rcomplex")
+  f <- get(nm, envir = ns)
+  if (methods::is(f, "standardGeneric")) {
+    for (m in methods::findMethods(nm, where = ns)) {
+      g <- methods::unRematchDefinition(m)
+      if ("seed" %in% names(formals(g))) return(g)
+    }
+  }
+  f
+}
+
+
 #' Every exported entry point that takes a `seed`
 #'
 #' Generics forward through `...`, so the `seed` formal lives on the
-#' `.default` method; both are searched. A new seeded export appears here
-#' automatically, and the contract test fails until the table covers it.
+#' `.default` method (S3) or on a method (S4); both are searched. A new
+#' seeded export appears here automatically, and the contract test fails
+#' until the table covers it.
 rng_seeded_exports <- function() {
   ns <- asNamespace("rcomplex")
   out <- character(0)
   for (nm in sort(getNamespaceExports("rcomplex"))) {
-    f <- get(nm, envir = ns)
+    f <- rng_entry_fun(nm)
     if (!is.function(f)) next
     cand <- nm
     default <- paste0(nm, ".default")
@@ -89,7 +107,7 @@ rng_seeded_exports <- function() {
       cand <- c(cand, default)
     }
     for (cn in cand) {
-      g <- get(cn, envir = ns)
+      g <- rng_entry_fun(cn)
       if (is.function(g) && "seed" %in% names(formals(g))) {
         out <- c(out, cn)
       }
@@ -163,6 +181,14 @@ rng_contract_cases <- function(fx) {
             swap_factor = 1L, seed = seed, pval_combine = "max"
           )
         ))
+      }
+    ),
+    list(
+      name = "compute_network",
+      call = function(seed) {
+        compute_network(fx$null_x,
+          density = 0.1, r_min = "null", seed = seed
+        )$params$r_min
       }
     ),
     list(

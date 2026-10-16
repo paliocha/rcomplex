@@ -403,3 +403,87 @@ test_that("null_network rebuilds with the network's partition", {
   expect_identical(dim(nn$network), dim(net$network))
   expect_equal(nn$params$density, net$params$density)
 })
+
+# ---- correlation floor (r_min) ---------------------------------------------
+
+floor_fixture <- function() {
+  x <- withr::with_seed(5L, matrix(stats::rnorm(40L * 12L), 40L, 12L))
+  rownames(x) <- sprintf("g%02d", 1:40)
+  x
+}
+
+# Upper-triangle edges of a network, as a dense logical matrix
+floor_edges <- function(net) {
+  m <- as.matrix(net$network)
+  m >= net$threshold & upper.tri(m)
+}
+
+test_that("r_min drops exactly the edges below the floor", {
+  x <- floor_fixture()
+  cm <- cor(t(x))
+  ref <- compute_network(x, density = 0.1, sparse = FALSE)
+  fl <- compute_network(x, density = 0.1, sparse = FALSE, r_min = 0.3)
+  expect_identical(fl$threshold, ref$threshold)
+  expect_identical(floor_edges(fl), floor_edges(ref) & cm >= 0.3)
+  expect_true(all(cm[floor_edges(fl)] >= 0.3))
+  expect_gte(fl$params$r_threshold, 0.3)
+  expect_gt(fl$params$n_floored, 0L)
+  expect_identical(
+    fl$params$n_floored, sum(floor_edges(ref)) - sum(floor_edges(fl))
+  )
+  expect_identical(fl$params$r_min, 0.3)
+  expect_identical(ref$params$r_min, NA_real_)
+  expect_identical(ref$params$n_floored, 0L)
+
+  # the sparse store loses its floored entries too, not only the edges
+  sp <- compute_network(x, density = 0.1, r_min = 0.3)
+  stored <- as.matrix(sp$network) != 0 & upper.tri(cm)
+  expect_true(all(cm[stored] >= 0.3))
+  expect_identical(floor_edges(sp), floor_edges(fl))
+  expect_identical(sp$params$n_floored, fl$params$n_floored)
+  expect_identical(sp$params$r_threshold, fl$params$r_threshold)
+
+  neg <- compute_network(x, density = 0.1, sign = "negative", r_min = 0.4)
+  expect_true(all(cm[floor_edges(neg)] <= -0.4))
+  expect_lte(neg$params$r_threshold, -0.4)
+  expect_gt(neg$params$n_floored, 0L)
+})
+
+test_that("r_min reads the rectified correlation with partition", {
+  p <- partition_fixture()
+  r1 <- cor(t(p$x[, p$f == "leaf"]))
+  r2 <- cor(t(p$x[, p$f == "root"]))
+  rect <- (pmax(r1, 0) + pmax(r2, 0)) / 2
+  net <- suppressMessages(compute_network(p$x,
+    partition = p$f, density = 0.1, r_min = 0.3
+  ))
+  expect_true(all(rect[floor_edges(net)] >= 0.3))
+  expect_gte(net$params$r_threshold, 0.3)
+  null <- suppressMessages(compute_network(p$x,
+    partition = p$f, density = 0.1, r_min = "null", seed = 1L
+  ))
+  expect_true(null$params$r_min > 0 && null$params$r_min < 1)
+})
+
+test_that("r_min = \"null\" removes the edges of shuffled expression", {
+  x <- withr::with_seed(2L, {
+    f <- matrix(stats::rnorm(4L * 20L), 4L)
+    x <- matrix(stats::rnorm(200L * 4L), 200L) %*% f +
+      matrix(stats::rnorm(200L * 20L), 200L)
+    t(apply(x, 1L, sample))
+  })
+  rownames(x) <- paste0("g", 1:200)
+  ref <- compute_network(x, density = 0.03)
+  net <- compute_network(x, density = 0.03, r_min = "null", seed = 1L)
+  expect_gte(net$params$n_floored / sum(floor_edges(ref)), 0.95)
+  expect_identical(
+    compute_network(x, density = 0.03, r_min = "null", seed = 1L), net
+  )
+})
+
+test_that("bad r_min values are refused", {
+  x <- floor_fixture()
+  for (bad in list(1, -1.5, NA_real_, c(0.1, 0.2), "nul", TRUE)) {
+    expect_error(compute_network(x, r_min = bad), "r_min must be NULL")
+  }
+})

@@ -1,5 +1,9 @@
 # rcomplex 0.4.3 (development)
 
+* `compute_network()` takes `r_min`: a correlation floor under the density
+  threshold. `r_min = "null"` sets the floor from shuffled expression and
+  takes `seed`. `params` records `r_min` and `n_floored`. `rcomplex()`
+  forwards `r_min`, and `print()` shows the floor.
 * `clique_threshold_sweep()` uses the randomized-p pi0 q-values of the main
   path and takes `seed`.
 * Dense network kernels wrapped a 32-bit index above 65,536 genes. This
