@@ -13,6 +13,12 @@
 #     run <exp> <run>        32 cores, 300 GB, 24 h
 #     score <exp>             4 cores,  64 GB,  2 h
 #     diag                    8 cores, 300 GB,  2 h   (wheat root crash)
+#   Shin et al. 2021 benchmark (exp Shin2021, run all):
+#     fetch                   2 cores,   8 GB,  3 h   Mendeley + Ensembl 38
+#     prep                    2 cores,   8 GB,  1 h   proteomes, id check
+#     fastoma                 FastOMA head job (shin_fastoma.sh)
+#     shin_hogs               4 cores,  16 GB,  1 h
+#     stage Shin2021, run Shin2021 all (32 cores, 100 GB, 12 h)
 #   exp: LeafvRoot, C3vC4 or nodulation. run: leaf, root or organ_block.
 #   Logs: $ROOT/complex_<exp>/logs/<step>-%j.out.
 # Inside a job the same script runs the step; it refuses to run a step
@@ -21,6 +27,7 @@ set -euo pipefail
 ROOT=/mnt/project/FjellheimLab/martpali/rcomplex-testrun
 P=$ROOT/peo
 SELF=$P/scripts/jobs.sh
+SH=$ROOT/complex_Shin2021
 TAR=rcomplex_0.4.2.tar.gz
 O=/mnt/project/FjellheimLab/martpali/AnnualPerennial/peo-fastoma/output
 LIB=$P/lib-0.4.2
@@ -44,7 +51,19 @@ submit() {
     install) res="-c 4 --mem=16G -t 01:00:00"; log=$P/install-%j.out ;;
     hogs) res="-c 4 --mem=64G -t 04:00:00"; log=$P/hogs-%j.out ;;
     stage) res="-c 4 --mem=64G -t 02:00:00" ;;
-    run) res="-c 32 --mem=300G -t 24:00:00" ;;
+    run) res="-c 32 --mem=300G -t 24:00:00"
+      [ "${1:-}" = Shin2021 ] && res="-c 32 --mem=100G -t 12:00:00" ;;
+    fetch) res="-c 2 --mem=8G -t 03:00:00"; log=$SH/logs/fetch-%j.out ;;
+    prep) res="-c 2 --mem=8G -t 01:00:00"; log=$SH/logs/prep-%j.out ;;
+    shin_hogs) res="-c 4 --mem=16G -t 01:00:00"
+      log=$SH/logs/hogs-%j.out ;;
+    fastoma)
+      mkdir -p "$SH/fastoma/logs"
+      cp "$P/scripts/shin_fastoma.sh" "$P/scripts/shin_nextflow.config" \
+        "$SH/fastoma/"
+      sbatch --parsable -o "$SH/fastoma/logs/FastOMA_%j.out" \
+        "$SH/fastoma/shin_fastoma.sh" "$@"
+      return ;;
     score) res="-c 4 --mem=64G -t 02:00:00" ;;
     diag) res="-c 8 --mem=300G -t 02:00:00"
       log=$ROOT/complex_LeafvRoot/logs/diag-%j.out ;;
@@ -116,7 +135,11 @@ REOF
     # a dir under $ROOT: R chmods what it unpacks there, which clears
     # setgid and charges the files to the personal group (quota).
     echo "TMPDIR=${TMPDIR:-unset}"
-    Rscript "$P/scripts/stage.R" "$2" ;;
+    if [ "$2" = Shin2021 ]; then
+      Rscript "$P/scripts/stage_shin.R"
+    else
+      Rscript "$P/scripts/stage.R" "$2"
+    fi ;;
   run)
     in_job run
     Rscript "$P/scripts/run.R" "$2" "$3" ;;
@@ -132,6 +155,39 @@ REOF
       sacct -j "$id" -P -n --format=JobID,State,Elapsed,MaxRSS || true
     done > "$E/score/sacct.tsv"
     Rscript "$P/scripts/score.R" "$2" ;;
+  fetch)
+    in_job fetch
+    M=$SH/inputs/mendeley
+    mkdir -p "$M" "$SH/fastoma/pep"
+    curl -sSf https://data.mendeley.com/public-api/datasets/bwzdv623xn |
+      python3 -c '
+import json, sys
+for f in json.load(sys.stdin)["files"]:
+    n = f["filename"]
+    if "adjacency" not in n and n != "Proteome_data_table.xlsx":
+        print(n, f["content_details"]["download_url"])' |
+      while read -r name url; do
+        curl -sSfL -o "$M/$name" "$url"
+      done
+    E38=https://ftp.ebi.ac.uk/ensemblgenomes/pub/plants/release-38/fasta
+    for d in arabidopsis_thaliana medicago_truncatula oryza_sativa \
+      physcomitrella_patens solanum_tuberosum zea_mays; do
+      f=$(curl -sSf "$E38/$d/pep/" |
+        grep -o '"[^"]*\.pep\.all\.fa\.gz"' | tr -d '"' | head -1)
+      [ -n "$f" ] || { echo "no pep file for $d" >&2; exit 1; }
+      curl -sSf -o "$SH/fastoma/pep/$f" "$E38/$d/pep/$f"
+    done
+    ls -l "$M" "$SH/fastoma/pep"
+    md5sum "$M"/* "$SH/fastoma/pep"/* ;;
+  prep)
+    in_job prep
+    python3 "$P/scripts/shin_prep.py" "$SH/fastoma" "$SH/inputs/mendeley" ;;
+  shin_hogs)
+    in_job shin_hogs
+    python3 "$P/scripts/hogs_at_level.py" \
+      "$SH/fastoma/output/FastOMA_HOGs.orthoxml" \
+      "$SH/fastoma/in_folder/species_tree.nwk" \
+      "$P/scripts/shin_sets.tsv" "$ROOT" ;;
   diag)
     in_job diag
     for mode in cora steps full; do
@@ -143,5 +199,5 @@ REOF
         [ "$rc" -eq 0 ] || break
       done
     done ;;
-  *) sed -n '2,20p' "$0"; exit 2 ;;
+  *) sed -n '2,26p' "$0"; exit 2 ;;
 esac

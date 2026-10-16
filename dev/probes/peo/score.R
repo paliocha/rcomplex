@@ -1,8 +1,10 @@
-# Score the finished runs of one PEO experiment.
+# Score the finished runs of one experiment (PEO or Shin2021).
 # Usage: Rscript score.R <exp>
 # Reads runs/<run>/ from run.R; writes score/<run>_{species,tiers,pairs,
-# branches,hogs}.tsv, the experiment tables and score/summary.tsv.
+# branches,hogs,signatures,tier_by_age,tier_by_expression,
+# tier_by_copies}.tsv, the experiment tables and score/summary.tsv.
 # score/sacct.tsv (written by jobs.sh) adds wall time and MaxRSS.
+# A hog with no clique gets tier "none" in the tier_by_* tables.
 suppressPackageStartupMessages(library(rcomplex))
 args <- commandArgs(TRUE)
 EXP <- args[1]
@@ -12,6 +14,10 @@ ROOT <- Sys.getenv(
 ROOTHOGS <- Sys.getenv("PEO_ROOTHOGS", paste0(
   "/mnt/project/FjellheimLab/martpali/AnnualPerennial/peo-fastoma/",
   "output/RootHOGs.tsv"
+))
+# Shin et al. 2021 reference tables from shin_tables.R
+REF <- Sys.getenv("PEO_SHIN_REF", file.path(
+  ROOT, "complex_Shin2021", "inputs", "ref"
 ))
 ALPHA <- 0.1
 CONS <- c("complete_conserved", "partial_significant", "partial_present")
@@ -25,8 +31,18 @@ info <- read.delim(file.path(D, "species.tsv"))
 tree <- ape::read.tree(file.path(D, "tree.nwk"))
 ortho <- read_orthologs(file.path(D, "orthologs.tsv"))
 runs <- intersect(
-  c("leaf", "root", "organ_block"), list.files(file.path(E, "runs"))
+  c("leaf", "root", "organ_block", "all"), list.files(file.path(E, "runs"))
 )
+ref <- function(f) {
+  p <- file.path(REF, f)
+  if (file.exists(p)) read.delim(p, colClasses = "character")
+}
+# hog -> age node, and the age nodes from the root down to the MRCA
+age_f <- file.path(D, "hog_age.tsv")
+hog_age <- if (file.exists(age_f)) read.delim(age_f)
+age_order <- if (file.exists(file.path(D, "age_order.txt"))) {
+  readLines(file.path(D, "age_order.txt"))
+}
 tsv <- function(x, f) {
   data.table::fwrite(x, file.path(S, f),
     sep = "\t", na = "NA", quote = FALSE
@@ -42,6 +58,23 @@ present <- function(cls, sp) {
   m <- cls$missing_species
   m[is.na(m)] <- ""
   lapply(strsplit(m, ",", fixed = TRUE), function(x) setdiff(sp, x))
+}
+
+# Counts of tier within each group, with the share of the group.
+by_group <- function(tier, group, lv = NULL, name = "group") {
+  g <- if (is.null(lv)) factor(group) else factor(group, lv)
+  t <- as.data.frame(table(group = g, tier = factor(tier,
+    c(TIERS, "none"))), stringsAsFactors = FALSE)
+  t <- t[t$Freq > 0L | t$tier != "none", ]
+  t$share <- round(t$Freq / ave(t$Freq, t$group, FUN = sum), 4)
+  names(t) <- c(name, "tier", "n", "share")
+  t[order(match(t[[1L]], levels(g)), match(t$tier, c(TIERS, "none"))), ]
+}
+
+# "tier:n" over a vector of tiers, most frequent first
+mix <- function(x) {
+  t <- sort(table(x), decreasing = TRUE)
+  paste(names(t), t, sep = ":", collapse = ",")
 }
 
 # Tip pairs whose parent node has exactly these two tips as children.
@@ -72,8 +105,13 @@ score_run <- function(run) {
   cl1 <- res$cliques[res$cliques$run == 1L, c("clique_id", "hog")]
   mem <- res$members[res$members$run == 1L, c("clique_id", "species")]
   mem$hog <- cl1$hog[match(mem$clique_id, cl1$clique_id)]
+  # expression level: gene_mean percentile within species (rowMeans of
+  # the staged matrix, as run.R sets gene_mean)
+  pct <- list()
   spt <- do.call(rbind, lapply(sp, function(s) {
-    g <- rownames(readRDS(file.path(D, run, paste0(s, ".rds"))))
+    gm <- rowMeans(readRDS(file.path(D, run, paste0(s, ".rds"))))
+    pct[[s]] <<- data.frame(gene = names(gm), pct = rank(gm) / length(gm))
+    g <- names(gm)
     h <- table(ortho$hog[ortho$species == s & ortho$gene %in% g])
     inc <- length(unique(mem$hog[mem$species == s]))
     data.frame(
@@ -130,6 +168,8 @@ score_run <- function(run) {
   # hogs: best clique per hog
   cls$n_gain <- eh$n_gain
   cls$n_loss <- eh$n_loss
+  cls$gains <- eh$gains
+  cls$losses <- eh$losses
   cls$species <- vapply(present(cls, sp), paste, "", collapse = ",")
   o <- order(match(cls$hog, unique(cls$hog)), match(
     cls$classification,
@@ -141,13 +181,63 @@ score_run <- function(run) {
     tier = best$hog_class, best_class = best$classification,
     clade = best$clade, n_species = best$n_species, species = best$species,
     n_gain = best$n_gain, n_loss = best$n_loss,
+    gains = best$gains, losses = best$losses,
+    age = if (is.null(hog_age)) {
+      NA
+    } else {
+      hog_age$root_taxrange[match(best$hog, hog_age$hog)]
+    },
     trait_class = if (is.null(tp)) {
       NA
     } else {
       tp$hog_class[match(best$hog, tp$hog)]
     }
   )
+  hogs$gains[is.na(hogs$gains)] <- ""
+  hogs$losses[is.na(hogs$losses)] <- ""
+  hogs$signature <- paste(hogs$gains, "|", hogs$losses)
   tsv(hogs, paste0(run, "_hogs.tsv"))
+
+  # signatures: hogs with the same branch gains and losses
+  sig <- split(seq_len(nrow(hogs)), hogs$signature)
+  sigs <- data.frame(
+    signature = names(sig), n_hogs = lengths(sig),
+    tier_mix = vapply(sig, function(i) mix(hogs$tier[i]), ""),
+    examples = vapply(sig, function(i) {
+      paste(head(hogs$hog[i], 5L), collapse = ",")
+    }, "")
+  )
+  sigs <- sigs[order(sigs$signature != " | ", -sigs$n_hogs), ]
+  tsv(sigs, paste0(run, "_signatures.tsv"))
+
+  # tier of every tested hog, "none" without a clique
+  tested <- unique(e$hog)
+  tier_all <- hogs$tier[match(tested, hogs$hog)]
+  tier_all[is.na(tier_all)] <- "none"
+  if (!is.null(hog_age)) {
+    age <- hog_age$root_taxrange[match(tested, hog_age$hog)]
+    tsv(by_group(tier_all, age, age_order, "age"),
+      paste0(run, "_tier_by_age.tsv")
+    )
+  }
+  mem_g <- ortho[ortho$hog %in% tested & ortho$species %in% sp, ]
+  pc <- do.call(rbind, pct)
+  mem_g$pct <- pc$pct[match(mem_g$gene, pc$gene)]
+  mem_g <- mem_g[!is.na(mem_g$pct), ]
+  lvl <- tapply(mem_g$pct, mem_g$hog, mean)[tested]
+  q <- cut(lvl, quantile(lvl, 0:5 / 5, na.rm = TRUE),
+    labels = paste0("Q", 1:5), include.lowest = TRUE
+  )
+  tsv(by_group(tier_all, q, paste0("Q", 1:5), "expression_quintile"),
+    paste0(run, "_tier_by_expression.tsv")
+  )
+  cp <- table(mem_g$hog, mem_g$species)
+  cp[cp == 0L] <- NA
+  med <- apply(cp, 1L, stats::median, na.rm = TRUE)[tested]
+  cb <- ifelse(med < 1.5, "1", ifelse(med < 2.5, "2", "3+"))
+  tsv(by_group(tier_all, cb, c("1", "2", "3+"), "median_copies"),
+    paste0(run, "_tier_by_copies.tsv")
+  )
   tm <- rd(run, "timing.tsv")
   summ <- data.frame(
     run = run, species = length(sp), genes = sum(spt$genes),
@@ -164,7 +254,10 @@ score_run <- function(run) {
     rcomplex_s = tm$seconds[tm$step == "rcomplex"],
     max_mb = max(tm$max_mb), job_id = tm$job_id[1L]
   )
-  list(hogs = hogs, cls = cls, sp = sp, summ = summ, tested = unique(e$hog))
+  list(
+    hogs = hogs, cls = cls, sp = sp, summ = summ, tested = tested,
+    tier_all = tier_all
+  )
 }
 
 out <- sapply(runs, score_run, simplify = FALSE)
@@ -228,31 +321,29 @@ ANCHORS <- list(
     role = rep(c("C4_cycle", "Calvin_control"), c(21L, 6L)),
     source = "AGI"
   ),
-  # MTR_ ids from UniProt (organism 3880, ordered locus names); NIN, DMI1,
-  # DMI2 and RPG have no locus there and take their Mt4.0 literature ids.
-  # ENOD40 has no protein locus and is not placed.
+  # MTR_ ids from UniProt (organism 3880, ordered locus names). NIN,
+  # DMI1, DMI2, RPG and LB1 are from the curated list of Shin et al.
+  # 2021 (table S8). ENOD40 has no protein locus and is not placed.
   nodulation = data.frame(
     symbol = c(
       "NIN", "NSP1", "NSP2", "ERN1", "ENOD11", "NFP", "LYK3", "DMI1",
-      "DMI2", "DMI3", "IPD3", "VPY", "RPG", "LB1_a", "LB1_b", "SUNN",
-      "RAM1", "PT4"
+      "DMI2", "DMI3", "IPD3", "VPY", "RPG", "LB1", "SUNN", "RAM1", "PT4"
     ),
     id = c(
       "MTR_5g099060", "MTR_8g020840", "MTR_3g072710", "MTR_7g085810",
       "MTR_3g415670", "MTR_5g019040", "MTR_5g086130", "MTR_2g005870",
       "MTR_5g030920", "MTR_8g043970", "MTR_5g026850", "MTR_6g027840",
-      "MTR_1g090807", "MTR_1g011540", "MTR_5g066070", "MTR_4g070970",
-      "MTR_7g027190", "MTR_1g028600"
+      "MTR_1g090807", "MTR_5g081000", "MTR_4g070970", "MTR_7g027190",
+      "MTR_1g028600"
     ),
     role = c(
       "nodulation", "other", "other", "other", "nodulation", "nodulation",
       "other", "common", "common", "common", "common", "common",
-      "nodulation", "nodulation", "nodulation", "other", "common",
-      "common"
+      "nodulation", "nodulation", "other", "common", "common"
     ),
     source = c(
-      "literature", rep("uniprot", 6L), "literature", "literature",
-      rep("uniprot", 3L), "literature", rep("uniprot", 5L)
+      "curated", rep("uniprot", 6L), "curated", "curated",
+      rep("uniprot", 3L), "curated", "curated", rep("uniprot", 3L)
     )
   )
 )
@@ -312,6 +403,69 @@ if (EXP %in% names(ANCHORS)) {
     "placed:", length(unique(anc$symbol[!is.na(anc$hog)])), "of",
     nrow(a), "anchors\n"
   )
+}
+
+# Curated Medicago symbiosis list (Shin et al. 2021, table S8).
+cur <- ref("nodulation_curated.tsv")
+if (EXP %in% c("nodulation", "Shin2021") && !is.null(cur)) {
+  r <- out[[1L]]
+  h <- ortho$hog[match(cur$gene, ortho$gene)]
+  b <- r$hogs[match(h, r$hogs$hog), ]
+  cn <- data.frame(cur,
+    hog = h, tier = ifelse(is.na(h), NA, r$tier_all[match(h, r$tested)]),
+    trait_class = b$trait_class, n_gain = b$n_gain, n_loss = b$n_loss,
+    gains = b$gains, losses = b$losses, species = b$species
+  )
+  tsv(cn, "curated_nodulation.tsv")
+  cat("== curated nodulation: tier by list\n")
+  print(table(cn$list, cn$tier, useNA = "ifany"))
+}
+
+# Shin2021: Arboretum modules and clade-specific gene sets.
+if (EXP == "Shin2021") {
+  r <- out[[1L]]
+  ta <- r$tier_all
+  names(ta) <- r$tested
+  mods <- ref("modules.tsv")
+  mods$hog <- ortho$hog[match(mods$gene, ortho$gene)]
+  mods <- mods[mods$hog %in% r$tested, ]
+  # modal module per hog; ties go to the highest module
+  hm <- tapply(as.integer(mods$module), mods$hog, function(m) {
+    t <- table(m)
+    max(as.integer(names(t)[t == max(t)]))
+  })
+  rm_ <- by_group(ta[names(hm)], hm, as.character(1:7), "module")
+  rm_$coverage <- round(length(hm) / length(r$tested), 4)
+  tsv(rm_, "ref_modules.tsv")
+  gs <- ref("genesets.tsv")
+  gs$hog <- ortho$hog[match(gs$gene, ortho$gene)]
+  gs <- gs[gs$hog %in% r$tested, ]
+  bg <- by_group(ta, rep("background", length(ta)), name = "type")
+  rows <- lapply(c("conserved", "loss", "change"), function(ty) {
+    hs <- unique(gs$hog[gs$pattern_type == ty])
+    if (length(hs) == 0L) return(NULL)
+    by_group(ta[hs], rep(ty, length(hs)), name = "type")
+  })
+  rg <- do.call(rbind, c(rows, list(bg)))
+  rg$log2_vs_background <- round(log2(rg$share /
+    bg$share[match(rg$tier, bg$tier)]), 3)
+  tsv(rg, "ref_genesets.tsv")
+  print(rg, row.names = FALSE)
+  key <- paste(gs$method, gs$set)
+  sig_of <- r$hogs$signature
+  names(sig_of) <- r$hogs$hog
+  det <- do.call(rbind, lapply(split(gs, key), function(x) {
+    hs <- unique(x$hog)
+    s <- sig_of[hs[hs %in% names(sig_of)]]
+    data.frame(
+      method = x$method[1L], set = x$set[1L],
+      pattern_type = x$pattern_type[1L], n_genes = nrow(x),
+      n_hogs = length(hs), hogs_with_clique = sum(hs %in% r$hogs$hog),
+      tier_mix = mix(ta[hs]),
+      modal_signature = if (length(s)) names(which.max(table(s))) else NA
+    )
+  }))
+  tsv(det, "ref_genesets_detail.tsv")
 }
 
 summ <- do.call(rbind, lapply(out, `[[`, "summ"))

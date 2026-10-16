@@ -44,6 +44,12 @@ Recover history with `git show main:<path>` (main @ b245ac0).
   Three experiments under `$ROOT/complex_<exp>/`: LeafvRoot (20 species;
   leaf, root, organ_block), C3vC4 (11 grasses, leaf), nodulation
   (12 species, root).
+  `diag.R`: the dense-build crash at 71,330 genes. Shin et al. 2021
+  reference benchmark (`complex_Shin2021`, note
+  `dev/design-notes/shin2021-benchmark.md`): `shin_tables.R` (their
+  supplementary tables to tsv), `shin_sets.tsv`, `shin_prep.py`
+  (release-38 proteomes, id check), `shin_fastoma.sh` and
+  `shin_nextflow.config` (FastOMA under `$ROOT`), `stage_shin.R`.
 
 ### PEO on Orion, 2026-10-16
 

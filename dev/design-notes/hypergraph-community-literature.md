@@ -1000,6 +1000,7 @@ E3 earns no WP.
 | 10 | Kaminski, Poulin, Pralat, Szufel & Theberge 2019, PLOS ONE | 10.1371/journal.pone.0224307 | Chung-Lu hypergraph null, strict modularity |
 | 11 | Pellegrin, Fesser & Weber 2025, NeurIPS | arXiv:2502.09570 | node encodings from hypergraphs; graph-level models on expansions win; section 9 |
 | 12 | Coupette, Dalleiger & Rieck 2023, ICLR | arXiv:2210.12048 | ORCHID: Ollivier-Ricci curvature for hyperedges; basis for the hog-curvature probe |
+| 13 | Shin et al. 2021, Nucleic Acids Res | 10.1093/nar/gkaa1041 | Muscari: phylogeny-aware joint spectral clustering, same family as the joint-module methods of sections 10-12; not ported (no licence, C++ with MATLAB); its outputs are a reference (`shin2021-benchmark.md`) |
 
 Dropped from the top 10, still cited in the text: Bazzi 2016, Chodrow 2020
 and Mucha 2010.
