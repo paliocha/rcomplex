@@ -10,6 +10,7 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 
 #include <RcppArmadillo.h>
+#include <climits>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -53,9 +54,16 @@ List extract_sparse_cpp(const arma::mat& m, double thr, int n_cores = 1) {
         pp[c + 1] = cnt;
     }
 
-    // Serial prefix sum
+    // Serial prefix sum in 64 bits: the dgCMatrix slots are R integers, so
+    // the total must stay at or below INT_MAX.
+    long long total = 0;
     for (int c = 0; c < n; ++c) {
-        pp[c + 1] += pp[c];
+        total += pp[c + 1];
+        if (total > INT_MAX) {
+            stop("The stored network needs more than %d entries (INT_MAX) "
+                 "for %d genes. Lower `store_density`.", INT_MAX, n);
+        }
+        pp[c + 1] = static_cast<int>(total);
     }
     const int nnz = pp[n];
 
