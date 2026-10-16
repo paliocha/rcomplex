@@ -29,6 +29,9 @@
 #'   genes of the same expression level. The null calls and tiers estimate
 #'   what abundance and network structure alone produce.
 #' @param n_cores Number of threads.
+#' @param block_size `NULL` (default) builds each species network from the
+#'   dense gene x gene matrix. A positive whole number builds it in blocks
+#'   of that many genes. The full matrix then never forms.
 #' @param seed Integer seed, or `NULL` to draw from the global stream.
 #'   A seed makes the run reproducible and leaves your stream unchanged.
 #'
@@ -80,6 +83,11 @@
 #' `method = "rank"` and `block` need `expr`. The rank test calibrates
 #' against [null_network()] partners, built within each block.
 #'
+#' `block_size` passes to [compute_network()] and needs `expr`. The
+#' blockwise network equals the dense one except at floating-point
+#' near-ties at the density cut. 512 is a good value. A species with more
+#' than 40,000 genes gets a message that suggests it.
+#'
 #' `summary()` counts each tier in `cliques`, in `hogs` and in
 #' `patterns`. A pattern is one HOG with one clique species set. The
 #' paralog copies of a large HOG can form millions of cliques, but they
@@ -122,7 +130,7 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
                      sign = c("positive", "negative"),
                      method = c("hypergeometric", "rank"), alpha = 0.1,
                      modules = FALSE, null = FALSE, n_cores = 1L,
-                     seed = NULL) {
+                     block_size = NULL, seed = NULL) {
   sign <- match.arg(sign)
   method <- match.arg(method)
   if (is.null(expr) == is.null(networks)) {
@@ -137,15 +145,20 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
   if (is.null(expr) && (method == "rank" || !is.null(block))) {
     stop("method = \"rank\" and block need expr; you gave networks")
   }
+  if (is.null(expr) && !is.null(block_size)) {
+    stop("block_size needs expr; you gave networks")
+  }
   long <- .driver_orthologs(orthologs, sp)
   ortho <- prepare_orthologs(long)
   .seed_scope(seed)
 
   xs <- NULL
   if (!is.null(expr)) {
+    .driver_size_note(expr, block_size)
     xs <- if (is.null(block)) expr else .driver_wiring(expr, block)
     networks <- lapply(xs, compute_network,
-      density = density, sign = sign, n_cores = n_cores
+      density = density, sign = sign, n_cores = n_cores,
+      block_size = block_size
     )
     for (s in sp) {
       x <- expr[[s]]
@@ -287,6 +300,23 @@ rcomplex <- function(expr = NULL, orthologs, networks = NULL, block = NULL,
     }
   }
   long
+}
+
+
+#' One message per species too large for the dense build
+#' @noRd
+.driver_size_note <- function(expr_list, block_size) {
+  if (!is.null(block_size)) return(invisible())
+  for (s in names(expr_list)) {
+    n <- nrow(expr_list[[s]])
+    if (n > 40000L) {
+      message(
+        s, ": ", n, " genes need a ", round(8 * n^2 / 2^30, 1),
+        " GB dense matrix; block_size = 512 builds it in pieces"
+      )
+    }
+  }
+  invisible()
 }
 
 

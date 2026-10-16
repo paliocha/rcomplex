@@ -199,7 +199,8 @@ test_that("null = TRUE reports calls beside null calls", {
   expect_identical(
     s$tiers$cliques_null,
     as.integer(table(factor(
-      res$classification_null$classification, levels = s$tiers$tier
+      res$classification_null$classification,
+      levels = s$tiers$tier
     )))
   )
   again <- rcomplex(syn$expr, syn$ortho, null = TRUE, seed = 1L)
@@ -311,6 +312,40 @@ test_that("rcomplex() refuses bad input", {
     rcomplex(networks = nets, orthologs = drv_ortho, method = "rank"),
     "need expr"
   )
+  expect_error(
+    rcomplex(networks = nets, orthologs = drv_ortho, block_size = 8L),
+    "block_size"
+  )
+})
+
+
+test_that("block_size gives the edges and tiers of the dense build", {
+  syn <- drv_syn()
+  a <- rcomplex(syn$expr, syn$ortho, seed = 1L)
+  b <- rcomplex(syn$expr, syn$ortho, block_size = 32L, seed = 1L)
+  key <- c("hog", "species1", "species2", "gene1", "gene2")
+  srt <- function(e) {
+    e <- e[do.call(order, e[key]), , drop = FALSE]
+    rownames(e) <- NULL
+    e
+  }
+  ea <- srt(a$edges)
+  eb <- srt(b$edges)
+  expect_identical(ea[key], eb[key])
+  expect_equal(ea$q_value, eb$q_value, tolerance = 1e-8)
+  expect_gt(nrow(a$classification), 0L)
+  expect_identical(a$classification, b$classification)
+})
+
+
+test_that("a species over 40,000 genes gets a block_size message", {
+  note <- rcomplex:::.driver_size_note
+  expect_message(
+    note(list(A = matrix(0, 40001L, 2L)), NULL),
+    "40001.*block_size = 512"
+  )
+  expect_no_message(note(list(A = matrix(0, 40000L, 2L)), NULL))
+  expect_no_message(note(list(A = matrix(0, 40001L, 2L)), 512L))
 })
 
 

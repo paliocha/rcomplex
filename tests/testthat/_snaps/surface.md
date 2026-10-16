@@ -42,7 +42,7 @@
        preservation_matrix_test       preservation_paired         pvalue_resolution 
                               4                         7                         2 
                        rcomplex            read_orthologs        reduce_orthogroups 
-                             13                         3                         4 
+                             14                         3                         4 
            resolve_ortholog_map              split_layers            write_rcomplex 
                               6                         2                         2 
 

@@ -85,6 +85,7 @@ Applies to everything a user reads: roxygen, README, quickstart, messages.
   matrix (`src/network_block.cpp`). It keeps top-fraction candidates per
   column and widens the fraction when it is not exact. The result matches
   the dense build except at floating-point near-ties. Default stays dense.
+  `rcomplex(block_size =)` forwards it to `compute_network()`.
 - **Membership-only consumers.** Null networks from `coexpressolog_null()`
   are binary. Nothing that reads edge weights is valid on them.
 - **Self-excluded urn.** The anchor gene leaves the mapped set and the
