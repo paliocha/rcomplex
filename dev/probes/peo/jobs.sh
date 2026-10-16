@@ -12,6 +12,7 @@
 #     stage <exp>             4 cores,  64 GB,  2 h
 #     run <exp> <run>        32 cores, 300 GB, 24 h
 #     score <exp>             4 cores,  64 GB,  2 h
+#     diag                    8 cores, 300 GB,  2 h   (wheat root crash)
 #   exp: LeafvRoot, C3vC4 or nodulation. run: leaf, root or organ_block.
 #   Logs: $ROOT/complex_<exp>/logs/<step>-%j.out.
 # Inside a job the same script runs the step; it refuses to run a step
@@ -45,6 +46,8 @@ submit() {
     stage) res="-c 4 --mem=64G -t 02:00:00" ;;
     run) res="-c 32 --mem=300G -t 24:00:00" ;;
     score) res="-c 4 --mem=64G -t 02:00:00" ;;
+    diag) res="-c 8 --mem=300G -t 02:00:00"
+      log=$ROOT/complex_LeafvRoot/logs/diag-%j.out ;;
     *) echo "step: unknown '$step'" >&2; exit 2 ;;
   esac
   if [ -z "${log:-}" ]; then
@@ -129,5 +132,16 @@ REOF
       sacct -j "$id" -P -n --format=JobID,State,Elapsed,MaxRSS || true
     done > "$E/score/sacct.tsv"
     Rscript "$P/scripts/score.R" "$2" ;;
-  *) sed -n '2,19p' "$0"; exit 2 ;;
+  diag)
+    in_job diag
+    for mode in cora steps full; do
+      for n in 30000 46000 47000 60000 71330; do
+        echo "=== mode $mode n $n"
+        rc=0
+        Rscript "$P/scripts/diag.R" "$n" "$mode" || rc=$?
+        echo "=== exit $rc (mode $mode n $n)"
+        [ "$rc" -eq 0 ] || break
+      done
+    done ;;
+  *) sed -n '2,20p' "$0"; exit 2 ;;
 esac

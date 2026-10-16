@@ -2,6 +2,7 @@
 # edge_history() and, for a trait experiment, a trait pass that
 # classifies the same edges with the two trait groups as clades.
 # Usage: Rscript run.R <exp> <run>
+# Networks are built blockwise and passed as networks = (see below).
 # Writes runs/<run>/: write_rcomplex() tables, res.rds (no networks),
 # networks.tsv, edge_history_{cliques,branches}.tsv, trait_pass.tsv,
 # timing.tsv. max_mb is the R heap of the main process from gc(); forked
@@ -39,23 +40,33 @@ step <- function(name, expr) {
   v
 }
 
-expr <- step("load", sapply(sp, function(s) {
-  readRDS(file.path(D, RUN, paste0(s, ".rds")))
-}, simplify = FALSE))
 big <- which.max(info$n_genes_kept)
-cat(
-  "largest species:", sp[big], info$n_genes_kept[big], "genes;",
-  "the driver exposes no sparse or blockwise network option\n"
-)
+cat("largest species:", sp[big], info$n_genes_kept[big], "genes\n")
 ortho <- read_orthologs(file.path(D, "orthologs.tsv"), species = sp)
 block <- NULL
 if (RUN == "organ_block") block <- readRDS(file.path(D, RUN, "block.rds"))[sp]
 
-res <- step("rcomplex", rcomplex(expr, ortho,
-  block = block, clades = clades_from_tree(tree), density = 0.03,
+# The driver builds dense networks from expr (a 71k-gene wheat matrix
+# segfaults), so build each blockwise here and pass networks =. This
+# copies the driver's expr path: the wiring layer under block, and
+# n_samples and gene_mean from the raw matrix (the null's deciles).
+nets <- list()
+for (s in sp) {
+  x <- readRDS(file.path(D, RUN, paste0(s, ".rds")))
+  xw <- if (is.null(block)) x else split_layers(x, block[[s]])$wiring
+  nets[[s]] <- step(paste0("network_", s), compute_network(xw,
+    density = 0.03, sign = "positive", block_size = 512, n_cores = N_CORES
+  ))
+  nets[[s]]$params$n_samples <- ncol(x)
+  nets[[s]]$gene_mean <- rowMeans(x)[rownames(nets[[s]]$network)]
+  rm(x, xw)
+}
+
+res <- step("rcomplex", rcomplex(
+  networks = nets, orthologs = ortho, clades = clades_from_tree(tree),
   alpha = 0.1, modules = FALSE, null = TRUE, n_cores = N_CORES, seed = 1
 ))
-rm(expr)
+rm(nets)
 print(res)
 summary(res)
 num <- function(x) if (is.null(x)) NA_real_ else as.numeric(x)

@@ -52,12 +52,22 @@ Lib `$ROOT/peo/lib-0.4.2` (install job 1452230). Hogs job 1452229
 outside `$ROOT`). Stage jobs 1452231-1452233. Run jobs, 32 cores,
 300 GB, 24 h each:
 
-| job | experiment | run |
-|---|---|---|
-| 1452235 | LeafvRoot | leaf |
-| 1452236 | LeafvRoot | root |
-| 1452237 | LeafvRoot | organ_block |
-| 1452238 | C3vC4 | leaf |
-| 1452239 | nodulation | root |
+| job | experiment | run | state |
+|---|---|---|---|
+| 1452235 | LeafvRoot | leaf | cancelled |
+| 1452236 | LeafvRoot | root | segfault (exit 139) |
+| 1452237 | LeafvRoot | organ_block | segfault (exit 139) |
+| 1452238 | C3vC4 | leaf | cancelled |
+| 1452239 | nodulation | root | cancelled |
+| 1452241 | LeafvRoot | leaf | blockwise rerun |
+| 1452242 | LeafvRoot | root | blockwise rerun |
+| 1452243 | LeafvRoot | organ_block | blockwise rerun |
+| 1452244 | C3vC4 | leaf | blockwise rerun |
+| 1452245 | nodulation | root | blockwise rerun |
+
+The first round crashed at wheat root (71,330 genes): `rcomplex(expr)`
+builds dense networks. `run.R` now builds each network with
+`block_size = 512` and passes `networks =`. Diag job 1452240
+(`diag.R`) runs the dense steps on the first n wheat genes.
 
 Score after they finish: `jobs.sh submit score <exp>`.
