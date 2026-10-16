@@ -1,6 +1,13 @@
 # Changelog
 
-## rcomplex (development version)
+## rcomplex 0.4.2
+
+rcomplex 0.4.2 adds two functions and changes no existing output.
+[`joint_modules()`](https://paliocha.github.io/rcomplex/reference/joint_modules.md)
+lines up the modules of each species by shared hogs.
+[`edge_history()`](https://paliocha.github.io/rcomplex/reference/edge_history.md)
+places each clique’s gains and losses on a species tree. `phangorn`
+joins Suggests for one test.
 
 - [`joint_modules()`](https://paliocha.github.io/rcomplex/reference/joint_modules.md)
   lines up the modules of each species into shared labels. It takes one
