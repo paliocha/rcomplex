@@ -31,7 +31,10 @@ info <- read.delim(file.path(D, "species.tsv"))
 tree <- ape::read.tree(file.path(D, "tree.nwk"))
 ortho <- read_orthologs(file.path(D, "orthologs.tsv"))
 runs <- intersect(
-  c("leaf", "root", "organ_block", "all"), list.files(file.path(E, "runs"))
+  c(
+    "leaf", "root", "organ_block", "all", "organ_partition",
+    "kmeans_partition"
+  ), list.files(file.path(E, "runs"))
 )
 ref <- function(f) {
   p <- file.path(REF, f)
@@ -51,6 +54,13 @@ tsv <- function(x, f) {
 rd <- function(run, f) {
   p <- file.path(E, "runs", run, f)
   if (file.exists(p)) data.table::fread(p, data.table = FALSE)
+}
+
+# Directory of a species' staged matrix: a partition run may reuse the
+# matrix of another run (species.tsv column source_run)
+mat_dir <- function(run, s) {
+  v <- info$source_run[info$run == run & info$species == s]
+  if (length(v) == 0L || is.na(v[1L])) run else v[1L]
 }
 
 # Species present in each clique: all species minus missing_species.
@@ -115,7 +125,7 @@ score_run <- function(run) {
   # the staged matrix, as run.R sets gene_mean)
   pct <- list()
   spt <- do.call(rbind, lapply(sp, function(s) {
-    xs <- readRDS(file.path(D, run, paste0(s, ".rds")))
+    xs <- readRDS(file.path(D, mat_dir(run, s), paste0(s, ".rds")))
     gm <- rowMeans(xs)
     # zero share: runs where the gene is unexpressed (0 after log2(x + 1))
     pct[[s]] <<- data.frame(gene = names(gm), pct = rank(gm) / length(gm),
@@ -127,7 +137,7 @@ score_run <- function(run) {
     inc <- length(unique(mem$hog[mem$species == s]))
     data.frame(
       species = s, n_runs = ncol(readRDS(file.path(
-        D, run,
+        D, mat_dir(run, s),
         paste0(s, ".rds")
       ))), genes = length(g), hogs = length(h),
       share_multi_copy = round(mean(h > 1), 3),
@@ -275,6 +285,8 @@ score_run <- function(run) {
     hogs_complete = sum(hogs$tier == "complete_conserved"),
     hogs_lineage = sum(hogs$tier == "lineage_specific"),
     hogs_conserved_null = sum(hc(c0)[CONS]),
+    hogs_complete_null = hc(c0)[["complete_conserved"]],
+    hogs_lineage_null = hc(c0)[["lineage_specific"]],
     sister_top_quartile = sum(pairs$sister & pairs$top_quartile),
     sisters = sum(pairs$sister),
     n_trait = n_ts(tp), n_trait_null = n_ts(rd(run, "trait_pass_null.tsv")),
@@ -391,12 +403,13 @@ ANCHORS <- list(
 
 if (EXP %in% names(ANCHORS)) {
   a <- rbind(ANCHORS[[EXP]], ANCHORS[[paste0(EXP, "_msu")]])
-  r <- out[[1L]]
   strip <- function(x) sub("\\.[0-9]+$", "", x)
   rh <- data.table::fread(ROOTHOGS, data.table = FALSE)
   rh$id <- strip(rh$Protein)
   focal <- info$species[info$run == runs[1L] & info$trait == FOCAL[[EXP]]]
   focal <- unique(focal)
+  anc <- do.call(rbind, lapply(runs, function(run) {
+  r <- out[[run]]
   sp <- r$sp
   rows <- lapply(seq_len(nrow(a)), function(k) {
     root <- unique(rh$RootHOG[rh$id == a$id[k]])
@@ -433,11 +446,12 @@ if (EXP %in% names(ANCHORS)) {
       )
     }))
   })
-  anc <- do.call(rbind, rows)
+  cbind(run = run, do.call(rbind, rows))
+  }))
   rownames(anc) <- NULL
   tsv(anc, "anchors.tsv")
   print(anc[, c(
-    "symbol", "role", "hog", "tier", "trait_class",
+    "run", "symbol", "role", "hog", "tier", "trait_class",
     "focal_in_best", "other_in_best", "focal_own_clique"
   )], row.names = FALSE)
   cat(
@@ -463,8 +477,10 @@ if (EXP %in% c("nodulation", "Shin2021") && !is.null(cur)) {
 }
 
 # Shin2021: Arboretum modules and clade-specific gene sets.
-if (EXP == "Shin2021") {
-  r <- out[[1L]]
+ref_log2 <- list()
+if (EXP == "Shin2021") for (run in runs) {
+  r <- out[[run]]
+  pre <- function(f) paste0(run, "_", f)
   ta <- r$tier_all
   names(ta) <- r$tested
   mods <- ref("modules.tsv")
@@ -477,7 +493,7 @@ if (EXP == "Shin2021") {
   })
   rm_ <- by_group(ta[names(hm)], hm, as.character(1:7), "module")
   rm_$coverage <- round(length(hm) / length(r$tested), 4)
-  tsv(rm_, "ref_modules.tsv")
+  tsv(rm_, pre("ref_modules.tsv"))
   gs <- ref("genesets.tsv")
   gs$hog <- ortho$hog[match(gs$gene, ortho$gene)]
   gs <- gs[gs$hog %in% r$tested, ]
@@ -490,8 +506,13 @@ if (EXP == "Shin2021") {
   rg <- do.call(rbind, c(rows, list(bg)))
   rg$log2_vs_background <- round(log2(rg$share /
     bg$share[match(rg$tier, bg$tier)]), 3)
-  tsv(rg, "ref_genesets.tsv")
-  print(rg, row.names = FALSE)
+  tsv(rg, pre("ref_genesets.tsv"))
+  l2 <- function(ty, ti) rg$log2_vs_background[rg$type == ty & rg$tier == ti]
+  ref_log2[[run]] <- data.frame(
+    conserved_complete = l2("conserved", "complete_conserved"),
+    loss_lineage = l2("loss", "lineage_specific"),
+    change_differentiated = l2("change", "differentiated")
+  )
   key <- paste(gs$method, gs$set)
   sig_of <- r$hogs$signature
   names(sig_of) <- r$hogs$hog
@@ -506,10 +527,22 @@ if (EXP == "Shin2021") {
       modal_signature = if (length(s)) names(which.max(table(s))) else NA
     )
   }))
-  tsv(det, "ref_genesets_detail.tsv")
+  tsv(det, pre("ref_genesets_detail.tsv"))
 }
 
 summ <- do.call(rbind, lapply(out, `[[`, "summ"))
+
+# WP24: partition runs next to the pooled runs
+pv <- summ[, c(
+  "run", "edges_called", "edges_called_null", "hogs_complete",
+  "hogs_complete_null", "hogs_lineage", "hogs_lineage_null", "n_trait",
+  "n_trait_null", "sister_top_quartile"
+)]
+if (length(ref_log2) > 0L) pv <- cbind(pv, do.call(rbind, ref_log2[pv$run]))
+if (any(grepl("partition", pv$run))) {
+  tsv(pv, "partition_vs_pooled.tsv")
+  print(pv, row.names = FALSE)
+}
 sa <- file.path(S, "sacct.tsv")
 if (file.exists(sa) && file.size(sa) > 0L) {
   s <- read.delim(sa,

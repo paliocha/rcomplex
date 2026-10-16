@@ -45,6 +45,14 @@ cat("largest species:", sp[big], info$n_genes_kept[big], "genes\n")
 ortho <- read_orthologs(file.path(D, "orthologs.tsv"), species = sp)
 block <- NULL
 if (RUN == "organ_block") block <- readRDS(file.path(D, RUN, "block.rds"))[sp]
+# WP24 partition runs: per-sample factor in inputs/<run>/part.rds; the
+# matrix may come from another run (species.tsv column source_run)
+part <- NULL
+pf <- file.path(D, RUN, "part.rds")
+if (file.exists(pf)) part <- readRDS(pf)[sp]
+src <- if (is.null(info$source_run)) RUN else info$source_run
+src[is.na(src)] <- RUN
+names(src) <- sp
 
 # The driver builds dense networks from expr (a 71k-gene wheat matrix
 # segfaults), so build each blockwise here and pass networks =. This
@@ -52,11 +60,20 @@ if (RUN == "organ_block") block <- readRDS(file.path(D, RUN, "block.rds"))[sp]
 # n_samples and gene_mean from the raw matrix (the null's deciles).
 nets <- list()
 for (s in sp) {
-  x <- readRDS(file.path(D, RUN, paste0(s, ".rds")))
+  x <- readRDS(file.path(D, src[[s]], paste0(s, ".rds")))
   xw <- if (is.null(block)) x else split_layers(x, block[[s]])$wiring
-  nets[[s]] <- step(paste0("network_", s), compute_network(xw,
-    density = 0.03, sign = "positive", block_size = 512, n_cores = N_CORES
-  ))
+  # partition needs the dense build (64-bit Armadillo library)
+  nets[[s]] <- step(paste0("network_", s), if (is.null(part)) {
+    compute_network(xw,
+      density = 0.03, sign = "positive", block_size = 512,
+      n_cores = N_CORES
+    )
+  } else {
+    compute_network(xw,
+      density = 0.03, sign = "positive", partition = part[[s]],
+      n_cores = N_CORES
+    )
+  })
   nets[[s]]$params$n_samples <- ncol(x)
   nets[[s]]$gene_mean <- rowMeans(x)[rownames(nets[[s]]$network)]
   rm(x, xw)
