@@ -321,6 +321,20 @@ ANCHORS <- list(
     role = rep(c("C4_cycle", "Calvin_control"), c(21L, 6L)),
     source = "AGI"
   ),
+  # Second route on rice MSU loci: FastOMA can put the grass genes in a
+  # root hog without the Arabidopsis gene. PEPC loci as given; the rest
+  # from UniProt (gene_exact:<symbol> AND organism_id:39947, ordered
+  # locus names). No locus there for the other symbols: not placed.
+  C3vC4_msu = data.frame(
+    symbol = c(rep("PEPC", 5L), "PPT1", "BASS2", "RCA", "FBA1"),
+    id = c(
+      "LOC_Os01g11054", "LOC_Os01g55350", "LOC_Os02g14770",
+      "LOC_Os08g27840", "LOC_Os09g14670", "LOC_Os09g12600",
+      "LOC_Os01g45750", "LOC_Os11g47970", "LOC_Os05g33380"
+    ),
+    role = c(rep("C4_cycle", 7L), rep("Calvin_control", 2L)),
+    source = "MSU"
+  ),
   # MTR_ ids from UniProt (organism 3880, ordered locus names). NIN,
   # DMI1, DMI2, RPG and LB1 are from the curated list of Shin et al.
   # 2021 (table S8). ENOD40 has no protein locus and is not placed.
@@ -349,7 +363,7 @@ ANCHORS <- list(
 )
 
 if (EXP %in% names(ANCHORS)) {
-  a <- ANCHORS[[EXP]]
+  a <- rbind(ANCHORS[[EXP]], ANCHORS[[paste0(EXP, "_msu")]])
   r <- out[[1L]]
   strip <- function(x) sub("\\.[0-9]+$", "", x)
   rh <- data.table::fread(ROOTHOGS, data.table = FALSE)
