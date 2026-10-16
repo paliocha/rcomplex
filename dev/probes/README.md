@@ -31,3 +31,8 @@ Recover history with `git show main:<path>` (main @ b245ac0).
   probe, species-blocked h-Leiden on q(alpha) (hl0, hlS);
   `joint_halves.R` hook; disconnected-module count per cached run.
   Withdrawn (note section 12b).
+
+- `structify.R`, `structify_check.R`, `structify_run.R`: Structify-Net
+  toy networks on an 8-species tree with planted gains, losses, switches
+  and duplications; scores `rcomplex()` tiers and `edge_history()`
+  branches over a structure x noise grid (`dev/design-notes/structify-toy.md`).
