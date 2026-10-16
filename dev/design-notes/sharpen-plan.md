@@ -873,6 +873,10 @@ or Bioconductor package implements hypergraph modularity as of
   `underpowered`, `extendable` and tips outside `species` are `?`. Gene
   loss is its own character. The per-clique table names changes in two
   columns, `gains` and `losses`, instead of one `branches` column.
+- Open (2026-10-16): a gain:loss cost ratio (Dollo at the limit) is
+  the one ceiling. It becomes a WP only if the PEO runs (below) show
+  many `root_tied` rows or large `n_mpr`; otherwise it stays a
+  sentence in `@details`.
 
 ### WP17 MUNK co-expressologs (gated G11, after 0.4.0)
 
@@ -920,6 +924,77 @@ or Bioconductor package implements hypergraph modularity as of
   hypergeometric calls; calls added among `underpowered` edges and
   their survival on the null.
 - Deps: WP13 (columns), WP12 (regime test). Blocks nothing.
+- Gate note (2026-10-16): the PEO benchmark runs (`dev/probes/peo/`,
+  three experiments on Orion) report underpowered edges per species
+  pair at n = 30 to 1,400 runs. Those counts are the G11 probe; no
+  separate Orion probe is needed.
+
+### WP18 Toy regression test (serial, next)
+
+- Files: new `R/simulate_networks.R` (< 150 lines, internal
+  `.simulate_networks()`, no export), `tests/testthat/test-toy.R`,
+  `dev/probes/structify.R` reduced to a wrapper that calls the
+  internal.
+- Why: the Structify-Net probe (PR #95, note `structify-toy.md`)
+  showed that planted stem gains and losses come back at recall ~1.0
+  up to epsilon 0.5. Nothing guards that. A test that plants events
+  and checks the tiers and `edge_history()` end to end catches drift
+  that unit fixtures cannot.
+- Do: move the generator into the package as an internal: rank
+  structures `blocks`, `spatial`, `core`, `nested`; the epsilon
+  mixture; events `gain`, `loss`, `switch`, `dup`, `dup_switch` on a
+  rooted tree; returns `networks`, `orthologs`, `truth`. The probe
+  keeps its scoring and grid and sources nothing from `dev/`. One
+  test scenario: `blocks`, epsilon 0.2, the 8-tip balanced tree, 400
+  genes, 10 events per kind, one seed; `rcomplex(networks = ...,
+  null = FALSE)` then `edge_history()`.
+- Accept: stem-event recall >= 0.9, false events on untouched genes
+  <= 0.02, `switch` on a stem reads `differentiated` in >= 0.8 of
+  cases, the test runs in under 5 s on CI, `tests/testthat/
+  test-surface.R` unchanged (exports stay 33), check OK.
+- Deps: WP16. Blocks WP19.
+
+### WP19 Expression from the planted graph (serial after WP18)
+
+- Files: `R/simulate_networks.R` (+ < 80 lines), `test-toy.R` (+ one
+  case), `dev/probes/structify_run.R` (+ `--expr n` mode).
+- Why: the toy plants edges, so it never exercises the network layer:
+  density threshold, `block`, `partition`, the rank method and
+  `null = TRUE` all need expression. The question real data keeps
+  asking, how many samples before a species' losses become visible,
+  needs a sample-size knob.
+- Do: from each tip's planted edge list build a Gaussian graphical
+  model: precision `Theta = I + c A` with `A` the weighted adjacency
+  and `c` chosen so `Theta` is diagonally dominant; draw `n` samples
+  from `N(0, Theta^-1)`; return `expr` (genes x samples) per tip next
+  to `networks`. `n` one number or one per tip; `block` optional as
+  a second additive factor so the WP11 path is covered. Probe mode
+  `--expr n` runs the full driver on expression and reports recall
+  against `n` in {12, 20, 50, 200}.
+- Accept: at `n = 200`, epsilon 0.2, `blocks`, the driver on `expr`
+  reaches the recall of the edge-list path within 0.05; at `n = 12`
+  it does not, and the probe table says at which `n` recall crosses
+  0.8; `null = TRUE` on toy expression gives at most `alpha` of the
+  calls of the real run; check OK.
+- Deps: WP18. Blocks WP20.
+
+### WP20 Export `simulate_networks()` (gated: a second user asks)
+
+- Files: `R/simulate_networks.R` (roxygen, `@export`), `NAMESPACE`,
+  `man/`, `test-surface.R` (exports 33 -> 34), `_pkgdown.yml`, one
+  paragraph in the quickstart.
+- Why: Hvidsten MDO VI asks for benchmarks on simulated data, and a
+  user who plants their own design can test their tree and their
+  sample sizes before sequencing. Until someone outside this repo
+  asks, the internal serves.
+- Do: `simulate_networks(tree, n_genes, structure, epsilon, events,
+  n_samples = NULL, seed = NULL)`, 7 formals, STE-lite prose, the
+  RNG contract entry, one example under 2 s.
+- Accept: surface test updated by hand, snapshot updated, prose
+  check clean, check OK; `rcomplex(expr = sim$expr, orthologs =
+  sim$orthologs, clades = clades_from_tree(tree))` runs in the
+  example.
+- Deps: WP19. Blocks nothing.
 
 ## 4. Gates (all answered by Martin, 2026-10-07: "defaults with G8 narrowed")
 
