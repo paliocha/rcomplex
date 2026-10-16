@@ -22,14 +22,24 @@ clades_from_tree <- function(phy, min_size = 2L) {
   if (!inherits(phy, "phylo")) stop("phy must be an ape phylo object.")
   pp <- ape::prop.part(phy)
   tips <- attr(pp, "labels")
-  lab <- phy$node.label
-  if (is.null(lab)) lab <- character(length(pp))
-  bad <- !nzchar(lab) | duplicated(lab) | duplicated(lab, fromLast = TRUE)
-  lab[bad] <- paste0("node", length(tips) + seq_along(pp))[bad]
   cl <- c(as.list(tips), lapply(pp, function(i) tips[sort(i)]))
-  names(cl) <- c(tips, lab)
+  names(cl) <- .node_names(phy)
   n <- lengths(cl)
   cl[n >= min_size & n < length(tips)]
+}
+
+#' Names of the nodes of a phylo, in node id order
+#'
+#' A tip takes its label. An internal node takes its node label; an empty
+#' or repeated label becomes `"node<k>"`, with `k` the node id.
+#' @noRd
+.node_names <- function(phy) {
+  n <- length(phy$tip.label)
+  lab <- phy$node.label
+  if (is.null(lab)) lab <- character(phy$Nnode)
+  bad <- !nzchar(lab) | duplicated(lab) | duplicated(lab, fromLast = TRUE)
+  lab[bad] <- paste0("node", n + seq_len(phy$Nnode))[bad]
+  c(phy$tip.label, lab)
 }
 
 #' Check a clade list and restrict it to the analysed species

@@ -45,6 +45,7 @@ reference:
       - classify_cliques
       - gene_clique_graph
       - classify_gene_cliques
+      - edge_history
   - title: Modules
     desc: Aligned blocks and their hubs.
     contents:

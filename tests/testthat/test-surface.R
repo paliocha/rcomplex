@@ -33,7 +33,7 @@ test_that("exported surface is stable", {
 
 test_that("exports stay within budget", {
   s <- surface()
-  expect_lte(length(s$exports), 32)
+  expect_lte(length(s$exports), 33)
   over <- s$n_formals[s$n_formals > 8]
   expect_setequal(setdiff(names(over), wide_ok), character())
 })

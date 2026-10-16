@@ -6,6 +6,11 @@
   pair. `members` lists the species modules behind each label. The hog
   table shows which hogs keep their copies in one label. The star-expansion
   engine of the unreleased first version is gone.
+- `edge_history()` places the gains and losses of each clique on a rooted
+  species tree. It runs Fitch parsimony on clique presence. A tested pair
+  that failed is a loss; `absent` and the other reasons are unknown. The
+  `branches` table sums gains and losses per branch. `n_mpr` counts the
+  equally parsimonious reconstructions.
 
 # rcomplex 0.4.1
 

@@ -55,7 +55,7 @@ is no `.lintr` file, so keep lines at or under 80 characters. Only one
 ## Surface budget
 
 Guard: `tests/testthat/test-surface.R`.
-- Exports: 32.
+- Exports: 33.
 - Named formals per export: 8 or fewer. Exceptions: `rcomplex()`,
   `module_preservation()`, `find_coexpressologs()`, `density_sweep()`, the
   matrix method of `compute_network()`.
@@ -129,6 +129,11 @@ Applies to everything a user reads: roxygen, README, quickstart, messages.
   test is negative evidence only if it had `power`. `rcomplex()` runs
   three gene graphs (at `alpha`, at 0.9, and every tested pair of the
   unclaimed hogs) and classifies them together; `run` names the graph.
+- **Edge history is Fitch parsimony.** `edge_history()` reconstructs
+  gains and losses of a clique on a rooted species tree. ACCTRAN
+  tie-break, root ties resolve to absent, `n_mpr` counts the equally
+  parsimonious reconstructions. `absent`, `untested`, `underpowered` and
+  `extendable` species are unknown and never count as a change.
 - **Trait level.** `preservation_matrix_test()` reads `Zsummary_std` from
   every contrast of `all_species_pairs()`. It reports `p_free` and
   `p_blocked`; their gap shows phylogenetic confounding.
