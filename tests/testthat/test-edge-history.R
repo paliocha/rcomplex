@@ -101,3 +101,24 @@ test_that("edge_history matches phangorn::fitch() on random trees", {
     }
   })
 })
+
+test_that("edge_history reads a polytomy and checks list lengths", {
+  skip_if_not_installed("ape")
+  phy <- ape::read.tree(text = "((A,B,C)abc,D);")
+  tab <- data.frame(
+    clique_id = c("1", "2"), hog = "H",
+    missing_species = c("C,D", "D"),
+    missing_reason = c("tested_ns,tested_ns", "tested_ns")
+  )
+  cl <- edge_history(tab, phy, c("A", "B", "C", "D"))$cliques
+  # Row 1: gain on abc + loss on C ties root 1 + losses on C and D
+  expect_identical(cl$n_gain + cl$n_loss, c(2L, 1L))
+  expect_identical(cl$root_tied, c(TRUE, TRUE))
+  expect_identical(cl$n_mpr, c(3, 2))
+  # Row 2: gain on abc ties loss on D at the root; the tie reads as gain
+  expect_identical(cl$gains, c("abc", "abc"))
+  expect_identical(cl$losses, c("C", ""))
+  tab$missing_reason[2] <- "tested_ns,untested"
+  expect_error(edge_history(tab, phy, c("A", "B", "C", "D")),
+               "missing_reason")
+})

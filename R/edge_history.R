@@ -64,6 +64,10 @@ edge_history <- function(cliques, tree, species) {
   res <- lapply(match(u, key), function(i) {
     ms <- strsplit(cliques$missing_species[i], ",", fixed = TRUE)[[1L]]
     mr <- strsplit(cliques$missing_reason[i], ",", fixed = TRUE)[[1L]]
+    if (length(ms) != length(mr)) {
+      stop("missing_reason lists ", length(mr), " reasons for ", length(ms),
+           " species in missing_species.")
+    }
     bad <- setdiff(ms, species)
     if (length(bad) > 0L) {
       stop("missing_species holds ", bad[1L], ", which is not in species.")
