@@ -4,7 +4,7 @@
 # Usage: Rscript run.R <exp> <run>
 # Networks are built blockwise and passed as networks = (see below).
 # Writes runs/<run>/: write_rcomplex() tables, res.rds (no networks),
-# networks.tsv, edge_history_{cliques,branches}.tsv, trait_pass.tsv,
+# networks.tsv, edge_history_{cliques,branches}.tsv, trait_pass{,_null}.tsv,
 # timing.tsv. max_mb is the R heap of the main process from gc(); forked
 # workers are not in it, so read MaxRSS from sacct as well.
 cat("rcomplex", as.character(packageVersion("rcomplex")), "\n")
@@ -102,6 +102,11 @@ if (!all(info$trait == "-")) {
   ))
   tsv(tp$classification, "trait_pass.tsv")
   print(table(tp$classification$hog_class[!duplicated(tp$classification$hog)]))
+  # the same pass on the null edges: the chance count of trait_specific
+  tp0 <- step("trait_pass_null", rcomplex:::.driver_cliques(res$edges_null,
+    sp, clades = groups, alpha = 0.1, min_power = 0.8
+  ))
+  tsv(tp0$classification, "trait_pass_null.tsv")
 }
 
 timing <- do.call(rbind, timing)

@@ -91,6 +91,12 @@ sisters <- function(tree) {
   out
 }
 
+# trait_specific hogs of a trait pass table, NA without one
+n_ts <- function(x) {
+  if (is.null(x)) NA_integer_ else
+    length(unique(x$hog[x$hog_class == "trait_specific"]))
+}
+
 score_run <- function(run) {
   res <- readRDS(file.path(E, "runs", run, "res.rds"))
   nets <- rd(run, "networks.tsv")
@@ -109,8 +115,13 @@ score_run <- function(run) {
   # the staged matrix, as run.R sets gene_mean)
   pct <- list()
   spt <- do.call(rbind, lapply(sp, function(s) {
-    gm <- rowMeans(readRDS(file.path(D, run, paste0(s, ".rds"))))
-    pct[[s]] <<- data.frame(gene = names(gm), pct = rank(gm) / length(gm))
+    xs <- readRDS(file.path(D, run, paste0(s, ".rds")))
+    gm <- rowMeans(xs)
+    # zero share: runs where the gene is unexpressed (0 after log2(x + 1))
+    pct[[s]] <<- data.frame(gene = names(gm), pct = rank(gm) / length(gm),
+      zero = rowMeans(xs == 0)
+    )
+    rm(xs)
     g <- names(gm)
     h <- table(ortho$hog[ortho$species == s & ortho$gene %in% g])
     inc <- length(unique(mem$hog[mem$species == s]))
@@ -196,6 +207,13 @@ score_run <- function(run) {
   hogs$gains[is.na(hogs$gains)] <- ""
   hogs$losses[is.na(hogs$losses)] <- ""
   hogs$signature <- paste(hogs$gains, "|", hogs$losses)
+  # mean zero share over each hog's member genes (Aoki 2007: shared
+  # silence inflates correlation)
+  pc0 <- do.call(rbind, pct)
+  mz <- ortho[ortho$species %in% sp, ]
+  mz$zero <- pc0$zero[match(mz$gene, pc0$gene)]
+  zh <- tapply(mz$zero, mz$hog, mean, na.rm = TRUE)
+  hogs$zero_share <- round(zh[hogs$hog], 4)
   tsv(hogs, paste0(run, "_hogs.tsv"))
 
   # signatures: hogs with the same branch gains and losses
@@ -238,6 +256,14 @@ score_run <- function(run) {
   tsv(by_group(tier_all, cb, c("1", "2", "3+"), "median_copies"),
     paste0(run, "_tier_by_copies.tsv")
   )
+  z <- zh[tested]
+  zq <- cut(rank(z, ties.method = "first", na.last = "keep"),
+    quantile(seq_len(sum(!is.na(z))), 0:5 / 5),
+    labels = paste0("Z", 1:5), include.lowest = TRUE
+  )
+  zt <- by_group(tier_all, zq, paste0("Z", 1:5), "zero_quintile")
+  zt$zero_share_max <- round(tapply(z, zq, max)[zt$zero_quintile], 4)
+  tsv(zt, paste0(run, "_tier_by_zeros.tsv"))
   tm <- rd(run, "timing.tsv")
   summ <- data.frame(
     run = run, species = length(sp), genes = sum(spt$genes),
@@ -251,6 +277,7 @@ score_run <- function(run) {
     hogs_conserved_null = sum(hc(c0)[CONS]),
     sister_top_quartile = sum(pairs$sister & pairs$top_quartile),
     sisters = sum(pairs$sister),
+    n_trait = n_ts(tp), n_trait_null = n_ts(rd(run, "trait_pass_null.tsv")),
     rcomplex_s = tm$seconds[tm$step == "rcomplex"],
     max_mb = max(tm$max_mb), job_id = tm$job_id[1L]
   )
