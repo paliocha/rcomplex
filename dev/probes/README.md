@@ -36,3 +36,28 @@ Recover history with `git show main:<path>` (main @ b245ac0).
   toy networks on an 8-species tree with planted gains, losses, switches
   and duplications; scores `rcomplex()` tiers and `edge_history()`
   branches over a structure x noise grid (`dev/design-notes/structify-toy.md`).
+
+- `peo/`: rcomplex 0.4.2 on the Plant Expression Omnibus (Koh et al.
+  2023) on Orion. `sets.tsv` (species sets and traits),
+  `hogs_at_level.py` (FastOMA hogs cut at the MRCA of a set),
+  `stage.R`, `run.R`, `score.R`, and `jobs.sh` (push, submit, steps).
+  Three experiments under `$ROOT/complex_<exp>/`: LeafvRoot (20 species;
+  leaf, root, organ_block), C3vC4 (11 grasses, leaf), nodulation
+  (12 species, root).
+
+### PEO on Orion, 2026-10-16
+
+Lib `$ROOT/peo/lib-0.4.2` (install job 1452230). Hogs job 1452229
+(streaming orthoXML cut; pyham is in no env, and a new env would write
+outside `$ROOT`). Stage jobs 1452231-1452233. Run jobs, 32 cores,
+300 GB, 24 h each:
+
+| job | experiment | run |
+|---|---|---|
+| 1452235 | LeafvRoot | leaf |
+| 1452236 | LeafvRoot | root |
+| 1452237 | LeafvRoot | organ_block |
+| 1452238 | C3vC4 | leaf |
+| 1452239 | nodulation | root |
+
+Score after they finish: `jobs.sh submit score <exp>`.
