@@ -996,6 +996,42 @@ or Bioconductor package implements hypergraph modularity as of
   example.
 - Deps: WP19. Blocks nothing.
 
+### WP21 Big genomes through the driver (serial, before WP18)
+
+- Files: `R/rcomplex.R` (one formal, one message), `R/network.R` (the
+  message helper if it does not exist), `tests/testthat/test-rcomplex.R`,
+  `man/`, `NEWS.md`.
+- Why: `compute_network()` has had `sparse = TRUE` and a blockwise
+  build (`block_size`) since 0.3.x, but `rcomplex()` calls it with
+  defaults, so every species goes through the dense n x n matrix.
+  Hexaploid wheat in PEO has 71,330 expressed genes: 41 GB per matrix,
+  and the 2026-10-16 Orion runs died there (segfault at ~60 GB RSS on
+  a 300 GB node, cause still open: a 32-bit index somewhere between
+  `Rfast::cora()` and the sparse repack above 2^31 elements is the
+  suspect). A user with a polyploid crop should not have to find the
+  `networks =` door.
+- Do: `rcomplex(..., block_size = NULL)` forwarded to
+  `compute_network()` for every species when `expr` is given (with
+  `block` too: the wiring layer is a matrix like any other). Keep the
+  default dense, because the blockwise result differs at
+  floating-point near-ties and a silent switch by gene count would
+  make results depend on genome size. Add one message when a species
+  has more than 40,000 genes and `block_size` is `NULL`: name the
+  species, the gene count, the dense matrix size in GB, and
+  `block_size = 512`. Find the dense crash: bisect n in 30k, 46k, 47k,
+  60k, 71k on the wheat matrix on Orion, step by step (`cora`, MR in
+  place, threshold, repack), fix the kernel or guard the call with a
+  clear error naming the limit.
+- Accept: `rcomplex(expr, ..., block_size = 256)` on the small
+  fixture gives the same edges as the default run up to near-ties
+  (reuse the WP-blockwise tolerance test); the message fires on a
+  40,001-gene stub and not on 40,000; the dense build either works at
+  71k genes on Orion or errors with a sentence naming the limit;
+  `test-surface.R` updated (rcomplex formals 13 -> 14; it is already
+  an exception to the 8-formal rule); check OK.
+- Deps: none. Blocks nothing; the PEO benchmark meanwhile uses
+  `networks =` built with `block_size = 512`.
+
 ## 4. Gates (all answered by Martin, 2026-10-07: "defaults with G8 narrowed")
 
 No gate is open. A fresh session does not re-ask any of these.
