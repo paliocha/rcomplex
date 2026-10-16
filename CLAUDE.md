@@ -76,7 +76,7 @@ at or under 80 characters. Only one `rcomplex` installs per library: use
 
 ## Surface budget
 
-Guard: `tests/testthat/test-surface.R`. - Exports: 32. - Named formals
+Guard: `tests/testthat/test-surface.R`. - Exports: 33. - Named formals
 per export: 8 or fewer. Exceptions:
 [`rcomplex()`](https://paliocha.github.io/rcomplex/reference/rcomplex.md),
 [`module_preservation()`](https://paliocha.github.io/rcomplex/reference/module_preservation.md),
@@ -174,6 +174,13 @@ exported functions as `[fn()]`. Write internals as `\code{fn()}`. -
   runs three gene graphs (at `alpha`, at 0.9, and every tested pair of
   the unclaimed hogs) and classifies them together; `run` names the
   graph.
+- **Edge history is Fitch parsimony.**
+  [`edge_history()`](https://paliocha.github.io/rcomplex/reference/edge_history.md)
+  reconstructs gains and losses of a clique on a rooted species tree.
+  ACCTRAN tie-break, root ties resolve to absent, `n_mpr` counts the
+  equally parsimonious reconstructions. `absent`, `untested`,
+  `underpowered` and `extendable` species are unknown and never count as
+  a change.
 - **Trait level.**
   [`preservation_matrix_test()`](https://paliocha.github.io/rcomplex/reference/preservation_matrix_test.md)
   reads `Zsummary_std` from every contrast of

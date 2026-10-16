@@ -62,6 +62,8 @@ Multiple alignment across species.
   : Maximal cliques of the per-orthogroup gene graph
 - [`classify_gene_cliques()`](https://paliocha.github.io/rcomplex/reference/classify_gene_cliques.md)
   : Classify gene-graph cliques into conservation tiers
+- [`edge_history()`](https://paliocha.github.io/rcomplex/reference/edge_history.md)
+  : Gains and losses of each clique on the species tree
 
 ## Modules
 
