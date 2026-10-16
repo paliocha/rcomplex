@@ -38,6 +38,16 @@ rng_fx <- local({
     td = td,
     nets = nets,
     cmp = rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho),
+    sweep_cl = find_cliques(
+      rcomplex:::comparison_to_edges(
+        rcomplex:::summarize_comparison(
+          rcomplex:::compare_neighborhoods(td$net1, td$net2, td$ortho),
+          seed = 1L
+        )$results, "SP_A", "SP_B"
+      ),
+      c("SP_A", "SP_B"),
+      min_species = 2L
+    ),
     sparse_nets = lapply(nets, sparse_net),
     mf = rng_module_fixture(),
     mx = rng_matrix_classification(),

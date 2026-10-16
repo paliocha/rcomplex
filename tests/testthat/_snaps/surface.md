@@ -28,7 +28,7 @@
                classify_cliques     classify_gene_cliques classify_hub_conservation 
                               6                         7                         3 
           classify_preservation          clique_stability    clique_threshold_sweep 
-                              3                         7                         7 
+                              3                         7                         8 
              coexpressolog_null           compute_network             density_sweep 
                               5                         1                        10 
                  detect_modules              edge_history              find_cliques 

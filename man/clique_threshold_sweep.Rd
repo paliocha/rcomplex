@@ -11,7 +11,8 @@ clique_threshold_sweep(
   orthologs,
   multipliers = c(1.5, 2, 3, 5, 10),
   min_species = length(target_species),
-  n_cores = 1L
+  n_cores = 1L,
+  seed = NULL
 )
 }
 \arguments{
@@ -34,6 +35,9 @@ Default \code{c(1.5, 2, 3, 5, 10)}.}
 
 \item{n_cores}{Cores for \code{compare_neighborhoods()}
 (default 1).}
+
+\item{seed}{Integer seed for the pi0 draws, or \code{NULL} (default)
+to draw from the global RNG. A seed makes the sweep reproducible.}
 }
 \value{
 A list with components:
@@ -64,10 +68,8 @@ progressively stricter thresholds. For custom threshold logic, call the
 individual functions directly.
 }
 \details{
-No permutations are involved -- all tests are analytical
-(hypergeometric + Storey q-values; the pi0 method is pinned to
-\code{"storey"}, so the sweep is deterministic and does not consume
-the global RNG).
+No permutations are involved. The sweep uses the same q-values as
+\code{\link[=find_coexpressologs]{find_coexpressologs()}}, with randomized-p pi0.
 }
 \examples{
 \dontrun{

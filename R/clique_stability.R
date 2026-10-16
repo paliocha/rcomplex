@@ -318,10 +318,8 @@ clique_stability.default <- function(
 #' progressively stricter thresholds. For custom threshold logic, call the
 #' individual functions directly.
 #'
-#' No permutations are involved -- all tests are analytical
-#' (hypergeometric + Storey q-values; the pi0 method is pinned to
-#' \code{"storey"}, so the sweep is deterministic and does not consume
-#' the global RNG).
+#' No permutations are involved. The sweep uses the same q-values as
+#' [find_coexpressologs()], with randomized-p pi0.
 #'
 #' @param cliques Baseline output of [find_cliques()].
 #' @param target_species Character vector of species abbreviations.
@@ -336,6 +334,8 @@ clique_stability.default <- function(
 #'   (default \code{length(target_species)}).
 #' @param n_cores Cores for \code{compare_neighborhoods()}
 #'   (default 1).
+#' @param seed Integer seed for the pi0 draws, or \code{NULL} (default)
+#'   to draw from the global RNG. A seed makes the sweep reproducible.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -375,8 +375,10 @@ clique_threshold_sweep <- function(
   cliques, target_species, networks, orthologs,
   multipliers = c(1.5, 2, 3, 5, 10),
   min_species = length(target_species),
-  n_cores = 1L
+  n_cores = 1L,
+  seed = NULL
 ) {
+  .seed_scope(seed)
   # --- Validation ---
   if (!is.data.frame(cliques) || !"hog" %in% names(cliques)) {
     stop("cliques must be a data frame from find_cliques()")
@@ -458,11 +460,8 @@ clique_threshold_sweep <- function(
       if (is.null(comparison) || nrow(comparison) == 0) next
 
       summary_res <- tryCatch(
-        # pi0_method pinned to "storey": deterministic pre-0.2.0 q-values
-        # pinned for determinism across multipliers; pass-through is a
-        # P2 hand-off
         summarize_comparison(comparison, "greater", 0.1,
-          pi0_method = "storey"
+          pi0_method = "randomized"
         ),
         error = function(e) {
           warning(
